@@ -209,10 +209,30 @@ class PostgreSQLAdapter(BaseAdapter):
             return len(rows)
         if not rows:
             return 0
+
+        pk = await self._primary_key_column(table_name)
         columns = list(rows[0].keys())
         placeholders = ", ".join(["%s"] * len(columns))
         cols_sql = ", ".join([f'\"{c}\"' for c in columns])
-        insert_sql = f"INSERT INTO \"{table_name}\" ({cols_sql}) VALUES ({placeholders})"
+
+        # If primary key is present in the columns list and table has a primary key
+        if pk and pk in columns:
+            non_pk_cols = [c for c in columns if c != pk]
+            if non_pk_cols:
+                update_set = ", ".join([f'"{c}" = EXCLUDED."{c}"' for c in non_pk_cols])
+                insert_sql = (
+                    f"INSERT INTO \"{table_name}\" ({cols_sql}) VALUES ({placeholders}) "
+                    f"ON CONFLICT (\"{pk}\") DO UPDATE SET {update_set}"
+                )
+            else:
+                insert_sql = (
+                    f"INSERT INTO \"{table_name}\" ({cols_sql}) VALUES ({placeholders}) "
+                    f"ON CONFLICT (\"{pk}\") DO NOTHING"
+                )
+        else:
+            logger.warning("[PostgreSQLAdapter] Table %s has no primary key column or PK is missing in rows. Falling back to plain INSERT.", table_name)
+            insert_sql = f"INSERT INTO \"{table_name}\" ({cols_sql}) VALUES ({placeholders})"
+
         data = [tuple(row[col] for col in columns) for row in rows]
         _psycopg2 = self._psycopg2
         def _run():

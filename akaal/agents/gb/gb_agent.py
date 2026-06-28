@@ -302,3 +302,85 @@ class GBAgent:
             json.dump(report_data, f, indent=2)
 
         return report_filepath
+
+    async def migrate_table(
+        self,
+        source_config,
+        target_config,
+        table_name: str,
+        batch_size: int = 500,
+    ) -> Dict[str, Any]:
+        """
+        Paginates through a table using read_batch/write_batch, promoting data
+        from source to target.
+        
+        Returns:
+            Dict containing:
+                "status": "SUCCESS" | "FAILED"
+                "rows_migrated": int
+                "batches_processed": int
+                "elapsed_seconds": float
+                "error": str | None
+        """
+        import time
+        from akaal.adapters.rdbms.postgresql_adapter import PostgreSQLAdapter
+
+        src = PostgreSQLAdapter(source_config)
+        tgt = PostgreSQLAdapter(target_config)
+
+        start_time = time.monotonic()
+        rows_migrated = 0
+        batches_processed = 0
+
+        try:
+            await src.connect()
+            await tgt.connect()
+
+            offset = 0
+            while True:
+                batch = await src.read_batch(table_name, offset=offset, limit=batch_size)
+                if not batch:
+                    break
+
+                try:
+                    await tgt.write_batch(table_name, batch)
+                except Exception as exc:
+                    logger.error(
+                        "[GBAgent] write_batch failed at offset %d, batch_size %d: %s",
+                        offset, batch_size, exc
+                    )
+                    raise RuntimeError(f"Write failure at offset {offset}: {exc}") from exc
+
+                rows_migrated += len(batch)
+                batches_processed += 1
+                offset += batch_size
+
+            elapsed = time.monotonic() - start_time
+            return {
+                "status": "SUCCESS",
+                "rows_migrated": rows_migrated,
+                "batches_processed": batches_processed,
+                "elapsed_seconds": elapsed,
+                "error": None,
+            }
+
+        except Exception as exc:
+            elapsed = time.monotonic() - start_time
+            return {
+                "status": "FAILED",
+                "rows_migrated": rows_migrated,
+                "batches_processed": batches_processed,
+                "elapsed_seconds": elapsed,
+                "error": str(exc),
+            }
+
+        finally:
+            try:
+                await src.close()
+            except Exception:
+                pass
+            try:
+                await tgt.close()
+            except Exception:
+                pass
+
