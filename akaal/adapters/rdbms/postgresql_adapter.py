@@ -214,11 +214,11 @@ class PostgreSQLAdapter(BaseAdapter):
         cols_sql = ", ".join([f'\"{c}\"' for c in columns])
         insert_sql = f"INSERT INTO \"{table_name}\" ({cols_sql}) VALUES ({placeholders})"
         data = [tuple(row[col] for col in columns) for row in rows]
-        psycopg2_mod = self._psycopg2
+        _psycopg2 = self._psycopg2
         def _run():
             with self._conn.cursor() as cur:
                 try:
-                    psycopg2_mod.extras.execute_batch(cur, insert_sql, data)
+                    _psycopg2.extras.execute_batch(cur, insert_sql, data)
                     self._conn.commit()
                 except Exception:
                     self._conn.rollback()
