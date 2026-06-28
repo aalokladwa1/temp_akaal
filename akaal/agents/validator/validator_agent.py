@@ -501,3 +501,103 @@ class ValidatorAgent:
             )
 
         return mismatches, computed_checksum
+
+    async def validate_table_data(
+        self,
+        source_config,
+        target_config,
+        table_name: str,
+    ) -> Dict[str, Any]:
+        """
+        Compare actual row data between source and target databases for a single table.
+
+        Steps
+        -----
+        1. Connect a real PostgreSQLAdapter to source_config and another to target_config.
+        2. Call get_row_count(table_name) on both independently.
+           - If counts differ → return FAIL with reason="row_count_mismatch" immediately
+             (no point computing checksums when counts already diverge).
+        3. If counts match, call compute_checksum(table_name) on both independently.
+           - If checksums differ → return FAIL with reason="checksum_mismatch".
+           - If checksums match → return PASS.
+        4. Close both connections in a try/finally regardless of outcome.
+
+        Returns
+        -------
+        {
+            "status":           "PASS" | "FAIL",
+            "table":            str,
+            "source_row_count": int,
+            "target_row_count": int,
+            "source_checksum":  str | None,   # None when skipped (count mismatch)
+            "target_checksum":  str | None,
+            "reason":           str | None,   # only on FAIL
+        }
+        """
+        from akaal.adapters.rdbms.postgresql_adapter import PostgreSQLAdapter
+
+        src = PostgreSQLAdapter(source_config)
+        tgt = PostgreSQLAdapter(target_config)
+
+        result: Dict[str, Any] = {
+            "status": "FAIL",
+            "table": table_name,
+            "source_row_count": None,
+            "target_row_count": None,
+            "source_checksum": None,
+            "target_checksum": None,
+            "reason": None,
+        }
+
+        try:
+            await src.connect()
+            await tgt.connect()
+
+            # ── Step 1: row counts ────────────────────────────────────────────
+            src_count = await src.get_row_count(table_name)
+            tgt_count = await tgt.get_row_count(table_name)
+            result["source_row_count"] = src_count
+            result["target_row_count"] = tgt_count
+
+            if src_count != tgt_count:
+                result["reason"] = "row_count_mismatch"
+                logger.warning(
+                    "[ValidatorAgent] validate_table_data FAIL table=%s "
+                    "row_count_mismatch source=%d target=%d",
+                    table_name, src_count, tgt_count,
+                )
+                return result
+
+            # ── Step 2: checksums ─────────────────────────────────────────────
+            src_checksum = await src.compute_checksum(table_name)
+            tgt_checksum = await tgt.compute_checksum(table_name)
+            result["source_checksum"] = src_checksum
+            result["target_checksum"] = tgt_checksum
+
+            if src_checksum != tgt_checksum:
+                result["reason"] = "checksum_mismatch"
+                logger.warning(
+                    "[ValidatorAgent] validate_table_data FAIL table=%s "
+                    "checksum_mismatch src=%.16s... tgt=%.16s...",
+                    table_name, src_checksum, tgt_checksum,
+                )
+                return result
+
+            # ── Step 3: all good ──────────────────────────────────────────────
+            result["status"] = "PASS"
+            logger.info(
+                "[ValidatorAgent] validate_table_data PASS table=%s "
+                "row_count=%d checksum=%.16s...",
+                table_name, src_count, src_checksum,
+            )
+            return result
+
+        finally:
+            try:
+                await src.close()
+            except Exception:
+                pass
+            try:
+                await tgt.close()
+            except Exception:
+                pass
