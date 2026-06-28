@@ -10,7 +10,11 @@ Dependencies:
 Status: PRODUCTION READY (mock mode) | REAL MODE requires psycopg2
 """
 
+import asyncio
+import hashlib
 import logging
+import os
+from decimal import Decimal
 from typing import Any, Dict, List, Optional
 from akaal.adapters.base_adapter import BaseAdapter
 from akaal.core.models.enums import SystemType, AdapterCapability
@@ -80,14 +84,56 @@ class PostgreSQLAdapter(BaseAdapter):
             return
         try:
             import psycopg2
-            self.is_connected = True
-            logger.info("[PostgreSQLAdapter] Connected to real PostgreSQL.")
+            import psycopg2.extras
         except ImportError:
             raise RuntimeError("psycopg2 not installed. Run: pip install psycopg2-binary")
+        user = getattr(self.config, 'username', None) or os.environ.get('AKAAL_PG_USER', 'postgres')
+        password = getattr(self.config, 'password', None) or os.environ.get('AKAAL_PG_PASSWORD', '')
+        self._conn = psycopg2.connect(
+            host=self.config.host,
+            port=int(getattr(self.config, 'port', 5432)),
+            dbname=self.config.database_name,
+            user=user,
+            password=password,
+        )
+        self._psycopg2 = psycopg2
+        self.is_connected = True
+        logger.info("[PostgreSQLAdapter] Connected to real PostgreSQL at %s:%s/%s.",
+                    self.config.host, self.config.port, self.config.database_name)
 
     async def close(self) -> None:
+        conn = getattr(self, '_conn', None)
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception:
+                pass
+            self._conn = None
         self.is_connected = False
         logger.info("[PostgreSQLAdapter] Connection closed.")
+
+    async def _primary_key_column(self, table_name: str) -> str:
+        """Return the first primary key column name for table_name via pg_catalog.
+        Falls back to 'id' if the table has no PK or is not found.
+        Wrapped in asyncio.to_thread so the blocking cursor call does not run
+        on the event loop — consistent with all other real-mode methods."""
+        sql = """
+            SELECT a.attname
+            FROM   pg_catalog.pg_index     i
+            JOIN   pg_catalog.pg_attribute a
+                   ON a.attrelid = i.indrelid
+                   AND a.attnum = ANY(i.indkey)
+            WHERE  i.indrelid = %s::regclass
+            AND    i.indisprimary
+            ORDER BY array_position(i.indkey, a.attnum::smallint)
+            LIMIT 1;
+        """
+        def _run():
+            with self._conn.cursor() as cur:
+                cur.execute(sql, (table_name,))
+                row = cur.fetchone()
+            return row[0] if row else 'id'
+        return await asyncio.to_thread(_run)
 
     async def check_permissions(self) -> bool:
         if not self.is_connected:
@@ -147,22 +193,72 @@ class PostgreSQLAdapter(BaseAdapter):
     async def read_batch(self, table_name: str, offset: int, limit: int) -> List[Dict[str, Any]]:
         if self.mock_mode:
             return [{"id": i, "data": f"mock_row_{i}"} for i in range(offset, offset + limit)]
-        raise NotImplementedError("Real read_batch requires psycopg2 implementation.")
+        pk = await self._primary_key_column(table_name)
+        def _run():
+            with self._conn.cursor(cursor_factory=self._psycopg2.extras.RealDictCursor) as cur:
+                cur.execute(
+                    f'SELECT * FROM "{table_name}" ORDER BY "{pk}" LIMIT %s OFFSET %s',
+                    (limit, offset)
+                )
+                return [dict(row) for row in cur.fetchall()]
+        return await asyncio.to_thread(_run)
 
     async def write_batch(self, table_name: str, rows: List[Dict[str, Any]]) -> int:
         if self.mock_mode:
             logger.info("[PostgreSQLAdapter] Mock write: %d rows to %s", len(rows), table_name)
             return len(rows)
-        raise NotImplementedError("Real write_batch requires psycopg2 implementation.")
+        if not rows:
+            return 0
+        columns = list(rows[0].keys())
+        placeholders = ", ".join(["%s"] * len(columns))
+        cols_sql = ", ".join([f'\"{c}\"' for c in columns])
+        insert_sql = f"INSERT INTO \"{table_name}\" ({cols_sql}) VALUES ({placeholders})"
+        data = [tuple(row[col] for col in columns) for row in rows]
+        psycopg2_mod = self._psycopg2
+        def _run():
+            with self._conn.cursor() as cur:
+                try:
+                    psycopg2_mod.extras.execute_batch(cur, insert_sql, data)
+                    self._conn.commit()
+                except Exception:
+                    self._conn.rollback()
+                    raise
+        await asyncio.to_thread(_run)
+        return len(rows)
 
     async def get_row_count(self, table_name: str) -> int:
         if self.mock_mode:
             counts = {"users": 200000, "orders": 300000, "order_items": 617070}
             return counts.get(table_name, 10000)
-        raise NotImplementedError("Real get_row_count requires psycopg2 implementation.")
+        def _run():
+            with self._conn.cursor() as cur:
+                cur.execute(f'SELECT COUNT(*) FROM "{table_name}"')
+                return cur.fetchone()[0]
+        return await asyncio.to_thread(_run)
 
     async def compute_checksum(self, table_name: str) -> str:
         if self.mock_mode:
-            import hashlib
             return hashlib.sha256(table_name.encode()).hexdigest()
-        raise NotImplementedError("Real compute_checksum requires psycopg2 implementation.")
+        # Read all rows ordered by the primary key (same ordering used by
+        # read_batch) so pagination and checksum always agree.
+        def _row_hash(row: dict) -> str:
+            parts = []
+            for k in sorted(row.keys()):
+                v = row[k]
+                if isinstance(v, Decimal):
+                    v = str(v)
+                elif hasattr(v, 'isoformat'):
+                    v = v.isoformat()
+                else:
+                    v = str(v) if v is not None else ''
+                parts.append(f"{k}={v}")
+            return hashlib.sha256('|'.join(parts).encode()).hexdigest()
+
+        pk = await self._primary_key_column(table_name)
+        def _run():
+            with self._conn.cursor(cursor_factory=self._psycopg2.extras.RealDictCursor) as cur:
+                cur.execute(f'SELECT * FROM "{table_name}" ORDER BY "{pk}"')
+                rows = cur.fetchall()
+            combined = '|'.join(_row_hash(dict(r)) for r in rows)
+            return hashlib.sha256(combined.encode()).hexdigest()
+        return await asyncio.to_thread(_run)

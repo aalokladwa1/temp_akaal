@@ -10,7 +10,7 @@ pytest-asyncio>=0.23.0
 # ──────────────────────────────────────────────────
 
 # RDBMS
-# psycopg2-binary       # PostgreSQL (real mode)
+psycopg2-binary       # PostgreSQL (real mode)
 # cx_Oracle             # Oracle
 # aiomysql              # MySQL / MariaDB
 # aioodbc               # Microsoft SQL Server
