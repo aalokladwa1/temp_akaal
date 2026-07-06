@@ -2,20 +2,19 @@
 NexusForge — Checkpoint Engine Agent
 ====================================
 Handles workflow state serialization, persistence, integrity checks, and restorations.
+Delegates all persistence operations to CheckpointManager.
 """
 
 import asyncio
-import hashlib
-import json
 import logging
-import os
-from datetime import datetime, timezone
 from typing import Any, Dict, Set
 
 from akaal.core.models.enums import AgentStatus, AgentType, TaskType, WorkflowState
 from akaal.core.models.message import Message, MessageType
 from akaal.core.state.global_state import CheckpointEntry, GlobalState
 from akaal.core.message_bus.bus import MessageBus
+from akaal.core.checkpoint.checkpoint_record import CheckpointRecord, CheckpointStatus
+from akaal.core.checkpoint.checkpoint_manager import CheckpointManager
 
 logger = logging.getLogger("nexusforge.checkpoint")
 
@@ -31,13 +30,25 @@ class CheckpointAgent:
         self,
         global_state: GlobalState,
         message_bus: MessageBus,
-        workspace_dir: str = "workspace",
+        checkpoint_manager: CheckpointManager,
         agent_id: str = "CHECKPOINT-001",
         is_backup: bool = False,
     ) -> None:
+        """
+        Initialize the CheckpointAgent.
+        Args:
+            global_state: Authoritative GlobalState instance.
+            message_bus: System MessageBus instance.
+            checkpoint_manager: CheckpointManager instance for persistence delegation (Required).
+            agent_id: String identifier for active/standby pairs.
+            is_backup: Flag indicating active/standby mode.
+        """
+        if checkpoint_manager is None:
+            raise ValueError("checkpoint_manager is a required dependency and cannot be None.")
+
         self._state = global_state
         self._bus = message_bus
-        self._workspace_dir = workspace_dir
+        self._manager = checkpoint_manager
         self.agent_id = agent_id
         self._is_backup = is_backup
         self._running = False
@@ -173,10 +184,9 @@ class CheckpointAgent:
     async def _handle_checkpoint_create(self, project_id: str, migration_id: str, parameters: Dict[str, Any]) -> Dict[str, Any]:
         """
         Handle TaskType.CHECKPOINT_CREATE:
-        - Capture serialized workflow state and snapshot
-        - Compute SHA-256 state hash
-        - Persist to disk
-        - Register CheckpointEntry in global state
+        - Construct CheckpointRecord from parameter mapping.
+        - Persist to CheckpointManager.
+        - Register in GlobalState.
         """
         checkpoint_id = parameters.get("checkpoint_id")
         description = parameters.get("description", "Workflow checkpoint")
@@ -186,93 +196,99 @@ class CheckpointAgent:
         if not checkpoint_id:
             raise ValueError("checkpoint_id is required in parameters.")
 
-        payload = {
-            "project_state": project_state,
-            "global_state_snapshot": global_state_snapshot
-        }
+        state_str = project_state.get("state") or parameters.get("workflow_state")
+        workflow_state = WorkflowState(state_str) if state_str else WorkflowState.IDLE
 
-        # Calculate checksum of the payload to guarantee integrity
-        payload_bytes = json.dumps(payload, sort_keys=True).encode("utf-8")
-        checksum = hashlib.sha256(payload_bytes).hexdigest()
+        # Adapter state holds snapshots
+        adapter_state = parameters.get("adapter_state", {}).copy()
+        adapter_state["project_state"] = project_state
+        if global_state_snapshot:
+            adapter_state["global_state_snapshot"] = global_state_snapshot
 
-        checkpoint_data = {
-            "checkpoint_id": checkpoint_id,
-            "project_id": project_id,
-            "migration_id": migration_id,
-            "workflow_state": project_state.get("state"),
-            "description": description,
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "checksum": checksum,
-            "payload": payload
-        }
+        metrics = parameters.get("metrics", {}).copy()
+        metrics["description"] = description
 
-        # Write checkpoint file to disk
-        project_dir = os.path.join(self._workspace_dir, "projects", project_id)
-        os.makedirs(project_dir, exist_ok=True)
-        filepath = os.path.join(project_dir, f"checkpoint_{checkpoint_id}.json")
+        record = CheckpointRecord(
+            checkpoint_id=checkpoint_id,
+            project_id=project_id,
+            migration_id=migration_id,
+            workflow_state=workflow_state,
+            table_name=parameters.get("table_name", ""),
+            batch_number=parameters.get("batch_number", 0),
+            worker_id=parameters.get("worker_id", "default"),
+            last_processed_primary_key=parameters.get("last_processed_primary_key"),
+            rows_processed=parameters.get("rows_processed", 0),
+            rows_failed=parameters.get("rows_failed", 0),
+            rows_skipped=parameters.get("rows_skipped", 0),
+            retry_count=parameters.get("retry_count", 0),
+            adapter_state=adapter_state,
+            metrics=metrics,
+            status=CheckpointStatus.PENDING
+        )
 
-        with open(filepath, "w", encoding="utf-8") as f:
-            json.dump(checkpoint_data, f, indent=2)
+        success = await self._manager.save_progress(record)
+        if not success:
+            raise RuntimeError(f"Failed to persist checkpoint {checkpoint_id} using CheckpointManager.")
 
-        # Register in global state
+        # Register in in-memory global state for active state machine visibility
         entry = CheckpointEntry(
             checkpoint_id=checkpoint_id,
             project_id=project_id,
             migration_id=migration_id,
-            workflow_state=WorkflowState(project_state.get("state")),
+            workflow_state=workflow_state,
             description=description
         )
         await self._state.register_checkpoint(entry)
 
-        logger.info("[CheckpointAgent] Saved checkpoint file to %s and registered entry", filepath)
+        # Establish compatible URI reference path string
+        from akaal.core.checkpoint.storage.file_storage import FileCheckpointStorageAdapter
+        if isinstance(self._manager.storage, FileCheckpointStorageAdapter):
+            result_ref = self._manager.storage._get_file_path(project_id, checkpoint_id)
+        else:
+            result_ref = f"storage:{self._manager.storage.__class__.__name__}/{checkpoint_id}"
+
+        logger.info("[CheckpointAgent] Saved checkpoint record %s via manager, registered in global state.", checkpoint_id)
         return {
             "checkpoint_id": checkpoint_id,
-            "result_ref": filepath
+            "result_ref": result_ref
         }
 
     async def _handle_checkpoint_restore(self, project_id: str, migration_id: str, parameters: Dict[str, Any]) -> Dict[str, Any]:
         """
         Handle TaskType.CHECKPOINT_RESTORE:
-        - Read snapshot file from disk
-        - Verify checksum integrity
-        - Restore in-memory state fields
+        - Load record using CheckpointManager.
+        - Restore in-memory fields in GlobalState project representation.
         """
         checkpoint_id = parameters.get("checkpoint_id")
         if not checkpoint_id:
             raise ValueError("checkpoint_id is required in parameters.")
 
-        # Read checkpoint file
-        filepath = os.path.join(self._workspace_dir, "projects", project_id, f"checkpoint_{checkpoint_id}.json")
-        if not os.path.exists(filepath):
-            raise FileNotFoundError(f"Checkpoint file not found at {filepath}")
-
-        with open(filepath, "r", encoding="utf-8") as f:
-            checkpoint_data = json.load(f)
-
-        # Verify integrity using checksum
-        payload = checkpoint_data.get("payload", {})
-        payload_bytes = json.dumps(payload, sort_keys=True).encode("utf-8")
-        computed_checksum = hashlib.sha256(payload_bytes).hexdigest()
-
-        if computed_checksum != checkpoint_data.get("checksum"):
-            raise ValueError(f"CHECKPOINT CORRUPTION: Checksum verification failed for checkpoint {checkpoint_id}.")
+        record = await self._manager.load_progress(checkpoint_id)
+        if not record:
+            raise FileNotFoundError(f"Checkpoint {checkpoint_id} not found by manager.")
 
         # Restore project state in memory
         project = await self._state.get_project(project_id)
         if project:
-            saved_project = payload.get("project_state", {})
-            project.state = WorkflowState(saved_project.get("state", project.state.value))
-            project.human_approval_granted = saved_project.get("human_approval_granted", False)
-            project.approved_by = saved_project.get("approved_by")
-            project.approved_at = saved_project.get("approved_at")
-            project.total_objects_discovered = saved_project.get("total_objects_discovered", 0)
-            project.total_objects_migrated = saved_project.get("total_objects_migrated", 0)
-            project.validation_pass_count = saved_project.get("validation_pass_count", 0)
-            project.validation_fail_count = saved_project.get("validation_fail_count", 0)
+            project_state = record.adapter_state.get("project_state", {})
+            project.state = WorkflowState(project_state.get("state", record.workflow_state.value))
+            project.human_approval_granted = project_state.get("human_approval_granted", False)
+            project.approved_by = project_state.get("approved_by")
+            project.approved_at = project_state.get("approved_at")
+            project.total_objects_discovered = project_state.get("total_objects_discovered", record.rows_processed)
+            project.total_objects_migrated = project_state.get("total_objects_migrated", record.rows_processed)
+            project.validation_pass_count = project_state.get("validation_pass_count", 0)
+            project.validation_fail_count = project_state.get("validation_fail_count", 0)
 
             logger.info("[CheckpointAgent] Restored global project state for %s to state=%s", project_id, project.state.value)
 
+        from akaal.core.checkpoint.storage.file_storage import FileCheckpointStorageAdapter
+        if isinstance(self._manager.storage, FileCheckpointStorageAdapter):
+            result_ref = self._manager.storage._get_file_path(project_id, checkpoint_id)
+        else:
+            result_ref = f"storage:{self._manager.storage.__class__.__name__}/{checkpoint_id}"
+
         return {
             "checkpoint_id": checkpoint_id,
-            "result_ref": filepath
+            "result_ref": result_ref
         }

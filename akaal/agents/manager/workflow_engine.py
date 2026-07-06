@@ -52,6 +52,7 @@ ALLOWED_TRANSITIONS: Dict[WorkflowState, FrozenSet[WorkflowState]] = {
     WorkflowState.DISCOVERY_VALIDATED: frozenset({
         WorkflowState.GB_LOADING,
         WorkflowState.FAILED,
+        WorkflowState.RETRYING,
     }),
     WorkflowState.GB_LOADING: frozenset({
         WorkflowState.GB_LOADED,
@@ -68,6 +69,7 @@ ALLOWED_TRANSITIONS: Dict[WorkflowState, FrozenSet[WorkflowState]] = {
     }),
     WorkflowState.GB_VALIDATED: frozenset({
         WorkflowState.HUMAN_APPROVAL_PENDING,
+        WorkflowState.RETRYING,
     }),
     WorkflowState.HUMAN_APPROVAL_PENDING: frozenset({
         WorkflowState.HUMAN_APPROVED,
@@ -82,6 +84,7 @@ ALLOWED_TRANSITIONS: Dict[WorkflowState, FrozenSet[WorkflowState]] = {
         WorkflowState.PRODUCTION_VALIDATION,
         WorkflowState.FAILED,
         WorkflowState.PAUSED,
+        WorkflowState.RETRYING,
     }),
     WorkflowState.PRODUCTION_VALIDATION: frozenset({
         WorkflowState.CDC_SYNCHRONIZATION,

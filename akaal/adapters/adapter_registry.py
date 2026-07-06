@@ -69,4 +69,8 @@ def get_adapter_class(system_type: SystemType):
 def create_adapter(config) -> "BaseAdapter":
     """Factory: resolve and instantiate the correct adapter from a ConnectionConfig."""
     adapter_cls = get_adapter_class(config.system_type)
-    return adapter_cls(config)
+    adapter = adapter_cls(config)
+    if getattr(config, "enable_connection_pooling", False):
+        from akaal.core.connection_pool.pool import PooledAdapter
+        return PooledAdapter(adapter)
+    return adapter

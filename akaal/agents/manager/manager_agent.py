@@ -74,6 +74,14 @@ from akaal.core.models.project import (
 )
 from akaal.core.models.task import Task, TaskResult, TaskStatus
 from akaal.core.state.global_state import CheckpointEntry, GlobalState
+from akaal.core.checkpoint.checkpoint_record import CheckpointRecord
+from akaal.core.checkpoint.checkpoint_manager import CheckpointManager
+from akaal.metrics.registry import MetricsRegistry
+from akaal.metrics.constants import (
+    MIGRATION_DURATION,
+    ROWS_MIGRATED,
+    TABLES_MIGRATED,
+)
 
 logger = logging.getLogger("nexusforge.manager")
 
@@ -112,21 +120,29 @@ class ManagerAgent:
         global_state: GlobalState,
         message_bus: MessageBus,
         audit_logger: AuditLogger,
+        checkpoint_manager: CheckpointManager,
         approval_controller: Optional[ApprovalController] = None,
         cli_mode: bool = True,
         agent_id: str = "MANAGER-001",
         is_backup: bool = False,
+        metrics_registry: Optional["MetricsRegistry"] = None,
     ) -> None:
+        if checkpoint_manager is None:
+            raise ValueError("checkpoint_manager is a required dependency for ManagerAgent.")
         self._state = global_state
         self._bus = message_bus
         self._audit = audit_logger
+        self._checkpoint_mgr = checkpoint_manager
         self.agent_id = agent_id
         self._is_backup = is_backup
+
+        # Phase 7K — Metrics: store registry reference (may be None if not injected)
+        self._metrics: Optional["MetricsRegistry"] = metrics_registry
 
         # Subsystems
         self._workflow = WorkflowEngine()
         self._queues = QueueManager()
-        self._loop_governor = LoopGovernor()
+        self._loop_governor = LoopGovernor(metrics_registry=metrics_registry)
         self._incident_mgr = IncidentManager(global_state, audit_logger)
         self._approval_ctrl = approval_controller or ApprovalController(cli_mode=cli_mode)
 
@@ -190,6 +206,44 @@ class ManagerAgent:
         target_config: ConnectionConfig,
         strategy: MigrationStrategy,
         created_by: str = "system",
+        # Phase 7F Adaptive Batch Sizing
+        use_adaptive_batch: bool = False,
+        minimum_batch_size: int = 10,
+        initial_batch_size: int = 500,
+        maximum_batch_size: int = 5000,
+        growth_factor: float = 1.5,
+        shrink_factor: float = 0.5,
+        target_batch_duration_ms: float = 1000.0,
+        adjustment_window: int = 3,
+        # Phase 7G Parallel Migration
+        enable_parallel_migration: bool = False,
+        max_parallel_workers: int = 4,
+        worker_queue_size: int = 100,
+        scheduler_policy: str = "fifo",
+        worker_idle_timeout: float = 60.0,
+        worker_shutdown_timeout: float = 10.0,
+        # Phase 7H Connection Pooling
+        enable_connection_pooling: bool = False,
+        minimum_pool_size: int = 1,
+        pool_size: int = 4,
+        maximum_pool_size: int = 10,
+        connection_idle_timeout: float = 60.0,
+        acquisition_timeout: float = 5.0,
+        validation_interval: float = 30.0,
+        connection_validation_on_checkout: bool = True,
+        # Phase 7I Memory Optimization
+        enable_memory_optimization: bool = True,
+        memory_cleanup_interval: int = 5,
+        memory_warning_threshold_mb: float = 512.0,
+        # Phase 7J Structured Logging
+        log_format: str = "text",
+        log_level: str = "INFO",
+        log_to_console: bool = True,
+        log_to_file: bool = True,
+        log_directory: str = "logs",
+        log_file_name: str = "akaal.log",
+        log_rotation_size_mb: int = 10,
+        log_backup_count: int = 5,
     ) -> MigrationProject:
         """
         Create a new migration project.
@@ -224,6 +278,20 @@ class ManagerAgent:
                 "NexusForge never modifies source systems."
             )
 
+        # Propagate connection pooling properties onto source and target configs
+        for cfg in (source_config, target_config):
+            cfg.enable_connection_pooling = enable_connection_pooling
+            cfg.minimum_pool_size = minimum_pool_size
+            cfg.pool_size = pool_size
+            cfg.maximum_pool_size = maximum_pool_size
+            cfg.connection_idle_timeout = connection_idle_timeout
+            cfg.acquisition_timeout = acquisition_timeout
+            cfg.validation_interval = validation_interval
+            cfg.connection_validation_on_checkout = connection_validation_on_checkout
+            cfg.enable_memory_optimization = enable_memory_optimization
+            cfg.memory_cleanup_interval = memory_cleanup_interval
+            cfg.memory_warning_threshold_mb = memory_warning_threshold_mb
+
         # --- Create project ---
         project = MigrationProject(
             name=name.strip(),
@@ -231,6 +299,39 @@ class ManagerAgent:
             target_config=target_config,
             strategy=strategy,
             created_by=created_by,
+            use_adaptive_batch=use_adaptive_batch,
+            minimum_batch_size=minimum_batch_size,
+            initial_batch_size=initial_batch_size,
+            maximum_batch_size=maximum_batch_size,
+            growth_factor=growth_factor,
+            shrink_factor=shrink_factor,
+            target_batch_duration_ms=target_batch_duration_ms,
+            adjustment_window=adjustment_window,
+            enable_parallel_migration=enable_parallel_migration,
+            max_parallel_workers=max_parallel_workers,
+            worker_queue_size=worker_queue_size,
+            scheduler_policy=scheduler_policy,
+            worker_idle_timeout=worker_idle_timeout,
+            worker_shutdown_timeout=worker_shutdown_timeout,
+            enable_connection_pooling=enable_connection_pooling,
+            minimum_pool_size=minimum_pool_size,
+            pool_size=pool_size,
+            maximum_pool_size=maximum_pool_size,
+            connection_idle_timeout=connection_idle_timeout,
+            acquisition_timeout=acquisition_timeout,
+            validation_interval=validation_interval,
+            connection_validation_on_checkout=connection_validation_on_checkout,
+            enable_memory_optimization=enable_memory_optimization,
+            memory_cleanup_interval=memory_cleanup_interval,
+            memory_warning_threshold_mb=memory_warning_threshold_mb,
+            log_format=log_format,
+            log_level=log_level,
+            log_to_console=log_to_console,
+            log_to_file=log_to_file,
+            log_directory=log_directory,
+            log_file_name=log_file_name,
+            log_rotation_size_mb=log_rotation_size_mb,
+            log_backup_count=log_backup_count,
         )
 
         # --- Generate session IDs ---
@@ -273,7 +374,7 @@ class ManagerAgent:
     # Migration Orchestration (workflow.md Sections 5–14)
     # ------------------------------------------------------------------
 
-    async def run_migration(self, project_id: str) -> Dict[str, Any]:
+    async def run_migration(self, project_id: str, migration_id: Optional[str] = None) -> Dict[str, Any]:
         """
         Execute the full migration workflow for a project.
 
@@ -297,118 +398,153 @@ class ManagerAgent:
                 "Cannot re-run a completed or cancelled migration."
             )
 
-        logger.info("[ManagerAgent] Starting migration for project: %s", project_id)
+        from akaal.logging_manager import migration_context
+        # Phase 7K — start migration duration timer if registry is available.
+        _duration_timer = None
+        try:
+            if self._metrics is not None:
+                _duration_timer = self._metrics.timer(MIGRATION_DURATION)
+                _duration_timer.__enter__()
+        except Exception:
+            pass  # metric failures must never abort migration
 
-        self._audit.log(
-            event_type=AuditEventType.WORKFLOW_STARTED,
-            actor=AgentType.MANAGER.value,
-            description=f"Migration workflow started for project {project.name}.",
-            project_id=project_id,
-            migration_id=project.active_migration_id,
-        )
+        with migration_context(agent_id=self.agent_id):
+            logger.info("Migration started", extra={"event": "migration_started"})
+            logger.info("[ManagerAgent] Starting migration for project: %s", project_id)
 
-        # Create migration session
-        session = MigrationSession(project_id=project_id)
-        project.active_migration_id = session.migration_id
-        await self._state.register_session(session)
+            self._audit.log(
+                event_type=AuditEventType.WORKFLOW_STARTED,
+                actor=AgentType.MANAGER.value,
+                description=f"Migration workflow started for project {project.name}.",
+                project_id=project_id,
+                migration_id=project.active_migration_id,
+            )
 
-        while True:
-            try:
-                # --- Stage 1: Discovery ---
-                await self._run_discovery_stage(project, session)
+            # Create migration session
+            if migration_id:
+                session = MigrationSession(project_id=project_id, migration_id=migration_id)
+            else:
+                session = MigrationSession(project_id=project_id)
+            project.active_migration_id = session.migration_id
+            await self._state.register_session(session)
 
-                # --- Stage 2: GB Import ---
-                await self._run_gb_import_stage(project, session)
+            with migration_context(migration_id=session.migration_id):
+                try:
+                    while True:
+                        try:
+                            # --- Stage 1: Discovery ---
+                            await self._run_discovery_stage(project, session)
 
-                # --- Stage 3: Human Approval ---
-                approval = await self._run_human_approval_stage(project)
+                            # --- Stage 2: GB Import ---
+                            await self._run_gb_import_stage(project, session)
 
-                if approval.decision != ApprovalDecision.APPROVE.value:
-                    await self._handle_approval_rejection(project, approval)
-                    return {"status": "rejected", "reason": approval.decision}
+                            # --- Stage 3: Human Approval ---
+                            approval = await self._run_human_approval_stage(project)
 
-                # --- Stage 4: Production Migration ---
-                await self._run_production_migration_stage(project, session)
+                            if approval.decision != ApprovalDecision.APPROVE.value:
+                                await self._handle_approval_rejection(project, approval)
+                                return {"status": "rejected", "reason": approval.decision}
 
-                # --- Stage 5: CDC Synchronization ---
-                await self._run_cdc_stage(project, session)
+                            # --- Stage 4: Production Migration ---
+                            await self._run_production_migration_stage(project, session)
 
-                # --- Complete ---
-                await self._complete_migration(project, session)
+                            # --- Stage 5: CDC Synchronization ---
+                            await self._run_cdc_stage(project, session)
 
-                return {
-                    "status": "completed",
-                    "project_id": project_id,
-                    "migration_id": session.migration_id,
-                    "completed_at": datetime.now(timezone.utc).isoformat(),
-                }
+                            # --- Complete ---
+                            await self._complete_migration(project, session)
 
-            except TaskExecutionError as err:
-                if err.can_retry:
-                    logger.warning("[ManagerAgent] Task failed with retry decision. Running recovery workflow.")
-                    # Recovery workflow transitions:
-                    # current_state -> FAILED -> RECOVERY_STARTED -> CHECKPOINT_RESTORE -> RETRYING
-                    await self._transition(project, WorkflowState.FAILED, f"Task failed: {err}")
-                    await self._transition(project, WorkflowState.RECOVERY_STARTED, "Recovery initialized")
-                    await self._transition(project, WorkflowState.CHECKPOINT_RESTORE, "Restoring checkpoint")
+                            logger.info("Migration completed", extra={"event": "migration_completed"})
+                            return {
+                                "status": "completed",
+                                "project_id": project_id,
+                                "migration_id": session.migration_id,
+                                "completed_at": datetime.now(timezone.utc).isoformat(),
+                            }
 
-                    latest_cp = self._state.get_latest_checkpoint(project.project_id)
-                    if latest_cp:
-                        # Dispatch restore task
-                        restore_task = self._build_task(
-                            task_type=TaskType.CHECKPOINT_RESTORE,
-                            assigned_to=AgentType.CHECKPOINT_ENGINE,
-                            project=project,
-                            session=session,
-                            priority=Priority.P0_SYSTEM_CRITICAL,
-                            parameters={"checkpoint_id": latest_cp.checkpoint_id},
-                        )
-                        restore_result = await self._dispatch_task(restore_task, project)
-                        if not restore_result.success:
-                            logger.error("[ManagerAgent] Checkpoint restore failed: %s", restore_result.error_message)
-                            raise RuntimeError(f"Checkpoint restore failed: {restore_result.error_message}")
+                        except TaskExecutionError as err:
+                            if err.can_retry:
+                                logger.warning("[ManagerAgent] Task failed with retry decision. Running recovery workflow.", extra={"event": "retry_initiated"})
+                                # Recovery workflow transitions:
+                                # current_state -> FAILED -> RECOVERY_STARTED -> CHECKPOINT_RESTORE -> RETRYING
+                                await self._transition(project, WorkflowState.FAILED, f"Task failed: {err}")
+                                await self._transition(project, WorkflowState.RECOVERY_STARTED, "Recovery initialized")
+                                await self._transition(project, WorkflowState.CHECKPOINT_RESTORE, "Restoring checkpoint")
 
-                        logger.info("[ManagerAgent] Restored checkpoint %s", latest_cp.checkpoint_id)
-                        self._audit.log(
-                            event_type=AuditEventType.CHECKPOINT_RESTORED,
-                            actor=AgentType.MANAGER.value,
-                            description=f"Checkpoint {latest_cp.checkpoint_id} restored.",
-                            project_id=project_id,
-                            migration_id=session.migration_id,
-                        )
+                                # Recovery: Resume using CheckpointManager.resume()
+                                record = await self._checkpoint_mgr.resume(
+                                    project_id=project.project_id,
+                                    migration_id=session.migration_id,
+                                    table_name=""
+                                )
+                                if record:
+                                    # Restore project state in memory
+                                    project.state = record.workflow_state
+                                    
+                                    project_state = record.adapter_state.get("project_state", {})
+                                    project.human_approval_granted = project_state.get("human_approval_granted", False)
+                                    project.approved_by = project_state.get("approved_by")
+                                    project.approved_at = project_state.get("approved_at")
+                                    project.total_objects_discovered = project_state.get("total_objects_discovered", record.rows_processed)
+                                    project.total_objects_migrated = project_state.get("total_objects_migrated", record.rows_processed)
+                                    project.validation_pass_count = project_state.get("validation_pass_count", 0)
+                                    project.validation_fail_count = project_state.get("validation_fail_count", 0)
 
-                    await self._transition(project, WorkflowState.RETRYING, "Ready for retry")
+                                    # Restore session state values
+                                    session.completed_batches = record.batch_number if record.batch_number > 0 else 0
 
-                    # Map the failed task to the retry state
-                    state_mapping = {
-                        TaskType.DISCOVERY: WorkflowState.DISCOVERY_STARTED,
-                        TaskType.GB_IMPORT: WorkflowState.GB_LOADING,
-                        TaskType.GB_VALIDATION: WorkflowState.GB_LOADING,
-                        TaskType.MIGRATION_BATCH: WorkflowState.PRODUCTION_MIGRATION,
-                        TaskType.CDC_SYNC: WorkflowState.CDC_SYNCHRONIZATION,
-                    }
-                    retry_state = state_mapping.get(err.task.task_type, WorkflowState.DISCOVERY_STARTED)
-                    if err.task.task_type == TaskType.VALIDATION:
-                        if err.task.parameters.get("stage") == "discovery":
-                            retry_state = WorkflowState.DISCOVERY_STARTED
-                        else:
-                            retry_state = WorkflowState.PRODUCTION_MIGRATION
+                                    logger.info("[ManagerAgent] Restored checkpoint %s using resume()", record.checkpoint_id)
+                                    self._audit.log(
+                                        event_type=AuditEventType.CHECKPOINT_RESTORED,
+                                        actor=AgentType.MANAGER.value,
+                                        description=f"Checkpoint {record.checkpoint_id} restored via manager.",
+                                        project_id=project_id,
+                                        migration_id=session.migration_id,
+                                    )
+                                else:
+                                    logger.warning("[ManagerAgent] No checkpoint found to resume.")
 
-                    await self._transition(project, retry_state, f"Retrying from {retry_state.value}")
-                    # Loop back to retry the workflow
-                    continue
-                else:
-                    # Permanent failure
-                    logger.error("[ManagerAgent] Task failed with permanent decision. Halting migration.")
-                    await self._handle_migration_failure(project, session, str(err))
-                    raise
-            except Exception as exc:
-                logger.error(
-                    "[ManagerAgent] Migration failed for project=%s: %s",
-                    project_id, exc, exc_info=True
-                )
-                await self._handle_migration_failure(project, session, str(exc))
-                raise
+                                await self._transition(project, WorkflowState.RETRYING, "Ready for retry")
+
+                                # Map the failed task to the retry state
+                                state_mapping = {
+                                    TaskType.DISCOVERY: WorkflowState.DISCOVERY_STARTED,
+                                    TaskType.GB_IMPORT: WorkflowState.GB_LOADING,
+                                    TaskType.GB_VALIDATION: WorkflowState.GB_LOADING,
+                                    TaskType.MIGRATION_BATCH: WorkflowState.PRODUCTION_MIGRATION,
+                                    TaskType.CDC_SYNC: WorkflowState.CDC_SYNCHRONIZATION,
+                                }
+                                retry_state = state_mapping.get(err.task.task_type, WorkflowState.DISCOVERY_STARTED)
+                                if err.task.task_type == TaskType.VALIDATION:
+                                    if err.task.parameters.get("stage") == "discovery":
+                                        retry_state = WorkflowState.DISCOVERY_STARTED
+                                    else:
+                                        retry_state = WorkflowState.PRODUCTION_MIGRATION
+
+                                await self._transition(project, retry_state, f"Retrying from {retry_state.value}")
+                                # Loop back to retry the workflow
+                                continue
+                            else:
+                                # Permanent failure
+                                logger.error("Retry exhausted", extra={"event": "retry_exhausted"})
+                                logger.error("[ManagerAgent] Task failed with permanent decision. Halting migration.")
+                                await self._handle_migration_failure(project, session, str(err))
+                                raise
+                        except Exception as exc:
+                            logger.error("Migration failed: %s", exc, extra={"event": "migration_failed"})
+                            logger.error(
+                                "[ManagerAgent] Migration failed for project=%s: %s",
+                                project_id, exc, exc_info=True
+                            )
+                            await self._handle_migration_failure(project, session, str(exc))
+                            raise
+                finally:
+                    # Phase 7K — stop the migration duration timer on all exit paths.
+                    try:
+                        if _duration_timer is not None:
+                            _duration_timer.__exit__(None, None, None)
+                    except Exception:
+                        pass  # metric failures must never abort migration
 
     # ------------------------------------------------------------------
     # Stage: Discovery (workflow.md Section 5)
@@ -693,22 +829,68 @@ class ManagerAgent:
                 details={"approved_by": project.approved_by},
             )
 
-            # Migration executes in batches (workflow.md Section 11)
-            # In Phase 1 this is a single batch — batch management expands when GB Agent is built
-            mig_task = self._build_task(
-                task_type=TaskType.MIGRATION_BATCH,
-                assigned_to=AgentType.GB,   # GB Agent handles the data transfer
-                project=project,
-                session=session,
-                priority=Priority.P1_MIGRATION,
-                parameters={"batch_number": 1, "batch_total": 1},
-            )
+            # Check if parallel migration is enabled
+            if getattr(project, "enable_parallel_migration", False):
+                import json
+                import os
+                
+                workspace_dir = os.path.dirname(self._checkpoint_mgr.storage.db_path)
+                snapshot_filepath = os.path.join(
+                    workspace_dir, "projects", project.project_id, f"gb_snapshot_{session.migration_id}_v1.json"
+                )
+                if not os.path.exists(snapshot_filepath):
+                    raise FileNotFoundError(f"Staged GB snapshot not found at {snapshot_filepath}")
+                
+                with open(snapshot_filepath, "r", encoding="utf-8") as f:
+                    snapshot_data = json.load(f)
+                
+                schema_objects = {obj["object_name"]: obj for obj in snapshot_data.get("schema_objects", []) if obj.get("object_type") == "TABLE"}
+                tables = list(schema_objects.keys())
+                
+                # Check for circular dependencies before running
+                in_degree = {t: set() for t in tables}
+                out_degree = {t: set() for t in tables}
+                for table in tables:
+                    deps = []
+                    for ref in schema_objects.get(table, {}).get("dependency_references", []):
+                        dep_t = ref["target_table"]
+                        if dep_t in schema_objects and dep_t != table:
+                            deps.append(dep_t)
+                    for dep in deps:
+                        in_degree[table].add(dep)
+                        out_degree[dep].add(table)
+                
+                temp_in_degree = {k: len(v) for k, v in in_degree.items()}
+                cycle_queue = [k for k, v in temp_in_degree.items() if v == 0]
+                visited_count = 0
+                while cycle_queue:
+                    node = cycle_queue.pop(0)
+                    visited_count += 1
+                    for child in out_degree.get(node, []):
+                        temp_in_degree[child] -= 1
+                        if temp_in_degree[child] == 0:
+                            cycle_queue.append(child)
+                if visited_count < len(tables):
+                    raise ValueError("Circular dependency detected in table schema objects")
+                
+                # Run parallel scheduler
+                await self._run_parallel_production_migration(project, session, tables, schema_objects, in_degree, out_degree)
+            else:
+                # Legacy behavior
+                mig_task = self._build_task(
+                    task_type=TaskType.MIGRATION_BATCH,
+                    assigned_to=AgentType.GB,   # GB Agent handles the data transfer
+                    project=project,
+                    session=session,
+                    priority=Priority.P1_MIGRATION,
+                    parameters={"batch_number": 1, "batch_total": 1},
+                )
 
-            result = await self._dispatch_task(mig_task, project)
+                result = await self._dispatch_task(mig_task, project)
 
-            if not result.success:
-                decision = await self._handle_task_failure(project, session, mig_task, result)
-                raise TaskExecutionError(mig_task, result, can_retry=(decision == LoopDecision.RETRY))
+                if not result.success:
+                    decision = await self._handle_task_failure(project, session, mig_task, result)
+                    raise TaskExecutionError(mig_task, result, can_retry=(decision == LoopDecision.RETRY))
 
             # Post-batch checkpoint
             await self._create_checkpoint(project, "Post-migration-batch checkpoint")
@@ -744,6 +926,109 @@ class ManagerAgent:
             project_id=project.project_id,
             migration_id=session.migration_id,
         )
+
+    async def _run_parallel_production_migration(
+        self,
+        project: MigrationProject,
+        session: MigrationSession,
+        tables: List[str],
+        schema_objects: Dict[str, Any],
+        in_degree: Dict[str, Set[str]],
+        out_degree: Dict[str, Set[str]],
+    ) -> None:
+        """Dependency-aware table scheduler using Kahn's Algorithm.
+        The ManagerAgent performs orchestration only. All migration execution continues to be performed
+        exclusively by GBAgents through the existing task dispatch infrastructure.
+        """
+        from akaal.core.checkpoint.checkpoint_record import CheckpointStatus
+        
+        # Load completed tables from checkpoints
+        completed_tables = set()
+        for table in tables:
+            record = await self._checkpoint_mgr.resume(project.project_id, session.migration_id, table)
+            if record and record.status == CheckpointStatus.COMPLETED:
+                completed_tables.add(table)
+                
+        # Filter completed tables out of the dependency tracker
+        for table in list(in_degree.keys()):
+            if table in completed_tables:
+                in_degree.pop(table)
+                out_degree.pop(table, None)
+                continue
+            in_degree[table] = {dep for dep in in_degree[table] if dep not in completed_tables}
+            
+        for dep, children in list(out_degree.items()):
+            if dep in completed_tables:
+                out_degree.pop(dep)
+                continue
+            out_degree[dep] = {c for c in children if c not in completed_tables}
+            
+        pending_tables = {table for table in tables if table not in completed_tables}
+        failed_tables = set()
+        
+        while pending_tables:
+            # 1. Identify ready tables (in_degree == 0)
+            ready_tables = [t for t in pending_tables if len(in_degree[t]) == 0]
+            if not ready_tables:
+                logger.error("[Scheduler] Scheduling deadlock: pending tables left but none ready: %s", pending_tables)
+                raise ValueError(f"Scheduling deadlock: satisfied tables left unscheduled: {pending_tables}")
+                
+            # Deterministic sorting (for fair/FIFO ordering)
+            ready_tables = sorted(ready_tables)
+            
+            # Limit concurrency to max_parallel_workers
+            wave = ready_tables[:project.max_parallel_workers]
+            logger.info("[Scheduler] Dispatching table wave: %s", wave)
+            
+            async def dispatch_table(table_name):
+                logger.debug("Parallel task dispatched", extra={"event": "parallel_task_dispatched", "table_name": table_name})
+                task = self._build_task(
+                    task_type=TaskType.MIGRATION_BATCH,
+                    assigned_to=AgentType.GB,
+                    project=project,
+                    session=session,
+                    priority=Priority.P1_MIGRATION,
+                    parameters={"table_name": table_name},
+                )
+                res = await self._dispatch_task(task, project)
+                logger.debug("Worker completed", extra={"event": "worker_completed", "table_name": table_name})
+                return table_name, res.success, res.error_message
+
+            # Concurrently dispatch the wave of ready tables
+            results = await asyncio.gather(*(dispatch_table(t) for t in wave))
+            
+            # Process results
+            for table, success, error_msg in results:
+                pending_tables.discard(table)
+                if success:
+                    logger.info("[Scheduler] Table %s migration COMPLETED successfully.", table)
+                    completed_tables.add(table)
+                    # Unblock child dependencies
+                    for child in out_degree.get(table, []):
+                        if child in in_degree:
+                            in_degree[child].discard(table)
+                else:
+                    logger.error("[Scheduler] Table %s migration FAILED: %s", table, error_msg)
+                    failed_tables.add(table)
+                    
+                    # Failure isolation: transitively find and cancel all children that depend on finished_table
+                    to_cancel = set()
+                    queue = list(out_degree.get(table, []))
+                    while queue:
+                        node = queue.pop(0)
+                        if node not in to_cancel and node in pending_tables:
+                            to_cancel.add(node)
+                            queue.extend(out_degree.get(node, []))
+                            
+                    for cancelled_t in to_cancel:
+                        logger.warning("[Scheduler] Failure Isolation: Cancelling downstream dependent table %s due to parent failure", cancelled_t)
+                        pending_tables.discard(cancelled_t)
+                        failed_tables.add(cancelled_t)
+                        
+        if failed_tables:
+            raise RuntimeError(f"Parallel migration completed with failures in tables: {failed_tables}")
+
+        return
 
     # ------------------------------------------------------------------
     # Stage: CDC Synchronization (workflow.md Section 13)
@@ -1198,6 +1483,13 @@ class ManagerAgent:
         task.assign()
         self._active_tasks[task.task_id] = task
 
+        # Phase 7K — record task dispatch.
+        try:
+            if self._metrics is not None:
+                self._metrics.counter("task_dispatch_count").increment()
+        except Exception:
+            pass
+
         # Enqueue task
         await self._queues.enqueue_task(task)
 
@@ -1228,6 +1520,7 @@ class ManagerAgent:
             task.task_type.value, task.assigned_to.value, task.task_id[:8]
         )
 
+
         # Scout, Validator, GB, Checkpoint Engine are real, others are simulated
         agent_health = self._state.get_agent_health(task.assigned_to)
         agent_online = agent_health is not None and agent_health.status != AgentStatus.OFFLINE
@@ -1244,6 +1537,12 @@ class ManagerAgent:
                 self._task_events.pop(task.task_id, None)
 
             success = task.status == TaskStatus.COMPLETED
+            # Phase 7K — record worker completion.
+            try:
+                if self._metrics is not None and success:
+                    self._metrics.counter("worker_completion_count").increment()
+            except Exception:
+                pass
             return TaskResult(
                 task_id=task.task_id,
                 project_id=task.project_id,
@@ -1290,18 +1589,36 @@ class ManagerAgent:
             session = MigrationSession(project_id=project.project_id)
             session.migration_id = project.active_migration_id or "unknown"
 
-        params = {
-            "checkpoint_id": checkpoint_id,
-            "description": description,
-            "project_state": project.to_dict(),
-            "global_state_snapshot": self._state.snapshot()
-        }
+        from akaal.core.checkpoint.checkpoint_record import CheckpointStatus
+
+        # Prepare parameters using CheckpointRecord to avoid raw JSON construction
+        record = CheckpointRecord(
+            checkpoint_id=checkpoint_id,
+            project_id=project.project_id,
+            migration_id=project.active_migration_id or "unknown",
+            workflow_state=project.state,
+            table_name="",
+            batch_number=0,
+            status=CheckpointStatus.PENDING,
+            adapter_state={
+                "project_state": project.to_dict(),
+                "global_state_snapshot": self._state.snapshot()
+            },
+            metrics={"description": description}
+        )
 
         # Check if checkpoint agent is online
         agent_health = self._state.get_agent_health(AgentType.CHECKPOINT_ENGINE)
         agent_online = agent_health is not None and agent_health.status != AgentStatus.OFFLINE
 
         if agent_online:
+            params = {
+                "checkpoint_id": record.checkpoint_id,
+                "description": description,
+                "project_state": record.adapter_state["project_state"],
+                "global_state_snapshot": record.adapter_state["global_state_snapshot"]
+            }
+
             task = self._build_task(
                 task_type=TaskType.CHECKPOINT_CREATE,
                 assigned_to=AgentType.CHECKPOINT_ENGINE,
@@ -1320,6 +1637,8 @@ class ManagerAgent:
             return registered_id
         else:
             # Fallback to direct synchronous registration for testing/compatibility when agent is offline
+            await self._checkpoint_mgr.save_progress(record)
+            
             entry = CheckpointEntry(
                 checkpoint_id=checkpoint_id,
                 project_id=project.project_id,

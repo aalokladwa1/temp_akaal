@@ -144,11 +144,12 @@ class LoopGovernor:
         decision = await governor.evaluate(state, current_state_data, failure_type, reason)
     """
 
-    def __init__(self) -> None:
+    def __init__(self, metrics_registry: Optional[Any] = None) -> None:
         # Keyed by (agent_type, project_id, migration_id)
         self._states: Dict[str, LoopState] = {}
         self._freeze_callbacks: List[Callable] = []
         self._escalation_callbacks: List[Callable] = []
+        self._metrics = metrics_registry
 
     def _state_key(self, agent_type: AgentType, project_id: str, migration_id: str) -> str:
         return f"{agent_type.value}::{project_id}::{migration_id}"
@@ -215,6 +216,11 @@ class LoopGovernor:
                 repeat_count, loop_state.agent_type.value, loop_state.project_id
             )
             loop_state.is_frozen = True
+            try:
+                if self._metrics is not None:
+                    self._metrics.counter("loop_freeze_count").increment()
+            except Exception:
+                pass
             await self._trigger_freeze(loop_state)
             return LoopDecision.FREEZE
 
@@ -224,6 +230,11 @@ class LoopGovernor:
                 "agent=%s project=%s",
                 repeat_count, loop_state.agent_type.value, loop_state.project_id
             )
+            try:
+                if self._metrics is not None:
+                    self._metrics.counter("loop_stop_count").increment()
+            except Exception:
+                pass
             await self._trigger_escalation(loop_state, "State hash repeated 3 times — stopping loop")
             return LoopDecision.STOP
 
@@ -245,6 +256,11 @@ class LoopGovernor:
                 loop_state.max_retries(),
                 loop_state.project_id,
             )
+            try:
+                if self._metrics is not None:
+                    self._metrics.counter("loop_escalate_count").increment()
+            except Exception:
+                pass
             await self._trigger_escalation(loop_state, "Retry limit exceeded")
             return LoopDecision.ESCALATE
 
@@ -257,6 +273,11 @@ class LoopGovernor:
                 "[LoopGovernor] SYSTEM failure — escalating. agent=%s project=%s",
                 loop_state.agent_type.value, loop_state.project_id
             )
+            try:
+                if self._metrics is not None:
+                    self._metrics.counter("loop_escalate_count").increment()
+            except Exception:
+                pass
             await self._trigger_escalation(loop_state, f"System failure: {failure_reason.value}")
             return LoopDecision.ESCALATE
 
@@ -268,6 +289,11 @@ class LoopGovernor:
                 "agent=%s attempt=%d backoff=%.1fs",
                 loop_state.agent_type.value, loop_state.attempt_count, delay
             )
+            try:
+                if self._metrics is not None:
+                    self._metrics.counter("loop_restore_count").increment()
+            except Exception:
+                pass
             if delay > 0:
                 await asyncio.sleep(delay)
             return LoopDecision.RESTORE
@@ -279,6 +305,11 @@ class LoopGovernor:
                 "agent=%s project=%s",
                 loop_state.agent_type.value, loop_state.project_id
             )
+            try:
+                if self._metrics is not None:
+                    self._metrics.counter("loop_escalate_count").increment()
+            except Exception:
+                pass
             await self._trigger_escalation(loop_state, f"Unknown failure: {failure_reason.value}")
             return LoopDecision.ESCALATE
 
@@ -293,6 +324,11 @@ class LoopGovernor:
             delay,
             failure_reason.value,
         )
+        try:
+            if self._metrics is not None:
+                self._metrics.counter("loop_retry_count").increment()
+        except Exception:
+            pass
         if delay > 0:
             await asyncio.sleep(delay)
         return LoopDecision.RETRY

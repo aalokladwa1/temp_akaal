@@ -11,7 +11,14 @@ Execution Sessions, Execution Workspace, Checkpoint Repository.
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
+
+if TYPE_CHECKING:
+    # Imported only for type annotations to avoid a circular import at runtime.
+    # ObservabilityContext depends on MetricsRegistry; nothing in metrics
+    # depends on project.py, so there is no real circular dependency.
+    from akaal.core.observability import ObservabilityContext
+    from akaal.metrics.summary import MigrationSummary
 
 from akaal.core.models.enums import (
     MigrationStrategy,
@@ -101,6 +108,49 @@ class MigrationProject:
     approved_by: Optional[str] = None
     approved_at: Optional[str] = None
 
+    # Phase 7F Adaptive Batch Sizing
+    use_adaptive_batch: bool = False
+    minimum_batch_size: int = 10
+    initial_batch_size: int = 500
+    maximum_batch_size: int = 5000
+    growth_factor: float = 1.5
+    shrink_factor: float = 0.5
+    target_batch_duration_ms: float = 1000.0
+    adjustment_window: int = 3
+
+    # Phase 7G Parallel Migration
+    enable_parallel_migration: bool = False
+    max_parallel_workers: int = 4
+    worker_queue_size: int = 100
+    scheduler_policy: str = "fifo"
+    worker_idle_timeout: float = 60.0
+    worker_shutdown_timeout: float = 10.0
+
+    # Phase 7H Connection Pooling
+    enable_connection_pooling: bool = False
+    minimum_pool_size: int = 1
+    pool_size: int = 4
+    maximum_pool_size: int = 10
+    connection_idle_timeout: float = 60.0
+    acquisition_timeout: float = 5.0
+    validation_interval: float = 30.0
+    connection_validation_on_checkout: bool = True
+
+    # Phase 7I Memory Optimization
+    enable_memory_optimization: bool = True
+    memory_cleanup_interval: int = 5
+    memory_warning_threshold_mb: float = 512.0
+
+    # Phase 7J Structured Logging
+    log_format: str = "text"
+    log_level: str = "INFO"
+    log_to_console: bool = True
+    log_to_file: bool = True
+    log_directory: str = "logs"
+    log_file_name: str = "akaal.log"
+    log_rotation_size_mb: int = 10
+    log_backup_count: int = 5
+
     def transition_to(self, new_state: WorkflowState, reason: str = "") -> None:
         """
         Record a state transition.
@@ -142,7 +192,41 @@ class MigrationProject:
             "validation_pass_count": self.validation_pass_count,
             "validation_fail_count": self.validation_fail_count,
             "state_history": self.state_history,
+            "use_adaptive_batch": self.use_adaptive_batch,
+            "minimum_batch_size": self.minimum_batch_size,
+            "initial_batch_size": self.initial_batch_size,
+            "maximum_batch_size": self.maximum_batch_size,
+            "growth_factor": self.growth_factor,
+            "shrink_factor": self.shrink_factor,
+            "target_batch_duration_ms": self.target_batch_duration_ms,
+            "adjustment_window": self.adjustment_window,
+            "enable_parallel_migration": self.enable_parallel_migration,
+            "max_parallel_workers": self.max_parallel_workers,
+            "worker_queue_size": self.worker_queue_size,
+            "scheduler_policy": self.scheduler_policy,
+            "worker_idle_timeout": self.worker_idle_timeout,
+            "worker_shutdown_timeout": self.worker_shutdown_timeout,
+            "enable_connection_pooling": self.enable_connection_pooling,
+            "minimum_pool_size": self.minimum_pool_size,
+            "pool_size": self.pool_size,
+            "maximum_pool_size": self.maximum_pool_size,
+            "connection_idle_timeout": self.connection_idle_timeout,
+            "acquisition_timeout": self.acquisition_timeout,
+            "validation_interval": self.validation_interval,
+            "connection_validation_on_checkout": self.connection_validation_on_checkout,
+            "enable_memory_optimization": self.enable_memory_optimization,
+            "memory_cleanup_interval": self.memory_cleanup_interval,
+            "memory_warning_threshold_mb": self.memory_warning_threshold_mb,
+            "log_format": self.log_format,
+            "log_level": self.log_level,
+            "log_to_console": self.log_to_console,
+            "log_to_file": self.log_to_file,
+            "log_directory": self.log_directory,
+            "log_file_name": self.log_file_name,
+            "log_rotation_size_mb": self.log_rotation_size_mb,
+            "log_backup_count": self.log_backup_count,
         }
+
 
 
 # ---------------------------------------------------------------------------
@@ -155,6 +239,14 @@ class MigrationSession:
     """
     Represents a single execution session within a project.
     A new session is created when a migration resumes from checkpoint.
+
+    Phase 7K — Observability
+    ------------------------
+    Each session owns exactly one ``ObservabilityContext`` for its entire
+    lifetime.  The context in turn owns a ``MetricsRegistry``, ensuring the
+    registry is never shared across sessions and is never a global singleton.
+    ``metrics_summary`` is populated by the Pipeline after migration completes;
+    it is ``None`` until that point.
     """
     project_id: str
     session_id: str = field(default_factory=_new_id)
@@ -170,6 +262,12 @@ class MigrationSession:
     total_batches: int = 0
     completed_batches: int = 0
     failed_batches: int = 0
+
+    # Phase 7K — Observability (optional to preserve backward compatibility)
+    # ``observability`` is None until explicitly set by the Pipeline.
+    observability: Optional[Any] = field(default=None, repr=False)
+    # ``metrics_summary`` is populated after migration completion by SummaryGenerator.
+    metrics_summary: Optional[Any] = field(default=None, repr=False)
 
     def complete(self) -> None:
         self.ended_at = _utc_now()

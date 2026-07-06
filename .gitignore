@@ -1,0 +1,20 @@
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local databases and workspaces
+*.db
+validation_workspace/
+akaal_workspace/
+smoke_test_workspace/
+
+# Environment / Credentials configuration
+config.json
+
+# Large generated datasets
+sample_data.sql

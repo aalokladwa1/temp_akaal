@@ -13,7 +13,7 @@ Status: STUB — implement connect(), read_batch(), write_batch() with real SDK 
 """
 
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from akaal.adapters.base_adapter import BaseAdapter
 from akaal.core.models.enums import SystemType, AdapterCapability
 
@@ -81,7 +81,13 @@ class MongoDBAdapter(BaseAdapter):
     # Data Operations
     # ------------------------------------------------------------------
 
-    async def read_batch(self, table_name: str, offset: int, limit: int) -> List[Dict[str, Any]]:
+    async def read_batch(
+        self,
+        table_name: str,
+        offset: int,
+        limit: int,
+        last_processed_primary_key: Optional[Dict[str, Any]] = None,
+    ) -> List[Dict[str, Any]]:
         raise NotImplementedError("MongoDBAdapter.read_batch() not yet implemented.")
 
     async def write_batch(self, table_name: str, rows: List[Dict[str, Any]]) -> int:

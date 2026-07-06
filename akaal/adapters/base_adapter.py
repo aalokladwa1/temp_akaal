@@ -25,6 +25,28 @@ class BaseAdapter(ABC):
     def __init__(self, config: "ConnectionConfig") -> None:
         self.config = config
         self.is_connected = False
+        self.mock_mode = getattr(config, "mock_mode", False) or getattr(config, "host", "") in ("mock-db.example.com", "mock_host")
+
+    def get_connection(self) -> Any:
+        """Get the underlying native connection handle."""
+        return getattr(self, "_conn", None)
+
+    def set_connection(self, conn: Any) -> None:
+        """Set the underlying native connection handle."""
+        self._conn = conn
+
+    async def create_connection(self) -> Any:
+        """Create a new native database connection."""
+        raise NotImplementedError("create_connection not implemented for this adapter")
+
+    async def close_connection(self, conn: Any) -> None:
+        """Close a native database connection."""
+        if conn and hasattr(conn, "close"):
+            conn.close()
+
+    async def validate_connection(self, conn: Any) -> bool:
+        """Validate a native database connection."""
+        return conn is not None
 
     # ------------------------------------------------------------------
     # Connection lifecycle
@@ -82,8 +104,25 @@ class BaseAdapter(ABC):
     # ------------------------------------------------------------------
 
     @abstractmethod
-    async def read_batch(self, table_name: str, offset: int, limit: int) -> List[Dict[str, Any]]:
-        """Read a batch of rows/documents from source."""
+    async def read_batch(
+        self,
+        table_name: str,
+        offset: int,
+        limit: int,
+        last_processed_primary_key: Optional[Dict[str, Any]] = None,
+    ) -> List[Dict[str, Any]]:
+        """Read a batch of rows/documents from source.
+
+        Contract:
+        - If last_processed_primary_key is supplied and the table contains primary keys,
+          the adapter must use cursor-based pagination (e.g. id > last_id).
+        - Must guarantee deterministic ordering matching primary-key ordering.
+        - Must guarantee identical cursor semantics across adapters.
+        - Must support automatic fallback to OFFSET pagination when no primary key is found.
+        - Must enforce strict forward progression (never returning rows at or before cursor).
+        - Must guarantee stable ordering between cursor construction and ORDER BY.
+        - Must utilize indexes and avoid full-table scans whenever indexes exist.
+        """
 
     @abstractmethod
     async def write_batch(self, table_name: str, rows: List[Dict[str, Any]]) -> int:

@@ -75,6 +75,30 @@ class MySQLAdapter(BaseAdapter):
         if self.mock_mode:
             logger.info("[MySQLAdapter] Mock mode: host=%s", config.host)
 
+    async def create_connection(self) -> Any:
+        if self.mock_mode:
+            if getattr(self.config, "host", "") == "connection-fail.example.com":
+                raise ConnectionError("Mock: MySQL connection failure.")
+            return "mock_mysql_conn"
+        try:
+            import pymysql
+            import pymysql.cursors
+        except ImportError:
+            raise RuntimeError("PyMySQL not installed. Run: pip install PyMySQL")
+            
+        user = getattr(self.config, 'username', None) or os.environ.get('AKAAL_MYSQL_USER', 'root')
+        password = getattr(self.config, 'password', None) or os.environ.get('AKAAL_MYSQL_PASSWORD', '')
+        
+        return await asyncio.to_thread(
+            pymysql.connect,
+            host=self.config.host,
+            port=int(getattr(self.config, 'port', 3306)),
+            database=self.config.database_name,
+            user=user,
+            password=password,
+            cursorclass=pymysql.cursors.DictCursor
+        )
+
     async def connect(self) -> None:
         if self.mock_mode:
             if getattr(self.config, "host", "") == "connection-fail.example.com":
@@ -295,17 +319,131 @@ class MySQLAdapter(BaseAdapter):
             return [{"name": r["TABLE_NAME"], "definition": r["VIEW_DEFINITION"]} for r in rows]
         return await asyncio.to_thread(_run)
 
-    async def read_batch(self, table_name: str, offset: int, limit: int) -> List[Dict[str, Any]]:
+    async def _primary_key_columns(self, table_name: str) -> List[str]:
+        """Return all primary key columns for table_name."""
         if self.mock_mode:
-            return [{"id": i, "data": f"mock_row_{i}"} for i in range(offset, offset + limit)]
-        pk = await self._primary_key_column(table_name)
+            if table_name == "composite_table":
+                return ["pk1", "pk2"]
+            elif table_name == "uuid_table":
+                return ["uuid_col"]
+            elif table_name == "string_table":
+                return ["str_col"]
+            elif table_name == "no_pk_table":
+                return []
+            return ["id"]
+
+        sql = """
+            SELECT COLUMN_NAME
+            FROM information_schema.KEY_COLUMN_USAGE
+            WHERE TABLE_SCHEMA = %s
+              AND TABLE_NAME = %s
+              AND CONSTRAINT_NAME = 'PRIMARY'
+            ORDER BY ORDINAL_POSITION
+        """
+        def _run():
+            try:
+                with self._conn.cursor() as cur:
+                    cur.execute(sql, (self.config.database_name, table_name))
+                    rows = cur.fetchall()
+                return [row["COLUMN_NAME"] for row in rows] if rows else []
+            except Exception:
+                return ["id"]
+        return await asyncio.to_thread(_run)
+
+    async def read_batch(
+        self,
+        table_name: str,
+        offset: int,
+        limit: int,
+        last_processed_primary_key: Optional[Dict[str, Any]] = None,
+    ) -> List[Dict[str, Any]]:
+        if self.mock_mode:
+            start_id = offset
+            pk_cols = await self._primary_key_columns(table_name)
+            if last_processed_primary_key and pk_cols:
+                # Mock cursor progression logic
+                if len(pk_cols) == 1:
+                    pk_val = last_processed_primary_key.get(pk_cols[0])
+                    if pk_val is not None:
+                        if isinstance(pk_val, str) and "-" in pk_val:
+                            try:
+                                start_id = int(pk_val.split("-")[-1]) + 1
+                            except ValueError:
+                                start_id = offset
+                        else:
+                            try:
+                                start_id = int(pk_val) + 1
+                            except ValueError:
+                                start_id = offset
+                else:
+                    # Composite key progress: mock using the first pk column
+                    pk_val = last_processed_primary_key.get(pk_cols[0])
+                    if pk_val is not None:
+                        try:
+                            start_id = int(pk_val) + 1
+                        except ValueError:
+                            start_id = offset
+            
+            # Enforce dynamic limit for mock table pagination
+            mock_max_rows = getattr(self.config, "mock_max_rows", 250)
+            if start_id >= mock_max_rows:
+                return []
+            if start_id + limit > 250:
+                limit = mock_max_rows - start_id
+
+            rows = []
+            for i in range(start_id, start_id + limit):
+                row = {"data": f"mock_row_{i}"}
+                if table_name == "composite_table":
+                    row["pk1"] = i
+                    row["pk2"] = i * 10
+                elif table_name == "uuid_table":
+                    row["uuid_col"] = f"uuid-{i}"
+                elif table_name == "string_table":
+                    row["str_col"] = f"str-{i}"
+                elif table_name == "no_pk_table":
+                    row["data"] = f"mock_row_{i}"
+                else:
+                    row["id"] = i
+                rows.append(row)
+            return rows
+
+        pk_cols = await self._primary_key_columns(table_name)
+        
+        # Check if cursor can be used
+        use_cursor = (
+            last_processed_primary_key is not None 
+            and len(pk_cols) > 0 
+            and all(col in last_processed_primary_key for col in pk_cols)
+        )
+
         def _run():
             with self._conn.cursor() as cur:
-                cur.execute(
-                    f'SELECT * FROM `{table_name}` ORDER BY `{pk}` LIMIT %s OFFSET %s',
-                    (limit, offset)
-                )
+                if use_cursor:
+                    conditions = []
+                    params = []
+                    for i in range(len(pk_cols)):
+                        eq_parts = []
+                        for col in pk_cols[:i]:
+                            eq_parts.append(f"`{col}` = %s")
+                            params.append(last_processed_primary_key[col])
+                        curr_col = pk_cols[i]
+                        eq_parts.append(f"`{curr_col}` > %s")
+                        params.append(last_processed_primary_key[curr_col])
+                        conditions.append("(" + " AND ".join(eq_parts) + ")")
+                    
+                    where_clause = " OR ".join(conditions)
+                    order_by = ", ".join([f"`{col}` ASC" for col in pk_cols])
+                    sql = f"SELECT * FROM `{table_name}` WHERE {where_clause} ORDER BY {order_by} LIMIT %s"
+                    params.append(limit)
+                    cur.execute(sql, tuple(params))
+                else:
+                    order_by = ", ".join([f"`{col}` ASC" for col in pk_cols]) if pk_cols else "`id`"
+                    sql = f"SELECT * FROM `{table_name}` ORDER BY {order_by} LIMIT %s OFFSET %s"
+                    cur.execute(sql, (limit, offset))
+                
                 return [dict(row) for row in cur.fetchall()]
+
         return await asyncio.to_thread(_run)
 
     async def write_batch(self, table_name: str, rows: List[Dict[str, Any]]) -> int:
