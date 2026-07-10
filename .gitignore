@@ -18,3 +18,19 @@ config.json
 
 # Large generated datasets
 sample_data.sql
+
+# Akaal runtime
+validation_workspace_resume/
+
+# Runtime logs
+*.log
+*.jsonl
+*run_output.txt
+*test_output*.txt
+
+# Python cache
+*.py[cod]
+
+# OS
+Thumbs.db
+.DS_Store
