@@ -199,7 +199,7 @@ class MySQLAdapter(BaseAdapter):
             ])
         
         sql = """
-            SELECT COLUMN_NAME, DATA_TYPE, COLUMN_TYPE, IS_NULLABLE, COLUMN_DEFAULT
+            SELECT COLUMN_NAME, DATA_TYPE, COLUMN_TYPE, IS_NULLABLE, COLUMN_DEFAULT, EXTRA
             FROM information_schema.COLUMNS
             WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s
             ORDER BY ORDINAL_POSITION
@@ -210,11 +210,14 @@ class MySQLAdapter(BaseAdapter):
                 rows = cur.fetchall()
             cols = []
             for r in rows:
+                col_default = r["COLUMN_DEFAULT"]
+                if r["EXTRA"] == "auto_increment":
+                    col_default = "nextval"
                 cols.append({
                     "name": r["COLUMN_NAME"],
                     "type": r["COLUMN_TYPE"].upper(),
                     "nullable": r["IS_NULLABLE"] == "YES",
-                    "default": r["COLUMN_DEFAULT"],
+                    "default": col_default,
                     "parent_id": None
                 })
             return cols
@@ -453,6 +456,9 @@ class MySQLAdapter(BaseAdapter):
         if not rows:
             return 0
 
+        table_name = table_name.lower()
+        rows = [{k.lower(): v for k, v in r.items()} for r in rows]
+
         pk = await self._primary_key_column(table_name)
         columns = list(rows[0].keys())
         placeholders = ", ".join(["%s"] * len(columns))
@@ -477,7 +483,30 @@ class MySQLAdapter(BaseAdapter):
             logger.warning("[MySQLAdapter] Table %s has no primary key column or PK is missing in rows. Falling back to plain INSERT.", table_name)
             insert_sql = f"INSERT INTO `{table_name}` ({cols_sql}) VALUES ({placeholders})"
 
-        data = [tuple(row[col] for col in columns) for row in rows]
+        import json
+        from decimal import Decimal
+        def _json_default(obj):
+            if isinstance(obj, Decimal):
+                # If it's a whole number, return int, otherwise float
+                if obj % 1 == 0:
+                    return int(obj)
+                return float(obj)
+            raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
+
+        data = []
+        for row in rows:
+            row_data = []
+            for col in columns:
+                val = row[col]
+                if isinstance(val, (dict, list)):
+                    row_data.append(json.dumps(val, default=_json_default))
+                elif isinstance(val, memoryview):
+                    row_data.append(val.tobytes())
+                elif isinstance(val, bytearray):
+                    row_data.append(bytes(val))
+                else:
+                    row_data.append(val)
+            data.append(tuple(row_data))
         
         def _run():
             try:

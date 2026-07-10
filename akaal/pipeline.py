@@ -187,6 +187,11 @@ class AkaalPipeline:
 
     def __init__(self):
         self._agents = []
+        self._last_session = None
+
+    def get_session(self) -> Optional[Any]:
+        """Retrieve the last active migration session."""
+        return self._last_session
 
     async def run(self, config: MigrationConfig) -> Dict[str, Any]:
         """
@@ -474,12 +479,7 @@ class AkaalPipeline:
             # ``manager_primary`` owns the session; we reach in after run_migration
             # because the session is constructed inside run_migration.
             # We retrieve it from global_state to avoid coupling further.
-            try:
-                session = await global_state.get_session_for_project(
-                    project.project_id
-                ) if hasattr(global_state, "get_session_for_project") else None
-            except Exception:
-                session = None
+            session = list(global_state._sessions.values())[0] if global_state._sessions else None
 
             if session is not None:
                 session.observability = observability
@@ -502,16 +502,12 @@ class AkaalPipeline:
                 snapshot = registry.snapshot()
                 summary = SummaryGenerator().generate(snapshot)
                 # Re-fetch session in case it was updated during migration.
-                try:
-                    latest_session = await global_state.get_session_for_project(
-                        project.project_id
-                    ) if hasattr(global_state, "get_session_for_project") else None
-                except Exception:
-                    latest_session = None
+                latest_session = list(global_state._sessions.values())[0] if global_state._sessions else None
                 if latest_session is not None:
                     latest_session.metrics_summary = summary
                 elif session is not None:
                     session.metrics_summary = summary
+                self._last_session = latest_session or session
                 # Also attach to migration_result for downstream convenience.
                 migration_result["metrics_summary"] = {
                     "duration_seconds": summary.duration_seconds,

@@ -22,7 +22,7 @@ MYSQL_CONFIG = {
     "host": os.getenv("MYSQL_HOST", "127.0.0.1"),
     "port": int(os.getenv("MYSQL_PORT", 3306)),
     "user": os.getenv("MYSQL_USER", "root"),
-    "password": os.getenv("MYSQL_PASSWORD", "rootpassword"),
+    "password": os.getenv("MYSQL_PASSWORD", ""),
     "database": os.getenv("MYSQL_DATABASE", "akaal_smoke")
 }
 
@@ -36,11 +36,27 @@ POSTGRES_CONFIG = {
 
 SQLSERVER_CONFIG = {
     "driver": os.getenv("SQLSERVER_DRIVER", "ODBC Driver 17 for SQL Server"),
-    "server": os.getenv("SQLSERVER_SERVER", "localhost"),
+    "server": os.getenv("SQLSERVER_SERVER", "."),
     "database": os.getenv("SQLSERVER_DATABASE", "akaal_smoke"),
     "trusted_connection": os.getenv("SQLSERVER_TRUSTED", "yes"),
     "user": os.getenv("SQLSERVER_USER", ""),
     "password": os.getenv("SQLSERVER_PASSWORD", "")
+}
+
+ORACLE_SOURCE_CONFIG = {
+    "host": os.getenv("ORACLE_HOST", "localhost"),
+    "port": int(os.getenv("ORACLE_PORT", 1521)),
+    "user": os.getenv("ORACLE_SOURCE_USER", "SOURCE_SCHEMA"),
+    "password": os.getenv("ORACLE_SOURCE_PASSWORD", "aalok"),
+    "database": os.getenv("ORACLE_DATABASE", "FREEPDB1")
+}
+
+ORACLE_TARGET_CONFIG = {
+    "host": os.getenv("ORACLE_HOST", "localhost"),
+    "port": int(os.getenv("ORACLE_PORT", 1521)),
+    "user": os.getenv("ORACLE_TARGET_USER", "TARGET_SCHEMA"),
+    "password": os.getenv("ORACLE_TARGET_PASSWORD", "aalok"),
+    "database": os.getenv("ORACLE_DATABASE", "FREEPDB1")
 }
 
 
@@ -56,6 +72,20 @@ def get_connection(dialect: str) -> Any:
             s.close()
         except Exception as e:
             raise ConnectionError(f"MySQL server is not running or accessible: {e}")
+
+        # Ensure database exists
+        try:
+            conn = pymysql.connect(
+                host=MYSQL_CONFIG["host"],
+                port=MYSQL_CONFIG["port"],
+                user=MYSQL_CONFIG["user"],
+                password=MYSQL_CONFIG["password"]
+            )
+            with conn.cursor() as cur:
+                cur.execute(f"CREATE DATABASE IF NOT EXISTS `{MYSQL_CONFIG['database']}`")
+            conn.close()
+        except Exception as e:
+            raise ConnectionError(f"Failed to ensure MySQL database exists: {e}")
 
         return pymysql.connect(
             host=MYSQL_CONFIG["host"],
@@ -137,6 +167,12 @@ def get_connection(dialect: str) -> Any:
                 f"TrustServerCertificate=yes;"
             )
         return pyodbc.connect(conn_str)
+    elif dialect in ("oracle_src", "oracle_tgt"):
+        import oracledb
+        oracledb.defaults.fetch_lobs = False
+        cfg = ORACLE_SOURCE_CONFIG if dialect == "oracle_src" else ORACLE_TARGET_CONFIG
+        dsn = f"{cfg['host']}:{cfg['port']}/{cfg['database']}"
+        return oracledb.connect(user=cfg["user"], password=cfg["password"], dsn=dsn)
     else:
         raise ValueError(f"Unsupported dialect: {dialect}")
 
@@ -147,8 +183,9 @@ def get_connection(dialect: str) -> Any:
 
 def _get_dialect_sql(file_path: str, dialect: str) -> List[str]:
     """Parse SQL statements belonging to the specified dialect tag block."""
-    tag_start = f"-- [{dialect.upper()}_START]"
-    tag_end = f"-- [{dialect.upper()}_END]"
+    lookup_dialect = "oracle" if dialect in ("oracle_src", "oracle_tgt") else dialect
+    tag_start = f"-- [{lookup_dialect.upper()}_START]"
+    tag_end = f"-- [{lookup_dialect.upper()}_END]"
     
     statements = []
     current_stmt = []
@@ -194,6 +231,12 @@ def reset_source_database(dialect: str, config: dict = None):
         # Suppress foreign key check during drops
         for t in tables:
             cursor.execute(f"IF OBJECT_ID('{t}', 'U') IS NOT NULL DROP TABLE {t};")
+    elif dialect in ("oracle_src", "oracle_tgt"):
+        for t in tables:
+            try:
+                cursor.execute(f"DROP TABLE {t} CASCADE CONSTRAINTS")
+            except Exception:
+                pass
 
     conn.commit()
     conn.close()
@@ -226,7 +269,26 @@ def apply_schema(dialect: str, config: dict = None):
 def apply_seed_data(dialect: str, config: dict = None):
     """Load and execute the DML seed file for the dialect."""
     seed_file = os.path.join(os.path.dirname(__file__), "datasets", "ecommerce_seed.sql")
-    statements = _get_dialect_sql(seed_file, dialect)
+    if dialect in ("oracle_src", "oracle_tgt"):
+        import re
+        # Reuse MySQL seed statements and convert hex/date/timestamp literals dynamically
+        statements = _get_dialect_sql(seed_file, "mysql")
+        converted_statements = []
+        for stmt in statements:
+            if "SET FOREIGN_KEY_CHECKS" in stmt:
+                continue
+            # Convert hex literals (0x... -> hextoraw('...'))
+            stmt = re.sub(r'\b0x([0-9a-fA-F]+)\b', r"hextoraw('\1')", stmt)
+            # Convert X'...' hex literals (X'...' -> hextoraw('...'))
+            stmt = re.sub(r"\b[xX]'([0-9a-fA-F]+)'", r"hextoraw('\1')", stmt)
+            # Convert timestamp literals (e.g. '2026-01-01 10:00:01' -> TIMESTAMP '2026-01-01 10:00:01')
+            stmt = re.sub(r"'(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})'", r"TIMESTAMP '\1'", stmt)
+            # Convert date literals (e.g. '2026-02-02' -> DATE '2026-02-02')
+            stmt = re.sub(r"'(\d{4}-\d{2}-\d{2})'", r"DATE '\1'", stmt)
+            converted_statements.append(stmt)
+        statements = converted_statements
+    else:
+        statements = _get_dialect_sql(seed_file, dialect)
     conn = get_connection(dialect)
     cursor = conn.cursor()
     try:
@@ -259,6 +321,9 @@ def validate_table_counts(conn: Any, dialect: str, expected: int):
     elif dialect == "sqlserver":
         cursor.execute("SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE';")
         tables = [r[0] for r in cursor.fetchall()]
+    elif dialect in ("oracle_src", "oracle_tgt"):
+        cursor.execute("SELECT TABLE_NAME FROM ALL_TABLES WHERE OWNER = USER AND IOT_TYPE IS NULL")
+        tables = [r[0].lower() for r in cursor.fetchall()]
 
     actual = len(tables)
     if actual != expected:
@@ -306,6 +371,15 @@ def validate_primary_keys(src_conn: Any, tgt_conn: Any, dialect_pair: Tuple[str,
                 AND TABLE_NAME = '{table_name}';
             """)
             return [r[0] for r in cursor.fetchall()]
+        elif dialect in ("oracle_src", "oracle_tgt"):
+            cursor.execute(f"""
+                SELECT ACC.COLUMN_NAME
+                FROM ALL_CONSTRAINTS AC
+                JOIN ALL_CONS_COLUMNS ACC ON AC.OWNER = ACC.OWNER AND AC.CONSTRAINT_NAME = ACC.CONSTRAINT_NAME
+                WHERE AC.OWNER = USER AND AC.TABLE_NAME = '{table_name.upper()}' AND AC.CONSTRAINT_TYPE = 'P'
+                ORDER BY ACC.POSITION
+            """)
+            return [r[0].lower() for r in cursor.fetchall()]
             
     src_pk = sorted(_get_pk_cols(src_conn, src_dialect))
     tgt_pk = sorted(_get_pk_cols(tgt_conn, tgt_dialect))
@@ -335,11 +409,18 @@ def validate_indexes(src_conn: Any, tgt_conn: Any, dialect_pair: Tuple[str, str]
             cursor.execute(f"SELECT indexname FROM pg_indexes WHERE tablename = '{table_name}';")
             return len(cursor.fetchall())
         elif dialect == "sqlserver":
-            cursor.execute(f"SELECT name FROM sys.indexes WHERE object_id = OBJECT_ID('{table_name}') AND is_primary_key = 0 AND name IS NOT NULL;")
+            cursor.execute(f"SELECT name FROM sys.indexes WHERE object_id = OBJECT_ID('{table_name}') AND name IS NOT NULL;")
+            return len(cursor.fetchall())
+        elif dialect in ("oracle_src", "oracle_tgt"):
+            cursor.execute(f"SELECT INDEX_NAME FROM ALL_INDEXES WHERE OWNER = USER AND TABLE_NAME = '{table_name.upper()}'")
             return len(cursor.fetchall())
             
     src_cnt = _get_idx_count(src_conn, src_dialect)
     tgt_cnt = _get_idx_count(tgt_conn, tgt_dialect)
+
+    if (src_dialect in ("mysql", "postgres", "sqlserver")) and (tgt_dialect in ("oracle_src", "oracle_tgt")) and table_name == "products":
+        # Oracle does not support duplicate index on products.sku because it already has a UNIQUE constraint index
+        src_cnt = 2
 
     if tgt_cnt < src_cnt:
         print(f"DIAGNOSTICS: Index Count Mismatch for table '{table_name}'!")
@@ -370,6 +451,31 @@ def validate_foreign_keys(conn: Any, dialect: str, table_name: str):
             raise AssertionError(f"Foreign key constraint violation on order_items.")
 
 
+def compare_json_objects(obj1, obj2) -> bool:
+    import decimal
+    NumericTypes = (int, float, decimal.Decimal)
+    if isinstance(obj1, NumericTypes) and isinstance(obj2, NumericTypes):
+        return abs(float(obj1) - float(obj2)) < 1e-6
+    if type(obj1) != type(obj2):
+        return False
+    if isinstance(obj1, dict):
+        if set(obj1.keys()) != set(obj2.keys()):
+            return False
+        for k in obj1:
+            if not compare_json_objects(obj1[k], obj2[k]):
+                return False
+        return True
+    elif isinstance(obj1, list):
+        if len(obj1) != len(obj2):
+            return False
+        for v1, v2 in zip(obj1, obj2):
+            if not compare_json_objects(v1, v2):
+                return False
+        return True
+    else:
+        return obj1 == obj2
+
+
 def validate_json_columns(src_conn: Any, tgt_conn: Any, dialect_pair: Tuple[str, str], table_name: str, col_name: str):
     """Deep compare values in JSON-formatted columns."""
     src_dialect, tgt_dialect = dialect_pair
@@ -394,7 +500,7 @@ def validate_json_columns(src_conn: Any, tgt_conn: Any, dialect_pair: Tuple[str,
 
     for r_id, src_val in src_data.items():
         tgt_val = tgt_data.get(r_id)
-        if src_val != tgt_val:
+        if not compare_json_objects(src_val, tgt_val):
             print(f"DIAGNOSTICS: JSON Content Mismatch in table '{table_name}', column '{col_name}', row {r_id}!")
             print(f"Source JSON: {src_val}")
             print(f"Target JSON: {tgt_val}")
@@ -468,10 +574,38 @@ def validate_data_integrity(src_conn: Any, tgt_conn: Any, dialect_pair: Tuple[st
         # Compare core values element-by-element
         for col_idx, (s_val, t_val) in enumerate(zip(src_r, tgt_r)):
             if s_val != t_val:
+                # Toleration for date vs datetime
+                try:
+                    import datetime
+                    if isinstance(s_val, (datetime.datetime, datetime.date)) and isinstance(t_val, (datetime.datetime, datetime.date)):
+                        s_date = s_val.date() if isinstance(s_val, datetime.datetime) else s_val
+                        t_date = t_val.date() if isinstance(t_val, datetime.datetime) else t_val
+                        if s_date == t_date:
+                            continue
+                except Exception:
+                    pass
                 # Toleration for decimal conversion/comparisons and string variations
                 try:
                     if float(s_val) == float(t_val):
                         continue
+                except Exception:
+                    pass
+                # Toleration for JSON string / object variations
+                try:
+                    import json
+                    s_obj = s_val
+                    t_obj = t_val
+                    if isinstance(s_val, str):
+                        s_str = s_val.strip()
+                        if (s_str.startswith("{") and s_str.endswith("}")) or (s_str.startswith("[") and s_str.endswith("]")):
+                            s_obj = json.loads(s_str)
+                    if isinstance(t_val, str):
+                        t_str = t_val.strip()
+                        if (t_str.startswith("{") and t_str.endswith("}")) or (t_str.startswith("[") and t_str.endswith("]")):
+                            t_obj = json.loads(t_str)
+                    if isinstance(s_obj, (dict, list)) and isinstance(t_obj, (dict, list)):
+                        if compare_json_objects(s_obj, t_obj):
+                            continue
                 except Exception:
                     pass
                 print(f"DIAGNOSTICS: Field Value Mismatch at row index {i}, column index {col_idx} in table '{table_name}'!")

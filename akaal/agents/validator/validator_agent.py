@@ -383,7 +383,7 @@ class ValidatorAgent:
         if not t:
             return ""
         t = t.upper()
-        if t in ("TEXT", "NVARCHAR(-1)", "NVARCHAR(MAX)", "VARCHAR(-1)", "VARCHAR(MAX)", "JSON", "JSONB"):
+        if t in ("TEXT", "NVARCHAR(-1)", "NVARCHAR(MAX)", "VARCHAR(-1)", "VARCHAR(MAX)", "JSON", "JSONB", "CLOB"):
             return "LARGE_TEXT_OR_JSON"
         if "VARCHAR" in t or "CHARACTER VARYING" in t or "CHAR" in t or "NVARCHAR" in t:
             return "STRING"
@@ -564,6 +564,9 @@ class ValidatorAgent:
                 c.get("type") == "PRIMARY KEY" for c in tbl_obj.get("constraints", [])
             )
             if has_pk_constraint:
+                pk_constraint_name = next(
+                    (c.get("name") for c in tbl_obj.get("constraints", []) if c.get("type") == "PRIMARY KEY"), None
+                )
                 unique_indexes = [idx for idx in tbl_obj.get("indexes", []) if idx.get("unique")]
                 pk_idx = next(
                     (idx for idx in unique_indexes if idx.get("name") == "primary"), None
@@ -571,6 +574,10 @@ class ValidatorAgent:
                 if pk_idx is None:
                     pk_idx = next(
                         (idx for idx in unique_indexes if idx.get("name", "").endswith("pkey")), None
+                    )
+                if pk_idx is None and pk_constraint_name:
+                    pk_idx = next(
+                        (idx for idx in unique_indexes if idx.get("name") == pk_constraint_name), None
                     )
                 if pk_idx is None and unique_indexes:
                     pk_idx = min(
@@ -593,6 +600,8 @@ class ValidatorAgent:
                 new_cols[col_name] = col_copy
 
             # Rewrite indexes: replace name with structural key
+            raw_indexes = tbl_obj.get("indexes", [])
+            unique_idx_cols = {tuple(sorted(idx["columns"])) for idx in raw_indexes if idx.get("unique")}
             new_indexes = sorted(
                 [
                     {
@@ -600,7 +609,8 @@ class ValidatorAgent:
                         "columns": sorted(idx["columns"]),
                         "unique": idx["unique"],
                     }
-                    for idx in tbl_obj.get("indexes", [])
+                    for idx in raw_indexes
+                    if idx.get("unique") or tuple(sorted(idx["columns"])) not in unique_idx_cols
                 ],
                 key=lambda x: json.dumps(x, sort_keys=True)
             )
@@ -703,10 +713,25 @@ class ValidatorAgent:
         pk_columns_by_table: Dict[str, Set[str]] = {}
         for tbl_name, tbl_obj in norm_expected.items():
             pk_cols: Set[str] = set()
-            for idx in tbl_obj.get("indexes", []):
-                # Primary-key indexes are unique and named 'primary' after normalization
-                if idx.get("unique") and idx.get("name") == "primary":
-                    pk_cols.update(idx.get("columns", []))
+            has_pk_constraint = any(
+                c.get("type") == "PRIMARY KEY" for c in tbl_obj.get("constraints", [])
+            )
+            if has_pk_constraint:
+                unique_indexes = [idx for idx in tbl_obj.get("indexes", []) if idx.get("unique")]
+                pk_idx = next(
+                    (idx for idx in unique_indexes if idx.get("name") == "primary"), None
+                )
+                if pk_idx is None:
+                    pk_idx = next(
+                        (idx for idx in unique_indexes if idx.get("name", "").endswith("pkey")), None
+                    )
+                if pk_idx is None and unique_indexes:
+                    pk_idx = min(
+                        unique_indexes,
+                        key=lambda x: (len(x["columns"]), x.get("name", ""))
+                    )
+                if pk_idx:
+                    pk_cols.update(pk_idx.get("columns", []))
             pk_columns_by_table[tbl_name] = pk_cols
 
         # 3. Compute the *normalized structural checksum* for structural equivalence
@@ -913,7 +938,10 @@ class ValidatorAgent:
                             pk_fk_diff=msg
                         )
                     else:
-                        has_matching_uniqueness = any(ai["unique"] == idx["unique"] for ai in matching_actuals)
+                        has_matching_uniqueness = any(
+                            (ai["unique"] == idx["unique"]) or (ai["unique"] and not idx["unique"])
+                            for ai in matching_actuals
+                        )
                         if not has_matching_uniqueness:
                             actuals_uniqueness = [ai['unique'] for ai in matching_actuals]
                             msg = f"Table '{name}' Index on {idx['columns']}: uniqueness mismatch. Expected {idx['unique']}, got {actuals_uniqueness}"

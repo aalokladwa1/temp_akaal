@@ -91,23 +91,56 @@ class OracleAdapter(BaseAdapter):
     async def create_connection(self) -> Any:
         if self.mock_mode:
             return "mock_oracle_conn"
-        wallet_path = os.getenv("ORACLE_WALLET_PATH")
-        tns_entry = os.getenv("ORACLE_TNS_ENTRY")
-        if not wallet_path or not tns_entry:
-            raise RuntimeError("Oracle wallet path or TNS entry not set in environment")
+            
         user = getattr(self.config, "username", None)
         password = getattr(self.config, "password", None)
         if not user or not password:
             raise RuntimeError("Adapter config must include username and password")
-        dsn = tns_entry
-        def _sync_connect():
-            return oracledb.connect(
-                user=user,
-                password=password,
-                dsn=dsn,
-                config_dir=wallet_path,
-                mode=oracledb.DEFAULT_AUTH,
-            )
+            
+        host = getattr(self.config, "host", None)
+        port = getattr(self.config, "port", None)
+        database = getattr(self.config, "database_name", getattr(self.config, "database", None))
+        
+        wallet_path = os.getenv("ORACLE_WALLET_PATH")
+        tns_entry = os.getenv("ORACLE_TNS_ENTRY")
+        
+        def _output_type_handler(cursor, name, default_type=None, size=None, precision=None, scale=None):
+            if default_type is None and not isinstance(name, str):
+                metadata = name
+                type_code = metadata.type_code
+            else:
+                type_code = default_type
+
+            if type_code == oracledb.DB_TYPE_CLOB:
+                return cursor.var(oracledb.DB_TYPE_LONG, arraysize=cursor.arraysize)
+            if type_code == oracledb.DB_TYPE_BLOB:
+                return cursor.var(oracledb.DB_TYPE_LONG_RAW, arraysize=cursor.arraysize)
+
+        if host and port and database:
+            dsn = f"{host}:{port}/{database}"
+            def _sync_connect():
+                conn = oracledb.connect(
+                    user=user,
+                    password=password,
+                    dsn=dsn,
+                    mode=oracledb.DEFAULT_AUTH,
+                )
+                conn.outputtypehandler = _output_type_handler
+                return conn
+        else:
+            if not wallet_path or not tns_entry:
+                raise RuntimeError("Oracle host/port/database or wallet path/TNS entry not set")
+            dsn = tns_entry
+            def _sync_connect():
+                conn = oracledb.connect(
+                    user=user,
+                    password=password,
+                    dsn=dsn,
+                    config_dir=wallet_path,
+                    mode=oracledb.DEFAULT_AUTH,
+                )
+                conn.outputtypehandler = _output_type_handler
+                return conn
         return await asyncio.to_thread(_sync_connect)
 
     async def close_connection(self, conn: Any) -> None:
@@ -126,7 +159,7 @@ class OracleAdapter(BaseAdapter):
             return False
 
     async def connect(self) -> None:
-        """Establish an async Oracle connection using wallet credentials."""
+        """Establish an async Oracle connection."""
         self._conn = await self.create_connection()
         self.is_connected = True
         logger.info("[OracleAdapter] Connected.")
@@ -137,6 +170,7 @@ class OracleAdapter(BaseAdapter):
             self._conn = None
         self.is_connected = False
         logger.info("[OracleAdapter] Connection closed.")
+
 
     async def check_permissions(self) -> bool:
         if not self._conn:
@@ -187,7 +221,7 @@ class OracleAdapter(BaseAdapter):
 
         sql = """
             SELECT COLUMN_NAME, DATA_TYPE, DATA_LENGTH, DATA_PRECISION, DATA_SCALE,
-                   NULLABLE, DATA_DEFAULT
+                   NULLABLE, DATA_DEFAULT, IDENTITY_COLUMN
             FROM ALL_TAB_COLUMNS
             WHERE OWNER = :owner AND TABLE_NAME = :tbl
             ORDER BY COLUMN_ID
@@ -199,14 +233,25 @@ class OracleAdapter(BaseAdapter):
                 rows = cur.fetchall()
                 cols = []
                 for r in rows:
+                    col_type = r[1]
+                    if col_type == "NUMBER":
+                        if r[4] == 0:
+                            col_type = "INTEGER"
+                        else:
+                            col_type = "DECIMAL"
+                            
+                    default_val = r[6]
+                    if len(r) > 7 and r[7] == "YES":
+                        default_val = "IDENTITY"
+
                     cols.append({
                         "name": r[0],
-                        "type": r[1],
+                        "type": col_type,
                         "length": r[2],
                         "precision": r[3],
                         "scale": r[4],
                         "nullable": r[5] == "Y",
-                        "default": r[6],
+                        "default": default_val,
                     })
                 return cols
 
@@ -318,12 +363,18 @@ class OracleAdapter(BaseAdapter):
             FROM ALL_CONSTRAINTS
             WHERE OWNER = :owner AND TABLE_NAME = :tbl
         """
+        type_map = {
+            "P": "PRIMARY KEY",
+            "U": "UNIQUE",
+            "R": "FOREIGN KEY",
+            "C": "CHECK"
+        }
 
         def _run():
             with self._conn.cursor() as cur:
                 cur.execute(sql, owner=self._schema.upper(), tbl=table_name.upper())
                 rows = cur.fetchall()
-                return [{"name": r[0], "type": r[1]} for r in rows]
+                return [{"name": r[0], "type": type_map.get(r[1], r[1])} for r in rows]
 
         return await asyncio.to_thread(_run)
     
@@ -487,28 +538,13 @@ class OracleAdapter(BaseAdapter):
                     """
                     cur.execute(sql, off=offset, lim=limit)
                 
-                col_names = [d[0] for d in cur.description]
+                col_names = [d[0].lower() for d in cur.description]
                 rows = []
                 for row in cur:
                     rows.append(dict(zip(col_names, row)))
                 return rows
 
         return await asyncio.to_thread(_run)
-
-        return await asyncio.to_thread(_run)
-
-    def _build_merge_sql(self, table_name: str, columns: List[str], pk: str, non_pk: List[str], source_sql: str, cols_quoted: str) -> str:
-        set_clause = ", ".join([f'tgt.{self._quote(c)} = src.{self._quote(c)}' for c in non_pk])
-        merge_sql = f"""
-            MERGE INTO {self._quote(self._schema)}.{self._quote(table_name)} tgt
-            USING (
-                {source_sql}
-            ) src ({cols_quoted})
-            ON (tgt.{self._quote(pk)} = src.{self._quote(pk)})
-            WHEN MATCHED THEN UPDATE SET {set_clause}
-            WHEN NOT MATCHED THEN INSERT ({cols_quoted}) VALUES ({', '.join([f'src.{self._quote(c)}' for c in columns])})
-        """
-        return merge_sql
 
     async def write_batch(self, table_name: str, rows: List[Dict[str, Any]]) -> int:
         if not self._conn:
@@ -520,36 +556,69 @@ class OracleAdapter(BaseAdapter):
             return 0
         pk = await self._primary_key_column(table_name)
         columns = list(rows[0].keys())
-        if not pk or pk not in columns:
-            raise ValueError(f"MERGE requires primary key '{pk}' to be present in rows for table '{table_name}'.")
-        bind_vals = []
-        select_parts = []
-        for row in rows:
-            placeholders = []
-            for col in columns:
-                bind_vals.append(row[col])
-                placeholders.append(f":{len(bind_vals)}")
-            select_parts.append(f"SELECT {', '.join(placeholders)} FROM DUAL")
-        source_sql = " UNION ALL ".join(select_parts)
+
+        # Bind variables by position :1, :2, etc. to avoid DUAL limitations in executemany
+        select_cols = [f":{i+1} AS {self._quote(col)}" for i, col in enumerate(columns)]
+        source_sql = f"SELECT {', '.join(select_cols)} FROM DUAL"
         cols_quoted = ", ".join([self._quote(c) for c in columns])
-        non_pk = [c for c in columns if c != pk]
-        merge_sql = self._build_merge_sql(table_name, columns, pk, non_pk, source_sql, cols_quoted)
+        values_quoted = ", ".join([f"src.{self._quote(c)}" for c in columns])
+
+        if pk and pk in columns:
+            non_pk = [c for c in columns if c != pk]
+            on_clause = f"tgt.{self._quote(pk)} = src.{self._quote(pk)}"
+            merge_sql = f"""
+                MERGE INTO {self._quote(self._schema)}.{self._quote(table_name)} tgt
+                USING (
+                    {source_sql}
+                ) src
+                ON ({on_clause})
+            """
+            if non_pk:
+                set_clause = ", ".join([f"tgt.{self._quote(c)} = src.{self._quote(c)}" for c in non_pk])
+                merge_sql += f"""
+                    WHEN MATCHED THEN UPDATE SET {set_clause}
+                """
+            merge_sql += f"""
+                WHEN NOT MATCHED THEN INSERT ({cols_quoted}) VALUES ({values_quoted})
+            """
+        else:
+            logger.warning("[OracleAdapter] Table %s has no primary key column or PK missing in rows. Falling back to plain INSERT.", table_name)
+            placeholders = ", ".join([f":{i+1}" for i in range(len(columns))])
+            merge_sql = f"INSERT INTO {self._quote(self._schema)}.{self._quote(table_name)} ({cols_quoted}) VALUES ({placeholders})"
+
         # Log the generated MERGE statement before execution
-        logger.debug("[OracleAdapter] Generated MERGE SQL: %s", merge_sql)
+        logger.debug("[OracleAdapter] Generated MERGE SQL for executemany: %s", merge_sql)
+
+        # Prepare parameters list of tuples
+        data = []
+        import json
+        for row in rows:
+            vals = []
+            for col in columns:
+                val = row[col]
+                if isinstance(val, (dict, list)):
+                    val = json.dumps(val)
+                elif isinstance(val, memoryview):
+                    val = val.tobytes()
+                elif isinstance(val, bytearray):
+                    val = bytes(val)
+                vals.append(val)
+            data.append(tuple(vals))
 
         def _run():
             try:
                 with self._conn.cursor() as cur:
-                    cur.execute(merge_sql, bind_vals)
+                    cur.executemany(merge_sql, data)
                 self._conn.commit()
-                logger.debug("[OracleAdapter] MERGE executed successfully.")
+                logger.debug("[OracleAdapter] MERGE/INSERT batch executed successfully.")
             except Exception as exc:
                 self._conn.rollback()
-                logger.exception("[OracleAdapter] MERGE failed: %s", exc)
+                logger.exception("[OracleAdapter] MERGE/INSERT batch failed: %s", exc)
                 raise
 
         await asyncio.to_thread(_run)
         return len(rows)
+
 
     async def get_row_count(self, table_name: str) -> int:
         if not self._conn:
@@ -582,7 +651,7 @@ class OracleAdapter(BaseAdapter):
         def _run():
             with self._conn.cursor() as cur:
                 cur.execute(sql)
-                col_names = [d[0] for d in cur.description]
+                col_names = [d[0].lower() for d in cur.description]
                 hashes = []
                 for row in cur:
                     row_dict = dict(zip(col_names, row))

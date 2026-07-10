@@ -102,10 +102,14 @@ class MSSQLAdapter(BaseAdapter):
         trusted = getattr(self.config, "trusted_connection", "no")
         is_trusted = str(trusted).lower() in ("yes", "true")
 
+        server_val = host
+        if host not in (".", "localhost", "127.0.0.1") and port and port != 1433:
+            server_val = f"{host},{port}"
+
         if is_trusted:
             dsn = (
                 f"DRIVER={{{driver}}};"
-                f"SERVER={host},{port};"
+                f"SERVER={server_val};"
                 f"DATABASE={database};"
                 f"Trusted_Connection=Yes;"
                 f"TrustServerCertificate=Yes;"
@@ -113,7 +117,7 @@ class MSSQLAdapter(BaseAdapter):
         else:
             dsn = (
                 f"DRIVER={{{driver}}};"
-                f"SERVER={host},{port};"
+                f"SERVER={server_val};"
                 f"DATABASE={database};"
                 f"UID={user};"
                 f"PWD={password};"
@@ -160,10 +164,14 @@ class MSSQLAdapter(BaseAdapter):
         trusted = getattr(self.config, "trusted_connection", "no")
         is_trusted = str(trusted).lower() in ("yes", "true")
 
+        server_val = host
+        if host not in (".", "localhost", "127.0.0.1") and port and port != 1433:
+            server_val = f"{host},{port}"
+
         if is_trusted:
             dsn = (
                 f"DRIVER={{{driver}}};"
-                f"SERVER={host},{port};"
+                f"SERVER={server_val};"
                 f"DATABASE={database};"
                 f"Trusted_Connection=Yes;"
                 f"TrustServerCertificate=Yes;"
@@ -171,7 +179,7 @@ class MSSQLAdapter(BaseAdapter):
         else:
             dsn = (
                 f"DRIVER={{{driver}}};"
-                f"SERVER={host},{port};"
+                f"SERVER={server_val};"
                 f"DATABASE={database};"
                 f"UID={user};"
                 f"PWD={password};"
@@ -350,19 +358,26 @@ class MSSQLAdapter(BaseAdapter):
         if self.mock_mode:
             return _MOCK_COLUMNS.get(table_name, [{"name": "id", "type": "INT", "nullable": False, "default": None, "parent_id": None}])
         sql = """
-            SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, IS_NULLABLE, COLUMN_DEFAULT
-            FROM INFORMATION_SCHEMA.COLUMNS
-            WHERE TABLE_SCHEMA = 'dbo' AND TABLE_NAME = ?
-            ORDER BY ORDINAL_POSITION
+            SELECT 
+                c.COLUMN_NAME, c.DATA_TYPE, c.CHARACTER_MAXIMUM_LENGTH, 
+                c.IS_NULLABLE, c.COLUMN_DEFAULT,
+                sc.is_identity
+            FROM INFORMATION_SCHEMA.COLUMNS c
+            JOIN sys.objects so ON so.name = c.TABLE_NAME AND so.schema_id = SCHEMA_ID(c.TABLE_SCHEMA)
+            JOIN sys.columns sc ON sc.object_id = so.object_id AND sc.name = c.COLUMN_NAME
+            WHERE c.TABLE_SCHEMA = 'dbo' AND c.TABLE_NAME = ?
+            ORDER BY c.ORDINAL_POSITION
         """
         rows = await self._run_query(sql, (table_name,))
         cols = []
         for r in rows:
-            col_name, data_type, char_max_len, is_nullable, col_default = r
+            col_name, data_type, char_max_len, is_nullable, col_default, is_identity = r
             if char_max_len and data_type.upper() in ("VARCHAR", "NVARCHAR", "CHAR", "NCHAR"):
                 type_str = f"{data_type.upper()}({char_max_len})"
             else:
                 type_str = data_type.upper()
+            if is_identity:
+                col_default = "nextval"
             cols.append({
                 "name": col_name,
                 "type": type_str,
@@ -612,96 +627,140 @@ class MSSQLAdapter(BaseAdapter):
             return len(rows)
         if not rows:
             return 0
+
+        table_name = table_name.lower()
+        rows = [{k.lower(): v for k, v in r.items()} for r in rows]
+        import json
+        from decimal import Decimal
+        def _json_default(obj):
+            if isinstance(obj, Decimal):
+                if obj % 1 == 0:
+                    return int(obj)
+                return float(obj)
+            raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
+
+        serialized_rows = []
+        for row in rows:
+            new_row = {}
+            for k, v in row.items():
+                if isinstance(v, (dict, list)):
+                    new_row[k] = json.dumps(v, default=_json_default)
+                elif isinstance(v, memoryview):
+                    new_row[k] = v.tobytes()
+                elif isinstance(v, bytearray):
+                    new_row[k] = bytes(v)
+                else:
+                    new_row[k] = v
+            serialized_rows.append(new_row)
+        rows = serialized_rows
         pk = await self._primary_key_column(table_name)
         columns = list(rows[0].keys())
         placeholders = ", ".join(["?"] * len(columns))
         cols_sql = ", ".join([f"[{c}]" for c in columns])
-        if pk and pk in columns:
-            non_pk = [c for c in columns if c != pk]
-            if non_pk:
-                merge_sql = f"""
-                    MERGE INTO [{table_name}] AS target
-                    USING (SELECT {placeholders}) AS source ({cols_sql})
-                    ON target.[{pk}] = source.[{pk}]
-                    WHEN MATCHED THEN UPDATE SET {', '.join([f'target.[{c}] = source.[{c}]' for c in non_pk])}
-                    WHEN NOT MATCHED THEN INSERT ({cols_sql}) VALUES ({placeholders});
-                """
-                async with self._connection() as conn_ctx:
-                    if conn_ctx.is_async:
-                        async with conn_ctx.conn.cursor() as cur:
-                            try:
+        
+        async with self._connection() as conn_ctx:
+            if conn_ctx.is_async:
+                async with conn_ctx.conn.cursor() as cur:
+                    has_identity = False
+                    try:
+                        # Check identity property
+                        await cur.execute("SELECT 1 FROM sys.identity_columns WHERE object_id = OBJECT_ID(?)", (table_name,))
+                        has_identity = (await cur.fetchone()) is not None
+                        if has_identity:
+                            await cur.execute(f"SET IDENTITY_INSERT [{table_name}] ON")
+                            
+                        # Branch based on PK presence
+                        if pk and pk in columns:
+                            non_pk = [c for c in columns if c != pk]
+                            if non_pk:
+                                merge_sql = f"""
+                                    MERGE INTO [{table_name}] AS target
+                                    USING (SELECT {placeholders}) AS source ({cols_sql})
+                                    ON target.[{pk}] = source.[{pk}]
+                                    WHEN MATCHED THEN UPDATE SET {', '.join([f'target.[{c}] = source.[{c}]' for c in non_pk])}
+                                    WHEN NOT MATCHED THEN INSERT ({cols_sql}) VALUES ({placeholders});
+                                """
                                 for row in rows:
                                     vals = tuple(row[col] for col in columns)
                                     await cur.execute(merge_sql, vals * 2)
-                                await conn_ctx.conn.commit()
-                            except Exception:
-                                await conn_ctx.conn.rollback()
-                                raise
-                    else:
-                        def _run():
-                            with conn_ctx.conn.cursor() as cur:
-                                try:
-                                    for row in rows:
-                                        vals = tuple(row[col] for col in columns)
-                                        cur.execute(merge_sql, vals * 2)
-                                    conn_ctx.conn.commit()
-                                except Exception:
-                                    conn_ctx.conn.rollback()
-                                    raise
-                        await asyncio.to_thread(_run)
-            else:
-                merge_sql = f"""
-                    MERGE INTO [{table_name}] AS target
-                    USING (SELECT {placeholders}) AS source ({cols_sql})
-                    ON target.[{pk}] = source.[{pk}]
-                    WHEN NOT MATCHED THEN INSERT ({cols_sql}) VALUES ({placeholders});
-                """
-                async with self._connection() as conn_ctx:
-                    if conn_ctx.is_async:
-                        async with conn_ctx.conn.cursor() as cur:
-                            try:
+                            else:
+                                merge_sql = f"""
+                                    MERGE INTO [{table_name}] AS target
+                                    USING (SELECT {placeholders}) AS source ({cols_sql})
+                                    ON target.[{pk}] = source.[{pk}]
+                                    WHEN NOT MATCHED THEN INSERT ({cols_sql}) VALUES ({placeholders});
+                                """
                                 for row in rows:
                                     vals = tuple(row[col] for col in columns)
                                     await cur.execute(merge_sql, vals * 2)
-                                await conn_ctx.conn.commit()
-                            except Exception:
-                                await conn_ctx.conn.rollback()
-                                raise
-                    else:
-                        def _run():
-                            with conn_ctx.conn.cursor() as cur:
-                                try:
-                                    for row in rows:
-                                        vals = tuple(row[col] for col in columns)
-                                        cur.execute(merge_sql, vals * 2)
-                                    conn_ctx.conn.commit()
-                                except Exception:
-                                    conn_ctx.conn.rollback()
-                                    raise
-                        await asyncio.to_thread(_run)
-        else:
-            logger.warning("[MSSQLAdapter] Table %s has no primary key column or PK missing in rows. Falling back to plain INSERT.", table_name)
-            insert_sql = f"INSERT INTO [{table_name}] ({cols_sql}) VALUES ({placeholders})"
-            data = [tuple(row[col] for col in columns) for row in rows]
-            async with self._connection() as conn_ctx:
-                if conn_ctx.is_async:
-                    async with conn_ctx.conn.cursor() as cur:
-                        try:
+                        else:
+                            logger.warning("[MSSQLAdapter] Table %s has no primary key column or PK missing in rows. Falling back to plain INSERT.", table_name)
+                            insert_sql = f"INSERT INTO [{table_name}] ({cols_sql}) VALUES ({placeholders})"
+                            data = [tuple(row[col] for col in columns) for row in rows]
                             await cur.executemany(insert_sql, data)
-                            await conn_ctx.conn.commit()
-                        except Exception:
-                            await conn_ctx.conn.rollback()
-                            raise
-                else:
-                    def _run():
-                        with conn_ctx.conn.cursor() as cur:
+                            
+                        await conn_ctx.conn.commit()
+                    except Exception:
+                        await conn_ctx.conn.rollback()
+                        raise
+                    finally:
+                        if has_identity:
                             try:
-                                cur.executemany(insert_sql, data)
-                                conn_ctx.conn.commit()
+                                await cur.execute(f"SET IDENTITY_INSERT [{table_name}] OFF")
                             except Exception:
-                                conn_ctx.conn.rollback()
-                                raise
-                    await asyncio.to_thread(_run)
+                                pass
+            else:
+                def _run():
+                    with conn_ctx.conn.cursor() as cur:
+                        has_identity = False
+                        try:
+                            # Check identity property
+                            cur.execute("SELECT 1 FROM sys.identity_columns WHERE object_id = OBJECT_ID(?)", (table_name,))
+                            has_identity = cur.fetchone() is not None
+                            if has_identity:
+                                cur.execute(f"SET IDENTITY_INSERT [{table_name}] ON")
+                                
+                            # Branch based on PK presence
+                            if pk and pk in columns:
+                                non_pk = [c for c in columns if c != pk]
+                                if non_pk:
+                                    merge_sql = f"""
+                                        MERGE INTO [{table_name}] AS target
+                                        USING (SELECT {placeholders}) AS source ({cols_sql})
+                                        ON target.[{pk}] = source.[{pk}]
+                                        WHEN MATCHED THEN UPDATE SET {', '.join([f'target.[{c}] = source.[{c}]' for c in non_pk])}
+                                        WHEN NOT MATCHED THEN INSERT ({cols_sql}) VALUES ({placeholders});
+                                    """
+                                    for row in rows:
+                                        vals = tuple(row[col] for col in columns)
+                                        cur.execute(merge_sql, vals * 2)
+                                else:
+                                    merge_sql = f"""
+                                        MERGE INTO [{table_name}] AS target
+                                        USING (SELECT {placeholders}) AS source ({cols_sql})
+                                        ON target.[{pk}] = source.[{pk}]
+                                        WHEN NOT MATCHED THEN INSERT ({cols_sql}) VALUES ({placeholders});
+                                    """
+                                    for row in rows:
+                                        vals = tuple(row[col] for col in columns)
+                                        cur.execute(merge_sql, vals * 2)
+                            else:
+                                logger.warning("[MSSQLAdapter] Table %s has no primary key column or PK missing in rows. Falling back to plain INSERT.", table_name)
+                                insert_sql = f"INSERT INTO [{table_name}] ({cols_sql}) VALUES ({placeholders})"
+                                data = [tuple(row[col] for col in columns) for row in rows]
+                                cur.executemany(insert_sql, data)
+                                
+                            conn_ctx.conn.commit()
+                        except Exception:
+                            conn_ctx.conn.rollback()
+                            raise
+                        finally:
+                            if has_identity:
+                                try:
+                                    cur.execute(f"SET IDENTITY_INSERT [{table_name}] OFF")
+                                except Exception:
+                                    pass
+                await asyncio.to_thread(_run)
         return len(rows)
 
     async def get_row_count(self, table_name: str) -> int:

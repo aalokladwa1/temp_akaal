@@ -74,6 +74,14 @@ class PostgreSQLAdapter(BaseAdapter):
         self.mock_mode = getattr(config, "host", "") in _MOCK_HOSTS
         if self.mock_mode:
             logger.info("[PostgreSQLAdapter] Mock mode: host=%s", config.host)
+        self._psycopg2 = None
+        if not self.mock_mode:
+            try:
+                import psycopg2
+                import psycopg2.extras
+                self._psycopg2 = psycopg2
+            except ImportError:
+                pass
 
     async def create_connection(self) -> Any:
         if self.mock_mode:
@@ -444,6 +452,27 @@ class PostgreSQLAdapter(BaseAdapter):
         if not rows:
             return 0
 
+        table_name = table_name.lower()
+        rows = [{k.lower(): v for k, v in r.items()} for r in rows]
+
+        # Query target column types to dynamically cast values for BOOLEAN columns
+        cols_info = await self.discover_columns(table_name)
+        bool_cols = {c["name"].lower() for c in cols_info if c["type"].upper() in ("BOOLEAN", "BOOL")}
+        if bool_cols:
+            casted_rows = []
+            for r in rows:
+                new_row = {}
+                for k, v in r.items():
+                    if k.lower() in bool_cols:
+                        if v is not None and not isinstance(v, bool):
+                            new_row[k] = str(v).lower() in ("1", "true", "yes", "t", "y")
+                        else:
+                            new_row[k] = v
+                    else:
+                        new_row[k] = v
+                casted_rows.append(new_row)
+            rows = casted_rows
+
         pk = await self._primary_key_column(table_name)
         columns = list(rows[0].keys())
         placeholders = ", ".join(["%s"] * len(columns))
@@ -467,7 +496,29 @@ class PostgreSQLAdapter(BaseAdapter):
             logger.warning("[PostgreSQLAdapter] Table %s has no primary key column or PK is missing in rows. Falling back to plain INSERT.", table_name)
             insert_sql = f"INSERT INTO \"{table_name}\" ({cols_sql}) VALUES ({placeholders})"
 
-        data = [tuple(row[col] for col in columns) for row in rows]
+        import json
+        from decimal import Decimal
+        def _json_default(obj):
+            if isinstance(obj, Decimal):
+                if obj % 1 == 0:
+                    return int(obj)
+                return float(obj)
+            raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
+
+        data = []
+        for row in rows:
+            row_data = []
+            for col in columns:
+                val = row[col]
+                if isinstance(val, (dict, list)):
+                    row_data.append(json.dumps(val, default=_json_default))
+                elif isinstance(val, memoryview):
+                    row_data.append(val.tobytes())
+                elif isinstance(val, bytearray):
+                    row_data.append(bytes(val))
+                else:
+                    row_data.append(val)
+            data.append(tuple(row_data))
         _psycopg2 = self._psycopg2
         def _run():
             with self._conn.cursor() as cur:
