@@ -1,72 +1,141 @@
 # Change Log
 
-All notable completed tasks and merged changes to this project will be documented in this file.
-
----
-
 ## 2026-07-10
 
-### Task: Setup Developer Workboards
-* **Developer**: Aalok / Pratham
-* **Task**: Create personal developer task boards `tasks/aalok.md` and `tasks/pratham.md` and integrate them with SPRINT and CURRENT_PHASE logs.
-* **Files Modified**:
-  * `project/CURRENT_PHASE.md`
-  * `project/SPRINT.md`
-  * `project/tasks/aalok.md` [NEW]
-  * `project/tasks/pratham.md` [NEW]
-* **Tests**: Markdown link validation check
-* **Result**: Passed
-* **Commit**: `2dc38c4`
-* **Notes**: Established workflow rules for isolated developer workboards.
+### Set Up Developer Workboards
 
----
+Developer:
+Aalok / Pratham
 
-### Task: Create Project Management Workspace
-* **Developer**: Aalok / Pratham
-* **Task**: Create dedicated project management workspace folder and initialize requirements, blockers, team profiles, and architecture docs.
-* **Files Modified**:
-  * `project/CURRENT_PHASE.md` [NEW]
-  * `project/SPRINT.md` [NEW]
-  * `project/BLOCKERS.md` [NEW]
-  * `project/ARCHITECTURE.md` [NEW]
-  * `project/REQUIREMENTS.md` [NEW]
-  * `project/TEAM.md` [NEW]
-* **Tests**: Markdown formatting and link resolution check
-* **Result**: Passed
-* **Commit**: `da93ead`
-* **Notes**: Operational control center setup for Phase 8 initialization.
+Phase:
+Phase 8 — Enterprise Staging & Production Deployment
 
----
+Description:
+Created personal developer task boards for Aalok and Pratham to isolate workflows and prevent merge conflicts, linking them in SPRINT and CURRENT_PHASE logs.
 
-### Task: Restructure Core Repository Architecture
-* **Developer**: Aalok
-* **Task**: Relocate root-level modules `pipeline.py` and `logging_manager.py` to `akaal/core/` and update references recursively across the codebase.
-* **Files Modified**:
-  * `akaal/__init__.py`
-  * `akaal/agents/gb/gb_agent.py`
-  * `akaal/agents/manager/manager_agent.py`
-  * `akaal/core/observability.py`
-  * `akaal/core/pipeline.py` [MOVED]
-  * `akaal/core/logging_manager.py` [MOVED]
-  * `main.py`
-  * `tests/` and `docs/` files (updated imports in 26 files)
-* **Tests**: Python unittest discover (`py -m unittest discover -s tests -p test_*.py`) & cross-dialect integration tests
-* **Result**: Passed (174/174 unit tests green, regression tests OK)
-* **Commit**: `9897369`
-* **Notes**: Cleared root module namespace clutter while preserving backward-compatibility exports.
+Files Modified:
+- project/CURRENT_PHASE.md
+- project/SPRINT.md
+- project/tasks/aalok.md
+- project/tasks/pratham.md
 
----
+Tests Executed:
+- Markdown link validation check
 
-### Task: Purge Cache Files & Reorganize Tests
-* **Developer**: Aalok
-* **Task**: Delete python compiled bytecode, log dumps, and temp run workspaces. Group active tests under `tests/` into logical subfolders.
-* **Files Modified**:
-  * `.gitignore`
-  * Purged `__pycache__` and `*.pyc` recursively
-  * Deleted `akaal_workspace/` and `validation_workspace/`
-  * Deleted `tests/test_output.log` and 4 other logs
-  * Reorganized `tests/unit/`, `tests/benchmark/`, `tests/stress/`, `tests/recovery/`, `tests/fixtures/`, `tests/archive/`
-* **Tests**: Python unit tests and dialect connection checks
-* **Result**: Passed
-* **Commit**: `38b4500`
-* **Notes**: Pure cleanup commit removing 30.5MB of redundant repository overhead before beginning Phase 8.
+Result:
+✅ Passed
+
+Git Commit:
+2dc38c4
+
+Notes:
+Established workspace tasks subfolder and workflow rules.
+
+------------------------------------------------------------
+
+### Create Project Management Workspace
+
+Developer:
+Aalok / Pratham
+
+Phase:
+Phase 8 — Enterprise Staging & Production Deployment
+
+Description:
+Bootstrapped the project operational control center folder, defining requirements, blocker tracking logs, team responsibilities, and architecture schemas.
+
+Files Modified:
+- project/CURRENT_PHASE.md
+- project/SPRINT.md
+- project/BLOCKERS.md
+- project/ARCHITECTURE.md
+- project/REQUIREMENTS.md
+- project/TEAM.md
+
+Tests Executed:
+- Markdown formatting and link check
+
+Result:
+✅ Passed
+
+Git Commit:
+da93ead
+
+Notes:
+Operational control center initialized.
+
+------------------------------------------------------------
+
+### Restructure Core Repository Architecture
+
+Developer:
+Aalok
+
+Phase:
+Phase 8 — Enterprise Staging & Production Deployment
+
+Description:
+Relocated root-level modules pipeline.py and logging_manager.py into the akaal/core/ package namespace to resolve root clutter, and recursively updated all 26 import sites.
+
+Files Modified:
+- akaal/__init__.py
+- akaal/agents/gb/gb_agent.py
+- akaal/agents/manager/manager_agent.py
+- akaal/core/observability.py
+- akaal/core/pipeline.py
+- akaal/core/logging_manager.py
+- main.py
+- tests/unit/test_metrics_framework.py
+- tests/unit/test_structured_logging.py
+- tests/validation/test_*.py (all 12 dialect tests)
+
+Tests Executed:
+- py -m unittest discover -s tests -p test_*.py
+- run_regression_tests.py
+
+Result:
+✅ Passed
+
+Git Commit:
+9897369
+
+Notes:
+Exposed top-level exports in akaal/__init__.py for backward-compatibility.
+
+------------------------------------------------------------
+
+### Purge Cache Files & Reorganize Tests
+
+Developer:
+Aalok
+
+Phase:
+Phase 8 — Enterprise Staging & Production Deployment
+
+Description:
+Cleaned repository of Python compiled bytecode caches, temporary logging files, and dynamic run workspaces. Sorted the active unit, recovery, stress, benchmark, and stress tests into specialized folders.
+
+Files Modified:
+- .gitignore
+- tests/unit/__init__.py
+- tests/benchmark/__init__.py
+- tests/stress/__init__.py
+- tests/recovery/__init__.py
+- tests/fixtures/config.json
+- tests/fixtures/sample_schema.sql
+- tests/fixtures/sample_data.sql
+
+Tests Executed:
+- py -m unittest discover -s tests -p test_*.py
+- run_regression_tests.py
+
+Result:
+✅ Passed
+
+Git Commit:
+38b4500
+
+Notes:
+Removed ~30.5MB of cache files and stale log configurations.
+
+------------------------------------------------------------
