@@ -570,7 +570,7 @@ class GBAgent:
         """
         p_id = project_id or "default_project"
         m_id = migration_id or "default_migration"
-        from akaal.logging_manager import migration_context
+        from akaal.core.logging_manager import migration_context
         with migration_context(table_name=table_name, worker_id=self.agent_id, agent_id=self.agent_id):
             logger.info("Table migration started", extra={"event": "table_migration_started"})
 

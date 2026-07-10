@@ -70,7 +70,7 @@ Load the generated seed DML statements into your local MySQL source database.
 
 ### Step 4: Run Akaal migration
 Configure the target PostgreSQL connection string parameters in the MigrationConfig and trigger the migration pipeline execution.
-* **Command**: `python -m akaal.pipeline --config config.json`
+* **Command**: `python -m akaal.core.pipeline --config config.json`
 * **Estimated Completion Time**: **5 - 8 minutes** (465,000 records parallel transfer and checkpointing)
 
 ---

@@ -19,7 +19,7 @@ from tests.validation.fixtures import (
     POSTGRES_CONFIG,
     ORACLE_TARGET_CONFIG
 )
-from akaal.pipeline import AkaalPipeline, MigrationConfig
+from akaal.core.pipeline import AkaalPipeline, MigrationConfig
 from akaal.core.models.enums import SystemType, MigrationStrategy
 from akaal.core.models.project import ConnectionConfig
 

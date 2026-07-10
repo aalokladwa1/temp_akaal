@@ -398,7 +398,7 @@ class ManagerAgent:
                 "Cannot re-run a completed or cancelled migration."
             )
 
-        from akaal.logging_manager import migration_context
+        from akaal.core.logging_manager import migration_context
         # Phase 7K — start migration duration timer if registry is available.
         _duration_timer = None
         try:

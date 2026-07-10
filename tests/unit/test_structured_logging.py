@@ -8,12 +8,12 @@ import tempfile
 import unittest
 from unittest.mock import MagicMock
 
-from akaal.logging_manager import (
+from akaal.core.logging_manager import (
     configure_logging,
     get_current_context,
     migration_context,
 )
-from akaal.pipeline import AkaalPipeline, MigrationConfig
+from akaal.core.pipeline import AkaalPipeline, MigrationConfig
 from akaal.core.models.enums import SystemType, MigrationStrategy
 from akaal.core.models.project import ConnectionConfig, MigrationProject
 from akaal.core.checkpoint.checkpoint_record import CheckpointRecord, CheckpointStatus

@@ -1,5 +1,5 @@
 import json
-from akaal.pipeline import AkaalPipeline, MigrationConfig
+from akaal.core.pipeline import AkaalPipeline, MigrationConfig
 from akaal.core.models.project import ConnectionConfig
 from akaal.core.models.enums import SystemType, MigrationStrategy
 

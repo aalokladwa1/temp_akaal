@@ -25,7 +25,7 @@ from tests.integration.fixtures import (
     MYSQL_CONFIG,
     POSTGRES_CONFIG
 )
-from akaal.pipeline import AkaalPipeline, MigrationConfig
+from akaal.core.pipeline import AkaalPipeline, MigrationConfig
 from akaal.core.models.enums import SystemType, MigrationStrategy
 from akaal.core.models.project import ConnectionConfig
 

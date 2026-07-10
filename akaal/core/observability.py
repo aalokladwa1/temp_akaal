@@ -12,7 +12,7 @@ Ownership model
 
 Design rules
 ------------
-* This module does NOT import anything from ``akaal.logging_manager``.
+* This module does NOT import anything from ``akaal.core.logging_manager``.
   Logging context propagation remains entirely in the logging subsystem.
 * This module does NOT import ``SummaryGenerator`` or any exporter.
   Summary generation is performed by the Pipeline *after* migration completion.

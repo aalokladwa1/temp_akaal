@@ -3,7 +3,7 @@ import unittest
 import asyncio
 from unittest.mock import MagicMock, patch
 
-from akaal.pipeline import AkaalPipeline, MigrationConfig
+from akaal.core.pipeline import AkaalPipeline, MigrationConfig
 from akaal.core.models.project import MigrationSession
 from akaal.agents.gb.gb_agent import GBAgent
 from akaal.agents.manager.manager_agent import ManagerAgent

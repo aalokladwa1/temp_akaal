@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from unittest.mock import AsyncMock, MagicMock
 
-from akaal.pipeline import AkaalPipeline, MigrationConfig
+from akaal.core.pipeline import AkaalPipeline, MigrationConfig
 from akaal.core.models.enums import SystemType, MigrationStrategy
 from akaal.core.models.project import ConnectionConfig, MigrationProject, MigrationSession
 from akaal.core.observability import ObservabilityContext

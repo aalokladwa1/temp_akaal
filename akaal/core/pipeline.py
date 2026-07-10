@@ -20,7 +20,7 @@ The single entrypoint that runs the full end-to-end migration:
     └── Human Approval Gate before production cutover
 
 Usage:
-    from akaal.pipeline import AkaalPipeline
+    from akaal.core.pipeline import AkaalPipeline
 
     pipeline = AkaalPipeline()
     result = await pipeline.run(config)
@@ -56,7 +56,7 @@ from akaal.agents.live_intel.live_intel_agent import LiveIntelAgent
 from akaal.core.checkpoint.storage.factory import CheckpointStorageFactory
 from akaal.core.checkpoint.checkpoint_manager import CheckpointManager
 
-logger = logging.getLogger("akaal.pipeline")
+logger = logging.getLogger("akaal.core.pipeline")
 
 
 class MigrationConfig:
@@ -337,7 +337,7 @@ class AkaalPipeline:
     async def _run_agent_fleet(self, config: MigrationConfig) -> Dict[str, Any]:
         """Spin up the 16-agent fleet and run the migration workflow."""
         import uuid
-        from akaal.logging_manager import configure_logging, migration_context
+        from akaal.core.logging_manager import configure_logging, migration_context
         from akaal.core.observability import ObservabilityContext
         from akaal.metrics.summary import SummaryGenerator
 
