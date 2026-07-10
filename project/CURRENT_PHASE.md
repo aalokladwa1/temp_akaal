@@ -37,3 +37,13 @@ To deploy the certified and reorganized database migration engine into staging a
 ## 📝 Notes
 * The repository was completely cleaned of bytecode caches and temp files in the Phase 8 prep commit.
 * The codebase architecture was refactored, relocating `pipeline.py` and `logging_manager.py` into the `akaal/core/` package.
+
+---
+
+## 👥 Team Assignments
+
+| Developer | Current Task | Status |
+|-----------|--------------|--------|
+| Aalok | See [tasks/aalok.md](file:///a:/temp_akaal/project/tasks/aalok.md) | Active |
+| Pratham | See [tasks/pratham.md](file:///a:/temp_akaal/project/tasks/pratham.md) | Active |
+

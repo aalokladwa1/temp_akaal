@@ -29,3 +29,11 @@
 1. Spin up the staging instances for cross-dialect CDC synchronization runs.
 2. Draft the load testing schema specs for the 100K data migration.
 3. Review metrics aggregation hooks for the OpenTelemetry span integration.
+
+---
+
+# Developer Boards
+
+- Aalok → [tasks/aalok.md](file:///a:/temp_akaal/project/tasks/aalok.md)
+- Pratham → [tasks/pratham.md](file:///a:/temp_akaal/project/tasks/pratham.md)
+
