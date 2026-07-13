@@ -19,7 +19,8 @@ from akaal.migration.models import (
     MigrationOperation,
     MigrationPlan,
     DDLCommand,
-    MigrationResult
+    MigrationResult,
+    ExecutionContext
 )
 from akaal.migration.planner import SynchronizationPlanner
 from akaal.migration.dependency import DependencyResolver
@@ -28,10 +29,12 @@ from akaal.migration.ddl import (
     PostgreSQLDDLGenerator,
     MySQLDDLGenerator,
     OracleDDLGenerator,
-    SQLServerDDLGenerator
+    SQLServerDDLGenerator,
+    DDLGeneratorRegistry
 )
 from akaal.migration.executor import SchemaSyncExecutor
 from akaal.migration.workflow import SchemaSyncWorkflow
+from akaal.migration.hashing import calculate_plan_hash
 
 __all__ = [
     "ObjectType",
@@ -55,6 +58,7 @@ __all__ = [
     "MigrationPlan",
     "DDLCommand",
     "MigrationResult",
+    "ExecutionContext",
     "SynchronizationPlanner",
     "DependencyResolver",
     "BaseDDLGenerator",
@@ -62,6 +66,8 @@ __all__ = [
     "MySQLDDLGenerator",
     "OracleDDLGenerator",
     "SQLServerDDLGenerator",
+    "DDLGeneratorRegistry",
     "SchemaSyncExecutor",
-    "SchemaSyncWorkflow"
+    "SchemaSyncWorkflow",
+    "calculate_plan_hash"
 ]

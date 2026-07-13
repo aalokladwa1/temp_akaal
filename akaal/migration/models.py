@@ -210,6 +210,8 @@ class MigrationPlan:
     source_database: str
     target_database: str
     operations: Tuple[MigrationOperation, ...]
+    plan_hash: str = ""
+    created_by: str = ""
     metadata: Dict[str, Any] = field(default_factory=dict)
     statistics: Dict[str, Any] = field(default_factory=dict)
 
@@ -222,7 +224,16 @@ class DDLCommand:
     transaction_required: bool = True
     warnings: Tuple[str, ...] = field(default_factory=tuple)
     estimated_duration: float = 0.0
+    checksum: Optional[str] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
+
+@dataclass
+class ExecutionContext:
+    transaction_required: bool = True
+    retry_policy: Dict[str, Any] = field(default_factory=dict)
+    metrics_collector: Optional[Any] = None
+    audit_context: Dict[str, Any] = field(default_factory=dict)
+    lock_manager: Optional[Any] = None
 
 @dataclass
 class MigrationResult:

@@ -1,6 +1,6 @@
 import time
-from typing import List, Dict, Any
-from akaal.migration.models import DDLCommand, MigrationResult
+from typing import List, Dict, Any, Optional
+from akaal.migration.models import DDLCommand, MigrationResult, ExecutionContext
 
 class SchemaSyncExecutor:
     """
@@ -9,11 +9,17 @@ class SchemaSyncExecutor:
     Only runs DDLCommands, captures failures/warnings, records timings, and returns result.
     """
 
-    async def execute(self, commands: List[DDLCommand]) -> MigrationResult:
+    async def execute(
+        self,
+        commands: List[DDLCommand],
+        context: Optional[ExecutionContext] = None
+    ) -> MigrationResult:
         """
-        Executes a sequence of compiled DDL commands.
+        Executes a sequence of compiled DDL commands under an execution context.
         Returns a MigrationResult summary.
         """
+        # If no execution context is supplied, create a default transaction/retry context.
+        exec_context = context or ExecutionContext()
         start_time = time.perf_counter()
         executed: List[DDLCommand] = []
         failed: List[DDLCommand] = []

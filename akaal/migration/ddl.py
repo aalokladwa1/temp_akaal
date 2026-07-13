@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Dict, Type
+from akaal.core.models.enums import SystemType
 from akaal.migration.models import MigrationOperation, DDLCommand, OperationType, ObjectType
 
 class BaseDDLGenerator(ABC):
@@ -110,6 +111,7 @@ class BaseDDLGenerator(ABC):
             transaction_required=True,
             warnings=tuple(warnings),
             estimated_duration=op.estimated_duration_ms / 1000.0,
+            checksum=None,
             metadata={}
         )
 
@@ -173,3 +175,32 @@ class SQLServerDDLGenerator(BaseDDLGenerator):
 
     def _format_dialect_sql(self, sql: str, rollback_sql: str, op: MigrationOperation) -> Tuple[str, str]:
         return sql, rollback_sql
+
+
+class DDLGeneratorRegistry:
+    """
+    Registry managing association between SystemType dialects and specific DDLGenerators.
+    Allows downstream workflow modules to resolve generators without internal if/elif conditional logic.
+    """
+    _registry: Dict[SystemType, Type[BaseDDLGenerator]] = {}
+
+    @classmethod
+    def register(cls, system_type: SystemType, generator_class: Type[BaseDDLGenerator]) -> None:
+        """Register a generator class for a given system type."""
+        cls._registry[system_type] = generator_class
+
+    @classmethod
+    def get_generator(cls, system_type: SystemType) -> BaseDDLGenerator:
+        """Instantiate and return the registered DDL generator for the system type."""
+        generator_class = cls._registry.get(system_type)
+        if not generator_class:
+            raise ValueError(f"No DDL generator registered for system type: {system_type}")
+        return generator_class()
+
+
+# Centrally register the existing dialect generators
+DDLGeneratorRegistry.register(SystemType.POSTGRESQL, PostgreSQLDDLGenerator)
+DDLGeneratorRegistry.register(SystemType.MYSQL, MySQLDDLGenerator)
+DDLGeneratorRegistry.register(SystemType.MARIADB, MySQLDDLGenerator)
+DDLGeneratorRegistry.register(SystemType.ORACLE, OracleDDLGenerator)
+DDLGeneratorRegistry.register(SystemType.MSSQL, SQLServerDDLGenerator)

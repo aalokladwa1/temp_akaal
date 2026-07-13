@@ -3,13 +3,7 @@ from akaal.core.models.enums import SystemType
 from akaal.migration.models import SchemaComparisonReport, MigrationPlan, MigrationResult, DDLCommand
 from akaal.migration.planner import SynchronizationPlanner
 from akaal.migration.dependency import DependencyResolver
-from akaal.migration.ddl import (
-    BaseDDLGenerator,
-    PostgreSQLDDLGenerator,
-    MySQLDDLGenerator,
-    OracleDDLGenerator,
-    SQLServerDDLGenerator
-)
+from akaal.migration.ddl import BaseDDLGenerator, DDLGeneratorRegistry
 from akaal.migration.executor import SchemaSyncExecutor
 
 class SchemaSyncWorkflow:
@@ -44,39 +38,46 @@ class SchemaSyncWorkflow:
         Orchestrates schema synchronization:
         Planner -> Dependency Resolver -> DDL Generator -> Pre-Hooks -> Executor -> Post-Hooks
         """
+        # [LIFECYCLE HOOK: EVENT_PUBLISHER - ON_PLAN_START]
+        # Future event emitter slot. Will publish: {"report": report, "dialect": target_dialect}
+
         # 1. Semantic Planning
         plan = self.planner.plan(report)
 
+        # [LIFECYCLE HOOK: EVENT_PUBLISHER - ON_PLAN_COMPLETE]
+        # Future event emitter slot. Will publish: {"plan": plan, "plan_hash": plan.plan_hash}
+
         # 2. Dependency Resolution (Topological Sort)
         sorted_ops = self.resolver.resolve(plan)
+
+        # [LIFECYCLE HOOK: EVENT_PUBLISHER - ON_RESOLVE_COMPLETE]
+        # Future event emitter slot. Will publish: {"sorted_operations": sorted_ops}
 
         # 3. DDL Command Generation
         generator = self._get_generator(target_dialect)
         commands = generator.generate_commands(sorted_ops)
 
         # 4. Pre-Execution Hooks
+        # [LIFECYCLE HOOK: EVENT_PUBLISHER - ON_PRE_EXECUTION_HOOKS_START]
         for pre_hook in self._pre_hooks:
             pre_hook(plan, commands)
+
+        # [LIFECYCLE HOOK: EVENT_PUBLISHER - ON_EXECUTE_START]
+        # Future event emitter slot. Will publish: {"commands_count": len(commands)}
 
         # 5. Execution
         result = await self.executor.execute(commands)
 
+        # [LIFECYCLE HOOK: EVENT_PUBLISHER - ON_EXECUTE_COMPLETE]
+        # Future event emitter slot. Will publish: {"result": result, "elapsed_ms": result.elapsed_time_ms}
+
         # 6. Post-Execution Hooks
+        # [LIFECYCLE HOOK: EVENT_PUBLISHER - ON_POST_EXECUTION_HOOKS_START]
         for post_hook in self._post_hooks:
             post_hook(plan, result)
 
         return result
 
     def _get_generator(self, dialect: SystemType) -> BaseDDLGenerator:
-        """Helper to retrieve the generator matching the dialect."""
-        if dialect == SystemType.POSTGRESQL:
-            return PostgreSQLDDLGenerator()
-        elif dialect in (SystemType.MYSQL, SystemType.MARIADB):
-            return MySQLDDLGenerator()
-        elif dialect == SystemType.ORACLE:
-            return OracleDDLGenerator()
-        elif dialect == SystemType.MSSQL:
-            return SQLServerDDLGenerator()
-        
-        # Fallback to standard PostgreSQL DDL Generator if not matched
-        return PostgreSQLDDLGenerator()
+        """Resolves the dialect generator from the centralized DDL Generator Registry."""
+        return DDLGeneratorRegistry.get_generator(dialect)

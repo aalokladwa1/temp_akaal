@@ -309,3 +309,90 @@ class TestSchemaSyncEngine(unittest.TestCase):
         self.assertEqual(result.executed_commands[0].sql, "SQL 1")
         self.assertEqual(result.executed_commands[1].sql, "SQL 2")
         self.assertEqual(result.statistics["commands_count"], 2)
+
+    def test_ddl_generator_registry(self):
+        """
+        Verify that DDLGeneratorRegistry resolves expected generators and supports custom registrations.
+        """
+        from akaal.migration.ddl import DDLGeneratorRegistry, PostgreSQLDDLGenerator, BaseDDLGenerator
+        
+        # Test default registration lookup
+        pg_gen = DDLGeneratorRegistry.get_generator(SystemType.POSTGRESQL)
+        self.assertTrue(isinstance(pg_gen, PostgreSQLDDLGenerator))
+        self.assertEqual(pg_gen.get_dialect_name(), "postgresql")
+
+        # Test custom generator registration
+        class DummyGenerator(BaseDDLGenerator):
+            def get_dialect_name(self) -> str:
+                return "dummy"
+            def _format_dialect_sql(self, sql, rollback_sql, op):
+                return sql, rollback_sql
+
+        DDLGeneratorRegistry.register(SystemType.GENERIC, DummyGenerator)
+        dummy_gen = DDLGeneratorRegistry.get_generator(SystemType.GENERIC)
+        self.assertTrue(isinstance(dummy_gen, DummyGenerator))
+        self.assertEqual(dummy_gen.get_dialect_name(), "dummy")
+
+    def test_ddl_command_optional_metadata(self):
+        """
+        Verify that DDLCommand supports and preserves checksum and metadata attributes.
+        """
+        cmd = DDLCommand(sql="SELECT 1", checksum="abc-123", metadata={"test": "ok"})
+        self.assertEqual(cmd.checksum, "abc-123")
+        self.assertEqual(cmd.metadata, {"test": "ok"})
+
+    def test_execution_context_support(self):
+        """
+        Verify that the executor accepts an ExecutionContext without affecting run success.
+        """
+        from akaal.migration.models import ExecutionContext
+        executor = SchemaSyncExecutor()
+        cmd = DDLCommand(sql="CREATE TABLE dummy", execution_order=0, dialect="sqlite")
+        context = ExecutionContext(transaction_required=False, audit_context={"user": "Aalok"})
+
+        result = asyncio.run(executor.execute([cmd], context=context))
+        self.assertTrue(result.success)
+        self.assertEqual(len(result.executed_commands), 1)
+
+    def test_plan_hash_determinism(self):
+        """
+        Verify that deterministic SHA-256 plan hashes are generated and stable for identical setups.
+        """
+        from akaal.migration.hashing import calculate_plan_hash
+        col = Column(name="status", schema="public")
+        op = MigrationOperation(
+            operation_id="op_status",
+            operation_type=OperationType.CREATE,
+            target_object=col
+        )
+        
+        hash_1 = calculate_plan_hash("src", "tgt", (op,), {"user": "Aalok"})
+        hash_2 = calculate_plan_hash("src", "tgt", (op,), {"user": "Aalok"})
+        hash_diff_db = calculate_plan_hash("src_other", "tgt", (op,), {"user": "Aalok"})
+
+        self.assertEqual(hash_1, hash_2)
+        self.assertNotEqual(hash_1, hash_diff_db)
+        self.assertEqual(len(hash_1), 64) # SHA-256 length
+
+    def test_dot_graph_export(self):
+        """
+        Verify that DependencyResolver.to_dot outputs a valid GraphViz DOT string representation.
+        """
+        resolver = DependencyResolver()
+        tbl = Table(name="age", schema="public")
+        col = Column(name="age", schema="public")
+        op_t = MigrationOperation(operation_id="op_table", operation_type=OperationType.CREATE, target_object=tbl)
+        op_c = MigrationOperation(operation_id="op_col", operation_type=OperationType.CREATE, target_object=col, depends_on=("op_table",))
+
+        plan = MigrationPlan(
+            planner_version="1.0.0", plan_version="1.0.0", generated_at="now",
+            source_database="src", target_database="tgt",
+            operations=(op_t, op_c)
+        )
+
+        dot_output = resolver.to_dot(plan)
+        
+        self.assertIn("digraph G {", dot_output)
+        self.assertIn('"op_table" [label="CREATE TABLE age"];', dot_output)
+        self.assertIn('"op_table" -> "op_col";', dot_output)
+        self.assertIn("}", dot_output)

@@ -65,3 +65,28 @@ class DependencyResolver:
 
         # Step 6: Map back to actual operations
         return [id_to_op[op_id] for op_id in ordered_ids]
+
+    def to_dot(self, plan: MigrationPlan) -> str:
+        """
+        Exports the MigrationPlan dependency graph into GraphViz DOT representation.
+        Provides a non-invasive visual graph debugging format.
+        """
+        lines = [
+            "digraph G {",
+            "    node [shape=box];"
+        ]
+        
+        # Sort operations by ID for stable/deterministic DOT output
+        sorted_ops = sorted(plan.operations, key=lambda o: o.operation_id)
+        
+        for op in sorted_ops:
+            label = f"{op.operation_type.value} {op.target_object.object_type.value} {op.target_object.name}"
+            lines.append(f'    "{op.operation_id}" [label="{label}"];')
+
+        for op in sorted_ops:
+            # Sort dependencies for stable/deterministic line output
+            for dep_id in sorted(list(op.depends_on)):
+                lines.append(f'    "{dep_id}" -> "{op.operation_id}";')
+
+        lines.append("}")
+        return "\n".join(lines)
