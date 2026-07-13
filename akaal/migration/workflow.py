@@ -1,4 +1,4 @@
-from typing import Callable, List, Dict
+from typing import Callable, List, Dict, Any
 from akaal.core.models.enums import SystemType
 from akaal.migration.models import SchemaComparisonReport, MigrationPlan, MigrationResult, DDLCommand
 from akaal.migration.planner import SynchronizationPlanner
@@ -59,14 +59,17 @@ class SchemaSyncWorkflow:
 
         # 4. Pre-Execution Hooks
         # [LIFECYCLE HOOK: EVENT_PUBLISHER - ON_PRE_EXECUTION_HOOKS_START]
+        hook_warnings = []
         for pre_hook in self._pre_hooks:
-            pre_hook(plan, commands)
+            await self._run_hook_safely(pre_hook, plan, commands, hook_warnings)
 
         # [LIFECYCLE HOOK: EVENT_PUBLISHER - ON_EXECUTE_START]
         # Future event emitter slot. Will publish: {"commands_count": len(commands)}
 
         # 5. Execution
         result = await self.executor.execute(commands)
+        if hook_warnings:
+            result.warnings.extend(hook_warnings)
 
         # [LIFECYCLE HOOK: EVENT_PUBLISHER - ON_EXECUTE_COMPLETE]
         # Future event emitter slot. Will publish: {"result": result, "elapsed_ms": result.elapsed_time_ms}
@@ -74,9 +77,29 @@ class SchemaSyncWorkflow:
         # 6. Post-Execution Hooks
         # [LIFECYCLE HOOK: EVENT_PUBLISHER - ON_POST_EXECUTION_HOOKS_START]
         for post_hook in self._post_hooks:
-            post_hook(plan, result)
+            await self._run_hook_safely(post_hook, plan, result, hook_warnings)
 
         return result
+
+    async def _run_hook_safely(self, hook: Callable, arg1: Any, arg2: Any, hook_warnings: List[str]) -> None:
+        import inspect
+        import traceback
+        import logging
+        logger = logging.getLogger("akaal.migration.workflow")
+        try:
+            if inspect.iscoroutinefunction(hook):
+                await hook(arg1, arg2)
+            else:
+                res = hook(arg1, arg2)
+                if inspect.iscoroutine(res):
+                    await res
+        except Exception as e:
+            tb = traceback.format_exc()
+            err_msg = f"Hook execution failed: {e}"
+            hook_warnings.append(err_msg)
+            logger.error(f"{err_msg}\n{tb}")
+
+
 
     def _get_generator(self, dialect: SystemType) -> BaseDDLGenerator:
         """Resolves the dialect generator from the centralized DDL Generator Registry."""

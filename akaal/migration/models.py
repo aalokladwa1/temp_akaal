@@ -227,13 +227,41 @@ class DDLCommand:
     checksum: Optional[str] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
 
-@dataclass
+@dataclass(frozen=True)
 class ExecutionContext:
     transaction_required: bool = True
     retry_policy: Dict[str, Any] = field(default_factory=dict)
     metrics_collector: Optional[Any] = None
     audit_context: Dict[str, Any] = field(default_factory=dict)
     lock_manager: Optional[Any] = None
+    _runtime_metadata: Dict[str, Any] = field(default_factory=dict, hash=False, compare=False)
+    _lock: Any = field(default_factory=lambda: __import__("threading").Lock(), hash=False, compare=False, repr=False)
+
+    def with_metadata(self, key: str, value: Any) -> 'ExecutionContext':
+        """Returns a new execution context instance with updated metadata."""
+        import copy
+        import dataclasses
+        with self._lock:
+            new_metadata = copy.deepcopy(self._runtime_metadata)
+            new_metadata[key] = value
+        return dataclasses.replace(self, _runtime_metadata=new_metadata)
+
+    def get_metadata(self, key: str, default: Any = None) -> Any:
+        """Retrieves a metadata value in a thread-safe manner."""
+        with self._lock:
+            return self._runtime_metadata.get(key, default)
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        if "_lock" in state:
+            del state["_lock"]
+        return state
+
+    def __setstate__(self, state):
+        for k, v in state.items():
+            object.__setattr__(self, k, v)
+        object.__setattr__(self, "_lock", __import__("threading").Lock())
+
 
 @dataclass
 class MigrationResult:

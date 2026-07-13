@@ -187,15 +187,30 @@ class DDLGeneratorRegistry:
     @classmethod
     def register(cls, system_type: SystemType, generator_class: Type[BaseDDLGenerator]) -> None:
         """Register a generator class for a given system type."""
+        if system_type in cls._registry:
+            raise ValueError(f"DDL generator already registered for system type: {system_type}")
         cls._registry[system_type] = generator_class
 
     @classmethod
-    def get_generator(cls, system_type: SystemType) -> BaseDDLGenerator:
+    def get_generator(cls, system_type: Any) -> BaseDDLGenerator:
         """Instantiate and return the registered DDL generator for the system type."""
-        generator_class = cls._registry.get(system_type)
+        resolved_type = None
+        if isinstance(system_type, SystemType):
+            resolved_type = system_type
+        elif isinstance(system_type, str):
+            for st in SystemType:
+                if st.name.lower() == system_type.lower() or st.value.lower() == system_type.lower():
+                    resolved_type = st
+                    break
+        
+        if not resolved_type:
+            raise KeyError(f"Unknown database dialect: '{system_type}'")
+            
+        generator_class = cls._registry.get(resolved_type)
         if not generator_class:
-            raise ValueError(f"No DDL generator registered for system type: {system_type}")
+            raise ValueError(f"No DDL generator registered for system type: {resolved_type}")
         return generator_class()
+
 
 
 # Centrally register the existing dialect generators

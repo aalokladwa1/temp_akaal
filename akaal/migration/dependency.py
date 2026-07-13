@@ -76,17 +76,28 @@ class DependencyResolver:
             "    node [shape=box];"
         ]
         
+        def escape_dot(val: str) -> str:
+            return val.replace("\\", "\\\\").replace('"', '\\"')
+
         # Sort operations by ID for stable/deterministic DOT output
         sorted_ops = sorted(plan.operations, key=lambda o: o.operation_id)
         
         for op in sorted_ops:
-            label = f"{op.operation_type.value} {op.target_object.object_type.value} {op.target_object.name}"
-            lines.append(f'    "{op.operation_id}" [label="{label}"];')
+            op_type_val = op.operation_type.value if hasattr(op.operation_type, "value") else str(op.operation_type)
+            obj_type_val = op.target_object.object_type.value if hasattr(op.target_object.object_type, "value") else str(op.target_object.object_type)
+            label = f"{op_type_val} {obj_type_val} {op.target_object.name}"
+            escaped_id = escape_dot(op.operation_id)
+            escaped_label = escape_dot(label)
+            lines.append(f'    "{escaped_id}" [label="{escaped_label}"];')
+
 
         for op in sorted_ops:
+            escaped_id = escape_dot(op.operation_id)
             # Sort dependencies for stable/deterministic line output
             for dep_id in sorted(list(op.depends_on)):
-                lines.append(f'    "{dep_id}" -> "{op.operation_id}";')
+                escaped_dep = escape_dot(dep_id)
+                lines.append(f'    "{escaped_dep}" -> "{escaped_id}";')
 
         lines.append("}")
         return "\n".join(lines)
+
