@@ -1,0 +1,36 @@
+# Akaal — Requirements
+# ======================
+# Core (no extra installs needed for mock mode)
+pytest>=7.4.0
+pytest-asyncio>=0.23.0
+
+# ──────────────────────────────────────────────────
+# Install the adapter dependencies you need.
+# Only install what matches your source/target DBs.
+# ──────────────────────────────────────────────────
+
+# RDBMS
+psycopg2-binary       # PostgreSQL (real mode)
+oracledb               # Oracle
+# aiomysql              # MySQL / MariaDB
+# aioodbc               # Microsoft SQL Server
+# ibm_db                # IBM Db2
+# aiosqlite             # SQLite
+
+# Data Warehouses
+# snowflake-connector-python    # Snowflake
+# google-cloud-bigquery         # BigQuery
+# redshift-connector            # Amazon Redshift
+# hdfs                          # HDFS
+
+# NoSQL
+# motor                         # MongoDB (async)
+# cassandra-driver              # Apache Cassandra
+# neo4j                         # Neo4j
+# redis                         # Redis
+# elasticsearch                 # Elasticsearch
+
+# Cloud Storage
+# aioboto3                      # Amazon S3
+# google-cloud-storage          # Google Cloud Storage
+# azure-storage-blob            # Azure Blob Storage
