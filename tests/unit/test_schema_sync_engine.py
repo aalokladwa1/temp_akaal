@@ -396,3 +396,33 @@ class TestSchemaSyncEngine(unittest.TestCase):
         self.assertIn('"op_table" [label="CREATE TABLE age"];', dot_output)
         self.assertIn('"op_table" -> "op_col";', dot_output)
         self.assertIn("}", dot_output)
+
+    def test_table_drop_self_dependency_defect(self):
+        """
+        Verify that a Table drop does not depend on itself when the table name 
+        matches its schema name, confirming the fix for the self-comparison defect.
+        """
+        planner = SynchronizationPlanner()
+        # Create a table where schema name equals table name
+        t_obj = Table(name="users", schema="users")
+        
+        diff = ComparisonDifference(
+            difference_id="drop_users",
+            diff_type="REMOVE",
+            object_type=ObjectType.TABLE,
+            object_name="users",
+            old_object=t_obj
+        )
+        report = SchemaComparisonReport(
+            source_schema="src",
+            target_schema="tgt",
+            differences=[diff]
+        )
+        
+        # Generates the plan. Under the bug, the operation will contain itself in depends_on.
+        plan = planner.plan(report)
+        self.assertEqual(len(plan.operations), 1)
+        op = plan.operations[0]
+        
+        # Assert that the operation does NOT depend on itself
+        self.assertNotIn(op.operation_id, op.depends_on)

@@ -277,8 +277,8 @@ class SynchronizationPlanner:
             for other_op in operations:
                 if other_op.operation_type == OperationType.DROP:
                     other_parent = other_op.context.get("table_name")
-                    if other_parent == target_obj.name and other_op.operation_id != other_op.operation_id:
-                        # Avoid matching self-referential id in logic
+                    if other_parent == target_obj.name and other_op.target_object is target_obj:
+                        # Avoid matching self-referential drop in logic
                         pass
                     elif other_parent == target_obj.name:
                         depends_on_list.append(other_op.operation_id)

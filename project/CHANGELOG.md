@@ -284,3 +284,34 @@ Notes:
 Fully compliant with Domain-Driven Design and Single Responsibility principles.
 
 ------------------------------------------------------------
+
+## 2026-07-14
+
+### Resolve Drop-Dependency Self-Loop Defect
+
+Developer:
+Aalok
+
+Phase:
+Phase 8 — Enterprise Staging & Production Deployment
+
+Description:
+Resolved a bug in drop dependency resolution logic where an invalid self-comparison check bypassed the safety filter and caused table drops to self-loop in schemas sharing names with the target table. Replaced self-comparison with correct Python object identity checking (`is`).
+
+Files Modified:
+- akaal/migration/planner.py
+- tests/unit/test_schema_sync_engine.py
+
+Tests Executed:
+- py -m unittest discover -s tests/unit -p "test_*.py"
+
+Result:
+✅ Passed (All 121 unit tests passed)
+
+Git Commit:
+d8003f3
+
+Notes:
+Ensures correct ordering and cycle prevention in database namespaces sharing duplicate identifiers.
+
+------------------------------------------------------------
