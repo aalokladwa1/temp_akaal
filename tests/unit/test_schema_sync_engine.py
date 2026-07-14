@@ -249,8 +249,8 @@ class TestSchemaSyncEngine(unittest.TestCase):
         cmd = cmds[0]
         self.assertTrue(isinstance(cmd, DDLCommand))
         self.assertEqual(cmd.dialect, "postgresql")
-        self.assertEqual(cmd.sql, "ALTER TABLE public.users ADD COLUMN age INT")
-        self.assertEqual(cmd.rollback_sql, "ALTER TABLE public.users DROP COLUMN age")
+        self.assertEqual(cmd.sql, 'ALTER TABLE "public"."users" ADD COLUMN "age" INT')
+        self.assertEqual(cmd.rollback_sql, 'ALTER TABLE "public"."users" DROP COLUMN "age"')
         self.assertEqual(cmd.estimated_duration, 0.15)
         self.assertEqual(cmd.execution_order, 0)
 
@@ -290,7 +290,7 @@ class TestSchemaSyncEngine(unittest.TestCase):
         self.assertTrue(result.success)
         self.assertEqual(hook_seq, [("pre", 1), ("post", True)])
         self.assertEqual(len(result.executed_commands), 1)
-        self.assertEqual(result.executed_commands[0].sql, "CREATE TABLE public.logs (id INT PRIMARY KEY)")
+        self.assertEqual(result.executed_commands[0].sql, 'CREATE TABLE "public"."logs" (id INT PRIMARY KEY)')
 
     def test_executor_isolation(self):
         """
