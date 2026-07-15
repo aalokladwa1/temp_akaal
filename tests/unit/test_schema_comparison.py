@@ -31,6 +31,7 @@ from akaal.core.comparison import (
 )
 from akaal.core.comparison.comparers import COMPARER_REGISTRY
 from akaal.core.comparison.comparers.base import BaseComparer
+from typing import Any
 
 
 class TestSchemaComparison(unittest.TestCase):
