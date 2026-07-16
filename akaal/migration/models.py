@@ -35,11 +35,47 @@ class MigrationObject:
             prefix = f"{self.schema}." if self.schema else ""
             self.object_key = f"{prefix}{self.name}"
 
+class PartitionType(str, Enum):
+    RANGE = "RANGE"
+    LIST = "LIST"
+    HASH = "HASH"
+    KEY = "KEY"
+
+@dataclass(frozen=True)
+class IdentityMetadata:
+    always: bool = False
+    generated_by_default: bool = False
+    start: int = 1
+    increment: int = 1
+    min_value: Optional[int] = None
+    max_value: Optional[int] = None
+    cycle: bool = False
+    cache_size: Optional[int] = None
+    owned_sequence: Optional[str] = None
+    sequence_name: Optional[str] = None
+    current_value: Optional[int] = None
+
+@dataclass(frozen=True)
+class PartitionBoundary:
+    less_than: Optional[str] = None
+    in_values: Optional[Tuple[str, ...]] = None
+    modulus: Optional[int] = None
+    remainder: Optional[int] = None
+
+@dataclass(frozen=True)
+class PartitionMetadata:
+    partition_type: PartitionType
+    partition_keys: Tuple[str, ...]
+    boundaries: Dict[str, PartitionBoundary]
+    is_subpartitioned: bool = False
+    subpartition_metadata: Optional['PartitionMetadata'] = None
+
 @dataclass
 class Column(MigrationObject):
     data_type: str = ""
     nullable: bool = True
     default: Optional[str] = None
+    identity: Optional[IdentityMetadata] = None
 
     def __post_init__(self):
         super().__post_init__()
@@ -73,6 +109,7 @@ class Table(MigrationObject):
     constraints: List[Constraint] = field(default_factory=list)
     indexes: List[Index] = field(default_factory=list)
     partitions: List[Any] = field(default_factory=list)
+    partition_metadata: Optional[PartitionMetadata] = None
 
     def __post_init__(self):
         super().__post_init__()

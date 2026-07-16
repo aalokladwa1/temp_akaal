@@ -18,7 +18,19 @@ class ColumnTranslator(BaseObjectTranslator):
         quoted_col_name = quoter.quote(obj.name)
         data_type = getattr(obj, "data_type", "VARCHAR(255)") or "VARCHAR(255)"
         
-        sql = builder.build_add_column(full_table_name, quoted_col_name, data_type)
+        identity_clause = ""
+        if getattr(obj, "identity", None) is not None:
+            from akaal.migration.ddl.objects.identity import IdentityTranslator
+            ident_translator = IdentityTranslator()
+            ident_res = ident_translator.translate_create(obj, context, quoter, capabilities, builder)
+            if ident_res.sql:
+                identity_clause = " " + ident_res.sql
+        
+        null_clause = " NOT NULL" if not obj.nullable else ""
+        default_clause = f" DEFAULT {obj.default}" if obj.default else ""
+        
+        full_type_desc = f"{data_type}{identity_clause}{null_clause}{default_clause}"
+        sql = builder.build_add_column(full_table_name, quoted_col_name, full_type_desc)
         rollback_sql = builder.build_drop_column(full_table_name, quoted_col_name)
         
         return TranslationResult(sql=sql, rollback_sql=rollback_sql)
