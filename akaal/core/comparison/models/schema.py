@@ -11,6 +11,37 @@ from akaal.core.models.enums import SystemType
 from akaal.core.comparison.models.context import ComparisonContext
 
 
+from enum import Enum
+
+class IdentityMode(str, Enum):
+    GENERATED_ALWAYS = "GENERATED_ALWAYS"
+    GENERATED_BY_DEFAULT = "GENERATED_BY_DEFAULT"
+    SERIAL_FALLBACK = "SERIAL_FALLBACK"
+    EMULATED_TRIGGER = "EMULATED_TRIGGER"
+
+
+@dataclass(frozen=True)
+class IdentityDefinition:
+    """
+    Immutable representation of an identity column specification.
+    """
+    mode: IdentityMode
+    start: int = 1
+    increment: int = 1
+    min_value: Optional[int] = None
+    max_value: Optional[int] = None
+    cycle: bool = False
+    cache: Optional[int] = None
+    order: bool = False
+    explicit_insert_policy: str = "BLOCKED"
+    source_engine: Optional[str] = None
+    source_version: Optional[str] = None
+
+    def __post_init__(self) -> None:
+        if self.increment == 0:
+            raise ValueError("Identity increment cannot be zero.")
+
+
 @dataclass(frozen=True)
 class ColumnSchema:
     """
@@ -22,6 +53,7 @@ class ColumnSchema:
     nullable: bool
     default_value: Optional[str] = None
     raw_default: Optional[str] = None
+    identity: Optional[IdentityDefinition] = None
 
     def is_equivalent(self, other: "ColumnSchema", context: ComparisonContext, is_pk: bool = False) -> bool:
         """
@@ -54,6 +86,10 @@ class ColumnSchema:
             other.data_type,
             is_pk,
         ):
+            return False
+
+        # Identity evaluation
+        if self.identity != other.identity:
             return False
 
         return True

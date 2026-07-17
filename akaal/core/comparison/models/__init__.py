@@ -11,6 +11,7 @@ from akaal.core.comparison.models.exceptions import (
     NormalizationError,
     UnsupportedObjectTypeError,
     SerializationError,
+    IdentityDifference,
 )
 from akaal.core.comparison.models.schema import (
     ColumnSchema,
@@ -20,6 +21,8 @@ from akaal.core.comparison.models.schema import (
     ConstraintSchema,
     TableSchema,
     Schema,
+    IdentityMode,
+    IdentityDefinition,
 )
 from akaal.core.comparison.models.summary import ComparisonSummary
 from akaal.core.comparison.models.differences import (
@@ -46,6 +49,7 @@ __all__ = [
     "NormalizationError",
     "UnsupportedObjectTypeError",
     "SerializationError",
+    "IdentityDifference",
     "ColumnSchema",
     "PrimaryKeySchema",
     "ForeignKeySchema",
@@ -68,4 +72,6 @@ __all__ = [
     "ConstraintDifference",
     "generate_deterministic_id",
     "DifferenceReport",
+    "IdentityMode",
+    "IdentityDefinition",
 ]

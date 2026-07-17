@@ -28,3 +28,16 @@ class UnsupportedObjectTypeError(AkaalComparisonError):
 class SerializationError(AkaalComparisonError):
     """Raised when JSON encoding/decoding of a DifferenceReport fails."""
     pass
+
+
+from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class IdentityDifference:
+    """
+    Represents a specific structural mismatch in identity properties.
+    """
+    property_name: str
+    source_value: str
+    target_value: str
+    severity: str

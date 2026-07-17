@@ -138,6 +138,7 @@ class MaterializedView(MigrationObject):
 @dataclass
 class Trigger(MigrationObject):
     table_name: str = ""
+    table_schema: Optional[str] = None
     timing: str = "BEFORE"  # BEFORE, AFTER, INSTEAD OF
     event: str = "INSERT"   # INSERT, UPDATE, DELETE
     definition: str = ""
@@ -309,3 +310,25 @@ class MigrationResult:
     elapsed_time_ms: float = 0.0
     statistics: Dict[str, Any] = field(default_factory=dict)
     rollback_information: Dict[str, Any] = field(default_factory=dict)
+
+
+# Feature 1 Identity models imports
+from akaal.migration.models.identity import (
+    IdentityRuntimeState,
+    IdentityStateConfidence,
+    GeneratorValueSemantics,
+    GeneratorStateSource,
+    IdentityCompatibilityClass,
+    IdentityCompatibilityResult,
+    IdentityReseedInput,
+    IdentityReseedResult,
+    IdentityActionType,
+    IdentityAction,
+    IdentityMigrationPlan,
+    IdentityApprovalRequirement,
+    IdentityCheckpointState,
+    IdentityExecutionResult,
+    IdentityDiscoveryEvidence,
+    IdentityConsistencyEvidence,
+    IdentityReconstructionRequirement,
+)

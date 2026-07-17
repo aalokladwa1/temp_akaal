@@ -33,6 +33,8 @@ from akaal.core.comparison.models import (
     IndexSchema,
     ConstraintSchema,
     SerializationError,
+    IdentityMode,
+    IdentityDefinition,
 )
 
 
@@ -51,6 +53,24 @@ def _dataclass_to_dict(obj: Any) -> Any:
     return obj
 
 
+def _deserialize_identity(data: Optional[Dict[str, Any]]) -> Optional[IdentityDefinition]:
+    if not data:
+        return None
+    return IdentityDefinition(
+        mode=IdentityMode(data["mode"]),
+        start=data.get("start", 1),
+        increment=data.get("increment", 1),
+        min_value=data.get("min_value"),
+        max_value=data.get("max_value"),
+        cycle=data.get("cycle", False),
+        cache=data.get("cache"),
+        order=data.get("order", False),
+        explicit_insert_policy=data.get("explicit_insert_policy", "BLOCKED"),
+        source_engine=data.get("source_engine"),
+        source_version=data.get("source_version"),
+    )
+
+
 def _deserialize_column(data: Optional[Dict[str, Any]]) -> Optional[ColumnSchema]:
     if not data:
         return None
@@ -61,6 +81,7 @@ def _deserialize_column(data: Optional[Dict[str, Any]]) -> Optional[ColumnSchema
         nullable=data["nullable"],
         default_value=data.get("default_value"),
         raw_default=data.get("raw_default"),
+        identity=_deserialize_identity(data.get("identity")),
     )
 
 
