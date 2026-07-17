@@ -188,6 +188,23 @@ class AkaalPipeline:
     def __init__(self):
         self._agents = []
         self._last_session = None
+        
+        # Bootstrap and inject Procedure Conversion Service
+        try:
+            from akaal.core.conversion.internal.bootstrap import Bootstrap
+            from akaal.migration.ddl.objects.registry import ObjectTranslatorRegistry
+            from akaal.migration.models import ObjectType
+            
+            proc_service = Bootstrap.initialize_procedure_service()
+            proc_translator = ObjectTranslatorRegistry.get_translator(ObjectType.PROCEDURE)
+            if hasattr(proc_translator, "set_service"):
+                proc_translator.set_service(proc_service)
+        except Exception as e:
+            import logging
+            logging.getLogger("akaal.core.pipeline").warning(
+                "Failed to bootstrap and inject Procedure Conversion Service: %s", e
+            )
+
 
     def get_session(self) -> Optional[Any]:
         """Retrieve the last active migration session."""
