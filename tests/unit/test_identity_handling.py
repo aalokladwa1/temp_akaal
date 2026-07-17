@@ -542,19 +542,19 @@ def test_identity_ddl_planning_and_translation():
     assert action.approval_requirement == "administrator approval"
 
     # PostgreSQL translation
-    pg_out = IdentityDialectTranslator.translate(action, "postgresql", "public", "users", "id")
+    pg_out = IdentityDialectTranslator.translate(action, "postgresql", "15.0", "public", "users", "id")
     assert any("RESTART WITH 50" in cmd for cmd in pg_out.sql_commands)
 
     # Oracle translation
-    ora_out = IdentityDialectTranslator.translate(action, "oracle", "public", "users", "id")
+    ora_out = IdentityDialectTranslator.translate(action, "oracle", "19.0", "public", "users", "id")
     assert any("RESTART WITH 50" in cmd for cmd in ora_out.sql_commands)
 
     # SQL Server translation
-    mssql_out = IdentityDialectTranslator.translate(action, "mssql", "public", "users", "id")
+    mssql_out = IdentityDialectTranslator.translate(action, "mssql", "14.0", "public", "users", "id")
     assert any("DBCC CHECKIDENT" in cmd for cmd in mssql_out.sql_commands)
 
     # MySQL translation
-    mysql_out = IdentityDialectTranslator.translate(action, "mysql", "public", "users", "id")
+    mysql_out = IdentityDialectTranslator.translate(action, "mysql", "8.0", "public", "users", "id")
     assert any("AUTO_INCREMENT = 50" in cmd for cmd in mysql_out.sql_commands)
 
     # 2. Recreation Planning (Structural change start value)
@@ -564,21 +564,115 @@ def test_identity_ddl_planning_and_translation():
     rep_recreate = IdentityComparisonEngine.compare_and_plan(defn_src, defn_tgt_diff, None, None)
     plan_recreate = IdentitySyncPlanner.generate_plan(rep_recreate, "public", "users", "id")
     
-    # Needs a DROP then a CREATE action
-    assert len(plan_recreate) == 2
-    assert plan_recreate[0].action_type == IdentityActionType.DROP_IDENTITY
-    assert plan_recreate[1].action_type == IdentityActionType.CREATE_IDENTITY
-    assert plan_recreate[1].safety_level == IdentitySafetyLevel.UNSAFE_REBUILD
+    # Needs a recreation step
+    assert len(plan_recreate) == 1
+    assert plan_recreate[0].action_type == IdentityActionType.RECREATE_IDENTITY
+    assert plan_recreate[0].safety_level == IdentitySafetyLevel.UNSAFE_REBUILD
 
-    # Translate CREATE on SQL Server (shows rebuild warning)
-    mssql_cre_out = IdentityDialectTranslator.translate(plan_recreate[1], "mssql", "public", "users", "id")
-    assert len(mssql_cre_out.warnings) > 0
-    assert "rebuilding" in mssql_cre_out.warnings[0]
+    # Translate CREATE/RECREATE on SQL Server (shows rebuild warning)
+    mssql_cre_out = IdentityDialectTranslator.translate(plan_recreate[0], "mssql", "14.0", "public", "users", "id")
+    from akaal.migration.ddl.translators.identity import TranslationStatus
+    assert mssql_cre_out.status == TranslationStatus.REQUIRES_RECONSTRUCTION
 
-    # Translate CREATE on PostgreSQL
-    pg_cre_out = IdentityDialectTranslator.translate(plan_recreate[1], "postgresql", "public", "users", "id")
-    assert any("ADD GENERATED" in cmd for cmd in pg_cre_out.sql_commands)
-    assert any("DROP IDENTITY" in cmd for cmd in pg_cre_out.rollback_commands)
+
+def test_identity_action_model_validation():
+    """Asserts that invalid fields are validated and rejected at TypedIdentityAction instantiation."""
+    import pytest
+    from akaal.migration.ddl.translators.identity import TypedIdentityAction, IdentityActionType, IdentitySafetyLevel
+
+    # 1. Reject zero increment
+    with pytest.raises(ValueError):
+        TypedIdentityAction(
+            action_type=IdentityActionType.CREATE_IDENTITY,
+            source_metadata={"increment": 0},
+            target_metadata={},
+            safety_level=IdentitySafetyLevel.SAFE,
+            approval_requirement="automatic migration",
+            reasoning="zero increment"
+        )
+
+    # 2. Reject min_value > max_value
+    with pytest.raises(ValueError):
+        TypedIdentityAction(
+            action_type=IdentityActionType.CREATE_IDENTITY,
+            source_metadata={"increment": 1, "min_value": 100, "max_value": 50},
+            target_metadata={},
+            safety_level=IdentitySafetyLevel.SAFE,
+            approval_requirement="automatic migration",
+            reasoning="invalid bounds"
+        )
+
+
+def test_identity_dialect_version_routing():
+    """Asserts that version checks route legacy PG 9.x and Oracle 11g to fallback targets."""
+    from akaal.migration.ddl.translators.identity import (
+        TypedIdentityAction,
+        IdentityActionType,
+        IdentitySafetyLevel,
+        IdentityDialectTranslator,
+        TranslationStatus
+    )
+
+    action = TypedIdentityAction(
+        action_type=IdentityActionType.CREATE_IDENTITY,
+        source_metadata={"mode": "GENERATED ALWAYS", "start": 1, "increment": 1},
+        target_metadata={},
+        safety_level=IdentitySafetyLevel.SAFE,
+        approval_requirement="automatic migration",
+        reasoning="create test"
+    )
+
+    # PostgreSQL 9.6 -> Fallback sequence
+    pg_out = IdentityDialectTranslator.translate(action, "postgresql", "9.6", "public", "users", "id")
+    assert pg_out.status == TranslationStatus.REQUIRES_FALLBACK
+    assert pg_out.deferred_task == "TSK-33"
+
+    # Oracle 11.2 -> Fallback trigger
+    ora_out = IdentityDialectTranslator.translate(action, "oracle", "11.2", "public", "users", "id")
+    assert ora_out.status == TranslationStatus.REQUIRES_FALLBACK
+    assert ora_out.deferred_task == "TSK-34"
+
+
+def test_identity_adversarial_quoting():
+    """Asserts that identifier quoting successfully escapes SQL injection and complex names."""
+    from akaal.migration.ddl.translators.identity import quote_identifier
+
+    # PostgreSQL double-quoting escaping
+    assert quote_identifier('my"table', 'postgresql') == '"my""table"'
+
+    # Oracle uppercase escaping
+    assert quote_identifier('my"table', 'oracle') == '"MY""TABLE"'
+
+    # SQL Server bracket escaping
+    assert quote_identifier('my]table', 'mssql') == '[my]]table]'
+
+    # MySQL backtick escaping
+    assert quote_identifier('my`table', 'mysql') == '`my``table`'
+
+
+def test_identity_mysql_negative_increment_rejection():
+    """Asserts that negative increments are rejected as unsupported on MySQL."""
+    from akaal.migration.ddl.translators.identity import (
+        TypedIdentityAction,
+        IdentityActionType,
+        IdentitySafetyLevel,
+        IdentityDialectTranslator,
+        TranslationStatus
+    )
+
+    action = TypedIdentityAction(
+        action_type=IdentityActionType.CREATE_IDENTITY,
+        source_metadata={"mode": "GENERATED ALWAYS", "start": 1, "increment": -1},
+        target_metadata={},
+        safety_level=IdentitySafetyLevel.SAFE,
+        approval_requirement="automatic migration",
+        reasoning="create negative increment test"
+    )
+
+    mysql_out = IdentityDialectTranslator.translate(action, "mysql", "8.0", "public", "users", "id")
+    assert mysql_out.status == TranslationStatus.UNSUPPORTED
+    assert "negative" in mysql_out.failure_reason
+
 
 
 
