@@ -153,6 +153,21 @@ class BaseAdapter(ABC):
     async def stop_cdc_stream(self) -> None:
         raise NotImplementedError(f"{self.__class__.__name__} does not support CDC.")
 
+    async def resume_from_checkpoint(self, checkpoint: Any) -> None:
+        pass
+
+    async def fetch_changes(self, max_batch: int) -> List[Any]:
+        return []
+
+    async def acknowledge_batch(self, batch_id: str) -> None:
+        pass
+
+    def current_position(self) -> int:
+        return 0
+
+    def health_status(self) -> Any:
+        return None
+
     # ------------------------------------------------------------------
     # Utility
     # ------------------------------------------------------------------

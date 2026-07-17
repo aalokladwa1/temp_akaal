@@ -372,3 +372,27 @@ from akaal.migration.models.partition import (
     PartitionCompatibilityReport,
 )
 
+from akaal.migration.models.cdc import (
+    CDCOperationType,
+    CDCSessionState,
+    ConflictResolutionPolicy,
+    SynchronizationConfiguration,
+    CDCEvent,
+    CDCCheckpoint,
+    SynchronizationMetrics,
+    SynchronizationHealth,
+    SynchronizationSession,
+)
+
+__all__ = [
+    "CDCOperationType",
+    "CDCSessionState",
+    "ConflictResolutionPolicy",
+    "SynchronizationConfiguration",
+    "CDCEvent",
+    "CDCCheckpoint",
+    "SynchronizationMetrics",
+    "SynchronizationHealth",
+    "SynchronizationSession",
+]
+

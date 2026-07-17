@@ -7,6 +7,11 @@ from akaal.migration.execution.scheduler import (
     FailurePolicy,
     RetryPolicyContract
 )
+from akaal.migration.execution.cdc_executor import (
+    CDCEventBuffer,
+    CDCExecutor,
+    CDCSyncSupervisor
+)
 
 __all__ = [
     "TransactionBatcher",
@@ -16,4 +21,7 @@ __all__ = [
     "ScheduledPlan",
     "FailurePolicy",
     "RetryPolicyContract",
+    "CDCEventBuffer",
+    "CDCExecutor",
+    "CDCSyncSupervisor",
 ]

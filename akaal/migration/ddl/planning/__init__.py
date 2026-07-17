@@ -115,3 +115,7 @@ from akaal.migration.ddl.planning.partition_models import (
     RollbackPlan as PartitionRollbackPlan,
     PartitionPlan
 )
+
+from akaal.migration.ddl.planning.cdc_planner import (
+    CDCPlanner
+)

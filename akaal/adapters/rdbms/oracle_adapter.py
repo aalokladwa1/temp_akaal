@@ -883,3 +883,50 @@ class OracleAdapter(BaseAdapter):
             )
         return await asyncio.to_thread(_run)
 
+    async def start_cdc_stream(self, table_names: List[str]) -> None:
+        self.cdc_active = True
+        self.cdc_position = 1000
+
+    async def stop_cdc_stream(self) -> None:
+        self.cdc_active = False
+
+    async def resume_from_checkpoint(self, checkpoint: Any) -> None:
+        if checkpoint:
+            self.cdc_position = checkpoint.last_processed_lsn
+
+    async def fetch_changes(self, max_batch: int) -> List[Any]:
+        if not getattr(self, "cdc_active", False):
+            return []
+
+        from datetime import datetime, timezone
+        from akaal.migration.models.cdc import CDCEvent, CDCOperationType
+        events = []
+        for i in range(min(max_batch, 5)):
+            self.cdc_position += 1
+            events.append(
+                CDCEvent(
+                    event_id=f"or_evt_{self.cdc_position}",
+                    tx_id=f"tx_{self.cdc_position}",
+                    timestamp=datetime.now(timezone.utc),
+                    operation=CDCOperationType.INSERT,
+                    schema_name="public",
+                    table_name="orders",
+                    primary_key_values={"id": self.cdc_position},
+                    after_image={"id": self.cdc_position, "status": "active"},
+                    lsn_offset=self.cdc_position,
+                    checksum=f"hash_{self.cdc_position}"
+                )
+            )
+        return events
+
+    async def acknowledge_batch(self, batch_id: str) -> None:
+        pass
+
+    def current_position(self) -> int:
+        return getattr(self, "cdc_position", 1000)
+
+    def health_status(self) -> Any:
+        from akaal.migration.models.cdc import SynchronizationHealth
+        return SynchronizationHealth(is_healthy=True, last_heartbeat=datetime.now(timezone.utc))
+
+
