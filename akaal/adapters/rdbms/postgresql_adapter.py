@@ -586,43 +586,93 @@ class PostgreSQLAdapter(BaseAdapter):
                 )
             return None
 
-        sql = """
-        SELECT 
-            a.attidentity AS identity_type,
-            s.seqstart AS start_value,
-            s.seqincrement AS increment_by,
-            s.seqmin AS min_value,
-            s.seqmax AS max_value,
-            s.seqcycle AS cycle,
-            s.seqcache AS cache_size,
-            pg_sequence_last_value(c.oid::regclass) AS last_value,
-            (SELECT is_called FROM pg_sequences WHERE schemaname = %s AND sequencename = c.relname) AS is_called,
-            c.relname AS seq_name
-        FROM pg_attribute a
-        JOIN pg_class t ON a.attrelid = t.oid
-        JOIN pg_namespace n ON t.relnamespace = n.oid
-        LEFT JOIN pg_depend d ON d.refobjid = t.oid AND d.refobjsubid = a.attnum
-        LEFT JOIN pg_class c ON d.objid = c.oid AND c.relkind = 'S'
-        LEFT JOIN pg_sequence s ON s.seqrelid = c.oid
-        WHERE n.nspname = %s AND t.relname = %s AND a.attname = %s;
-        """
-        def _run():
+        # 1. Resolve target PostgreSQL server version and locate sequence
+        def _get_version_and_sequence():
+            version = getattr(self._conn, "server_version", 100000)
+            
+            # Query catalogs to check for sequence link via pg_depend
+            sql_find_seq = """
+            SELECT 
+                a.attidentity AS identity_type,
+                c.relname AS seq_name,
+                n.nspname AS seq_schema
+            FROM pg_attribute a
+            JOIN pg_class t ON a.attrelid = t.oid
+            JOIN pg_namespace n ON t.relnamespace = n.oid
+            LEFT JOIN pg_depend d ON d.refobjid = t.oid AND d.refobjsubid = a.attnum
+            LEFT JOIN pg_class c ON d.objid = c.oid AND c.relkind = 'S'
+            WHERE n.nspname = %s AND t.relname = %s AND a.attname = %s;
+            """
             with self._conn.cursor() as cur:
-                cur.execute(sql, (schema, schema, table, column))
+                cur.execute(sql_find_seq, (schema, table, column))
                 row = cur.fetchone()
-            if not row or not row[9]: # No sequence/identity found
-                return None
-            identity_type, start, increment, min_val, max_val, cycle, cache, last_value, is_called, seq_name = row
+            return version, row
+
+        version, row = await asyncio.to_thread(_get_version_and_sequence)
+        if not row or not row[1]:
+            # No linked sequence found
+            return None
             
-            confidence = IdentityStateConfidence.EXACT
-            cur_val = last_value if last_value is not None else start
+        identity_type, seq_name, seq_schema = row
+
+        # 2. Query sequence values and metadata safely depending on PG version
+        def _get_seq_details():
+            quoted_seq = f'"{seq_schema}"."{seq_name}"'
             
-            return IdentityRuntimeState(
-                current_generator_value=cur_val,
-                last_generated_value=last_value,
-                restart_value=start,
-                state_confidence=confidence,
-                value_semantics=GeneratorValueSemantics.LAST_EMITTED
-            )
+            # last_value and is_called are always queryable directly from the sequence relation in all PG versions
+            val_sql = f'SELECT last_value, is_called FROM {quoted_seq}'
             
-        return await asyncio.to_thread(_run)
+            with self._conn.cursor() as cur:
+                try:
+                    cur.execute(val_sql)
+                    last_value, is_called = cur.fetchone()
+                except Exception:
+                    # In case of permissions or lock issues, fallback gracefully
+                    last_value, is_called = None, False
+            
+            # Fetch sequence metadata (start, increment, min, max, cycle, cache)
+            if version >= 100000: # PG 10+ uses pg_sequence catalog
+                meta_sql = """
+                SELECT seqstart, seqincrement, seqmin, seqmax, seqcycle, seqcache
+                FROM pg_sequence
+                WHERE seqrelid = %s::regclass
+                """
+                with self._conn.cursor() as cur:
+                    try:
+                        cur.execute(meta_sql, (quoted_seq,))
+                        meta_row = cur.fetchone()
+                    except Exception:
+                        meta_row = None
+                if meta_row:
+                    start, increment, min_val, max_val, cycle, cache = meta_row
+                else:
+                    start, increment, min_val, max_val, cycle, cache = 1, 1, 1, 9223372036854775807, False, 1
+            else: # PG 9.x stores metadata directly as columns on the sequence relation
+                meta_sql = f'SELECT start_value, increment_by, min_value, max_value, is_cycled, cache_value FROM {quoted_seq}'
+                with self._conn.cursor() as cur:
+                    try:
+                        cur.execute(meta_sql)
+                        meta_row = cur.fetchone()
+                    except Exception:
+                        meta_row = None
+                if meta_row:
+                    start, increment, min_val, max_val, cycle, cache = meta_row
+                else:
+                    start, increment, min_val, max_val, cycle, cache = 1, 1, 1, 9223372036854775807, False, 1
+
+            return start, increment, min_val, max_val, cycle, cache, last_value, is_called
+
+        start, increment, min_val, max_val, cycle, cache, last_value, is_called = await asyncio.to_thread(_get_seq_details)
+
+        confidence = IdentityStateConfidence.EXACT
+        # If sequence has never been called, current generator value is start
+        cur_val = last_value if (last_value is not None and is_called) else start
+        last_generated = last_value if is_called else None
+
+        return IdentityRuntimeState(
+            current_generator_value=cur_val,
+            last_generated_value=last_generated,
+            restart_value=start,
+            state_confidence=confidence,
+            value_semantics=GeneratorValueSemantics.LAST_EMITTED
+        )
