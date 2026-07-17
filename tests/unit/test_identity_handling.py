@@ -273,3 +273,168 @@ async def test_adapters_discover_identity():
     assert mysql_state.current_generator_value == 1
 
 
+def test_state_normalization_align_value():
+    """Asserts that align_value correctly normalizes values to progression index steps."""
+    from akaal.migration.algorithms.progression import IdentityProgressionEngine
+
+    # Positive increment
+    assert IdentityProgressionEngine.align_value(8, start=1, increment=5) == 6
+    assert IdentityProgressionEngine.align_value(1, start=1, increment=5) == 1
+    assert IdentityProgressionEngine.align_value(5, start=1, increment=5) == 1
+
+    # Negative increment
+    assert IdentityProgressionEngine.align_value(92, start=100, increment=-5) == 95
+    assert IdentityProgressionEngine.align_value(100, start=100, increment=-5) == 100
+
+
+def test_positive_safe_next_resolution():
+    """Asserts that positive increments resolve to the correct safe-next values."""
+    from akaal.migration.algorithms.progression import IdentityProgressionEngine
+    from akaal.migration.models.identity import IdentityRuntimeState, GeneratorValueSemantics, IdentityStateConfidence
+
+    # Worked Example 1: Positive unit step (S=1, I=1, max=10)
+    v1 = IdentityProgressionEngine.resolve_safe_next(
+        start=1, increment=1, min_value=1, max_value=100, cycle=False, table_max=10
+    )
+    assert v1 == 11
+
+    # Worked Example 2: Positive non-unit step (S=5, I=5, max=22)
+    v2 = IdentityProgressionEngine.resolve_safe_next(
+        start=5, increment=5, min_value=5, max_value=100, cycle=False, table_max=22
+    )
+    assert v2 == 25
+
+    # With source state LAST_EMITTED
+    src = IdentityRuntimeState(
+        current_generator_value=27,
+        last_generated_value=27,
+        restart_value=5,
+        state_confidence=IdentityStateConfidence.EXACT,
+        value_semantics=GeneratorValueSemantics.LAST_EMITTED
+    )
+    v3 = IdentityProgressionEngine.resolve_safe_next(
+        start=5, increment=5, min_value=5, max_value=100, cycle=False, table_max=22, source_state=src
+    )
+    assert v3 == 30 # (27 normalized is 25, + 1 increment is 30)
+
+    # With source state NEXT_TO_EMIT
+    src_next = IdentityRuntimeState(
+        current_generator_value=27,
+        last_generated_value=None,
+        restart_value=5,
+        state_confidence=IdentityStateConfidence.EXACT,
+        value_semantics=GeneratorValueSemantics.NEXT_TO_EMIT
+    )
+    v4 = IdentityProgressionEngine.resolve_safe_next(
+        start=5, increment=5, min_value=5, max_value=100, cycle=False, table_max=22, source_state=src_next
+    )
+    assert v4 == 30 # ceil((27 - 5)/5) = 5 steps => 5 + 5*5 = 30
+
+
+def test_negative_safe_next_resolution():
+    """Asserts that negative increments resolve to the correct safe-next values."""
+    from akaal.migration.algorithms.progression import IdentityProgressionEngine
+    from akaal.migration.models.identity import IdentityRuntimeState, GeneratorValueSemantics, IdentityStateConfidence
+
+    # Worked Example 3: Negative unit step (S=100, I=-1, min=90)
+    v1 = IdentityProgressionEngine.resolve_safe_next(
+        start=100, increment=-1, min_value=1, max_value=100, cycle=False, table_min=90
+    )
+    assert v1 == 89
+
+    # Worked Example 4: Negative non-unit step (S=100, I=-5, min=83)
+    v2 = IdentityProgressionEngine.resolve_safe_next(
+        start=100, increment=-5, min_value=1, max_value=100, cycle=False, table_min=83
+    )
+    assert v2 == 80
+
+
+def test_bounds_overflow_underflow():
+    """Asserts that out of bounds progressions raise IdentityOverflowErrors."""
+    import pytest
+    from akaal.migration.algorithms.progression import IdentityProgressionEngine, IdentityOverflowError
+
+    # Positive overflow
+    with pytest.raises(IdentityOverflowError):
+        IdentityProgressionEngine.resolve_safe_next(
+            start=1, increment=10, min_value=1, max_value=15, cycle=False, table_max=12
+        )
+
+    # Negative underflow
+    with pytest.raises(IdentityOverflowError):
+        IdentityProgressionEngine.resolve_safe_next(
+            start=100, increment=-10, min_value=85, max_value=100, cycle=False, table_min=82
+        )
+
+
+def test_cycle_and_exhaustion():
+    """Asserts that cycling generators wrap values and raise CycleCollisionError on duplicates."""
+    import pytest
+    from akaal.migration.algorithms.progression import IdentityProgressionEngine, CycleCollisionError
+
+    # Positive cycling: max_value = 10, v_emit resolves to 11 => wraps to 1 (min_value)
+    v1 = IdentityProgressionEngine.resolve_safe_next(
+        start=1, increment=1, min_value=1, max_value=10, cycle=True, table_max=10
+    )
+    assert v1 == 1
+
+    # Cycle collision: wrapped value 1 already exists in existing_keys
+    with pytest.raises(CycleCollisionError):
+        IdentityProgressionEngine.resolve_safe_next(
+            start=1, increment=1, min_value=1, max_value=10, cycle=True, table_max=10, existing_keys=[1, 2, 3]
+        )
+
+
+def test_empty_and_unknown_states():
+    """Asserts fallback behavior for empty tables and unknown states."""
+    from akaal.migration.algorithms.progression import IdentityProgressionEngine
+
+    v1 = IdentityProgressionEngine.resolve_safe_next(
+        start=1, increment=1, min_value=1, max_value=10, cycle=False, table_max=None, source_state=None
+    )
+    assert v1 == 1  # Empty state uses start value
+
+
+def test_randomized_invariants():
+    """Exhaustive randomized/property-based testing verifying mathematical invariants."""
+    import random
+    from akaal.migration.algorithms.progression import IdentityProgressionEngine, IdentityOverflowError
+
+    # Test 100 randomized valid setups
+    for _ in range(100):
+        start = random.randint(-100, 100)
+        increment = random.choice([-10, -5, -1, 1, 5, 10])
+        min_value = -1000
+        max_value = 1000
+        cycle = False
+        
+        if increment > 0:
+            table_max = random.randint(start, 500)
+            table_min = None
+        else:
+            table_max = None
+            table_min = random.randint(-500, start)
+
+        try:
+            v_emit = IdentityProgressionEngine.resolve_safe_next(
+                start=start,
+                increment=increment,
+                min_value=min_value,
+                max_value=max_value,
+                cycle=cycle,
+                table_max=table_max,
+                table_min=table_min
+            )
+            # Invariant 1: Alignment (v_emit - start) mod increment == 0
+            assert (v_emit - start) % increment == 0, f"Value {v_emit} is not aligned to sequence steps."
+
+            # Invariant 2: Values strictly exceed bounds
+            if increment > 0:
+                assert v_emit > table_max, f"Positive progression {v_emit} not strictly above table_max {table_max}."
+            else:
+                assert v_emit < table_min, f"Negative progression {v_emit} not strictly below table_min {table_min}."
+        except IdentityOverflowError:
+            pass # Overflow is a valid mathematical result under strict limits
+
+
+
