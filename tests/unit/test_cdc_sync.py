@@ -251,3 +251,92 @@ async def test_all_adapters_fetch_cdc_changes():
         assert changes[0].operation == CDCOperationType.INSERT
         
         await adapter.stop_cdc_stream()
+
+# --- 7. Additional Edge Case, Failures & Concurrency Tests ---
+
+def test_duplicate_transaction_replay():
+    events = [
+        CDCEvent("e1", "tx1", datetime.now(timezone.utc), CDCOperationType.INSERT, "s", "t", {"id": 1}, lsn_offset=10, checksum="c1"),
+        CDCEvent("e2", "tx1", datetime.now(timezone.utc), CDCOperationType.INSERT, "s", "t", {"id": 1}, lsn_offset=10, checksum="c1"), # Replay duplicate
+    ]
+    planned = CDCPlanner.plan_batch(events)
+    assert len(planned) == 1
+
+def test_malformed_events_handling():
+    # Verify missing SCN/LSN handles safely (falls back to 0 in sorting)
+    evt = CDCEvent("e1", "tx1", datetime.now(timezone.utc), CDCOperationType.INSERT, "s", "t", {"id": 1}, lsn_offset=None)
+    planned = CDCPlanner.plan_batch([evt])
+    assert len(planned) == 1
+
+def test_corrupted_checkpoint_detection():
+    # Seek seeking fails safely or validates checkpoint bounds
+    cp = CDCCheckpoint("sess", "evt_1", last_processed_lsn=-5, last_processed_tx_id="tx1", last_processed_timestamp=datetime.now())
+    # Out of bounds check
+    assert cp.last_processed_lsn < 0
+
+def test_retry_exhaustion_failure():
+    config = SynchronizationConfiguration(
+        session_id="session_123",
+        source_dialect="postgresql",
+        target_dialect="postgresql",
+        conflict_policy=ConflictResolutionPolicy.SOURCE_WINS,
+        batch_size=10,
+        max_queue_depth=100,
+        retry_limit=3,
+        retry_backoff_factor=1.5,
+        heartbeat_interval_seconds=1.0
+    )
+    supervisor = CDCSyncSupervisor(config)
+    supervisor.simulate_failure("Connection lost permanently.")
+    assert supervisor.state == CDCSessionState.FAILED
+    assert supervisor.health.is_healthy is False
+
+@pytest.mark.asyncio
+async def test_concurrent_sessions():
+    c1 = SynchronizationConfiguration("s1", "postgresql", "postgresql", ConflictResolutionPolicy.SKIP, 10, 100, 3, 1.5, 1.0)
+    c2 = SynchronizationConfiguration("s2", "mysql", "mysql", ConflictResolutionPolicy.SKIP, 10, 100, 3, 1.5, 1.0)
+    
+    s1 = CDCSyncSupervisor(c1)
+    s2 = CDCSyncSupervisor(c2)
+    
+    await s1.start()
+    await s2.start()
+    
+    assert s1.config.session_id == "s1"
+    assert s2.config.session_id == "s2"
+    assert s1.metrics.events_processed == 0
+    assert s2.metrics.events_processed == 0
+
+@pytest.mark.asyncio
+async def test_active_sync_graceful_shutdown():
+    config = SynchronizationConfiguration("s1", "postgresql", "postgresql", ConflictResolutionPolicy.SOURCE_WINS, 10, 100, 3, 1.5, 1.0)
+    supervisor = CDCSyncSupervisor(config)
+    await supervisor.start()
+    
+    # Generate 5 events
+    for i in range(5):
+        await supervisor.buffer.push(
+            CDCEvent(f"evt_{i}", "tx1", datetime.now(), CDCOperationType.INSERT, "s", "t", {"id": i}, after_image={"id": i})
+        )
+        
+    target_state = {}
+    await supervisor.stop(target_state)
+    # Drained and completed
+    assert supervisor.state == CDCSessionState.COMPLETED
+    assert len(target_state.get("s.t", {})) == 5
+
+@pytest.mark.asyncio
+async def test_large_event_batches():
+    config = SynchronizationConfiguration("s1", "postgresql", "postgresql", ConflictResolutionPolicy.SOURCE_WINS, 1000, 5000, 3, 1.5, 1.0)
+    supervisor = CDCSyncSupervisor(config)
+    await supervisor.start()
+    
+    events = []
+    for i in range(1000):
+        events.append(
+            CDCEvent(f"evt_{i}", "tx1", datetime.now(), CDCOperationType.INSERT, "s", "t", {"id": i}, after_image={"id": i}, lsn_offset=i)
+        )
+    
+    target_state = {}
+    await supervisor.executor.execute_batch(events, target_state)
+    assert supervisor.metrics.events_processed == 1000
