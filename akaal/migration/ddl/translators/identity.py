@@ -7,6 +7,8 @@ to dialect-specific SQL and rollback statements.
 
 from dataclasses import dataclass, field
 from enum import Enum
+import hashlib
+import json
 from typing import Any, Dict, List, Optional, Tuple
 
 
@@ -80,6 +82,17 @@ class TypedIdentityAction:
                 if min_v is not None and max_v is not None and min_v > max_v:
                     raise ValueError(f"Min value {min_v} cannot exceed max value {max_v}.")
 
+    def calculate_fingerprint(self) -> str:
+        """Generates a stable SHA-256 hash representing the action configuration."""
+        data = {
+            "type": self.action_type.value,
+            "src": self.source_metadata,
+            "tgt": self.target_metadata,
+            "safety": self.safety_level.value
+        }
+        serialized = json.dumps(data, sort_keys=True)
+        return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
 
 @dataclass(frozen=True)
 class TranslationOutput:
@@ -94,14 +107,27 @@ class TranslationOutput:
     approval_requirement: str
     safety_classification: str
     rollback_classification: RollbackClassification
+    rollback_prerequisites: Tuple[str, ...] = ()
     failure_reason: Optional[str] = None
     deferred_task: Optional[str] = None
+
+    def __post_init__(self):
+        # Enforce consistency invariants
+        if self.status != TranslationStatus.SUCCESS:
+            if self.sql_commands:
+                raise ValueError(f"Status '{self.status.value}' cannot contain executable commands.")
+        if self.typed_source_action.action_type == IdentityActionType.NO_OP:
+            if self.sql_commands or self.rollback_commands:
+                raise ValueError("NO_OP actions must not contain execution commands.")
+        if self.rollback_classification == RollbackClassification.NOT_AVAILABLE:
+            if self.rollback_commands:
+                raise ValueError("Rollback classification NOT_AVAILABLE cannot contain rollback commands.")
 
 
 def quote_identifier(name: str, dialect: str) -> str:
     """
     Quotes an identifier according to dialect rules, escaping embedded characters.
-    Handles schema-qualified names by splitting.
+    Handles schema-qualified names by splitting. Case semantics are preserved exactly.
     """
     dialect_lower = dialect.lower().strip()
     if "." in name:
@@ -112,8 +138,9 @@ def quote_identifier(name: str, dialect: str) -> str:
         escaped = name.replace('"', '""')
         return f'"{escaped}"'
     elif dialect_lower == "oracle":
+        # Do not uppercase quoted identifiers
         escaped = name.replace('"', '""')
-        return f'"{escaped.upper()}"'
+        return f'"{escaped}"'
     elif dialect_lower in ("mssql", "sqlserver"):
         escaped = name.replace(']', ']]')
         return f'[{escaped}]'
@@ -149,12 +176,14 @@ class IdentityDialectTranslator:
         db_version: str,
         schema: str,
         table: str,
-        column: str
+        column: str,
+        approval_context: Optional[Dict[str, Any]] = None
     ) -> TranslationOutput:
         dialect_lower = dialect.lower().strip()
         version_parsed = parse_version(db_version)
+        approval_context = approval_context or {}
 
-        # Pre-validate identifiers for safety
+        # 0. Validate Schema/Table/Column Names
         if not schema or not table or not column:
             return TranslationOutput(
                 dialect=dialect,
@@ -175,12 +204,36 @@ class IdentityDialectTranslator:
         tgt = action.target_metadata
         act_type = action.action_type
 
+        # 1. Enforce Approval Check
+        action_fingerprint = action.calculate_fingerprint()
+        is_approved = approval_context.get("approved") is True
+        context_fingerprint = approval_context.get("fingerprint")
+        
+        # If required approval is administrator approval but absent, or fingerprint mismatch
+        needs_admin = action.approval_requirement == "administrator approval"
+        if needs_admin and (not is_approved or context_fingerprint != action_fingerprint):
+            return TranslationOutput(
+                dialect=dialect,
+                db_version=db_version,
+                status=TranslationStatus.REQUIRES_APPROVAL,
+                typed_source_action=action,
+                sql_commands=(),
+                rollback_commands=(),
+                warnings=("Administrator approval is required for this action.",),
+                preconditions=(),
+                approval_requirement=action.approval_requirement,
+                safety_classification=action.safety_level.value,
+                rollback_classification=RollbackClassification.NOT_AVAILABLE,
+                failure_reason="Missing or stale administrator approval context."
+            )
+
         # ----------------------------------------------------
-        # 1. PostgreSQL Translation
+        # Dialect Translation Routing
         # ----------------------------------------------------
+
+        # --- PostgreSQL ---
         if dialect_lower == "postgresql":
             if version_parsed and version_parsed[0] < 10:
-                # PG 9.x does not support native identity, defer to sequence fallback (TSK-33)
                 return TranslationOutput(
                     dialect=dialect,
                     db_version=db_version,
@@ -261,10 +314,31 @@ class IdentityDialectTranslator:
 
             elif act_type == IdentityActionType.RESTART_IDENTITY:
                 cur_val = src.get("current_value", 1)
-                sql = f"ALTER TABLE {quoted_table} ALTER COLUMN {quoted_col} RESTART WITH {int(cur_val)}"
+                
+                # Check backing sequence vs native restart
+                backing_seq = tgt.get("sequence_name")
+                if backing_seq:
+                    quoted_seq = quote_identifier(backing_seq, dialect)
+                    sql = f"ALTER SEQUENCE {quoted_seq} RESTART WITH {int(cur_val)}"
+                else:
+                    sql = f"ALTER TABLE {quoted_table} ALTER COLUMN {quoted_col} RESTART WITH {int(cur_val)}"
+
                 rollback = ""
-                if tgt.get("current_value") is not None:
-                    rollback = f"ALTER TABLE {quoted_table} ALTER COLUMN {quoted_col} RESTART WITH {int(tgt.get('current_value'))}"
+                rollback_class = RollbackClassification.COMPENSATING
+                rollback_prereq = ()
+
+                # Reseed rollback exact proof checks
+                tgt_val = tgt.get("current_value")
+                generator_advanced = action.rollback_metadata.get("generator_advanced", False)
+                if tgt_val is not None and not generator_advanced:
+                    rollback_class = RollbackClassification.EXACT
+                    rollback_prereq = ("Previous generator value captured exactly.", "No values emitted after forward execution.")
+                    if backing_seq:
+                        rollback = f"ALTER SEQUENCE {quote_identifier(backing_seq, dialect)} RESTART WITH {int(tgt_val)}"
+                    else:
+                        rollback = f"ALTER TABLE {quoted_table} ALTER COLUMN {quoted_col} RESTART WITH {int(tgt_val)}"
+                else:
+                    rollback_class = RollbackClassification.NOT_AVAILABLE
 
                 return TranslationOutput(
                     dialect=dialect,
@@ -277,15 +351,13 @@ class IdentityDialectTranslator:
                     preconditions=(),
                     approval_requirement=action.approval_requirement,
                     safety_classification=action.safety_level.value,
-                    rollback_classification=RollbackClassification.EXACT
+                    rollback_classification=rollback_class,
+                    rollback_prerequisites=rollback_prereq
                 )
 
-        # ----------------------------------------------------
-        # 2. Oracle Translation
-        # ----------------------------------------------------
+        # --- Oracle ---
         elif dialect_lower == "oracle":
             if version_parsed and version_parsed[0] < 12:
-                # Oracle 11g does not support native identities, defer to trigger/sequence fallback (TSK-34)
                 return TranslationOutput(
                     dialect=dialect,
                     db_version=db_version,
@@ -361,25 +433,36 @@ class IdentityDialectTranslator:
             elif act_type == IdentityActionType.RESTART_IDENTITY:
                 cur_val = src.get("current_value", 1)
                 sql = f"ALTER TABLE {quoted_table} MODIFY ({quoted_col} RESTART WITH {int(cur_val)})"
+                
+                rollback = ""
+                rollback_class = RollbackClassification.NOT_AVAILABLE
+                
+                # Check for exact rollback proof
+                tgt_val = tgt.get("current_value")
+                generator_advanced = action.rollback_metadata.get("generator_advanced", False)
+                confidence = tgt.get("state_confidence")
+                
+                # Cannot exact rollback estimated cached states (Oracle pre-allocates sequences)
+                if tgt_val is not None and not generator_advanced and confidence != "ESTIMATED":
+                    rollback_class = RollbackClassification.EXACT
+                    rollback = f"ALTER TABLE {quoted_table} MODIFY ({quoted_col} RESTART WITH {int(tgt_val)})"
+
                 return TranslationOutput(
                     dialect=dialect,
                     db_version=db_version,
                     status=TranslationStatus.SUCCESS,
                     typed_source_action=action,
                     sql_commands=(sql,),
-                    rollback_commands=(),
+                    rollback_commands=(rollback,) if rollback else (),
                     warnings=(),
                     preconditions=(),
                     approval_requirement=action.approval_requirement,
                     safety_classification=action.safety_level.value,
-                    rollback_classification=RollbackClassification.NOT_AVAILABLE
+                    rollback_classification=rollback_class
                 )
 
-        # ----------------------------------------------------
-        # 3. SQL Server Translation
-        # ----------------------------------------------------
+        # --- SQL Server ---
         elif dialect_lower in ("mssql", "sqlserver"):
-            # SQL Server does not support modifying the column to add or drop IDENTITY
             if act_type in (IdentityActionType.CREATE_IDENTITY, IdentityActionType.DROP_IDENTITY, IdentityActionType.RECREATE_IDENTITY):
                 return TranslationOutput(
                     dialect=dialect,
@@ -400,11 +483,46 @@ class IdentityDialectTranslator:
 
             if act_type == IdentityActionType.RESTART_IDENTITY:
                 cur_val = src.get("current_value", 1)
-                # Inform execution engine of DBCC Reseed behavior warning
-                sql = f"DBCC CHECKIDENT ('{schema}.{table}', RESEED, {int(cur_val)})"
+                increment = src.get("increment", 1)
+                table_state = tgt.get("table_state", "unknown")
+
+                # Block and require approval if empty state is unknown
+                if table_state == "unknown":
+                    return TranslationOutput(
+                        dialect=dialect,
+                        db_version=db_version,
+                        status=TranslationStatus.REQUIRES_APPROVAL,
+                        typed_source_action=action,
+                        sql_commands=(),
+                        rollback_commands=(),
+                        warnings=("SQL Server empty-table state cannot be confidently distinguished; administrator approval required.",),
+                        preconditions=(),
+                        approval_requirement=action.approval_requirement,
+                        safety_classification=action.safety_level.value,
+                        rollback_classification=RollbackClassification.NOT_AVAILABLE,
+                        failure_reason="Unable to determine if SQL Server table has contained rows."
+                    )
+
+                # Compute correct DBCC RESEED mathematically
+                if table_state in ("new", "truncated"):
+                    reseed_operand = cur_val
+                else: # populated, empty after DELETE
+                    reseed_operand = cur_val - increment
+
+                sql = f"DBCC CHECKIDENT ('{schema}.{table}', RESEED, {int(reseed_operand)})"
+                
                 rollback = ""
-                if tgt.get("current_value") is not None:
-                    rollback = f"DBCC CHECKIDENT ('{schema}.{table}', RESEED, {int(tgt.get('current_value'))})"
+                rollback_class = RollbackClassification.NOT_AVAILABLE
+                tgt_val = tgt.get("current_value")
+                generator_advanced = action.rollback_metadata.get("generator_advanced", False)
+                if tgt_val is not None and not generator_advanced:
+                    rollback_class = RollbackClassification.EXACT
+                    # Recompute for rollback
+                    if table_state in ("new", "truncated"):
+                        rb_operand = tgt_val
+                    else:
+                        rb_operand = tgt_val - increment
+                    rollback = f"DBCC CHECKIDENT ('{schema}.{table}', RESEED, {int(rb_operand)})"
 
                 return TranslationOutput(
                     dialect=dialect,
@@ -413,22 +531,30 @@ class IdentityDialectTranslator:
                     typed_source_action=action,
                     sql_commands=(sql,),
                     rollback_commands=(rollback,) if rollback else (),
-                    warnings=("DBCC RESEED assumes target table state correctly aligns with restart expectations.",),
+                    warnings=(),
                     preconditions=(),
                     approval_requirement=action.approval_requirement,
                     safety_classification=action.safety_level.value,
-                    rollback_classification=RollbackClassification.EXACT
+                    rollback_classification=rollback_class
                 )
 
-        # ----------------------------------------------------
-        # 4. MySQL Translation
-        # ----------------------------------------------------
+        # --- MySQL ---
         elif dialect_lower == "mysql":
             quoted_table = f"{quote_identifier(schema, dialect)}.{quote_identifier(table, dialect)}"
             quoted_col = quote_identifier(column, dialect)
 
-            # Reject negative increments structurally
+            # Block unsupported properties
+            unsupported_keys = []
             if src.get("increment") is not None and src.get("increment") < 0:
+                unsupported_keys.append("negative increments")
+            if src.get("cycle"):
+                unsupported_keys.append("cycling")
+            if src.get("min_value") is not None or src.get("max_value") is not None:
+                unsupported_keys.append("bounds specifications")
+            if src.get("cache") is not None and src.get("cache") > 1:
+                unsupported_keys.append("sequence cache settings")
+
+            if unsupported_keys:
                 return TranslationOutput(
                     dialect=dialect,
                     db_version=db_version,
@@ -441,64 +567,54 @@ class IdentityDialectTranslator:
                     approval_requirement=action.approval_requirement,
                     safety_classification=IdentitySafetyLevel.UNSAFE.value,
                     rollback_classification=RollbackClassification.NOT_AVAILABLE,
-                    failure_reason="MySQL does not support negative AUTO_INCREMENT steps."
+                    failure_reason=f"MySQL does not support: {', '.join(unsupported_keys)}."
                 )
 
-            if act_type == IdentityActionType.CREATE_IDENTITY:
-                sql = f"ALTER TABLE {quoted_table} MODIFY COLUMN {quoted_col} INT AUTO_INCREMENT"
-                rollback = f"ALTER TABLE {quoted_table} MODIFY COLUMN {quoted_col} INT"
-
+            # MySQL AUTO_INCREMENT modifications require modifying column, defer to TSK-35
+            if act_type in (IdentityActionType.CREATE_IDENTITY, IdentityActionType.DROP_IDENTITY):
                 return TranslationOutput(
                     dialect=dialect,
                     db_version=db_version,
-                    status=TranslationStatus.SUCCESS,
+                    status=TranslationStatus.REQUIRES_RECONSTRUCTION,
                     typed_source_action=action,
-                    sql_commands=(sql,),
-                    rollback_commands=(rollback,),
-                    warnings=(),
-                    preconditions=("Column must be indexed in MySQL to support auto_increment.",),
-                    approval_requirement=action.approval_requirement,
-                    safety_classification=action.safety_level.value,
-                    rollback_classification=RollbackClassification.COMPENSATING
-                )
-
-            elif act_type == IdentityActionType.DROP_IDENTITY:
-                sql = f"ALTER TABLE {quoted_table} MODIFY COLUMN {quoted_col} INT"
-                rollback = f"ALTER TABLE {quoted_table} MODIFY COLUMN {quoted_col} INT AUTO_INCREMENT"
-
-                return TranslationOutput(
-                    dialect=dialect,
-                    db_version=db_version,
-                    status=TranslationStatus.SUCCESS,
-                    typed_source_action=action,
-                    sql_commands=(sql,),
-                    rollback_commands=(rollback,),
-                    warnings=(),
+                    sql_commands=(),
+                    rollback_commands=(),
+                    warnings=("MySQL AUTO_INCREMENT creation/deletion requires complete column schema translation.",),
                     preconditions=(),
                     approval_requirement=action.approval_requirement,
                     safety_classification=action.safety_level.value,
-                    rollback_classification=RollbackClassification.COMPENSATING
+                    rollback_classification=RollbackClassification.REQUIRES_RECONSTRUCTION,
+                    deferred_task="TSK-35"
                 )
 
             elif act_type == IdentityActionType.RESTART_IDENTITY:
                 cur_val = src.get("current_value", 1)
                 sql = f"ALTER TABLE {quoted_table} AUTO_INCREMENT = {int(cur_val)}"
 
+                rollback = ""
+                rollback_class = RollbackClassification.NOT_AVAILABLE
+                
+                # Check for exact rollback proof
+                tgt_val = tgt.get("current_value")
+                generator_advanced = action.rollback_metadata.get("generator_advanced", False)
+                if tgt_val is not None and not generator_advanced:
+                    rollback_class = RollbackClassification.EXACT
+                    rollback = f"ALTER TABLE {quoted_table} AUTO_INCREMENT = {int(tgt_val)}"
+
                 return TranslationOutput(
                     dialect=dialect,
                     db_version=db_version,
                     status=TranslationStatus.SUCCESS,
                     typed_source_action=action,
                     sql_commands=(sql,),
-                    rollback_commands=(),
+                    rollback_commands=(rollback,) if rollback else (),
                     warnings=(),
                     preconditions=(),
                     approval_requirement=action.approval_requirement,
                     safety_classification=action.safety_level.value,
-                    rollback_classification=RollbackClassification.NOT_AVAILABLE
+                    rollback_classification=rollback_class
                 )
 
-        # Fallback to unsupported dialect
         return TranslationOutput(
             dialect=dialect,
             db_version=db_version,
@@ -546,10 +662,9 @@ class IdentitySyncPlanner:
             return actions
 
         if cat == "Unsupported" or cat == "Unsafe":
-            # Plan is blocked
             return actions
 
-        # 1. Handle Recreation (structural rebuild)
+        # Requires Recreation -> Single Recreate action mapping to TSK-35
         if cat == "Requires Recreation":
             actions.append(TypedIdentityAction(
                 action_type=IdentityActionType.RECREATE_IDENTITY,
@@ -562,7 +677,7 @@ class IdentitySyncPlanner:
             ))
             return actions
 
-        # 2. Handle Alterations/Translation
+        # Requires Translation
         if cat == "Requires Translation":
             actions.append(TypedIdentityAction(
                 action_type=IdentityActionType.CREATE_IDENTITY,
@@ -574,7 +689,7 @@ class IdentitySyncPlanner:
                 rollback_metadata={}
             ))
 
-        # 3. Handle Reseed / Restart
+        # Requires Reseed
         if cat == "Requires Reseed":
             actions.append(TypedIdentityAction(
                 action_type=IdentityActionType.RESTART_IDENTITY,

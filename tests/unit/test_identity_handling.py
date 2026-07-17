@@ -511,6 +511,8 @@ def test_identity_ddl_planning_and_translation():
         IdentityDialectTranslator,
         IdentityActionType,
         IdentitySafetyLevel,
+        TranslationStatus,
+        TypedIdentityAction
     )
     from akaal.core.comparison.models import IdentityDefinition, IdentityMode
     from akaal.migration.models.identity import IdentityRuntimeState, GeneratorValueSemantics, IdentityStateConfidence
@@ -541,20 +543,49 @@ def test_identity_ddl_planning_and_translation():
     assert action.safety_level == IdentitySafetyLevel.SAFE_RESEED
     assert action.approval_requirement == "administrator approval"
 
+    # Define a valid approval context
+    fp = action.calculate_fingerprint()
+    app_ctx = {"approved": True, "fingerprint": fp}
+
     # PostgreSQL translation
-    pg_out = IdentityDialectTranslator.translate(action, "postgresql", "15.0", "public", "users", "id")
+    pg_out = IdentityDialectTranslator.translate(action, "postgresql", "15.0", "public", "users", "id", approval_context=app_ctx)
+    assert pg_out.status == TranslationStatus.SUCCESS
     assert any("RESTART WITH 50" in cmd for cmd in pg_out.sql_commands)
 
     # Oracle translation
-    ora_out = IdentityDialectTranslator.translate(action, "oracle", "19.0", "public", "users", "id")
+    ora_out = IdentityDialectTranslator.translate(action, "oracle", "19.0", "public", "users", "id", approval_context=app_ctx)
+    assert ora_out.status == TranslationStatus.SUCCESS
     assert any("RESTART WITH 50" in cmd for cmd in ora_out.sql_commands)
 
-    # SQL Server translation
-    mssql_out = IdentityDialectTranslator.translate(action, "mssql", "14.0", "public", "users", "id")
+    # SQL Server translation (with table_state populated)
+    action_mssql = TypedIdentityAction(
+        action_type=IdentityActionType.RESTART_IDENTITY,
+        source_metadata={"current_value": 50, "increment": 1},
+        target_metadata={"current_value": 20, "increment": 1, "table_state": "populated"},
+        safety_level=IdentitySafetyLevel.SAFE_RESEED,
+        approval_requirement="administrator approval",
+        reasoning="reseed"
+    )
+    mssql_fp = action_mssql.calculate_fingerprint()
+    mssql_app_ctx = {"approved": True, "fingerprint": mssql_fp}
+    mssql_out = IdentityDialectTranslator.translate(action_mssql, "mssql", "14.0", "public", "users", "id", approval_context=mssql_app_ctx)
     assert any("DBCC CHECKIDENT" in cmd for cmd in mssql_out.sql_commands)
+    # math checks: 50 - 1 = 49
+    assert "49" in mssql_out.sql_commands[0]
 
     # MySQL translation
-    mysql_out = IdentityDialectTranslator.translate(action, "mysql", "8.0", "public", "users", "id")
+    action_mysql = TypedIdentityAction(
+        action_type=IdentityActionType.RESTART_IDENTITY,
+        source_metadata={"current_value": 50, "increment": 1},
+        target_metadata={"current_value": 20, "increment": 1},
+        safety_level=IdentitySafetyLevel.SAFE_RESEED,
+        approval_requirement="administrator approval",
+        reasoning="reseed mysql"
+    )
+    mysql_fp = action_mysql.calculate_fingerprint()
+    mysql_app_ctx = {"approved": True, "fingerprint": mysql_fp}
+    mysql_out = IdentityDialectTranslator.translate(action_mysql, "mysql", "8.0", "public", "users", "id", approval_context=mysql_app_ctx)
+    assert mysql_out.status == TranslationStatus.SUCCESS
     assert any("AUTO_INCREMENT = 50" in cmd for cmd in mysql_out.sql_commands)
 
     # 2. Recreation Planning (Structural change start value)
@@ -570,8 +601,9 @@ def test_identity_ddl_planning_and_translation():
     assert plan_recreate[0].safety_level == IdentitySafetyLevel.UNSAFE_REBUILD
 
     # Translate CREATE/RECREATE on SQL Server (shows rebuild warning)
-    mssql_cre_out = IdentityDialectTranslator.translate(plan_recreate[0], "mssql", "14.0", "public", "users", "id")
-    from akaal.migration.ddl.translators.identity import TranslationStatus
+    recreate_fp = plan_recreate[0].calculate_fingerprint()
+    recreate_ctx = {"approved": True, "fingerprint": recreate_fp}
+    mssql_cre_out = IdentityDialectTranslator.translate(plan_recreate[0], "mssql", "14.0", "public", "users", "id", approval_context=recreate_ctx)
     assert mssql_cre_out.status == TranslationStatus.REQUIRES_RECONSTRUCTION
 
 
@@ -640,8 +672,9 @@ def test_identity_adversarial_quoting():
     # PostgreSQL double-quoting escaping
     assert quote_identifier('my"table', 'postgresql') == '"my""table"'
 
-    # Oracle uppercase escaping
-    assert quote_identifier('my"table', 'oracle') == '"MY""TABLE"'
+    # Oracle preserves exact case (no pre-uppercasing)
+    assert quote_identifier('CustomerId', 'oracle') == '"CustomerId"'
+    assert quote_identifier('my"table', 'oracle') == '"my""table"'
 
     # SQL Server bracket escaping
     assert quote_identifier('my]table', 'mssql') == '[my]]table]'
@@ -672,6 +705,181 @@ def test_identity_mysql_negative_increment_rejection():
     mysql_out = IdentityDialectTranslator.translate(action, "mysql", "8.0", "public", "users", "id")
     assert mysql_out.status == TranslationStatus.UNSUPPORTED
     assert "negative" in mysql_out.failure_reason
+
+
+def test_identity_translation_output_invariants():
+    """Asserts that TranslationOutput strictly checks status and commands consistency."""
+    import pytest
+    from akaal.migration.ddl.translators.identity import (
+        TranslationOutput,
+        TranslationStatus,
+        RollbackClassification,
+        TypedIdentityAction,
+        IdentityActionType,
+        IdentitySafetyLevel
+    )
+
+    action = TypedIdentityAction(
+        action_type=IdentityActionType.NO_OP,
+        source_metadata={},
+        target_metadata={},
+        safety_level=IdentitySafetyLevel.SAFE,
+        approval_requirement="automatic migration",
+        reasoning="no-op"
+    )
+
+    # 1. Error: UNSUPPORTED cannot contain sql_commands
+    with pytest.raises(ValueError):
+        TranslationOutput(
+            dialect="postgresql",
+            db_version="15.0",
+            status=TranslationStatus.UNSUPPORTED,
+            typed_source_action=action,
+            sql_commands=("DROP SCHEMA public CASCADE;",),
+            rollback_commands=(),
+            warnings=(),
+            preconditions=(),
+            approval_requirement="automatic migration",
+            safety_classification="SAFE",
+            rollback_classification=RollbackClassification.NOT_AVAILABLE
+        )
+
+    # 2. Error: Rollback NOT_AVAILABLE cannot contain rollback_commands
+    with pytest.raises(ValueError):
+        TranslationOutput(
+            dialect="postgresql",
+            db_version="15.0",
+            status=TranslationStatus.SUCCESS,
+            typed_source_action=action,
+            sql_commands=(),
+            rollback_commands=("DROP SEQUENCE users_seq;",),
+            warnings=(),
+            preconditions=(),
+            approval_requirement="automatic migration",
+            safety_classification="SAFE",
+            rollback_classification=RollbackClassification.NOT_AVAILABLE
+        )
+
+
+def test_identity_sql_server_dbcc_mathematics():
+    """Asserts that SQL Server DBCC CHECKIDENT correctly offsets for populated tables to prevent off-by-one."""
+    from akaal.migration.ddl.translators.identity import (
+        TypedIdentityAction,
+        IdentityActionType,
+        IdentitySafetyLevel,
+        IdentityDialectTranslator,
+        TranslationStatus
+    )
+
+    # V_next = 50, increment = 5. Populated table state.
+    action = TypedIdentityAction(
+        action_type=IdentityActionType.RESTART_IDENTITY,
+        source_metadata={"current_value": 50, "increment": 5},
+        target_metadata={"current_value": 10, "increment": 5, "table_state": "populated"},
+        safety_level=IdentitySafetyLevel.SAFE_RESEED,
+        approval_requirement="administrator approval",
+        reasoning="reseed math check"
+    )
+    fp = action.calculate_fingerprint()
+    app_ctx = {"approved": True, "fingerprint": fp}
+
+    out = IdentityDialectTranslator.translate(action, "mssql", "14.0", "public", "users", "id", approval_context=app_ctx)
+    assert out.status == TranslationStatus.SUCCESS
+    # DBCC RESEED value should be 50 - 5 = 45
+    assert "45" in out.sql_commands[0]
+
+    # Truncated table state
+    action_trunc = TypedIdentityAction(
+        action_type=IdentityActionType.RESTART_IDENTITY,
+        source_metadata={"current_value": 50, "increment": 5},
+        target_metadata={"current_value": 10, "increment": 5, "table_state": "truncated"},
+        safety_level=IdentitySafetyLevel.SAFE_RESEED,
+        approval_requirement="administrator approval",
+        reasoning="reseed trunc check"
+    )
+    fp_trunc = action_trunc.calculate_fingerprint()
+    ctx_trunc = {"approved": True, "fingerprint": fp_trunc}
+    out_trunc = IdentityDialectTranslator.translate(action_trunc, "mssql", "14.0", "public", "users", "id", approval_context=ctx_trunc)
+    assert out_trunc.status == TranslationStatus.SUCCESS
+    # DBCC RESEED value should be exactly 50
+    assert "50" in out_trunc.sql_commands[0]
+
+
+def test_identity_approval_enforcement_bypass():
+    """Asserts that the translator blocks commands execution when approval is absent or fingerprint is mismatched."""
+    from akaal.migration.ddl.translators.identity import (
+        TypedIdentityAction,
+        IdentityActionType,
+        IdentitySafetyLevel,
+        IdentityDialectTranslator,
+        TranslationStatus
+    )
+
+    action = TypedIdentityAction(
+        action_type=IdentityActionType.RESTART_IDENTITY,
+        source_metadata={"current_value": 50, "increment": 1},
+        target_metadata={"current_value": 20, "increment": 1, "table_state": "truncated"},
+        safety_level=IdentitySafetyLevel.SAFE_RESEED,
+        approval_requirement="administrator approval",
+        reasoning="reseed bypass check"
+    )
+
+    # 1. No approval context
+    out1 = IdentityDialectTranslator.translate(action, "postgresql", "15.0", "public", "users", "id")
+    assert out1.status == TranslationStatus.REQUIRES_APPROVAL
+    assert len(out1.sql_commands) == 0
+
+    # 2. Approved = False
+    out2 = IdentityDialectTranslator.translate(action, "postgresql", "15.0", "public", "users", "id", approval_context={"approved": False})
+    assert out2.status == TranslationStatus.REQUIRES_APPROVAL
+
+    # 3. Wrong fingerprint
+    out3 = IdentityDialectTranslator.translate(action, "postgresql", "15.0", "public", "users", "id", approval_context={"approved": True, "fingerprint": "bad_fp"})
+    assert out3.status == TranslationStatus.REQUIRES_APPROVAL
+
+
+def test_identity_rollback_exact_proof():
+    """Asserts that rollback is EXACT only when target state and value are validly captured."""
+    from akaal.migration.ddl.translators.identity import (
+        TypedIdentityAction,
+        IdentityActionType,
+        IdentitySafetyLevel,
+        IdentityDialectTranslator,
+        RollbackClassification
+    )
+
+    # Case 1: Valid target state, generator not advanced
+    action1 = TypedIdentityAction(
+        action_type=IdentityActionType.RESTART_IDENTITY,
+        source_metadata={"current_value": 50, "increment": 1},
+        target_metadata={"current_value": 20, "increment": 1, "table_state": "truncated"},
+        safety_level=IdentitySafetyLevel.SAFE_RESEED,
+        approval_requirement="administrator approval",
+        reasoning="rollback check",
+        rollback_metadata={"generator_advanced": False}
+    )
+    fp1 = action1.calculate_fingerprint()
+    app1 = {"approved": True, "fingerprint": fp1}
+    out1 = IdentityDialectTranslator.translate(action1, "postgresql", "15.0", "public", "users", "id", approval_context=app1)
+    assert out1.rollback_classification == RollbackClassification.EXACT
+    assert any("RESTART WITH 20" in cmd for cmd in out1.rollback_commands)
+
+    # Case 2: Generator has advanced since mutation
+    action2 = TypedIdentityAction(
+        action_type=IdentityActionType.RESTART_IDENTITY,
+        source_metadata={"current_value": 50, "increment": 1},
+        target_metadata={"current_value": 20, "increment": 1, "table_state": "truncated"},
+        safety_level=IdentitySafetyLevel.SAFE_RESEED,
+        approval_requirement="administrator approval",
+        reasoning="rollback check",
+        rollback_metadata={"generator_advanced": True}
+    )
+    fp2 = action2.calculate_fingerprint()
+    app2 = {"approved": True, "fingerprint": fp2}
+    out2 = IdentityDialectTranslator.translate(action2, "postgresql", "15.0", "public", "users", "id", approval_context=app2)
+    assert out2.rollback_classification == RollbackClassification.NOT_AVAILABLE
+    assert len(out2.rollback_commands) == 0
+
 
 
 
