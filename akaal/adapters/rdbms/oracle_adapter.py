@@ -764,6 +764,7 @@ class OracleAdapter(BaseAdapter):
         if not self._conn:
             raise RuntimeError("Not connected")
 
+        from datetime import datetime
         from akaal.migration.models.partition import (
             CanonicalPartitionScheme,
             PartitionStrategy,

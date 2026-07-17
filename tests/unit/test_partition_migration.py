@@ -11,9 +11,15 @@ from akaal.migration.models.partition import (
     ObjectIdentity,
     PartitionStrategy,
     CanonicalRangePartition,
+    CanonicalListPartition,
     MetadataConfidence,
     CanonicalPartitionScheme,
-    CanonicalColumnPartitionKey
+    CanonicalColumnPartitionKey,
+    BoundarySpecialType,
+    PartitionDiagnosticCode,
+    PlanReadinessStatus,
+    DowntimeClassification,
+    DataMovementClassification
 )
 from akaal.migration.algorithms.partition_bounds import (
     shift_value,
@@ -26,6 +32,17 @@ from akaal.migration.comparison.partition import (
 from akaal.migration.ddl.planning.partition_planner import PartitionMigrationPlanner
 from akaal.migration.ddl.planning.partition_scheduler import PartitionDependencyScheduler
 from akaal.migration.ddl.planning.partition_rollback import PartitionRollbackPlanner
+from akaal.adapters.rdbms.postgresql_adapter import PostgreSQLAdapter
+from akaal.adapters.rdbms.mysql_adapter import MySQLAdapter
+from akaal.adapters.rdbms.oracle_adapter import OracleAdapter
+from akaal.adapters.rdbms.mssql_adapter import MSSQLAdapter
+
+class MockConfig:
+    def __init__(self, host, database_name="test_db"):
+        self.host = host
+        self.database_name = database_name
+
+# --- 1. Basic Unit Tests ---
 
 def test_canonical_scalar_value_serialization():
     val = CanonicalScalarValue(
@@ -127,3 +144,146 @@ def test_comparison_engine():
     
     assert len(report.differences) == 1
     assert report.differences[0].difference_type.value == "ADD"
+
+# --- 2. Advanced Enterprise Testing & Edge Cases ---
+
+def test_special_boundaries_minvalue_maxvalue():
+    val_min = CanonicalScalarValue(
+        data_type=CanonicalDataType.INTEGER,
+        special_type=BoundarySpecialType.MINVALUE
+    )
+    val_max = CanonicalScalarValue(
+        data_type=CanonicalDataType.INTEGER,
+        special_type=BoundarySpecialType.MAXVALUE
+    )
+    assert val_min.serialize() == "SPECIAL:MINVALUE"
+    assert val_max.serialize() == "SPECIAL:MAXVALUE"
+
+def test_default_partitions():
+    part = CanonicalListPartition(
+        object_identity=ObjectIdentity("public", "orders_default", "PARTITION"),
+        partition_name="orders_default",
+        ordinal=0,
+        values=(),
+        is_default=True
+    )
+    assert part.is_default is True
+
+def test_composite_partition_keys():
+    lower = CanonicalRangeBound(
+        values=(
+            CanonicalScalarValue(data_type=CanonicalDataType.INTEGER, int_val=10),
+            CanonicalScalarValue(data_type=CanonicalDataType.INTEGER, int_val=100)
+        ),
+        inclusivity=BoundInclusivity.INCLUSIVE,
+        unbounded=False
+    )
+    upper = CanonicalRangeBound(
+        values=(
+            CanonicalScalarValue(data_type=CanonicalDataType.INTEGER, int_val=20),
+            CanonicalScalarValue(data_type=CanonicalDataType.INTEGER, int_val=200)
+        ),
+        inclusivity=BoundInclusivity.EXCLUSIVE,
+        unbounded=False
+    )
+    interval = CanonicalRangeInterval(lower=lower, upper=upper)
+    assert len(interval.lower.values) == 2
+
+def test_empty_partition_scheme_handling():
+    scheme = CanonicalPartitionScheme(
+        table_identity=ObjectIdentity("public", "empty_table", "TABLE"),
+        source_dialect="postgresql",
+        source_version="14.0",
+        confidence=MetadataConfidence.COMPLETE,
+        strategy=PartitionStrategy.RANGE,
+        keys=(),
+        partitions=()
+    )
+    assert len(scheme.partitions) == 0
+
+# --- 3. Database Adapter Discovery Verification ---
+
+@pytest.mark.asyncio
+async def test_postgresql_adapter_partition_discovery():
+    cfg = MockConfig(host="source-db.example.com")
+    adapter = PostgreSQLAdapter(cfg)
+    await adapter.connect()
+    
+    scheme = await adapter.discover_partition_scheme("public", "orders")
+    assert scheme is not None
+    assert scheme.strategy == PartitionStrategy.RANGE
+    assert len(scheme.partitions) == 1
+    assert scheme.partitions[0].partition_name == "orders_p1"
+
+@pytest.mark.asyncio
+async def test_mysql_adapter_partition_discovery():
+    cfg = MockConfig(host="source-db.example.com")
+    adapter = MySQLAdapter(cfg)
+    await adapter.connect()
+    
+    scheme = await adapter.discover_partition_scheme("public", "orders")
+    assert scheme is not None
+    assert scheme.strategy == PartitionStrategy.RANGE
+    assert len(scheme.partitions) == 1
+
+@pytest.mark.asyncio
+async def test_oracle_adapter_partition_discovery():
+    cfg = MockConfig(host="oracle-prod.example.com")
+    adapter = OracleAdapter(cfg)
+    await adapter.connect()
+    
+    scheme = await adapter.discover_partition_scheme("SYS", "ORDERS")
+    assert scheme is not None
+    assert scheme.strategy == PartitionStrategy.RANGE
+    assert len(scheme.partitions) == 1
+
+@pytest.mark.asyncio
+async def test_mssql_adapter_partition_discovery():
+    cfg = MockConfig(host="source-db.example.com")
+    adapter = MSSQLAdapter(cfg)
+    await adapter.connect()
+    
+    scheme = await adapter.discover_partition_scheme("dbo", "orders")
+    assert scheme is not None
+    assert scheme.strategy == PartitionStrategy.RANGE
+    assert len(scheme.partitions) == 1
+
+# --- 4. Pipeline Integration Testing ---
+
+@pytest.mark.asyncio
+async def test_end_to_end_planning_integration_pipeline():
+    # 1. Discover via PG Adapter
+    cfg = MockConfig(host="source-db.example.com")
+    adapter = PostgreSQLAdapter(cfg)
+    await adapter.connect()
+    
+    source_scheme = await adapter.discover_partition_scheme("public", "orders")
+    
+    # 2. Analyze compatibility for migration target
+    analyzer = PartitionCompatibilityAnalyzer()
+    compat_report = analyzer.analyze(source_scheme, "postgresql", "14.0")
+    
+    # 3. Form comparison differences
+    engine = PartitionComparisonEngine()
+    # Mocking target empty scheme to generate target differences
+    target_scheme = CanonicalPartitionScheme(
+        table_identity=source_scheme.table_identity,
+        source_dialect="postgresql",
+        source_version="14.0",
+        confidence=MetadataConfidence.COMPLETE,
+        strategy=PartitionStrategy.RANGE,
+        keys=(),
+        partitions=()
+    )
+    comp_report = engine.compare(source_scheme, target_scheme)
+    
+    # 4. Generate Planner execution plans
+    planner = PartitionMigrationPlanner()
+    plan = planner.plan(comp_report, compat_report)
+    
+    assert plan.plan_fingerprint != ""
+    assert len(plan.ordered_actions) == 1
+    
+    # 5. Generate rollback recovery actions
+    rollback_plan = PartitionRollbackPlanner.plan_rollback(plan.ordered_actions)
+    assert len(rollback_plan.ordered_actions) == 1

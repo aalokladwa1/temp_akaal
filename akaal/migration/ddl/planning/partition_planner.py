@@ -108,7 +108,7 @@ class PartitionMigrationPlanner:
             plan_version="1.0.0",
             planner_version=self.planner_version,
             schema_version="1.0.0",
-            source_fingerprint=compat_report.source_fingerprint,
+            source_fingerprint=compat_report.source_scheme_fingerprint,
             target_fingerprint="",
             policy_fingerprint="",
             ordered_actions=ordered_actions,

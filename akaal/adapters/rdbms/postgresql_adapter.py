@@ -681,6 +681,7 @@ class PostgreSQLAdapter(BaseAdapter):
         if not self.is_connected:
             raise RuntimeError("Not connected.")
 
+        from datetime import datetime
         from akaal.migration.models.partition import (
             CanonicalPartitionScheme,
             PartitionStrategy,
