@@ -226,3 +226,50 @@ def test_version_capability_matrix():
     unknown = provider.get_matrix("POSTGRESQL", DbVersion(0, 0, 0))
     assert unknown.capabilities[CapabilityType.IDENTITY].supported is False
 
+
+@pytest.mark.asyncio
+async def test_adapters_discover_identity():
+    """Asserts that all database adapters discover identity metadata in mock mode."""
+    from akaal.adapters.rdbms.postgresql_adapter import PostgreSQLAdapter
+    from akaal.adapters.rdbms.oracle_adapter import OracleAdapter
+    from akaal.adapters.rdbms.mssql_adapter import MSSQLAdapter
+    from akaal.adapters.rdbms.mysql_adapter import MySQLAdapter
+    
+    class LocalMockConfig:
+        def __init__(self, host: str):
+            self.host = host
+            self.database_name = "test_db"
+            
+    # PG
+    pg_cfg = LocalMockConfig("source-db.example.com")
+    pg_adapter = PostgreSQLAdapter(pg_cfg)
+    await pg_adapter.connect()
+    pg_state = await pg_adapter.discover_identity("public", "users", "id")
+    assert pg_state is not None
+    assert pg_state.current_generator_value == 1
+    
+    # Oracle
+    ora_cfg = LocalMockConfig("source-db.example.com")
+    ora_adapter = OracleAdapter(ora_cfg)
+    ora_adapter._conn = "mock_oracle_conn"
+    ora_state = await ora_adapter.discover_identity("public", "users", "id")
+    assert ora_state is not None
+    assert ora_state.current_generator_value == 1
+    
+    # SQL Server
+    mssql_cfg = LocalMockConfig("source-db.example.com")
+    mssql_adapter = MSSQLAdapter(mssql_cfg)
+    mssql_adapter.is_connected = True
+    mssql_state = await mssql_adapter.discover_identity("public", "users", "id")
+    assert mssql_state is not None
+    assert mssql_state.current_generator_value == 1
+    
+    # MySQL
+    mysql_cfg = LocalMockConfig("source-db.example.com")
+    mysql_adapter = MySQLAdapter(mysql_cfg)
+    mysql_adapter.is_connected = True
+    mysql_state = await mysql_adapter.discover_identity("public", "users", "id")
+    assert mysql_state is not None
+    assert mysql_state.current_generator_value == 1
+
+

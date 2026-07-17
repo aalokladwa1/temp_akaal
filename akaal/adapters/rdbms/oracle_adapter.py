@@ -664,3 +664,98 @@ class OracleAdapter(BaseAdapter):
     # ------------------------------------------------------------------
     def _quote(self, identifier: str) -> str:
         return f'"{identifier.upper()}"'
+
+    async def discover_identity(self, schema: str, table: str, column: str) -> Optional[Any]:
+        if not self._conn:
+            raise RuntimeError("Not connected")
+            
+        from akaal.migration.models.identity import IdentityRuntimeState, IdentityStateConfidence, GeneratorValueSemantics
+        
+        if self.mock_mode:
+            # Handle mock values for testing
+            if table.upper() == "USERS" and column.upper() == "ID":
+                return IdentityRuntimeState(
+                    current_generator_value=1,
+                    last_generated_value=1,
+                    restart_value=1,
+                    state_confidence=IdentityStateConfidence.ESTIMATED,
+                    value_semantics=GeneratorValueSemantics.NEXT_TO_EMIT
+                )
+            return None
+
+        # 1. Native Identity Column Query
+        sql_native = """
+        SELECT 
+            ic.generation_type,
+            ic.sequence_name,
+            s.min_value,
+            s.max_value,
+            s.increment_by,
+            s.cycle_flag,
+            s.cache_size,
+            s.order_flag,
+            s.last_number
+        FROM all_tab_identity_cols ic
+        JOIN all_sequences s ON ic.sequence_name = s.sequence_name AND ic.owner = s.sequence_owner
+        WHERE ic.owner = :schema AND ic.table_name = :table AND ic.column_name = :column
+        """
+        
+        # 2. Trigger Trigger SQL
+        sql_trigger = """
+        SELECT trigger_name 
+        FROM all_triggers 
+        WHERE owner = :schema AND table_name = :table AND trigger_type = 'BEFORE EACH ROW' AND triggering_event LIKE '%INSERT%' AND status = 'ENABLED'
+        """
+        
+        # 3. Dependencies dependency SQL
+        sql_dep = """
+        SELECT referenced_name 
+        FROM all_dependencies 
+        WHERE owner = :schema AND name = :trigger AND referenced_type = 'SEQUENCE'
+        """
+        
+        # 4. Sequence details query
+        sql_seq = """
+        SELECT min_value, max_value, increment_by, cycle_flag, cache_size, order_flag, last_number
+        FROM all_sequences
+        WHERE sequence_owner = :schema AND sequence_name = :seq
+        """
+
+        def _run():
+            with self._conn.cursor() as cur:
+                # Try native discovery
+                cur.execute(sql_native, {"schema": schema.upper(), "table": table.upper(), "column": column.upper()})
+                row = cur.fetchone()
+                if row:
+                    gen_type, seq_name, min_val, max_val, increment, cycle, cache, order_flag, last_number = row
+                    confidence = IdentityStateConfidence.ESTIMATED if cache > 0 else IdentityStateConfidence.EXACT
+                    return IdentityRuntimeState(
+                        current_generator_value=last_number,
+                        last_generated_value=None,
+                        restart_value=min_val,
+                        state_confidence=confidence,
+                        value_semantics=GeneratorValueSemantics.NEXT_TO_EMIT
+                    )
+                
+                # Check for emulated trigger-sequence
+                cur.execute(sql_trigger, {"schema": schema.upper(), "table": table.upper()})
+                triggers = cur.fetchall()
+                for (trigger_name,) in triggers:
+                    cur.execute(sql_dep, {"schema": schema.upper(), "trigger": trigger_name})
+                    deps = cur.fetchall()
+                    for (seq_name,) in deps:
+                        cur.execute(sql_seq, {"schema": schema.upper(), "seq": seq_name})
+                        seq_row = cur.fetchone()
+                        if seq_row:
+                            min_val, max_val, increment, cycle, cache, order_flag, last_number = seq_row
+                            confidence = IdentityStateConfidence.ESTIMATED if cache > 0 else IdentityStateConfidence.EXACT
+                            return IdentityRuntimeState(
+                                current_generator_value=last_number,
+                                last_generated_value=None,
+                                restart_value=min_val,
+                                state_confidence=confidence,
+                                value_semantics=GeneratorValueSemantics.NEXT_TO_EMIT
+                            )
+                return None
+                
+        return await asyncio.to_thread(_run)

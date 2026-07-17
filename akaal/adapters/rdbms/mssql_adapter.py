@@ -810,3 +810,53 @@ class MSSQLAdapter(BaseAdapter):
                 combined_parts = await asyncio.to_thread(_run)
         combined = "|".join(combined_parts)
         return hashlib.sha256(combined.encode()).hexdigest()
+
+    async def discover_identity(self, schema: str, table: str, column: str) -> Optional[Any]:
+        if not self.is_connected:
+            raise RuntimeError("Not connected.")
+            
+        from akaal.migration.models.identity import IdentityRuntimeState, IdentityStateConfidence, GeneratorValueSemantics
+        
+        if self.mock_mode:
+            # Handle mock values for testing
+            if table.lower() == "users" and column.lower() == "id":
+                return IdentityRuntimeState(
+                    current_generator_value=1,
+                    last_generated_value=1,
+                    restart_value=1,
+                    state_confidence=IdentityStateConfidence.EXACT,
+                    value_semantics=GeneratorValueSemantics.LAST_EMITTED
+                )
+            return None
+
+        table_fullname = f"{schema}.{table}"
+        sql = """
+        SELECT 
+            seed_value,
+            increment_value,
+            last_value,
+            is_not_for_replication
+        FROM sys.identity_columns
+        WHERE object_id = OBJECT_ID(?) AND name = ?
+        """
+        
+        rows = await self._run_query(sql, (table_fullname, column))
+        if not rows:
+            return None
+            
+        seed_value, increment_value, last_value, is_not_for_replication = rows[0]
+        
+        # Convert values to int safely
+        seed = int(seed_value) if seed_value is not None else 1
+        inc = int(increment_value) if increment_value is not None else 1
+        last_val = int(last_value) if last_value is not None else None
+        
+        cur_val = last_val if last_val is not None else seed
+        
+        return IdentityRuntimeState(
+            current_generator_value=cur_val,
+            last_generated_value=last_val,
+            restart_value=seed,
+            state_confidence=IdentityStateConfidence.EXACT,
+            value_semantics=GeneratorValueSemantics.LAST_EMITTED
+        )

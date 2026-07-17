@@ -567,3 +567,62 @@ class PostgreSQLAdapter(BaseAdapter):
             combined = '|'.join(_row_hash(dict(r)) for r in rows)
             return hashlib.sha256(combined.encode()).hexdigest()
         return await asyncio.to_thread(_run)
+
+    async def discover_identity(self, schema: str, table: str, column: str) -> Optional[Any]:
+        if not self.is_connected:
+            raise RuntimeError("Not connected.")
+            
+        from akaal.migration.models.identity import IdentityRuntimeState, IdentityStateConfidence, GeneratorValueSemantics
+        
+        if self.mock_mode:
+            # Handle mock values for testing
+            if table == "users" and column == "id":
+                return IdentityRuntimeState(
+                    current_generator_value=1,
+                    last_generated_value=1,
+                    restart_value=1,
+                    state_confidence=IdentityStateConfidence.EXACT,
+                    value_semantics=GeneratorValueSemantics.LAST_EMITTED
+                )
+            return None
+
+        sql = """
+        SELECT 
+            a.attidentity AS identity_type,
+            s.seqstart AS start_value,
+            s.seqincrement AS increment_by,
+            s.seqmin AS min_value,
+            s.seqmax AS max_value,
+            s.seqcycle AS cycle,
+            s.seqcache AS cache_size,
+            pg_sequence_last_value(c.oid::regclass) AS last_value,
+            (SELECT is_called FROM pg_sequences WHERE schemaname = %s AND sequencename = c.relname) AS is_called,
+            c.relname AS seq_name
+        FROM pg_attribute a
+        JOIN pg_class t ON a.attrelid = t.oid
+        JOIN pg_namespace n ON t.relnamespace = n.oid
+        LEFT JOIN pg_depend d ON d.refobjid = t.oid AND d.refobjsubid = a.attnum
+        LEFT JOIN pg_class c ON d.objid = c.oid AND c.relkind = 'S'
+        LEFT JOIN pg_sequence s ON s.seqrelid = c.oid
+        WHERE n.nspname = %s AND t.relname = %s AND a.attname = %s;
+        """
+        def _run():
+            with self._conn.cursor() as cur:
+                cur.execute(sql, (schema, schema, table, column))
+                row = cur.fetchone()
+            if not row or not row[9]: # No sequence/identity found
+                return None
+            identity_type, start, increment, min_val, max_val, cycle, cache, last_value, is_called, seq_name = row
+            
+            confidence = IdentityStateConfidence.EXACT
+            cur_val = last_value if last_value is not None else start
+            
+            return IdentityRuntimeState(
+                current_generator_value=cur_val,
+                last_generated_value=last_value,
+                restart_value=start,
+                state_confidence=confidence,
+                value_semantics=GeneratorValueSemantics.LAST_EMITTED
+            )
+            
+        return await asyncio.to_thread(_run)

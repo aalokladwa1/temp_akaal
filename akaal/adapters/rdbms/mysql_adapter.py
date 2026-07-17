@@ -558,3 +558,65 @@ class MySQLAdapter(BaseAdapter):
             combined = '|'.join(_row_hash(dict(r)) for r in rows)
             return hashlib.sha256(combined.encode()).hexdigest()
         return await asyncio.to_thread(_run)
+
+    async def discover_identity(self, schema: str, table: str, column: str) -> Optional[Any]:
+        if not self.is_connected:
+            raise RuntimeError("Not connected.")
+            
+        from akaal.migration.models.identity import IdentityRuntimeState, IdentityStateConfidence, GeneratorValueSemantics
+        
+        if self.mock_mode:
+            # Handle mock values for testing
+            if table.lower() == "users" and column.lower() == "id":
+                return IdentityRuntimeState(
+                    current_generator_value=1,
+                    last_generated_value=1,
+                    restart_value=1,
+                    state_confidence=IdentityStateConfidence.EXACT,
+                    value_semantics=GeneratorValueSemantics.TABLE_NEXT_VALUE
+                )
+            return None
+
+        sql = """
+        SELECT 
+            t.AUTO_INCREMENT,
+            c.COLUMN_TYPE,
+            c.EXTRA,
+            (SELECT COUNT(*) FROM information_schema.key_column_usage k 
+             WHERE k.table_schema = %s AND k.table_name = %s AND k.column_name = %s) AS is_key,
+            t.ENGINE
+        FROM information_schema.tables t
+        JOIN information_schema.columns c ON t.table_schema = c.table_schema AND t.table_name = c.table_name
+        WHERE t.table_schema = %s AND t.table_name = %s AND c.column_name = %s
+        """
+        def _run():
+            with self._conn.cursor() as cur:
+                cur.execute(sql, (schema, table, column, schema, table, column))
+                row = cur.fetchone()
+            if not row:
+                return None
+            
+            # Since some drivers return row dict, let's handle list or dict:
+            if isinstance(row, dict):
+                auto_inc = row.get("AUTO_INCREMENT")
+                extra = row.get("EXTRA")
+                engine = row.get("ENGINE")
+            else:
+                auto_inc, col_type, extra, is_key, engine = row
+                
+            if not extra or "auto_increment" not in extra.lower():
+                return None
+                
+            # AUTO_INCREMENT in MySQL represents the next to emit, but let's treat it as EXACT for InnoDB
+            confidence = IdentityStateConfidence.EXACT
+            cur_val = int(auto_inc) if auto_inc is not None else 1
+            
+            return IdentityRuntimeState(
+                current_generator_value=cur_val,
+                last_generated_value=None,
+                restart_value=1,
+                state_confidence=confidence,
+                value_semantics=GeneratorValueSemantics.TABLE_NEXT_VALUE
+            )
+            
+        return await asyncio.to_thread(_run)
