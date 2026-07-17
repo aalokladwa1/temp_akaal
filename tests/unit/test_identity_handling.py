@@ -437,4 +437,71 @@ def test_randomized_invariants():
             pass # Overflow is a valid mathematical result under strict limits
 
 
+def test_identity_comparison_engine():
+    """Asserts that IdentityComparisonEngine validates equal, mismatched, and unsafe identity parameters."""
+    from akaal.migration.comparison import IdentityComparisonEngine, CompatibilityCategory, ApprovalRequirement
+    from akaal.core.comparison.models import IdentityDefinition, IdentityMode
+    from akaal.migration.models.identity import IdentityRuntimeState, GeneratorValueSemantics, IdentityStateConfidence
+
+    defn1 = IdentityDefinition(
+        mode=IdentityMode.GENERATED_ALWAYS, start=1, increment=1, min_value=1, max_value=100, cycle=False, cache=1
+    )
+    defn2 = IdentityDefinition(
+        mode=IdentityMode.GENERATED_ALWAYS, start=1, increment=1, min_value=1, max_value=100, cycle=False, cache=1
+    )
+    
+    # 1. Equal / Compatible
+    rep_eq = IdentityComparisonEngine.compare_and_plan(defn1, defn2, None, None)
+    assert rep_eq.compatibility_category == CompatibilityCategory.COMPATIBLE
+    assert rep_eq.approval_requirement == ApprovalRequirement.AUTOMATIC_MIGRATION
+    assert rep_eq.blocking is False
+
+    # 2. Structural Mismatch (Start value)
+    defn_start_diff = IdentityDefinition(
+        mode=IdentityMode.GENERATED_ALWAYS, start=10, increment=1, min_value=1, max_value=100, cycle=False, cache=1
+    )
+    rep_start = IdentityComparisonEngine.compare_and_plan(defn1, def_start_diff := defn_start_diff, None, None)
+    assert rep_start.compatibility_category == CompatibilityCategory.REQUIRES_RECREATION
+    assert rep_start.approval_requirement == ApprovalRequirement.ADMINISTRATOR_APPROVAL
+    assert rep_start.blocking is True
+
+    # 3. Structural Mismatch (Increment)
+    defn_inc_diff = IdentityDefinition(
+        mode=IdentityMode.GENERATED_ALWAYS, start=1, increment=5, min_value=1, max_value=100, cycle=False, cache=1
+    )
+    rep_inc = IdentityComparisonEngine.compare_and_plan(defn1, defn_inc_diff, None, None)
+    assert rep_inc.compatibility_category == CompatibilityCategory.REQUIRES_RECREATION
+    assert rep_inc.blocking is True
+
+    # 4. Unsafe Mismatch (Sign change in increment)
+    defn_neg_inc = IdentityDefinition(
+        mode=IdentityMode.GENERATED_ALWAYS, start=1, increment=-1, min_value=-100, max_value=100, cycle=False, cache=1
+    )
+    rep_neg = IdentityComparisonEngine.compare_and_plan(defn1, defn_neg_inc, None, None)
+    assert rep_neg.compatibility_category == CompatibilityCategory.UNSAFE
+    assert rep_neg.approval_requirement == ApprovalRequirement.MIGRATION_MUST_STOP
+    assert rep_neg.blocking is True
+
+    # 5. Runtime Value Reseed needed
+    state_src = IdentityRuntimeState(
+        current_generator_value=50, last_generated_value=50, restart_value=1,
+        state_confidence=IdentityStateConfidence.EXACT, value_semantics=GeneratorValueSemantics.LAST_EMITTED
+    )
+    state_tgt = IdentityRuntimeState(
+        current_generator_value=20, last_generated_value=20, restart_value=1,
+        state_confidence=IdentityStateConfidence.EXACT, value_semantics=GeneratorValueSemantics.LAST_EMITTED
+    )
+    rep_reseed = IdentityComparisonEngine.compare_and_plan(defn1, defn2, state_src, state_tgt)
+    assert rep_reseed.compatibility_category == CompatibilityCategory.REQUIRES_RESEED
+    assert rep_reseed.approval_requirement == ApprovalRequirement.ADMINISTRATOR_APPROVAL
+    assert rep_reseed.blocking is False
+
+    # 6. Unsupported target capabilities
+    rep_unsupp = IdentityComparisonEngine.compare_and_plan(defn1, defn2, None, None, target_supported=False)
+    assert rep_unsupp.compatibility_category == CompatibilityCategory.UNSUPPORTED
+    assert rep_unsupp.approval_requirement == ApprovalRequirement.MIGRATION_MUST_STOP
+    assert rep_unsupp.blocking is True
+
+
+
 
