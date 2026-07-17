@@ -15,6 +15,9 @@ class MappingEngine:
 
     def validate_mappings(self) -> MappingValidationReport:
         report = MappingValidationReport()
+        if not self.config or not self.config.table_mappings:
+            return report
+
         seen_source_tables: Set[str] = set()
         seen_target_tables: Set[str] = set()
 
@@ -52,6 +55,8 @@ class MappingEngine:
         return report
 
     def map_table_name(self, source_table: str) -> str:
+        if not self.config or not self.config.table_mappings:
+            return source_table
         for t_map in self.config.table_mappings:
             if t_map.source_table.lower() == source_table.lower():
                 return t_map.target_table
@@ -59,6 +64,8 @@ class MappingEngine:
 
     def map_row(self, table_name: str, row: Dict[str, Any]) -> Dict[str, Any]:
         """Maps row columns according to configuration rules."""
+        if not self.config or not self.config.table_mappings:
+            return row
         t_map = None
         for m in self.config.table_mappings:
             if m.source_table.lower() == table_name.lower():

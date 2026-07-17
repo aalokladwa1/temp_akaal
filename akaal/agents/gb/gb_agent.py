@@ -580,6 +580,7 @@ class GBAgent:
                 return type(val).__name__ in ("Mock", "MagicMock", "AsyncMock") or hasattr(val, "_mock_return_value")
 
             # Resolve config parameters from Project in GlobalState if registered
+            proj = None
             actual_use_adaptive = use_adaptive_batch
             actual_min_size = minimum_batch_size
             actual_init_size = initial_batch_size
@@ -774,21 +775,36 @@ class GBAgent:
                     current_batch_size = governor.current_batch_size if actual_use_adaptive else batch_size
 
                     read_start = self._get_time()
-                    if pk_cols and (last_pk is not None or offset == 0):
-                        batch = await src.read_batch(
-                            table_name,
-                            offset=offset,
-                            limit=current_batch_size,
-                            last_processed_primary_key=last_pk,
-                            incremental_filter=inc_filter
-                        )
+                    if inc_filter is not None:
+                        if pk_cols and (last_pk is not None or offset == 0):
+                            batch = await src.read_batch(
+                                table_name,
+                                offset=offset,
+                                limit=current_batch_size,
+                                last_processed_primary_key=last_pk,
+                                incremental_filter=inc_filter
+                            )
+                        else:
+                            batch = await src.read_batch(
+                                table_name,
+                                offset=offset,
+                                limit=current_batch_size,
+                                incremental_filter=inc_filter
+                            )
                     else:
-                        batch = await src.read_batch(
-                            table_name,
-                            offset=offset,
-                            limit=current_batch_size,
-                            incremental_filter=inc_filter
-                        )
+                        if pk_cols and (last_pk is not None or offset == 0):
+                            batch = await src.read_batch(
+                                table_name,
+                                offset=offset,
+                                limit=current_batch_size,
+                                last_processed_primary_key=last_pk
+                            )
+                        else:
+                            batch = await src.read_batch(
+                                table_name,
+                                offset=offset,
+                                limit=current_batch_size
+                            )
 
                     read_duration = self._get_time() - read_start
 

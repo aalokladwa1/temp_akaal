@@ -14,6 +14,8 @@ class DataMasker:
 
     def validate_policies(self) -> None:
         """Validates all registered masking policies."""
+        if not self.config or not self.config.policies:
+            return
         for table, rules in self.config.policies.items():
             for rule in rules:
                 strat = rule.masking_strategy.upper()
@@ -24,6 +26,8 @@ class DataMasker:
 
     def mask_row(self, table_name: str, row: Dict[str, Any]) -> Dict[str, Any]:
         """Applies masking rules, logging audit summaries."""
+        if not self.config or not self.config.policies:
+            return row
         rules = self.config.policies.get(table_name, [])
         if not rules:
             return row

@@ -12,6 +12,9 @@ class DataTransformer:
 
     def compile_rules(self, table_name: str) -> List[TransformationRule]:
         """Validates, compiles, and caches rules deterministically by priority."""
+        if not self.config or not self.config.rules:
+            self._compiled_cache[table_name] = []
+            return []
         rules = self.config.rules.get(table_name, [])
         
         # 1. Dependency Cycle Check
