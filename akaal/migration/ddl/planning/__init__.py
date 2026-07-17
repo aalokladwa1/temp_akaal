@@ -67,3 +67,51 @@ from akaal.migration.ddl.planning.scheduler import (
 from akaal.migration.ddl.planning.rollback import (
     RollbackPlanner
 )
+
+from akaal.migration.ddl.planning.partition_rollback import (
+    PartitionRollbackPlanner
+)
+
+from akaal.migration.ddl.planning.partition_scheduler import (
+    PartitionDependencyScheduler
+)
+
+from akaal.migration.ddl.planning.partition_planner import (
+    PartitionMigrationPlanner
+)
+
+from akaal.migration.ddl.planning.partition_models import (
+    PlanReadinessStatus as PartitionPlanReadinessStatus,
+    DowntimeClassification,
+    DataMovementClassification,
+    ExecutionPolicy,
+    ActionRetryClassification,
+    ResourceLockType,
+    LockCategory,
+    ResourceLock,
+    PartitionBaseAction,
+    CreatePartitionFunctionAction,
+    SplitPartitionAction,
+    MergePartitionAction,
+    CreatePartitionSchemeAction,
+    CreatePartitionedTableAction,
+    CreateChildPartitionAction,
+    AttachPartitionAction,
+    DetachPartitionAction,
+    SwitchPartitionAction,
+    CreateShadowTableAction,
+    CopyPartitionDataAction,
+    ValidatePartitionRowsAction,
+    ValidateConstraintAction,
+    CreateLocalIndexAction,
+    CreateGlobalIndexAction,
+    RebuildIndexAction,
+    MoveStorageAction,
+    CaptureCheckpointAction,
+    RequireApprovalAction,
+    RequireBackupAction,
+    CutoverAction,
+    CleanupAction,
+    RollbackPlan as PartitionRollbackPlan,
+    PartitionPlan
+)

@@ -860,3 +860,121 @@ class MSSQLAdapter(BaseAdapter):
             state_confidence=IdentityStateConfidence.EXACT,
             value_semantics=GeneratorValueSemantics.LAST_EMITTED
         )
+
+    async def discover_partition_scheme(self, schema: str, table: str) -> Optional[Any]:
+        if not self.is_connected:
+            raise RuntimeError("Not connected.")
+
+        from akaal.migration.models.partition import (
+            CanonicalPartitionScheme,
+            PartitionStrategy,
+            MetadataConfidence,
+            ObjectIdentity,
+            CanonicalRangePartition,
+            CanonicalRangeInterval,
+            CanonicalRangeBound,
+            CanonicalScalarValue,
+            CanonicalDataType,
+            BoundarySpecialType,
+            BoundInclusivity,
+            CanonicalColumnPartitionKey
+        )
+
+        if self.mock_mode:
+            if table.lower() == "orders":
+                return CanonicalPartitionScheme(
+                    table_identity=ObjectIdentity(schema, table, "TABLE"),
+                    source_dialect="mssql",
+                    source_version="2019",
+                    confidence=MetadataConfidence.COMPLETE,
+                    strategy=PartitionStrategy.RANGE,
+                    keys=(
+                        CanonicalColumnPartitionKey(
+                            column_name="order_date",
+                            canonical_type=CanonicalDataType.TIMESTAMP,
+                            native_type="TIMESTAMP",
+                            position=0,
+                            nullable=True
+                        ),
+                    ),
+                    partitions=(
+                        CanonicalRangePartition(
+                            object_identity=ObjectIdentity(schema, "orders_p1", "PARTITION"),
+                            partition_name="orders_p1",
+                            ordinal=0,
+                            boundary=CanonicalRangeInterval(
+                                lower=CanonicalRangeBound(
+                                    values=(),
+                                    inclusivity=BoundInclusivity.EXCLUSIVE,
+                                    unbounded=True
+                                ),
+                                upper=CanonicalRangeBound(
+                                    values=(
+                                        CanonicalScalarValue(
+                                            data_type=CanonicalDataType.TIMESTAMP,
+                                            ts_val=datetime(2026, 1, 1)
+                                        ),
+                                    ),
+                                    inclusivity=BoundInclusivity.EXCLUSIVE,
+                                    unbounded=False
+                                )
+                            )
+                        ),
+                    )
+                )
+            return None
+
+        table_fullname = f"{schema}.{table}"
+        sql = """
+            SELECT 
+                pf.name AS function_name,
+                ps.name AS scheme_name,
+                pf.type_desc AS strategy,
+                p.partition_number,
+                rv.value AS boundary_value
+            FROM sys.partitions p
+            JOIN sys.indexes i ON p.object_id = i.object_id AND p.index_id = i.index_id
+            JOIN sys.destination_data_spaces dds ON i.data_space_id = dds.partition_scheme_id AND p.partition_number = dds.destination_id
+            JOIN sys.partition_schemes ps ON dds.partition_scheme_id = ps.data_space_id
+            JOIN sys.partition_functions pf ON ps.function_id = pf.function_id
+            LEFT JOIN sys.partition_range_values rv ON pf.function_id = rv.function_id AND p.partition_number = rv.boundary_id
+            WHERE p.object_id = OBJECT_ID(?)
+            ORDER BY p.partition_number
+        """
+        rows = await self._run_query(sql, (table_fullname,))
+        if not rows:
+            return None
+
+        func_name, scheme_name, strategy_desc, _, _ = rows[0]
+        strat = PartitionStrategy.NONE
+        if strategy_desc:
+            if "RANGE" in strategy_desc.upper():
+                strat = PartitionStrategy.RANGE
+
+        partitions = []
+        for r in rows:
+            _, _, _, part_num, boundary_val = r
+            p_name = f"{table}_p{part_num}"
+            dummy_bound = CanonicalRangeInterval(
+                lower=CanonicalRangeBound(values=(), inclusivity=BoundInclusivity.EXCLUSIVE, unbounded=True),
+                upper=CanonicalRangeBound(values=(), inclusivity=BoundInclusivity.EXCLUSIVE, unbounded=True)
+            )
+            partitions.append(
+                CanonicalRangePartition(
+                    object_identity=ObjectIdentity(schema, p_name, "PARTITION"),
+                    partition_name=p_name,
+                    ordinal=part_num,
+                    boundary=dummy_bound
+                )
+            )
+
+        return CanonicalPartitionScheme(
+            table_identity=ObjectIdentity(schema, table, "TABLE"),
+            source_dialect="mssql",
+            source_version="2019",
+            confidence=MetadataConfidence.PARTIAL,
+            strategy=strat,
+            keys=(),
+            partitions=tuple(partitions)
+        )
+

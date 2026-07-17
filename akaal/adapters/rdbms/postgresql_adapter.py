@@ -676,3 +676,137 @@ class PostgreSQLAdapter(BaseAdapter):
             state_confidence=confidence,
             value_semantics=GeneratorValueSemantics.LAST_EMITTED
         )
+
+    async def discover_partition_scheme(self, schema: str, table: str) -> Optional[Any]:
+        if not self.is_connected:
+            raise RuntimeError("Not connected.")
+
+        from akaal.migration.models.partition import (
+            CanonicalPartitionScheme,
+            PartitionStrategy,
+            MetadataConfidence,
+            ObjectIdentity,
+            CanonicalRangePartition,
+            CanonicalRangeInterval,
+            CanonicalRangeBound,
+            CanonicalScalarValue,
+            CanonicalDataType,
+            BoundarySpecialType,
+            BoundInclusivity,
+            CanonicalColumnPartitionKey
+        )
+
+        if self.mock_mode:
+            if table == "orders":
+                return CanonicalPartitionScheme(
+                    table_identity=ObjectIdentity(schema, table, "TABLE"),
+                    source_dialect="postgresql",
+                    source_version="14.0",
+                    confidence=MetadataConfidence.COMPLETE,
+                    strategy=PartitionStrategy.RANGE,
+                    keys=(
+                        CanonicalColumnPartitionKey(
+                            column_name="order_date",
+                            canonical_type=CanonicalDataType.TIMESTAMP,
+                            native_type="TIMESTAMP",
+                            position=0,
+                            nullable=True
+                        ),
+                    ),
+                    partitions=(
+                        CanonicalRangePartition(
+                            object_identity=ObjectIdentity(schema, "orders_p1", "PARTITION"),
+                            partition_name="orders_p1",
+                            ordinal=0,
+                            boundary=CanonicalRangeInterval(
+                                lower=CanonicalRangeBound(
+                                    values=(),
+                                    inclusivity=BoundInclusivity.EXCLUSIVE,
+                                    unbounded=True
+                                ),
+                                upper=CanonicalRangeBound(
+                                    values=(
+                                        CanonicalScalarValue(
+                                            data_type=CanonicalDataType.TIMESTAMP,
+                                            ts_val=datetime(2026, 1, 1)
+                                        ),
+                                    ),
+                                    inclusivity=BoundInclusivity.EXCLUSIVE,
+                                    unbounded=False
+                                )
+                            )
+                        ),
+                    )
+                )
+            return None
+
+        def _run():
+            sql_parent = """
+                SELECT c.oid, c.relpartbound, c.relkind
+                FROM pg_class c
+                JOIN pg_namespace n ON c.relnamespace = n.oid
+                WHERE n.nspname = %s AND c.relname = %s
+            """
+            with self._conn.cursor() as cur:
+                cur.execute(sql_parent, (schema, table))
+                row = cur.fetchone()
+                if not row:
+                    return None
+                parent_oid, _, relkind = row
+                if relkind != 'p':
+                    return None
+
+                sql_partitioned = """
+                    SELECT partstrat, partnatts, partattrs, partclass
+                    FROM pg_partitioned_table
+                    WHERE partrelid = %s
+                """
+                cur.execute(sql_partitioned, (parent_oid,))
+                part_row = cur.fetchone()
+                if not part_row:
+                    return None
+                partstrat, partnatts, partattrs, partclass = part_row
+                
+                strat = PartitionStrategy.NONE
+                if partstrat == 'r':
+                    strat = PartitionStrategy.RANGE
+                elif partstrat == 'l':
+                    strat = PartitionStrategy.LIST
+                elif partstrat == 'h':
+                    strat = PartitionStrategy.HASH
+
+                sql_children = """
+                    SELECT c.relname, pg_get_expr(c.relpartbound, c.oid)
+                    FROM pg_inherits i
+                    JOIN pg_class c ON i.inhrelid = c.oid
+                    WHERE i.inhparent = %s
+                """
+                cur.execute(sql_children, (parent_oid,))
+                child_rows = cur.fetchall()
+
+                partitions = []
+                for idx, (child_name, bounds_str) in enumerate(child_rows):
+                    dummy_bound = CanonicalRangeInterval(
+                        lower=CanonicalRangeBound(values=(), inclusivity=BoundInclusivity.EXCLUSIVE, unbounded=True),
+                        upper=CanonicalRangeBound(values=(), inclusivity=BoundInclusivity.EXCLUSIVE, unbounded=True)
+                    )
+                    partitions.append(
+                        CanonicalRangePartition(
+                            object_identity=ObjectIdentity(schema, child_name, "PARTITION"),
+                            partition_name=child_name,
+                            ordinal=idx,
+                            boundary=dummy_bound
+                        )
+                    )
+
+                return CanonicalPartitionScheme(
+                    table_identity=ObjectIdentity(schema, table, "TABLE"),
+                    source_dialect="postgresql",
+                    source_version="14.0",
+                    confidence=MetadataConfidence.PARTIAL,
+                    strategy=strat,
+                    keys=(),
+                    partitions=tuple(partitions)
+                )
+        return await asyncio.to_thread(_run)
+

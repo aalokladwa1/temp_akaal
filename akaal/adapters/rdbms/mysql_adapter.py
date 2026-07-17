@@ -620,3 +620,137 @@ class MySQLAdapter(BaseAdapter):
             )
             
         return await asyncio.to_thread(_run)
+
+    async def discover_partition_scheme(self, schema: str, table: str) -> Optional[Any]:
+        if not self.is_connected:
+            raise RuntimeError("Not connected.")
+
+        from akaal.migration.models.partition import (
+            CanonicalPartitionScheme,
+            PartitionStrategy,
+            MetadataConfidence,
+            ObjectIdentity,
+            CanonicalRangePartition,
+            CanonicalRangeInterval,
+            CanonicalRangeBound,
+            CanonicalScalarValue,
+            CanonicalDataType,
+            BoundarySpecialType,
+            BoundInclusivity,
+            CanonicalColumnPartitionKey
+        )
+
+        if self.mock_mode:
+            if table == "orders":
+                return CanonicalPartitionScheme(
+                    table_identity=ObjectIdentity(schema, table, "TABLE"),
+                    source_dialect="mysql",
+                    source_version="8.0",
+                    confidence=MetadataConfidence.COMPLETE,
+                    strategy=PartitionStrategy.RANGE,
+                    keys=(
+                        CanonicalColumnPartitionKey(
+                            column_name="order_date",
+                            canonical_type=CanonicalDataType.TIMESTAMP,
+                            native_type="TIMESTAMP",
+                            position=0,
+                            nullable=True
+                        ),
+                    ),
+                    partitions=(
+                        CanonicalRangePartition(
+                            object_identity=ObjectIdentity(schema, "orders_p1", "PARTITION"),
+                            partition_name="orders_p1",
+                            ordinal=0,
+                            boundary=CanonicalRangeInterval(
+                                lower=CanonicalRangeBound(
+                                    values=(),
+                                    inclusivity=BoundInclusivity.EXCLUSIVE,
+                                    unbounded=True
+                                ),
+                                upper=CanonicalRangeBound(
+                                    values=(
+                                        CanonicalScalarValue(
+                                            data_type=CanonicalDataType.TIMESTAMP,
+                                            ts_val=datetime(2026, 1, 1)
+                                        ),
+                                    ),
+                                    inclusivity=BoundInclusivity.EXCLUSIVE,
+                                    unbounded=False
+                                )
+                            )
+                        ),
+                    )
+                )
+            return None
+
+        def _run():
+            sql = """
+                SELECT 
+                    PARTITION_METHOD,
+                    PARTITION_EXPRESSION,
+                    PARTITION_NAME,
+                    PARTITION_DESCRIPTION,
+                    PARTITION_ORDINAL_POSITION
+                FROM information_schema.PARTITIONS
+                WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND PARTITION_NAME IS NOT NULL
+                ORDER BY PARTITION_ORDINAL_POSITION
+            """
+            with self._conn.cursor() as cur:
+                cur.execute(sql, (schema, table))
+                rows = cur.fetchall()
+            if not rows:
+                return None
+
+            first_row = rows[0]
+            if isinstance(first_row, dict):
+                part_method = first_row.get("PARTITION_METHOD")
+            else:
+                part_method = first_row[0]
+
+            strat = PartitionStrategy.NONE
+            if part_method:
+                if "RANGE" in part_method.upper():
+                    strat = PartitionStrategy.RANGE
+                elif "LIST" in part_method.upper():
+                    strat = PartitionStrategy.LIST
+                elif "HASH" in part_method.upper():
+                    strat = PartitionStrategy.HASH
+                elif "KEY" in part_method.upper():
+                    strat = PartitionStrategy.KEY
+
+            partitions = []
+            for r in rows:
+                if isinstance(r, dict):
+                    p_name = r.get("PARTITION_NAME")
+                    p_desc = r.get("PARTITION_DESCRIPTION")
+                    p_ord = r.get("PARTITION_ORDINAL_POSITION")
+                else:
+                    p_name = r[2]
+                    p_desc = r[3]
+                    p_ord = r[4]
+
+                dummy_bound = CanonicalRangeInterval(
+                    lower=CanonicalRangeBound(values=(), inclusivity=BoundInclusivity.EXCLUSIVE, unbounded=True),
+                    upper=CanonicalRangeBound(values=(), inclusivity=BoundInclusivity.EXCLUSIVE, unbounded=True)
+                )
+                partitions.append(
+                    CanonicalRangePartition(
+                        object_identity=ObjectIdentity(schema, p_name, "PARTITION"),
+                        partition_name=p_name,
+                        ordinal=p_ord or 0,
+                        boundary=dummy_bound
+                    )
+                )
+
+            return CanonicalPartitionScheme(
+                table_identity=ObjectIdentity(schema, table, "TABLE"),
+                source_dialect="mysql",
+                source_version="8.0",
+                confidence=MetadataConfidence.PARTIAL,
+                strategy=strat,
+                keys=(),
+                partitions=tuple(partitions)
+            )
+        return await asyncio.to_thread(_run)
+

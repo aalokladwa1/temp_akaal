@@ -99,6 +99,10 @@ class BaseAdapter(ABC):
     async def discover_views(self) -> List[Dict[str, Any]]:
         """Return view definitions."""
 
+    async def discover_partition_scheme(self, schema: str, table: str) -> Optional[Any]:
+        """Discover partition scheme metadata for target table."""
+        return None
+
     # ------------------------------------------------------------------
     # Data operations
     # ------------------------------------------------------------------

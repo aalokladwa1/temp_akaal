@@ -11,6 +11,10 @@ from akaal.migration.comparison.identity import (
     IdentityDiagnostic,
     IdentityComparisonReport,
 )
+from akaal.migration.comparison.partition import (
+    PartitionCompatibilityAnalyzer,
+    PartitionComparisonEngine,
+)
 
 __all__ = [
     "IdentityComparisonEngine",
@@ -18,4 +22,6 @@ __all__ = [
     "ApprovalRequirement",
     "IdentityDiagnostic",
     "IdentityComparisonReport",
+    "PartitionCompatibilityAnalyzer",
+    "PartitionComparisonEngine",
 ]

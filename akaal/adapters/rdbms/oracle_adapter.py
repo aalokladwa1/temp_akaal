@@ -759,3 +759,126 @@ class OracleAdapter(BaseAdapter):
                 return None
                 
         return await asyncio.to_thread(_run)
+
+    async def discover_partition_scheme(self, schema: str, table: str) -> Optional[Any]:
+        if not self._conn:
+            raise RuntimeError("Not connected")
+
+        from akaal.migration.models.partition import (
+            CanonicalPartitionScheme,
+            PartitionStrategy,
+            MetadataConfidence,
+            ObjectIdentity,
+            CanonicalRangePartition,
+            CanonicalRangeInterval,
+            CanonicalRangeBound,
+            CanonicalScalarValue,
+            CanonicalDataType,
+            BoundarySpecialType,
+            BoundInclusivity,
+            CanonicalColumnPartitionKey
+        )
+
+        if self.mock_mode:
+            if table.upper() == "ORDERS":
+                return CanonicalPartitionScheme(
+                    table_identity=ObjectIdentity(schema, table, "TABLE"),
+                    source_dialect="oracle",
+                    source_version="19c",
+                    confidence=MetadataConfidence.COMPLETE,
+                    strategy=PartitionStrategy.RANGE,
+                    keys=(
+                        CanonicalColumnPartitionKey(
+                            column_name="order_date",
+                            canonical_type=CanonicalDataType.TIMESTAMP,
+                            native_type="TIMESTAMP",
+                            position=0,
+                            nullable=True
+                        ),
+                    ),
+                    partitions=(
+                        CanonicalRangePartition(
+                            object_identity=ObjectIdentity(schema, "ORDERS_P1", "PARTITION"),
+                            partition_name="ORDERS_P1",
+                            ordinal=0,
+                            boundary=CanonicalRangeInterval(
+                                lower=CanonicalRangeBound(
+                                    values=(),
+                                    inclusivity=BoundInclusivity.EXCLUSIVE,
+                                    unbounded=True
+                                ),
+                                upper=CanonicalRangeBound(
+                                    values=(
+                                        CanonicalScalarValue(
+                                            data_type=CanonicalDataType.TIMESTAMP,
+                                            ts_val=datetime(2026, 1, 1)
+                                        ),
+                                    ),
+                                    inclusivity=BoundInclusivity.EXCLUSIVE,
+                                    unbounded=False
+                                )
+                            )
+                        ),
+                    )
+                )
+            return None
+
+        def _run():
+            sql = """
+                SELECT partitioning_type, subpartitioning_type
+                FROM all_part_tables
+                WHERE owner = :schema AND table_name = :table
+            """
+            with self._conn.cursor() as cur:
+                cur.execute(sql, {"schema": schema.upper(), "table": table.upper()})
+                row = cur.fetchone()
+            if not row:
+                return None
+
+            part_type, subpart_type = row
+            strat = PartitionStrategy.NONE
+            if part_type:
+                if "RANGE" in part_type.upper():
+                    strat = PartitionStrategy.RANGE
+                elif "LIST" in part_type.upper():
+                    strat = PartitionStrategy.LIST
+                elif "HASH" in part_type.upper():
+                    strat = PartitionStrategy.HASH
+
+            sql_partitions = """
+                SELECT partition_name, partition_position, high_value, tablespace_name
+                FROM all_tab_partitions
+                WHERE table_owner = :schema AND table_name = :table
+                ORDER BY partition_position
+            """
+            with self._conn.cursor() as cur:
+                cur.execute(sql_partitions, {"schema": schema.upper(), "table": table.upper()})
+                part_rows = cur.fetchall()
+
+            partitions = []
+            for idx, r in enumerate(part_rows):
+                p_name, p_pos, high_val, tspace = r
+                dummy_bound = CanonicalRangeInterval(
+                    lower=CanonicalRangeBound(values=(), inclusivity=BoundInclusivity.EXCLUSIVE, unbounded=True),
+                    upper=CanonicalRangeBound(values=(), inclusivity=BoundInclusivity.EXCLUSIVE, unbounded=True)
+                )
+                partitions.append(
+                    CanonicalRangePartition(
+                        object_identity=ObjectIdentity(schema, p_name, "PARTITION"),
+                        partition_name=p_name,
+                        ordinal=p_pos or idx,
+                        boundary=dummy_bound
+                    )
+                )
+
+            return CanonicalPartitionScheme(
+                table_identity=ObjectIdentity(schema, table, "TABLE"),
+                source_dialect="oracle",
+                source_version="19c",
+                confidence=MetadataConfidence.PARTIAL,
+                strategy=strat,
+                keys=(),
+                partitions=tuple(partitions)
+            )
+        return await asyncio.to_thread(_run)
+
