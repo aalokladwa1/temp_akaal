@@ -637,9 +637,9 @@ class GBAgent:
             mem_cleanup_interval = memory_cleanup_interval
             mem_warning_threshold = memory_warning_threshold_mb
 
-            if source_config:
+            if source_config and not isinstance(source_config, str):
                 source_config._metrics = self._metrics
-            if target_config:
+            if target_config and not isinstance(target_config, str):
                 target_config._metrics = self._metrics
 
             src = create_adapter(source_config)
@@ -730,29 +730,107 @@ class GBAgent:
                 except Exception:
                     pk_cols = ["id"]
 
+                from akaal.migration.reliability.mapping.engine import MappingEngine
+                from akaal.migration.reliability.transformation.transformer import DataTransformer
+                from akaal.migration.reliability.masking.masker import DataMasker
+                from akaal.migration.execution.incremental.manager import IncrementalManager
+
+                proj_config = proj.configuration if proj else None
+                map_config = getattr(proj_config, "mapping", None)
+                trans_config = getattr(proj_config, "transformation", None)
+                mask_config = getattr(proj_config, "masking", None)
+                inc_config = getattr(proj_config, "incremental", None)
+
+                map_engine = MappingEngine(map_config)
+                transformer = DataTransformer(trans_config)
+                masker = DataMasker(mask_config)
+                inc_manager = IncrementalManager()
+
+                # Run mapping validation
+                validation_report = map_engine.validate_mappings()
+                if not validation_report.success:
+                    raise ValueError(f"Mapping validation failed: {validation_report.errors}")
+
+                # Determine target table name
+                target_table_name = map_engine.map_table_name(table_name)
+
+                # Get incremental filter
+                inc_filter = None
+                if inc_config and inc_config.strategy != "FULL":
+                    watermark = await inc_manager.get_current_watermark(p_id, m_id, table_name)
+                    inc_filter = inc_manager.get_incremental_filter(inc_config.__dict__, watermark)
+
+                # Get LOB columns
+                try:
+                    cols_metadata = await src.discover_columns(table_name)
+                    lob_cols = [
+                        c["name"] for c in cols_metadata
+                        if any(t in c["type"].lower() for t in ("blob", "bytea", "clob", "text", "image", "binary"))
+                    ]
+                except Exception:
+                    lob_cols = []
+
                 while True:
                     current_batch_size = governor.current_batch_size if actual_use_adaptive else batch_size
 
                     read_start = self._get_time()
-                    # 3. Fetch batch of data using cursor if PK exists and last_pk is loaded
                     if pk_cols and (last_pk is not None or offset == 0):
                         batch = await src.read_batch(
                             table_name,
                             offset=offset,
                             limit=current_batch_size,
-                            last_processed_primary_key=last_pk
+                            last_processed_primary_key=last_pk,
+                            incremental_filter=inc_filter
                         )
                     else:
                         batch = await src.read_batch(
                             table_name,
                             offset=offset,
-                            limit=current_batch_size
+                            limit=current_batch_size,
+                            incremental_filter=inc_filter
                         )
 
                     read_duration = self._get_time() - read_start
 
                     if not batch:
                         break
+
+                    # Process batch rows in memory
+                    processed_batch = []
+                    original_lob_data = []
+                    
+                    for row_item in batch:
+                        row = dict(row_item)
+                        # 1. Transform
+                        row = transformer.transform_row(table_name, row)
+                        # 2. Mask
+                        row = masker.mask_row(table_name, row)
+                        # 3. Map columns
+                        row = map_engine.map_row(table_name, row)
+
+                        # Extract LOB columns
+                        row_lob_preserves = {}
+                        pk_val = {col: row[col] for col in pk_cols if col in row} if pk_cols else None
+                        
+                        for col in lob_cols:
+                            # Map LOB column name to target column name
+                            target_col = col
+                            for c_map in getattr(map_config, "table_mappings", []):
+                                if c_map.source_table.lower() == table_name.lower():
+                                    for col_m in c_map.column_mappings:
+                                        if col_m.source_column.lower() == col.lower():
+                                            target_col = col_m.target_column
+                                            break
+                            
+                            if target_col in row:
+                                row_lob_preserves[target_col] = row[target_col]
+                                row[target_col] = None
+                                if pk_val:
+                                    original_lob_data.append((pk_val, target_col, row_lob_preserves[target_col]))
+                        
+                        processed_batch.append(row)
+                    
+                    batch = processed_batch
 
                     # Simulate a crash before writing if configured for recovery testing
                     if simulated_crash_batch is not None and (batches_processed + 1) >= simulated_crash_batch:
@@ -769,7 +847,47 @@ class GBAgent:
                     while not write_success and local_attempts < max_local_attempts:
                         try:
                             local_attempts += 1
-                            await tgt.write_batch(table_name, batch)
+                            await tgt.write_batch(target_table_name, batch)
+                            
+                            # Stream LOB columns chunk-by-chunk
+                            chunk_size = getattr(proj_config, "lob_chunk_size", 65536)
+                            if not isinstance(chunk_size, int):
+                                chunk_size = 65536
+                            
+                            for pk_val, target_col, full_val in original_lob_data:
+                                if not full_val:
+                                    continue
+                                
+                                full_bytes = full_val.encode() if isinstance(full_val, str) else bytes(full_val)
+                                total_len = len(full_bytes)
+                                
+                                offset_lob = 0
+                                source_sha = hashlib.sha256()
+                                target_sha = hashlib.sha256()
+                                
+                                while offset_lob < total_len:
+                                    chunk = full_bytes[offset_lob : offset_lob + chunk_size]
+                                    source_sha.update(chunk)
+                                    
+                                    chunk_success = False
+                                    chunk_attempts = 0
+                                    while not chunk_success and chunk_attempts < 3:
+                                        try:
+                                            chunk_attempts += 1
+                                            await tgt.write_lob_chunk(target_table_name, pk_val, target_col, chunk, offset_lob)
+                                            chunk_success = True
+                                        except Exception as chunk_exc:
+                                            if chunk_attempts >= 3:
+                                                raise chunk_exc
+                                            await asyncio.sleep(0.1)
+                                    
+                                    tgt_chunk = await tgt.read_lob_chunk(target_table_name, pk_val, target_col, offset_lob, chunk_size)
+                                    target_sha.update(tgt_chunk)
+                                    offset_lob += len(chunk)
+                                
+                                if source_sha.hexdigest() != target_sha.hexdigest():
+                                    raise ValueError(f"LOB integrity verification failed for column '{target_col}' at row {pk_val}.")
+                            
                             write_success = True
                         except Exception as exc:
                             last_exc = exc
@@ -781,7 +899,6 @@ class GBAgent:
                                 governor.record_failure()
                                 new_batch_size = governor.current_batch_size
 
-                                # Slice the in-memory batch and retry
                                 batch = batch[:new_batch_size]
                                 current_batch_size = len(batch)
                                 logger.warning("Retry initiated", extra={"event": "retry_initiated"})
@@ -792,7 +909,6 @@ class GBAgent:
 
                     if not write_success:
                         governor.record_failure()
-                        # Phase 7K — record retry
                         try:
                             if self._metrics is not None:
                                 self._metrics.counter("batch_retry_count").increment()
@@ -803,6 +919,7 @@ class GBAgent:
 
                     write_duration = self._get_time() - write_start
                     total_duration = read_duration + write_duration
+
 
                     # 5. Target committed & acknowledged. Finalize statistics:
                     batch_len = len(batch)
@@ -820,6 +937,14 @@ class GBAgent:
                             self._metrics.counter(BYTES_MIGRATED).increment(byte_est)
                     except Exception:
                         pass
+
+                    # Update watermark if incremental
+                    if inc_filter and batch:
+                        track_col = inc_filter["column"]
+                        vals = [r.get(track_col) for r in batch if r.get(track_col) is not None]
+                        if vals:
+                            max_val = max(vals)
+                            await inc_manager.update_watermark(p_id, m_id, table_name, max_val)
 
                     # Extract primary-key cursor from final row of the committed batch
                     last_row = batch[-1]

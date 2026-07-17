@@ -517,6 +517,7 @@ class MSSQLAdapter(BaseAdapter):
         offset: int,
         limit: int,
         last_processed_primary_key: Optional[Dict[str, Any]] = None,
+        incremental_filter: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, Any]]:
         if self.mock_mode:
             start_id = offset

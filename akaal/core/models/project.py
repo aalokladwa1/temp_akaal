@@ -25,6 +25,7 @@ from akaal.core.models.enums import (
     SystemType,
     WorkflowState,
 )
+from akaal.core.models.configuration import MigrationConfiguration
 
 
 def _utc_now() -> str:
@@ -108,6 +109,8 @@ class MigrationProject:
     approved_by: Optional[str] = None
     approved_at: Optional[str] = None
 
+    configuration: MigrationConfiguration = field(default_factory=MigrationConfiguration)
+
     # Phase 7F Adaptive Batch Sizing
     use_adaptive_batch: bool = False
     minimum_batch_size: int = 10
@@ -175,6 +178,7 @@ class MigrationProject:
 
     def to_dict(self) -> Dict[str, Any]:
         return {
+            "configuration": self.configuration,
             "project_id": self.project_id,
             "name": self.name,
             "strategy": self.strategy.value,

@@ -114,23 +114,35 @@ class BaseAdapter(ABC):
         offset: int,
         limit: int,
         last_processed_primary_key: Optional[Dict[str, Any]] = None,
+        incremental_filter: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, Any]]:
-        """Read a batch of rows/documents from source.
-
-        Contract:
-        - If last_processed_primary_key is supplied and the table contains primary keys,
-          the adapter must use cursor-based pagination (e.g. id > last_id).
-        - Must guarantee deterministic ordering matching primary-key ordering.
-        - Must guarantee identical cursor semantics across adapters.
-        - Must support automatic fallback to OFFSET pagination when no primary key is found.
-        - Must enforce strict forward progression (never returning rows at or before cursor).
-        - Must guarantee stable ordering between cursor construction and ORDER BY.
-        - Must utilize indexes and avoid full-table scans whenever indexes exist.
-        """
+        """Read a batch of rows/documents from source."""
 
     @abstractmethod
     async def write_batch(self, table_name: str, rows: List[Dict[str, Any]]) -> int:
         """Write a batch of rows/documents to target. Returns rows written."""
+
+    async def read_lob_chunk(
+        self,
+        table_name: str,
+        pk_value: Dict[str, Any],
+        lob_column: str,
+        offset: int,
+        chunk_size: int,
+    ) -> bytes:
+        """Read a chunk of LOB column data."""
+        raise NotImplementedError("read_lob_chunk not implemented for this adapter")
+
+    async def write_lob_chunk(
+        self,
+        table_name: str,
+        pk_value: Dict[str, Any],
+        lob_column: str,
+        chunk_data: bytes,
+        offset: int,
+    ) -> None:
+        """Write a chunk of LOB column data."""
+        raise NotImplementedError("write_lob_chunk not implemented for this adapter")
 
     @abstractmethod
     async def get_row_count(self, table_name: str) -> int:

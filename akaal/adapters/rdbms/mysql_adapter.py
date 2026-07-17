@@ -359,6 +359,7 @@ class MySQLAdapter(BaseAdapter):
         offset: int,
         limit: int,
         last_processed_primary_key: Optional[Dict[str, Any]] = None,
+        incremental_filter: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, Any]]:
         if self.mock_mode:
             start_id = offset
@@ -406,6 +407,9 @@ class MySQLAdapter(BaseAdapter):
                     row["str_col"] = f"str-{i}"
                 elif table_name == "no_pk_table":
                     row["data"] = f"mock_row_{i}"
+                elif table_name == "lob_table":
+                    row["id"] = i
+                    row["blob_col"] = f"mock_blob_value_{i}"
                 else:
                     row["id"] = i
                 rows.append(row)
@@ -422,9 +426,10 @@ class MySQLAdapter(BaseAdapter):
 
         def _run():
             with self._conn.cursor() as cur:
+                where_clauses = []
+                params = []
                 if use_cursor:
                     conditions = []
-                    params = []
                     for i in range(len(pk_cols)):
                         eq_parts = []
                         for col in pk_cols[:i]:
@@ -434,20 +439,88 @@ class MySQLAdapter(BaseAdapter):
                         eq_parts.append(f"`{curr_col}` > %s")
                         params.append(last_processed_primary_key[curr_col])
                         conditions.append("(" + " AND ".join(eq_parts) + ")")
-                    
-                    where_clause = " OR ".join(conditions)
-                    order_by = ", ".join([f"`{col}` ASC" for col in pk_cols])
-                    sql = f"SELECT * FROM `{table_name}` WHERE {where_clause} ORDER BY {order_by} LIMIT %s"
-                    params.append(limit)
-                    cur.execute(sql, tuple(params))
-                else:
-                    order_by = ", ".join([f"`{col}` ASC" for col in pk_cols]) if pk_cols else "`id`"
-                    sql = f"SELECT * FROM `{table_name}` ORDER BY {order_by} LIMIT %s OFFSET %s"
-                    cur.execute(sql, (limit, offset))
+                    where_clauses.append("(" + " OR ".join(conditions) + ")")
+
+                if incremental_filter:
+                    col = incremental_filter["column"]
+                    op = incremental_filter["operator"]
+                    val = incremental_filter["value"]
+                    where_clauses.append(f"`{col}` {op} %s")
+                    params.append(val)
+
+                where_str = ""
+                if where_clauses:
+                    where_str = " WHERE " + " AND ".join(where_clauses)
+
+                order_by = ", ".join([f"`{col}` ASC" for col in pk_cols]) if pk_cols else "`id`"
                 
+                if use_cursor:
+                    sql = f"SELECT * FROM `{table_name}`{where_str} ORDER BY {order_by} LIMIT %s"
+                    params.append(limit)
+                else:
+                    sql = f"SELECT * FROM `{table_name}`{where_str} ORDER BY {order_by} LIMIT %s OFFSET %s"
+                    params.append(limit)
+                    params.append(offset)
+
+                cur.execute(sql, tuple(params))
                 return [dict(row) for row in cur.fetchall()]
 
         return await asyncio.to_thread(_run)
+
+    async def read_lob_chunk(
+        self,
+        table_name: str,
+        pk_value: Dict[str, Any],
+        lob_column: str,
+        offset: int,
+        chunk_size: int,
+    ) -> bytes:
+        if self.mock_mode:
+            mock_data = f"mock_lob_data_for_row_{list(pk_value.values())[0] if pk_value else 0}".encode()
+            return mock_data[offset : offset + chunk_size]
+
+        pk_cols = list(pk_value.keys())
+        where_parts = [f"`{col}` = %s" for col in pk_cols]
+        where_clause = " AND ".join(where_parts)
+        params = [offset + 1, chunk_size] + list(pk_value.values())
+
+        sql = f"SELECT SUBSTRING(`{lob_column}`, %s, %s) FROM `{table_name}` WHERE {where_clause}"
+
+        def _run():
+            with self._conn.cursor() as cur:
+                cur.execute(sql, tuple(params))
+                row = cur.fetchone()
+                return bytes(row[0]) if row and row[0] is not None else b""
+        return await asyncio.to_thread(_run)
+
+    async def write_lob_chunk(
+        self,
+        table_name: str,
+        pk_value: Dict[str, Any],
+        lob_column: str,
+        chunk_data: bytes,
+        offset: int,
+    ) -> None:
+        if self.mock_mode:
+            return
+
+        pk_cols = list(pk_value.keys())
+        where_parts = [f"`{col}` = %s" for col in pk_cols]
+        where_clause = " AND ".join(where_parts)
+
+        if offset == 0:
+            sql = f"UPDATE `{table_name}` SET `{lob_column}` = %s WHERE {where_clause}"
+            params = [chunk_data] + list(pk_value.values())
+        else:
+            # MySQL append uses CONCAT
+            sql = f"UPDATE `{table_name}` SET `{lob_column}` = CONCAT(`{lob_column}`, %s) WHERE {where_clause}"
+            params = [chunk_data] + list(pk_value.values())
+
+        def _run():
+            with self._conn.cursor() as cur:
+                cur.execute(sql, tuple(params))
+        await asyncio.to_thread(_run)
+
 
     async def write_batch(self, table_name: str, rows: List[Dict[str, Any]]) -> int:
         if self.mock_mode:

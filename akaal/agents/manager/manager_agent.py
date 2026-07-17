@@ -65,6 +65,7 @@ from akaal.core.models.enums import (
     TaskType,
     WorkflowState,
 )
+from akaal.core.models.configuration import HookPhase
 from akaal.core.models.message import Message, MessageType
 from akaal.core.models.project import (
     ApprovalRecord,
@@ -433,6 +434,7 @@ class ManagerAgent:
                     while True:
                         try:
                             # --- Stage 1: Discovery ---
+                            await self._run_sql_hooks(project, HookPhase.BEFORE_DISCOVERY)
                             await self._run_discovery_stage(project, session)
 
                             # --- Stage 2: GB Import ---
@@ -449,6 +451,7 @@ class ManagerAgent:
                             await self._run_production_migration_stage(project, session)
 
                             # --- Stage 5: CDC Synchronization ---
+                            await self._run_sql_hooks(project, HookPhase.BEFORE_CUTOVER)
                             await self._run_cdc_stage(project, session)
 
                             # --- Complete ---
@@ -829,6 +832,10 @@ class ManagerAgent:
                 details={"approved_by": project.approved_by},
             )
 
+            await self._run_sql_hooks(project, HookPhase.BEFORE_SCHEMA_MIGRATION)
+            await self._run_sql_hooks(project, HookPhase.AFTER_SCHEMA_MIGRATION)
+            await self._run_sql_hooks(project, HookPhase.BEFORE_DATA_MIGRATION)
+
             # Check if parallel migration is enabled
             if getattr(project, "enable_parallel_migration", False):
                 import json
@@ -895,6 +902,7 @@ class ManagerAgent:
             # Post-batch checkpoint
             await self._create_checkpoint(project, "Post-migration-batch checkpoint")
 
+            await self._run_sql_hooks(project, HookPhase.AFTER_DATA_MIGRATION)
             session.completed_batches += 1
 
         # Production validation
@@ -1096,6 +1104,7 @@ class ManagerAgent:
         await self._transition(
             project, WorkflowState.MIGRATION_COMPLETED, "Migration successfully completed"
         )
+        await self._run_sql_hooks(project, HookPhase.AFTER_CUTOVER)
 
         # Final checkpoint
         await self._create_checkpoint(project, "Final migration completion checkpoint")
@@ -1734,3 +1743,22 @@ class ManagerAgent:
             "message_bus_stats": self._bus.stats(),
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
+
+    async def _run_sql_hooks(self, project: MigrationProject, phase: HookPhase) -> None:
+        target_config = project.target_config
+        if not target_config:
+            return
+
+        from akaal.migration.execution.hooks.executor import HookExecutor
+        from akaal.adapters.adapter_registry import create_adapter
+
+        # Retrieve hooks for this phase
+        hooks = getattr(project.configuration.hook, "hooks", [])
+        phase_hooks = [h for h in hooks if h.phase == phase]
+        if not phase_hooks:
+            return
+
+        adapter = create_adapter(target_config)
+        executor = HookExecutor(adapter)
+        await executor.execute_phase_hooks(hooks, phase)
+

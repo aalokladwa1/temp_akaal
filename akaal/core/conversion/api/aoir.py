@@ -138,3 +138,9 @@ class AOIRNode:
     security_context: SecurityExecutionContext = SecurityExecutionContext.INVOKER
     transaction_behavior: TransactionBehavior = TransactionBehavior.SEMANTICALLY_EQUIVALENT
     source_text: str = ""
+    aoir_version: str = "1.0.0"
+    source_dialect: str = ""
+    target_dialect: str = ""
+    routine_type: str = ""
+    metadata: dict = field(default_factory=dict)
+

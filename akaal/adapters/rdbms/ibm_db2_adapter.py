@@ -87,6 +87,7 @@ class IBMDB2Adapter(BaseAdapter):
         offset: int,
         limit: int,
         last_processed_primary_key: Optional[Dict[str, Any]] = None,
+        incremental_filter: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, Any]]:
         raise NotImplementedError("IBMDB2Adapter.read_batch() not yet implemented.")
 

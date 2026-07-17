@@ -199,10 +199,15 @@ class AkaalPipeline:
             proc_translator = ObjectTranslatorRegistry.get_translator(ObjectType.PROCEDURE)
             if hasattr(proc_translator, "set_service"):
                 proc_translator.set_service(proc_service)
+                
+            func_service = Bootstrap.initialize_function_service()
+            func_translator = ObjectTranslatorRegistry.get_translator(ObjectType.FUNCTION)
+            if hasattr(func_translator, "set_service"):
+                func_translator.set_service(func_service)
         except Exception as e:
             import logging
             logging.getLogger("akaal.core.pipeline").warning(
-                "Failed to bootstrap and inject Procedure Conversion Service: %s", e
+                "Failed to bootstrap and inject Routine Conversion Services: %s", e
             )
 
 

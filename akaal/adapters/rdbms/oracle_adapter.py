@@ -453,6 +453,7 @@ class OracleAdapter(BaseAdapter):
         offset: int,
         limit: int,
         last_processed_primary_key: Optional[Dict[str, Any]] = None,
+        incremental_filter: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, Any]]:
         if not self._conn and not self.mock_mode:
             raise RuntimeError("Not connected")
