@@ -82,11 +82,39 @@ class DefaultCapabilityProvider(ICapabilityProvider):
 
     def get_matrix(self, vendor: str, version: DbVersion) -> Optional[CapabilityMatrix]:
         vendor_normalized = self._normalize_vendor(vendor)
+        
+        # Block invalid or empty version objects
+        if version.major == 0 and version.minor == 0 and version.patch == 0:
+            # Capabilities default to blocked if version is not recognized.
+            blocked_caps = {
+                cap_type: VendorCapability(cap_type, supported=False)
+                for cap_type in CapabilityType
+            }
+            return CapabilityMatrix(
+                matrix_version="1.0.0",
+                vendor=vendor_normalized,
+                min_version=version,
+                max_version=version,
+                capabilities=blocked_caps
+            )
+
         matrices = self._matrices.get(vendor_normalized, ())
         for matrix in matrices:
             if matrix.min_version <= version <= matrix.max_version:
                 return matrix
-        return None
+
+        # Unknown-version behavior: default capabilities to blocked
+        blocked_caps = {
+            cap_type: VendorCapability(cap_type, supported=False)
+            for cap_type in CapabilityType
+        }
+        return CapabilityMatrix(
+            matrix_version="1.0.0",
+            vendor=vendor_normalized,
+            min_version=version,
+            max_version=version,
+            capabilities=blocked_caps
+        )
 
     def register_matrix(self, matrix: CapabilityMatrix) -> None:
         vendor_normalized = self._normalize_vendor(matrix.vendor)
@@ -101,12 +129,12 @@ class DefaultCapabilityProvider(ICapabilityProvider):
         return v
 
     def _initialize_core_matrices(self):
-        # 1. PostgreSQL (all versions >= 9.0)
-        pg_caps = {
+        # 1.1 PostgreSQL 9.x (No native identity support)
+        pg_9_caps = {
             CapabilityType.BOOLEAN: VendorCapability(CapabilityType.BOOLEAN, True, "BOOLEAN"),
             CapabilityType.JSON: VendorCapability(CapabilityType.JSON, True, "JSONB"),
             CapabilityType.UUID: VendorCapability(CapabilityType.UUID, True, "UUID"),
-            CapabilityType.IDENTITY: VendorCapability(CapabilityType.IDENTITY, True, "GENERATED ALWAYS AS IDENTITY"),
+            CapabilityType.IDENTITY: VendorCapability(CapabilityType.IDENTITY, False, None),
             CapabilityType.TIMEZONE: VendorCapability(CapabilityType.TIMEZONE, True, "TIMESTAMPTZ"),
             CapabilityType.XML: VendorCapability(CapabilityType.XML, True, "XML"),
             CapabilityType.ARRAYS: VendorCapability(CapabilityType.ARRAYS, True, "ARRAY"),
@@ -116,11 +144,24 @@ class DefaultCapabilityProvider(ICapabilityProvider):
             matrix_version="1.0.0",
             vendor="POSTGRESQL",
             min_version=DbVersion(9, 0, 0, "9.0"),
-            max_version=DbVersion(99, 99, 99, "99.99"),
-            capabilities=pg_caps
+            max_version=DbVersion(9, 99, 99, "9.99"),
+            capabilities=pg_9_caps
         ))
 
-        # 2. MySQL (5.7)
+        # 1.2 PostgreSQL 10+ (Native identity support)
+        pg_10_caps = pg_9_caps.copy()
+        pg_10_caps[CapabilityType.IDENTITY] = VendorCapability(
+            CapabilityType.IDENTITY, True, "GENERATED ALWAYS AS IDENTITY"
+        )
+        self.register_matrix(CapabilityMatrix(
+            matrix_version="1.0.0",
+            vendor="POSTGRESQL",
+            min_version=DbVersion(10, 0, 0, "10.0"),
+            max_version=DbVersion(99, 99, 99, "99.99"),
+            capabilities=pg_10_caps
+        ))
+
+        # 2.1 MySQL (5.7)
         mysql_57_caps = {
             CapabilityType.BOOLEAN: VendorCapability(
                 CapabilityType.BOOLEAN, True, None,
@@ -134,7 +175,7 @@ class DefaultCapabilityProvider(ICapabilityProvider):
             CapabilityType.IDENTITY: VendorCapability(CapabilityType.IDENTITY, True, "AUTO_INCREMENT"),
             CapabilityType.TIMEZONE: VendorCapability(
                 CapabilityType.TIMEZONE, True, None,
-                emulation=EmulationSpec(emulated_target_type="TIMESTAMP") # MySQL timestamp is UTC converted on store/retrieve
+                emulation=EmulationSpec(emulated_target_type="TIMESTAMP")
             ),
             CapabilityType.XML: VendorCapability(CapabilityType.XML, False, None),
             CapabilityType.ARRAYS: VendorCapability(CapabilityType.ARRAYS, False, None),
@@ -147,9 +188,8 @@ class DefaultCapabilityProvider(ICapabilityProvider):
             capabilities=mysql_57_caps
         ))
 
-        # MySQL (8.0+)
+        # 2.2 MySQL (8.0+)
         mysql_80_caps = mysql_57_caps.copy()
-        # MySQL 8.0+ supports generated columns natively
         mysql_80_caps[CapabilityType.GENERATED_COLUMNS] = VendorCapability(
             CapabilityType.GENERATED_COLUMNS, True, "GENERATED ALWAYS AS"
         )
@@ -161,8 +201,8 @@ class DefaultCapabilityProvider(ICapabilityProvider):
             capabilities=mysql_80_caps
         ))
 
-        # 3. Oracle (12c and 19c)
-        oracle_caps = {
+        # 3.1 Oracle 11g (No native identity support)
+        oracle_11_caps = {
             CapabilityType.BOOLEAN: VendorCapability(
                 CapabilityType.BOOLEAN, True, None,
                 emulation=EmulationSpec(
@@ -181,7 +221,7 @@ class DefaultCapabilityProvider(ICapabilityProvider):
                 CapabilityType.UUID, True, None,
                 emulation=EmulationSpec(emulated_target_type="VARCHAR2(36)")
             ),
-            CapabilityType.IDENTITY: VendorCapability(CapabilityType.IDENTITY, True, "GENERATED AS IDENTITY"),
+            CapabilityType.IDENTITY: VendorCapability(CapabilityType.IDENTITY, False, None),
             CapabilityType.TIMEZONE: VendorCapability(CapabilityType.TIMEZONE, True, "TIMESTAMP WITH TIME ZONE"),
             CapabilityType.XML: VendorCapability(CapabilityType.XML, True, "XMLTYPE"),
             CapabilityType.ARRAYS: VendorCapability(CapabilityType.ARRAYS, False, None),
@@ -190,11 +230,24 @@ class DefaultCapabilityProvider(ICapabilityProvider):
             matrix_version="1.0.0",
             vendor="ORACLE",
             min_version=DbVersion(11, 0, 0, "11g"),
-            max_version=DbVersion(99, 99, 99, "99.99"),
-            capabilities=oracle_caps
+            max_version=DbVersion(11, 99, 99, "11.99"),
+            capabilities=oracle_11_caps
         ))
 
-        # 4. SQL Server (MSSQL >= 2016)
+        # 3.2 Oracle 12c+ (Native identity support)
+        oracle_12_caps = oracle_11_caps.copy()
+        oracle_12_caps[CapabilityType.IDENTITY] = VendorCapability(
+            CapabilityType.IDENTITY, True, "GENERATED AS IDENTITY"
+        )
+        self.register_matrix(CapabilityMatrix(
+            matrix_version="1.0.0",
+            vendor="ORACLE",
+            min_version=DbVersion(12, 0, 0, "12c"),
+            max_version=DbVersion(99, 99, 99, "99.99"),
+            capabilities=oracle_12_caps
+        ))
+
+        # 4. SQL Server (MSSQL >= 2012)
         mssql_caps = {
             CapabilityType.BOOLEAN: VendorCapability(CapabilityType.BOOLEAN, True, "BIT"),
             CapabilityType.JSON: VendorCapability(
@@ -213,7 +266,7 @@ class DefaultCapabilityProvider(ICapabilityProvider):
         self.register_matrix(CapabilityMatrix(
             matrix_version="1.0.0",
             vendor="MSSQL",
-            min_version=DbVersion(13, 0, 0, "2016"),
+            min_version=DbVersion(11, 0, 0, "2012"),
             max_version=DbVersion(99, 99, 99, "99.99"),
             capabilities=mssql_caps
         ))

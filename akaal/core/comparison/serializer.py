@@ -74,14 +74,31 @@ def _deserialize_identity(data: Optional[Dict[str, Any]]) -> Optional[IdentityDe
 def _deserialize_column(data: Optional[Dict[str, Any]]) -> Optional[ColumnSchema]:
     if not data:
         return None
+    
+    identity_data = data.get("identity")
+    default_val = data.get("default_value")
+    
+    # TSK-11: Map default SERIAL defaults to sequence fallbacks
+    if default_val and not identity_data:
+        if "nextval(" in default_val.lower():
+            identity_data = {
+                "mode": "SERIAL_FALLBACK",
+                "start": 1,
+                "increment": 1,
+                "cycle": False,
+                "explicit_insert_policy": "ALLOWED",
+                "source_engine": "POSTGRESQL",
+                "source_version": "9.6"
+            }
+
     return ColumnSchema(
         name=data["name"],
         data_type=data["data_type"],
         raw_type=data["raw_type"],
         nullable=data["nullable"],
-        default_value=data.get("default_value"),
+        default_value=default_val,
         raw_default=data.get("raw_default"),
-        identity=_deserialize_identity(data.get("identity")),
+        identity=_deserialize_identity(identity_data),
     )
 
 

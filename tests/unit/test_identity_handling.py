@@ -150,3 +150,79 @@ def test_package_decoupling_boundaries():
                     with open(module_source, "r", encoding="utf-8") as f:
                         content = f.read()
                         assert "akaal.migration" not in content, f"Circular dependency risk found: {mod_name} imports akaal.migration"
+
+
+def test_legacy_serialization_serial_fallback():
+    """Asserts that nextval default values are mapped to SERIAL_FALLBACK identities."""
+    data = {
+        "name": "id",
+        "data_type": "INTEGER",
+        "raw_type": "INT",
+        "nullable": False,
+        "default_value": "nextval('users_id_seq'::regclass)",
+        "raw_default": "nextval('users_id_seq'::regclass)",
+        "identity": None
+    }
+    col = _deserialize_column(data)
+    assert col.identity is not None
+    assert col.identity.mode == IdentityMode.SERIAL_FALLBACK
+    assert col.identity.source_engine == "POSTGRESQL"
+
+
+def test_identity_model_mapper():
+    """Asserts that IdentityModelMapper converts definitions to/from metadata correctly."""
+    from akaal.migration.mappers import IdentityModelMapper
+    
+    defn = IdentityDefinition(
+        mode=IdentityMode.GENERATED_ALWAYS,
+        start=10,
+        increment=5,
+        min_value=1,
+        max_value=1000,
+        cycle=True,
+        cache=20
+    )
+    meta = IdentityModelMapper.to_metadata(defn)
+    assert meta.always is True
+    assert meta.generated_by_default is False
+    assert meta.start == 10
+    assert meta.increment == 5
+    assert meta.min_value == 1
+    assert meta.max_value == 1000
+    assert meta.cycle is True
+    assert meta.cache_size == 20
+    
+    # Convert back
+    defn_back = IdentityModelMapper.from_metadata(meta)
+    assert defn_back.mode == IdentityMode.GENERATED_ALWAYS
+    assert defn_back.start == 10
+    assert defn_back.increment == 5
+    assert defn_back.cycle is True
+    assert defn_back.cache == 20
+
+
+def test_version_capability_matrix():
+    """Asserts PostgreSQL, Oracle, SQL Server, and MySQL identity capabilities match versions."""
+    from akaal.core.conversion.internal.capabilities import DefaultCapabilityProvider, CapabilityType
+    from akaal.core.conversion.api.models import DbVersion
+    
+    provider = DefaultCapabilityProvider()
+    
+    # PostgreSQL
+    pg9 = provider.get_matrix("POSTGRESQL", DbVersion(9, 6, 0))
+    assert pg9.capabilities[CapabilityType.IDENTITY].supported is False
+    
+    pg10 = provider.get_matrix("POSTGRESQL", DbVersion(10, 0, 0))
+    assert pg10.capabilities[CapabilityType.IDENTITY].supported is True
+    
+    # Oracle
+    ora11 = provider.get_matrix("ORACLE", DbVersion(11, 2, 0))
+    assert ora11.capabilities[CapabilityType.IDENTITY].supported is False
+    
+    ora12 = provider.get_matrix("ORACLE", DbVersion(12, 1, 0))
+    assert ora12.capabilities[CapabilityType.IDENTITY].supported is True
+    
+    # Unknown version
+    unknown = provider.get_matrix("POSTGRESQL", DbVersion(0, 0, 0))
+    assert unknown.capabilities[CapabilityType.IDENTITY].supported is False
+
