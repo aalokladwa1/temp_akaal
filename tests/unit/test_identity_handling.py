@@ -503,5 +503,84 @@ def test_identity_comparison_engine():
     assert rep_unsupp.blocking is True
 
 
+def test_identity_ddl_planning_and_translation():
+    """Asserts that IdentitySyncPlanner resolves plans and IdentityDialectTranslator generates dialect DDLs."""
+    from akaal.migration.comparison import IdentityComparisonEngine
+    from akaal.migration.ddl.translators.identity import (
+        IdentitySyncPlanner,
+        IdentityDialectTranslator,
+        IdentityActionType,
+        IdentitySafetyLevel,
+    )
+    from akaal.core.comparison.models import IdentityDefinition, IdentityMode
+    from akaal.migration.models.identity import IdentityRuntimeState, GeneratorValueSemantics, IdentityStateConfidence
+
+    defn_src = IdentityDefinition(
+        mode=IdentityMode.GENERATED_ALWAYS, start=1, increment=1, min_value=1, max_value=100, cycle=False, cache=1
+    )
+    defn_tgt = IdentityDefinition(
+        mode=IdentityMode.GENERATED_ALWAYS, start=1, increment=1, min_value=1, max_value=100, cycle=False, cache=1
+    )
+
+    # 1. Reseed Planning
+    state_src = IdentityRuntimeState(
+        current_generator_value=50, last_generated_value=50, restart_value=1,
+        state_confidence=IdentityStateConfidence.EXACT, value_semantics=GeneratorValueSemantics.LAST_EMITTED
+    )
+    state_tgt = IdentityRuntimeState(
+        current_generator_value=20, last_generated_value=20, restart_value=1,
+        state_confidence=IdentityStateConfidence.EXACT, value_semantics=GeneratorValueSemantics.LAST_EMITTED
+    )
+    
+    rep = IdentityComparisonEngine.compare_and_plan(defn_src, defn_tgt, state_src, state_tgt)
+    plan = IdentitySyncPlanner.generate_plan(rep, "public", "users", "id")
+    
+    assert len(plan) == 1
+    action = plan[0]
+    assert action.action_type == IdentityActionType.RESTART_IDENTITY
+    assert action.safety_level == IdentitySafetyLevel.SAFE_RESEED
+    assert action.approval_requirement == "administrator approval"
+
+    # PostgreSQL translation
+    pg_out = IdentityDialectTranslator.translate(action, "postgresql", "public", "users", "id")
+    assert any("RESTART WITH 50" in cmd for cmd in pg_out.sql_commands)
+
+    # Oracle translation
+    ora_out = IdentityDialectTranslator.translate(action, "oracle", "public", "users", "id")
+    assert any("RESTART WITH 50" in cmd for cmd in ora_out.sql_commands)
+
+    # SQL Server translation
+    mssql_out = IdentityDialectTranslator.translate(action, "mssql", "public", "users", "id")
+    assert any("DBCC CHECKIDENT" in cmd for cmd in mssql_out.sql_commands)
+
+    # MySQL translation
+    mysql_out = IdentityDialectTranslator.translate(action, "mysql", "public", "users", "id")
+    assert any("AUTO_INCREMENT = 50" in cmd for cmd in mysql_out.sql_commands)
+
+    # 2. Recreation Planning (Structural change start value)
+    defn_tgt_diff = IdentityDefinition(
+        mode=IdentityMode.GENERATED_ALWAYS, start=10, increment=1, min_value=1, max_value=100, cycle=False, cache=1
+    )
+    rep_recreate = IdentityComparisonEngine.compare_and_plan(defn_src, defn_tgt_diff, None, None)
+    plan_recreate = IdentitySyncPlanner.generate_plan(rep_recreate, "public", "users", "id")
+    
+    # Needs a DROP then a CREATE action
+    assert len(plan_recreate) == 2
+    assert plan_recreate[0].action_type == IdentityActionType.DROP_IDENTITY
+    assert plan_recreate[1].action_type == IdentityActionType.CREATE_IDENTITY
+    assert plan_recreate[1].safety_level == IdentitySafetyLevel.UNSAFE_REBUILD
+
+    # Translate CREATE on SQL Server (shows rebuild warning)
+    mssql_cre_out = IdentityDialectTranslator.translate(plan_recreate[1], "mssql", "public", "users", "id")
+    assert len(mssql_cre_out.warnings) > 0
+    assert "rebuilding" in mssql_cre_out.warnings[0]
+
+    # Translate CREATE on PostgreSQL
+    pg_cre_out = IdentityDialectTranslator.translate(plan_recreate[1], "postgresql", "public", "users", "id")
+    assert any("ADD GENERATED" in cmd for cmd in pg_cre_out.sql_commands)
+    assert any("DROP IDENTITY" in cmd for cmd in pg_cre_out.rollback_commands)
+
+
+
 
 
