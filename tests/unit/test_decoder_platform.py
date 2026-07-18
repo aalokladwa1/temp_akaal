@@ -4,18 +4,23 @@ Unit Tests for Decoder Platform Subsystem (Phase 9 - Feature 3)
 Comprehensive test suite covering Storage Model Family Providers, Canonical Type Algebra,
 Canonical Object Graph, Universal Function AST Library, Expression AST, Universal Identity,
 Stage 1 Lineage Engine, Semantic Mapping Model, Validation Profiles, Telemetry Event Bus,
-CanonicalSerializer, CanonicalMigrationModel immutability, and Enterprise Stress Testing.
+CanonicalSerializer, CanonicalMigrationModel immutability, Enterprise Scale Stress Testing,
+Randomized Input Determinism, Schema Evolution, and Provider Governance.
 """
 
 import unittest
 import json
 import hashlib
+import random
+import tracemalloc
+import time
 
 from akaal.core.models.enums import SystemType
 from akaal.core.models.project import ConnectionConfig
 from akaal.scout.models.discovery_request import DiscoveryRequest
 from akaal.scout.models.discovery_context import DiscoveryContext
 from akaal.scout.reporting.discovery_assembler import DiscoveryAssembler
+from akaal.scout.models.discovery_report import DiscoveryReport, EngineInfo
 from akaal.rulebook.api.rulebook_platform import RulebookPlatform
 
 from akaal.decoder.models.canonical_type import CanonicalTypeFamily, CanonicalType, OpaqueType
@@ -35,6 +40,8 @@ from akaal.decoder.models.canonical_migration_model import CanonicalMigrationMod
 from akaal.decoder.registry.storage_hierarchy import StorageModel
 from akaal.decoder.registry.storage_family_registry import StorageFamilyRegistry
 from akaal.decoder.registry.canonical_function_registry import CanonicalFunctionRegistry
+from akaal.decoder.providers.relational_provider import RelationalDecoderProvider
+from akaal.decoder.providers.document_provider import DocumentDecoderProvider
 from akaal.decoder.cache.normalization_cache import NormalizationCache
 from akaal.decoder.serialization.canonical_serializer import CanonicalSerializer
 
@@ -167,12 +174,115 @@ class TestDecoderPlatform(unittest.TestCase):
             model.sha256_checksum = "modified"
 
     def test_enterprise_stress_and_determinism(self):
-        # Verify 5 consecutive runs over normalization produce identical checksum outputs
         checksums = set()
         for _ in range(5):
             m = DecoderPlatform.normalize(self.report, self.ruleset)
             checksums.add(m.sha256_checksum)
         self.assertEqual(len(checksums), 1)
+
+    def test_enterprise_scale_stress_metrics(self):
+
+        schemas = [f"schema_{i}" for i in range(5)]
+        tables = []
+        for s in schemas:
+            for t_idx in range(10):
+                t_name = f"table_{t_idx}"
+                cols = [
+                    {"name": f"col_{c_idx}", "data_type": "varchar", "primary_key": (c_idx == 0)}
+                    for c_idx in range(20)
+                ]
+                tables.append({"schema_name": s, "table_name": t_name, "columns": cols})
+
+        large_report = DiscoveryReport(
+            engine_info=EngineInfo(system_type=SystemType.POSTGRESQL, vendor="PostgreSQL", engine_name="PostgreSQL"),
+            schema_inventory={"schemas": schemas, "tables": tables, "views": []},
+        )
+
+        tracemalloc.start()
+        t0 = time.time()
+        model = DecoderPlatform.normalize(large_report, self.ruleset)
+        t1 = time.time()
+        current_mem, peak_mem = tracemalloc.get_traced_memory()
+        tracemalloc.stop()
+
+        exec_time_ms = (t1 - t0) * 1000.0
+        peak_mem_mb = peak_mem / (1024 * 1024)
+
+        self.assertIsNotNone(model)
+        self.assertTrue(len(model.sha256_checksum) > 0)
+        self.assertTrue(exec_time_ms < 5000.0)  # Under 5s
+        self.assertTrue(peak_mem_mb < 50.0)    # Under 50MB peak
+
+    def test_randomized_input_and_provider_ordering_determinism(self):
+        checksums = set()
+        base_tables = self.report.schema_inventory.get("tables", [])
+
+        for i in range(10):
+            shuffled_tables = list(base_tables)
+            random.seed(i)
+            random.shuffle(shuffled_tables)
+
+            rep = DiscoveryReport(
+                engine_info=self.report.engine_info,
+                schema_inventory={"schemas": ["public"], "tables": shuffled_tables, "views": []},
+            )
+            m = DecoderPlatform.normalize(rep, self.ruleset)
+            checksums.add(m.sha256_checksum)
+
+        self.assertEqual(len(checksums), 1)
+
+    def test_canonical_schema_evolution(self):
+        model = normalize(self.report, self.ruleset)
+        manifest = model.canonical_manifest
+        self.assertEqual(manifest["schema_version"], "1.0.0")
+        self.assertEqual(manifest["decoder_version"], "1.0.0")
+
+    def test_serialization_roundtrip_semantic_equivalence(self):
+        model = normalize(self.report, self.ruleset)
+        json_str = CanonicalSerializer.serialize_json(model)
+        deserialized = CanonicalSerializer.deserialize_json(json_str)
+
+        self.assertEqual(model.sha256_checksum, deserialized.sha256_checksum)
+        self.assertEqual(model.semantic_mappings, deserialized.semantic_mappings)
+
+    def test_provider_governance_and_lifecycle(self):
+        reg = StorageFamilyRegistry(auto_register_defaults=False)
+        p1 = RelationalDecoderProvider()
+        reg.register(p1)
+
+        self.assertEqual(len(reg.list_providers()), 1)
+        self.assertEqual(p1.lifecycle_state, "ACTIVE")
+        self.assertTrue(len(p1.checksum()) > 0)
+
+        reg.unregister(p1.provider_id)
+        self.assertEqual(len(reg.list_providers()), 0)
+
+    def test_decoder_event_system_replay_and_immutability(self):
+        bus = DecoderEventBus()
+        logs = []
+        bus.subscribe(lambda e: logs.append(e))
+
+        evt = DecoderEvent(event_type="NormalizationStarted", correlation_id="c-123")
+        bus.publish(evt)
+
+        self.assertEqual(len(logs), 1)
+        self.assertEqual(logs[0].event_type, "NormalizationStarted")
+        with self.assertRaises(AttributeError):
+            evt.event_type = "Mutated"
+
+    def test_canonical_object_graph_cycles_and_integrity(self):
+        graph = CanonicalObjectGraph()
+        t1 = CanonicalTable(name="orders", schema_name="public")
+        t2 = CanonicalTable(name="items", schema_name="public")
+
+        graph.add_object(t1)
+        graph.add_object(t2)
+
+        graph.add_edge(t1.identity.canonical_id, t2.identity.canonical_id)
+        sorted_objs = graph.topological_sort()
+
+        self.assertEqual(len(sorted_objs), 2)
+        self.assertEqual(len(graph.get_all_objects()), 2)
 
 
 if __name__ == "__main__":
