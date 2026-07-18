@@ -26,6 +26,18 @@ class BaseAdapter(ABC):
         self.config = config
         self.is_connected = False
         self.mock_mode = getattr(config, "mock_mode", False) or getattr(config, "host", "") in ("mock-db.example.com", "mock_host")
+        self._discovery_provider = None
+
+    def get_discovery_provider(self) -> Any:
+        """Return dedicated DiscoveryProvider instance for this adapter."""
+        if self._discovery_provider is None:
+            from akaal.adapters.providers.generic_provider import GenericDiscoveryProvider
+            self._discovery_provider = GenericDiscoveryProvider(self)
+        return self._discovery_provider
+
+    def set_discovery_provider(self, provider: Any) -> None:
+        """Set custom DiscoveryProvider instance."""
+        self._discovery_provider = provider
 
     def get_connection(self) -> Any:
         """Get the underlying native connection handle."""

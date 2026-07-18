@@ -59,3 +59,12 @@ graph TD
 ### 6. Future Intelligence Pipeline (`akaal/agents/live_intel/` / `akaal/advisory/`)
 * **Role**: Autonomous routing.
 * **Responsibility**: Pre-scans structural definitions to predict bottleneck risks (e.g. keyless tables) and auto-tunes parallel chunk configurations on the fly.
+
+### 7. Scout Platform (`akaal/scout/`)
+* **Role**: Intelligent Source Discovery Subsystem (Phase 9 — Feature 1).
+* **Responsibility**: Provides engine-agnostic, read-only discovery and profiling of source database environments. Produces canonical versioned `DiscoveryReport` artifacts encapsulating engine info, capabilities, schema inventory, object inventory, storage inventory, performance metrics, and deterministic structural fingerprints.
+
+### 8. Rulebook Platform (`akaal/rulebook/`)
+* **Role**: Enterprise Policy Decision Engine (Phase 9 — Feature 2).
+* **Responsibility**: Converts a `DiscoveryReport`, target database specification, and organization policies into a single canonical, immutable, versioned, checksum-protected `MigrationRuleSet`. Operates strictly as a decision engine with zero SQL generation and zero migration execution. Implements DAG prerequisite resolution (`DependencyGraph`), rule lifecycle state machine (`DRAFT`..`RETIRED`), 8-level policy hierarchy overrides, resolution caching (`RuleResolutionCache`), and dry-run simulation (`SimulationReport`).
+

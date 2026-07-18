@@ -231,7 +231,7 @@ class PooledAdapter(BaseAdapter):
         return getattr(self._adapter, name)
 
     def __setattr__(self, name: str, value: Any) -> None:
-        if name in ("_adapter", "config", "is_connected", "_pool", "_conn_handle", "mock_mode"):
+        if name in ("_adapter", "config", "is_connected", "_pool", "_conn_handle", "mock_mode", "_discovery_provider") or "_adapter" not in self.__dict__:
             super().__setattr__(name, value)
         else:
             setattr(self._adapter, name, value)
