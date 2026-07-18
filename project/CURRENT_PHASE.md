@@ -1,34 +1,32 @@
-# Current Phase: Phase 9 — Intelligence Subsystems & Decoder Platform
+# Current Phase: Phase 9 — Intelligence Subsystems & Risk Platform
 
 ---
 
 ## 🎯 Goal
-To implement the autonomous intelligence subsystem layer of Akaal, incorporating **Scout Platform (Features 1–8)** for database discovery, **Rulebook Platform (Feature 9)** for policy decision making, and **Decoder Platform (Feature 10)** as the enterprise normalization engine converting `DiscoveryReport` + `MigrationRuleSet` into canonical `CanonicalMigrationModel` documents.
+To implement the autonomous intelligence subsystem layer of Akaal, incorporating **Scout Platform (Features 1–8)** for database discovery, **Rulebook Platform (Feature 9)** for policy decision making, **Decoder Platform (Feature 10)** for normalization into canonical models, and **Risk Platform (Feature 11 / Roadmap 4)** as the enterprise migration risk assessment engine converting `CanonicalMigrationModel` into canonical `RiskAssessmentModel` documents.
 
 ---
 
 ## 📈 Overall Progress
-- **Status**: Phase 9 Scout Platform, Rulebook Platform, and Decoder Platform Complete
-- **Phase Completion**: 60% (Scout, Rulebook, and Decoder Platforms fully implemented, certified, tested with 286+ unit tests, and documented)
-- **Sprint Iteration**: Sprint 3 (Phase 9 Intelligence Layer — Decoder Platform)
+- **Status**: Phase 9 Scout, Rulebook, Decoder, and Risk Platforms Complete
+- **Phase Completion**: 75% (Scout, Rulebook, Decoder, and Risk Platforms fully implemented, certified, tested with 320+ unit tests, and documented)
+- **Sprint Iteration**: Sprint 4 (Phase 9 Intelligence Layer — Risk Platform)
 
 ---
 
 ## ✅ Completed Features
-* **Decoder Platform Subsystem (`akaal/decoder/`)**: Built an enterprise normalization engine decoupled from database product syntax and SQL generation.
-* **Storage Model Family Architecture (`StorageModelFamily`)**: Architected around storage model families (`RELATIONAL`, `DOCUMENT`, `GRAPH`, `VECTOR`, `WAREHOUSE`, etc.) and `VersionAdapter` interfaces.
-* **Canonical Type Algebra (`CanonicalTypeFamily`, `OpaqueType`)**: 16 top-level type families with extensible parameters and non-lossy `OpaqueType` fallback for unknown vendor types.
-* **Unified Canonical Object Graph (`CanonicalObjectGraph`, `CanonicalIdentity`)**: Stable object identity and graph representation across all database objects.
-* **Expression AST & Function Library (`CanonicalExpressionAST`, `CanonicalFunctionRegistry`)**: Immutable expression node structures and universal function AST library.
-* **Semantic Mapping & Lineage (`SemanticEquivalence`, `LineageEngine`)**: Rich semantic equivalence classification (`EQUIVALENT`..`UNSUPPORTED`) and Stage 1 transformation lineage.
-* **Immutable Context & Observability (`DecoderContext`, `DecoderEventBus`, `DecoderExecutionTrace`)**: Immutable context with `ValidationProfile` presets and deterministic trace logging.
-* **Deterministic Serialization (`CanonicalSerializer`)**: Versioned export/import, JSON, and binary serialization for downstream consumption without Python object dependencies.
-* **Single Immutable Output Artifact (`CanonicalMigrationModel`)**: Versioned, checksum-protected artifact consumed exclusively by downstream modules (Risk, Planner, Advisor, Enterprise Intelligence).
-* **Architecture Decision Record**: Authored `docs/adr/ADR-011_decoder_platform_architecture.md`.
+* **Risk Platform Subsystem (`akaal/risk/`)**: Built an enterprise migration risk assessment engine consuming exclusively `CanonicalMigrationModel` from Decoder.
+* **Seven Core Roadmap Risk Features**: Compatibility Scoring, Downtime Estimation, Performance Prediction, Data Loss Prediction, Resource Estimation (Min/Rec/Peak/Burst), Cutover Readiness (`READY`..`NOT_READY`), and Migration Complexity Scoring.
+* **Enterprise Risk Taxonomy (`RiskTaxonomy`)**: 10 hierarchical risk domains (`COMPATIBILITY`, `PERFORMANCE`, `SECURITY`, `COMPLIANCE`, `OPERATIONAL`, `DATA_INTEGRITY`, `SEMANTIC`, `AVAILABILITY`, `SCALABILITY`, `INFRASTRUCTURE`).
+* **Risk Evidence Graph (`RiskEvidenceGraph`)**: Traceable evidence graph linking canonical objects, identities, semantic equivalence, and embedded rule provenance without runtime Rulebook dependencies.
+* **Deterministic Severity Matrix & Multi-Dimensional Confidence**: Probability $\times$ Impact $\times$ Recoverability severity calculation and 5-dimensional confidence composition.
+* **Deterministic Aggregation Strategy (`AggregationEngine`)**: Risk item deduplication and score calculation pipeline preventing score inflation.
+* **Deterministic Serialization (`RiskSerializer`)**: Versioned export/import, JSON, and binary serialization.
+* **Single Immutable Output Artifact (`RiskAssessmentModel`)**: Versioned, checksum-protected artifact consumed exclusively by downstream modules (Planner, Advisor, Enterprise Intelligence, Mission Control).
+* **Architecture Decision Record**: Authored `docs/adr/ADR-012_risk_platform_architecture.md`.
 
 ---
 
 ## 📋 Remaining Features
-1. **Risk Assessor (Feature 11)**: Automated migration risk scoring and bottleneck prediction.
-2. **Migration Planner (Feature 12)**: Topological parallel chunk scheduler.
-3. **Advisory Subsystem (Feature 13)**: Autonomous target database sizing recommendations.
+1. **Migration Planner (Feature 12)**: Topological parallel chunk scheduler.
+2. **Advisory Subsystem (Feature 13)**: Autonomous target database sizing recommendations.
