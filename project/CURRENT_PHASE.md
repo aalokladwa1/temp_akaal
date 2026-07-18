@@ -1,38 +1,34 @@
-# Current Phase: Phase 9 — Intelligence Subsystems & Rulebook Platform
+# Current Phase: Phase 9 — Intelligence Subsystems & Decoder Platform
 
 ---
 
 ## 🎯 Goal
-To implement the autonomous intelligence subsystem layer of Akaal, incorporating **Scout Platform (Features 1–8)** for read-only database profiling and **Rulebook Platform (Feature 9)** as the enterprise policy decision engine converting `DiscoveryReport` objects into canonical, immutable, versioned `MigrationRuleSet` documents.
+To implement the autonomous intelligence subsystem layer of Akaal, incorporating **Scout Platform (Features 1–8)** for database discovery, **Rulebook Platform (Feature 9)** for policy decision making, and **Decoder Platform (Feature 10)** as the enterprise normalization engine converting `DiscoveryReport` + `MigrationRuleSet` into canonical `CanonicalMigrationModel` documents.
 
 ---
 
 ## 📈 Overall Progress
-- **Status**: Phase 9 Scout Platform & Rulebook Platform Complete
-- **Phase Completion**: 45% (Scout Platform and Rulebook Platform fully implemented, certified, tested with 274+ unit tests, and documented)
-- **Sprint Iteration**: Sprint 2 (Phase 9 Intelligence Layer — Rulebook Platform)
+- **Status**: Phase 9 Scout Platform, Rulebook Platform, and Decoder Platform Complete
+- **Phase Completion**: 60% (Scout, Rulebook, and Decoder Platforms fully implemented, certified, tested with 286+ unit tests, and documented)
+- **Sprint Iteration**: Sprint 3 (Phase 9 Intelligence Layer — Decoder Platform)
 
 ---
 
 ## ✅ Completed Features
-* **Rulebook Platform Subsystem (`akaal/rulebook/`)**: Built an enterprise policy decision engine decoupled from SQL generation and migration execution.
-* **Immutable Context & Execution Trace (`RuleEvaluationContext`, `RuleExecutionTrace`)**: Standardized context object and deterministic execution trace recording all stage decisions and evaluation latencies.
-* **Passive Registries & Provider Isolation (`RuleRegistry`, `RulePackRegistry`, `BaseRuleProvider`)**: Plugin interface for built-in (PostgreSQL, MySQL, Oracle, SQL Server, MongoDB, Generic) and external rule packs.
-* **Decoupled Single-Responsibility Engine Sequence**:
-  - `DependencyGraph`: DAG dependency resolution, topological sorting, and cycle detection.
-  - `RuleResolutionEngine`: Candidate rule matching for target database engines.
-  - `ValidationEngine`: Lifecycle state machine (`DRAFT`..`RETIRED`) and capability validation.
-  - `PriorityEngine`: Scope precedence & priority score ordering.
-  - `ConflictEngine`: Conflict detection & structured enterprise diagnostics (`RuleDiagnostic`).
-  - `InheritanceEngine`: Deterministic 8-level policy hierarchy evaluation (`Global` → `Organization` → `Project` → `Migration` → `Database` → `Schema` → `Table` → `Column`).
-  - `SimulationEngine`: Dry-run evaluation producing `SimulationReport`.
-* **Single Immutable Public Output (`MigrationRuleSet`)**: Versioned, checksum-protected output document consumed exclusively by downstream modules (Decoder, Risk, Planner, Advisor, Enterprise Intelligence).
-* **Architecture Decision Record**: Authored `docs/adr/ADR-010_rulebook_platform_architecture.md`.
+* **Decoder Platform Subsystem (`akaal/decoder/`)**: Built an enterprise normalization engine decoupled from database product syntax and SQL generation.
+* **Storage Model Family Architecture (`StorageModelFamily`)**: Architected around storage model families (`RELATIONAL`, `DOCUMENT`, `GRAPH`, `VECTOR`, `WAREHOUSE`, etc.) and `VersionAdapter` interfaces.
+* **Canonical Type Algebra (`CanonicalTypeFamily`, `OpaqueType`)**: 16 top-level type families with extensible parameters and non-lossy `OpaqueType` fallback for unknown vendor types.
+* **Unified Canonical Object Graph (`CanonicalObjectGraph`, `CanonicalIdentity`)**: Stable object identity and graph representation across all database objects.
+* **Expression AST & Function Library (`CanonicalExpressionAST`, `CanonicalFunctionRegistry`)**: Immutable expression node structures and universal function AST library.
+* **Semantic Mapping & Lineage (`SemanticEquivalence`, `LineageEngine`)**: Rich semantic equivalence classification (`EQUIVALENT`..`UNSUPPORTED`) and Stage 1 transformation lineage.
+* **Immutable Context & Observability (`DecoderContext`, `DecoderEventBus`, `DecoderExecutionTrace`)**: Immutable context with `ValidationProfile` presets and deterministic trace logging.
+* **Deterministic Serialization (`CanonicalSerializer`)**: Versioned export/import, JSON, and binary serialization for downstream consumption without Python object dependencies.
+* **Single Immutable Output Artifact (`CanonicalMigrationModel`)**: Versioned, checksum-protected artifact consumed exclusively by downstream modules (Risk, Planner, Advisor, Enterprise Intelligence).
+* **Architecture Decision Record**: Authored `docs/adr/ADR-011_decoder_platform_architecture.md`.
 
 ---
 
 ## 📋 Remaining Features
-1. **Schema Decoder (Feature 10)**: Deep AST parsing for stored procedures, triggers, and DDL object structures.
-2. **Risk Assessor (Feature 11)**: Automated migration risk scoring and bottleneck prediction.
-3. **Migration Planner (Feature 12)**: Topological parallel chunk scheduler.
-4. **Advisory Subsystem (Feature 13)**: Autonomous target database sizing recommendations.
+1. **Risk Assessor (Feature 11)**: Automated migration risk scoring and bottleneck prediction.
+2. **Migration Planner (Feature 12)**: Topological parallel chunk scheduler.
+3. **Advisory Subsystem (Feature 13)**: Autonomous target database sizing recommendations.

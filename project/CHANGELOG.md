@@ -1,5 +1,16 @@
 # Change Log
 
+### Implement Decoder Platform Subsystem (Phase 9 - Feature 3)
+
+Developer:
+Aalok
+
+Phase:
+Phase 9 — Decoder Platform (Enterprise Normalization Engine)
+
+Description:
+Bootstrapped the Decoder Platform (`akaal/decoder/`) enterprise normalization engine for converting `DiscoveryReport` + `MigrationRuleSet` into canonical, immutable, versioned, checksum-protected `CanonicalMigrationModel` documents. Implemented Storage Model Family provider architecture (`StorageModelFamily`), Canonical Type Algebra (`CanonicalTypeFamily`, `OpaqueType`), unified Canonical Object Graph (`CanonicalObjectGraph`), Expression AST & universal function library (`CanonicalFunctionRegistry`), Universal Object Identity (`CanonicalIdentity`), Stage 1 Lineage Engine (`LineageEngine`), Semantic Mapping Model (`SemanticEquivalence`), Validation Profiles (`DecoderContext`), Telemetry Event Bus (`DecoderEventBus`), Deterministic Serializer (`CanonicalSerializer`), ADR-011 documentation, and unit test suite.
+
 ### Implement Rulebook Platform Subsystem (Phase 9 - Feature 2)
 
 Developer:

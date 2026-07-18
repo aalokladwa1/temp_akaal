@@ -68,3 +68,7 @@ graph TD
 * **Role**: Enterprise Policy Decision Engine (Phase 9 — Feature 2).
 * **Responsibility**: Converts a `DiscoveryReport`, target database specification, and organization policies into a single canonical, immutable, versioned, checksum-protected `MigrationRuleSet`. Operates strictly as a decision engine with zero SQL generation and zero migration execution. Implements DAG prerequisite resolution (`DependencyGraph`), rule lifecycle state machine (`DRAFT`..`RETIRED`), 8-level policy hierarchy overrides, resolution caching (`RuleResolutionCache`), and dry-run simulation (`SimulationReport`).
 
+### 9. Decoder Platform (`akaal/decoder/`)
+* **Role**: Enterprise Normalization Engine (Phase 9 — Feature 3).
+* **Responsibility**: Converts a `DiscoveryReport` and `MigrationRuleSet` into a single canonical, immutable, versioned, checksum-protected `CanonicalMigrationModel`. Operates strictly as a vendor-neutral normalization engine with zero SQL generation, zero migration execution, zero planning, zero risk scoring, and zero business logic translation. Implements Storage Model Family providers (`RELATIONAL`, `DOCUMENT`, `GRAPH`, `VECTOR`, `WAREHOUSE`), Canonical Type Algebra (`CanonicalTypeFamily`, `OpaqueType`), unified `CanonicalObjectGraph`, Universal Function AST Library, Universal Object Identity (`CanonicalIdentity`), Stage 1 Lineage Engine (`LineageEngine`), Semantic Mapping Model (`SemanticEquivalence`), Validation Profiles, Telemetry Event Bus (`DecoderEventBus`), and deterministic serialization (`CanonicalSerializer`).
+

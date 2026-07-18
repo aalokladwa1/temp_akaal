@@ -18,3 +18,4 @@ from akaal.core.pipeline import AkaalPipeline, MigrationConfig
 from akaal.core.logging_manager import configure_logging, migration_context
 from akaal.scout.api.scout_platform import ScoutPlatform, discover
 from akaal.rulebook.api.rulebook_platform import RulebookPlatform, generate_ruleset
+from akaal.decoder.api.decoder_platform import DecoderPlatform, normalize
