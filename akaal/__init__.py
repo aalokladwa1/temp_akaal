@@ -20,3 +20,4 @@ from akaal.scout.api.scout_platform import ScoutPlatform, discover
 from akaal.rulebook.api.rulebook_platform import RulebookPlatform, generate_ruleset
 from akaal.decoder.api.decoder_platform import DecoderPlatform, normalize
 from akaal.risk.api.risk_platform import RiskPlatform, assess_risk
+from akaal.planner.api.planner_platform import PlannerPlatform, build_execution_plan

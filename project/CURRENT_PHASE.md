@@ -1,32 +1,27 @@
-# Current Phase: Phase 9 — Intelligence Subsystems & Risk Platform
+# Current Phase: Phase 9 — Intelligence Subsystems, Risk, and Planner Platform
 
 ---
 
 ## 🎯 Goal
-To implement the autonomous intelligence subsystem layer of Akaal, incorporating **Scout Platform (Features 1–8)** for database discovery, **Rulebook Platform (Feature 9)** for policy decision making, **Decoder Platform (Feature 10)** for normalization into canonical models, and **Risk Platform (Feature 11 / Roadmap 4)** as the enterprise migration risk assessment engine converting `CanonicalMigrationModel` into canonical `RiskAssessmentModel` documents.
+Implement the full autonomous intelligence layer of Akaal, incorporating **Scout** (Features 1–8), **Rulebook** (Feature 9), **Decoder** (Feature 10), **Risk** (Feature 11), and **Planner** (Feature 12) platforms.
 
 ---
 
 ## 📈 Overall Progress
-- **Status**: Phase 9 Scout, Rulebook, Decoder, and Risk Platforms Complete
-- **Phase Completion**: 75% (Scout, Rulebook, Decoder, and Risk Platforms fully implemented, certified, tested with 320+ unit tests, and documented)
-- **Sprint Iteration**: Sprint 4 (Phase 9 Intelligence Layer — Risk Platform)
+- **Status**: Phase 9 Scout, Rulebook, Decoder, Risk, and Planner Platforms Complete
+- **Phase Completion**: ~85%
+- **Sprint Iteration**: Sprint 5 (Phase 9 — Planner Platform)
 
 ---
 
 ## ✅ Completed Features
-* **Risk Platform Subsystem (`akaal/risk/`)**: Built an enterprise migration risk assessment engine consuming exclusively `CanonicalMigrationModel` from Decoder.
-* **Seven Core Roadmap Risk Features**: Compatibility Scoring, Downtime Estimation, Performance Prediction, Data Loss Prediction, Resource Estimation (Min/Rec/Peak/Burst), Cutover Readiness (`READY`..`NOT_READY`), and Migration Complexity Scoring.
-* **Enterprise Risk Taxonomy (`RiskTaxonomy`)**: 10 hierarchical risk domains (`COMPATIBILITY`, `PERFORMANCE`, `SECURITY`, `COMPLIANCE`, `OPERATIONAL`, `DATA_INTEGRITY`, `SEMANTIC`, `AVAILABILITY`, `SCALABILITY`, `INFRASTRUCTURE`).
-* **Risk Evidence Graph (`RiskEvidenceGraph`)**: Traceable evidence graph linking canonical objects, identities, semantic equivalence, and embedded rule provenance without runtime Rulebook dependencies.
-* **Deterministic Severity Matrix & Multi-Dimensional Confidence**: Probability $\times$ Impact $\times$ Recoverability severity calculation and 5-dimensional confidence composition.
-* **Deterministic Aggregation Strategy (`AggregationEngine`)**: Risk item deduplication and score calculation pipeline preventing score inflation.
-* **Deterministic Serialization (`RiskSerializer`)**: Versioned export/import, JSON, and binary serialization.
-* **Single Immutable Output Artifact (`RiskAssessmentModel`)**: Versioned, checksum-protected artifact consumed exclusively by downstream modules (Planner, Advisor, Enterprise Intelligence, Mission Control).
-* **Architecture Decision Record**: Authored `docs/adr/ADR-012_risk_platform_architecture.md`.
+* **Planner Platform Subsystem (`akaal/planner/`)**: Enterprise migration planning engine consuming exclusively `RiskAssessmentModel` from Risk.
+* **8 Core Roadmap Features**: Migration Planning, Execution Sequencing, Dependency Planning, Parallel Execution Planning, Checkpoint Planning, Rollback Planning, Resource Scheduling, and Cutover Planning.
+* **ExecutionState Lifecycle** (`PLANNED`..`ROLLED_BACK`), **DependencySemantics** (5 types), **ExecutionWindow**, **StagePolicy**, **PlannerEvidenceGraph**, **PlanVersionInfo**, **ConflictResolutionEngine**, **RollbackGraph** with compensation chains, **CutoverPlan** with 8 phases.
+* **339 unit tests passing with zero regressions**.
 
 ---
 
 ## 📋 Remaining Features
-1. **Migration Planner (Feature 12)**: Topological parallel chunk scheduler.
-2. **Advisory Subsystem (Feature 13)**: Autonomous target database sizing recommendations.
+1. **Advisory Subsystem (Feature 13)**: Autonomous target sizing recommendations.
+2. **Enterprise Intelligence (Feature 14)**: Mission Control & Dashboards.
