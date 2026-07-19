@@ -1,0 +1,13 @@
+{
+  "project_id": "00c1a20e-174a-4420-8040-f34cf09d9979",
+  "migration_id": "36550922-24fc-4c55-894e-fdb217b4fa81",
+  "timestamp": "2026-07-19T14:59:34.997186+00:00",
+  "statistics": {
+    "total_tables": 0,
+    "total_views": 0,
+    "total_objects": 0,
+    "dependency_order": []
+  },
+  "status": "SUCCESS",
+  "checksum": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+}

@@ -73,7 +73,7 @@ class CheckpointRecord:
             "created_at": self.created_at,
         }
         # Sort keys to ensure stable serialization order
-        payload_bytes = json.dumps(payload, sort_keys=True).encode("utf-8")
+        payload_bytes = json.dumps(payload, sort_keys=True, default=str).encode("utf-8")
         return hashlib.sha256(payload_bytes).hexdigest()
 
     def verify_integrity(self) -> bool:

@@ -1,0 +1,14 @@
+{
+  "version": "1.0.0",
+  "metadata": {
+    "project_id": "00c1a20e-174a-4420-8040-f34cf09d9979",
+    "migration_id": "36550922-24fc-4c55-894e-fdb217b4fa81",
+    "system_type": "POSTGRESQL",
+    "timestamp": "2026-07-19T14:59:34.996246+00:00",
+    "checksum": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "adapter_version": "1.0.0",
+    "schema_version": "1.0.0"
+  },
+  "objects": [],
+  "dependency_order": []
+}

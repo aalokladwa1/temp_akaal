@@ -1,0 +1,20 @@
+{
+  "project_id": "09a63bcd-d765-4a55-82fa-593b266fea80",
+  "migration_id": "e688d5ba-2694-49cf-80ef-2c59317c3f65",
+  "stage": "gb_validation",
+  "timestamp": "2026-07-19T15:05:13.921578+00:00",
+  "status": "FAIL",
+  "checksums": {
+    "expected": "983a24a734460022169bba2735ce33883ad6602df22857395abaacdb882bf332",
+    "actual": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+    "matched": false
+  },
+  "mismatches": [
+    "Missing object: 'audit_logs'",
+    "Missing object: 'order_items'",
+    "Missing object: 'orders'",
+    "Missing object: 'products'",
+    "Missing object: 'users'",
+    "Normalized schema checksum mismatch: expected b6e7bcfbcdf1a0ac..., got 44136fa355b3678a... (Scout source fingerprint: 983a24a734460022...)"
+  ]
+}

@@ -1,0 +1,268 @@
+{
+  "version": "1.0.0",
+  "metadata": {
+    "project_id": "09a63bcd-d765-4a55-82fa-593b266fea80",
+    "migration_id": "e688d5ba-2694-49cf-80ef-2c59317c3f65",
+    "system_type": "POSTGRESQL",
+    "timestamp": "2026-07-19T15:05:08.764685+00:00",
+    "checksum": "983a24a734460022169bba2735ce33883ad6602df22857395abaacdb882bf332",
+    "adapter_version": "1.0.0",
+    "schema_version": "1.0.0"
+  },
+  "objects": [
+    {
+      "object_name": "audit_logs",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "nextval('audit_logs_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "entity_name",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "action",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "audit_logs_pkey",
+          "columns": [
+            "id"
+          ],
+          "unique": true
+        }
+      ],
+      "constraints": [
+        {
+          "name": "audit_logs_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "2200_83268_1_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": []
+    },
+    {
+      "object_name": "order_items",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "nextval('order_items_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "order_id",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "product_id",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "quantity",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "order_items_pkey",
+          "columns": [
+            "id"
+          ],
+          "unique": true
+        }
+      ],
+      "constraints": [
+        {
+          "name": "order_items_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "2200_83261_1_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": []
+    },
+    {
+      "object_name": "orders",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "nextval('orders_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "user_id",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "status",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "orders_pkey",
+          "columns": [
+            "id"
+          ],
+          "unique": true
+        }
+      ],
+      "constraints": [
+        {
+          "name": "orders_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "2200_83254_1_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": []
+    },
+    {
+      "object_name": "products",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "nextval('products_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "name",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "price",
+          "type": "NUMERIC",
+          "nullable": true,
+          "default": null,
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "products_pkey",
+          "columns": [
+            "id"
+          ],
+          "unique": true
+        }
+      ],
+      "constraints": [
+        {
+          "name": "products_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "2200_83247_1_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": []
+    },
+    {
+      "object_name": "users",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "nextval('users_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "name",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITHOUT TIME ZONE",
+          "nullable": true,
+          "default": "CURRENT_TIMESTAMP",
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "users_pkey",
+          "columns": [
+            "id"
+          ],
+          "unique": true
+        }
+      ],
+      "constraints": [
+        {
+          "name": "users_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "2200_83239_1_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": []
+    }
+  ],
+  "dependency_order": [
+    "audit_logs",
+    "order_items",
+    "orders",
+    "products",
+    "users"
+  ]
+}

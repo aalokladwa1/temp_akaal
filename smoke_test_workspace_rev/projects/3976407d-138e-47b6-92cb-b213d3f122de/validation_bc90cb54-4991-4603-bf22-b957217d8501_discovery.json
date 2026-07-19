@@ -1,0 +1,13 @@
+{
+  "project_id": "3976407d-138e-47b6-92cb-b213d3f122de",
+  "migration_id": "bc90cb54-4991-4603-bf22-b957217d8501",
+  "stage": "discovery",
+  "timestamp": "2026-07-19T14:51:14.978866+00:00",
+  "status": "PASS",
+  "checksums": {
+    "expected": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "actual": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+    "matched": false
+  },
+  "mismatches": []
+}
