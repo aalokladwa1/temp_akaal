@@ -1,0 +1,811 @@
+{
+  "summary": {
+    "target_name": "Advisor Platform",
+    "timestamp": "2026-07-19 11:49:41",
+    "python_version": "3.14.6",
+    "operating_system": "Windows 11",
+    "execution_duration_sec": 27.97,
+    "total_packages": 12,
+    "total_modules": 44,
+    "total_classes": 38,
+    "total_functions": 126,
+    "total_executable_statements": 1024,
+    "executed_statements": 964,
+    "missing_executable_statements": 60,
+    "overall_coverage_pct": 94.1,
+    "overall_classification": "GOOD",
+    "lowest_covered_module": "advisor_events (77.4%)",
+    "highest_covered_module": "__init__ (100.0%)",
+    "average_package_coverage": 92.5,
+    "modules_below_threshold": 4,
+    "packages_below_threshold": 3
+  },
+  "packages": [
+    {
+      "package_name": "akaal.advisor",
+      "total_modules": 1,
+      "executable_statements": 4,
+      "executed_statements": 4,
+      "coverage_pct": 100.0,
+      "classification": "PASS",
+      "average_module_coverage": 100.0
+    },
+    {
+      "package_name": "akaal.advisor.analyzers",
+      "total_modules": 13,
+      "executable_statements": 351,
+      "executed_statements": 337,
+      "coverage_pct": 96.01139601139602,
+      "classification": "PASS",
+      "average_module_coverage": 96.5
+    },
+    {
+      "package_name": "akaal.advisor.api",
+      "total_modules": 2,
+      "executable_statements": 38,
+      "executed_statements": 33,
+      "coverage_pct": 86.8421052631579,
+      "classification": "ACCEPTABLE",
+      "average_module_coverage": 93.1
+    },
+    {
+      "package_name": "akaal.advisor.engine",
+      "total_modules": 3,
+      "executable_statements": 95,
+      "executed_statements": 86,
+      "coverage_pct": 90.52631578947368,
+      "classification": "GOOD",
+      "average_module_coverage": 93.4
+    },
+    {
+      "package_name": "akaal.advisor.events",
+      "total_modules": 2,
+      "executable_statements": 33,
+      "executed_statements": 26,
+      "coverage_pct": 78.78787878787878,
+      "classification": "NEEDS_IMPROVEMENT",
+      "average_module_coverage": 88.7
+    },
+    {
+      "package_name": "akaal.advisor.governance",
+      "total_modules": 2,
+      "executable_statements": 25,
+      "executed_statements": 23,
+      "coverage_pct": 92.0,
+      "classification": "GOOD",
+      "average_module_coverage": 95.7
+    },
+    {
+      "package_name": "akaal.advisor.metrics",
+      "total_modules": 2,
+      "executable_statements": 46,
+      "executed_statements": 44,
+      "coverage_pct": 95.65217391304348,
+      "classification": "PASS",
+      "average_module_coverage": 97.7
+    },
+    {
+      "package_name": "akaal.advisor.models",
+      "total_modules": 11,
+      "executable_statements": 218,
+      "executed_statements": 218,
+      "coverage_pct": 100.0,
+      "classification": "PASS",
+      "average_module_coverage": 100.0
+    },
+    {
+      "package_name": "akaal.advisor.registry",
+      "total_modules": 2,
+      "executable_statements": 87,
+      "executed_statements": 73,
+      "coverage_pct": 83.9080459770115,
+      "classification": "ACCEPTABLE",
+      "average_module_coverage": 91.8
+    },
+    {
+      "package_name": "akaal.advisor.reporting",
+      "total_modules": 2,
+      "executable_statements": 23,
+      "executed_statements": 23,
+      "coverage_pct": 100.0,
+      "classification": "PASS",
+      "average_module_coverage": 100.0
+    },
+    {
+      "package_name": "akaal.advisor.serialization",
+      "total_modules": 2,
+      "executable_statements": 53,
+      "executed_statements": 49,
+      "coverage_pct": 92.45283018867924,
+      "classification": "GOOD",
+      "average_module_coverage": 96.1
+    },
+    {
+      "package_name": "akaal.advisor.validation",
+      "total_modules": 2,
+      "executable_statements": 51,
+      "executed_statements": 48,
+      "coverage_pct": 94.11764705882352,
+      "classification": "GOOD",
+      "average_module_coverage": 96.9
+    }
+  ],
+  "modules": [
+    {
+      "module_name": "advisor_events",
+      "rel_filepath": "akaal\\advisor\\events\\advisor_events.py",
+      "executable_statements": 31,
+      "executed_statements": 24,
+      "missing_statements": 7,
+      "coverage_pct": 77.41935483870968,
+      "classification": "NEEDS_IMPROVEMENT",
+      "class_count": 1,
+      "function_count": 9,
+      "missing_lines": [
+        21,
+        22,
+        27,
+        28,
+        33,
+        49,
+        50
+      ]
+    },
+    {
+      "module_name": "advisor_registry",
+      "rel_filepath": "akaal\\advisor\\registry\\advisor_registry.py",
+      "executable_statements": 85,
+      "executed_statements": 71,
+      "missing_statements": 14,
+      "coverage_pct": 83.52941176470588,
+      "classification": "ACCEPTABLE",
+      "class_count": 2,
+      "function_count": 10,
+      "missing_lines": [
+        43,
+        44,
+        55,
+        56,
+        67,
+        72,
+        86,
+        90,
+        99,
+        112,
+        133,
+        145,
+        153,
+        161
+      ]
+    },
+    {
+      "module_name": "advisor_platform",
+      "rel_filepath": "akaal\\advisor\\api\\advisor_platform.py",
+      "executable_statements": 36,
+      "executed_statements": 31,
+      "missing_statements": 5,
+      "coverage_pct": 86.11111111111111,
+      "classification": "ACCEPTABLE",
+      "class_count": 1,
+      "function_count": 13,
+      "missing_lines": [
+        46,
+        51,
+        56,
+        61,
+        81
+      ]
+    },
+    {
+      "module_name": "best_practice_analyzer",
+      "rel_filepath": "akaal\\advisor\\analyzers\\best_practice_analyzer.py",
+      "executable_statements": 33,
+      "executed_statements": 29,
+      "missing_statements": 4,
+      "coverage_pct": 87.87878787878788,
+      "classification": "ACCEPTABLE",
+      "class_count": 1,
+      "function_count": 4,
+      "missing_lines": [
+        34,
+        85,
+        86,
+        92
+      ]
+    },
+    {
+      "module_name": "aggregation_engine",
+      "rel_filepath": "akaal\\advisor\\engine\\aggregation_engine.py",
+      "executable_statements": 30,
+      "executed_statements": 27,
+      "missing_statements": 3,
+      "coverage_pct": 90.0,
+      "classification": "GOOD",
+      "class_count": 1,
+      "function_count": 1,
+      "missing_lines": [
+        41,
+        43,
+        44
+      ]
+    },
+    {
+      "module_name": "advisor_engine",
+      "rel_filepath": "akaal\\advisor\\engine\\advisor_engine.py",
+      "executable_statements": 62,
+      "executed_statements": 56,
+      "missing_statements": 6,
+      "coverage_pct": 90.32258064516128,
+      "classification": "GOOD",
+      "class_count": 1,
+      "function_count": 2,
+      "missing_lines": [
+        95,
+        96,
+        97,
+        99,
+        150,
+        151
+      ]
+    },
+    {
+      "module_name": "advisor_governance",
+      "rel_filepath": "akaal\\advisor\\governance\\advisor_governance.py",
+      "executable_statements": 23,
+      "executed_statements": 21,
+      "missing_statements": 2,
+      "coverage_pct": 91.30434782608695,
+      "classification": "GOOD",
+      "class_count": 2,
+      "function_count": 3,
+      "missing_lines": [
+        55,
+        58
+      ]
+    },
+    {
+      "module_name": "advisor_serializer",
+      "rel_filepath": "akaal\\advisor\\serialization\\advisor_serializer.py",
+      "executable_statements": 51,
+      "executed_statements": 47,
+      "missing_statements": 4,
+      "coverage_pct": 92.15686274509804,
+      "classification": "GOOD",
+      "class_count": 2,
+      "function_count": 5,
+      "missing_lines": [
+        36,
+        45,
+        53,
+        54
+      ]
+    },
+    {
+      "module_name": "advisor_validator",
+      "rel_filepath": "akaal\\advisor\\validation\\advisor_validator.py",
+      "executable_statements": 49,
+      "executed_statements": 46,
+      "missing_statements": 3,
+      "coverage_pct": 93.87755102040816,
+      "classification": "GOOD",
+      "class_count": 2,
+      "function_count": 3,
+      "missing_lines": [
+        41,
+        60,
+        73
+      ]
+    },
+    {
+      "module_name": "advisor_metrics",
+      "rel_filepath": "akaal\\advisor\\metrics\\advisor_metrics.py",
+      "executable_statements": 44,
+      "executed_statements": 42,
+      "missing_statements": 2,
+      "coverage_pct": 95.45454545454545,
+      "classification": "PASS",
+      "class_count": 1,
+      "function_count": 8,
+      "missing_lines": [
+        43,
+        44
+      ]
+    },
+    {
+      "module_name": "checkpoint_analyzer",
+      "rel_filepath": "akaal\\advisor\\analyzers\\checkpoint_analyzer.py",
+      "executable_statements": 29,
+      "executed_statements": 28,
+      "missing_statements": 1,
+      "coverage_pct": 96.55172413793103,
+      "classification": "PASS",
+      "class_count": 1,
+      "function_count": 4,
+      "missing_lines": [
+        34
+      ]
+    },
+    {
+      "module_name": "parallelism_analyzer",
+      "rel_filepath": "akaal\\advisor\\analyzers\\parallelism_analyzer.py",
+      "executable_statements": 29,
+      "executed_statements": 28,
+      "missing_statements": 1,
+      "coverage_pct": 96.55172413793103,
+      "classification": "PASS",
+      "class_count": 1,
+      "function_count": 4,
+      "missing_lines": [
+        34
+      ]
+    },
+    {
+      "module_name": "rollback_analyzer",
+      "rel_filepath": "akaal\\advisor\\analyzers\\rollback_analyzer.py",
+      "executable_statements": 29,
+      "executed_statements": 28,
+      "missing_statements": 1,
+      "coverage_pct": 96.55172413793103,
+      "classification": "PASS",
+      "class_count": 1,
+      "function_count": 4,
+      "missing_lines": [
+        34
+      ]
+    },
+    {
+      "module_name": "topology_analyzer",
+      "rel_filepath": "akaal\\advisor\\analyzers\\topology_analyzer.py",
+      "executable_statements": 29,
+      "executed_statements": 28,
+      "missing_statements": 1,
+      "coverage_pct": 96.55172413793103,
+      "classification": "PASS",
+      "class_count": 1,
+      "function_count": 4,
+      "missing_lines": [
+        34
+      ]
+    },
+    {
+      "module_name": "worker_analyzer",
+      "rel_filepath": "akaal\\advisor\\analyzers\\worker_analyzer.py",
+      "executable_statements": 29,
+      "executed_statements": 28,
+      "missing_statements": 1,
+      "coverage_pct": 96.55172413793103,
+      "classification": "PASS",
+      "class_count": 1,
+      "function_count": 4,
+      "missing_lines": [
+        34
+      ]
+    },
+    {
+      "module_name": "batch_analyzer",
+      "rel_filepath": "akaal\\advisor\\analyzers\\batch_analyzer.py",
+      "executable_statements": 30,
+      "executed_statements": 29,
+      "missing_statements": 1,
+      "coverage_pct": 96.66666666666667,
+      "classification": "PASS",
+      "class_count": 1,
+      "function_count": 4,
+      "missing_lines": [
+        34
+      ]
+    },
+    {
+      "module_name": "cost_analyzer",
+      "rel_filepath": "akaal\\advisor\\analyzers\\cost_analyzer.py",
+      "executable_statements": 30,
+      "executed_statements": 29,
+      "missing_statements": 1,
+      "coverage_pct": 96.66666666666667,
+      "classification": "PASS",
+      "class_count": 1,
+      "function_count": 4,
+      "missing_lines": [
+        34
+      ]
+    },
+    {
+      "module_name": "eta_analyzer",
+      "rel_filepath": "akaal\\advisor\\analyzers\\eta_analyzer.py",
+      "executable_statements": 30,
+      "executed_statements": 29,
+      "missing_statements": 1,
+      "coverage_pct": 96.66666666666667,
+      "classification": "PASS",
+      "class_count": 1,
+      "function_count": 4,
+      "missing_lines": [
+        34
+      ]
+    },
+    {
+      "module_name": "hardware_analyzer",
+      "rel_filepath": "akaal\\advisor\\analyzers\\hardware_analyzer.py",
+      "executable_statements": 30,
+      "executed_statements": 29,
+      "missing_statements": 1,
+      "coverage_pct": 96.66666666666667,
+      "classification": "PASS",
+      "class_count": 1,
+      "function_count": 4,
+      "missing_lines": [
+        34
+      ]
+    },
+    {
+      "module_name": "resource_analyzer",
+      "rel_filepath": "akaal\\advisor\\analyzers\\resource_analyzer.py",
+      "executable_statements": 30,
+      "executed_statements": 29,
+      "missing_statements": 1,
+      "coverage_pct": 96.66666666666667,
+      "classification": "PASS",
+      "class_count": 1,
+      "function_count": 4,
+      "missing_lines": [
+        34
+      ]
+    },
+    {
+      "module_name": "__init__",
+      "rel_filepath": "akaal\\advisor\\__init__.py",
+      "executable_statements": 4,
+      "executed_statements": 4,
+      "missing_statements": 0,
+      "coverage_pct": 100.0,
+      "classification": "PASS",
+      "class_count": 0,
+      "function_count": 0,
+      "missing_lines": []
+    },
+    {
+      "module_name": "__init__",
+      "rel_filepath": "akaal\\advisor\\analyzers\\__init__.py",
+      "executable_statements": 13,
+      "executed_statements": 13,
+      "missing_statements": 0,
+      "coverage_pct": 100.0,
+      "classification": "PASS",
+      "class_count": 0,
+      "function_count": 0,
+      "missing_lines": []
+    },
+    {
+      "module_name": "base_analyzer",
+      "rel_filepath": "akaal\\advisor\\analyzers\\base_analyzer.py",
+      "executable_statements": 10,
+      "executed_statements": 10,
+      "missing_statements": 0,
+      "coverage_pct": 100.0,
+      "classification": "PASS",
+      "class_count": 1,
+      "function_count": 4,
+      "missing_lines": []
+    },
+    {
+      "module_name": "__init__",
+      "rel_filepath": "akaal\\advisor\\api\\__init__.py",
+      "executable_statements": 2,
+      "executed_statements": 2,
+      "missing_statements": 0,
+      "coverage_pct": 100.0,
+      "classification": "PASS",
+      "class_count": 0,
+      "function_count": 0,
+      "missing_lines": []
+    },
+    {
+      "module_name": "__init__",
+      "rel_filepath": "akaal\\advisor\\engine\\__init__.py",
+      "executable_statements": 3,
+      "executed_statements": 3,
+      "missing_statements": 0,
+      "coverage_pct": 100.0,
+      "classification": "PASS",
+      "class_count": 0,
+      "function_count": 0,
+      "missing_lines": []
+    },
+    {
+      "module_name": "__init__",
+      "rel_filepath": "akaal\\advisor\\events\\__init__.py",
+      "executable_statements": 2,
+      "executed_statements": 2,
+      "missing_statements": 0,
+      "coverage_pct": 100.0,
+      "classification": "PASS",
+      "class_count": 0,
+      "function_count": 0,
+      "missing_lines": []
+    },
+    {
+      "module_name": "__init__",
+      "rel_filepath": "akaal\\advisor\\governance\\__init__.py",
+      "executable_statements": 2,
+      "executed_statements": 2,
+      "missing_statements": 0,
+      "coverage_pct": 100.0,
+      "classification": "PASS",
+      "class_count": 0,
+      "function_count": 0,
+      "missing_lines": []
+    },
+    {
+      "module_name": "__init__",
+      "rel_filepath": "akaal\\advisor\\metrics\\__init__.py",
+      "executable_statements": 2,
+      "executed_statements": 2,
+      "missing_statements": 0,
+      "coverage_pct": 100.0,
+      "classification": "PASS",
+      "class_count": 0,
+      "function_count": 0,
+      "missing_lines": []
+    },
+    {
+      "module_name": "__init__",
+      "rel_filepath": "akaal\\advisor\\models\\__init__.py",
+      "executable_statements": 11,
+      "executed_statements": 11,
+      "missing_statements": 0,
+      "coverage_pct": 100.0,
+      "classification": "PASS",
+      "class_count": 0,
+      "function_count": 0,
+      "missing_lines": []
+    },
+    {
+      "module_name": "advisory_context",
+      "rel_filepath": "akaal\\advisor\\models\\advisory_context.py",
+      "executable_statements": 16,
+      "executed_statements": 16,
+      "missing_statements": 0,
+      "coverage_pct": 100.0,
+      "classification": "PASS",
+      "class_count": 1,
+      "function_count": 2,
+      "missing_lines": []
+    },
+    {
+      "module_name": "advisory_decision",
+      "rel_filepath": "akaal\\advisor\\models\\advisory_decision.py",
+      "executable_statements": 16,
+      "executed_statements": 16,
+      "missing_statements": 0,
+      "coverage_pct": 100.0,
+      "classification": "PASS",
+      "class_count": 1,
+      "function_count": 2,
+      "missing_lines": []
+    },
+    {
+      "module_name": "advisory_enums",
+      "rel_filepath": "akaal\\advisor\\models\\advisory_enums.py",
+      "executable_statements": 32,
+      "executed_statements": 32,
+      "missing_statements": 0,
+      "coverage_pct": 100.0,
+      "classification": "PASS",
+      "class_count": 3,
+      "function_count": 2,
+      "missing_lines": []
+    },
+    {
+      "module_name": "advisory_event",
+      "rel_filepath": "akaal\\advisor\\models\\advisory_event.py",
+      "executable_statements": 10,
+      "executed_statements": 10,
+      "missing_statements": 0,
+      "coverage_pct": 100.0,
+      "classification": "PASS",
+      "class_count": 1,
+      "function_count": 1,
+      "missing_lines": []
+    },
+    {
+      "module_name": "advisory_evidence",
+      "rel_filepath": "akaal\\advisor\\models\\advisory_evidence.py",
+      "executable_statements": 15,
+      "executed_statements": 15,
+      "missing_statements": 0,
+      "coverage_pct": 100.0,
+      "classification": "PASS",
+      "class_count": 1,
+      "function_count": 2,
+      "missing_lines": []
+    },
+    {
+      "module_name": "advisory_manifest",
+      "rel_filepath": "akaal\\advisor\\models\\advisory_manifest.py",
+      "executable_statements": 21,
+      "executed_statements": 21,
+      "missing_statements": 0,
+      "coverage_pct": 100.0,
+      "classification": "PASS",
+      "class_count": 1,
+      "function_count": 2,
+      "missing_lines": []
+    },
+    {
+      "module_name": "advisory_recommendation",
+      "rel_filepath": "akaal\\advisor\\models\\advisory_recommendation.py",
+      "executable_statements": 32,
+      "executed_statements": 32,
+      "missing_statements": 0,
+      "coverage_pct": 100.0,
+      "classification": "PASS",
+      "class_count": 1,
+      "function_count": 2,
+      "missing_lines": []
+    },
+    {
+      "module_name": "advisory_trace",
+      "rel_filepath": "akaal\\advisor\\models\\advisory_trace.py",
+      "executable_statements": 14,
+      "executed_statements": 14,
+      "missing_statements": 0,
+      "coverage_pct": 100.0,
+      "classification": "PASS",
+      "class_count": 1,
+      "function_count": 2,
+      "missing_lines": []
+    },
+    {
+      "module_name": "advisory_version",
+      "rel_filepath": "akaal\\advisor\\models\\advisory_version.py",
+      "executable_statements": 8,
+      "executed_statements": 8,
+      "missing_statements": 0,
+      "coverage_pct": 100.0,
+      "classification": "PASS",
+      "class_count": 1,
+      "function_count": 1,
+      "missing_lines": []
+    },
+    {
+      "module_name": "migration_advisory_model",
+      "rel_filepath": "akaal\\advisor\\models\\migration_advisory_model.py",
+      "executable_statements": 43,
+      "executed_statements": 43,
+      "missing_statements": 0,
+      "coverage_pct": 100.0,
+      "classification": "PASS",
+      "class_count": 1,
+      "function_count": 5,
+      "missing_lines": []
+    },
+    {
+      "module_name": "__init__",
+      "rel_filepath": "akaal\\advisor\\registry\\__init__.py",
+      "executable_statements": 2,
+      "executed_statements": 2,
+      "missing_statements": 0,
+      "coverage_pct": 100.0,
+      "classification": "PASS",
+      "class_count": 0,
+      "function_count": 0,
+      "missing_lines": []
+    },
+    {
+      "module_name": "__init__",
+      "rel_filepath": "akaal\\advisor\\reporting\\__init__.py",
+      "executable_statements": 2,
+      "executed_statements": 2,
+      "missing_statements": 0,
+      "coverage_pct": 100.0,
+      "classification": "PASS",
+      "class_count": 0,
+      "function_count": 0,
+      "missing_lines": []
+    },
+    {
+      "module_name": "advisor_report_builder",
+      "rel_filepath": "akaal\\advisor\\reporting\\advisor_report_builder.py",
+      "executable_statements": 21,
+      "executed_statements": 21,
+      "missing_statements": 0,
+      "coverage_pct": 100.0,
+      "classification": "PASS",
+      "class_count": 1,
+      "function_count": 3,
+      "missing_lines": []
+    },
+    {
+      "module_name": "__init__",
+      "rel_filepath": "akaal\\advisor\\serialization\\__init__.py",
+      "executable_statements": 2,
+      "executed_statements": 2,
+      "missing_statements": 0,
+      "coverage_pct": 100.0,
+      "classification": "PASS",
+      "class_count": 0,
+      "function_count": 0,
+      "missing_lines": []
+    },
+    {
+      "module_name": "__init__",
+      "rel_filepath": "akaal\\advisor\\validation\\__init__.py",
+      "executable_statements": 2,
+      "executed_statements": 2,
+      "missing_statements": 0,
+      "coverage_pct": 100.0,
+      "classification": "PASS",
+      "class_count": 0,
+      "function_count": 0,
+      "missing_lines": []
+    }
+  ],
+  "missing_coverage_details": [
+    {
+      "module_name": "advisor_events",
+      "coverage_pct": 77.41935483870968,
+      "classification": "NEEDS_IMPROVEMENT",
+      "priority": "MEDIUM",
+      "missing_line_numbers": [
+        21,
+        22,
+        27,
+        28,
+        33,
+        49,
+        50
+      ],
+      "reason": "Needs improvement to reach target 90% threshold"
+    },
+    {
+      "module_name": "advisor_registry",
+      "coverage_pct": 83.52941176470588,
+      "classification": "ACCEPTABLE",
+      "priority": "HIGH",
+      "missing_line_numbers": [
+        43,
+        44,
+        55,
+        56,
+        67,
+        72,
+        86,
+        90,
+        99,
+        112,
+        133,
+        145,
+        153,
+        161
+      ],
+      "reason": "Core component or critical coverage level (<70%)"
+    },
+    {
+      "module_name": "advisor_platform",
+      "coverage_pct": 86.11111111111111,
+      "classification": "ACCEPTABLE",
+      "priority": "LOW",
+      "missing_line_numbers": [
+        46,
+        51,
+        56,
+        61,
+        81
+      ],
+      "reason": "Minor unexecuted fallback branches"
+    },
+    {
+      "module_name": "best_practice_analyzer",
+      "coverage_pct": 87.87878787878788,
+      "classification": "ACCEPTABLE",
+      "priority": "LOW",
+      "missing_line_numbers": [
+        34,
+        85,
+        86,
+        92
+      ],
+      "reason": "Minor unexecuted fallback branches"
+    }
+  ]
+}
