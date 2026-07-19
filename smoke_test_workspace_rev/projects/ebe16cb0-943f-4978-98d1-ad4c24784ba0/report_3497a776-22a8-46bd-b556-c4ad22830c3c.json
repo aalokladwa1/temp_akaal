@@ -1,0 +1,19 @@
+{
+  "project_id": "ebe16cb0-943f-4978-98d1-ad4c24784ba0",
+  "migration_id": "3497a776-22a8-46bd-b556-c4ad22830c3c",
+  "timestamp": "2026-07-19T15:35:23.341875+00:00",
+  "statistics": {
+    "total_tables": 5,
+    "total_views": 0,
+    "total_objects": 5,
+    "dependency_order": [
+      "audit_logs",
+      "order_items",
+      "orders",
+      "products",
+      "users"
+    ]
+  },
+  "status": "SUCCESS",
+  "checksum": "d8a380aeff97966d231c6254fc90594f98c55fa706f0743ce274a7170a998275"
+}
