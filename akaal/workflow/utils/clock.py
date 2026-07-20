@@ -20,6 +20,10 @@ class IClock(Protocol):
         """Return current POSIX timestamp in seconds."""
         ...
 
+    def sleep(self, seconds: float) -> None:
+        """Sleep or advance time for specified duration in seconds."""
+        ...
+
 
 class SystemClock:
     """Production system clock using standard system time APIs."""
@@ -32,6 +36,9 @@ class SystemClock:
         
     def timestamp(self) -> float:
         return time.time()
+
+    def sleep(self, seconds: float) -> None:
+        time.sleep(seconds)
 
 
 class FixedClock:
@@ -70,3 +77,8 @@ class FixedClock:
             self._timestamp += self._increment
             self._monotonic += self._increment
         return val
+
+    def sleep(self, seconds: float) -> None:
+        self._monotonic += seconds
+        self._timestamp += seconds
+        self._iso = datetime.fromtimestamp(self._timestamp, timezone.utc).isoformat()

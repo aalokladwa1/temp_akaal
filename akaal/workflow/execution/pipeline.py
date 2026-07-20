@@ -182,4 +182,4 @@ class ExecutionPipeline:
             # Delay before next attempt
             delay = retry_policy.get_delay_seconds(attempt)
             if delay > 0:
-                time.sleep(delay)
+                self._clock.sleep(delay)
