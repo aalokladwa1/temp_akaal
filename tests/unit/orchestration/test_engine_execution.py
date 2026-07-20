@@ -6,13 +6,14 @@ import pytest
 from typing import Dict, Any
 
 from akaal.orchestration.domain.types import EngineState, WorkflowStepName
-from akaal.orchestration.domain.errors import WorkflowExecutionError, InvalidStateTransitionError
+from akaal.orchestration.domain.errors import WorkflowExecutionError, InvalidStateTransitionError, RecoveryError
 from akaal.orchestration.models.job import MigrationJob
 from akaal.orchestration.workflow.step import WorkflowStep
 from akaal.orchestration.workflow.definition import WorkflowDefinition
 from akaal.orchestration.workflow.context import WorkflowContext
 from akaal.orchestration.config.config import UnifiedConfigurationManager
 from akaal.orchestration.engine.engine import WorkflowEngine
+from akaal.orchestration.engine.metrics import InMemoryMetricsCollector
 
 
 class DummyAnalysisStep(WorkflowStep):
@@ -72,7 +73,8 @@ class DummyMigrationStep(WorkflowStep):
 
 
 def test_full_workflow_successful_execution():
-    engine = WorkflowEngine()
+    metrics = InMemoryMetricsCollector()
+    engine = WorkflowEngine(metrics=metrics)
     config = UnifiedConfigurationManager().build_config()
 
     step1 = DummyAnalysisStep()
@@ -80,7 +82,7 @@ def test_full_workflow_successful_execution():
     definition = WorkflowDefinition(
         name="test_pipeline",
         version="1.0.0",
-        steps=[step1, step2],
+        steps=(step1, step2),
     )
 
     job, session = engine.create_job(
@@ -104,9 +106,14 @@ def test_full_workflow_successful_execution():
     records = engine.audit_repo.query_audit_records()
     assert len(records) > 0
 
+    # Verify metrics coverage
+    assert len(metrics.step_metrics) == 2
+    assert len(metrics.transitions) > 0
 
-def test_workflow_execution_failure_and_rollback():
-    engine = WorkflowEngine()
+
+def test_workflow_execution_failure_and_rollback_metrics():
+    metrics = InMemoryMetricsCollector()
+    engine = WorkflowEngine(metrics=metrics)
     config = UnifiedConfigurationManager().build_config()
 
     step1 = DummyAnalysisStep()
@@ -114,7 +121,7 @@ def test_workflow_execution_failure_and_rollback():
     definition = WorkflowDefinition(
         name="failing_pipeline",
         version="1.0.0",
-        steps=[step1, step2],
+        steps=(step1, step2),
     )
 
     job, session = engine.create_job(
@@ -129,10 +136,19 @@ def test_workflow_execution_failure_and_rollback():
     failed_job = engine.workflow_repo.get_job(job.job_id)
     assert failed_job.current_state == EngineState.FAILED
 
+    # Verify step failure recorded in metrics
+    failed_metrics = [m for m in metrics.step_metrics if m["status"] == "FAILED"]
+    assert len(failed_metrics) == 1
+    assert failed_metrics[0]["step_name"] == WorkflowStepName.MIGRATION.value
+
     # Rollback
     rolled_back_job = engine.rollback_workflow(failed_job, definition, config, session)
     assert rolled_back_job.current_state == EngineState.ROLLED_BACK
     assert step2.rolled_back is True
+
+    # Verify rollback duration recorded in metrics
+    rb_metrics = [m for m in metrics.durations if m["metric_name"] == "rollback"]
+    assert len(rb_metrics) == 1
 
 
 def test_workflow_approval_pause():
@@ -144,7 +160,7 @@ def test_workflow_approval_pause():
     definition = WorkflowDefinition(
         name="approval_pipeline",
         version="1.0.0",
-        steps=[step1, step2],
+        steps=(step1, step2),
         approval_rules={
             WorkflowStepName.ANALYSIS.value: {"require_approval": True, "roles": ["ADMIN"]}
         },

@@ -1,7 +1,7 @@
 """
 Transport-Agnostic Domain Event System for Enterprise Orchestration.
 Defines immutable domain events, EventPublisher, EventSubscriber interfaces,
-and in-process synchronous EventDispatcher implementation.
+and in-process synchronous EventDispatcher implementation with failure isolation.
 """
 
 from abc import ABC, abstractmethod
@@ -9,8 +9,11 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Dict, Any, List, Type, Callable, Optional
 import uuid
+import logging
 
 from akaal.orchestration.domain.types import EngineState, Checksum
+
+logger = logging.getLogger("nexusforge.orchestration.events")
 
 
 @dataclass(frozen=True)
@@ -114,8 +117,9 @@ class EventSubscriber(ABC):
 
 class InProcessEventDispatcher(EventPublisher):
     """
-    In-process synchronous event dispatcher implementation.
-    Allows subscribers to register for specific event types or all events.
+    In-process synchronous event dispatcher implementation with failure isolation.
+    If any subscriber raises an exception during handling, the dispatcher logs the error
+    and continues dispatching to remaining subscribers.
     """
 
     def __init__(self) -> None:
@@ -135,18 +139,30 @@ class InProcessEventDispatcher(EventPublisher):
                 self._subscribers[event_type].append(subscriber)
 
     def publish(self, event: DomainEvent) -> None:
-        """Publish event synchronously to registered subscribers."""
+        """Publish event synchronously to registered subscribers with failure isolation."""
         self._history.append(event)
         
         # Global subscribers
         for subscriber in list(self._global_subscribers):
-            subscriber.on_event(event)
+            try:
+                subscriber.on_event(event)
+            except Exception as exc:
+                logger.error(
+                    f"Error in subscriber '{subscriber}' processing event '{event.event_type}': {str(exc)}",
+                    exc_info=True
+                )
 
         # Specific event type subscribers
         event_cls = type(event)
         if event_cls in self._subscribers:
             for subscriber in list(self._subscribers[event_cls]):
-                subscriber.on_event(event)
+                try:
+                    subscriber.on_event(event)
+                except Exception as exc:
+                    logger.error(
+                        f"Error in subscriber '{subscriber}' processing event '{event.event_type}': {str(exc)}",
+                        exc_info=True
+                    )
 
     def get_history(self) -> List[DomainEvent]:
         """Return history of dispatched events."""

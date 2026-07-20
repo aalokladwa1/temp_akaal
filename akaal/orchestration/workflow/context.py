@@ -1,10 +1,10 @@
 """
 WorkflowContext parameter object for Enterprise Workflow Steps.
-Bundles runtime dependencies into a single context object to prevent primitive obsession
+Bundles runtime dependencies into a single immutable context object to prevent primitive obsession
 and wide function signatures.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 import logging
 from typing import Any, Dict, Optional
 
@@ -33,10 +33,11 @@ class CancellationToken:
         return self._cancelled
 
 
-@dataclass
+@dataclass(frozen=True)
 class WorkflowContext:
     """
-    WorkflowContext provided to every WorkflowStep execution method.
+    Immutable WorkflowContext provided to every WorkflowStep execution method.
+    Prevents unauthorized state mutation of context references.
     """
     job: MigrationJob
     session: WorkflowSession
@@ -50,3 +51,11 @@ class WorkflowContext:
     logger: logging.Logger = field(default_factory=lambda: logging.getLogger("nexusforge.orchestration"))
     cancellation_token: CancellationToken = field(default_factory=CancellationToken)
     step_state: Dict[str, Any] = field(default_factory=dict)
+
+    def with_job(self, new_job: MigrationJob) -> "WorkflowContext":
+        """Returns a new immutable WorkflowContext instance with updated job reference."""
+        return replace(self, job=new_job)
+
+    def with_step_state(self, new_state: Dict[str, Any]) -> "WorkflowContext":
+        """Returns a new immutable WorkflowContext instance with updated step execution state."""
+        return replace(self, step_state=new_state)

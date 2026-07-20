@@ -1,5 +1,5 @@
 """
-Unit tests for shared domain types and MigrationJob model.
+Unit tests for shared domain types, MigrationJob model, and Event System.
 """
 
 import pytest
@@ -16,6 +16,20 @@ from akaal.orchestration.domain.errors import (
     WorkflowExecutionError,
 )
 from akaal.orchestration.models.job import MigrationJob
+from akaal.orchestration.events.events import InProcessEventDispatcher, EventSubscriber, DomainEvent, WorkflowStarted
+
+
+class FailingSubscriber(EventSubscriber):
+    def on_event(self, event: DomainEvent) -> None:
+        raise RuntimeError("Subscriber A simulated failure")
+
+
+class SuccessfulSubscriber(EventSubscriber):
+    def __init__(self) -> None:
+        self.received_events = []
+
+    def on_event(self, event: DomainEvent) -> None:
+        self.received_events.append(event)
 
 
 def test_identifiers_generation_and_validation():
@@ -87,3 +101,25 @@ def test_exception_hierarchy():
     assert isinstance(err, WorkflowError)
     assert err.details["from_state"] == "CREATED"
     assert err.details["to_state"] == "RUNNING"
+
+
+def test_event_dispatcher_failure_isolation():
+    """
+    Subscriber A throwing an exception must NOT prevent Subscriber B from receiving the event.
+    """
+    dispatcher = InProcessEventDispatcher()
+    failing_sub = FailingSubscriber()
+    successful_sub = SuccessfulSubscriber()
+
+    # Register both subscribers
+    dispatcher.subscribe(failing_sub)
+    dispatcher.subscribe(successful_sub)
+
+    event = WorkflowStarted(aggregate_id="wf_100", workflow_id="wf_100", job_id="job_100")
+    
+    # Publish event (should not throw despite failing_sub)
+    dispatcher.publish(event)
+
+    # Verify Subscriber B still received the event
+    assert len(successful_sub.received_events) == 1
+    assert successful_sub.received_events[0] == event

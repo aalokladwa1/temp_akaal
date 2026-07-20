@@ -12,7 +12,7 @@ The WorkflowEngine orchestrates workflow execution strictly by delegating to spe
 The WorkflowEngine orchestrates execution only. It contains ZERO database, schema conversion, or CDC logic.
 """
 
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Tuple
 import logging
 import time
 
@@ -212,12 +212,15 @@ class WorkflowEngine:
                 return job
 
             # Execute step
+            step_start = time.time()
             try:
                 job = job.with_updates(current_step=step.name)
                 self.workflow_repo.update_job(job)
-                context.job = job
+                context = context.with_job(job)
 
                 step_output = self.step_executor.execute_step(step, context, step_index=idx)
+                step_duration = time.time() - step_start
+                self.metrics.record_step(step.name, "SUCCESS", step_duration)
 
                 # Capture checkpoint
                 cp_data = step.checkpoint(context)
@@ -236,7 +239,7 @@ class WorkflowEngine:
                 # Check if approval required for next step
                 approval_rule = definition.approval_rules.get(step.name)
                 if approval_rule and approval_rule.get("require_approval", False):
-                    self.approval_coordinator.request_approval(
+                    app_id = self.approval_coordinator.request_approval(
                         workflow_id=job.workflow_id,
                         step_name=step.name,
                         required_roles=approval_rule.get("roles", ["ADMIN"]),
@@ -245,6 +248,8 @@ class WorkflowEngine:
                     return job
 
             except Exception as exc:
+                step_duration = time.time() - step_start
+                self.metrics.record_step(step.name, "FAILED", step_duration)
                 logger.error(f"Workflow '{w_id}' failed during step '{step.name}': {str(exc)}")
                 job = self._update_job_state(job, EngineState.FAILED, target_step=step.name)
                 self.dispatcher.publish(
@@ -290,6 +295,7 @@ class WorkflowEngine:
         """
         Deterministically recovers session/checkpoint state and resumes execution.
         """
+        rec_start = time.time()
         # Validate deterministic recovery
         checkpoint, state_data = self.recovery_coordinator.validate_and_recover(
             workflow_id=job.workflow_id,
@@ -297,8 +303,10 @@ class WorkflowEngine:
             config=config,
             session=session,
         )
+        rec_duration = time.time() - rec_start
+        self.metrics.record_duration("recovery", rec_duration)
 
-        # Transition PAUSED/ROLLED_BACK -> READY -> RUNNING
+        # Transition PAUSED/ROLLED_BACK -> READY
         if job.current_state in (EngineState.PAUSED, EngineState.ROLLED_BACK):
             job = self._update_job_state(job, EngineState.READY)
 
@@ -307,7 +315,8 @@ class WorkflowEngine:
         step_names = definition.get_step_names()
 
         if next_step_index >= len(step_names):
-            # Already finished all steps
+            # Already finished all steps: transition READY -> RUNNING -> COMPLETED
+            job = self._update_job_state(job, EngineState.RUNNING)
             return self._update_job_state(job, EngineState.COMPLETED, target_step=checkpoint.step_name)
 
         next_step_name = step_names[next_step_index]
@@ -336,6 +345,7 @@ class WorkflowEngine:
                 reason="Rollback can only be initiated from FAILED, RUNNING, or PAUSED state."
             )
 
+        rb_start = time.time()
         context = WorkflowContext(
             job=job,
             session=session,
@@ -354,6 +364,9 @@ class WorkflowEngine:
                 self.step_executor.rollback_step(step, context)
             except Exception as e:
                 logger.error(f"Error during rollback of step '{step.name}': {str(e)}")
+
+        rb_duration = time.time() - rb_start
+        self.metrics.record_duration("rollback", rb_duration)
 
         job = self._update_job_state(job, EngineState.ROLLED_BACK)
         return job
