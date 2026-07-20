@@ -47,3 +47,57 @@ class WorkflowStateChangedEvent(WorkflowEvent):
 class StepExecutedEvent(WorkflowEvent):
     """Event emitted when a workflow step completes or fails execution."""
     pass
+
+
+@dataclass(frozen=True, slots=True)
+class WorkflowStartedEvent(WorkflowEvent):
+    """Event emitted when workflow execution starts."""
+    pass
+
+
+@dataclass(frozen=True, slots=True)
+class WorkflowCompletedEvent(WorkflowEvent):
+    """Event emitted when workflow execution completes successfully."""
+    pass
+
+
+@dataclass(frozen=True, slots=True)
+class WorkflowFailedEvent(WorkflowEvent):
+    """Event emitted when workflow execution fails terminally."""
+    pass
+
+
+@dataclass(frozen=True, slots=True)
+class WorkflowRetryingEvent(WorkflowEvent):
+    """Event emitted before a step or workflow retry attempt."""
+    pass
+
+
+@dataclass(frozen=True, slots=True)
+class WorkflowPausedEvent(WorkflowEvent):
+    """Event emitted when a workflow pauses for approval or intervention."""
+    pass
+
+
+@dataclass(frozen=True, slots=True)
+class WorkflowCancelledEvent(WorkflowEvent):
+    """Event emitted when a workflow execution is cancelled."""
+    pass
+
+
+@dataclass(frozen=True, slots=True)
+class ApprovalRequestedEvent(WorkflowEvent):
+    """Event emitted when an approval request is created."""
+    pass
+
+
+@dataclass(frozen=True, slots=True)
+class ApprovalGrantedEvent(WorkflowEvent):
+    """Event emitted when an approval request is granted."""
+    pass
+
+
+@dataclass(frozen=True, slots=True)
+class ApprovalRejectedEvent(WorkflowEvent):
+    """Event emitted when an approval request is rejected."""
+    pass
