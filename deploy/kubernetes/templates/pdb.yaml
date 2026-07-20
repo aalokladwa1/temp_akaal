@@ -1,0 +1,9 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: akaal-workflow-engine-pdb
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: akaal-workflow-engine

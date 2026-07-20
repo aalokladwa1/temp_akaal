@@ -10,6 +10,7 @@ from akaal.workflow.models.results import StepStatus, WorkflowStepResult
 from akaal.workflow.planning.planner import ExecutionPlan
 from akaal.workflow.registry.registry import WorkflowStepRegistry
 from akaal.workflow.state_machine.states import WorkflowState
+from akaal.workflow.steps.reference_steps import ReferencePassStep
 
 
 class WorkflowExecutionEngine:
@@ -21,7 +22,11 @@ class WorkflowExecutionEngine:
         registry: WorkflowStepRegistry | None = None,
     ) -> None:
         self.control_plane = control_plane or ControlPlaneEngine()
-        self.registry = registry or WorkflowStepRegistry()
+        if registry is None:
+            self.registry = WorkflowStepRegistry()
+            self.registry.register("ReferencePassStep", ReferencePassStep)
+        else:
+            self.registry = registry
         self.worker = DataPlaneWorker(worker_id="worker_local_1", registry=self.registry)
         self._lock = threading.Lock()
 
