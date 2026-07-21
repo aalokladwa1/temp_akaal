@@ -5,7 +5,7 @@ Registry for managing passive BaseDecoderProvider plugins across Storage Model F
 """
 
 import threading
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 from akaal.decoder.providers.base_provider import BaseDecoderProvider
 from akaal.decoder.providers.relational_provider import RelationalDecoderProvider
 from akaal.decoder.providers.document_provider import DocumentDecoderProvider

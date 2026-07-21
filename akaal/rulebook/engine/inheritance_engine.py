@@ -5,7 +5,7 @@ Single-responsibility engine evaluating 8-level policy hierarchy overrides.
 Hierarchy: Global -> Organization -> Project -> Migration -> Database -> Schema -> Table -> Column
 """
 
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, Tuple
 from akaal.rulebook.models.rule import Rule, RuleScope
 from akaal.rulebook.models.rule_result import RuleEvaluationResult
 from akaal.rulebook.engine.priority_engine import SCOPE_PRECEDENCE
