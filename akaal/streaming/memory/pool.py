@@ -28,10 +28,31 @@ class StreamMemoryPool:
         self._spill_enabled = spill_to_disk_enabled
         self._free_buffers: List[bytearray] = []
         self._spill_files: Dict[str, str] = {}  # block_id -> temp_file_path
+        self._allocations_count = 0
+        self._pool_hits_count = 0
+        self._spill_count = 0
+        self._freed_count = 0
+
+    @property
+    def metrics(self) -> Dict[str, Any]:
+        with self._lock:
+            total_reqs = self._allocations_count
+            reuse_rate = (self._pool_hits_count / total_reqs) if total_reqs > 0 else 0.0
+            return {
+                "allocations_count": self._allocations_count,
+                "pool_hits_count": self._pool_hits_count,
+                "spill_count": self._spill_count,
+                "freed_count": self._freed_count,
+                "allocated_bytes": self._allocated_bytes,
+                "max_bytes": self._max_bytes,
+                "memory_reuse_rate": reuse_rate,
+                "buffer_pool_hit_ratio": reuse_rate,
+            }
 
     def allocate(self, size: int) -> MemorySlice:
         """Allocate or reuse a buffer block."""
         with self._lock:
+            self._allocations_count += 1
             if (self._allocated_bytes + size) > self._max_bytes:
                 if not self._spill_enabled:
                     raise MemoryExhaustedError(
@@ -45,6 +66,7 @@ class StreamMemoryPool:
                 if len(b) >= size:
                     self._free_buffers.remove(b)
                     buf = b
+                    self._pool_hits_count += 1
                     break
 
             if buf is None:
@@ -60,11 +82,13 @@ class StreamMemoryPool:
             if isinstance(slice_block._buffer, bytearray):
                 self._allocated_bytes = max(0, self._allocated_bytes - slice_block.length)
                 self._free_buffers.append(slice_block._buffer)
+                self._freed_count += 1
             slice_block.release()
 
     def spill_to_disk(self, block_id: str, data: Any) -> str:
         """Spill data block to temporary disk file."""
         with self._lock:
+            self._spill_count += 1
             tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".spill")
             try:
                 pickle.dump(data, tmp)
