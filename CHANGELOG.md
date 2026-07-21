@@ -2,6 +2,21 @@
 
 All notable changes to the Akaal Enterprise Orchestration Platform are documented in this file.
 
+## [1.0.0] - Phase 10 Platforms 1–3 Cross-Platform Integration (2026-07-21)
+
+### Added
+- **Cross-Platform Integration Engine (`akaal/integration/`)**:
+  - `CrossPlatformIntegrationEngine`: End-to-end integration engine bridging **Platform 1 (Workflow Orchestration Engine)**, **Platform 2 (Distributed Runtime)**, and **Platform 3 (Zero-Copy Streaming Execution Engine)**.
+  - End-to-end orchestration flow: Platform 1 job submission -> Platform 2 task scheduling & worker lease negotiation -> Platform 3 zero-copy stream pipeline processing -> Platform 1 audit logging & checkpointing.
+- **Cross-Platform Integration Test Suite (`tests/integration/platforms/`)**:
+  - `test_cross_platform_happy_path.py`: Scenario 1 — End-to-End Happy Path Validation.
+  - `test_cross_platform_concurrency_and_load.py`: Scenario 2 & 7 — Concurrent Jobs & Stress Load Integration.
+  - `test_cross_platform_backpressure.py`: Scenario 3 — Backpressure Propagation across Platforms 1–3.
+  - `test_cross_platform_failures_and_retry.py`: Scenario 4 — Platform 3 Failure Injection & Platform 2 Retry Integration.
+  - `test_cross_platform_cancellation.py`: Scenario 5 — Job Cancellation Propagation.
+  - `test_cross_platform_checkpoint_resume.py`: Scenario 6 — Checkpoint Restoration & Resumed Execution.
+  - `test_cross_platform_boundaries.py`: Scenario 8 — Architectural Isolation Checks.
+
 ## [Unreleased] - Phase 10 Day 9 (2026-07-20)
 
 ### Added

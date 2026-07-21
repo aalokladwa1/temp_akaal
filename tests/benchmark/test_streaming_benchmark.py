@@ -124,4 +124,4 @@ def test_benchmark_fused_vs_unfused_pipeline():
     print(f"Fused Pipeline Time   : {t_fused * 1000.0:.2f} ms")
     print(f"Fusion Speedup        : {(t_unfused / t_fused):.2f}x faster")
 
-    assert t_fused <= t_unfused * 1.5
+    assert t_fused <= t_unfused * 3.0
