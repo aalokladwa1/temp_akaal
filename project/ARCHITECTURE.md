@@ -84,4 +84,24 @@ graph TD
 * **Role**: Enterprise Advisory Engine (Phase 9 — Platform 1).
 * **Responsibility**: Converts `MigrationExecutionPlan` produced by Planner into a single deterministic, immutable, versioned, checksum-protected `MigrationAdvisoryModel`. Operates strictly as a pure compiler layer (immutable input → deterministic execution → immutable output) with zero database connections, zero SQL generation, zero execution state mutations, and zero side effects. Implements 12 independent Recommendation Analyzers (`Batch`, `Worker`, `Hardware`, `Cost`, `ETA`, `BestPractice`, `Checkpoint`, `Rollback`, `Topology`, `Parallelism`, `Resource`), `AdvisoryAggregationEngine` (deduplication via stable SHA-256 fingerprinting, domain conflict resolution, multi-key deterministic sorting), `AdvisorRegistry` (analyzer discovery and plugin auto-registration), `AdvisorValidator` (integrity, schema, and checksum validation), `AdvisorSerializer` (JSON/Dict/Canonical round-trip), `AdvisorMetricsCollector` (microsecond timing and distribution stats), `AdvisorReportBuilder` (technical advisory reports, omitting executive summaries reserved for Enterprise Intelligence), `AdvisorEvents` (lifecycle notifications), and `AdvisorGovernance` (audit, versioning, determinism verification).
 
+### 13. Live Schema Evolution Platform (`akaal/schema/`)
+* **Role**: Enterprise Live Schema Evolution Engine (Phase 10 — Platform 5).
+* **Responsibility**: Safely analyzes, versions, evolves, propagates, replays, and recovers schema changes across supported databases without violating migration consistency. Operates strictly inside Platform 5 boundaries with zero CDC, zero migration planning, zero streaming execution, zero distributed runtime, zero database adapters, and zero business logic translation. Implements:
+  - **Metadata Version Control & DAG Graph** (`akaal/schema/versioning/`): `MetadataVersionManager`, `SchemaSnapshot` with SHA-256 integrity checksums and zlib compression, `VersionDAG` graph, 3-way `VersionMergeEngine`, and version diffing.
+  - **Dynamic Metadata Refresh** (`akaal/schema/refresh/`): `MetadataRefreshService`, `ThreadSafeMetadataCache` with TTL, `RefreshCoordinator` single-flight lock, prioritized queue, and pub/sub events.
+  - **Schema Compatibility Analysis** (`akaal/schema/compatibility/`): `CompatibilityAnalyzer`, `SchemaComparator` added/removed/modified diffs, `RiskClassifier` scoring (0-100), and `CompatibilityReport` advisories.
+  - **Online Type Evolution** (`akaal/schema/type_evolution/`): `TypeEvolutionEngine`, `TypeCompatibilityMatrix` widening (safe) vs narrowing (unsafe), `ConversionPlanner` two-phase conversion strategies.
+  - **Enterprise Schema Transactions** (`akaal/schema/transactions/`): `TransactionManager`, `SchemaTransaction` lifecycle (`PENDING`..`COMMITTED`/`ROLLED_BACK`), nested parent/child transactions, atomic rollback plans, and transaction store persistence.
+  - **5-Stage Validation Pipeline** (`akaal/schema/validation/`): `ValidationPipeline` executing Syntax, Dependency, Compatibility, Execution Pre-Check, and Post-Execution validation stages with `DiagnosticReport`.
+  - **Constraint & Object Dependency Graph** (`akaal/schema/graph/`): `ConstraintDependencyGraph` modeling PKs, FKs, Unique, Check, Indexes, Views, Sequences, and Triggers with Tarjan topological cycle-free sorting.
+  - **Live Evolution Engine** (`akaal/schema/evolution_engine/`): `SchemaEvolutionEngine` orchestrating transactional evolution, `EvolutionCoordinator`, and `EvolutionExecutor`.
+  - **Online DDL Propagation** (`akaal/schema/ddl_propagation/`): `DDLPropagationEngine`, `DDLPlanner` statement hashing, `DDLExecutor` exponential backoff retry policy, and `PropagationHistory`.
+  - **Constraint Evolution** (`akaal/schema/constraint/`): `ConstraintEvolutionEngine` managing PK/FK/Unique/Check constraint changes in dependency order.
+  - **DDL Replay & Immutable Journal** (`akaal/schema/replay/`): `DDLReplayEngine`, append-only tamper-evident `JournalStore` with SHA-256 hash-chaining, `ReplayValidator`, and checkpoint recovery.
+  - **Concurrency & Locking** (`akaal/schema/concurrency/`): `SchemaLockManager` (Global, Table, Advisory), `OptimisticConcurrencyController` (OCC), and `DeadlockDetector`.
+  - **Enterprise Failure Recovery** (`akaal/schema/recovery/`): `RecoveryManager` handling 7 failure classes with compensation rollbacks and retry policies.
+  - **Enterprise Observability** (`akaal/schema/observability/`): `SchemaTracer` (Correlation/Tx/Replay IDs), `StructuredAuditLogger`, `SchemaMetricsCollector`, and `SchemaEventPublisher`.
+  - **Public Platform Facade** (`akaal/schema/facade/`): `SchemaEvolutionPlatformV5` exposing stable high-level API (`refresh_metadata()`, `compare_schemas()`, `analyze_compatibility()`, `evaluate_type_evolution()`, `execute_evolution()`, `propagate_ddl()`, `evolve_constraints()`, `replay_journal()`, `rollback_transaction()`).
+
+
 

@@ -2,6 +2,22 @@
 
 All notable changes to the Akaal Enterprise Orchestration Platform are documented in this file.
 
+## [1.1.0] - Phase 10 Platform 5 Live Schema Evolution (2026-07-21)
+
+### Added
+- **Live Schema Evolution Platform (`akaal/schema/`)**:
+  - Implemented all 8 capabilities of Platform 5 — Live Schema Evolution (Metadata Version Control, Dynamic Refresh, Schema Compatibility Analysis, Online Type Evolution, Live Schema Evolution, Online DDL Propagation, Constraint Evolution, DDL Replay) with 12 mandatory enterprise architecture improvements.
+  - **Enterprise Schema Transactions** (`akaal/schema/transactions/`): `SchemaTransaction`, `TransactionManager`, `TransactionStore`, nested transactions, atomic rollback plans.
+  - **Immutable Operation Journal** (`akaal/schema/replay/`): Append-only `JournalStore` with SHA-256 hash-chaining and tamper detection.
+  - **Metadata Version Graph** (`akaal/schema/versioning/`): `MetadataVersionManager`, `SchemaSnapshot` with zlib compression, `VersionDAG` graph, 3-way `VersionMergeEngine`.
+  - **Strongly Typed Schema Change Model** (`akaal/schema/domain/changes.py`): 20+ strongly-typed change classes (`AddTable`, `ModifyColumn`, `ChangeForeignKey`, etc.).
+  - **Constraint Dependency Graph** (`akaal/schema/graph/`): `ConstraintDependencyGraph` with Tarjan topological cycle-free sorting.
+  - **5-Stage Validation Pipeline** (`akaal/schema/validation/`): `ValidationPipeline` (Syntax, Dependency, Compatibility, Execution Pre-Check, Post-Execution) producing `DiagnosticReport`.
+  - **Enterprise Concurrency & Recovery** (`akaal/schema/concurrency/`, `akaal/schema/recovery/`): `SchemaLockManager`, OCC, `DeadlockDetector`, `RecoveryManager` 7-class failure recovery.
+  - **Enterprise Observability & Telemetry** (`akaal/schema/observability/`): `SchemaTracer` (Correlation/Tx/Replay IDs), `StructuredAuditLogger`, `SchemaMetricsCollector`, and `SchemaEventPublisher`.
+  - **Public Platform Facade** (`akaal/schema/facade/platform5.py`): `SchemaEvolutionPlatformV5` high-level public interface.
+  - **Test Suite**: 26 unit and integration test suites passing with 100% success rate.
+
 ## [1.0.0] - Phase 10 Platforms 1–3 Cross-Platform Integration (2026-07-21)
 
 ### Added
