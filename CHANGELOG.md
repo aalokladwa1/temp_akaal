@@ -2,6 +2,26 @@
 
 All notable changes to the Akaal Enterprise Orchestration Platform are documented in this file.
 
+## [1.3.0] - Platform 4 Enterprise CDC (2026-07-22)
+
+### Added
+- **Enterprise CDC Platform (`akaal/cdc/`)**:
+  - Implemented all 9 core CDC capabilities: Distributed CDC, Remote CDC, Multi-Source CDC, Multi-Target CDC, CDC Routing, CDC Replay, CDC Buffering, CDC Checkpoint Synchronization, and Live Failover Synchronization.
+  - **Sources Adapters (`akaal/cdc/sources/`)**: PostgreSQL WAL, MySQL Binlog, Oracle LogMiner, SQL Server CDC, MongoDB Change Streams, and Trigger Fallback.
+  - **Targets Adapters (`akaal/cdc/targets/`)**: Generic Database Target Adapter applying events idempotently.
+  - **Transport Engine (`akaal/cdc/transport/`)**: Transport abstraction `ICDCTransport` with `InMemoryCDCTransport`, `KafkaCDCTransport`, and `RabbitMQCDCTransport`.
+  - **Routing & Durable Buffering (`akaal/cdc/routing/`, `akaal/cdc/buffering/`)**: `CDCRoutingEngine` rule-based policy router, `DurableCDCBuffer` with per-table transaction ordering, and `DeadLetterQueue` (DLQ).
+  - **Checkpoint Stores (`akaal/cdc/checkpoint/`)**: `ICheckpointStore` abstraction with `MemoryCheckpointStore`, `DatabaseCheckpointStore`, `RedisCheckpointStore`, and `FileCheckpointStore`.
+  - **Replay & Failover (`akaal/cdc/replay/`, `akaal/cdc/failover/`)**: `CDCReplayEngine` with `ExactlyOnceController` deduplication and `CDCFailoverCoordinator` worker lease recovery.
+  - **Public Facades (`akaal/cdc/api/`)**: `CDCClient`, `IPlatform4Facade`, `Platform4Facade`, and Platform 7 wrapper integration.
+  - **Test Suite**: 52 unit, integration, and AST static architecture conformance tests passing cleanly.
+
+## [1.2.0] - Platform 7 Enterprise APIs & Integration (2026-07-22)
+
+### Added
+- **Enterprise APIs & Integration (`akaal/api/`)**:
+  - Implemented all 8 capabilities of Platform 7 — Enterprise APIs & Integration (REST API, gRPC API, Typer CLI, Python SDK, Config Profiles, YAML Definitions, Transactional Outbox Events, Webhook Engine, Sandboxed Plugin Manager).
+
 ## [1.1.0] - Phase 10 Platform 5 Live Schema Evolution (2026-07-21)
 
 ### Added
