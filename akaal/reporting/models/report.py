@@ -4,18 +4,37 @@ Immutable Strongly-Typed Report Models.
 
 from typing import Any, Dict, List, Optional
 import datetime
+import uuid
 try:
     from pydantic import BaseModel, Field
 except ImportError:
     class BaseModel:
         def __init__(self, **data):
+            for k, v in self.__class__.__dict__.items():
+                if not k.startswith('_'):
+                    if callable(v):
+                        setattr(self, k, v())
+                    elif v is not None:
+                        setattr(self, k, v)
             for k, v in data.items():
                 setattr(self, k, v)
         def dict(self):
-            return self.__dict__
+            return self.model_dump()
         def model_dump(self):
-            return self.__dict__
+            res = {}
+            for k, v in self.__dict__.items():
+                if hasattr(v, "model_dump"):
+                    res[k] = v.model_dump()
+                elif isinstance(v, list):
+                    res[k] = [item.model_dump() if hasattr(item, "model_dump") else item for item in v]
+                elif isinstance(v, dict):
+                    res[k] = {dk: (dv.model_dump() if hasattr(dv, "model_dump") else dv) for dk, dv in v.items()}
+                else:
+                    res[k] = v
+            return res
     def Field(default=None, default_factory=None, **kwargs):
+        if default_factory is not None:
+            return default_factory
         return default
 
 
