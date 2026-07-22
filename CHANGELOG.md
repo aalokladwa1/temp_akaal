@@ -2,6 +2,27 @@
 
 All notable changes to the Akaal Enterprise Orchestration Platform are documented in this file.
 
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+## [1.2.0] - Phase 10 Platform 6 Enterprise Performance Engine (2026-07-22)
+
+### Added
+- **Performance Package (`akaal/performance/`)**:
+  - `facade/runtime.py`: Public entry point (`DefaultPerformanceRuntimeV1`).
+  - `event_bus/bus.py`: Decoupled `PerformanceEventBus` publishing internal events.
+  - `orchestration/`: `OptimizationSession` tracking state machine history, `OptimizationDependencyGraph` topology DAG sorting, `OptimizationPipeline` executing cycles (Safe/Auto modes), `SnapshotManager` saving pre-op/post-op state snapshots, and rollback logic.
+  - `decision/`: Rule engine evaluating metrics, Policy engine enforcing constraints, and Confidence engine calculating expected improvement and category.
+  - `config/`: Pre-defined profile specs (`Balanced`, `MaximumThroughput`, `LowMemory`, etc.) and `ConfigurationHotReloader` enabling atomic thread-safe hot reload config swaps.
+  - `governor/`: `ResourceGovernor` limiting CPU, RAM, and concurrency at runtime.
+  - `health/`: `RuntimeHealthScore` continuously calculating overall health ratings.
+  - `discovery/`: `RuntimeCapabilityDiscovery` dynamically detecting AVX/AVX2/NEON instructions.
+  - `failures/`: `PerformanceFailureType` enforcing classified exceptions.
+  - **Optimizers**: 11 dynamic optimizer plugins (`batch.py`, `parallel.py`, `scheduler.py`, `vector.py`, `memory.py`, `compression.py`, `db.py`, `pool.py`, `load_balancer.py`, `backpressure.py`).
+- **Tests**:
+  - Added unit, integration, safe mode, configuration hot reload, resource governor, and architecture verification tests. All 85 test cases pass cleanly.
+=======
+>>>>>>> 4388da0
 ## [1.3.0] - Platform 4 Enterprise CDC (2026-07-22)
 
 ### Added
@@ -21,6 +42,10 @@ All notable changes to the Akaal Enterprise Orchestration Platform are documente
 ### Added
 - **Enterprise APIs & Integration (`akaal/api/`)**:
   - Implemented all 8 capabilities of Platform 7 — Enterprise APIs & Integration (REST API, gRPC API, Typer CLI, Python SDK, Config Profiles, YAML Definitions, Transactional Outbox Events, Webhook Engine, Sandboxed Plugin Manager).
+<<<<<<< HEAD
+=======
+>>>>>>> 721b546 (feat(platform4): implement enterprise CDC platform)
+>>>>>>> 4388da0
 
 ## [1.1.0] - Phase 10 Platform 5 Live Schema Evolution (2026-07-21)
 
