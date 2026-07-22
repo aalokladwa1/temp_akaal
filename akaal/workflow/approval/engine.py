@@ -34,6 +34,7 @@ class ApprovalEngine:
         self._audit_logger = audit_logger or AuditLogger()
         self._requests: Dict[str, ApprovalRequest] = {}
         self._tokens: Dict[str, ApprovalToken] = {}  # key: f"{workflow_id}:gate_{gate_number}"
+        self._gate_requests: Dict[str, str] = {}  # key: f"{workflow_id}:gate_{gate_number}" -> request_id
         self._decisions: List[ApprovalDecision] = []
         self._delegations: List[ApprovalDelegation] = []
         self._lock = threading.Lock()
@@ -48,6 +49,10 @@ class ApprovalEngine:
     ) -> ApprovalRequest:
         """Create a new approval request for an ordered gate (1, 2, or 3)."""
         with self._lock:
+            gate_key = f"{workflow_id}:gate_{gate_number}"
+            if gate_key in self._gate_requests:
+                return self._requests[self._gate_requests[gate_key]]
+
             # Enforce gate ordering: Gate N requires Gate N-1 token approved if N > 1
             if gate_number > 1:
                 prev_key = f"{workflow_id}:gate_{gate_number - 1}"
@@ -69,6 +74,7 @@ class ApprovalEngine:
                 requested_at=self._clock.now_utc(),
             )
             self._requests[request_id] = req
+            self._gate_requests[gate_key] = request_id
 
             # Audit & Event dispatch
             self._audit_logger.log(
@@ -317,3 +323,11 @@ class ApprovalEngine:
     def get_request(self, request_id: str) -> Optional[ApprovalRequest]:
         with self._lock:
             return self._requests.get(request_id)
+
+    def get_request_for_gate(self, workflow_id: str, gate_number: int) -> Optional[ApprovalRequest]:
+        with self._lock:
+            gate_key = f"{workflow_id}:gate_{gate_number}"
+            req_id = self._gate_requests.get(gate_key)
+            if req_id:
+                return self._requests.get(req_id)
+            return None

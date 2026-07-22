@@ -15,6 +15,12 @@ All notable changes to the Akaal Enterprise Orchestration Platform are documente
 - **Tests**: `tests/integration/composition/test_enterprise_composition_root.py` validating registration, dependency graph, cycle detection, health aggregation, and smoke test execution.
 - **Documentation**: `AKAAL_ENTERPRISE_INTEGRATION_WALKTHROUGH.md`, `AKAAL_PLATFORM_COMPOSITION_REPORT.md`, `AKAAL_CROSS_PLATFORM_VERIFICATION_REPORT.md`.
 
+### Fixed
+- **Human Approval Request ID Consistency (`akaal/workflow/approval/`)**:
+  - Resolved identifier lookup mismatch where `ApprovalGateStep` reconstructed request IDs (`req_<wf>_gate_<num>`) while `ApprovalEngine` generated UUIDs.
+  - Implemented `ApprovalEngine.get_request_for_gate(workflow_id, gate_number)` and `self._gate_requests` index ensuring single canonical approval request identity and 100% duplicate request prevention.
+  - Added unit test `tests/unit/workflow/test_approval_request_id_consistency.py`.
+
 ## [1.5.0] - Phase 10 Platform 9 Enterprise Operations Platform (2026-07-22)
 
 ### Added

@@ -42,8 +42,7 @@ class ApprovalGateStep(AbstractStep):
             )
 
         # Token not approved yet. Ensure request exists.
-        req_id = f"req_{context.workflow_id}_gate_{self.gate_number}"
-        req = self.approval_engine.get_request(req_id)
+        req = self.approval_engine.get_request_for_gate(context.workflow_id, self.gate_number)
         if not req:
             req = self.approval_engine.request_approval(
                 workflow_id=context.workflow_id,
