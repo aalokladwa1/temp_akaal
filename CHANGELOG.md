@@ -2,27 +2,38 @@
 
 All notable changes to the Akaal Enterprise Orchestration Platform are documented in this file.
 
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-## [1.2.0] - Phase 10 Platform 6 Enterprise Performance Engine (2026-07-22)
+## [1.5.0] - Phase 10 Platform 9 Enterprise Operations Platform (2026-07-22)
 
 ### Added
-- **Performance Package (`akaal/performance/`)**:
-  - `facade/runtime.py`: Public entry point (`DefaultPerformanceRuntimeV1`).
-  - `event_bus/bus.py`: Decoupled `PerformanceEventBus` publishing internal events.
-  - `orchestration/`: `OptimizationSession` tracking state machine history, `OptimizationDependencyGraph` topology DAG sorting, `OptimizationPipeline` executing cycles (Safe/Auto modes), `SnapshotManager` saving pre-op/post-op state snapshots, and rollback logic.
-  - `decision/`: Rule engine evaluating metrics, Policy engine enforcing constraints, and Confidence engine calculating expected improvement and category.
-  - `config/`: Pre-defined profile specs (`Balanced`, `MaximumThroughput`, `LowMemory`, etc.) and `ConfigurationHotReloader` enabling atomic thread-safe hot reload config swaps.
-  - `governor/`: `ResourceGovernor` limiting CPU, RAM, and concurrency at runtime.
-  - `health/`: `RuntimeHealthScore` continuously calculating overall health ratings.
-  - `discovery/`: `RuntimeCapabilityDiscovery` dynamically detecting AVX/AVX2/NEON instructions.
-  - `failures/`: `PerformanceFailureType` enforcing classified exceptions.
-  - **Optimizers**: 11 dynamic optimizer plugins (`batch.py`, `parallel.py`, `scheduler.py`, `vector.py`, `memory.py`, `compression.py`, `db.py`, `pool.py`, `load_balancer.py`, `backpressure.py`).
-- **Tests**:
-  - Added unit, integration, safe mode, configuration hot reload, resource governor, and architecture verification tests. All 85 test cases pass cleanly.
-=======
->>>>>>> 4388da0
+- **Operations Package (`akaal/operations/`)**:
+  - `facade/platform9.py`: Central Public Entry Point (`DefaultOperationsPlatformV9`).
+  - `capability_registry/`: Operations Capability Registry dynamically discovering advertised platform capabilities via public facade contracts.
+  - `digital_twin/`: Real-time operational model tracking nodes, workers, active jobs, dependencies, health, and incidents.
+  - `topology/`: Enterprise Topology Engine mapping parent-child system hierarchies (AKAAL -> Cluster -> Node -> Worker -> Platform -> Job).
+  - `discovery/`: Cluster Discovery Service populating the Digital Twin and Capability Registry.
+  - `session/`: Operations Session Manager tracking administrative activities in immutable session records.
+  - `workflow/`: Operational Workflow Engine executing runbook procedures with step validation and automatic rollback.
+  - `approvals/`: Enterprise Approval Manager enforcing single/multi-person approvals, emergency overrides, and timeouts.
+  - `health/`: Operations Health Engine computing weighted system health scores across platforms.
+  - `observability/`: Unified Observability Collector aggregating OpenTelemetry traces, Prometheus metrics, logs, and correlation IDs.
+  - `monitoring/`: Operations Center providing real-time dashboard overviews.
+  - `alerts/`: Alert Engine with threshold, predictive, failure, SLA warnings, deduplication, suppression, and grouping.
+  - `plugins/`: Notification Framework with Email, Slack, Teams, PagerDuty, and Webhook providers.
+  - `incidents/`: Incident Lifecycle Manager enforcing strict state machine transitions (`Detected` -> `Classified` -> `Assigned` -> `Investigating` -> `Mitigating` -> `Recovering` -> `Verifying` -> `Resolved` -> `Closed`).
+  - `diagnostics/`: Diagnostics & Root Cause Analysis Engine correlating timeline events and dependency blast radii.
+  - `recommendations/`: Operational Recommendation Engine generating explainable advisory guidance (never auto-executing).
+  - `control/`: Operations Control Plane delegating `pause`, `drain`, `emergency_stop` actions to public platform facades.
+  - `policy/`: Operations Policy Engine governing maintenance windows and action restrictions.
+  - `versioning/`: Configuration Version Manager version-controlling policies, rules, and alert thresholds with rollback.
+  - `scheduler/`: Operations Scheduler executing periodic internal housekeeping tasks.
+  - `replay/`: Operations Replay Engine providing read-only playback of operational timelines and incident histories.
+  - `timeline/`: Chronological Operational Timeline recording events with correlation IDs and timestamps.
+  - `governance/`: Governance & Audit Center creating immutable, tamper-evident SHA-256 hash-chained audit logs.
+  - `forecasting/`: SLA, Capacity & Forecasting Engine predicting resource exhaustion and SLA breach risks.
+  - `security/`: Operational Security Engine enforcing RBAC permissions (`SuperAdmin`, `Operator`, `Auditor`, `Viewer`), signature verification, and action signing.
+  - `verification/`: Architecture Boundary Verifier ensuring Platform 9 never imports internal modules of Platforms 1–8.
+- **Tests**: 15 unit and integration test suites covering all Platform 9 capabilities, state machines, and boundary isolations. 100/100 tests passing cleanly.
+
 ## [1.4.0] - Platform 8 Enterprise Reporting Engine (2026-07-22)
 
 ### Added
