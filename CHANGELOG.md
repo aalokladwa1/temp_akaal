@@ -23,6 +23,19 @@ All notable changes to the Akaal Enterprise Orchestration Platform are documente
   - Added unit, integration, safe mode, configuration hot reload, resource governor, and architecture verification tests. All 85 test cases pass cleanly.
 =======
 >>>>>>> 4388da0
+## [1.4.0] - Platform 8 Enterprise Reporting Engine (2026-07-22)
+
+### Added
+- **Enterprise Reporting Engine (`akaal/reporting/`)**:
+  - Implemented all 8 reporting capabilities: Pre-Migration, Migration Progress, GB Validation, Cutover, Post-Migration, Executive Summary, Audit Package Generator, and Report Versioning.
+  - **Exporters (`akaal/reporting/exporters/`)**: PDF, HTML, JSON, and CSV exporters implementing abstract `IReportExporter`.
+  - **Template Engine (`akaal/reporting/templates/`)**: Structured HTML, JSON, CSV, and Markdown rendering engine.
+  - **Digital Signing (`akaal/reporting/signing/`)**: `ISigningProvider` abstraction with `NoSigningProvider`, `HashSigningProvider` (HMAC SHA-256), and `X509SigningProvider` (X.509 PKCS#7/CMS digital signatures).
+  - **Metadata & Versioning (`akaal/reporting/metadata/`, `akaal/reporting/versioning/`)**: `MetadataManager` (correlation ID injection & SHA-256 checksums) and `ReportVersionManager` (semantic versioning & history).
+  - **Audit Package Builder (`akaal/reporting/audit/`)**: `AuditPackageBuilder` generating multi-report audit packages with hash-chained `manifest.json` signatures.
+  - **Public Facades (`akaal/reporting/api/`)**: `ReportingClient`, `IPlatform8Facade`, `Platform8Facade`, and Platform 7 wrapper integration.
+  - **Test Suite**: 67 unit, integration, and AST static architecture conformance tests passing cleanly.
+
 ## [1.3.0] - Platform 4 Enterprise CDC (2026-07-22)
 
 ### Added
