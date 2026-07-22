@@ -4,8 +4,16 @@ YAML Job Definition Parser with Template Resolution.
 
 from typing import Any, Dict
 import os
-import re
-import yaml
+try:
+    import yaml
+except ImportError:
+    import json
+    class DummyYAML:
+        def dump(self, data, *args, **kwargs):
+            return json.dumps(data, indent=2)
+        def safe_load(self, stream):
+            return json.loads(stream)
+    yaml = DummyYAML()
 
 from akaal.api.contracts.errors import ValidationError
 

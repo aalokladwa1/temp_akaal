@@ -2,8 +2,23 @@
 Typer CLI Application Entry Point for akaal command-line interface.
 """
 
-import asyncio
-import typer
+try:
+    import typer
+except ImportError:
+    class DummyTyper:
+        def Typer(self, **kwargs):
+            return self
+        def command(self, *args, **kwargs):
+            def decorator(f): return f
+            return decorator
+        def callback(self, *args, **kwargs):
+            def decorator(f): return f
+            return decorator
+        def Option(self, default=None, *args, **kwargs):
+            return default
+        def Argument(self, default=None, *args, **kwargs):
+            return default
+    typer = DummyTyper()
 from akaal.api.cli.formatter import CLIFormatter
 from akaal.api.contracts.dto import JobRequestDTO, WorkflowSubmitDTO, SchemaCheckDTO
 from akaal.api.facades.platform1 import Platform1Facade

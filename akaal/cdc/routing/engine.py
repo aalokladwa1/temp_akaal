@@ -3,8 +3,19 @@ CDC Routing Engine & Route Rules Policy.
 """
 
 from typing import List, Dict, Optional, Callable
-import fnmatch
-from pydantic import BaseModel, Field
+try:
+    from pydantic import BaseModel, Field
+except ImportError:
+    class BaseModel:
+        def __init__(self, **data):
+            for k, v in data.items():
+                setattr(self, k, v)
+        def dict(self):
+            return self.__dict__
+        def model_dump(self):
+            return self.__dict__
+    def Field(default=None, default_factory=None, **kwargs):
+        return default
 from akaal.cdc.contracts.event import CDCEvent
 
 

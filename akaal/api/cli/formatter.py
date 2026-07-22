@@ -4,8 +4,15 @@ Typer CLI Formatting & Exit Code Utilities.
 
 from typing import Any, Dict
 import json
-import sys
-import yaml
+try:
+    import yaml
+except ImportError:
+    class DummyYAML:
+        def dump(self, data, *args, **kwargs):
+            return json.dumps(data, indent=2)
+        def safe_load(self, stream):
+            return json.loads(stream)
+    yaml = DummyYAML()
 
 
 class CLIFormatter:

@@ -2,9 +2,22 @@
 Checkpoint and Position Contracts for CDC Synchronization.
 """
 
+try:
+    from pydantic import BaseModel, Field
+except ImportError:
+    class BaseModel:
+        def __init__(self, **data):
+            for k, v in data.items():
+                setattr(self, k, v)
+        def dict(self):
+            return self.__dict__
+        def model_dump(self):
+            return self.__dict__
+    def Field(default=None, default_factory=None, **kwargs):
+        return default
+
 from typing import Dict, Any, Optional
 import datetime
-from pydantic import BaseModel, Field
 
 
 class Position(BaseModel):

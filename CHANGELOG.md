@@ -2,6 +2,19 @@
 
 All notable changes to the Akaal Enterprise Orchestration Platform are documented in this file.
 
+## [1.6.0] - Phase 10 Enterprise Cross-Platform Integration (2026-07-22)
+
+### Added
+- **Enterprise Composition Root (`akaal/integration/composition_root.py`)**:
+  - `EnterpriseLifecycleManager`: Central lifecycle coordinator managing registration, startup validation, topological initialization, and graceful shutdown across all 9 AKAAL platforms.
+  - `PlatformRegistry`: Thread-safe, read-only registry tracking platform metadata, public facades, versions, health, capabilities, and dependencies.
+  - `DependencyGraph`: Topological ordering engine detecting circular dependencies and computing safe platform startup order.
+  - `HealthRegistry`: Unified health aggregator checking facade responsiveness and status across all platforms.
+  - `CrossPlatformContext`: Application runtime context exposing active public facade instances.
+  - `execute_e2e_smoke_test`: End-to-end integration smoke test executing unified lifecycles across Platforms 1 through 9 strictly using public facade contracts.
+- **Tests**: `tests/integration/composition/test_enterprise_composition_root.py` validating registration, dependency graph, cycle detection, health aggregation, and smoke test execution.
+- **Documentation**: `AKAAL_ENTERPRISE_INTEGRATION_WALKTHROUGH.md`, `AKAAL_PLATFORM_COMPOSITION_REPORT.md`, `AKAAL_CROSS_PLATFORM_VERIFICATION_REPORT.md`.
+
 ## [1.5.0] - Phase 10 Platform 9 Enterprise Operations Platform (2026-07-22)
 
 ### Added
