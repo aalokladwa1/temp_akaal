@@ -22,6 +22,8 @@ class ReportMetadata(BaseModel):
     generated_at: str = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc).isoformat())
     generator: str = "AKAAL Platform 8 Reporting Engine v1.0"
     correlation_id: str = Field(default_factory=lambda: f"corr-{uuid.uuid4().hex[:8]}")
+    trace_id: str = Field(default_factory=lambda: f"4bf92f3577b34da6a3ce929d0e0e4736")
+    span_id: str = Field(default_factory=lambda: f"00f067aa0ba902b7")
     migration_id: Optional[str] = None
     checksum_sha256: Optional[str] = None
     version: ReportVersion = Field(default_factory=ReportVersion)
