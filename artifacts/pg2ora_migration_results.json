@@ -1,0 +1,37 @@
+{
+  "status": "SUCCESS",
+  "timestamp": "2026-07-23T13:56:30.011387+00:00",
+  "source": {
+    "engine": "PostgreSQL 16.14 / 15.2",
+    "host": "127.0.0.1:5432",
+    "database": "postgres",
+    "schema": "public",
+    "tables_count": 50,
+    "total_rows": 131115
+  },
+  "target": {
+    "engine": "Oracle 23c / 19c (FREEPDB1)",
+    "host": "localhost:1521",
+    "database": "FREEPDB1",
+    "schema": "SOURCE_SCHEMA",
+    "tables_count": 50,
+    "total_rows": 131115
+  },
+  "performance": {
+    "total_duration_sec": 44.38,
+    "validation_duration_sec": 32.68,
+    "rows_migrated": 131115,
+    "rows_per_sec": 2954.18,
+    "peak_memory_mb": 6.83,
+    "checkpoint_count": 90
+  },
+  "reports": {
+    "pre_migration_id": "rep-1efa91706dd0",
+    "pre_migration_sha256": "603d2daef4edd6c167eb3e2d2db07a8918101f06fa6a43da53719b10e908832f",
+    "executive_summary_id": "rep-32e7fce0f90e",
+    "executive_summary_sha256": "b413d5c766f7fb3d4071c1dc85cd0310cdc4f1ffaf8c6386c78b76638780fb8d",
+    "audit_package_id": "aud-pkg-f8d00c97a4",
+    "audit_package_signature": "x509:eDUwOS1zaWc6Y2VydC1ha2FhbC1jb3JwLTIwMjY6YmNmMjRjZWRiMmJhYTExZGQ4N2YyNWNhY2M5YjMwZGJiYTI5ZmExNDI5ZmVkODgxMDNjMjA2MGMxMTBiNzg4Zg=="
+  },
+  "validation_issues": []
+}
