@@ -1,0 +1,62 @@
+{
+  "status": "SUCCESS",
+  "timestamp": "2026-07-23T12:46:04.097324+00:00",
+  "source": {
+    "engine": "PostgreSQL 15.2 / 16.14",
+    "host": "127.0.0.1:5432",
+    "database": "postgres",
+    "schema": "public",
+    "tables": [
+      "customers",
+      "products",
+      "orders",
+      "order_items"
+    ],
+    "row_counts": {
+      "customers": 10,
+      "products": 10,
+      "orders": 10,
+      "order_items": 16
+    }
+  },
+  "target": {
+    "engine": "MySQL 8.0.46",
+    "host": "127.0.0.1:3306",
+    "database": "akaal_smoke_tgt",
+    "tables": [
+      "customers",
+      "products",
+      "orders",
+      "order_items"
+    ],
+    "row_counts": {
+      "customers": 10,
+      "products": 10,
+      "orders": 10,
+      "order_items": 16
+    }
+  },
+  "performance": {
+    "total_duration_sec": 0.358,
+    "validation_duration_sec": 0.02,
+    "rows_migrated": 46,
+    "rows_per_sec": 128.33,
+    "peak_memory_mb": 0.67,
+    "checkpoint_count": 10
+  },
+  "checksums": {
+    "customers": "5daed0b984fdc24fd4eab90e5706778508de7839a3516be5bfe2b4db1b0caf9f",
+    "products": "c88777a554cbd85eed0afcf7f9c275eb574c960d184edc2fbbb7b637ce838b29",
+    "orders": "c96ecb796f1f6357134c15a2d92b1005ad83ec19a72b0f5ae76dfd3745d99554",
+    "order_items": "7ade468a6346bd007697d8c935be5460eaed57ea35a07e34411509044a434409"
+  },
+  "reports": {
+    "pre_migration_id": "rep-2dc8a77e8a79",
+    "pre_migration_sha256": "bbded27ac4a16f78ac1c90395f1b8400fe5a552411d4d0d3dae0a51f7f97f2a2",
+    "executive_summary_id": "rep-03791c79438f",
+    "executive_summary_sha256": "2539f3862dabdba21e90521d47b3474840634c0fc58c715d2b9bc431674dc3d4",
+    "audit_package_id": "aud-pkg-de2f85a8c9",
+    "audit_package_signature": "x509:eDUwOS1zaWc6Y2VydC1ha2FhbC1jb3JwLTIwMjY6MmI5ODgyODE2NTI5NjQ0OWU1M2Y1NzRhZDNiYjQzYWZjYmZmMmEzMmFlNjA0NzFmMWY5MTQ3YTIzNjJhZmZkMA=="
+  },
+  "validation_issues": []
+}
