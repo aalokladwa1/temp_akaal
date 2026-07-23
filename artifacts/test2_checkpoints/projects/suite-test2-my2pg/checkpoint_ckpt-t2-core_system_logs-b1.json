@@ -1,0 +1,27 @@
+{
+  "checkpoint_id": "ckpt-t2-core_system_logs-b1",
+  "project_id": "suite-test2-my2pg",
+  "migration_id": "mig-t2-my2pg-001",
+  "workflow_state": "PRODUCTION_MIGRATION",
+  "table_name": "core_system_logs",
+  "batch_number": 1,
+  "worker_id": "default",
+  "last_processed_primary_key": null,
+  "rows_processed": 13115,
+  "rows_failed": 0,
+  "rows_skipped": 0,
+  "retry_count": 0,
+  "adapter_state": {},
+  "metrics": {},
+  "checksum": "f175a05081aec9a477618bf6986bc4a72c7951efb9f84fa3f480de3e9f6bd375",
+  "created_at": "2026-07-23T14:44:33.166425+00:00",
+  "updated_at": "2026-07-23T14:44:33.166633+00:00",
+  "status": "COMPLETED",
+  "payload": {
+    "project_state": {
+      "state": "PRODUCTION_MIGRATION"
+    },
+    "global_state_snapshot": {}
+  },
+  "description": "Workflow checkpoint"
+}

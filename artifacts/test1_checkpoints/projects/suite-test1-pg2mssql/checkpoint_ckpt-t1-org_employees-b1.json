@@ -1,0 +1,27 @@
+{
+  "checkpoint_id": "ckpt-t1-org_employees-b1",
+  "project_id": "suite-test1-pg2mssql",
+  "migration_id": "mig-t1-pg2mssql-001",
+  "workflow_state": "PRODUCTION_MIGRATION",
+  "table_name": "org_employees",
+  "batch_number": 1,
+  "worker_id": "default",
+  "last_processed_primary_key": null,
+  "rows_processed": 19315,
+  "rows_failed": 0,
+  "rows_skipped": 0,
+  "retry_count": 0,
+  "adapter_state": {},
+  "metrics": {},
+  "checksum": "19d37ab69993b104f4f091d4dac14327157cc85b4389a0f044d2f783ea7f4b8e",
+  "created_at": "2026-07-23T14:42:28.045097+00:00",
+  "updated_at": "2026-07-23T14:42:28.045298+00:00",
+  "status": "COMPLETED",
+  "payload": {
+    "project_state": {
+      "state": "PRODUCTION_MIGRATION"
+    },
+    "global_state_snapshot": {}
+  },
+  "description": "Workflow checkpoint"
+}

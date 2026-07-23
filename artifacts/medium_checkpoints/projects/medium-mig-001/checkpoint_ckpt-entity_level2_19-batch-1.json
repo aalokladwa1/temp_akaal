@@ -1,0 +1,27 @@
+{
+  "checkpoint_id": "ckpt-entity_level2_19-batch-1",
+  "project_id": "medium-mig-001",
+  "migration_id": "mig-med-001",
+  "workflow_state": "PRODUCTION_MIGRATION",
+  "table_name": "entity_level2_19",
+  "batch_number": 1,
+  "worker_id": "default",
+  "last_processed_primary_key": null,
+  "rows_processed": 16615,
+  "rows_failed": 0,
+  "rows_skipped": 0,
+  "retry_count": 0,
+  "adapter_state": {},
+  "metrics": {},
+  "checksum": "cc394a2db231b70a67982aa55cdc824d7862bcd185d66cf34472644ad10021f4",
+  "created_at": "2026-07-23T13:00:14.833200+00:00",
+  "updated_at": "2026-07-23T13:00:14.833349+00:00",
+  "status": "COMPLETED",
+  "payload": {
+    "project_state": {
+      "state": "PRODUCTION_MIGRATION"
+    },
+    "global_state_snapshot": {}
+  },
+  "description": "Workflow checkpoint"
+}

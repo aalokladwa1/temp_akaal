@@ -1,0 +1,27 @@
+{
+  "checkpoint_id": "ckpt-t2-catalog_products-b1",
+  "project_id": "suite-test2-my2pg",
+  "migration_id": "mig-t2-my2pg-001",
+  "workflow_state": "PRODUCTION_MIGRATION",
+  "table_name": "catalog_products",
+  "batch_number": 1,
+  "worker_id": "default",
+  "last_processed_primary_key": null,
+  "rows_processed": 10000,
+  "rows_failed": 0,
+  "rows_skipped": 0,
+  "retry_count": 0,
+  "adapter_state": {},
+  "metrics": {},
+  "checksum": "878d5bcc0d7bf26d5152aa8f9c414d380647a22f34f02f3d321628b0957b396f",
+  "created_at": "2026-07-23T14:44:31.194959+00:00",
+  "updated_at": "2026-07-23T14:44:31.195158+00:00",
+  "status": "COMPLETED",
+  "payload": {
+    "project_state": {
+      "state": "PRODUCTION_MIGRATION"
+    },
+    "global_state_snapshot": {}
+  },
+  "description": "Workflow checkpoint"
+}

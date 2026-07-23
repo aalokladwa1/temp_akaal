@@ -1,0 +1,27 @@
+{
+  "checkpoint_id": "ckpt-ora-sales_orders-batch-9",
+  "project_id": "medium-pg2ora-001",
+  "migration_id": "mig-pg2ora-001",
+  "workflow_state": "PRODUCTION_MIGRATION",
+  "table_name": "sales_orders",
+  "batch_number": 9,
+  "worker_id": "default",
+  "last_processed_primary_key": null,
+  "rows_processed": 121115,
+  "rows_failed": 0,
+  "rows_skipped": 0,
+  "retry_count": 0,
+  "adapter_state": {},
+  "metrics": {},
+  "checksum": "0a22e7a51716b6aa3744ad0ec354e8f8d06a2fb8e93c05ccd0535aabd9699afb",
+  "created_at": "2026-07-23T13:55:56.664137+00:00",
+  "updated_at": "2026-07-23T13:55:56.664358+00:00",
+  "status": "COMPLETED",
+  "payload": {
+    "project_state": {
+      "state": "PRODUCTION_MIGRATION"
+    },
+    "global_state_snapshot": {}
+  },
+  "description": "Workflow checkpoint"
+}

@@ -1,0 +1,27 @@
+{
+  "checkpoint_id": "ckpt-t1-catalog_vendors-b2",
+  "project_id": "suite-test1-pg2mssql",
+  "migration_id": "mig-t1-pg2mssql-001",
+  "workflow_state": "PRODUCTION_MIGRATION",
+  "table_name": "catalog_vendors",
+  "batch_number": 2,
+  "worker_id": "default",
+  "last_processed_primary_key": null,
+  "rows_processed": 10400,
+  "rows_failed": 0,
+  "rows_skipped": 0,
+  "retry_count": 0,
+  "adapter_state": {},
+  "metrics": {},
+  "checksum": "fe91dc5c24fa5fef8da3f0b6be20a48e78d40d6451507e00731a987d35a7e293",
+  "created_at": "2026-07-23T14:42:23.602138+00:00",
+  "updated_at": "2026-07-23T14:42:23.602570+00:00",
+  "status": "COMPLETED",
+  "payload": {
+    "project_state": {
+      "state": "PRODUCTION_MIGRATION"
+    },
+    "global_state_snapshot": {}
+  },
+  "description": "Workflow checkpoint"
+}

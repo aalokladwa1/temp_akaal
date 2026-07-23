@@ -1,0 +1,27 @@
+{
+  "checkpoint_id": "ckpt-t3-catalog_vendors-b1",
+  "project_id": "suite-test3-ora2pg",
+  "migration_id": "mig-t3-ora2pg-001",
+  "workflow_state": "PRODUCTION_MIGRATION",
+  "table_name": "catalog_vendors",
+  "batch_number": 1,
+  "worker_id": "default",
+  "last_processed_primary_key": null,
+  "rows_processed": 10500,
+  "rows_failed": 0,
+  "rows_skipped": 0,
+  "retry_count": 0,
+  "adapter_state": {},
+  "metrics": {},
+  "checksum": "04d7eb8cd633aa988d84c57edcca4d7181377df96a48f504a05dd3e01e2cd412",
+  "created_at": "2026-07-23T14:46:39.225608+00:00",
+  "updated_at": "2026-07-23T14:46:39.225839+00:00",
+  "status": "COMPLETED",
+  "payload": {
+    "project_state": {
+      "state": "PRODUCTION_MIGRATION"
+    },
+    "global_state_snapshot": {}
+  },
+  "description": "Workflow checkpoint"
+}

@@ -1,0 +1,27 @@
+{
+  "checkpoint_id": "ckpt-t1-audit_level5_44-b5",
+  "project_id": "suite-test1-pg2mssql",
+  "migration_id": "mig-t1-pg2mssql-001",
+  "workflow_state": "PRODUCTION_MIGRATION",
+  "table_name": "audit_level5_44",
+  "batch_number": 5,
+  "worker_id": "default",
+  "last_processed_primary_key": null,
+  "rows_processed": 2000,
+  "rows_failed": 0,
+  "rows_skipped": 0,
+  "retry_count": 0,
+  "adapter_state": {},
+  "metrics": {},
+  "checksum": "cc27483a96950c83fe343504ec5005990e810acfa2fb641ba73dbabbb6e41227",
+  "created_at": "2026-07-23T14:42:19.622791+00:00",
+  "updated_at": "2026-07-23T14:42:19.623032+00:00",
+  "status": "COMPLETED",
+  "payload": {
+    "project_state": {
+      "state": "PRODUCTION_MIGRATION"
+    },
+    "global_state_snapshot": {}
+  },
+  "description": "Workflow checkpoint"
+}

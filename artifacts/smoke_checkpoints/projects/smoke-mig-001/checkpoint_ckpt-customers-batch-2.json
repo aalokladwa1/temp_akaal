@@ -1,0 +1,29 @@
+{
+  "checkpoint_id": "ckpt-customers-batch-2",
+  "project_id": "smoke-mig-001",
+  "migration_id": "mig-smoke-001",
+  "workflow_state": "PRODUCTION_MIGRATION",
+  "table_name": "customers",
+  "batch_number": 2,
+  "worker_id": "default",
+  "last_processed_primary_key": {
+    "customer_id": 10
+  },
+  "rows_processed": 10,
+  "rows_failed": 0,
+  "rows_skipped": 0,
+  "retry_count": 0,
+  "adapter_state": {},
+  "metrics": {},
+  "checksum": "4fc4957ff385cac149ae8fbdc08674cd623289064cb2a4672e1530a202ac9acd",
+  "created_at": "2026-07-23T12:46:03.965476+00:00",
+  "updated_at": "2026-07-23T12:46:03.965579+00:00",
+  "status": "COMPLETED",
+  "payload": {
+    "project_state": {
+      "state": "PRODUCTION_MIGRATION"
+    },
+    "global_state_snapshot": {}
+  },
+  "description": "Workflow checkpoint"
+}

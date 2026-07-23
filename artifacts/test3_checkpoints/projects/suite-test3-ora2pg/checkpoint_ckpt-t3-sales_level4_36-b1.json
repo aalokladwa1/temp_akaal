@@ -1,0 +1,27 @@
+{
+  "checkpoint_id": "ckpt-t3-sales_level4_36-b1",
+  "project_id": "suite-test3-ora2pg",
+  "migration_id": "mig-t3-ora2pg-001",
+  "workflow_state": "PRODUCTION_MIGRATION",
+  "table_name": "sales_level4_36",
+  "batch_number": 1,
+  "worker_id": "default",
+  "last_processed_primary_key": null,
+  "rows_processed": 33115,
+  "rows_failed": 0,
+  "rows_skipped": 0,
+  "retry_count": 0,
+  "adapter_state": {},
+  "metrics": {},
+  "checksum": "9a4e5022dfbfa8c1178e6dddd95b2ac626ea7f1f110c5c9e482d29422e825c80",
+  "created_at": "2026-07-23T14:46:52.413279+00:00",
+  "updated_at": "2026-07-23T14:46:52.413473+00:00",
+  "status": "COMPLETED",
+  "payload": {
+    "project_state": {
+      "state": "PRODUCTION_MIGRATION"
+    },
+    "global_state_snapshot": {}
+  },
+  "description": "Workflow checkpoint"
+}

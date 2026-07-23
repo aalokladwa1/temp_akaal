@@ -1,0 +1,27 @@
+{
+  "checkpoint_id": "ckpt-org_employee_skills-batch-1",
+  "project_id": "medium-mig-001",
+  "migration_id": "mig-med-001",
+  "workflow_state": "PRODUCTION_MIGRATION",
+  "table_name": "org_employee_skills",
+  "batch_number": 1,
+  "worker_id": "default",
+  "last_processed_primary_key": null,
+  "rows_processed": 19115,
+  "rows_failed": 0,
+  "rows_skipped": 0,
+  "retry_count": 0,
+  "adapter_state": {},
+  "metrics": {},
+  "checksum": "e198b1be9122ede8935de3bceec29a2c838d7507e967802b6866a66e9ac4d9f9",
+  "created_at": "2026-07-23T13:00:15.030667+00:00",
+  "updated_at": "2026-07-23T13:00:15.030831+00:00",
+  "status": "COMPLETED",
+  "payload": {
+    "project_state": {
+      "state": "PRODUCTION_MIGRATION"
+    },
+    "global_state_snapshot": {}
+  },
+  "description": "Workflow checkpoint"
+}

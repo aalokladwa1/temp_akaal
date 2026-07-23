@@ -1,0 +1,27 @@
+{
+  "checkpoint_id": "ckpt-t1-transaction_level3_24-b2",
+  "project_id": "suite-test1-pg2mssql",
+  "migration_id": "mig-t1-pg2mssql-001",
+  "workflow_state": "PRODUCTION_MIGRATION",
+  "table_name": "transaction_level3_24",
+  "batch_number": 2,
+  "worker_id": "default",
+  "last_processed_primary_key": null,
+  "rows_processed": 124515,
+  "rows_failed": 0,
+  "rows_skipped": 0,
+  "retry_count": 0,
+  "adapter_state": {},
+  "metrics": {},
+  "checksum": "2e81e3ee59540f4062fbefeb94f5fb96ccbb6ba770c1a6523c60c7a0ec5c3408",
+  "created_at": "2026-07-23T14:43:23.842062+00:00",
+  "updated_at": "2026-07-23T14:43:23.842389+00:00",
+  "status": "COMPLETED",
+  "payload": {
+    "project_state": {
+      "state": "PRODUCTION_MIGRATION"
+    },
+    "global_state_snapshot": {}
+  },
+  "description": "Workflow checkpoint"
+}

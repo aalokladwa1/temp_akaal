@@ -1,0 +1,27 @@
+{
+  "checkpoint_id": "ckpt-ora-core_system_logs-batch-1",
+  "project_id": "medium-pg2ora-001",
+  "migration_id": "mig-pg2ora-001",
+  "workflow_state": "PRODUCTION_MIGRATION",
+  "table_name": "core_system_logs",
+  "batch_number": 1,
+  "worker_id": "default",
+  "last_processed_primary_key": null,
+  "rows_processed": 13115,
+  "rows_failed": 0,
+  "rows_skipped": 0,
+  "retry_count": 0,
+  "adapter_state": {},
+  "metrics": {},
+  "checksum": "c9f3d150953e190b65398cece46c5bb6d0c0ed9d9d984552d5df0d847ccc5daa",
+  "created_at": "2026-07-23T13:55:48.517858+00:00",
+  "updated_at": "2026-07-23T13:55:48.518026+00:00",
+  "status": "COMPLETED",
+  "payload": {
+    "project_state": {
+      "state": "PRODUCTION_MIGRATION"
+    },
+    "global_state_snapshot": {}
+  },
+  "description": "Workflow checkpoint"
+}

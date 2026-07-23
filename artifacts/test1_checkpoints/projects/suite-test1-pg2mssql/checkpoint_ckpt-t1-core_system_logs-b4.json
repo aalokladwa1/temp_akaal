@@ -1,0 +1,27 @@
+{
+  "checkpoint_id": "ckpt-t1-core_system_logs-b4",
+  "project_id": "suite-test1-pg2mssql",
+  "migration_id": "mig-t1-pg2mssql-001",
+  "workflow_state": "PRODUCTION_MIGRATION",
+  "table_name": "core_system_logs",
+  "batch_number": 4,
+  "worker_id": "default",
+  "last_processed_primary_key": null,
+  "rows_processed": 11915,
+  "rows_failed": 0,
+  "rows_skipped": 0,
+  "retry_count": 0,
+  "adapter_state": {},
+  "metrics": {},
+  "checksum": "b8c6785e9edfb3bac060777e6c6717d7fb488e4c32ead6d4a88f0888b44c3bbb",
+  "created_at": "2026-07-23T14:42:24.479947+00:00",
+  "updated_at": "2026-07-23T14:42:24.480187+00:00",
+  "status": "COMPLETED",
+  "payload": {
+    "project_state": {
+      "state": "PRODUCTION_MIGRATION"
+    },
+    "global_state_snapshot": {}
+  },
+  "description": "Workflow checkpoint"
+}

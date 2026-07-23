@@ -1,0 +1,27 @@
+{
+  "checkpoint_id": "ckpt-t4-core_currencies-b1",
+  "project_id": "suite-test4-mssql2pg",
+  "migration_id": "mig-t4-mssql2pg-001",
+  "workflow_state": "PRODUCTION_MIGRATION",
+  "table_name": "core_currencies",
+  "batch_number": 1,
+  "worker_id": "default",
+  "last_processed_primary_key": null,
+  "rows_processed": 10505,
+  "rows_failed": 0,
+  "rows_skipped": 0,
+  "retry_count": 0,
+  "adapter_state": {},
+  "metrics": {},
+  "checksum": "f0c9154ef7a013af3e0b3e2eaa58ac4d2adb083890014d3869c9c5eba283d31d",
+  "created_at": "2026-07-23T14:48:28.652063+00:00",
+  "updated_at": "2026-07-23T14:48:28.652304+00:00",
+  "status": "COMPLETED",
+  "payload": {
+    "project_state": {
+      "state": "PRODUCTION_MIGRATION"
+    },
+    "global_state_snapshot": {}
+  },
+  "description": "Workflow checkpoint"
+}

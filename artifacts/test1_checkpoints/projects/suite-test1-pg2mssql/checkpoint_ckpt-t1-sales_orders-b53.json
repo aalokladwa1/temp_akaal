@@ -1,0 +1,27 @@
+{
+  "checkpoint_id": "ckpt-t1-sales_orders-b53",
+  "project_id": "suite-test1-pg2mssql",
+  "migration_id": "mig-t1-pg2mssql-001",
+  "workflow_state": "PRODUCTION_MIGRATION",
+  "table_name": "sales_orders",
+  "batch_number": 53,
+  "worker_id": "default",
+  "last_processed_primary_key": null,
+  "rows_processed": 113715,
+  "rows_failed": 0,
+  "rows_skipped": 0,
+  "retry_count": 0,
+  "adapter_state": {},
+  "metrics": {},
+  "checksum": "9e55cf10f0ef3349b151966ffe8d6612bbbc66a1ff6d980b6029db27ce0839bf",
+  "created_at": "2026-07-23T14:43:18.179543+00:00",
+  "updated_at": "2026-07-23T14:43:18.179756+00:00",
+  "status": "COMPLETED",
+  "payload": {
+    "project_state": {
+      "state": "PRODUCTION_MIGRATION"
+    },
+    "global_state_snapshot": {}
+  },
+  "description": "Workflow checkpoint"
+}

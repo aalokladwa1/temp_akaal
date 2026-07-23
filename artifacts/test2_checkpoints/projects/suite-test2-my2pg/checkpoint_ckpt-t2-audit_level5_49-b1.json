@@ -1,0 +1,27 @@
+{
+  "checkpoint_id": "ckpt-t2-audit_level5_49-b1",
+  "project_id": "suite-test2-my2pg",
+  "migration_id": "mig-t2-my2pg-001",
+  "workflow_state": "PRODUCTION_MIGRATION",
+  "table_name": "audit_level5_49",
+  "batch_number": 1,
+  "worker_id": "default",
+  "last_processed_primary_key": null,
+  "rows_processed": 7000,
+  "rows_failed": 0,
+  "rows_skipped": 0,
+  "retry_count": 0,
+  "adapter_state": {},
+  "metrics": {},
+  "checksum": "2e2ff20e2052789e926d5e513788e20dd387fc4468455d702eef7c6a984298ff",
+  "created_at": "2026-07-23T14:44:29.047935+00:00",
+  "updated_at": "2026-07-23T14:44:29.048205+00:00",
+  "status": "COMPLETED",
+  "payload": {
+    "project_state": {
+      "state": "PRODUCTION_MIGRATION"
+    },
+    "global_state_snapshot": {}
+  },
+  "description": "Workflow checkpoint"
+}

@@ -1,0 +1,27 @@
+{
+  "checkpoint_id": "ckpt-ora-entity_level2_13-batch-1",
+  "project_id": "medium-pg2ora-001",
+  "migration_id": "mig-pg2ora-001",
+  "workflow_state": "PRODUCTION_MIGRATION",
+  "table_name": "entity_level2_13",
+  "batch_number": 1,
+  "worker_id": "default",
+  "last_processed_primary_key": null,
+  "rows_processed": 13615,
+  "rows_failed": 0,
+  "rows_skipped": 0,
+  "retry_count": 0,
+  "adapter_state": {},
+  "metrics": {},
+  "checksum": "38b6c89b241f6ac6836124171ae94663e02412f8ba0434b55a22583f04ccf5a8",
+  "created_at": "2026-07-23T13:55:48.546671+00:00",
+  "updated_at": "2026-07-23T13:55:48.546903+00:00",
+  "status": "COMPLETED",
+  "payload": {
+    "project_state": {
+      "state": "PRODUCTION_MIGRATION"
+    },
+    "global_state_snapshot": {}
+  },
+  "description": "Workflow checkpoint"
+}

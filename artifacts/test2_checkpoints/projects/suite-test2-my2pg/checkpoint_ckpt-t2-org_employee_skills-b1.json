@@ -1,0 +1,27 @@
+{
+  "checkpoint_id": "ckpt-t2-org_employee_skills-b1",
+  "project_id": "suite-test2-my2pg",
+  "migration_id": "mig-t2-my2pg-001",
+  "workflow_state": "PRODUCTION_MIGRATION",
+  "table_name": "org_employee_skills",
+  "batch_number": 1,
+  "worker_id": "default",
+  "last_processed_primary_key": null,
+  "rows_processed": 19115,
+  "rows_failed": 0,
+  "rows_skipped": 0,
+  "retry_count": 0,
+  "adapter_state": {},
+  "metrics": {},
+  "checksum": "9888782d03a6b9f46ef5d9b9796b62d6685590cac6aedb18d707c0affbe2c8b8",
+  "created_at": "2026-07-23T14:44:36.098857+00:00",
+  "updated_at": "2026-07-23T14:44:36.099607+00:00",
+  "status": "COMPLETED",
+  "payload": {
+    "project_state": {
+      "state": "PRODUCTION_MIGRATION"
+    },
+    "global_state_snapshot": {}
+  },
+  "description": "Workflow checkpoint"
+}

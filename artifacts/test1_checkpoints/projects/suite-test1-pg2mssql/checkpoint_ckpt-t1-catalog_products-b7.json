@@ -1,0 +1,27 @@
+{
+  "checkpoint_id": "ckpt-t1-catalog_products-b7",
+  "project_id": "suite-test1-pg2mssql",
+  "migration_id": "mig-t1-pg2mssql-001",
+  "workflow_state": "PRODUCTION_MIGRATION",
+  "table_name": "catalog_products",
+  "batch_number": 7,
+  "worker_id": "default",
+  "last_processed_primary_key": null,
+  "rows_processed": 9400,
+  "rows_failed": 0,
+  "rows_skipped": 0,
+  "retry_count": 0,
+  "adapter_state": {},
+  "metrics": {},
+  "checksum": "b7f928a0d72cadac4de2adc65b7addf9935bc649f22fd24ef120ddadd48382c3",
+  "created_at": "2026-07-23T14:42:23.082996+00:00",
+  "updated_at": "2026-07-23T14:42:23.083187+00:00",
+  "status": "COMPLETED",
+  "payload": {
+    "project_state": {
+      "state": "PRODUCTION_MIGRATION"
+    },
+    "global_state_snapshot": {}
+  },
+  "description": "Workflow checkpoint"
+}

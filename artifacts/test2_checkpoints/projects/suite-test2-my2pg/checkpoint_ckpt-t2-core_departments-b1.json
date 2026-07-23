@@ -1,0 +1,27 @@
+{
+  "checkpoint_id": "ckpt-t2-core_departments-b1",
+  "project_id": "suite-test2-my2pg",
+  "migration_id": "mig-t2-my2pg-001",
+  "workflow_state": "PRODUCTION_MIGRATION",
+  "table_name": "core_departments",
+  "batch_number": 1,
+  "worker_id": "default",
+  "last_processed_primary_key": null,
+  "rows_processed": 10510,
+  "rows_failed": 0,
+  "rows_skipped": 0,
+  "retry_count": 0,
+  "adapter_state": {},
+  "metrics": {},
+  "checksum": "cee653447a7c703e398b5e9670d0420614843b8027604157202bd9e9c190bc65",
+  "created_at": "2026-07-23T14:44:31.594341+00:00",
+  "updated_at": "2026-07-23T14:44:31.594519+00:00",
+  "status": "COMPLETED",
+  "payload": {
+    "project_state": {
+      "state": "PRODUCTION_MIGRATION"
+    },
+    "global_state_snapshot": {}
+  },
+  "description": "Workflow checkpoint"
+}

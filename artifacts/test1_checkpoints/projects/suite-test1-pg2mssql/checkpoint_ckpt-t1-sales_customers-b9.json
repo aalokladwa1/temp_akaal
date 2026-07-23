@@ -1,0 +1,27 @@
+{
+  "checkpoint_id": "ckpt-t1-sales_customers-b9",
+  "project_id": "suite-test1-pg2mssql",
+  "migration_id": "mig-t1-pg2mssql-001",
+  "workflow_state": "PRODUCTION_MIGRATION",
+  "table_name": "sales_customers",
+  "batch_number": 9,
+  "worker_id": "default",
+  "last_processed_primary_key": null,
+  "rows_processed": 21915,
+  "rows_failed": 0,
+  "rows_skipped": 0,
+  "retry_count": 0,
+  "adapter_state": {},
+  "metrics": {},
+  "checksum": "974847fab9572a1b1c1766fa5dfb7f42d6e377288187594f8b5816e019b6948e",
+  "created_at": "2026-07-23T14:42:29.853884+00:00",
+  "updated_at": "2026-07-23T14:42:29.854083+00:00",
+  "status": "COMPLETED",
+  "payload": {
+    "project_state": {
+      "state": "PRODUCTION_MIGRATION"
+    },
+    "global_state_snapshot": {}
+  },
+  "description": "Workflow checkpoint"
+}

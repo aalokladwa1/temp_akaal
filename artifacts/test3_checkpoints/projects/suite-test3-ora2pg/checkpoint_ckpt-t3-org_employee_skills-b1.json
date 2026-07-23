@@ -1,0 +1,27 @@
+{
+  "checkpoint_id": "ckpt-t3-org_employee_skills-b1",
+  "project_id": "suite-test3-ora2pg",
+  "migration_id": "mig-t3-ora2pg-001",
+  "workflow_state": "PRODUCTION_MIGRATION",
+  "table_name": "org_employee_skills",
+  "batch_number": 1,
+  "worker_id": "default",
+  "last_processed_primary_key": null,
+  "rows_processed": 19115,
+  "rows_failed": 0,
+  "rows_skipped": 0,
+  "retry_count": 0,
+  "adapter_state": {},
+  "metrics": {},
+  "checksum": "3f854d1ebb12c87a4af4f65d90be11f60b18ab373341806eb0540dee13906a8c",
+  "created_at": "2026-07-23T14:46:43.888526+00:00",
+  "updated_at": "2026-07-23T14:46:43.888971+00:00",
+  "status": "COMPLETED",
+  "payload": {
+    "project_state": {
+      "state": "PRODUCTION_MIGRATION"
+    },
+    "global_state_snapshot": {}
+  },
+  "description": "Workflow checkpoint"
+}

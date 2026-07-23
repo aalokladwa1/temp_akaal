@@ -1,0 +1,27 @@
+{
+  "checkpoint_id": "ckpt-t1-org_employee_skills-b5",
+  "project_id": "suite-test1-pg2mssql",
+  "migration_id": "mig-t1-pg2mssql-001",
+  "workflow_state": "PRODUCTION_MIGRATION",
+  "table_name": "org_employee_skills",
+  "batch_number": 5,
+  "worker_id": "default",
+  "last_processed_primary_key": null,
+  "rows_processed": 18115,
+  "rows_failed": 0,
+  "rows_skipped": 0,
+  "retry_count": 0,
+  "adapter_state": {},
+  "metrics": {},
+  "checksum": "2548fe95d498fb112ae5513b9a8660a2858b6ab3fff1d05e2c4485e1259b15a0",
+  "created_at": "2026-07-23T14:42:27.494567+00:00",
+  "updated_at": "2026-07-23T14:42:27.494742+00:00",
+  "status": "COMPLETED",
+  "payload": {
+    "project_state": {
+      "state": "PRODUCTION_MIGRATION"
+    },
+    "global_state_snapshot": {}
+  },
+  "description": "Workflow checkpoint"
+}

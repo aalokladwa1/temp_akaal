@@ -1,0 +1,27 @@
+{
+  "checkpoint_id": "ckpt-sales_order_items-batch-27",
+  "project_id": "medium-mig-001",
+  "migration_id": "mig-med-001",
+  "workflow_state": "PRODUCTION_MIGRATION",
+  "table_name": "sales_order_items",
+  "batch_number": 27,
+  "worker_id": "default",
+  "last_processed_primary_key": null,
+  "rows_processed": 97115,
+  "rows_failed": 0,
+  "rows_skipped": 0,
+  "retry_count": 0,
+  "adapter_state": {},
+  "metrics": {},
+  "checksum": "b28ec444bb37eea023a87534b2b377ab4923c5a2fe30c37680c4922699df0f14",
+  "created_at": "2026-07-23T13:00:22.302286+00:00",
+  "updated_at": "2026-07-23T13:00:22.302448+00:00",
+  "status": "COMPLETED",
+  "payload": {
+    "project_state": {
+      "state": "PRODUCTION_MIGRATION"
+    },
+    "global_state_snapshot": {}
+  },
+  "description": "Workflow checkpoint"
+}
