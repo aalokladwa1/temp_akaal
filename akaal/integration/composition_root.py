@@ -29,6 +29,7 @@ from akaal.reporting.api.facade import Platform8Facade
 from akaal.operations.facade.platform9 import DefaultOperationsPlatformV9
 from akaal.resilience_eng.facade.platform5 import EnterpriseResiliencePlatformV5
 from akaal.governance.facade.platform6 import EnterpriseGovernancePlatformV6
+from akaal.operational_reliability.facade.platform7 import EnterpriseOperationalReliabilityPlatformV7
 
 logger = logging.getLogger("akaal.integration.composition_root")
 
@@ -295,6 +296,9 @@ class CrossPlatformContext:
         self.resilience_platform = platform11_p5_resilience or EnterpriseResiliencePlatformV5()
         # Phase 11 Platform 6: Enterprise Governance Platform
         self.governance_platform = EnterpriseGovernancePlatformV6()
+        # Phase 12 Platform 7: Enterprise Operational Reliability Platform
+        self.operational_reliability_platform = EnterpriseOperationalReliabilityPlatformV7()
+
 
         self.start_time = time.time()
 
