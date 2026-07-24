@@ -1,0 +1,27 @@
+{
+  "checkpoint_id": "ckpt-t3-analytics_tbl_lvl2_170-b10",
+  "project_id": "suite-test3-ora2pg",
+  "migration_id": "mig-t3-ora2pg-001",
+  "workflow_state": "PRODUCTION_MIGRATION",
+  "table_name": "analytics_tbl_lvl2_170",
+  "batch_number": 10,
+  "worker_id": "default",
+  "last_processed_primary_key": null,
+  "rows_processed": 177904,
+  "rows_failed": 0,
+  "rows_skipped": 0,
+  "retry_count": 0,
+  "adapter_state": {},
+  "metrics": {},
+  "checksum": "05f849bd0b29f9494bb80db5b7c7658ff356fe463454f70751d5149e5d60d047",
+  "created_at": "2026-07-24T14:23:17.359933+00:00",
+  "updated_at": "2026-07-24T14:23:17.360132+00:00",
+  "status": "COMPLETED",
+  "payload": {
+    "project_state": {
+      "state": "PRODUCTION_MIGRATION"
+    },
+    "global_state_snapshot": {}
+  },
+  "description": "Workflow checkpoint"
+}

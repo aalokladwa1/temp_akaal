@@ -690,7 +690,7 @@ async def run_test_3_oracle_to_pg():
     for t_name in table_names:
         pk_cols = table_pk_map.get(t_name, [])
         bool_cols = table_bool_cols.get(t_name, set())
-        order_clause = f' ORDER BY "{pk_cols[0]}" ASC' if pk_cols else ""
+        order_clause = f' ORDER BY "{pk_cols[0].upper()}" ASC' if pk_cols else ""
 
         ora_cur.execute(f'SELECT * FROM "{t_name}"{order_clause}')
         cols = [c[0].lower() for c in ora_cur.description]
@@ -772,7 +772,7 @@ async def run_test_3_oracle_to_pg():
 
     for t_name in sample_check_tables:
         pk_cols = table_pk_map.get(t_name, [])
-        order_clause = f' ORDER BY "{pk_cols[0]}" ASC' if pk_cols else ""
+        order_clause = f' ORDER BY "{pk_cols[0].upper()}" ASC' if pk_cols else ""
 
         s_hasher = hashlib.sha256()
         ora_cur.execute(f'SELECT * FROM "{t_name}"{order_clause}')
