@@ -2,6 +2,23 @@
 
 All notable changes to the Akaal Enterprise Orchestration Platform are documented in this file.
 
+## [v0.11-platform1] - Phase 11 Platform 1 Enterprise Validation Platform (2026-07-24)
+
+### Added
+- **AKAAL Enterprise Validation Platform (`akaal/validation/`)**:
+  - `EnterpriseValidationPlatformV1`: Public canonical facade exposing all 33 validator capabilities.
+  - **8 Domain-Driven Validators (`akaal/validation/domain/`)**: Structural, Data, Integrity, Statistical, Semantic, Performance, Enterprise, and Scoring Validators.
+  - **Pure Pipeline Orchestrator (`akaal/validation/pipeline/`)**: Decoupled orchestrator handling ordering, parallel/distributed scheduling, retries, and checkpoints with zero validation logic.
+  - **Infrastructure Services Layer (`akaal/validation/services/`)**: `MerkleService` (256-bit SHA256 trees), `EvidenceService` (signed audit proof packages), `ReplayService` (deterministic session replay), `ExplainabilityService` (root cause diagnostics & automated SQL repairs), `ObservabilityService` (rows/sec, latency, telemetry).
+  - **Enterprise Plugin System (`akaal/validation/plugins/`)**: Plugin loader, registry, discovery, versioning, and dependency resolution.
+  - **Validation Cache (`akaal/validation/cache/`)**: Key builder, fingerprint generator, TTL invalidation for Merkle, schema, checksum, and CDC cache.
+  - **Internal Event Bus (`akaal/validation/events/`)**: Decoupled async event distribution for all 16 system event types.
+  - **Distributed Validation Layer (`akaal/validation/distributed/`)**: Coordinator, scheduler, worker nodes, heartbeat failure detector, task lease manager, and task queue.
+  - **Compliance Policy Engine (`akaal/validation/policy/`)**: Compliance rule engine supporting Finance, Healthcare, Government, Dev, and Test profiles.
+- **Composition Root Integration**: Integrated `EnterpriseValidationPlatformV1` into `akaal/integration/composition_root.py`.
+- **Test Suite (`tests/validation_platform/`)**: 19 platform tests + 818 total system unit tests passing with 100% pass rate.
+- **Documentation**: Created `docs/releases/PHASE11_PLATFORM1.md` and certification report `AKAAL_PLATFORM1_FINAL_ENTERPRISE_CERTIFICATION_AUDIT_REPORT.md`.
+
 ## [1.6.1] - Post Stage 3 Enterprise Foundation Freeze (2026-07-24)
 
 ### Certified Baseline
