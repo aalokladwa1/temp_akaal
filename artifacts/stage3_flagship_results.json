@@ -1,0 +1,13 @@
+{
+  "oracle_rows": 10000115,
+  "postgres_rows": 10000115,
+  "delta": 0,
+  "tables": 303,
+  "pct": 100.0,
+  "checksum_matches": 303,
+  "merkle_pg": "f2c39555a7552e815b680a9c322c5d5077388b842cc97f460da3e59e0050f44a",
+  "merkle_match": true,
+  "checkpoints": 1886,
+  "ckpt_rows_processed": 44064352,
+  "ckpt_rows_failed": 0
+}

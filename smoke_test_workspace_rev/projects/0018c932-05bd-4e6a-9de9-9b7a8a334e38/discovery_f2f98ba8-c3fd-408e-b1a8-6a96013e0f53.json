@@ -1,0 +1,5020 @@
+{
+  "version": "1.0.0",
+  "metadata": {
+    "project_id": "0018c932-05bd-4e6a-9de9-9b7a8a334e38",
+    "migration_id": "f2f98ba8-c3fd-408e-b1a8-6a96013e0f53",
+    "system_type": "POSTGRESQL",
+    "timestamp": "2026-07-24T09:03:27.324190+00:00",
+    "checksum": "a34ec2fddee826b4ddbd04f7e802b534a83837f7eb3e63c760e2c57718c41fe5",
+    "adapter_version": "1.0.0",
+    "schema_version": "1.0.0"
+  },
+  "objects": [
+    {
+      "object_name": "audit_logs",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "nextval('audit_logs_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "entity_name",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "action",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "audit_logs_pkey",
+          "columns": [
+            "id"
+          ],
+          "unique": true
+        }
+      ],
+      "constraints": [
+        {
+          "name": "audit_logs_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "2200_116036_1_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": []
+    },
+    {
+      "object_name": "core_currencies",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "currency_code",
+          "type": "CHARACTER",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "currency_name",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "symbol",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "exchange_rate",
+          "type": "NUMERIC",
+          "nullable": true,
+          "default": "1.000000",
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "core_currencies_pkey",
+          "columns": [
+            "currency_code"
+          ],
+          "unique": true
+        }
+      ],
+      "constraints": [
+        {
+          "name": "core_currencies_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "2200_92347_1_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92347_2_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92347_3_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": []
+    },
+    {
+      "object_name": "core_departments",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "dept_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "nextval('core_departments_dept_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "dept_code",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "dept_name",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "budget",
+          "type": "NUMERIC",
+          "nullable": true,
+          "default": "100000.00",
+          "parent_id": null
+        },
+        {
+          "name": "is_active",
+          "type": "BOOLEAN",
+          "nullable": true,
+          "default": "true",
+          "parent_id": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "core_departments_pkey",
+          "columns": [
+            "dept_id"
+          ],
+          "unique": true
+        },
+        {
+          "name": "core_departments_dept_code_key",
+          "columns": [
+            "dept_code"
+          ],
+          "unique": true
+        },
+        {
+          "name": "idx_dept_code",
+          "columns": [
+            "dept_code"
+          ],
+          "unique": false
+        }
+      ],
+      "constraints": [
+        {
+          "name": "core_departments_dept_code_key",
+          "type": "UNIQUE"
+        },
+        {
+          "name": "core_departments_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "2200_92323_1_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92323_2_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92323_3_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": []
+    },
+    {
+      "object_name": "core_master_10",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "master_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "nextval('core_master_10_master_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "code",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "title",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "status",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": "'ACTIVE'::character varying",
+          "parent_id": null
+        },
+        {
+          "name": "val_numeric",
+          "type": "NUMERIC",
+          "nullable": true,
+          "default": "0.0000",
+          "parent_id": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "core_master_10_pkey",
+          "columns": [
+            "master_id"
+          ],
+          "unique": true
+        },
+        {
+          "name": "core_master_10_code_key",
+          "columns": [
+            "code"
+          ],
+          "unique": true
+        }
+      ],
+      "constraints": [
+        {
+          "name": "core_master_10_code_key",
+          "type": "UNIQUE"
+        },
+        {
+          "name": "core_master_10_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "2200_92427_1_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92427_2_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92427_3_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": []
+    },
+    {
+      "object_name": "core_master_5",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "master_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "nextval('core_master_5_master_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "code",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "title",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "status",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": "'ACTIVE'::character varying",
+          "parent_id": null
+        },
+        {
+          "name": "val_numeric",
+          "type": "NUMERIC",
+          "nullable": true,
+          "default": "0.0000",
+          "parent_id": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "core_master_5_pkey",
+          "columns": [
+            "master_id"
+          ],
+          "unique": true
+        },
+        {
+          "name": "core_master_5_code_key",
+          "columns": [
+            "code"
+          ],
+          "unique": true
+        }
+      ],
+      "constraints": [
+        {
+          "name": "core_master_5_code_key",
+          "type": "UNIQUE"
+        },
+        {
+          "name": "core_master_5_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "2200_92367_1_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92367_2_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92367_3_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": []
+    },
+    {
+      "object_name": "core_master_6",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "master_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "nextval('core_master_6_master_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "code",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "title",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "status",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": "'ACTIVE'::character varying",
+          "parent_id": null
+        },
+        {
+          "name": "val_numeric",
+          "type": "NUMERIC",
+          "nullable": true,
+          "default": "0.0000",
+          "parent_id": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "core_master_6_pkey",
+          "columns": [
+            "master_id"
+          ],
+          "unique": true
+        },
+        {
+          "name": "core_master_6_code_key",
+          "columns": [
+            "code"
+          ],
+          "unique": true
+        }
+      ],
+      "constraints": [
+        {
+          "name": "core_master_6_code_key",
+          "type": "UNIQUE"
+        },
+        {
+          "name": "core_master_6_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "2200_92379_1_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92379_2_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92379_3_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": []
+    },
+    {
+      "object_name": "core_master_7",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "master_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "nextval('core_master_7_master_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "code",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "title",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "status",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": "'ACTIVE'::character varying",
+          "parent_id": null
+        },
+        {
+          "name": "val_numeric",
+          "type": "NUMERIC",
+          "nullable": true,
+          "default": "0.0000",
+          "parent_id": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "core_master_7_pkey",
+          "columns": [
+            "master_id"
+          ],
+          "unique": true
+        },
+        {
+          "name": "core_master_7_code_key",
+          "columns": [
+            "code"
+          ],
+          "unique": true
+        }
+      ],
+      "constraints": [
+        {
+          "name": "core_master_7_code_key",
+          "type": "UNIQUE"
+        },
+        {
+          "name": "core_master_7_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "2200_92391_1_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92391_2_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92391_3_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": []
+    },
+    {
+      "object_name": "core_master_8",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "master_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "nextval('core_master_8_master_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "code",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "title",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "status",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": "'ACTIVE'::character varying",
+          "parent_id": null
+        },
+        {
+          "name": "val_numeric",
+          "type": "NUMERIC",
+          "nullable": true,
+          "default": "0.0000",
+          "parent_id": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "core_master_8_pkey",
+          "columns": [
+            "master_id"
+          ],
+          "unique": true
+        },
+        {
+          "name": "core_master_8_code_key",
+          "columns": [
+            "code"
+          ],
+          "unique": true
+        }
+      ],
+      "constraints": [
+        {
+          "name": "core_master_8_code_key",
+          "type": "UNIQUE"
+        },
+        {
+          "name": "core_master_8_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "2200_92403_1_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92403_2_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92403_3_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": []
+    },
+    {
+      "object_name": "core_master_9",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "master_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "nextval('core_master_9_master_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "code",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "title",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "status",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": "'ACTIVE'::character varying",
+          "parent_id": null
+        },
+        {
+          "name": "val_numeric",
+          "type": "NUMERIC",
+          "nullable": true,
+          "default": "0.0000",
+          "parent_id": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "core_master_9_pkey",
+          "columns": [
+            "master_id"
+          ],
+          "unique": true
+        },
+        {
+          "name": "core_master_9_code_key",
+          "columns": [
+            "code"
+          ],
+          "unique": true
+        }
+      ],
+      "constraints": [
+        {
+          "name": "core_master_9_code_key",
+          "type": "UNIQUE"
+        },
+        {
+          "name": "core_master_9_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "2200_92415_1_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92415_2_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92415_3_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": []
+    },
+    {
+      "object_name": "core_regions",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "region_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "nextval('core_regions_region_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "region_name",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "country_code",
+          "type": "CHARACTER",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "tax_rate",
+          "type": "NUMERIC",
+          "nullable": true,
+          "default": "0.0500",
+          "parent_id": null
+        },
+        {
+          "name": "notes",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "core_regions_pkey",
+          "columns": [
+            "region_id"
+          ],
+          "unique": true
+        },
+        {
+          "name": "core_regions_region_name_key",
+          "columns": [
+            "region_name"
+          ],
+          "unique": true
+        }
+      ],
+      "constraints": [
+        {
+          "name": "core_regions_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "core_regions_region_name_key",
+          "type": "UNIQUE"
+        },
+        {
+          "name": "2200_92336_1_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92336_2_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92336_3_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": []
+    },
+    {
+      "object_name": "catalog_vendors",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "vendor_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "nextval('catalog_vendors_vendor_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "region_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "vendor_name",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "contact_email",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "rating",
+          "type": "NUMERIC",
+          "nullable": true,
+          "default": "5.00",
+          "parent_id": null
+        },
+        {
+          "name": "is_certified",
+          "type": "BOOLEAN",
+          "nullable": true,
+          "default": "true",
+          "parent_id": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "catalog_vendors_pkey",
+          "columns": [
+            "vendor_id"
+          ],
+          "unique": true
+        }
+      ],
+      "constraints": [
+        {
+          "name": "catalog_vendors_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "catalog_vendors_region_id_fkey",
+          "type": "FOREIGN KEY"
+        },
+        {
+          "name": "2200_92465_1_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92465_2_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92465_3_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92465_4_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": [
+        {
+          "type": "FOREIGN_KEY",
+          "constraint_name": "catalog_vendors_region_id_fkey",
+          "from_column": "region_id",
+          "target_table": "core_regions",
+          "target_column": "region_id"
+        }
+      ]
+    },
+    {
+      "object_name": "catalog_products",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "product_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "nextval('catalog_products_product_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "vendor_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "sku",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "product_name",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "category",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "unit_price",
+          "type": "NUMERIC",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "stock_qty",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "0",
+          "parent_id": null
+        },
+        {
+          "name": "is_active",
+          "type": "BOOLEAN",
+          "nullable": true,
+          "default": "true",
+          "parent_id": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "catalog_products_pkey",
+          "columns": [
+            "product_id"
+          ],
+          "unique": true
+        },
+        {
+          "name": "catalog_products_sku_key",
+          "columns": [
+            "sku"
+          ],
+          "unique": true
+        },
+        {
+          "name": "idx_prod_sku",
+          "columns": [
+            "sku"
+          ],
+          "unique": false
+        },
+        {
+          "name": "idx_prod_category",
+          "columns": [
+            "category"
+          ],
+          "unique": false
+        }
+      ],
+      "constraints": [
+        {
+          "name": "catalog_products_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "catalog_products_sku_key",
+          "type": "UNIQUE"
+        },
+        {
+          "name": "catalog_products_stock_qty_check",
+          "type": "CHECK"
+        },
+        {
+          "name": "catalog_products_unit_price_check",
+          "type": "CHECK"
+        },
+        {
+          "name": "catalog_products_vendor_id_fkey",
+          "type": "FOREIGN KEY"
+        },
+        {
+          "name": "2200_92592_1_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92592_2_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92592_3_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92592_4_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92592_5_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92592_6_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92592_7_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": [
+        {
+          "type": "FOREIGN_KEY",
+          "constraint_name": "catalog_products_vendor_id_fkey",
+          "from_column": "vendor_id",
+          "target_table": "catalog_vendors",
+          "target_column": "vendor_id"
+        }
+      ]
+    },
+    {
+      "object_name": "core_system_logs",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "log_id",
+          "type": "BIGINT",
+          "nullable": false,
+          "default": "nextval('core_system_logs_log_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "log_uuid",
+          "type": "UUID",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "parent_id": null
+        },
+        {
+          "name": "severity",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "message",
+          "type": "TEXT",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "payload_blob",
+          "type": "BYTEA",
+          "nullable": true,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "core_system_logs_pkey",
+          "columns": [
+            "log_id"
+          ],
+          "unique": true
+        },
+        {
+          "name": "idx_syslog_severity",
+          "columns": [
+            "severity"
+          ],
+          "unique": false
+        }
+      ],
+      "constraints": [
+        {
+          "name": "chk_severity",
+          "type": "CHECK"
+        },
+        {
+          "name": "core_system_logs_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "2200_92354_1_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92354_2_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92354_3_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92354_4_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": []
+    },
+    {
+      "object_name": "entity_level2_13",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "entity_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "nextval('entity_level2_13_entity_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "dept_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "ref_code",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "label",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "is_valid",
+          "type": "BOOLEAN",
+          "nullable": true,
+          "default": "true",
+          "parent_id": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "entity_level2_13_pkey",
+          "columns": [
+            "entity_id"
+          ],
+          "unique": true
+        }
+      ],
+      "constraints": [
+        {
+          "name": "entity_level2_13_dept_id_fkey",
+          "type": "FOREIGN KEY"
+        },
+        {
+          "name": "entity_level2_13_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "2200_92480_1_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92480_2_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92480_3_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92480_4_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": [
+        {
+          "type": "FOREIGN_KEY",
+          "constraint_name": "entity_level2_13_dept_id_fkey",
+          "from_column": "dept_id",
+          "target_table": "core_departments",
+          "target_column": "dept_id"
+        }
+      ]
+    },
+    {
+      "object_name": "entity_level2_14",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "entity_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "nextval('entity_level2_14_entity_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "dept_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "ref_code",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "label",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "is_valid",
+          "type": "BOOLEAN",
+          "nullable": true,
+          "default": "true",
+          "parent_id": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "entity_level2_14_pkey",
+          "columns": [
+            "entity_id"
+          ],
+          "unique": true
+        }
+      ],
+      "constraints": [
+        {
+          "name": "entity_level2_14_dept_id_fkey",
+          "type": "FOREIGN KEY"
+        },
+        {
+          "name": "entity_level2_14_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "2200_92494_1_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92494_2_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92494_3_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92494_4_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": [
+        {
+          "type": "FOREIGN_KEY",
+          "constraint_name": "entity_level2_14_dept_id_fkey",
+          "from_column": "dept_id",
+          "target_table": "core_departments",
+          "target_column": "dept_id"
+        }
+      ]
+    },
+    {
+      "object_name": "entity_level2_15",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "entity_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "nextval('entity_level2_15_entity_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "dept_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "ref_code",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "label",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "is_valid",
+          "type": "BOOLEAN",
+          "nullable": true,
+          "default": "true",
+          "parent_id": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "entity_level2_15_pkey",
+          "columns": [
+            "entity_id"
+          ],
+          "unique": true
+        }
+      ],
+      "constraints": [
+        {
+          "name": "entity_level2_15_dept_id_fkey",
+          "type": "FOREIGN KEY"
+        },
+        {
+          "name": "entity_level2_15_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "2200_92508_1_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92508_2_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92508_3_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92508_4_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": [
+        {
+          "type": "FOREIGN_KEY",
+          "constraint_name": "entity_level2_15_dept_id_fkey",
+          "from_column": "dept_id",
+          "target_table": "core_departments",
+          "target_column": "dept_id"
+        }
+      ]
+    },
+    {
+      "object_name": "entity_level2_16",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "entity_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "nextval('entity_level2_16_entity_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "dept_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "ref_code",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "label",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "is_valid",
+          "type": "BOOLEAN",
+          "nullable": true,
+          "default": "true",
+          "parent_id": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "entity_level2_16_pkey",
+          "columns": [
+            "entity_id"
+          ],
+          "unique": true
+        }
+      ],
+      "constraints": [
+        {
+          "name": "entity_level2_16_dept_id_fkey",
+          "type": "FOREIGN KEY"
+        },
+        {
+          "name": "entity_level2_16_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "2200_92522_1_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92522_2_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92522_3_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92522_4_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": [
+        {
+          "type": "FOREIGN_KEY",
+          "constraint_name": "entity_level2_16_dept_id_fkey",
+          "from_column": "dept_id",
+          "target_table": "core_departments",
+          "target_column": "dept_id"
+        }
+      ]
+    },
+    {
+      "object_name": "entity_level2_17",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "entity_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "nextval('entity_level2_17_entity_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "dept_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "ref_code",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "label",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "is_valid",
+          "type": "BOOLEAN",
+          "nullable": true,
+          "default": "true",
+          "parent_id": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "entity_level2_17_pkey",
+          "columns": [
+            "entity_id"
+          ],
+          "unique": true
+        }
+      ],
+      "constraints": [
+        {
+          "name": "entity_level2_17_dept_id_fkey",
+          "type": "FOREIGN KEY"
+        },
+        {
+          "name": "entity_level2_17_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "2200_92536_1_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92536_2_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92536_3_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92536_4_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": [
+        {
+          "type": "FOREIGN_KEY",
+          "constraint_name": "entity_level2_17_dept_id_fkey",
+          "from_column": "dept_id",
+          "target_table": "core_departments",
+          "target_column": "dept_id"
+        }
+      ]
+    },
+    {
+      "object_name": "entity_level2_18",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "entity_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "nextval('entity_level2_18_entity_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "dept_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "ref_code",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "label",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "is_valid",
+          "type": "BOOLEAN",
+          "nullable": true,
+          "default": "true",
+          "parent_id": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "entity_level2_18_pkey",
+          "columns": [
+            "entity_id"
+          ],
+          "unique": true
+        }
+      ],
+      "constraints": [
+        {
+          "name": "entity_level2_18_dept_id_fkey",
+          "type": "FOREIGN KEY"
+        },
+        {
+          "name": "entity_level2_18_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "2200_92550_1_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92550_2_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92550_3_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92550_4_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": [
+        {
+          "type": "FOREIGN_KEY",
+          "constraint_name": "entity_level2_18_dept_id_fkey",
+          "from_column": "dept_id",
+          "target_table": "core_departments",
+          "target_column": "dept_id"
+        }
+      ]
+    },
+    {
+      "object_name": "entity_level2_19",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "entity_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "nextval('entity_level2_19_entity_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "dept_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "ref_code",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "label",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "is_valid",
+          "type": "BOOLEAN",
+          "nullable": true,
+          "default": "true",
+          "parent_id": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "entity_level2_19_pkey",
+          "columns": [
+            "entity_id"
+          ],
+          "unique": true
+        }
+      ],
+      "constraints": [
+        {
+          "name": "entity_level2_19_dept_id_fkey",
+          "type": "FOREIGN KEY"
+        },
+        {
+          "name": "entity_level2_19_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "2200_92564_1_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92564_2_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92564_3_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92564_4_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": [
+        {
+          "type": "FOREIGN_KEY",
+          "constraint_name": "entity_level2_19_dept_id_fkey",
+          "from_column": "dept_id",
+          "target_table": "core_departments",
+          "target_column": "dept_id"
+        }
+      ]
+    },
+    {
+      "object_name": "entity_level2_20",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "entity_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "nextval('entity_level2_20_entity_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "dept_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "ref_code",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "label",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "is_valid",
+          "type": "BOOLEAN",
+          "nullable": true,
+          "default": "true",
+          "parent_id": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "entity_level2_20_pkey",
+          "columns": [
+            "entity_id"
+          ],
+          "unique": true
+        }
+      ],
+      "constraints": [
+        {
+          "name": "entity_level2_20_dept_id_fkey",
+          "type": "FOREIGN KEY"
+        },
+        {
+          "name": "entity_level2_20_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "2200_92578_1_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92578_2_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92578_3_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92578_4_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": [
+        {
+          "type": "FOREIGN_KEY",
+          "constraint_name": "entity_level2_20_dept_id_fkey",
+          "from_column": "dept_id",
+          "target_table": "core_departments",
+          "target_column": "dept_id"
+        }
+      ]
+    },
+    {
+      "object_name": "order_items",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "nextval('order_items_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "order_id",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "product_id",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "quantity",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "order_items_pkey",
+          "columns": [
+            "id",
+            "item_id"
+          ],
+          "unique": true
+        },
+        {
+          "name": "order_items_order_id_product_id_key",
+          "columns": [
+            "order_id",
+            "product_id"
+          ],
+          "unique": true
+        },
+        {
+          "name": "idx_order_items_order",
+          "columns": [
+            "order_id"
+          ],
+          "unique": false
+        },
+        {
+          "name": "idx_order_items_product",
+          "columns": [
+            "product_id"
+          ],
+          "unique": false
+        }
+      ],
+      "constraints": [
+        {
+          "name": "order_items_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "2200_116029_1_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": []
+    },
+    {
+      "object_name": "orders",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "nextval('orders_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "user_id",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "status",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "orders_pkey",
+          "columns": [
+            "id",
+            "order_id"
+          ],
+          "unique": true
+        },
+        {
+          "name": "idx_orders_customer",
+          "columns": [
+            "customer_id"
+          ],
+          "unique": false
+        },
+        {
+          "name": "idx_orders_date",
+          "columns": [
+            "order_date"
+          ],
+          "unique": false
+        },
+        {
+          "name": "idx_orders_status",
+          "columns": [
+            "status"
+          ],
+          "unique": false
+        }
+      ],
+      "constraints": [
+        {
+          "name": "orders_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "2200_116022_1_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": []
+    },
+    {
+      "object_name": "org_employees",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "emp_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "nextval('org_employees_emp_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "dept_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "region_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "ext_uuid",
+          "type": "UUID",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "parent_id": null
+        },
+        {
+          "name": "first_name",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "last_name",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "email",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "salary",
+          "type": "NUMERIC",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "hire_date",
+          "type": "DATE",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "is_manager",
+          "type": "BOOLEAN",
+          "nullable": true,
+          "default": "false",
+          "parent_id": null
+        },
+        {
+          "name": "bio",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "avatar_blob",
+          "type": "BYTEA",
+          "nullable": true,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "org_employees_pkey",
+          "columns": [
+            "emp_id"
+          ],
+          "unique": true
+        },
+        {
+          "name": "org_employees_email_key",
+          "columns": [
+            "email"
+          ],
+          "unique": true
+        },
+        {
+          "name": "idx_emp_dept",
+          "columns": [
+            "dept_id"
+          ],
+          "unique": false
+        },
+        {
+          "name": "idx_emp_email",
+          "columns": [
+            "email"
+          ],
+          "unique": false
+        }
+      ],
+      "constraints": [
+        {
+          "name": "org_employees_dept_id_fkey",
+          "type": "FOREIGN KEY"
+        },
+        {
+          "name": "org_employees_email_key",
+          "type": "UNIQUE"
+        },
+        {
+          "name": "org_employees_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "org_employees_region_id_fkey",
+          "type": "FOREIGN KEY"
+        },
+        {
+          "name": "2200_92439_1_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92439_2_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92439_3_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92439_4_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92439_5_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92439_6_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92439_7_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92439_8_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92439_9_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": [
+        {
+          "type": "FOREIGN_KEY",
+          "constraint_name": "org_employees_dept_id_fkey",
+          "from_column": "dept_id",
+          "target_table": "core_departments",
+          "target_column": "dept_id"
+        },
+        {
+          "type": "FOREIGN_KEY",
+          "constraint_name": "org_employees_region_id_fkey",
+          "from_column": "region_id",
+          "target_table": "core_regions",
+          "target_column": "region_id"
+        }
+      ]
+    },
+    {
+      "object_name": "org_employee_skills",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "emp_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "skill_name",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "proficiency_level",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "certified_date",
+          "type": "DATE",
+          "nullable": true,
+          "default": null,
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "org_employee_skills_pkey",
+          "columns": [
+            "emp_id",
+            "skill_name"
+          ],
+          "unique": true
+        }
+      ],
+      "constraints": [
+        {
+          "name": "org_employee_skills_emp_id_fkey",
+          "type": "FOREIGN KEY"
+        },
+        {
+          "name": "org_employee_skills_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "org_employee_skills_proficiency_level_check",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92612_1_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92612_2_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92612_3_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": [
+        {
+          "type": "FOREIGN_KEY",
+          "constraint_name": "org_employee_skills_emp_id_fkey",
+          "from_column": "emp_id",
+          "target_table": "org_employees",
+          "target_column": "emp_id"
+        }
+      ]
+    },
+    {
+      "object_name": "products",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "nextval('products_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "name",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "price",
+          "type": "NUMERIC",
+          "nullable": true,
+          "default": null,
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "products_pkey",
+          "columns": [
+            "id",
+            "product_id"
+          ],
+          "unique": true
+        },
+        {
+          "name": "products_sku_key",
+          "columns": [
+            "sku"
+          ],
+          "unique": true
+        },
+        {
+          "name": "idx_products_sku",
+          "columns": [
+            "sku"
+          ],
+          "unique": false
+        },
+        {
+          "name": "idx_products_category",
+          "columns": [
+            "category"
+          ],
+          "unique": false
+        }
+      ],
+      "constraints": [
+        {
+          "name": "products_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "2200_116015_1_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": []
+    },
+    {
+      "object_name": "sales_customers",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "customer_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "nextval('sales_customers_customer_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "region_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "ext_uuid",
+          "type": "UUID",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "parent_id": null
+        },
+        {
+          "name": "first_name",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "last_name",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "email",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "credit_limit",
+          "type": "NUMERIC",
+          "nullable": true,
+          "default": "1000.00",
+          "parent_id": null
+        },
+        {
+          "name": "is_vip",
+          "type": "BOOLEAN",
+          "nullable": true,
+          "default": "false",
+          "parent_id": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "sales_customers_pkey",
+          "columns": [
+            "customer_id"
+          ],
+          "unique": true
+        },
+        {
+          "name": "sales_customers_email_key",
+          "columns": [
+            "email"
+          ],
+          "unique": true
+        },
+        {
+          "name": "idx_cust_email",
+          "columns": [
+            "email"
+          ],
+          "unique": false
+        }
+      ],
+      "constraints": [
+        {
+          "name": "sales_customers_email_key",
+          "type": "UNIQUE"
+        },
+        {
+          "name": "sales_customers_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "sales_customers_region_id_fkey",
+          "type": "FOREIGN KEY"
+        },
+        {
+          "name": "2200_92752_1_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92752_2_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92752_3_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92752_4_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92752_5_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92752_6_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": [
+        {
+          "type": "FOREIGN_KEY",
+          "constraint_name": "sales_customers_region_id_fkey",
+          "from_column": "region_id",
+          "target_table": "core_regions",
+          "target_column": "region_id"
+        }
+      ]
+    },
+    {
+      "object_name": "sales_level4_33",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "id",
+          "type": "BIGINT",
+          "nullable": false,
+          "default": "nextval('sales_level4_33_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "customer_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "ref_num",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "val",
+          "type": "NUMERIC",
+          "nullable": true,
+          "default": "0.00",
+          "parent_id": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "sales_level4_33_pkey",
+          "columns": [
+            "id"
+          ],
+          "unique": true
+        }
+      ],
+      "constraints": [
+        {
+          "name": "sales_level4_33_customer_id_fkey",
+          "type": "FOREIGN KEY"
+        },
+        {
+          "name": "sales_level4_33_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "2200_92800_1_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92800_2_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92800_3_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": [
+        {
+          "type": "FOREIGN_KEY",
+          "constraint_name": "sales_level4_33_customer_id_fkey",
+          "from_column": "customer_id",
+          "target_table": "sales_customers",
+          "target_column": "customer_id"
+        }
+      ]
+    },
+    {
+      "object_name": "sales_level4_34",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "id",
+          "type": "BIGINT",
+          "nullable": false,
+          "default": "nextval('sales_level4_34_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "customer_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "ref_num",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "val",
+          "type": "NUMERIC",
+          "nullable": true,
+          "default": "0.00",
+          "parent_id": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "sales_level4_34_pkey",
+          "columns": [
+            "id"
+          ],
+          "unique": true
+        }
+      ],
+      "constraints": [
+        {
+          "name": "sales_level4_34_customer_id_fkey",
+          "type": "FOREIGN KEY"
+        },
+        {
+          "name": "sales_level4_34_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "2200_92814_1_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92814_2_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92814_3_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": [
+        {
+          "type": "FOREIGN_KEY",
+          "constraint_name": "sales_level4_34_customer_id_fkey",
+          "from_column": "customer_id",
+          "target_table": "sales_customers",
+          "target_column": "customer_id"
+        }
+      ]
+    },
+    {
+      "object_name": "sales_level4_35",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "id",
+          "type": "BIGINT",
+          "nullable": false,
+          "default": "nextval('sales_level4_35_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "customer_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "ref_num",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "val",
+          "type": "NUMERIC",
+          "nullable": true,
+          "default": "0.00",
+          "parent_id": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "sales_level4_35_pkey",
+          "columns": [
+            "id"
+          ],
+          "unique": true
+        }
+      ],
+      "constraints": [
+        {
+          "name": "sales_level4_35_customer_id_fkey",
+          "type": "FOREIGN KEY"
+        },
+        {
+          "name": "sales_level4_35_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "2200_92828_1_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92828_2_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92828_3_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": [
+        {
+          "type": "FOREIGN_KEY",
+          "constraint_name": "sales_level4_35_customer_id_fkey",
+          "from_column": "customer_id",
+          "target_table": "sales_customers",
+          "target_column": "customer_id"
+        }
+      ]
+    },
+    {
+      "object_name": "sales_level4_36",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "id",
+          "type": "BIGINT",
+          "nullable": false,
+          "default": "nextval('sales_level4_36_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "customer_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "ref_num",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "val",
+          "type": "NUMERIC",
+          "nullable": true,
+          "default": "0.00",
+          "parent_id": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "sales_level4_36_pkey",
+          "columns": [
+            "id"
+          ],
+          "unique": true
+        }
+      ],
+      "constraints": [
+        {
+          "name": "sales_level4_36_customer_id_fkey",
+          "type": "FOREIGN KEY"
+        },
+        {
+          "name": "sales_level4_36_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "2200_92842_1_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92842_2_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92842_3_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": [
+        {
+          "type": "FOREIGN_KEY",
+          "constraint_name": "sales_level4_36_customer_id_fkey",
+          "from_column": "customer_id",
+          "target_table": "sales_customers",
+          "target_column": "customer_id"
+        }
+      ]
+    },
+    {
+      "object_name": "sales_level4_37",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "id",
+          "type": "BIGINT",
+          "nullable": false,
+          "default": "nextval('sales_level4_37_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "customer_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "ref_num",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "val",
+          "type": "NUMERIC",
+          "nullable": true,
+          "default": "0.00",
+          "parent_id": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "sales_level4_37_pkey",
+          "columns": [
+            "id"
+          ],
+          "unique": true
+        }
+      ],
+      "constraints": [
+        {
+          "name": "sales_level4_37_customer_id_fkey",
+          "type": "FOREIGN KEY"
+        },
+        {
+          "name": "sales_level4_37_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "2200_92856_1_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92856_2_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92856_3_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": [
+        {
+          "type": "FOREIGN_KEY",
+          "constraint_name": "sales_level4_37_customer_id_fkey",
+          "from_column": "customer_id",
+          "target_table": "sales_customers",
+          "target_column": "customer_id"
+        }
+      ]
+    },
+    {
+      "object_name": "sales_level4_38",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "id",
+          "type": "BIGINT",
+          "nullable": false,
+          "default": "nextval('sales_level4_38_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "customer_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "ref_num",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "val",
+          "type": "NUMERIC",
+          "nullable": true,
+          "default": "0.00",
+          "parent_id": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "sales_level4_38_pkey",
+          "columns": [
+            "id"
+          ],
+          "unique": true
+        }
+      ],
+      "constraints": [
+        {
+          "name": "sales_level4_38_customer_id_fkey",
+          "type": "FOREIGN KEY"
+        },
+        {
+          "name": "sales_level4_38_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "2200_92870_1_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92870_2_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92870_3_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": [
+        {
+          "type": "FOREIGN_KEY",
+          "constraint_name": "sales_level4_38_customer_id_fkey",
+          "from_column": "customer_id",
+          "target_table": "sales_customers",
+          "target_column": "customer_id"
+        }
+      ]
+    },
+    {
+      "object_name": "sales_level4_39",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "id",
+          "type": "BIGINT",
+          "nullable": false,
+          "default": "nextval('sales_level4_39_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "customer_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "ref_num",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "val",
+          "type": "NUMERIC",
+          "nullable": true,
+          "default": "0.00",
+          "parent_id": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "sales_level4_39_pkey",
+          "columns": [
+            "id"
+          ],
+          "unique": true
+        }
+      ],
+      "constraints": [
+        {
+          "name": "sales_level4_39_customer_id_fkey",
+          "type": "FOREIGN KEY"
+        },
+        {
+          "name": "sales_level4_39_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "2200_92884_1_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92884_2_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92884_3_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": [
+        {
+          "type": "FOREIGN_KEY",
+          "constraint_name": "sales_level4_39_customer_id_fkey",
+          "from_column": "customer_id",
+          "target_table": "sales_customers",
+          "target_column": "customer_id"
+        }
+      ]
+    },
+    {
+      "object_name": "sales_level4_40",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "id",
+          "type": "BIGINT",
+          "nullable": false,
+          "default": "nextval('sales_level4_40_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "customer_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "ref_num",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "val",
+          "type": "NUMERIC",
+          "nullable": true,
+          "default": "0.00",
+          "parent_id": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "sales_level4_40_pkey",
+          "columns": [
+            "id"
+          ],
+          "unique": true
+        }
+      ],
+      "constraints": [
+        {
+          "name": "sales_level4_40_customer_id_fkey",
+          "type": "FOREIGN KEY"
+        },
+        {
+          "name": "sales_level4_40_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "2200_92898_1_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92898_2_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92898_3_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": [
+        {
+          "type": "FOREIGN_KEY",
+          "constraint_name": "sales_level4_40_customer_id_fkey",
+          "from_column": "customer_id",
+          "target_table": "sales_customers",
+          "target_column": "customer_id"
+        }
+      ]
+    },
+    {
+      "object_name": "sales_orders",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "order_id",
+          "type": "BIGINT",
+          "nullable": false,
+          "default": "nextval('sales_orders_order_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "customer_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "emp_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "currency_code",
+          "type": "CHARACTER",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "order_date",
+          "type": "DATE",
+          "nullable": false,
+          "default": "CURRENT_DATE",
+          "parent_id": null
+        },
+        {
+          "name": "total_amount",
+          "type": "NUMERIC",
+          "nullable": false,
+          "default": "0.00",
+          "parent_id": null
+        },
+        {
+          "name": "order_status",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": "'PENDING'::character varying",
+          "parent_id": null
+        },
+        {
+          "name": "placed_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "sales_orders_pkey",
+          "columns": [
+            "order_id"
+          ],
+          "unique": true
+        },
+        {
+          "name": "idx_order_cust",
+          "columns": [
+            "customer_id"
+          ],
+          "unique": false
+        },
+        {
+          "name": "idx_order_date",
+          "columns": [
+            "order_date"
+          ],
+          "unique": false
+        }
+      ],
+      "constraints": [
+        {
+          "name": "sales_orders_currency_code_fkey",
+          "type": "FOREIGN KEY"
+        },
+        {
+          "name": "sales_orders_customer_id_fkey",
+          "type": "FOREIGN KEY"
+        },
+        {
+          "name": "sales_orders_emp_id_fkey",
+          "type": "FOREIGN KEY"
+        },
+        {
+          "name": "sales_orders_order_status_check",
+          "type": "CHECK"
+        },
+        {
+          "name": "sales_orders_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "2200_92771_1_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92771_2_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92771_3_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92771_4_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92771_5_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92771_6_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": [
+        {
+          "type": "FOREIGN_KEY",
+          "constraint_name": "sales_orders_currency_code_fkey",
+          "from_column": "currency_code",
+          "target_table": "core_currencies",
+          "target_column": "currency_code"
+        },
+        {
+          "type": "FOREIGN_KEY",
+          "constraint_name": "sales_orders_customer_id_fkey",
+          "from_column": "customer_id",
+          "target_table": "sales_customers",
+          "target_column": "customer_id"
+        },
+        {
+          "type": "FOREIGN_KEY",
+          "constraint_name": "sales_orders_emp_id_fkey",
+          "from_column": "emp_id",
+          "target_table": "org_employees",
+          "target_column": "emp_id"
+        }
+      ]
+    },
+    {
+      "object_name": "audit_level5_43",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "audit_id",
+          "type": "BIGINT",
+          "nullable": false,
+          "default": "nextval('audit_level5_43_audit_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "order_id",
+          "type": "BIGINT",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "log_msg",
+          "type": "TEXT",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "audit_level5_43_pkey",
+          "columns": [
+            "audit_id"
+          ],
+          "unique": true
+        }
+      ],
+      "constraints": [
+        {
+          "name": "audit_level5_43_order_id_fkey",
+          "type": "FOREIGN KEY"
+        },
+        {
+          "name": "audit_level5_43_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "2200_92948_1_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92948_2_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92948_3_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": [
+        {
+          "type": "FOREIGN_KEY",
+          "constraint_name": "audit_level5_43_order_id_fkey",
+          "from_column": "order_id",
+          "target_table": "sales_orders",
+          "target_column": "order_id"
+        }
+      ]
+    },
+    {
+      "object_name": "audit_level5_44",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "audit_id",
+          "type": "BIGINT",
+          "nullable": false,
+          "default": "nextval('audit_level5_44_audit_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "order_id",
+          "type": "BIGINT",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "log_msg",
+          "type": "TEXT",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "audit_level5_44_pkey",
+          "columns": [
+            "audit_id"
+          ],
+          "unique": true
+        }
+      ],
+      "constraints": [
+        {
+          "name": "audit_level5_44_order_id_fkey",
+          "type": "FOREIGN KEY"
+        },
+        {
+          "name": "audit_level5_44_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "2200_92963_1_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92963_2_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92963_3_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": [
+        {
+          "type": "FOREIGN_KEY",
+          "constraint_name": "audit_level5_44_order_id_fkey",
+          "from_column": "order_id",
+          "target_table": "sales_orders",
+          "target_column": "order_id"
+        }
+      ]
+    },
+    {
+      "object_name": "audit_level5_45",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "audit_id",
+          "type": "BIGINT",
+          "nullable": false,
+          "default": "nextval('audit_level5_45_audit_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "order_id",
+          "type": "BIGINT",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "log_msg",
+          "type": "TEXT",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "audit_level5_45_pkey",
+          "columns": [
+            "audit_id"
+          ],
+          "unique": true
+        }
+      ],
+      "constraints": [
+        {
+          "name": "audit_level5_45_order_id_fkey",
+          "type": "FOREIGN KEY"
+        },
+        {
+          "name": "audit_level5_45_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "2200_92978_1_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92978_2_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92978_3_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": [
+        {
+          "type": "FOREIGN_KEY",
+          "constraint_name": "audit_level5_45_order_id_fkey",
+          "from_column": "order_id",
+          "target_table": "sales_orders",
+          "target_column": "order_id"
+        }
+      ]
+    },
+    {
+      "object_name": "audit_level5_46",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "audit_id",
+          "type": "BIGINT",
+          "nullable": false,
+          "default": "nextval('audit_level5_46_audit_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "order_id",
+          "type": "BIGINT",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "log_msg",
+          "type": "TEXT",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "audit_level5_46_pkey",
+          "columns": [
+            "audit_id"
+          ],
+          "unique": true
+        }
+      ],
+      "constraints": [
+        {
+          "name": "audit_level5_46_order_id_fkey",
+          "type": "FOREIGN KEY"
+        },
+        {
+          "name": "audit_level5_46_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "2200_92993_1_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92993_2_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92993_3_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": [
+        {
+          "type": "FOREIGN_KEY",
+          "constraint_name": "audit_level5_46_order_id_fkey",
+          "from_column": "order_id",
+          "target_table": "sales_orders",
+          "target_column": "order_id"
+        }
+      ]
+    },
+    {
+      "object_name": "audit_level5_47",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "audit_id",
+          "type": "BIGINT",
+          "nullable": false,
+          "default": "nextval('audit_level5_47_audit_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "order_id",
+          "type": "BIGINT",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "log_msg",
+          "type": "TEXT",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "audit_level5_47_pkey",
+          "columns": [
+            "audit_id"
+          ],
+          "unique": true
+        }
+      ],
+      "constraints": [
+        {
+          "name": "audit_level5_47_order_id_fkey",
+          "type": "FOREIGN KEY"
+        },
+        {
+          "name": "audit_level5_47_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "2200_93008_1_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_93008_2_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_93008_3_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": [
+        {
+          "type": "FOREIGN_KEY",
+          "constraint_name": "audit_level5_47_order_id_fkey",
+          "from_column": "order_id",
+          "target_table": "sales_orders",
+          "target_column": "order_id"
+        }
+      ]
+    },
+    {
+      "object_name": "audit_level5_48",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "audit_id",
+          "type": "BIGINT",
+          "nullable": false,
+          "default": "nextval('audit_level5_48_audit_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "order_id",
+          "type": "BIGINT",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "log_msg",
+          "type": "TEXT",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "audit_level5_48_pkey",
+          "columns": [
+            "audit_id"
+          ],
+          "unique": true
+        }
+      ],
+      "constraints": [
+        {
+          "name": "audit_level5_48_order_id_fkey",
+          "type": "FOREIGN KEY"
+        },
+        {
+          "name": "audit_level5_48_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "2200_93023_1_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_93023_2_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_93023_3_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": [
+        {
+          "type": "FOREIGN_KEY",
+          "constraint_name": "audit_level5_48_order_id_fkey",
+          "from_column": "order_id",
+          "target_table": "sales_orders",
+          "target_column": "order_id"
+        }
+      ]
+    },
+    {
+      "object_name": "audit_level5_49",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "audit_id",
+          "type": "BIGINT",
+          "nullable": false,
+          "default": "nextval('audit_level5_49_audit_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "order_id",
+          "type": "BIGINT",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "log_msg",
+          "type": "TEXT",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "audit_level5_49_pkey",
+          "columns": [
+            "audit_id"
+          ],
+          "unique": true
+        }
+      ],
+      "constraints": [
+        {
+          "name": "audit_level5_49_order_id_fkey",
+          "type": "FOREIGN KEY"
+        },
+        {
+          "name": "audit_level5_49_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "2200_93038_1_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_93038_2_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_93038_3_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": [
+        {
+          "type": "FOREIGN_KEY",
+          "constraint_name": "audit_level5_49_order_id_fkey",
+          "from_column": "order_id",
+          "target_table": "sales_orders",
+          "target_column": "order_id"
+        }
+      ]
+    },
+    {
+      "object_name": "audit_level5_50",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "audit_id",
+          "type": "BIGINT",
+          "nullable": false,
+          "default": "nextval('audit_level5_50_audit_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "order_id",
+          "type": "BIGINT",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "log_msg",
+          "type": "TEXT",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "audit_level5_50_pkey",
+          "columns": [
+            "audit_id"
+          ],
+          "unique": true
+        }
+      ],
+      "constraints": [
+        {
+          "name": "audit_level5_50_order_id_fkey",
+          "type": "FOREIGN KEY"
+        },
+        {
+          "name": "audit_level5_50_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "2200_93053_1_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_93053_2_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_93053_3_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": [
+        {
+          "type": "FOREIGN_KEY",
+          "constraint_name": "audit_level5_50_order_id_fkey",
+          "from_column": "order_id",
+          "target_table": "sales_orders",
+          "target_column": "order_id"
+        }
+      ]
+    },
+    {
+      "object_name": "sales_order_audit",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "audit_id",
+          "type": "BIGINT",
+          "nullable": false,
+          "default": "nextval('sales_order_audit_audit_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "order_id",
+          "type": "BIGINT",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "action",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "performed_by",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "audit_timestamp",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "sales_order_audit_pkey",
+          "columns": [
+            "audit_id"
+          ],
+          "unique": true
+        }
+      ],
+      "constraints": [
+        {
+          "name": "sales_order_audit_order_id_fkey",
+          "type": "FOREIGN KEY"
+        },
+        {
+          "name": "sales_order_audit_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "2200_92935_1_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92935_2_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92935_3_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92935_4_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": [
+        {
+          "type": "FOREIGN_KEY",
+          "constraint_name": "sales_order_audit_order_id_fkey",
+          "from_column": "order_id",
+          "target_table": "sales_orders",
+          "target_column": "order_id"
+        }
+      ]
+    },
+    {
+      "object_name": "sales_order_items",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "item_id",
+          "type": "BIGINT",
+          "nullable": false,
+          "default": "nextval('sales_order_items_item_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "order_id",
+          "type": "BIGINT",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "product_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "quantity",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "unit_price",
+          "type": "NUMERIC",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "discount_pct",
+          "type": "NUMERIC",
+          "nullable": true,
+          "default": "0.00",
+          "parent_id": null
+        },
+        {
+          "name": "line_total",
+          "type": "NUMERIC",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "sales_order_items_pkey",
+          "columns": [
+            "item_id"
+          ],
+          "unique": true
+        },
+        {
+          "name": "uq_order_item_prod",
+          "columns": [
+            "order_id",
+            "product_id"
+          ],
+          "unique": true
+        },
+        {
+          "name": "idx_order_items_order",
+          "columns": [
+            "order_id"
+          ],
+          "unique": false
+        }
+      ],
+      "constraints": [
+        {
+          "name": "sales_order_items_discount_pct_check",
+          "type": "CHECK"
+        },
+        {
+          "name": "sales_order_items_order_id_fkey",
+          "type": "FOREIGN KEY"
+        },
+        {
+          "name": "sales_order_items_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "sales_order_items_product_id_fkey",
+          "type": "FOREIGN KEY"
+        },
+        {
+          "name": "sales_order_items_quantity_check",
+          "type": "CHECK"
+        },
+        {
+          "name": "uq_order_item_prod",
+          "type": "UNIQUE"
+        },
+        {
+          "name": "2200_92912_1_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92912_2_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92912_3_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92912_4_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92912_5_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92912_7_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": [
+        {
+          "type": "FOREIGN_KEY",
+          "constraint_name": "sales_order_items_order_id_fkey",
+          "from_column": "order_id",
+          "target_table": "sales_orders",
+          "target_column": "order_id"
+        },
+        {
+          "type": "FOREIGN_KEY",
+          "constraint_name": "sales_order_items_product_id_fkey",
+          "from_column": "product_id",
+          "target_table": "catalog_products",
+          "target_column": "product_id"
+        }
+      ]
+    },
+    {
+      "object_name": "transaction_level3_23",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "tx_id",
+          "type": "BIGINT",
+          "nullable": false,
+          "default": "nextval('transaction_level3_23_tx_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "emp_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "amount",
+          "type": "NUMERIC",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "status",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": "'COMPLETED'::character varying",
+          "parent_id": null
+        },
+        {
+          "name": "notes",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "transaction_level3_23_pkey",
+          "columns": [
+            "tx_id"
+          ],
+          "unique": true
+        }
+      ],
+      "constraints": [
+        {
+          "name": "transaction_level3_23_emp_id_fkey",
+          "type": "FOREIGN KEY"
+        },
+        {
+          "name": "transaction_level3_23_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "2200_92624_1_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92624_2_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92624_3_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": [
+        {
+          "type": "FOREIGN_KEY",
+          "constraint_name": "transaction_level3_23_emp_id_fkey",
+          "from_column": "emp_id",
+          "target_table": "org_employees",
+          "target_column": "emp_id"
+        }
+      ]
+    },
+    {
+      "object_name": "transaction_level3_24",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "tx_id",
+          "type": "BIGINT",
+          "nullable": false,
+          "default": "nextval('transaction_level3_24_tx_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "emp_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "amount",
+          "type": "NUMERIC",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "status",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": "'COMPLETED'::character varying",
+          "parent_id": null
+        },
+        {
+          "name": "notes",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "transaction_level3_24_pkey",
+          "columns": [
+            "tx_id"
+          ],
+          "unique": true
+        }
+      ],
+      "constraints": [
+        {
+          "name": "transaction_level3_24_emp_id_fkey",
+          "type": "FOREIGN KEY"
+        },
+        {
+          "name": "transaction_level3_24_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "2200_92640_1_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92640_2_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92640_3_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": [
+        {
+          "type": "FOREIGN_KEY",
+          "constraint_name": "transaction_level3_24_emp_id_fkey",
+          "from_column": "emp_id",
+          "target_table": "org_employees",
+          "target_column": "emp_id"
+        }
+      ]
+    },
+    {
+      "object_name": "transaction_level3_25",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "tx_id",
+          "type": "BIGINT",
+          "nullable": false,
+          "default": "nextval('transaction_level3_25_tx_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "emp_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "amount",
+          "type": "NUMERIC",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "status",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": "'COMPLETED'::character varying",
+          "parent_id": null
+        },
+        {
+          "name": "notes",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "transaction_level3_25_pkey",
+          "columns": [
+            "tx_id"
+          ],
+          "unique": true
+        }
+      ],
+      "constraints": [
+        {
+          "name": "transaction_level3_25_emp_id_fkey",
+          "type": "FOREIGN KEY"
+        },
+        {
+          "name": "transaction_level3_25_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "2200_92656_1_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92656_2_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92656_3_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": [
+        {
+          "type": "FOREIGN_KEY",
+          "constraint_name": "transaction_level3_25_emp_id_fkey",
+          "from_column": "emp_id",
+          "target_table": "org_employees",
+          "target_column": "emp_id"
+        }
+      ]
+    },
+    {
+      "object_name": "transaction_level3_26",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "tx_id",
+          "type": "BIGINT",
+          "nullable": false,
+          "default": "nextval('transaction_level3_26_tx_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "emp_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "amount",
+          "type": "NUMERIC",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "status",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": "'COMPLETED'::character varying",
+          "parent_id": null
+        },
+        {
+          "name": "notes",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "transaction_level3_26_pkey",
+          "columns": [
+            "tx_id"
+          ],
+          "unique": true
+        }
+      ],
+      "constraints": [
+        {
+          "name": "transaction_level3_26_emp_id_fkey",
+          "type": "FOREIGN KEY"
+        },
+        {
+          "name": "transaction_level3_26_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "2200_92672_1_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92672_2_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92672_3_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": [
+        {
+          "type": "FOREIGN_KEY",
+          "constraint_name": "transaction_level3_26_emp_id_fkey",
+          "from_column": "emp_id",
+          "target_table": "org_employees",
+          "target_column": "emp_id"
+        }
+      ]
+    },
+    {
+      "object_name": "transaction_level3_27",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "tx_id",
+          "type": "BIGINT",
+          "nullable": false,
+          "default": "nextval('transaction_level3_27_tx_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "emp_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "amount",
+          "type": "NUMERIC",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "status",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": "'COMPLETED'::character varying",
+          "parent_id": null
+        },
+        {
+          "name": "notes",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "transaction_level3_27_pkey",
+          "columns": [
+            "tx_id"
+          ],
+          "unique": true
+        }
+      ],
+      "constraints": [
+        {
+          "name": "transaction_level3_27_emp_id_fkey",
+          "type": "FOREIGN KEY"
+        },
+        {
+          "name": "transaction_level3_27_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "2200_92688_1_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92688_2_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92688_3_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": [
+        {
+          "type": "FOREIGN_KEY",
+          "constraint_name": "transaction_level3_27_emp_id_fkey",
+          "from_column": "emp_id",
+          "target_table": "org_employees",
+          "target_column": "emp_id"
+        }
+      ]
+    },
+    {
+      "object_name": "transaction_level3_28",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "tx_id",
+          "type": "BIGINT",
+          "nullable": false,
+          "default": "nextval('transaction_level3_28_tx_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "emp_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "amount",
+          "type": "NUMERIC",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "status",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": "'COMPLETED'::character varying",
+          "parent_id": null
+        },
+        {
+          "name": "notes",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "transaction_level3_28_pkey",
+          "columns": [
+            "tx_id"
+          ],
+          "unique": true
+        }
+      ],
+      "constraints": [
+        {
+          "name": "transaction_level3_28_emp_id_fkey",
+          "type": "FOREIGN KEY"
+        },
+        {
+          "name": "transaction_level3_28_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "2200_92704_1_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92704_2_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92704_3_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": [
+        {
+          "type": "FOREIGN_KEY",
+          "constraint_name": "transaction_level3_28_emp_id_fkey",
+          "from_column": "emp_id",
+          "target_table": "org_employees",
+          "target_column": "emp_id"
+        }
+      ]
+    },
+    {
+      "object_name": "transaction_level3_29",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "tx_id",
+          "type": "BIGINT",
+          "nullable": false,
+          "default": "nextval('transaction_level3_29_tx_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "emp_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "amount",
+          "type": "NUMERIC",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "status",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": "'COMPLETED'::character varying",
+          "parent_id": null
+        },
+        {
+          "name": "notes",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "transaction_level3_29_pkey",
+          "columns": [
+            "tx_id"
+          ],
+          "unique": true
+        }
+      ],
+      "constraints": [
+        {
+          "name": "transaction_level3_29_emp_id_fkey",
+          "type": "FOREIGN KEY"
+        },
+        {
+          "name": "transaction_level3_29_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "2200_92720_1_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92720_2_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92720_3_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": [
+        {
+          "type": "FOREIGN_KEY",
+          "constraint_name": "transaction_level3_29_emp_id_fkey",
+          "from_column": "emp_id",
+          "target_table": "org_employees",
+          "target_column": "emp_id"
+        }
+      ]
+    },
+    {
+      "object_name": "transaction_level3_30",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "tx_id",
+          "type": "BIGINT",
+          "nullable": false,
+          "default": "nextval('transaction_level3_30_tx_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "emp_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "amount",
+          "type": "NUMERIC",
+          "nullable": false,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "status",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": "'COMPLETED'::character varying",
+          "parent_id": null
+        },
+        {
+          "name": "notes",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "transaction_level3_30_pkey",
+          "columns": [
+            "tx_id"
+          ],
+          "unique": true
+        }
+      ],
+      "constraints": [
+        {
+          "name": "transaction_level3_30_emp_id_fkey",
+          "type": "FOREIGN KEY"
+        },
+        {
+          "name": "transaction_level3_30_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "2200_92736_1_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92736_2_not_null",
+          "type": "CHECK"
+        },
+        {
+          "name": "2200_92736_3_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": [
+        {
+          "type": "FOREIGN_KEY",
+          "constraint_name": "transaction_level3_30_emp_id_fkey",
+          "from_column": "emp_id",
+          "target_table": "org_employees",
+          "target_column": "emp_id"
+        }
+      ]
+    },
+    {
+      "object_name": "users",
+      "object_type": "TABLE",
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "nextval('users_id_seq'::regclass)",
+          "parent_id": null
+        },
+        {
+          "name": "name",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "parent_id": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITHOUT TIME ZONE",
+          "nullable": true,
+          "default": "CURRENT_TIMESTAMP",
+          "parent_id": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "users_pkey",
+          "columns": [
+            "id"
+          ],
+          "unique": true
+        }
+      ],
+      "constraints": [
+        {
+          "name": "users_pkey",
+          "type": "PRIMARY KEY"
+        },
+        {
+          "name": "2200_116007_1_not_null",
+          "type": "CHECK"
+        }
+      ],
+      "triggers": [],
+      "dependency_references": []
+    }
+  ],
+  "dependency_order": [
+    "audit_logs",
+    "core_currencies",
+    "core_departments",
+    "core_master_10",
+    "core_master_5",
+    "core_master_6",
+    "core_master_7",
+    "core_master_8",
+    "core_master_9",
+    "core_regions",
+    "catalog_vendors",
+    "catalog_products",
+    "core_system_logs",
+    "entity_level2_13",
+    "entity_level2_14",
+    "entity_level2_15",
+    "entity_level2_16",
+    "entity_level2_17",
+    "entity_level2_18",
+    "entity_level2_19",
+    "entity_level2_20",
+    "order_items",
+    "orders",
+    "org_employees",
+    "org_employee_skills",
+    "products",
+    "sales_customers",
+    "sales_level4_33",
+    "sales_level4_34",
+    "sales_level4_35",
+    "sales_level4_36",
+    "sales_level4_37",
+    "sales_level4_38",
+    "sales_level4_39",
+    "sales_level4_40",
+    "sales_orders",
+    "audit_level5_43",
+    "audit_level5_44",
+    "audit_level5_45",
+    "audit_level5_46",
+    "audit_level5_47",
+    "audit_level5_48",
+    "audit_level5_49",
+    "audit_level5_50",
+    "sales_order_audit",
+    "sales_order_items",
+    "transaction_level3_23",
+    "transaction_level3_24",
+    "transaction_level3_25",
+    "transaction_level3_26",
+    "transaction_level3_27",
+    "transaction_level3_28",
+    "transaction_level3_29",
+    "transaction_level3_30",
+    "users"
+  ]
+}
