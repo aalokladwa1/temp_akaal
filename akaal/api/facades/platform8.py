@@ -1,40 +1,76 @@
 """
-Platform 8 Public Façade — Enterprise Reporting Integration.
+Platform 8 Public Façade — Enterprise Data Integrity Platform Integration.
 """
 
-from typing import List, Optional
+from abc import ABC, abstractmethod
+from typing import Dict, Any, List, Optional
+import datetime
+
 from akaal.api.contracts.dto import CapabilityDTO
+from akaal.api.contracts.errors import FacadeError
 from akaal.api.facades.base import IFacade
-from akaal.reporting.api.facade import Platform8Facade as ConcretePlatform8Facade, IPlatform8Facade
-from akaal.reporting.contracts.dto import ReportRequestDTO
+from akaal.data_integrity.facade.platform8 import EnterpriseDataIntegrityPlatformV8
 
 
-class Platform8Facade(IFacade, IPlatform8Facade):
-    """Platform 7 Integration Wrapper for Platform 8 Reporting Engine."""
+class IPlatform8Facade(IFacade, ABC):
+    """Abstract Interface for Platform 8 Data Integrity Façade."""
 
-    def __init__(self, inner_facade: Optional[IPlatform8Facade] = None) -> None:
-        self._inner = inner_facade or ConcretePlatform8Facade()
+    @abstractmethod
+    async def verify_e2e_consistency(self, source_table: str, target_table: str, row_count: int = 1000000) -> Dict[str, Any]:
+        pass
+
+    @abstractmethod
+    async def validate_transaction_boundary(self, transaction_id: str) -> Dict[str, Any]:
+        pass
+
+
+class Platform8Facade(IPlatform8Facade):
+    """Production Platform 8 Façade Implementation routing to EnterpriseDataIntegrityPlatformV8."""
+
+    def __init__(self, platform_engine: Optional[EnterpriseDataIntegrityPlatformV8] = None) -> None:
+        self._engine = platform_engine or EnterpriseDataIntegrityPlatformV8()
 
     async def get_capabilities(self) -> CapabilityDTO:
         return CapabilityDTO(
-            platform_name="Platform 8 (Reporting Engine)",
-            version="1.0.0",
+            platform_name="Platform 8 (Enterprise Data Integrity Platform)",
+            version="8.0.0",
             supported_features=[
-                "premigration_report",
-                "progress_report",
-                "gb_validation_report",
-                "cutover_report",
-                "postmigration_report",
-                "executive_summary_report",
-                "audit_package_builder",
-                "report_versioning",
-                "digital_signatures",
+                "e2e_consistency_verification",
+                "transaction_boundary_validation",
+                "snapshot_consistency_validation",
+                "cross_table_consistency_validation",
+                "referential_integrity_validation",
+                "incremental_consistency_verification",
             ],
-            active_protocols=["REST", "gRPC", "PDF", "HTML", "JSON", "CSV"],
+            active_protocols=["REST", "gRPC"],
         )
 
-    async def generate_report(self, request: ReportRequestDTO):
-        return await self._inner.generate_report(request)
+    async def verify_e2e_consistency(self, source_table: str, target_table: str, row_count: int = 1000000) -> Dict[str, Any]:
+        try:
+            report = self._engine.verify_e2e_consistency(source_table, target_table, row_count)
+            return {
+                "report_id": report.report_id,
+                "source_table": report.source_table,
+                "target_table": report.target_table,
+                "rows_compared": report.rows_compared,
+                "mismatches_found": report.mismatches_found,
+                "status": report.status.value,
+                "mode": report.mode.value,
+                "checksum_source": report.checksum_source,
+                "checksum_target": report.checksum_target,
+                "generated_at": report.generated_at,
+            }
+        except Exception as e:
+            raise FacadeError(f"Platform 8 Data Integrity verification failed: {str(e)}")
 
-    async def generate_audit_package(self, migration_id: str, report_types: List[str]):
-        return await self._inner.generate_audit_package(migration_id, report_types)
+    async def validate_transaction_boundary(self, transaction_id: str) -> Dict[str, Any]:
+        try:
+            res = self._engine.validate_transaction_boundary(transaction_id)
+            return {
+                "transaction_id": res.transaction_id,
+                "is_committed_consistently": res.is_committed_consistently,
+                "uncommitted_row_count": res.uncommitted_row_count,
+                "status": res.status.value,
+            }
+        except Exception as e:
+            raise FacadeError(f"Platform 8 Transaction boundary validation failed: {str(e)}")

@@ -30,6 +30,10 @@ from akaal.operations.facade.platform9 import DefaultOperationsPlatformV9
 from akaal.resilience_eng.facade.platform5 import EnterpriseResiliencePlatformV5
 from akaal.governance.facade.platform6 import EnterpriseGovernancePlatformV6
 from akaal.operational_reliability.facade.platform7 import EnterpriseOperationalReliabilityPlatformV7
+from akaal.data_integrity import EnterpriseDataIntegrityPlatformV8
+from akaal.reliability_intelligence import ReliabilityIntelligencePlatformV9
+from akaal.recovery_intelligence import RecoveryIntelligencePlatformV10
+from akaal.trust_certification import EnterpriseTrustCertificationPlatformV11
 
 logger = logging.getLogger("akaal.integration.composition_root")
 
@@ -298,6 +302,14 @@ class CrossPlatformContext:
         self.governance_platform = EnterpriseGovernancePlatformV6()
         # Phase 12 Platform 7: Enterprise Operational Reliability Platform
         self.operational_reliability_platform = EnterpriseOperationalReliabilityPlatformV7()
+        # Phase 13 Platform 8: Enterprise Data Integrity Platform
+        self.data_integrity_platform = EnterpriseDataIntegrityPlatformV8()
+        # Phase 13 Platform 9: Reliability Intelligence Platform
+        self.reliability_intelligence_platform = ReliabilityIntelligencePlatformV9()
+        # Phase 13 Platform 10: Recovery Intelligence Platform
+        self.recovery_intelligence_platform = RecoveryIntelligencePlatformV10()
+        # Phase 13 Platform 11: Enterprise Trust & Certification Platform
+        self.trust_certification_platform = EnterpriseTrustCertificationPlatformV11()
 
 
         self.start_time = time.time()
