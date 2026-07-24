@@ -26,7 +26,7 @@ if sys.platform == 'win32':
 PG_PORT = 5433
 PG_DSN = dict(host='127.0.0.1', port=PG_PORT, user='postgres', password='postgres', dbname='postgres')
 ORA_DSN = dict(user='SOURCE_SCHEMA', password='aalok', dsn='localhost:1521/FREEPDB1')
-CP_DB_PATH = r'a:\temp_akaal\validation_workspace\checkpoints.db'
+CP_DB_PATH = os.path.join(os.getcwd(), 'artifacts', 'checkpoints.db')
 
 def run_resume_and_certification():
     print("==========================================================================")
@@ -44,8 +44,29 @@ def run_resume_and_certification():
     pg_conn = psycopg2.connect(**PG_DSN)
     pg_cur = pg_conn.cursor()
 
+    os.makedirs(os.path.dirname(CP_DB_PATH), exist_ok=True)
     cp_conn = sqlite3.connect(CP_DB_PATH)
     cp_cur = cp_conn.cursor()
+    cp_cur.execute("""
+    CREATE TABLE IF NOT EXISTS checkpoints (
+        checkpoint_id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL,
+        migration_id TEXT NOT NULL,
+        workflow_state TEXT NOT NULL,
+        table_name TEXT NOT NULL,
+        batch_number INTEGER NOT NULL,
+        worker_id TEXT NOT NULL,
+        rows_processed INTEGER NOT NULL,
+        rows_failed INTEGER NOT NULL,
+        rows_skipped INTEGER NOT NULL,
+        retry_count INTEGER NOT NULL,
+        checksum TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        status TEXT NOT NULL
+    )
+    """)
+    cp_conn.commit()
 
     # Get list of all Oracle tables
     ora_cur.execute("SELECT table_name FROM user_tables ORDER BY table_name")

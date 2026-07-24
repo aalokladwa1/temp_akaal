@@ -281,9 +281,30 @@ def run_flagship_validation():
     checkpoint_count = 0
     batch_durations = []
     
-    cp_db_path = r'a:\temp_akaal\validation_workspace\checkpoints.db'
+    cp_db_path = os.path.join(os.getcwd(), 'artifacts', 'checkpoints.db')
+    os.makedirs(os.path.dirname(cp_db_path), exist_ok=True)
     cp_conn = sqlite3.connect(cp_db_path)
     cp_cur = cp_conn.cursor()
+    cp_cur.execute("""
+    CREATE TABLE IF NOT EXISTS checkpoints (
+        checkpoint_id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL,
+        migration_id TEXT NOT NULL,
+        workflow_state TEXT NOT NULL,
+        table_name TEXT NOT NULL,
+        batch_number INTEGER NOT NULL,
+        worker_id TEXT NOT NULL,
+        rows_processed INTEGER NOT NULL,
+        rows_failed INTEGER NOT NULL,
+        rows_skipped INTEGER NOT NULL,
+        retry_count INTEGER NOT NULL,
+        checksum TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        status TEXT NOT NULL
+    )
+    """)
+    cp_conn.commit()
     
     print("  --> Streaming data in parallel batch streams with adaptive governor controls...")
     
