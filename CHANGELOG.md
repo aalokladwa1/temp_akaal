@@ -2,6 +2,14 @@
 
 All notable changes to the Akaal Enterprise Orchestration Platform are documented in this file.
 
+## [1.6.1] - Post Stage 3 Enterprise Foundation Freeze (2026-07-24)
+
+### Certified Baseline
+- **Enterprise Foundation Freeze**: Certified Stage 3 completion and frozen foundation baseline (`v0.10-stage3-certified`).
+- **Hygiene & Verification Audit**: Audited repository hygiene, verified package boundaries, configuration integrity, and dependency security.
+- **Evidence & Performance Baseline**: Preserved Stage 3 Flagship 10M+ row migration evidence (100% Merkle match, 0 delta) and published `PHASE10_BASELINE.md`.
+- **Documentation & Manifest Freeze**: Created `REPOSITORY_HYGIENE.md`, `ARCHITECTURE_REVIEW.md`, `CONFIGURATION_AUDIT.md`, `DEPENDENCY_AUDIT.md`, `TECHNICAL_DEBT.md`, `RELEASE_NOTES.md`, and `FOUNDATION_FREEZE_MANIFEST.md`.
+
 ## [1.6.0] - Phase 10 Enterprise Cross-Platform Integration (2026-07-22)
 
 ### Added
