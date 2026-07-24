@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 # Public Façades Only (Strict Architectural Boundary)
 from akaal.orchestration import WorkflowEngine
 from akaal.validation import EnterpriseValidationPlatformV1
+from akaal.healing import EnterpriseSelfHealingPlatformV2
 from akaal.distributed.facade.runtime import DefaultDistributedRuntimeV1
 from akaal.streaming.facade.runtime import DefaultStreamingRuntimeV1
 from akaal.cdc.coordinator_facade import CoordinatorFacade
@@ -274,6 +275,7 @@ class CrossPlatformContext:
         # Facade Bindings
         self.workflow_engine = platform1_wf
         self.validation_platform = EnterpriseValidationPlatformV1()
+        self.self_healing_platform = EnterpriseSelfHealingPlatformV2()
         self.distributed_runtime = platform2_dist
         self.streaming_runtime = platform3_stream
         self.cdc_facade = platform4_cdc
