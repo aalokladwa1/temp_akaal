@@ -27,6 +27,8 @@ from akaal.performance.facade.runtime import DefaultPerformanceRuntimeV1
 from akaal.api.facade import Platform7Facade
 from akaal.reporting.api.facade import Platform8Facade
 from akaal.operations.facade.platform9 import DefaultOperationsPlatformV9
+from akaal.resilience_eng.facade.platform5 import EnterpriseResiliencePlatformV5
+from akaal.governance.facade.platform6 import EnterpriseGovernancePlatformV6
 
 logger = logging.getLogger("akaal.integration.composition_root")
 
@@ -269,6 +271,7 @@ class CrossPlatformContext:
         platform7_api: Platform7Facade,
         platform8_rep: Platform8Facade,
         platform9_ops: DefaultOperationsPlatformV9,
+        platform11_p5_resilience: Optional[EnterpriseResiliencePlatformV5] = None,
     ) -> None:
         self.registry = registry
         self.dependency_graph = graph
@@ -288,6 +291,10 @@ class CrossPlatformContext:
         self.api_facade = platform7_api
         self.reporting_facade = platform8_rep
         self.operations_platform = platform9_ops
+        # Phase 11 Platform 5: Enterprise Resilience Validation Platform
+        self.resilience_platform = platform11_p5_resilience or EnterpriseResiliencePlatformV5()
+        # Phase 11 Platform 6: Enterprise Governance Platform
+        self.governance_platform = EnterpriseGovernancePlatformV6()
 
         self.start_time = time.time()
 
@@ -374,7 +381,10 @@ class EnterpriseLifecycleManager:
         startup_order = self.dependency_graph.get_startup_order()
         logger.info("Topological startup order: %s", " -> ".join(startup_order))
 
-        # 5. Build Context
+        # 5. Instantiate Phase 11 Platform 5 Resilience Platform
+        p11_p5_resilience = EnterpriseResiliencePlatformV5()
+
+        # 6. Build Context
         self.context = CrossPlatformContext(
             registry=self.registry,
             graph=self.dependency_graph,
@@ -388,15 +398,16 @@ class EnterpriseLifecycleManager:
             platform7_api=p7_api,
             platform8_rep=p8_rep,
             platform9_ops=p9_ops,
+            platform11_p5_resilience=p11_p5_resilience,
         )
 
-        # 6. Verify Health Report
+        # 7. Verify Health Report
         health = self.health_registry.aggregate_health()
         if health["system_status"] == "UNHEALTHY":
             raise PlatformValidationFailedError("Startup validation failed: Unified system status is UNHEALTHY.")
 
         self._is_started = True
-        logger.info("AKAAL Enterprise Platform Composition successfully bootstrapped.")
+        logger.info("AKAAL Enterprise Platform Composition successfully bootstrapped (Phase 11 Platform 5 integrated).")
         return self.context
 
     def shutdown(self) -> bool:
@@ -465,10 +476,31 @@ def execute_e2e_smoke_test(context: CrossPlatformContext) -> Dict[str, Any]:
     twin = ops.digital_twin
     results["platform-9"] = {"status": "SUCCESS", "twin_node_count": len(twin.nodes)}
 
+    # Phase 11 Platform 5: Enterprise Resilience Validation Platform
+    resilience = context.resilience_platform
+    results["phase11-platform5"] = {
+        "status": "SUCCESS",
+        "platform_name": resilience.platform_name,
+        "version": resilience.version,
+        "profile": resilience.profile,
+        "facade_available": resilience is not None,
+    }
+
+    # Phase 11 Platform 6: Enterprise Governance Platform
+    governance = context.governance_platform
+    results["phase11-platform6"] = {
+        "status": "SUCCESS",
+        "platform_name": governance.platform_name,
+        "version": governance.version,
+        "profile": governance.profile,
+        "facade_available": governance is not None,
+    }
+
     results["e2e_summary"] = {
         "status": "SUCCESS",
         "platforms_verified": len(results) - 1,
         "timestamp": time.time()
     }
+
 
     return results

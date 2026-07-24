@@ -161,3 +161,22 @@ class ReportDTO(BaseModel):
     report_type: str
     generated_at: str
     metrics: Dict[str, Any] = Field(default_factory=dict)
+
+
+class GovernanceApprovalRequestDTO(BaseModel):
+    request_id: str
+    target_platform: str
+    operation_type: str
+    requester_id: str
+    payload: Dict[str, Any] = Field(default_factory=dict)
+    requested_approvers: List[str] = Field(default_factory=list)
+
+
+class GovernanceDecisionDTO(BaseModel):
+    decision_id: str
+    workflow_id: str
+    status: str
+    rationale: str
+    ledger_block_hash: str
+    evaluated_at: str
+
