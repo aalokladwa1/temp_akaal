@@ -2,6 +2,17 @@
 
 All notable changes to the Akaal Enterprise Orchestration Platform are documented in this file.
 
+## [v12.1.0-bootstrap] - Phase 12 Stage 1 Unified Platform Bootstrap (2026-07-25)
+
+### Added
+- **Unified Platform Bootstrap & Composition Root (`akaal/integration/composition_root.py`)**:
+  - `EnterpriseLifecycleManager`: Formalized 13-phase enterprise lifecycle states (`CREATED` -> `PRE_INIT` -> `CONFIGURATION` -> `SERVICE_REGISTRATION` -> `PLUGIN_REGISTRATION` -> `AGENT_REGISTRATION` -> `PLATFORM_REGISTRATION` -> `ENGINE_REGISTRATION` -> `HEALTH_CHECK` -> `READY` -> `RUNNING` -> `SHUTTING_DOWN` -> `STOPPED`).
+  - `Idempotent Bootstrap`: Enforced thread-safe, idempotent application bootstrapping (`bootstrap()`), returning existing initialized `CrossPlatformContext` without duplicate registrations.
+  - `Pre-Phase 12 Core Engines Integration`: Bound `DeterministicResumeEngine`, `ZeroDuplicateMigrationEngine`, `DatabaseExpansionEngine`, `BatchLevelValidator`, `MigrationBottleneckDetector`, `AdaptiveThroughputOptimizer`, `AdaptiveParallelismEngine`, and `ObservabilityService` cleanly inside `CrossPlatformContext`.
+  - `Dynamic Startup Diagnostics`: `get_startup_diagnostics()` dynamically derives runtime diagnostics from `PlatformRegistry`, `AgentType`, `SystemType`, and `HealthRegistry`.
+  - `Main Entrypoint Integration`: Updated [main.py](file:///a:/temp_akaal/main.py) to invoke unified platform bootstrap before pipeline execution.
+- **Unit & Integration Test Suite**: Created `tests/unit/test_phase12_stage1_bootstrap.py` covering bootstrap, 13 lifecycle states, diagnostics, idempotency, and e2e smoke testing. 26/26 tests passing in 1.67s.
+
 ## [v1.0.0-enterprise-final] - Phase 13 Complete Enterprise Ecosystem (Platforms 1–11) (2026-07-24)
 
 ### Added

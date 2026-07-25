@@ -1,7 +1,7 @@
 """
 Akaal — Main Entrypoint
 ========================
-Run a full end-to-end migration.
+Run a full end-to-end migration via unified Enterprise Lifecycle Manager bootstrap.
 
 Usage:
     python main.py
@@ -24,6 +24,7 @@ logging.basicConfig(
     stream=sys.stdout,
 )
 
+from akaal.integration.composition_root import EnterpriseLifecycleManager, execute_e2e_smoke_test
 from akaal.core.pipeline import AkaalPipeline, MigrationConfig
 from akaal.core.models.project import ConnectionConfig
 from akaal.core.models.enums import SystemType, MigrationStrategy
@@ -31,9 +32,18 @@ from akaal.core.models.enums import SystemType, MigrationStrategy
 
 async def main():
     # ──────────────────────────────────────────────────────────────────
-    # CONFIGURE YOUR MIGRATION HERE
+    # 1. UNIFIED ENTERPRISE BOOTSTRAP (Phase 12 Stage 1)
     # ──────────────────────────────────────────────────────────────────
+    lifecycle_manager = EnterpriseLifecycleManager()
+    context = lifecycle_manager.bootstrap()
+    
+    # Optional smoke test verification of all registered platforms & engines
+    smoke_results = execute_e2e_smoke_test(context)
+    logging.info("Unified Platform Bootstrap complete. E2E Smoke Summary: %s", smoke_results["e2e_summary"])
 
+    # ──────────────────────────────────────────────────────────────────
+    # 2. CONFIGURE YOUR MIGRATION HERE
+    # ──────────────────────────────────────────────────────────────────
     source_config = ConnectionConfig(
         system_type=SystemType.ORACLE,
         host="oracle-prod.example.com",       # ← your source DB host
@@ -63,9 +73,9 @@ async def main():
     )
 
     # ──────────────────────────────────────────────────────────────────
-    # RUN
+    # 3. RUN MIGRATION WORKFLOW
     # ──────────────────────────────────────────────────────────────────
-
+    lifecycle_manager.mark_running()
     pipeline = AkaalPipeline()
     result = await pipeline.run(config)
 
@@ -91,6 +101,9 @@ async def main():
         print(f"    Completed:  {mig.get('completed_at', 'N/A')}")
 
     print("=" * 70)
+
+    # Graceful shutdown
+    lifecycle_manager.shutdown()
 
 
 if __name__ == "__main__":

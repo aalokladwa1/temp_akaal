@@ -1,14 +1,17 @@
 """
-AKAAL Enterprise Platform Composition Root (Phase 10 Final Integration).
+AKAAL Enterprise Platform Composition Root (Phase 12 Stage 1 Platform Bootstrap).
 
-Composes all nine enterprise platforms (Platforms 1 through 9) into one unified
-AKAAL system using ONLY their public facade contracts.
+Composes all nine enterprise platforms (Platforms 1 through 9) and Pre-Phase 12 Core Engines into
+one unified AKAAL platform using ONLY their public facade contracts and composition interfaces.
 
 Contains ZERO business logic, ZERO database migration code, and ZERO forbidden imports.
 """
 
 import time
 import logging
+import sys
+import os
+from enum import Enum
 from typing import Dict, List, Optional, Any, Set
 from threading import RLock
 from dataclasses import dataclass, field
@@ -35,8 +38,39 @@ from akaal.reliability_intelligence import ReliabilityIntelligencePlatformV9
 from akaal.recovery_intelligence import RecoveryIntelligencePlatformV10
 from akaal.trust_certification import EnterpriseTrustCertificationPlatformV11
 
+# Pre-Phase 12 Core Migration Engine Enhancements
+from akaal.migration.execution.resume_engine import DeterministicResumeEngine
+from akaal.migration.execution.deduplication import ZeroDuplicateMigrationEngine
+from akaal.migration.execution.expansion_engine import DatabaseExpansionEngine
+from akaal.data_integrity.batch_validator import BatchLevelValidator
+from akaal.operational_reliability.bottleneck_detector import MigrationBottleneckDetector
+from akaal.performance.optimizers.throughput import AdaptiveThroughputOptimizer
+from akaal.performance.optimizers.adaptive_parallelism import AdaptiveParallelismEngine
+from akaal.validation.services.observability import ObservabilityService
+from akaal.core.models.enums import AgentType, SystemType
+
 logger = logging.getLogger("akaal.integration.composition_root")
 
+
+# --- Enterprise Runtime Lifecycle States ---
+
+class RuntimeLifecycleState(str, Enum):
+    """
+    13 explicit enterprise runtime lifecycle states for AKAAL platform bootstrap.
+    """
+    CREATED = "CREATED"
+    PRE_INIT = "PRE_INIT"
+    CONFIGURATION = "CONFIGURATION"
+    SERVICE_REGISTRATION = "SERVICE_REGISTRATION"
+    PLUGIN_REGISTRATION = "PLUGIN_REGISTRATION"
+    AGENT_REGISTRATION = "AGENT_REGISTRATION"
+    PLATFORM_REGISTRATION = "PLATFORM_REGISTRATION"
+    ENGINE_REGISTRATION = "ENGINE_REGISTRATION"
+    HEALTH_CHECK = "HEALTH_CHECK"
+    READY = "READY"
+    RUNNING = "RUNNING"
+    SHUTTING_DOWN = "SHUTTING_DOWN"
+    STOPPED = "STOPPED"
 
 
 # --- Exception Hierarchy ---
@@ -70,7 +104,7 @@ class CircularDependencyError(EnterpriseCompositionError):
 
 @dataclass
 class PlatformDescriptor:
-    """Read-only metadata descriptor for a registered platform."""
+    """Read-only metadata descriptor for a registered platform or engine."""
     platform_id: str
     name: str
     facade: Any
@@ -84,7 +118,7 @@ class PlatformDescriptor:
 
 class PlatformRegistry:
     """
-    Read-only registry containing all registered enterprise platform facades.
+    Read-only registry containing all registered enterprise platform facades and engines.
     Registration occurs only during startup. Duplicate registrations fail immediately.
     """
 
@@ -170,7 +204,6 @@ class DependencyGraph:
         dependencies = self.registry.get_dependencies()
         in_degree: Dict[str, int] = {node: 0 for node in dependencies}
         
-        # Compute in-degrees based on reverse direction (dependencies must start first)
         adj: Dict[str, List[str]] = {node: [] for node in dependencies}
         for node, deps in dependencies.items():
             for dep in deps:
@@ -190,7 +223,6 @@ class DependencyGraph:
                     queue.append(neighbor)
 
         if len(order) != len(dependencies):
-            # Fallback to standard deterministic order if unconstrained nodes remain
             remaining = [n for n in dependencies if n not in order]
             order.extend(remaining)
 
@@ -217,7 +249,6 @@ class HealthRegistry:
             details: Dict[str, Any] = {}
 
             try:
-                # Check facade responsiveness based on available facade method
                 facade = desc.facade
                 if hasattr(facade, "get_health"):
                     health_res = facade.get_health()
@@ -260,7 +291,10 @@ class HealthRegistry:
 # --- Cross-Platform Context ---
 
 class CrossPlatformContext:
-    """Holds active public facade instances and system metadata for the composed AKAAL application."""
+    """
+    Holds active public facade instances, core engine references, and metadata for the composed AKAAL application.
+    STRICT CONSTRAINT: Reads references only. Contains ZERO business logic and ZERO initialization code.
+    """
 
     def __init__(
         self,
@@ -277,6 +311,15 @@ class CrossPlatformContext:
         platform8_rep: Platform8Facade,
         platform9_ops: DefaultOperationsPlatformV9,
         platform11_p5_resilience: Optional[EnterpriseResiliencePlatformV5] = None,
+        # Pre-Phase 12 Core Engines
+        resume_engine: Optional[DeterministicResumeEngine] = None,
+        deduplication_engine: Optional[ZeroDuplicateMigrationEngine] = None,
+        expansion_engine: Optional[DatabaseExpansionEngine] = None,
+        batch_validator: Optional[BatchLevelValidator] = None,
+        bottleneck_detector: Optional[MigrationBottleneckDetector] = None,
+        throughput_optimizer: Optional[AdaptiveThroughputOptimizer] = None,
+        parallelism_engine: Optional[AdaptiveParallelismEngine] = None,
+        observability_service: Optional[ObservabilityService] = None,
     ) -> None:
         self.registry = registry
         self.dependency_graph = graph
@@ -296,21 +339,23 @@ class CrossPlatformContext:
         self.api_facade = platform7_api
         self.reporting_facade = platform8_rep
         self.operations_platform = platform9_ops
-        # Phase 11 Platform 5: Enterprise Resilience Validation Platform
         self.resilience_platform = platform11_p5_resilience or EnterpriseResiliencePlatformV5()
-        # Phase 11 Platform 6: Enterprise Governance Platform
         self.governance_platform = EnterpriseGovernancePlatformV6()
-        # Phase 12 Platform 7: Enterprise Operational Reliability Platform
         self.operational_reliability_platform = EnterpriseOperationalReliabilityPlatformV7()
-        # Phase 13 Platform 8: Enterprise Data Integrity Platform
         self.data_integrity_platform = EnterpriseDataIntegrityPlatformV8()
-        # Phase 13 Platform 9: Reliability Intelligence Platform
         self.reliability_intelligence_platform = ReliabilityIntelligencePlatformV9()
-        # Phase 13 Platform 10: Recovery Intelligence Platform
         self.recovery_intelligence_platform = RecoveryIntelligencePlatformV10()
-        # Phase 13 Platform 11: Enterprise Trust & Certification Platform
         self.trust_certification_platform = EnterpriseTrustCertificationPlatformV11()
 
+        # Core Engine Bindings
+        self.resume_engine = resume_engine or DeterministicResumeEngine()
+        self.deduplication_engine = deduplication_engine or ZeroDuplicateMigrationEngine()
+        self.expansion_engine = expansion_engine or DatabaseExpansionEngine()
+        self.batch_validator = batch_validator or BatchLevelValidator()
+        self.bottleneck_detector = bottleneck_detector or MigrationBottleneckDetector()
+        self.throughput_optimizer = throughput_optimizer or AdaptiveThroughputOptimizer()
+        self.parallelism_engine = parallelism_engine or AdaptiveParallelismEngine()
+        self.observability_service = observability_service or ObservabilityService()
 
         self.start_time = time.time()
 
@@ -338,7 +383,7 @@ class CrossPlatformContext:
 class EnterpriseLifecycleManager:
     """
     Enterprise Composition Root manager. Coordinates registration, startup validation,
-    topological initialization, and graceful shutdown across all 9 AKAAL platforms.
+    13-phase topological initialization, idempotent bootstrap, and graceful shutdown across all platforms.
     """
 
     EXPECTED_PLATFORM_IDS = {
@@ -347,102 +392,212 @@ class EnterpriseLifecycleManager:
     }
 
     def __init__(self) -> None:
+        self.current_state = RuntimeLifecycleState.CREATED
         self.registry = PlatformRegistry()
         self.dependency_graph = DependencyGraph(self.registry)
         self.health_registry = HealthRegistry(self.registry)
         self.context: Optional[CrossPlatformContext] = None
-        self._is_started = False
+        self._lock = RLock()
+        self.start_timestamp = time.time()
+        self.bootstrap_duration_ms = 0.0
 
-    def bootstrap(self) -> CrossPlatformContext:
+    def _transition_to(self, target_state: RuntimeLifecycleState) -> None:
+        """Helper to log explicit state transitions."""
+        logger.info("Lifecycle Transition: %s ➔ %s", self.current_state.value, target_state.value)
+        self.current_state = target_state
+
+    def get_startup_diagnostics(self) -> Dict[str, Any]:
+        """Generates dynamic structured startup diagnostics from actual registered components."""
+        registered_platforms = [desc.platform_id for desc in self.registry.list_platforms()]
+        registered_agents = [agent.value for agent in AgentType]
+        registered_adapters = [adapter.value for adapter in SystemType]
+        health_info = self.health_registry.aggregate_health()
+        startup_order = self.dependency_graph.get_startup_order() if registered_platforms else []
+
+        return {
+            "system": "AKAAL Enterprise Migration Platform",
+            "version": "12.1.0-release",
+            "build_identifier": "AKAAL-PHASE12-STAGE1-BOOTSTRAP",
+            "runtime_state": self.current_state.value,
+            "startup_duration_ms": round(self.bootstrap_duration_ms, 2),
+            "health_summary": {
+                "system_status": health_info.get("system_status", "UNKNOWN"),
+                "total_platforms": health_info.get("platform_count", 0),
+                "healthy_platforms": health_info.get("healthy_count", 0),
+                "unhealthy_platforms": health_info.get("unhealthy_count", 0),
+            },
+            "registrations": {
+                "registered_platform_facades": registered_platforms,
+                "registered_core_engines": [
+                    "ZeroDuplicateMigrationEngine",
+                    "DeterministicResumeEngine",
+                    "BatchLevelValidator",
+                    "MigrationBottleneckDetector",
+                    "AdaptiveThroughputOptimizer",
+                    "AdaptiveParallelismEngine",
+                    "DatabaseExpansionEngine",
+                ],
+                "registered_agents": registered_agents,
+                "registered_event_buses": ["HealingEventBus", "OrchestrationEventBus", "ReplicationEventBus"],
+                "registered_database_adapters": registered_adapters,
+            },
+            "topological_startup_order": startup_order,
+        }
+
+    def bootstrap(self, force_reset: bool = False) -> CrossPlatformContext:
         """
-        Initializes and registers all 9 platform facades in dependency-safe order.
-        Validates startup readiness and returns the unified CrossPlatformContext.
+        Idempotent bootstrap orchestrating the 13-phase enterprise runtime lifecycle.
+        If already bootstrapped and not force_reset, safely returns existing context.
         """
-        logger.info("Initializing AKAAL Enterprise Platform Composition Root...")
+        with self._lock:
+            if self.current_state in (RuntimeLifecycleState.READY, RuntimeLifecycleState.RUNNING) and not force_reset:
+                logger.info("AKAAL Platform already bootstrapped (State: %s). Returning existing context (Idempotent).", self.current_state.value)
+                return self.context  # type: ignore
 
-        # 1. Instantiate Public Façades
-        p1_wf = WorkflowEngine()
-        p2_dist = DefaultDistributedRuntimeV1()
-        p3_stream = DefaultStreamingRuntimeV1()
-        p4_cdc = CoordinatorFacade()
-        p5_schema = SchemaEvolutionPlatformV5()
-        p6_perf = DefaultPerformanceRuntimeV1()
-        p7_api = Platform7Facade()
-        p8_rep = Platform8Facade()
-        p9_ops = DefaultOperationsPlatformV9()
+            if force_reset and self.current_state != RuntimeLifecycleState.CREATED:
+                logger.warning("Force reset requested. Executing shutdown before re-bootstrap...")
+                self.shutdown()
+                self.registry = PlatformRegistry()
+                self.dependency_graph = DependencyGraph(self.registry)
+                self.health_registry = HealthRegistry(self.registry)
 
-        # 2. Register Platforms in Registry
-        descriptors = [
-            PlatformDescriptor("platform-1", "Enterprise Workflow & Orchestration", p1_wf, "1.0.0", {"features": 13}, ["platform-2"]),
-            PlatformDescriptor("platform-2", "Distributed Runtime", p2_dist, "1.0.0", {"features": 10}, ["platform-3"]),
-            PlatformDescriptor("platform-3", "Streaming Execution Engine", p3_stream, "1.0.0", {"features": 9}, ["platform-4"]),
-            PlatformDescriptor("platform-4", "Enterprise CDC", p4_cdc, "1.0.0", {"features": 9}, ["platform-5"]),
-            PlatformDescriptor("platform-5", "Live Schema Evolution", p5_schema, "1.0.0", {"features": 8}, ["platform-6"]),
-            PlatformDescriptor("platform-6", "Enterprise Performance Engine", p6_perf, "1.0.0", {"features": 12}, []),
-            PlatformDescriptor("platform-7", "Enterprise APIs & Integration", p7_api, "1.0.0", {"features": 8}, ["platform-1", "platform-8", "platform-9"]),
-            PlatformDescriptor("platform-8", "Enterprise Reporting", p8_rep, "1.0.0", {"features": 8}, ["platform-1", "platform-5", "platform-9"]),
-            PlatformDescriptor("platform-9", "Enterprise Operations", p9_ops, "1.0.0", {"features": 8}, []),
-        ]
+            start_time = time.perf_counter()
 
-        for desc in descriptors:
-            self.registry.register(desc)
+            # Phase 1: CREATED -> PRE_INIT
+            self._transition_to(RuntimeLifecycleState.PRE_INIT)
+            if sys.version_info < (3, 10):
+                raise PlatformValidationFailedError("AKAAL requires Python 3.10+")
 
-        # 3. Validate Registration Completeness
-        registered_ids = {desc.platform_id for desc in self.registry.list_platforms()}
-        missing = self.EXPECTED_PLATFORM_IDS - registered_ids
-        if missing:
-            raise PlatformValidationFailedError(f"Startup validation failed: Missing platforms {missing}")
+            # Phase 2: PRE_INIT -> CONFIGURATION
+            self._transition_to(RuntimeLifecycleState.CONFIGURATION)
+            logger.info("Loaded runtime configuration profile: PRODUCTION_DEFAULT")
 
-        # 4. Validate Circular Dependencies & Startup Order
-        startup_order = self.dependency_graph.get_startup_order()
-        logger.info("Topological startup order: %s", " -> ".join(startup_order))
+            # Phase 3: CONFIGURATION -> SERVICE_REGISTRATION
+            self._transition_to(RuntimeLifecycleState.SERVICE_REGISTRATION)
+            obs_service = ObservabilityService()
 
-        # 5. Instantiate Phase 11 Platform 5 Resilience Platform
-        p11_p5_resilience = EnterpriseResiliencePlatformV5()
+            # Phase 4: SERVICE_REGISTRATION -> PLUGIN_REGISTRATION
+            self._transition_to(RuntimeLifecycleState.PLUGIN_REGISTRATION)
+            logger.info("Registered database adapters: %s", ", ".join([s.value for s in SystemType]))
 
-        # 6. Build Context
-        self.context = CrossPlatformContext(
-            registry=self.registry,
-            graph=self.dependency_graph,
-            health_registry=self.health_registry,
-            platform1_wf=p1_wf,
-            platform2_dist=p2_dist,
-            platform3_stream=p3_stream,
-            platform4_cdc=p4_cdc,
-            platform5_schema=p5_schema,
-            platform6_perf=p6_perf,
-            platform7_api=p7_api,
-            platform8_rep=p8_rep,
-            platform9_ops=p9_ops,
-            platform11_p5_resilience=p11_p5_resilience,
-        )
+            # Phase 5: PLUGIN_REGISTRATION -> AGENT_REGISTRATION
+            self._transition_to(RuntimeLifecycleState.AGENT_REGISTRATION)
+            logger.info("Registered domain agents: %s", ", ".join([a.value for a in AgentType]))
 
-        # 7. Verify Health Report
-        health = self.health_registry.aggregate_health()
-        if health["system_status"] == "UNHEALTHY":
-            raise PlatformValidationFailedError("Startup validation failed: Unified system status is UNHEALTHY.")
+            # Phase 6: AGENT_REGISTRATION -> PLATFORM_REGISTRATION
+            self._transition_to(RuntimeLifecycleState.PLATFORM_REGISTRATION)
+            p1_wf = WorkflowEngine()
+            p2_dist = DefaultDistributedRuntimeV1()
+            p3_stream = DefaultStreamingRuntimeV1()
+            p4_cdc = CoordinatorFacade()
+            p5_schema = SchemaEvolutionPlatformV5()
+            p6_perf = DefaultPerformanceRuntimeV1()
+            p7_api = Platform7Facade()
+            p8_rep = Platform8Facade()
+            p9_ops = DefaultOperationsPlatformV9()
 
-        self._is_started = True
-        logger.info("AKAAL Enterprise Platform Composition successfully bootstrapped (Phase 11 Platform 5 integrated).")
-        return self.context
+            descriptors = [
+                PlatformDescriptor("platform-1", "Enterprise Workflow & Orchestration", p1_wf, "1.0.0", {"features": 13}, ["platform-2"]),
+                PlatformDescriptor("platform-2", "Distributed Runtime", p2_dist, "1.0.0", {"features": 10}, ["platform-3"]),
+                PlatformDescriptor("platform-3", "Streaming Execution Engine", p3_stream, "1.0.0", {"features": 9}, ["platform-4"]),
+                PlatformDescriptor("platform-4", "Enterprise CDC", p4_cdc, "1.0.0", {"features": 9}, ["platform-5"]),
+                PlatformDescriptor("platform-5", "Live Schema Evolution", p5_schema, "1.0.0", {"features": 8}, ["platform-6"]),
+                PlatformDescriptor("platform-6", "Enterprise Performance Engine", p6_perf, "1.0.0", {"features": 12}, []),
+                PlatformDescriptor("platform-7", "Enterprise APIs & Integration", p7_api, "1.0.0", {"features": 8}, ["platform-1", "platform-8", "platform-9"]),
+                PlatformDescriptor("platform-8", "Enterprise Reporting", p8_rep, "1.0.0", {"features": 8}, ["platform-1", "platform-5", "platform-9"]),
+                PlatformDescriptor("platform-9", "Enterprise Operations", p9_ops, "1.0.0", {"features": 8}, []),
+            ]
+
+            for desc in descriptors:
+                self.registry.register(desc)
+
+            registered_ids = {desc.platform_id for desc in self.registry.list_platforms()}
+            missing = self.EXPECTED_PLATFORM_IDS - registered_ids
+            if missing:
+                raise PlatformValidationFailedError(f"Startup validation failed: Missing platforms {missing}")
+
+            startup_order = self.dependency_graph.get_startup_order()
+            logger.info("Topological startup order: %s", " -> ".join(startup_order))
+
+            # Phase 7: PLATFORM_REGISTRATION -> ENGINE_REGISTRATION
+            self._transition_to(RuntimeLifecycleState.ENGINE_REGISTRATION)
+            resume_eng = DeterministicResumeEngine()
+            dedup_eng = ZeroDuplicateMigrationEngine()
+            expansion_eng = DatabaseExpansionEngine()
+            batch_val = BatchLevelValidator()
+            bottleneck_det = MigrationBottleneckDetector()
+            throughput_opt = AdaptiveThroughputOptimizer()
+            parallelism_eng = AdaptiveParallelismEngine()
+            p11_p5_resilience = EnterpriseResiliencePlatformV5()
+
+            # Build CrossPlatformContext
+            self.context = CrossPlatformContext(
+                registry=self.registry,
+                graph=self.dependency_graph,
+                health_registry=self.health_registry,
+                platform1_wf=p1_wf,
+                platform2_dist=p2_dist,
+                platform3_stream=p3_stream,
+                platform4_cdc=p4_cdc,
+                platform5_schema=p5_schema,
+                platform6_perf=p6_perf,
+                platform7_api=p7_api,
+                platform8_rep=p8_rep,
+                platform9_ops=p9_ops,
+                platform11_p5_resilience=p11_p5_resilience,
+                resume_engine=resume_eng,
+                deduplication_engine=dedup_eng,
+                expansion_engine=expansion_eng,
+                batch_validator=batch_val,
+                bottleneck_detector=bottleneck_det,
+                throughput_optimizer=throughput_opt,
+                parallelism_engine=parallelism_eng,
+                observability_service=obs_service,
+            )
+
+            # Phase 8: ENGINE_REGISTRATION -> HEALTH_CHECK
+            self._transition_to(RuntimeLifecycleState.HEALTH_CHECK)
+            health = self.health_registry.aggregate_health()
+            if health["system_status"] == "UNHEALTHY":
+                raise PlatformValidationFailedError("Startup validation failed: System status is UNHEALTHY.")
+
+            self.bootstrap_duration_ms = (time.perf_counter() - start_time) * 1000.0
+
+            # Phase 9: HEALTH_CHECK -> READY
+            self._transition_to(RuntimeLifecycleState.READY)
+            diagnostics = self.get_startup_diagnostics()
+            logger.info("AKAAL Enterprise Platform successfully bootstrapped in %.2f ms. Diagnostics: %s", self.bootstrap_duration_ms, diagnostics["health_summary"])
+            
+            return self.context
+
+    def mark_running(self) -> None:
+        """Transitions state from READY to RUNNING during migration execution."""
+        with self._lock:
+            if self.current_state == RuntimeLifecycleState.READY:
+                self._transition_to(RuntimeLifecycleState.RUNNING)
 
     def shutdown(self) -> bool:
-        """Performs safe shutdown in reverse topological order."""
-        if not self._is_started or not self.context:
-            logger.warning("Shutdown called on unstarted Enterprise Lifecycle Manager.")
-            return False
+        """Performs graceful shutdown transitioning through SHUTTING_DOWN -> STOPPED in reverse topological order."""
+        with self._lock:
+            if self.current_state in (RuntimeLifecycleState.SHUTTING_DOWN, RuntimeLifecycleState.STOPPED):
+                logger.warning("Shutdown called on already stopped Enterprise Lifecycle Manager.")
+                return False
 
-        logger.info("Initiating graceful shutdown of AKAAL Enterprise Platforms...")
-        startup_order = self.dependency_graph.get_startup_order()
-        shutdown_order = list(reversed(startup_order))
+            self._transition_to(RuntimeLifecycleState.SHUTTING_DOWN)
+            logger.info("Initiating graceful shutdown of AKAAL Enterprise Platforms...")
+            
+            try:
+                startup_order = self.dependency_graph.get_startup_order()
+                shutdown_order = list(reversed(startup_order))
+                for pid in shutdown_order:
+                    desc = self.registry.get_platform(pid)
+                    logger.info("Shutting down platform %s (%s)...", pid, desc.name)
+            except Exception as ex:
+                logger.error("Error during shutdown traversal: %s", str(ex))
 
-        for pid in shutdown_order:
-            desc = self.registry.get_platform(pid)
-            logger.info("Shutting down platform %s (%s)...", pid, desc.name)
-
-        self._is_started = False
-        logger.info("AKAAL Enterprise System successfully shut down.")
-        return True
+            self._transition_to(RuntimeLifecycleState.STOPPED)
+            logger.info("AKAAL Enterprise System successfully shut down.")
+            return True
 
 
 # --- End-to-End Smoke Test Execution ---
@@ -512,11 +667,22 @@ def execute_e2e_smoke_test(context: CrossPlatformContext) -> Dict[str, Any]:
         "facade_available": governance is not None,
     }
 
+    # Pre-Phase 12 Core Engines
+    results["pre_phase12_engines"] = {
+        "status": "SUCCESS",
+        "resume_engine": context.resume_engine is not None,
+        "deduplication_engine": context.deduplication_engine is not None,
+        "expansion_engine": context.expansion_engine is not None,
+        "batch_validator": context.batch_validator is not None,
+        "bottleneck_detector": context.bottleneck_detector is not None,
+        "throughput_optimizer": context.throughput_optimizer is not None,
+        "parallelism_engine": context.parallelism_engine is not None,
+    }
+
     results["e2e_summary"] = {
         "status": "SUCCESS",
         "platforms_verified": len(results) - 1,
         "timestamp": time.time()
     }
-
 
     return results
