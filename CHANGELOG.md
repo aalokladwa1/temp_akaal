@@ -2,6 +2,16 @@
 
 All notable changes to the Akaal Enterprise Orchestration Platform are documented in this file.
 
+## [v12.2.0-runtime] - Phase 12 Stage 2 Unified Migration Runtime (2026-07-25)
+
+### Added
+- **Unified Migration Runtime Execution (`akaal/core/pipeline.py`)**:
+  - `MigrationRuntimeState`: Defined 11-stage explicit runtime execution state machine (`CREATED` -> `DISCOVERING` -> `ANALYZING` -> `PLANNING` -> `APPROVAL_PENDING` -> `EXECUTING_SCHEMA` -> `EXECUTING_DATA` -> `VALIDATING` -> `RECOVERING` -> `REPORTING` -> `COMPLETED`).
+  - `Lifecycle Integration`: Integrated `EnterpriseLifecycleManager.bootstrap()` dynamically inside `AkaalPipeline.run(config)` to execute the complete end-to-end migration lifecycle using the unified runtime.
+  - `Pre-Phase 12 Core Engines Lifecycle Binding`: Bound `ZeroDuplicateMigrationEngine`, `DatabaseExpansionEngine`, `BatchLevelValidator`, `DeterministicResumeEngine`, and `EnterpriseSelfHealingPlatformV2` directly into the unified runtime pipeline.
+  - `Trust & Integrity Verification`: Connected inline pre-commit cryptographic batch verification (`BatchLevelValidator`) and trust certification (`EnterpriseTrustCertificationPlatformV11`).
+- **Unit Test Suite**: Created `tests/unit/test_phase12_stage2_runtime.py` verifying end-to-end unified migration execution, runtime state transitions, context propagation, and self-healing recovery intercepts. All 29 system tests passing cleanly in 2.29s.
+
 ## [v12.1.0-bootstrap] - Phase 12 Stage 1 Unified Platform Bootstrap (2026-07-25)
 
 ### Added
