@@ -23,6 +23,16 @@ class DomainEvent(ABC):
     timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     aggregate_id: str = ""
     event_type: str = field(init=False)
+    version: str = "1.0"
+    correlation_id: str = ""
+    causation_id: str = ""
+    parent_event_id: str = ""
+    source: str = ""
+    destination: str = ""
+    delivery_mode: str = "AT_LEAST_ONCE"
+    priority: str = "P2_NORMAL"
+    ttl: float = 86400.0
+    checksum: str = ""
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "event_type", self.__class__.__name__)

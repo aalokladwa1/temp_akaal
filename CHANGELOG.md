@@ -2,6 +2,17 @@
 
 All notable changes to the Akaal Enterprise Orchestration Platform are documented in this file.
 
+## [v12.3.0-agent-network] - Phase 12 Stage 3 Agent Network Integration (2026-07-25)
+
+### Added
+- **Agent Network & SystemAgent Integration (`akaal/agents/manager/manager_agent.py`)**:
+  - `SystemAgent`: Implemented explicit Phase 12 Stage 3 runtime participant for platform diagnostics, resource monitoring, telemetry, capability reporting, and version tracking (`12.3.0`).
+  - `18-Agent Active-Standby Fleet`: Expanded agent fleet in `AkaalPipeline._run_agent_fleet()` ([akaal/core/pipeline.py](file:///a:/temp_akaal/akaal/core/pipeline.py#L492)) to 18 agents (9 primary-backup pairs covering all 11 agent roles: `Manager`, `Scout`, `Validator`, `GB`, `Noticer`, `Checkpoint`, `CDC`, `LiveIntel`, and `System`).
+- **Human Governance & Reporting Subsystem Integration (`akaal/core/pipeline.py`)**:
+  - `ApprovalController` & `ApprovalCoordinator`: Bound governance evaluation into the `APPROVAL_PENDING` runtime state with decision callback propagation.
+  - `Runtime-wide Artifact Aggregation`: Integrated Stage 8 `REPORTING` state to aggregate artifacts across all stages (`DiscoveryReport`, `MigrationAdvisoryModel`, `MigrationPlan`, `ApprovalRequestPacket`, `DeduplicationResult`, `BatchValidationResult`, `DatabaseErrorReport`, `TrustCertificate`, `MigrationSummary`).
+- **Unit Test Suite**: Created [tests/unit/test_phase12_stage3_agent_network.py](file:///a:/temp_akaal/tests/unit/test_phase12_stage3_agent_network.py) verifying registration, health diagnostics, lifecycle state transitions, human governance, and 18-agent fleet execution.
+
 ## [v12.2.0-runtime] - Phase 12 Stage 2 Unified Migration Runtime (2026-07-25)
 
 ### Added

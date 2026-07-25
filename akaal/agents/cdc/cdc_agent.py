@@ -127,6 +127,17 @@ class CDCAgent:
                     self._sync_task = asyncio.create_task(
                         self._replication_sync_loop(task_id, project_id, migration_id)
                     )
+                # Send TASK_COMPLETED response to ManagerAgent
+                resp = Message(
+                    sender=AgentType.CDC_ENGINE,
+                    receiver=AgentType.MANAGER,
+                    message_type=MessageType.TASK_COMPLETED,
+                    correlation_id=message.message_id,
+                    payload={"task_id": task_id, "status": "SUCCESS"},
+                    project_id=project_id,
+                    migration_id=migration_id,
+                )
+                await self._bus.publish(resp)
 
     async def _promote(self) -> None:
         """Promote standby instance to active primary."""

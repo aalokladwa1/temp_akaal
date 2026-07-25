@@ -118,7 +118,7 @@ class SQLiteCheckpointStorageAdapter(ICheckpointStorageAdapter):
                 # Serialize Dict PK to JSON string for SQLite storage
                 serialized_pk = None
                 if record.last_processed_primary_key is not None:
-                    serialized_pk = json.dumps(record.last_processed_primary_key)
+                    serialized_pk = json.dumps(record.last_processed_primary_key, default=str)
 
                 cursor.execute("""
                     INSERT OR REPLACE INTO checkpoints (
@@ -140,8 +140,8 @@ class SQLiteCheckpointStorageAdapter(ICheckpointStorageAdapter):
                     record.rows_failed,
                     record.rows_skipped,
                     record.retry_count,
-                    json.dumps(record.adapter_state),
-                    json.dumps(record.metrics),
+                    json.dumps(record.adapter_state, default=str),
+                    json.dumps(record.metrics, default=str),
                     record.checksum,
                     record.created_at,
                     record.updated_at,

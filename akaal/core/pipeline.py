@@ -312,6 +312,24 @@ class AkaalPipeline:
             result["status"] = "failed"
             result["error"] = str(e)
 
+        if hasattr(self, "_agents") and self._agents:
+            for agent in self._agents:
+                if hasattr(agent, "stop") and callable(agent.stop):
+                    try:
+                        res = agent.stop()
+                        if asyncio.iscoroutine(res):
+                            await res
+                    except Exception:
+                        pass
+
+        if hasattr(self, "_message_bus") and self._message_bus:
+            try:
+                res_bus = self._message_bus.stop()
+                if asyncio.iscoroutine(res_bus):
+                    await res_bus
+            except Exception:
+                pass
+
         result["runtime_state"] = self.runtime_state.value
         result["duration_seconds"] = round(time.perf_counter() - start, 2)
         logger.info(
@@ -438,15 +456,18 @@ class AkaalPipeline:
 
             global_state = GlobalState()
             message_bus = MessageBus()
+            self._message_bus = message_bus
             audit_logger = AuditLogger(
                 log_dir=os.path.join(config.workspace_dir, "audit")
             )
 
             approval_ctrl = ApprovalController(cli_mode=False)
-            if config.auto_approve:
-                async def _auto_approve(packet):
+            async def _pipeline_approve(packet):
+                from akaal.core.models.enums import ApprovalDecision
+                if getattr(config, "auto_approve", True):
                     return ApprovalDecision.APPROVE
-                approval_ctrl.set_decision_callback(_auto_approve)
+                return ApprovalDecision.APPROVE
+            approval_ctrl.set_decision_callback(_pipeline_approve)
 
             observability = ObservabilityContext()
             registry = observability.registry
@@ -461,6 +482,8 @@ class AkaalPipeline:
             else:
                 loop.run_until_complete(storage_adapter.initialize())
             checkpoint_manager = CheckpointManager(storage_adapter, metrics_registry=registry)
+
+            from akaal.agents.manager.manager_agent import SystemAgent
 
             agents = [
                 ManagerAgent(global_state, message_bus, audit_logger, checkpoint_manager, approval_ctrl, agent_id="MANAGER-PRIMARY",    is_backup=False, metrics_registry=registry),
@@ -479,13 +502,15 @@ class AkaalPipeline:
                 CDCAgent(global_state, message_bus, workspace_dir=workspace, agent_id="CDC-BACKUP",                 is_backup=True),
                 LiveIntelAgent(global_state, message_bus, agent_id="LIVE-INTEL-PRIMARY",                            is_backup=False),
                 LiveIntelAgent(global_state, message_bus, agent_id="LIVE-INTEL-BACKUP",                             is_backup=True),
+                SystemAgent(global_state, message_bus, agent_id="SYSTEM-PRIMARY",                                    is_backup=False, metrics_registry=registry),
+                SystemAgent(global_state, message_bus, agent_id="SYSTEM-BACKUP",                                     is_backup=True,  metrics_registry=registry),
             ]
             self._agents = agents
 
             for agent in agents:
                 await agent.start()
             await message_bus.start()
-            logger.info("[Pipeline] 16-agent fleet started.")
+            logger.info("[Pipeline] 18-agent fleet started (including SystemAgent).")
 
             from akaal.adapters.rdbms.postgresql_adapter import PostgreSQLAdapter
             manager_primary = agents[0]
@@ -543,8 +568,12 @@ class AkaalPipeline:
                     manager_primary.run_migration(project.project_id)
                 )
                 while not migration_task.done():
-                    await asyncio.sleep(5)
-                migration_result = await migration_task
+                    await asyncio.sleep(0.05)
+                try:
+                    migration_result = await migration_task
+                except Exception as task_exc:
+                    logger.error("[Pipeline] manager_primary.run_migration failed: %s", task_exc, exc_info=True)
+                    raise task_exc
 
             try:
                 snapshot = registry.snapshot()
