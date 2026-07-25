@@ -13,6 +13,14 @@ from akaal.performance.optimizers.db import DatabaseAwareOptimizer
 from akaal.performance.optimizers.pool import ConnectionPoolOptimizer
 from akaal.performance.optimizers.load_balancer import PerformanceLoadBalancer
 from akaal.performance.optimizers.backpressure import PerformanceBackpressureOptimizer
+from akaal.performance.optimizers.throughput import (
+    AdaptiveThroughputOptimizer,
+    ThroughputOptimizationSpec,
+)
+from akaal.performance.optimizers.adaptive_parallelism import (
+    AdaptiveParallelismEngine,
+    ParallelismAutoscaleDecision,
+)
 
 __all__ = [
     "PluginOptimizer",
@@ -26,4 +34,8 @@ __all__ = [
     "ConnectionPoolOptimizer",
     "PerformanceLoadBalancer",
     "PerformanceBackpressureOptimizer",
+    "AdaptiveThroughputOptimizer",
+    "ThroughputOptimizationSpec",
+    "AdaptiveParallelismEngine",
+    "ParallelismAutoscaleDecision",
 ]

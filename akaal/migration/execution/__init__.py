@@ -1,4 +1,18 @@
 from akaal.migration.execution.batching import TransactionBatcher
+from akaal.migration.execution.resume_engine import (
+    DeterministicResumeEngine,
+    ResumeQuerySpec,
+    ResumeExecutionResult,
+)
+from akaal.migration.execution.deduplication import (
+    ZeroDuplicateMigrationEngine,
+    DeduplicationResult,
+)
+from akaal.migration.execution.expansion_engine import (
+    DatabaseExpansionEngine,
+    PartitionChunkSpec,
+    ExpansionExecutionPlan,
+)
 from akaal.migration.execution.scheduler import (
     ParallelScheduler,
     ScheduledOperation,
@@ -32,6 +46,14 @@ from akaal.migration.execution.cdc_executor import (
 
 __all__ = [
     "TransactionBatcher",
+    "DeterministicResumeEngine",
+    "ResumeQuerySpec",
+    "ResumeExecutionResult",
+    "ZeroDuplicateMigrationEngine",
+    "DeduplicationResult",
+    "DatabaseExpansionEngine",
+    "PartitionChunkSpec",
+    "ExpansionExecutionPlan",
     "ParallelScheduler",
     "ScheduledOperation",
     "ExecutionWave",
