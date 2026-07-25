@@ -2,6 +2,26 @@
 
 All notable changes to the Akaal Enterprise Orchestration Platform are documented in this file.
 
+## [v12.5.0-api-platform] - Phase 12 Stage 5 Enterprise API Platform (2026-07-25)
+
+### Added
+- **Enterprise API Platform & Facade (`akaal/api/facade.py`)**:
+  - `APICapabilityRegistry`: Centralized registry mapping all 13 Enterprise API Categories (`Migration`, `Workflow`, `Planning`, `Discovery`, `Validation`, `Reporting`, `Monitoring`, `Health`, `Configuration`, `Runtime`, `Agent`, `Security`, `Administration`).
+  - `IdempotencyEngine`: Supported `Idempotency-Key` header, payload fingerprinting (SHA-256), duplicate detection, and response replay.
+  - `DistributedTraceContext`: Automatic generation and propagation of `request_id`, `correlation_id`, `trace_id`, and `span_id`.
+  - `EnterpriseWebhooks`: Webhook registration, HMAC-SHA256 signature verification, and delivery logging.
+  - `OptimisticConcurrency`: ETag calculation and `If-Match` precondition headers.
+  - `MaintenanceMode`: Dynamic platform maintenance mode toggling with status reporting.
+- **Unit Test Suite**: Created [tests/unit/test_phase12_stage5_api_platform.py](file:///a:/temp_akaal/tests/unit/test_phase12_stage5_api_platform.py) verifying capability registry, idempotency, tracing, maintenance mode, ETags, and webhooks. All 25 Phase 12 unit tests passing in 2.13s.
+
+## [v12.4.0-event-platform] - Phase 12 Stage 4 Event & Messaging Platform (2026-07-25)
+
+### Added
+- **GlobalEventRouter (`akaal/integration/composition_root.py`)**:
+  - Unified `MessageBus`, `OrchestrationEventBus`, `HealingEventBus`, and `ReplicationEventBus` under a single transport-agnostic router.
+  - Enforced delivery guarantees (`AT_MOST_ONCE`, `AT_LEAST_ONCE`, `EXACTLY_ONCE`), circuit breaker states (`CLOSED`, `OPEN`, `HALF_OPEN`), message expiration TTL, SHA-256 payload checksums, and dead-letter queue.
+- **Unit Test Suite**: Created [tests/unit/test_phase12_stage4_event_platform.py](file:///a:/temp_akaal/tests/unit/test_phase12_stage4_event_platform.py).
+
 ## [v12.3.0-agent-network] - Phase 12 Stage 3 Agent Network Integration (2026-07-25)
 
 ### Added
