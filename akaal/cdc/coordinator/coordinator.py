@@ -17,6 +17,9 @@ from akaal.cdc.replay.engine import CDCReplayEngine
 from akaal.cdc.routing.engine import CDCRoutingEngine
 from akaal.cdc.sources.base import ICDCSourceAdapter
 from akaal.cdc.sources.postgres import PostgresWALAdapter
+from akaal.cdc.sources.mysql import MySQLBinlogAdapter
+from akaal.cdc.sources.oracle import OracleLogMinerAdapter
+from akaal.cdc.sources.sqlserver import SQLServerCDCAdapter
 from akaal.cdc.targets.generic import GenericDatabaseTargetAdapter
 from akaal.cdc.transport.base import ICDCTransport
 from akaal.cdc.transport.memory import InMemoryCDCTransport
@@ -39,7 +42,12 @@ class CDCCoordinator:
         self.target_adapter = GenericDatabaseTargetAdapter()
 
         self._active_sessions: Dict[str, CDCSessionDTO] = {}
-        self._sources: Dict[str, ICDCSourceAdapter] = {"POSTGRES": PostgresWALAdapter()}
+        self._sources: Dict[str, ICDCSourceAdapter] = {
+            "POSTGRES": PostgresWALAdapter(),
+            "MYSQL": MySQLBinlogAdapter(),
+            "ORACLE": OracleLogMinerAdapter(),
+            "SQLSERVER": SQLServerCDCAdapter(),
+        }
 
     async def start_session(self, source_engine: str, source_db: str, target_dbs: List[str]) -> CDCSessionDTO:
         session_id = f"cdc-sess-{uuid.uuid4().hex[:8]}"
