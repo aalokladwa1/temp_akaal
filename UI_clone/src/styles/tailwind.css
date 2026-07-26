@@ -1,0 +1,1233 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700;800&family=Manrope:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* ─── AKAAL Design Tokens ─────────────────────────────────────────────────── */
+
+/* Dark Mode: Midnight Glass (default) */
+:root,
+[data-theme="dark"] {
+  /* Brand */
+  --akaal-primary:          #3B82F6;
+  --akaal-secondary:        #38BDF8;
+  --akaal-accent:           #7DD3FC;
+  --akaal-primary-subtle:   rgba(59, 130, 246, 0.12);
+
+  /* Backgrounds */
+  --akaal-bg:               #0F172A;
+  --akaal-surface:          #1E293B;
+  --akaal-surface-elevated: #334155;
+  --akaal-surface-2:        #22262F;
+
+  /* Text */
+  --akaal-text:             #F8FAFC;
+  --akaal-text-secondary:   #CBD5E1;
+  --akaal-text-muted:       #94A3B8;
+
+  /* Border */
+  --akaal-border:           #475569;
+  --akaal-border-subtle:    rgba(71, 85, 105, 0.5);
+
+  /* Semantic */
+  --akaal-success:          #22C55E;
+  --akaal-warning:          #FACC15;
+  --akaal-error:            #EF4444;
+  --akaal-info:             #60A5FA;
+
+  /* Semantic subtle backgrounds */
+  --akaal-success-bg:       rgba(34, 197, 94, 0.12);
+  --akaal-warning-bg:       rgba(250, 204, 21, 0.12);
+  --akaal-error-bg:         rgba(239, 68, 68, 0.12);
+  --akaal-info-bg:          rgba(96, 165, 250, 0.12);
+
+  /* Interactive */
+  --akaal-hover-bg:         rgba(255, 255, 255, 0.06);
+  --akaal-active-bg:        rgba(255, 255, 255, 0.10);
+  --akaal-focus-ring:       rgba(59, 130, 246, 0.4);
+
+  /* Shadows */
+  --akaal-shadow:           rgba(0, 0, 0, 0.5);
+  --akaal-shadow-sm:        rgba(0, 0, 0, 0.3);
+
+  /* Nav */
+  --akaal-nav-bg:           #111827;
+  --akaal-nav-border:       #2A3647;
+  --akaal-sidebar-bg:       #0D1520;
+  --akaal-sidebar-border:   #1E293B;
+
+  /* Sidebar gradient — Midnight Glass: near-black → deep enterprise blue */
+  --akaal-sidebar-gradient: linear-gradient(180deg, #0D1117 0%, #0D1520 40%, #0F1E35 100%);
+
+  /* Input */
+  --akaal-input-bg:         #1A2333;
+  --akaal-input-border:     #2A3647;
+
+  /* Card */
+  --akaal-card-bg:          #1A2333;
+  --akaal-card-border:      #2A3647;
+
+  /* Table */
+  --akaal-table-header:     #0D1520;
+  --akaal-table-row-hover:  rgba(255, 255, 255, 0.03);
+  --akaal-table-border:     #1E293B;
+
+  /* Code / Log */
+  --akaal-code-bg:          #0B1220;
+  --akaal-code-text:        #E2E8F0;
+
+  /* Skeleton */
+  --akaal-skeleton-base:    #1E293B;
+  --akaal-skeleton-shine:   #2D3F55;
+
+  /* Toast */
+  --akaal-toast-bg:         #1E293B;
+  --akaal-toast-border:     #334155;
+
+  /* Legacy vars (kept for compatibility) */
+  --void: #0B0D0F;
+  --surface: #1A1D23;
+  --surface-2: #22262F;
+  --phosphor: #39FF14;
+  --phosphor-dim: rgba(57, 255, 20, 0.15);
+  --phosphor-glow: rgba(57, 255, 20, 0.4);
+  --plasma: #FFE600;
+  --plasma-dim: rgba(255, 230, 0, 0.15);
+  --signal: #FF3562;
+  --signal-dim: rgba(255, 53, 98, 0.15);
+  --fg: #E4E8EF;
+  --fg-muted: #7A8394;
+  --fg-dim: #3D4350;
+  --border: rgba(255,255,255,0.06);
+  --border-bright: rgba(255,255,255,0.12);
+}
+
+/* Light Mode: Enterprise Blue */
+[data-theme="light"] {
+  /* Brand */
+  --akaal-primary:          #2E5AAC;
+  --akaal-secondary:        #5B8DEF;
+  --akaal-accent:           #9BC2FF;
+  --akaal-primary-subtle:   rgba(46, 90, 172, 0.10);
+
+  /* Backgrounds */
+  --akaal-bg:               #F8FAFC;
+  --akaal-surface:          #FFFFFF;
+  --akaal-surface-elevated: #F1F5F9;
+  --akaal-surface-2:        #F1F5F9;
+
+  /* Text */
+  --akaal-text:             #111827;
+  --akaal-text-secondary:   #374151;
+  --akaal-text-muted:       #6B7280;
+
+  /* Border */
+  --akaal-border:           #E5E7EB;
+  --akaal-border-subtle:    rgba(229, 231, 235, 0.8);
+
+  /* Semantic */
+  --akaal-success:          #16A34A;
+  --akaal-warning:          #D97706;
+  --akaal-error:            #DC2626;
+  --akaal-info:             #2563EB;
+
+  /* Semantic subtle backgrounds */
+  --akaal-success-bg:       rgba(22, 163, 74, 0.08);
+  --akaal-warning-bg:       rgba(217, 119, 6, 0.08);
+  --akaal-error-bg:         rgba(220, 38, 38, 0.08);
+  --akaal-info-bg:          rgba(37, 99, 235, 0.08);
+
+  /* Interactive */
+  --akaal-hover-bg:         rgba(0, 0, 0, 0.04);
+  --akaal-active-bg:        rgba(0, 0, 0, 0.08);
+  --akaal-focus-ring:       rgba(46, 90, 172, 0.3);
+
+  /* Shadows */
+  --akaal-shadow:           rgba(0, 0, 0, 0.12);
+  --akaal-shadow-sm:        rgba(0, 0, 0, 0.06);
+
+  /* Nav */
+  --akaal-nav-bg:           #FFFFFF;
+  --akaal-nav-border:       #E5E7EB;
+  --akaal-sidebar-bg:       #F8FAFC;
+  --akaal-sidebar-border:   #E5E7EB;
+
+  /* Sidebar gradient — Enterprise Blue: white → primary enterprise blue */
+  --akaal-sidebar-gradient: linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 40%, #EEF3FB 100%);
+
+  /* Input */
+  --akaal-input-bg:         #F9FAFB;
+  --akaal-input-border:     #D1D5DB;
+
+  /* Card */
+  --akaal-card-bg:          #FFFFFF;
+  --akaal-card-border:      #E5E7EB;
+
+  /* Table */
+  --akaal-table-header:     #F9FAFB;
+  --akaal-table-row-hover:  rgba(0, 0, 0, 0.02);
+  --akaal-table-border:     #E5E7EB;
+
+  /* Code / Log */
+  --akaal-code-bg:          #1E293B;
+  --akaal-code-text:        #E2E8F0;
+
+  /* Skeleton */
+  --akaal-skeleton-base:    #E5E7EB;
+  --akaal-skeleton-shine:   #F3F4F6;
+
+  /* Toast */
+  --akaal-toast-bg:         #FFFFFF;
+  --akaal-toast-border:     #E5E7EB;
+
+  /* Legacy vars override for light mode */
+  --void: #F8FAFC;
+  --surface: #FFFFFF;
+  --surface-2: #F1F5F9;
+  --fg: #111827;
+  --fg-muted: #6B7280;
+  --fg-dim: #9CA3AF;
+  --border: rgba(0,0,0,0.08);
+  --border-bright: rgba(0,0,0,0.12);
+}
+
+/* ─── Theme Transitions ───────────────────────────────────────────────────── */
+
+*,
+*::before,
+*::after {
+  transition-property: background-color, border-color, color, box-shadow, opacity;
+  transition-duration: 200ms;
+  transition-timing-function: ease;
+}
+
+/* Exclude layout/transform transitions from the global rule */
+.no-theme-transition,
+.no-theme-transition * {
+  transition: none !important;
+}
+
+/* ─── Base Reset ──────────────────────────────────────────────────────────── */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+body {
+  background-color: var(--akaal-bg);
+  color: var(--akaal-text);
+  font-family: 'Inter', 'Manrope', sans-serif;
+  font-weight: 450;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ─── Focus Rings ─────────────────────────────────────────────────────────── */
+
+:focus-visible {
+  outline: 2px solid var(--akaal-primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ─── Scrollbar ───────────────────────────────────────────────────────────── */
+
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--akaal-border); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--akaal-text-muted); }
+
+/* ─── Sidebar Gradient ────────────────────────────────────────────────────── */
+
+.akaal-sidebar {
+  background: var(--akaal-sidebar-gradient) !important;
+  border-right: 1px solid var(--akaal-sidebar-border);
+}
+
+/* ─── Page Container ──────────────────────────────────────────────────────── */
+
+.akaal-page-container {
+  max-width: 80rem;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 1.5rem;
+}
+
+/* ─── Enterprise Card ─────────────────────────────────────────────────────── */
+
+.akaal-card {
+  background: var(--akaal-card-bg);
+  border: 1px solid var(--akaal-card-border);
+  border-radius: 8px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.akaal-card:hover {
+  border-color: var(--akaal-primary);
+  box-shadow: 0 4px 16px var(--akaal-shadow-sm);
+}
+
+.akaal-card-interactive:hover {
+  transform: translateY(-1px);
+  border-color: var(--akaal-primary);
+  box-shadow: 0 4px 20px var(--akaal-shadow-sm);
+}
+
+.akaal-card-kpi {
+  background: var(--akaal-card-bg);
+  border: 1px solid var(--akaal-card-border);
+  border-radius: 8px;
+  padding: 1.25rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.akaal-card-kpi:hover {
+  border-color: var(--akaal-primary);
+  box-shadow: 0 4px 16px var(--akaal-shadow-sm);
+}
+
+.akaal-card-header {
+  padding: 0.875rem 1.25rem;
+  border-bottom: 1px solid var(--akaal-border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.akaal-card-body {
+  padding: 1.25rem;
+}
+
+.akaal-card-footer {
+  padding: 0.75rem 1.25rem;
+  border-top: 1px solid var(--akaal-border-subtle);
+  background: var(--akaal-table-header);
+}
+
+/* ─── Border Hierarchy & Panel Framing ───────────────────────────────────── */
+
+.akaal-panel {
+  background: var(--akaal-card-bg);
+  border: 1px solid var(--akaal-card-border);
+  border-radius: 8px;
+}
+
+.akaal-border-frame {
+  border: 1px solid var(--akaal-card-border);
+}
+
+.akaal-border-subtle {
+  border: 1px solid var(--akaal-border-subtle);
+}
+
+.akaal-toolbar {
+  background: var(--akaal-card-bg);
+  border: 1px solid var(--akaal-card-border);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+}
+
+
+/* ─── Enterprise Button ───────────────────────────────────────────────────── */
+
+.akaal-btn-primary {
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--akaal-primary);
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  padding: 0 16px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease, filter 0.2s ease;
+  box-shadow: 0 1px 3px var(--akaal-shadow-sm);
+  white-space: nowrap;
+}
+
+.akaal-btn-primary:hover {
+  filter: brightness(1.08);
+  box-shadow: 0 2px 8px var(--akaal-shadow);
+  transform: translateY(-0.5px);
+}
+
+.akaal-btn-primary:active {
+  transform: translateY(0);
+  filter: brightness(0.95);
+}
+
+.akaal-btn-secondary {
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: transparent;
+  color: var(--akaal-text-secondary);
+  border: 1px solid var(--akaal-border);
+  border-radius: 6px;
+  padding: 0 16px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  white-space: nowrap;
+}
+
+.akaal-btn-secondary:hover {
+  background: var(--akaal-hover-bg);
+  border-color: var(--akaal-primary);
+  color: var(--akaal-text);
+}
+
+/* ─── Skeleton Loading ────────────────────────────────────────────────────── */
+
+@keyframes skeleton-shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--akaal-skeleton-base) 25%,
+    var(--akaal-skeleton-shine) 50%,
+    var(--akaal-skeleton-base) 75%
+  );
+  background-size: 800px 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+  border-radius: 4px;
+}
+
+.skeleton-text {
+  height: 12px;
+  border-radius: 4px;
+}
+
+.skeleton-title {
+  height: 18px;
+  border-radius: 4px;
+}
+
+.skeleton-card {
+  height: 80px;
+  border-radius: 8px;
+}
+
+.skeleton-row {
+  height: 44px;
+  border-radius: 4px;
+}
+
+/* ─── Toast Notifications ─────────────────────────────────────────────────── */
+
+@keyframes toast-slide-in {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes toast-slide-out {
+  from { transform: translateX(0); opacity: 1; }
+  to { transform: translateX(100%); opacity: 0; }
+}
+
+.akaal-toast {
+  background: var(--akaal-toast-bg);
+  border: 1px solid var(--akaal-toast-border);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px var(--akaal-shadow), 0 2px 8px var(--akaal-shadow-sm);
+  animation: toast-slide-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  font-family: 'Inter', sans-serif;
+}
+
+.akaal-toast.exiting {
+  animation: toast-slide-out 0.2s ease-in forwards;
+}
+
+/* ─── Page Entrance ───────────────────────────────────────────────────────── */
+
+@keyframes page-fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.akaal-page-enter {
+  animation: page-fade-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ─── Modal / Drawer ──────────────────────────────────────────────────────── */
+
+@keyframes modal-enter {
+  from { opacity: 0; transform: scale(0.97) translateY(8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes drawer-enter {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes drawer-enter-left {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes overlay-enter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.akaal-modal-enter {
+  animation: modal-enter 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.akaal-drawer-enter {
+  animation: drawer-enter 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.akaal-overlay-enter {
+  animation: overlay-enter 0.2s ease forwards;
+}
+
+/* ─── Status Chips ────────────────────────────────────────────────────────── */
+
+.akaal-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.akaal-chip-success {
+  color: var(--akaal-success);
+  background: var(--akaal-success-bg);
+  border: 1px solid rgba(34, 197, 94, 0.2);
+}
+
+.akaal-chip-warning {
+  color: var(--akaal-warning);
+  background: var(--akaal-warning-bg);
+  border: 1px solid rgba(250, 204, 21, 0.2);
+}
+
+.akaal-chip-error {
+  color: var(--akaal-error);
+  background: var(--akaal-error-bg);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.akaal-chip-info {
+  color: var(--akaal-info);
+  background: var(--akaal-info-bg);
+  border: 1px solid rgba(96, 165, 250, 0.2);
+}
+
+.akaal-chip-muted {
+  color: var(--akaal-text-muted);
+  background: var(--akaal-hover-bg);
+  border: 1px solid var(--akaal-border);
+}
+
+/* ─── Monospace Utility ───────────────────────────────────────────────────── */
+
+.akaal-mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.akaal-breadcrumb-sep {
+  width: 16px;
+  height: 16px;
+  color: var(--akaal-text-muted);
+  flex-shrink: 0;
+}
+
+/* ─── Table ───────────────────────────────────────────────────────────────── */
+
+.akaal-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+}
+
+.akaal-table th {
+  background: var(--akaal-table-header);
+  color: var(--akaal-text-muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--akaal-table-border);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.akaal-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--akaal-table-border);
+  color: var(--akaal-text-secondary);
+  vertical-align: middle;
+}
+
+.akaal-table tr:hover td {
+  background: var(--akaal-table-row-hover);
+}
+
+/* ─── Input ───────────────────────────────────────────────────────────────── */
+
+.akaal-input {
+  height: 36px;
+  background: var(--akaal-input-bg);
+  border: 1px solid var(--akaal-input-border);
+  color: var(--akaal-text);
+  border-radius: 6px;
+  padding: 0 12px;
+  font-size: 13px;
+  font-family: 'Inter', sans-serif;
+  outline: none;
+  width: 100%;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.akaal-input:focus {
+  border-color: var(--akaal-primary);
+  box-shadow: 0 0 0 3px var(--akaal-focus-ring);
+}
+
+.akaal-input::placeholder {
+  color: var(--akaal-text-muted);
+}
+
+/* ─── Progress Bar ────────────────────────────────────────────────────────── */
+
+.akaal-progress-track {
+  background: var(--akaal-border);
+  border-radius: 9999px;
+  overflow: hidden;
+  height: 6px;
+}
+
+.akaal-progress-fill {
+  height: 100%;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, var(--akaal-primary), var(--akaal-secondary));
+  transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ─── Empty State ─────────────────────────────────────────────────────────── */
+
+.akaal-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  text-align: center;
+  gap: 12px;
+}
+
+.akaal-empty-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--akaal-primary-subtle);
+  color: var(--akaal-primary);
+  margin-bottom: 4px;
+}
+
+/* ─── Legacy Utility Classes ─────────────────────────────────────────────── */
+
+.scanlines {
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.03) 2px,
+    rgba(0,0,0,0.03) 4px
+  );
+  pointer-events: none;
+  z-index: 9998;
+}
+
+.noise::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 9997;
+  opacity: 0.4;
+}
+
+.text-phosphor {
+  color: var(--phosphor);
+  text-shadow: 0 0 10px var(--phosphor-glow), 0 0 30px rgba(57,255,20,0.2);
+}
+
+.text-plasma { color: var(--plasma); }
+.text-signal { color: var(--signal); }
+
+.glow-phosphor {
+  box-shadow: 0 0 20px var(--phosphor-glow), 0 0 60px rgba(57,255,20,0.1);
+}
+
+.glow-plasma {
+  box-shadow: 0 0 15px rgba(255,230,0,0.3);
+}
+
+.terminal-chrome {
+  background: var(--akaal-surface);
+  border: 1px solid var(--akaal-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.terminal-titlebar {
+  background: var(--akaal-surface-elevated);
+  border-bottom: 1px solid var(--akaal-border);
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dot { width: 10px; height: 10px; border-radius: 50%; }
+.dot-red { background: #FF5F57; }
+.dot-yellow { background: #FEBC2E; }
+.dot-green { background: #28C840; }
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 100px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.pill-green {
+  background: var(--akaal-success-bg);
+  color: var(--akaal-success);
+  border: 1px solid rgba(34,197,94,0.2);
+}
+
+.pill-yellow {
+  background: var(--akaal-warning-bg);
+  color: var(--akaal-warning);
+  border: 1px solid rgba(250,204,21,0.2);
+}
+
+.pill-red {
+  background: var(--akaal-error-bg);
+  color: var(--akaal-error);
+  border: 1px solid rgba(239,68,68,0.2);
+}
+
+.pill-muted {
+  background: var(--akaal-hover-bg);
+  color: var(--akaal-text-muted);
+  border: 1px solid var(--akaal-border);
+}
+
+.progress-track {
+  background: var(--akaal-border);
+  border-radius: 100px;
+  overflow: hidden;
+  height: 4px;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 100px;
+  background: linear-gradient(90deg, var(--akaal-primary), var(--akaal-secondary));
+  transition: width 0.8s cubic-bezier(0.16,1,0.3,1);
+}
+
+.code-block {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.tok-keyword { color: #FF79C6; }
+.tok-decorator { color: var(--plasma); }
+.tok-string { color: #F1FA8C; }
+.tok-comment { color: var(--akaal-text-muted); font-style: italic; }
+.tok-type { color: #8BE9FD; }
+.tok-fn { color: var(--phosphor); }
+.tok-deleted { color: var(--akaal-error); background: var(--akaal-error-bg); }
+.tok-added { color: var(--akaal-success); background: var(--akaal-success-bg); }
+
+/* ─── Animations ──────────────────────────────────────────────────────────── */
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.8); }
+}
+
+@keyframes blink-cursor {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+@keyframes scroll-log {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-50%); }
+}
+
+@keyframes count-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-up-fade {
+  from { opacity: 0; transform: translateY(32px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes flow-right {
+  0% { transform: translateX(-100%); opacity: 0; }
+  20% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { transform: translateX(100%); opacity: 0; }
+}
+
+@keyframes check-pop {
+  0% { transform: scale(0) rotate(-20deg); opacity: 0; }
+  70% { transform: scale(1.2) rotate(5deg); }
+  100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+
+@keyframes flip-pill {
+  0% { transform: rotateX(0deg); }
+  50% { transform: rotateX(90deg); }
+  100% { transform: rotateX(0deg); }
+}
+
+@keyframes grid-pulse {
+  0%, 100% { opacity: 0.03; }
+  50% { opacity: 0.07; }
+}
+
+@keyframes typing {
+  from { width: 0; }
+  to { width: 100%; }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes float-y {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-6px); }
+}
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulse-ring {
+  0% { transform: scale(1); opacity: 0.6; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
+
+@keyframes data-flow {
+  0% { stroke-dashoffset: 100; opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { stroke-dashoffset: 0; opacity: 0; }
+}
+
+.animate-pulse-dot { animation: pulse-dot 2s ease-in-out infinite; }
+.animate-blink { animation: blink-cursor 1s step-end infinite; }
+.animate-scroll-log { animation: scroll-log 20s linear infinite; }
+.animate-slide-up { animation: slide-up-fade 0.8s cubic-bezier(0.16,1,0.3,1) forwards; }
+.animate-check-pop { animation: check-pop 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards; }
+.animate-float { animation: float-y 4s ease-in-out infinite; }
+.animate-spin-slow { animation: spin-slow 8s linear infinite; }
+.animate-pulse-ring { animation: pulse-ring 2s ease-out infinite; }
+
+/* Reveal on scroll */
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.8s cubic-bezier(0.16,1,0.3,1), transform 0.8s cubic-bezier(0.16,1,0.3,1);
+}
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Stagger children */
+.stagger > *:nth-child(1) { transition-delay: 0.05s; }
+.stagger > *:nth-child(2) { transition-delay: 0.12s; }
+.stagger > *:nth-child(3) { transition-delay: 0.19s; }
+.stagger > *:nth-child(4) { transition-delay: 0.26s; }
+.stagger > *:nth-child(5) { transition-delay: 0.33s; }
+.stagger > *:nth-child(6) { transition-delay: 0.40s; }
+
+/* Background grid */
+.bg-grid {
+  background-image:
+    linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+  background-size: 40px 40px;
+  animation: grid-pulse 8s ease-in-out infinite;
+}
+
+/* Gradient shimmer on text */
+.shimmer-text {
+  background: linear-gradient(90deg, var(--fg) 0%, var(--phosphor) 40%, var(--fg) 60%, var(--fg) 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: shimmer 6s linear infinite;
+}
+
+/* Card hover */
+.card-hover {
+  transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
+}
+.card-hover:hover {
+  border-color: rgba(57,255,20,0.2) !important;
+  box-shadow: 0 0 30px rgba(57,255,20,0.05);
+  transform: translateY(-2px);
+}
+
+/* Form inputs */
+.form-input {
+  background: var(--surface-2);
+  border: 1px solid var(--border-bright);
+  color: var(--fg);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  padding: 12px 16px;
+  border-radius: 6px;
+  width: 100%;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.form-input:focus {
+  border-color: var(--phosphor);
+  box-shadow: 0 0 0 2px rgba(57,255,20,0.1);
+}
+.form-input option {
+  background: var(--surface-2);
+  color: var(--fg);
+}
+
+/* Diff lines */
+.diff-deleted { background: rgba(255,53,98,0.08); border-left: 2px solid var(--signal); }
+.diff-added { background: rgba(57,255,20,0.06); border-left: 2px solid var(--phosphor); }
+.diff-neutral { border-left: 2px solid transparent; }
+
+/* Mini nav bar */
+.mini-bar {
+  transform: translateY(-100%);
+  transition: transform 0.4s cubic-bezier(0.16,1,0.3,1);
+}
+.mini-bar.visible {
+  transform: translateY(0);
+}
+
+/* Sticky CTA */
+.sticky-cta {
+  transform: translateY(100%);
+  transition: transform 0.4s cubic-bezier(0.16,1,0.3,1);
+}
+.sticky-cta.visible {
+  transform: translateY(0);
+}
+
+/* Pipeline connector */
+.pipeline-connector {
+  position: relative;
+  overflow: hidden;
+}
+.pipeline-connector::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, var(--phosphor), transparent);
+  animation: flow-right 2s ease-in-out infinite;
+  transform: translateY(-50%);
+}
+
+/* ─── Light Mode: Override Hardcoded Dark-Mode Colors ─────────────────────── */
+/* These rules fix components that use hardcoded dark-mode hex values          */
+
+[data-theme="light"] {
+  /* Map common hardcoded dark-mode text colors to light-mode equivalents */
+  --hc-text-primary:    #111827;   /* was #F8FAFC */
+  --hc-text-secondary:  #374151;   /* was #CBD5E1 */
+  --hc-text-muted:      #6B7280;   /* was #94A3B8 / #64748B */
+  --hc-bg-input:        #F9FAFB;   /* was #111827 */
+  --hc-border-input:    #D1D5DB;   /* was #374151 / #2A3647 */
+  --hc-bg-surface:      #F1F5F9;   /* was rgba(255,255,255,0.02) */
+  --hc-bg-row-hover:    rgba(0,0,0,0.02);
+  --hc-border-row:      rgba(0,0,0,0.06);
+  --hc-bg-card:         #FFFFFF;   /* was #1F2937 */
+  --hc-border-card:     #E5E7EB;   /* was #2A3647 */
+}
+
+/* Fix: Skeleton components using dark-mode gradient */
+[data-theme="light"] .rounded[style*="rgba(255,255,255,0.04)"],
+[data-theme="light"] [style*="rgba(255,255,255,0.04)"][style*="shimmer"] {
+  background: linear-gradient(90deg, #E5E7EB 25%, #F3F4F6 50%, #E5E7EB 75%) !important;
+}
+
+/* Fix: Progress bar tracks using dark rgba */
+[data-theme="light"] [style*="rgba(255,255,255,0.08)"] {
+  background: rgba(0,0,0,0.08) !important;
+}
+
+/* Fix: Table row hover states */
+[data-theme="light"] tr:hover td {
+  background: rgba(0,0,0,0.02) !important;
+}
+
+/* Fix: Workflow step connector lines */
+[data-theme="light"] [style*="rgba(255,255,255,0.06)"] {
+  background: rgba(0,0,0,0.08) !important;
+}
+
+/* Fix: Card/section borders using dark rgba */
+[data-theme="light"] [style*="rgba(255,255,255,0.04)"] {
+  border-color: rgba(0,0,0,0.06) !important;
+}
+
+/* Fix: Hardcoded dark backgrounds on inputs/selects */
+[data-theme="light"] input[style*="background: '#111827'"],
+[data-theme="light"] select[style*="background: '#111827'"],
+[data-theme="light"] input[style*="background: rgb(17, 24, 39)"],
+[data-theme="light"] select[style*="background: rgb(17, 24, 39)"] {
+  background: #F9FAFB !important;
+  border-color: #D1D5DB !important;
+  color: #111827 !important;
+}
+
+/* ─── Light Mode: Text Color Fixes ────────────────────────────────────────── */
+
+/* Fix hardcoded #F8FAFC (near-white) text — invisible on light bg */
+[data-theme="light"] [style*="color: rgb(248, 250, 252)"],
+[data-theme="light"] [style*="color: #F8FAFC"],
+[data-theme="light"] [style*="color: #f8fafc"] {
+  color: var(--akaal-text) !important;
+}
+
+/* Fix hardcoded #CBD5E1 (light gray) text — low contrast on light bg */
+[data-theme="light"] [style*="color: rgb(203, 213, 225)"],
+[data-theme="light"] [style*="color: #CBD5E1"],
+[data-theme="light"] [style*="color: #cbd5e1"] {
+  color: var(--akaal-text-secondary) !important;
+}
+
+/* Fix hardcoded #94A3B8 (medium gray) text */
+[data-theme="light"] [style*="color: rgb(148, 163, 184)"],
+[data-theme="light"] [style*="color: #94A3B8"],
+[data-theme="light"] [style*="color: #94a3b8"] {
+  color: var(--akaal-text-muted) !important;
+}
+
+/* Fix hardcoded #64748B (slate) text */
+[data-theme="light"] [style*="color: rgb(100, 116, 139)"],
+[data-theme="light"] [style*="color: #64748B"],
+[data-theme="light"] [style*="color: #64748b"] {
+  color: var(--akaal-text-muted) !important;
+}
+
+/* Fix hardcoded #E2E8F0 text */
+[data-theme="light"] [style*="color: rgb(226, 232, 240)"],
+[data-theme="light"] [style*="color: #E2E8F0"],
+[data-theme="light"] [style*="color: #e2e8f0"] {
+  color: var(--akaal-text-secondary) !important;
+}
+
+/* ─── Light Mode: Background Fixes ───────────────────────────────────────── */
+
+/* Fix hardcoded #111827 (very dark) backgrounds */
+[data-theme="light"] [style*="background: rgb(17, 24, 39)"],
+[data-theme="light"] [style*="background: #111827"],
+[data-theme="light"] [style*="background: #0B1220"],
+[data-theme="light"] [style*="background: #0D1520"],
+[data-theme="light"] [style*="background: #0F172A"],
+[data-theme="light"] [style*="background: #080E1A"] {
+  background: var(--akaal-surface) !important;
+}
+
+/* Fix hardcoded #1A2333 / #1E293B / #1F2937 dark card backgrounds */
+[data-theme="light"] [style*="background: rgb(26, 35, 51)"],
+[data-theme="light"] [style*="background: #1A2333"],
+[data-theme="light"] [style*="background: rgb(30, 41, 59)"],
+[data-theme="light"] [style*="background: #1E293B"],
+[data-theme="light"] [style*="background: rgb(31, 41, 55)"],
+[data-theme="light"] [style*="background: #1F2937"] {
+  background: var(--akaal-surface-elevated) !important;
+}
+
+/* Fix hardcoded dark border colors */
+[data-theme="light"] [style*="border: 1px solid #2A3647"],
+[data-theme="light"] [style*="border: 1px solid #374151"],
+[data-theme="light"] [style*="border-bottom: 1px solid #2A3647"],
+[data-theme="light"] [style*="border-bottom: 1px solid #374151"] {
+  border-color: var(--akaal-border) !important;
+}
+
+/* Fix: Workflow step nav hardcoded colors */
+[data-theme="light"] [style*="background: rgba(37,99,235,0.08)"] {
+  background: rgba(46, 90, 172, 0.08) !important;
+}
+
+/* Fix: Table header dark backgrounds */
+[data-theme="light"] thead tr[style*="rgba(255,255,255,0.02)"] {
+  background: var(--akaal-table-header) !important;
+}
+
+/* Fix: Section/group header dark backgrounds */
+[data-theme="light"] [style*="background: rgba(255,255,255,0.02)"] {
+  background: var(--akaal-surface-elevated) !important;
+}
+
+/* Fix: Buttons with hardcoded dark hover backgrounds */
+[data-theme="light"] [style*="background: rgba(255,255,255,0.06)"] {
+  background: rgba(0,0,0,0.04) !important;
+}
+
+/* Fix: Code/log blocks — keep dark in light mode for readability */
+[data-theme="light"] [style*="background: #0B1220"],
+[data-theme="light"] [style*="background: rgb(11, 18, 32)"] {
+  background: #1E293B !important;
+}
+
+/* ─── Light Mode: Input & Form Fixes ─────────────────────────────────────── */
+
+[data-theme="light"] input.akaal-input,
+[data-theme="light"] select.akaal-input,
+[data-theme="light"] textarea.akaal-input {
+  background: var(--akaal-input-bg);
+  border-color: var(--akaal-input-border);
+  color: var(--akaal-text);
+}
+
+/* Fix select option backgrounds in light mode */
+[data-theme="light"] select option {
+  background: #FFFFFF;
+  color: #111827;
+}
+
+/* ─── Light Mode: Sidebar & Nav Fixes ────────────────────────────────────── */
+
+/* Ensure sidebar gradient is correct in light mode */
+[data-theme="light"] aside[style*="akaal-sidebar-gradient"] {
+  background: var(--akaal-sidebar-gradient) !important;
+}
+
+/* Fix workflow nav background */
+[data-theme="light"] nav[style*="akaal-nav-bg"] {
+  background: var(--akaal-nav-bg) !important;
+}
+
+/* ─── Light Mode: WorkflowNav Step Colors ────────────────────────────────── */
+
+/* Pending step label color fix */
+[data-theme="light"] [style*="color: #64748B"][style*="fontFamily"] {
+  color: var(--akaal-text-muted) !important;
+}
+
+/* Completed step label */
+[data-theme="light"] [style*="color: #94A3B8"][style*="fontFamily"] {
+  color: var(--akaal-text-muted) !important;
+}
+
+/* ─── Light Mode: CardHeader Fix ─────────────────────────────────────────── */
+
+[data-theme="light"] [style*="borderBottom: '1px solid #2A3647'"],
+[data-theme="light"] [style*="border-bottom: 1px solid #2A3647"] {
+  border-bottom-color: var(--akaal-border) !important;
+}
+
+/* ─── Light Mode: Execution Plan Card Fix ────────────────────────────────── */
+
+[data-theme="light"] [style*="background: '#1F2937'"],
+[data-theme="light"] [style*="background: '#111827'"] {
+  background: var(--akaal-surface-elevated) !important;
+  border-color: var(--akaal-border) !important;
+}
+
+/* ─── Light Mode: Sign-in Page Fix ───────────────────────────────────────── */
+
+/* Keep sign-in background dark (it's intentionally dark) */
+[data-theme="light"] .sign-in-bg {
+  background: #080E1A !important;
+}
+
+/* ─── Light Mode: Log/Console Blocks ─────────────────────────────────────── */
+
+/* Keep code/log blocks dark even in light mode for readability */
+[data-theme="light"] .akaal-log-console,
+[data-theme="light"] [data-log-console] {
+  background: #0F172A !important;
+  color: #E2E8F0 !important;
+}
+
+/* ─── Global: Ensure white text on primary buttons ───────────────────────── */
+
+/* Primary buttons always have white text regardless of theme */
+[style*="background: '#2563EB'"],
+[style*="background: var(--akaal-primary)"],
+.akaal-btn-primary {
+  color: #ffffff !important;
+}
+
+/* ─── Enterprise Blue (Light Mode) — select option fix ───────────────────── */
+
+/* Fix select option backgrounds in light mode */
+[data-theme="light"] select option {
+  background: #FFFFFF;
+  color: #111827;
+}
