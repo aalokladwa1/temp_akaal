@@ -1,0 +1,25 @@
+{
+  "name": "temp_akaal",
+  "version": "1.0.0",
+  "description": "[![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]() [![Stage Certification](https://img.shields.io/badge/stage3--certification-PASSED-blue.svg)]() [![Version](https://img.shields.io/badge/version-v1.6.1-orange.svg)]() [![Baseline Tag](https://img.shields.io/badge/tag-v0.10--stage3--certified-green.svg)]()",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aalokladwa1/temp_akaal.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/aalokladwa1/temp_akaal/issues"
+  },
+  "homepage": "https://github.com/aalokladwa1/temp_akaal#readme"
+}
