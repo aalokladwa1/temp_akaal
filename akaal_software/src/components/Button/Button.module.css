@@ -1,0 +1,58 @@
+/* Button Module CSS */
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: var(--akaal-button-height);
+  border-radius: var(--akaal-button-radius);
+  font-family: var(--akaal-font-sans);
+  font-size: var(--akaal-font-size-button);
+  font-weight: var(--akaal-font-weight-medium);
+  border: none;
+  outline: none;
+  box-shadow: none;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color var(--akaal-motion-controls);
+}
+
+.button:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.2);
+  outline-offset: 2px;
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Primary Variant */
+.primary {
+  background-color: var(--akaal-color-bg-primary-btn);
+  color: #FFFFFF;
+}
+
+.primary:hover:not(:disabled) {
+  /* Dark theme 4-8% lighter background transition */
+  background-color: var(--akaal-color-bg-primary-btn-hover);
+}
+
+.primary:active:not(:disabled) {
+  background-color: var(--akaal-color-bg-primary-btn-active);
+}
+
+/* Secondary Variant */
+.secondary {
+  background-color: var(--akaal-color-bg-secondary-btn);
+  color: var(--akaal-color-text-primary);
+}
+
+.secondary:hover:not(:disabled) {
+  background-color: var(--akaal-color-bg-secondary-btn-hover);
+}
+
+.secondary:active:not(:disabled) {
+  background-color: var(--akaal-color-bg-secondary-btn-active);
+}

@@ -1,0 +1,99 @@
+/* Typography Module CSS */
+
+.typography {
+  margin: 0;
+  padding: 0;
+  font-family: var(--akaal-font-sans);
+  color: var(--akaal-color-text-primary);
+  letter-spacing: normal;
+  text-rendering: optimizeLegibility;
+}
+
+/* Variants */
+.heading {
+  font-family: var(--akaal-font-sans);
+  color: var(--akaal-color-text-primary);
+}
+
+.body {
+  font-family: var(--akaal-font-sans);
+  color: var(--akaal-color-text-secondary);
+  font-size: var(--akaal-font-size-body);
+  line-height: 1.5;
+}
+
+.caption {
+  font-family: var(--akaal-font-mono);
+  color: var(--akaal-color-text-footer);
+  font-size: var(--akaal-font-size-footer);
+  letter-spacing: 0.04em;
+}
+
+/* Sizes */
+.sizeWelcomeSub {
+  font-size: var(--akaal-font-size-welcome-sub); /* 24px */
+  line-height: 1.3;
+}
+
+.sizeWelcomeTitle {
+  font-size: var(--akaal-font-size-welcome-title); /* 40px */
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.sizeBody {
+  font-size: var(--akaal-font-size-body);
+  line-height: 1.5;
+}
+
+.sizeCaption {
+  font-size: var(--akaal-font-size-footer);
+  line-height: 1.4;
+}
+
+/* Weights */
+.weightRegular {
+  font-weight: var(--akaal-font-weight-regular);
+}
+
+.weightMedium {
+  font-weight: var(--akaal-font-weight-medium);
+}
+
+.weightSemibold {
+  font-weight: var(--akaal-font-weight-semibold);
+}
+
+.weightBold {
+  font-weight: var(--akaal-font-weight-bold);
+}
+
+/* Colors */
+.colorPrimary {
+  color: var(--akaal-color-text-primary);
+}
+
+.colorSecondary {
+  color: var(--akaal-color-text-secondary);
+}
+
+.colorTertiary {
+  color: var(--akaal-color-text-footer);
+}
+
+.colorBrandEmphasis {
+  color: var(--akaal-color-text-brand-emphasis);
+}
+
+/* Alignments */
+.alignLeft {
+  text-align: left;
+}
+
+.alignCenter {
+  text-align: center;
+}
+
+.alignRight {
+  text-align: right;
+}

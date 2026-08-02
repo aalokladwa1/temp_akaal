@@ -1,0 +1,15 @@
+/* Enterprise Card Module CSS */
+
+.card {
+  width: var(--akaal-card-width);
+  min-height: var(--akaal-card-min-height);
+  border-radius: var(--akaal-card-radius);
+  padding: var(--akaal-card-padding-v) var(--akaal-card-padding-h);
+  background-color: var(--akaal-color-bg-surface);
+  border: 1px solid var(--akaal-color-border-neutral);
+  box-shadow: var(--akaal-shadow-card);
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  transition: background-color var(--akaal-motion-surfaces), border-color var(--akaal-motion-surfaces);
+}

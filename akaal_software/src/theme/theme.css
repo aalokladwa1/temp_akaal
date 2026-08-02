@@ -1,0 +1,105 @@
+/**
+ * AKAAL Enterprise Design System - Theme CSS Variables
+ */
+
+:root {
+  /* Default Global Dark Theme Variables */
+  --akaal-color-bg-canvas: #0B0D11;
+  --akaal-color-bg-surface: #14171F;
+  --akaal-color-bg-surface-hover: #1B1F2A;
+  
+  --akaal-color-bg-primary-btn: #2563EB;
+  --akaal-color-bg-primary-btn-hover: #3B82F6;
+  --akaal-color-bg-primary-btn-active: #1D4ED8;
+
+  --akaal-color-bg-secondary-btn: rgba(255, 255, 255, 0.06);
+  --akaal-color-bg-secondary-btn-hover: rgba(255, 255, 255, 0.10);
+  --akaal-color-bg-secondary-btn-active: rgba(255, 255, 255, 0.14);
+
+  --akaal-color-text-primary: #F9FAFB;
+  --akaal-color-text-secondary: #9CA3AF;
+  --akaal-color-text-footer: rgba(255, 255, 255, 0.40);
+  --akaal-color-text-brand-emphasis: #FFFFFF;
+
+  --akaal-color-border-neutral: rgba(255, 255, 255, 0.08);
+  --akaal-color-border-neutral-hover: rgba(255, 255, 255, 0.12);
+
+  --akaal-shadow-card: 0 20px 40px -15px rgba(0, 0, 0, 0.5), 0 0 1px rgba(255, 255, 255, 0.05);
+
+  /* Typography */
+  --akaal-font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --akaal-font-mono: 'JetBrains Mono', monospace;
+
+  --akaal-font-size-welcome-sub: 24px;
+  --akaal-font-size-welcome-title: 40px;
+  --akaal-font-size-body: 14px;
+  --akaal-font-size-button: 14px;
+  --akaal-font-size-footer: 11px;
+
+  --akaal-font-weight-regular: 400;
+  --akaal-font-weight-medium: 500;
+  --akaal-font-weight-semibold: 600;
+  --akaal-font-weight-bold: 700;
+
+  /* Dimensions & Spacing */
+  --akaal-card-width: 580px;
+  --akaal-card-min-height: 240px;
+  --akaal-card-radius: 16px;
+  --akaal-card-padding-v: 40px;
+  --akaal-card-padding-h: 32px;
+
+  --akaal-button-height: 44px;
+  --akaal-button-radius: 10px;
+  --akaal-button-gap: 12px;
+  --akaal-content-gap: 28px;
+  --akaal-header-gap: 8px;
+  --akaal-card-to-header-gap: 36px;
+
+  /* Motion */
+  --akaal-motion-controls: 180ms ease;
+  --akaal-motion-surfaces: 220ms ease;
+}
+
+/* Dedicated Enterprise Blue Light Theme Scope (Welcome Screen Onboarding) */
+.enterprise-light-theme {
+  --akaal-color-bg-canvas: #F8FAFC;
+  --akaal-color-bg-surface: #FFFFFF;
+  --akaal-color-bg-surface-hover: #F8FAFC;
+  
+  --akaal-color-bg-primary-btn: #2563EB;
+  --akaal-color-bg-primary-btn-hover: #1D4ED8;
+  --akaal-color-bg-primary-btn-active: #1E40AF;
+
+  --akaal-color-bg-secondary-btn: #F1F5F9;
+  --akaal-color-bg-secondary-btn-hover: #E2E8F0;
+  --akaal-color-bg-secondary-btn-active: #CBD5E1;
+
+  --akaal-color-text-primary: #0F172A;
+  --akaal-color-text-secondary: #64748B;
+  --akaal-color-text-footer: #94A3B8;
+  --akaal-color-text-brand-emphasis: #1E3A8A;
+
+  --akaal-color-border-neutral: rgba(15, 23, 42, 0.08);
+  --akaal-color-border-neutral-hover: rgba(15, 23, 42, 0.14);
+
+  --akaal-shadow-card: 0 20px 40px -15px rgba(15, 23, 42, 0.07), 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+/* Global Reset & Base Styles */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: var(--akaal-font-sans);
+  background-color: var(--akaal-color-bg-canvas);
+  color: var(--akaal-color-text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  user-select: none;
+}

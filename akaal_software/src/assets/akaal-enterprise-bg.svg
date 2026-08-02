@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" fill="none">
+  <defs>
+    <!-- Enterprise Light Blue Canvas Gradient -->
+    <linearGradient id="bgLightGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F8FAFC"/>
+      <stop offset="50%" stop-color="#F1F5F9"/>
+      <stop offset="100%" stop-color="#E2E8F0"/>
+    </linearGradient>
+
+    <!-- Restrained Soft Ambient Light Radial Highlight Behind AKAAL Title -->
+    <radialGradient id="centerLightHighlight" cx="50%" cy="38%" r="40%">
+      <stop offset="0%" stop-color="#2563EB" stop-opacity="0.07"/>
+      <stop offset="50%" stop-color="#3B82F6" stop-opacity="0.03"/>
+      <stop offset="100%" stop-color="#F8FAFC" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Subtle Enterprise Vector Grid Pattern -->
+    <pattern id="enterpriseLightGrid" width="60" height="60" patternUnits="userSpaceOnUse">
+      <path d="M 60 0 L 0 0 0 60" fill="none" stroke="#0F172A" stroke-opacity="0.03" stroke-width="1"/>
+      <circle cx="60" cy="60" r="1" fill="#0F172A" fill-opacity="0.05"/>
+    </pattern>
+
+    <!-- Subtle Architectural Flow Lines -->
+    <linearGradient id="lineLightGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#2563EB" stop-opacity="0"/>
+      <stop offset="50%" stop-color="#1D4ED8" stop-opacity="0.05"/>
+      <stop offset="100%" stop-color="#2563EB" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Base Canvas Layer -->
+  <rect width="1920" height="1080" fill="url(#bgLightGrad)"/>
+
+  <!-- Center Ambient Radial Highlight -->
+  <rect width="1920" height="1080" fill="url(#centerLightHighlight)"/>
+
+  <!-- Enterprise Grid Layer -->
+  <rect width="1920" height="1080" fill="url(#enterpriseLightGrid)"/>
+
+  <!-- Subtle Vector Architectural Lines -->
+  <path d="M-100 850 C 400 750, 800 900, 2020 700" stroke="url(#lineLightGrad)" stroke-width="1.5" fill="none"/>
+  <path d="M-100 900 C 500 800, 1100 950, 2020 780" stroke="url(#lineLightGrad)" stroke-width="1" fill="none"/>
+</svg>

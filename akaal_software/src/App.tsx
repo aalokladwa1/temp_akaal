@@ -1,51 +1,52 @@
-import { useState } from "react";
-import reactLogo from "./assets/react.svg";
-import { invoke } from "@tauri-apps/api/core";
-import "./App.css";
+import React from "react";
+import { WelcomeScreen } from "./screens/WelcomeScreen";
 
-function App() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
+export function App() {
+  const handleStartSetup = () => {
+    // Stopped per Sprint 1 scope
+  };
 
-  async function greet() {
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    setGreetMsg(await invoke("greet", { name }));
-  }
+  const handleExit = async (e?: React.MouseEvent) => {
+    if (e && typeof e.preventDefault === "function") {
+      e.preventDefault();
+    }
 
-  return (
-    <main className="container">
-      <h1>Welcome to Tauri + React</h1>
+    // 1. Primary Tauri API Window Destroy (Instant Unconditional Termination)
+    try {
+      const { getCurrentWindow } = await import("@tauri-apps/api/window");
+      const appWindow = getCurrentWindow();
+      await appWindow.destroy();
+      return;
+    } catch (err) {
+      console.warn("Tauri getCurrentWindow().destroy() call bypassed/failed:", err);
+    }
 
-      <div className="row">
-        <a href="https://vite.dev" target="_blank">
-          <img src="/vite.svg" className="logo vite" alt="Vite logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-          <img src="/tauri.svg" className="logo tauri" alt="Tauri logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <p>Click on the Tauri, Vite, and React logos to learn more.</p>
+    // 2. Secondary Tauri API Window Close
+    try {
+      const { getCurrentWindow } = await import("@tauri-apps/api/window");
+      const appWindow = getCurrentWindow();
+      await appWindow.close();
+      return;
+    } catch (err) {
+      console.warn("Tauri getCurrentWindow().close() call bypassed/failed:", err);
+    }
 
-      <form
-        className="row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          greet();
-        }}
-      >
-        <input
-          id="greet-input"
-          onChange={(e) => setName(e.currentTarget.value)}
-          placeholder="Enter a name..."
-        />
-        <button type="submit">Greet</button>
-      </form>
-      <p>{greetMsg}</p>
-    </main>
-  );
+    // 3. Custom Rust IPC Command (Explicit parameterless call)
+    try {
+      const { invoke } = await import("@tauri-apps/api/core");
+      await invoke("exit_app");
+      return;
+    } catch (err) {
+      console.warn("Tauri invoke('exit_app') failed:", err);
+    }
+
+    // 4. Fallback for non-Tauri browser context
+    if (typeof window !== "undefined") {
+      window.close();
+    }
+  };
+
+  return <WelcomeScreen onStartSetup={handleStartSetup} onExit={handleExit} />;
 }
 
 export default App;
