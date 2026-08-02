@@ -103,3 +103,93 @@ html, body, #root {
   -moz-osx-font-smoothing: grayscale;
   user-select: none;
 }
+/* ─────────────────────────────────────────────────────────────
+   App-level Dark Theme (Dashboard)
+   Applied via JS: document.documentElement.classList.add('app-theme-dark')
+───────────────────────────────────────────────────────────── */
+.app-theme-dark {
+  --dash-bg: #0B0D11;
+  --dash-surface: #14171F;
+  --dash-surface-hover: #1B1F2A;
+  --dash-border: rgba(255, 255, 255, 0.07);
+  --dash-border-hover: rgba(255, 255, 255, 0.12);
+  --dash-text-primary: #F1F5F9;
+  --dash-text-secondary: #64748B;
+  --dash-text-tertiary: #374151;
+  --dash-text-accent: #3B82F6;
+  --dash-accent: #2563EB;
+  --dash-accent-hover: #3B82F6;
+  --dash-sidebar-bg: #0F1117;
+  --dash-sidebar-border: rgba(255, 255, 255, 0.06);
+  --dash-topbar-bg: #0F1117;
+  --dash-topbar-border: rgba(255, 255, 255, 0.06);
+  --dash-card-bg: #14171F;
+  --dash-card-border: rgba(255, 255, 255, 0.07);
+  --dash-card-shadow: 0 1px 3px rgba(0,0,0,0.4);
+  --dash-input-bg: rgba(255,255,255,0.05);
+  --dash-tag-running-bg: rgba(16, 185, 129, 0.12);
+  --dash-tag-running-text: #10B981;
+  --dash-tag-paused-bg: rgba(245, 158, 11, 0.12);
+  --dash-tag-paused-text: #F59E0B;
+  --dash-tag-completed-bg: rgba(99, 102, 241, 0.12);
+  --dash-tag-completed-text: #818CF8;
+  --dash-tag-failed-bg: rgba(239, 68, 68, 0.12);
+  --dash-tag-failed-text: #EF4444;
+  --dash-notif-info-bg: rgba(59, 130, 246, 0.1);
+  --dash-notif-info-border: rgba(59, 130, 246, 0.2);
+  --dash-notif-success-bg: rgba(16, 185, 129, 0.1);
+  --dash-notif-success-border: rgba(16, 185, 129, 0.2);
+  --dash-notif-warning-bg: rgba(245, 158, 11, 0.1);
+  --dash-notif-warning-border: rgba(245, 158, 11, 0.2);
+  --dash-notif-error-bg: rgba(239, 68, 68, 0.1);
+  --dash-notif-error-border: rgba(239, 68, 68, 0.2);
+  color-scheme: dark;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   App-level Light Theme (Dashboard)
+   Applied via JS: document.documentElement.classList.add('app-theme-light')
+───────────────────────────────────────────────────────────── */
+.app-theme-light {
+  --dash-bg: #F8FAFC;
+  --dash-surface: #FFFFFF;
+  --dash-surface-hover: #F1F5F9;
+  --dash-border: rgba(15, 23, 42, 0.08);
+  --dash-border-hover: rgba(15, 23, 42, 0.14);
+  --dash-text-primary: #0F172A;
+  --dash-text-secondary: #64748B;
+  --dash-text-tertiary: #94A3B8;
+  --dash-text-accent: #2563EB;
+  --dash-accent: #2563EB;
+  --dash-accent-hover: #1D4ED8;
+  --dash-sidebar-bg: #FFFFFF;
+  --dash-sidebar-border: rgba(15, 23, 42, 0.07);
+  --dash-topbar-bg: #FFFFFF;
+  --dash-topbar-border: rgba(15, 23, 42, 0.07);
+  --dash-card-bg: #FFFFFF;
+  --dash-card-border: rgba(15, 23, 42, 0.08);
+  --dash-card-shadow: 0 1px 3px rgba(15,23,42,0.06);
+  --dash-input-bg: #F1F5F9;
+  --dash-tag-running-bg: rgba(16, 185, 129, 0.1);
+  --dash-tag-running-text: #059669;
+  --dash-tag-paused-bg: rgba(217, 119, 6, 0.1);
+  --dash-tag-paused-text: #D97706;
+  --dash-tag-completed-bg: rgba(99, 102, 241, 0.1);
+  --dash-tag-completed-text: #6366F1;
+  --dash-tag-failed-bg: rgba(220, 38, 38, 0.1);
+  --dash-tag-failed-text: #DC2626;
+  --dash-notif-info-bg: rgba(239, 246, 255, 1);
+  --dash-notif-info-border: rgba(59, 130, 246, 0.25);
+  --dash-notif-success-bg: rgba(240, 253, 244, 1);
+  --dash-notif-success-border: rgba(16, 185, 129, 0.25);
+  --dash-notif-warning-bg: rgba(255, 251, 235, 1);
+  --dash-notif-warning-border: rgba(245, 158, 11, 0.25);
+  --dash-notif-error-bg: rgba(254, 242, 242, 1);
+  --dash-notif-error-border: rgba(239, 68, 68, 0.25);
+  color-scheme: light;
+}
+
+/* Global theme transition */
+*, *::before, *::after {
+  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+}
