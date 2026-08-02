@@ -3,10 +3,10 @@
  */
 
 :root {
-  /* Default Global Dark Theme Variables */
-  --akaal-color-bg-canvas: #0B0D11;
-  --akaal-color-bg-surface: #14171F;
-  --akaal-color-bg-surface-hover: #1B1F2A;
+  /* Default Global Layered Graphite Slate Dark Theme Tokens */
+  --akaal-color-bg-canvas: #12151E;
+  --akaal-color-bg-surface: #1E2330;
+  --akaal-color-bg-surface-hover: #262C3D;
   
   --akaal-color-bg-primary-btn: #2563EB;
   --akaal-color-bg-primary-btn-hover: #3B82F6;
@@ -16,15 +16,15 @@
   --akaal-color-bg-secondary-btn-hover: rgba(255, 255, 255, 0.10);
   --akaal-color-bg-secondary-btn-active: rgba(255, 255, 255, 0.14);
 
-  --akaal-color-text-primary: #F9FAFB;
+  --akaal-color-text-primary: #F3F4F6;
   --akaal-color-text-secondary: #9CA3AF;
   --akaal-color-text-footer: rgba(255, 255, 255, 0.40);
   --akaal-color-text-brand-emphasis: #FFFFFF;
 
   --akaal-color-border-neutral: rgba(255, 255, 255, 0.08);
-  --akaal-color-border-neutral-hover: rgba(255, 255, 255, 0.12);
+  --akaal-color-border-neutral-hover: rgba(255, 255, 255, 0.14);
 
-  --akaal-shadow-card: 0 20px 40px -15px rgba(0, 0, 0, 0.5), 0 0 1px rgba(255, 255, 255, 0.05);
+  --akaal-shadow-card: 0 1px 3px rgba(0, 0, 0, 0.2), 0 1px 2px rgba(0, 0, 0, 0.1);
 
   /* Typography */
   --akaal-font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -82,7 +82,7 @@
   --akaal-color-border-neutral: rgba(15, 23, 42, 0.08);
   --akaal-color-border-neutral-hover: rgba(15, 23, 42, 0.14);
 
-  --akaal-shadow-card: 0 20px 40px -15px rgba(15, 23, 42, 0.07), 0 1px 3px rgba(15, 23, 42, 0.04);
+  --akaal-shadow-card: 0 1px 3px rgba(15, 23, 42, 0.06);
 }
 
 /* Global Reset & Base Styles */
@@ -103,30 +103,31 @@ html, body, #root {
   -moz-osx-font-smoothing: grayscale;
   user-select: none;
 }
+
 /* ─────────────────────────────────────────────────────────────
-   App-level Dark Theme (Dashboard)
+   App-level Dark Theme (Dashboard & IDE Workspaces)
    Applied via JS: document.documentElement.classList.add('app-theme-dark')
 ───────────────────────────────────────────────────────────── */
 .app-theme-dark {
-  --dash-bg: #0B0D11;
-  --dash-surface: #14171F;
-  --dash-surface-hover: #1B1F2A;
-  --dash-border: rgba(255, 255, 255, 0.07);
-  --dash-border-hover: rgba(255, 255, 255, 0.12);
-  --dash-text-primary: #F1F5F9;
-  --dash-text-secondary: #64748B;
-  --dash-text-tertiary: #374151;
+  --dash-bg: #12151E;
+  --dash-surface: #1E2330;
+  --dash-surface-hover: #262C3D;
+  --dash-border: rgba(255, 255, 255, 0.08);
+  --dash-border-hover: rgba(255, 255, 255, 0.15);
+  --dash-text-primary: #F3F4F6;
+  --dash-text-secondary: #9CA3AF;
+  --dash-text-tertiary: #6B7280;
   --dash-text-accent: #3B82F6;
   --dash-accent: #2563EB;
   --dash-accent-hover: #3B82F6;
-  --dash-sidebar-bg: #0F1117;
-  --dash-sidebar-border: rgba(255, 255, 255, 0.06);
-  --dash-topbar-bg: #0F1117;
-  --dash-topbar-border: rgba(255, 255, 255, 0.06);
-  --dash-card-bg: #14171F;
-  --dash-card-border: rgba(255, 255, 255, 0.07);
-  --dash-card-shadow: 0 1px 3px rgba(0,0,0,0.4);
-  --dash-input-bg: rgba(255,255,255,0.05);
+  --dash-sidebar-bg: #171B26;
+  --dash-sidebar-border: rgba(255, 255, 255, 0.08);
+  --dash-topbar-bg: #171B26;
+  --dash-topbar-border: rgba(255, 255, 255, 0.08);
+  --dash-card-bg: #1E2330;
+  --dash-card-border: rgba(255, 255, 255, 0.08);
+  --dash-card-shadow: 0 1px 3px rgba(0, 0, 0, 0.2), 0 1px 2px rgba(0, 0, 0, 0.1);
+  --dash-input-bg: #171B26;
   --dash-tag-running-bg: rgba(16, 185, 129, 0.12);
   --dash-tag-running-text: #10B981;
   --dash-tag-paused-bg: rgba(245, 158, 11, 0.12);
@@ -189,7 +190,7 @@ html, body, #root {
   color-scheme: light;
 }
 
-/* Global theme transition */
-*, *::before, *::after {
+/* Scoped theme transition */
+button, input, select, textarea, a, .app-theme-dark, .app-theme-light {
   transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
 }

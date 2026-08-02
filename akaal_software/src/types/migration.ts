@@ -1,48 +1,110 @@
 /**
- * AKAAL Enterprise Migration Module Data Types
+ * AKAAL Enterprise Migration Architecture Data Types
+ * Definitive Engine-Aligned Model
  */
 
-export type MigrationProjectStatus =
-  | 'running'
-  | 'planning'
-  | 'completed'
-  | 'paused'
-  | 'failed'
-  | 'archived';
+export type DatabaseEngine =
+  | 'Oracle 19c'
+  | 'PostgreSQL 16'
+  | 'SQL Server 2019'
+  | 'MySQL 8.0'
+  | 'MongoDB 6.0'
+  | 'IBM DB2 v11'
+  | 'MariaDB'
+  | 'CockroachDB'
+  | 'Snowflake'
+  | 'Redshift'
+  | 'BigQuery'
+  | 'SQLite';
 
-export type AgentStage =
+export type EngineStageId =
   | 'scout'
+  | 'advisor'
+  | 'live_intel'
   | 'planner'
-  | 'translator'
-  | 'migration'
+  | 'manager'
+  | 'schema_exec'
+  | 'data_migration'
   | 'validator'
-  | 'reporter';
+  | 'healing'
+  | 'certification';
 
-export interface MigrationProject {
+export type PipelineHealthStatus =
+  | 'healthy'
+  | 'approval_required'
+  | 'self_healing'
+  | 'validation_failed'
+  | 'completed'
+  | 'draft';
+
+export type DiscoveryProfileType = 'QUICK' | 'STANDARD' | 'DEEP' | 'COMPLIANCE';
+
+export type TeamRole =
+  | 'Owner'
+  | 'Migration Engineer'
+  | 'Validation Lead'
+  | 'Approver'
+  | 'Observer';
+
+export interface MigrationDraftState {
+  step: number;
+  migName: string;
+  migScope: string;
+  strategy: string;
+  sourceEngine: DatabaseEngine;
+  sourceHost: string;
+  sourcePort: string;
+  sourceDbName: string;
+  sourceUser: string;
+  targetEngine: DatabaseEngine;
+  targetHost: string;
+  targetPort: string;
+  targetDbName: string;
+  targetUser: string;
+  discoveryProfile: DiscoveryProfileType;
+  includeSchemas: string;
+  gbValidationLevel: string;
+  requireFourEyes: boolean;
+}
+
+export interface MigrationPipeline {
   id: string;
   name: string;
-  sourceDb: string;
-  targetDb: string;
-  status: MigrationProjectStatus;
-  progress: number; // 0 to 100
+  sourceEngine: DatabaseEngine;
+  sourceEndpoint: string;
+  targetEngine: DatabaseEngine;
+  targetEndpoint: string;
+  currentStage: EngineStageId;
+  currentStageLabel: string;
+  lastEvent: string;
+  health: PipelineHealthStatus;
+  healthLabel: string;
+  progress: number; // 0 to 100%
   lastActivity: string;
   lastOpenedTimestamp: number;
   createdAtTimestamp: number;
   owner: string;
+  assignedRole: TeamRole;
   teamMemberCount: number;
   isPinned?: boolean;
   isShared?: boolean;
   assignedBy?: string;
-  reviewStatus?: string;
+  approvalStatus?: 'None' | 'Pending Approval' | 'Approved' | 'Rejected';
   isArchived?: boolean;
-  activeAgentStage?: AgentStage;
+  isDraft?: boolean;
+  draftData?: MigrationDraftState;
+  riskScore: number; // 0.0 - 1.0
+  trustScore: number; // 0 - 100%
+  discoveryProfile: DiscoveryProfileType;
+  estimatedRows: number;
+  estimatedDuration: string;
 }
 
-export type ProjectWorkspaceTab =
+export type WorkspaceTabId =
   | 'overview'
-  | 'migration'
-  | 'validation'
+  | 'lifecycle'
   | 'monitoring'
+  | 'validation'
   | 'reports'
   | 'timeline'
   | 'team'

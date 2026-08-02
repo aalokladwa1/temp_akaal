@@ -1,0 +1,668 @@
+/* MigrationModule.module.css — Enterprise Desktop Workspace Styles */
+
+.container {
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  padding: 40px 48px;
+  box-sizing: border-box;
+  font-family: var(--akaal-font-sans);
+  color: var(--dash-text-primary);
+  animation: moduleFadeIn 180ms ease-out forwards;
+}
+
+@keyframes moduleFadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.container::-webkit-scrollbar { width: 6px; }
+.container::-webkit-scrollbar-track { background: transparent; }
+.container::-webkit-scrollbar-thumb { background: var(--dash-border); border-radius: 3px; }
+
+/* ── Theme-Aware Form Controls & Dropdowns ────────────────── */
+.container select,
+.container input[type="text"],
+.container input[type="password"] {
+  background-color: var(--dash-card-bg) !important;
+  color: var(--dash-text-primary) !important;
+  border: 1px solid var(--dash-border) !important;
+  font-family: var(--akaal-font-sans) !important;
+  outline: none;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.container select:focus,
+.container input[type="text"]:focus,
+.container input[type="password"]:focus {
+  border-color: var(--dash-accent) !important;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2) !important;
+}
+
+.container select option {
+  background-color: var(--dash-surface) !important;
+  color: var(--dash-text-primary) !important;
+}
+
+/* ── Header Section ────────────────────────────────────────── */
+.headerRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 32px;
+}
+
+.headerTitle {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--dash-text-primary);
+  letter-spacing: -0.03em;
+  margin: 0 0 6px 0;
+  line-height: 1.2;
+}
+
+.headerSubtitle {
+  font-size: 14px;
+  color: var(--dash-text-secondary);
+  margin: 0;
+  font-weight: 400;
+}
+
+/* ── 4 Primary Action Cards (Icon + Title Only) ─────────────── */
+.primaryActionGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 40px;
+}
+
+.actionCard {
+  background: var(--dash-card-bg);
+  border: 1px solid var(--dash-card-border);
+  border-radius: 14px;
+  padding: 20px 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  cursor: pointer;
+  transition: border-color 140ms ease, background 140ms ease, transform 140ms ease, box-shadow 140ms ease;
+  box-shadow: var(--dash-card-shadow);
+  user-select: none;
+  text-align: left;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.actionCard:hover {
+  border-color: var(--dash-accent);
+  background: var(--dash-surface-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.actionIconBox {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: rgba(37, 99, 235, 0.12);
+  color: var(--dash-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.actionCardTitle {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--dash-text-primary);
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+/* ── Section Headers ───────────────────────────────────────── */
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.sectionTitle {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--dash-text-secondary);
+}
+
+/* ── Hero Section (Continue Working) ──────────────────────── */
+.heroSection {
+  margin-bottom: 40px;
+  animation: heroFadeIn 220ms ease-out forwards;
+}
+
+@keyframes heroFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.heroCard {
+  background: var(--dash-card-bg);
+  border: 1px solid var(--dash-card-border);
+  border-radius: 14px;
+  padding: 26px 30px;
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  box-shadow: var(--dash-card-shadow);
+  transition: border-color 140ms ease, transform 140ms ease;
+}
+
+.heroCard:hover {
+  border-color: var(--dash-border-hover);
+}
+
+.heroLeft {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Unified Hero Status Indicators (Requirement #5) */
+.heroMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.heroProjectName {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--dash-text-primary);
+  letter-spacing: -0.02em;
+  margin-bottom: 8px;
+}
+
+.heroSubInfo {
+  font-size: 13px;
+  color: var(--dash-text-secondary);
+  margin-bottom: 14px;
+  line-height: 1.4;
+}
+
+.heroProgressRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.heroProgressTrack {
+  flex: 1;
+  height: 5px;
+  background: var(--dash-border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.heroProgressFill {
+  height: 100%;
+  border-radius: 4px;
+  background: var(--dash-accent);
+  transition: width 500ms ease;
+}
+
+.heroProgressText {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--dash-text-primary);
+}
+
+.resumeBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 22px;
+  border-radius: 10px;
+  background: var(--dash-accent);
+  color: #ffffff;
+  border: none;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--akaal-font-sans);
+  cursor: pointer;
+  transition: background 140ms ease, transform 140ms ease, box-shadow 140ms ease;
+  white-space: nowrap;
+}
+
+.resumeBtn:hover {
+  background: var(--dash-accent-hover);
+  transform: translateX(2px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+/* ── Standardized Status Badges ──────────────────────────── */
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  box-sizing: border-box;
+  vertical-align: middle;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+
+.statusRunning   { background: rgba(16, 185, 129, 0.10); color: #10B981; border-color: rgba(16, 185, 129, 0.2); }
+.statusPlanning  { background: rgba(245, 158, 11, 0.10); color: #F59E0B; border-color: rgba(245, 158, 11, 0.2); }
+.statusCompleted { background: rgba(59, 130, 246, 0.10); color: #3B82F6; border-color: rgba(59, 130, 246, 0.2); }
+.statusPaused    { background: rgba(249, 115, 22, 0.10); color: #F97316; border-color: rgba(249, 115, 22, 0.2); }
+.statusFailed    { background: rgba(239, 68, 68, 0.10);  color: #EF4444; border-color: rgba(239, 68, 68, 0.2); }
+.statusArchived  { background: rgba(100, 116, 139, 0.10); color: #64748B; border-color: rgba(100, 116, 139, 0.2); }
+
+.statusDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* ── Active Project Cards (Spacious, Minimal) ───────────── */
+.projectsSection {
+  margin-bottom: 40px;
+}
+
+.projectGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+  gap: 20px;
+}
+
+.projectCard {
+  position: relative;
+  background: var(--dash-card-bg);
+  border: 1px solid var(--dash-card-border);
+  border-radius: 14px;
+  padding: 24px 26px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 180px;
+  box-shadow: var(--dash-card-shadow);
+  transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.projectCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  border-color: var(--dash-border-hover);
+}
+
+.projectCardTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.projectTitleGroup {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.pinStar {
+  font-size: 13px;
+  color: #F59E0B;
+  flex-shrink: 0;
+}
+
+.projectName {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--dash-text-primary);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.projectDbPair {
+  font-size: 12px;
+  color: var(--dash-text-secondary);
+  margin-bottom: 12px;
+}
+
+.projectCardHoverActions {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.projectCard:hover .projectCardHoverActions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.openBtn {
+  font-size: 12px;
+  font-weight: 500;
+  padding: 5px 12px;
+  border-radius: 6px;
+  background: var(--dash-surface-hover);
+  color: var(--dash-text-primary);
+  border: 1px solid var(--dash-border);
+  cursor: pointer;
+  transition: background 100ms ease;
+  font-family: var(--akaal-font-sans);
+}
+
+.openBtn:hover {
+  background: var(--dash-accent);
+  color: #ffffff;
+  border-color: var(--dash-accent);
+}
+
+.overflowMenuBtn {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  background: none;
+  border: none;
+  color: var(--dash-text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  transition: color 100ms ease, background 100ms ease;
+}
+
+.overflowMenuBtn:hover {
+  color: var(--dash-text-primary);
+  background: var(--dash-surface-hover);
+}
+
+.projectCardBottom {
+  border-top: 1px solid var(--dash-border);
+  padding-top: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--dash-text-secondary);
+}
+
+.projectMetaGroup {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.metaItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.metaItemLabel {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--dash-text-secondary);
+  opacity: 0.7;
+}
+
+.metaItemValue {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--dash-text-primary);
+}
+
+/* ── Context Dropdown Menu ─────────────────────────────────── */
+.overflowMenuDropdown {
+  position: absolute;
+  top: 40px;
+  right: 16px;
+  width: 160px;
+  background: var(--dash-surface);
+  border: 1px solid var(--dash-border);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  z-index: 200;
+  padding: 4px 0;
+  animation: dropDown 120ms ease forwards;
+}
+
+.overflowItem {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--dash-text-primary);
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  transition: background 100ms ease;
+  font-family: var(--akaal-font-sans);
+}
+
+.overflowItem:hover {
+  background: var(--dash-surface-hover);
+}
+
+.overflowItemDanger {
+  color: #EF4444;
+}
+
+.overflowItemDanger:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+/* ── Shared & Archived Collapsible Sections ────────────────── */
+.sharedSection {
+  margin-bottom: 40px;
+}
+
+.archivedSection {
+  margin-bottom: 40px;
+}
+
+.archivedHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--dash-text-secondary);
+  cursor: pointer;
+  transition: color 120ms ease;
+  font-family: var(--akaal-font-sans);
+}
+
+.archivedHeader:hover {
+  color: var(--dash-text-primary);
+}
+
+.archivedCaret {
+  font-size: 11px;
+  transition: transform 180ms ease;
+}
+
+.archivedCaretExpanded {
+  transform: rotate(90deg);
+}
+
+.archivedBody {
+  margin-top: 16px;
+  animation: expandSlide 180ms ease-out forwards;
+}
+
+@keyframes expandSlide {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Project Workspace View (Fix Left Boundary Layout Bug) ──── */
+.workspaceViewContainer {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--dash-bg);
+  color: var(--dash-text-primary);
+  font-family: var(--akaal-font-sans);
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
+.workspaceHeader {
+  padding: 28px 48px 0 48px;
+  background: var(--dash-surface);
+  border-bottom: 1px solid var(--dash-border);
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.workspaceTopBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.backBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--dash-text-secondary);
+  cursor: pointer;
+  transition: color 120ms ease;
+  font-family: var(--akaal-font-sans);
+}
+
+.backBtn:hover {
+  color: var(--dash-text-primary);
+}
+
+.workspaceTitle {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--dash-text-primary);
+  margin: 0 0 4px 0;
+}
+
+.workspaceMeta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--dash-text-secondary);
+}
+
+.pipelineBar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 0 20px 0;
+  overflow-x: auto;
+  width: 100%;
+}
+
+.agentStageChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: var(--dash-bg);
+  border: 1px solid var(--dash-border);
+  color: var(--dash-text-secondary);
+  transition: all 140ms ease;
+}
+
+.agentStageActive {
+  background: rgba(37, 99, 235, 0.12);
+  border-color: var(--dash-accent);
+  color: var(--dash-accent);
+}
+
+.agentStageSelected {
+  border-color: var(--dash-accent);
+  box-shadow: 0 0 0 1px var(--dash-accent);
+}
+
+.stageArrow {
+  font-size: 10px;
+  color: var(--dash-text-secondary);
+  opacity: 0.5;
+}
+
+.tabBar {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  border-top: 1px solid var(--dash-border);
+  padding-top: 4px;
+  width: 100%;
+}
+
+.tabItem {
+  padding: 12px 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--dash-text-secondary);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: all 120ms ease;
+  font-family: var(--akaal-font-sans);
+}
+
+.tabItem:hover {
+  color: var(--dash-text-primary);
+}
+
+.tabItemActive {
+  color: var(--dash-accent);
+  border-bottom-color: var(--dash-accent);
+  font-weight: 600;
+}
+
+.workspaceContent {
+  flex: 1;
+  padding: 40px 48px;
+  overflow-y: auto;
+  box-sizing: border-box;
+  width: 100%;
+}

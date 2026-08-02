@@ -11,6 +11,7 @@ import { getEnterpriseGreeting } from '../../utils/greetingUtils';
 import { useTheme } from '../../hooks/useTheme';
 import { useNotifications } from '../../hooks/useNotifications';
 import { notificationService } from '../../services/notificationService';
+import { MigrationModule } from '../MigrationModule';
 import styles from './Dashboard.module.css';
 
 // ── Types ────────────────────────────────────────────────────
@@ -67,9 +68,9 @@ const DEMO_ACTIVE: ActiveMigration = {
 };
 
 const DEMO_RECENT: RecentProject[] = [
-  { id: 'p1', name: 'Oracle → PostgreSQL',  status: 'running',   progress: 87, lastActivity: '18m ago'    },
-  { id: 'p2', name: 'SQL Server → PostgreSQL', status: 'completed', lastActivity: 'Yesterday'              },
-  { id: 'p3', name: 'MongoDB → PostgreSQL', status: 'paused',    progress: 54, lastActivity: '3 days ago' },
+  { id: 'p1', name: 'Oracle → PostgreSQL', status: 'running', progress: 87, lastActivity: '18m ago' },
+  { id: 'p2', name: 'SQL Server → PostgreSQL', status: 'completed', lastActivity: 'Yesterday' },
+  { id: 'p3', name: 'MongoDB → PostgreSQL', status: 'paused', progress: 54, lastActivity: '3 days ago' },
 ];
 
 const DEMO_ALERTS: Alert[] = [
@@ -77,15 +78,14 @@ const DEMO_ALERTS: Alert[] = [
 ];
 
 const SEARCH_DESTINATIONS: SearchDestination[] = [
-  { id: 'nav-projects',       title: 'Projects',             category: 'Page',    targetSection: 'projects'       },
-  { id: 'nav-migrations',     title: 'Migrations',           category: 'Page',    targetSection: 'migrations'     },
-  { id: 'nav-monitoring',     title: 'Monitoring',           category: 'Page',    targetSection: 'monitoring'     },
-  { id: 'nav-reports',        title: 'Reports',              category: 'Page',    targetSection: 'reports'        },
-  { id: 'nav-administration', title: 'Administration',       category: 'Page',    targetSection: 'administration' },
-  { id: 'nav-settings',       title: 'Settings',             category: 'Page',    targetSection: 'settings'       },
-  { id: 'proj-oracle',        title: 'Oracle → PostgreSQL',  category: 'Project', targetSection: 'migrations'     },
-  { id: 'proj-sqlserver',     title: 'SQL Server → PostgreSQL', category: 'Project', targetSection: 'projects'    },
-  { id: 'proj-mongodb',       title: 'MongoDB → PostgreSQL', category: 'Project', targetSection: 'projects'       },
+  { id: 'nav-migrations', title: 'Migration Workspaces', category: 'Page', targetSection: 'migrations' },
+  { id: 'nav-monitoring', title: 'Monitoring', category: 'Page', targetSection: 'monitoring' },
+  { id: 'nav-reports', title: 'Reports', category: 'Page', targetSection: 'reports' },
+  { id: 'nav-administration', title: 'Administration', category: 'Page', targetSection: 'administration' },
+  { id: 'nav-settings', title: 'Settings', category: 'Page', targetSection: 'settings' },
+  { id: 'proj-oracle', title: 'Oracle → PostgreSQL', category: 'Project', targetSection: 'migrations' },
+  { id: 'proj-sqlserver', title: 'SQL Server → PostgreSQL', category: 'Project', targetSection: 'migrations' },
+  { id: 'proj-mongodb', title: 'MongoDB → PostgreSQL', category: 'Project', targetSection: 'migrations' },
 ];
 
 // ── Helpers ──────────────────────────────────────────────────
@@ -109,9 +109,9 @@ function formatTime(ms: number): string {
 
 const StatusTag: FC<{ status: MigrationStatus }> = ({ status }) => {
   const cls = {
-    running:   styles.statusTagRunning,
-    paused:    styles.statusTagPaused,
-    failed:    styles.statusTagFailed,
+    running: styles.statusTagRunning,
+    paused: styles.statusTagPaused,
+    failed: styles.statusTagFailed,
     completed: styles.statusTagCompleted,
   }[status];
   const labels = { running: 'Running', paused: 'Paused', failed: 'Failed', completed: 'Completed' };
@@ -120,9 +120,9 @@ const StatusTag: FC<{ status: MigrationStatus }> = ({ status }) => {
 
 const ProgressBar: FC<{ pct: number; status: MigrationStatus }> = ({ pct, status }) => {
   const fillCls = {
-    running:   styles.progressFillRunning,
-    paused:    styles.progressFillPaused,
-    failed:    styles.progressFillFailed,
+    running: styles.progressFillRunning,
+    paused: styles.progressFillPaused,
+    failed: styles.progressFillFailed,
     completed: styles.progressFill,
   }[status];
   return (
@@ -143,11 +143,7 @@ const IconDashboard = () => (
   </svg>
 );
 
-const IconProjects = () => (
-  <svg className={styles.navIcon} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-    <path d="M2 3h12M2 8h8M2 13h10" strokeLinecap="round" />
-  </svg>
-);
+
 
 const IconMigrations = () => (
   <svg className={styles.navIcon} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -237,7 +233,7 @@ export const Dashboard: FC<DashboardProps> = ({ config, onSignOut, onNavigate })
   const [activeNav, setActiveNav] = useState<NavSection>('dashboard');
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showNotifPanel, setShowNotifPanel] = useState(false);
-  
+
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -330,21 +326,31 @@ export const Dashboard: FC<DashboardProps> = ({ config, onSignOut, onNavigate })
     }
   };
 
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
+    return localStorage.getItem('akaal_sidebar_collapsed') === 'true';
+  });
+
+  const toggleSidebar = () => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem('akaal_sidebar_collapsed', String(next));
+      return next;
+    });
+  };
+
   const navItems: { id: NavSection; label: string; icon: FC }[] = [
-    { id: 'dashboard',      label: 'Dashboard',      icon: IconDashboard   },
-    { id: 'projects',       label: 'Projects',        icon: IconProjects    },
-    { id: 'migrations',     label: 'Migrations',      icon: IconMigrations  },
-    { id: 'monitoring',     label: 'Monitoring',      icon: IconMonitoring  },
-    { id: 'reports',        label: 'Reports',         icon: IconReports     },
-    { id: 'administration', label: 'Administration',  icon: IconAdmin       },
-    { id: 'settings',       label: 'Settings',        icon: IconSettings    },
+    { id: 'dashboard', label: 'Dashboard', icon: IconDashboard },
+    { id: 'migrations', label: 'Migration', icon: IconMigrations },
+    { id: 'monitoring', label: 'Monitoring', icon: IconMonitoring },
+    { id: 'reports', label: 'Reports', icon: IconReports },
+    { id: 'administration', label: 'Administration', icon: IconAdmin },
+    { id: 'settings', label: 'Settings', icon: IconSettings },
   ];
 
   const quickActions: { id: string; label: string; icon: FC; navTarget: NavSection }[] = [
     { id: 'qa-new-migration', label: 'New Migration', icon: IconNewMigration, navTarget: 'migrations' },
-    { id: 'qa-projects',      label: 'Projects',      icon: IconProjects,     navTarget: 'projects'   },
-    { id: 'qa-monitoring',    label: 'Monitoring',    icon: IconMonitoring,   navTarget: 'monitoring' },
-    { id: 'qa-reports',       label: 'Reports',       icon: IconReports,      navTarget: 'reports'    },
+    { id: 'qa-monitoring', label: 'Monitoring', icon: IconMonitoring, navTarget: 'monitoring' },
+    { id: 'qa-reports', label: 'Reports', icon: IconReports, navTarget: 'reports' },
   ];
 
   const hasAlerts = DEMO_ALERTS.length > 0;
@@ -353,9 +359,9 @@ export const Dashboard: FC<DashboardProps> = ({ config, onSignOut, onNavigate })
   return (
     <div className={styles.shell}>
       {/* ── Sidebar ──────────────────────────────────────── */}
-      <aside className={styles.sidebar}>
+      <aside className={[styles.sidebar, sidebarCollapsed ? styles.sidebarCollapsed : ''].filter(Boolean).join(' ')}>
         <div className={styles.sidebarBrand}>
-          <span className={styles.sidebarBrandAccent}>AKAAL</span> Desktop
+          <span className={styles.sidebarBrandAccent}>AKAAL</span> {!sidebarCollapsed && 'Desktop'}
         </div>
 
         <nav className={styles.sidebarNav} aria-label="Primary navigation">
@@ -366,12 +372,22 @@ export const Dashboard: FC<DashboardProps> = ({ config, onSignOut, onNavigate })
               className={[styles.navItem, activeNav === id ? styles.navItemActive : ''].filter(Boolean).join(' ')}
               onClick={() => handleNavClick(id)}
               aria-current={activeNav === id ? 'page' : undefined}
+              title={sidebarCollapsed ? label : undefined}
             >
               <Icon />
-              {label}
+              {!sidebarCollapsed && <span className={styles.navLabel}>{label}</span>}
             </button>
           ))}
         </nav>
+
+        <button
+          className={styles.collapseBtn}
+          onClick={toggleSidebar}
+          aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          {sidebarCollapsed ? '→' : '← Collapse'}
+        </button>
       </aside>
 
       {/* ── Main ─────────────────────────────────────────── */}
@@ -432,7 +448,7 @@ export const Dashboard: FC<DashboardProps> = ({ config, onSignOut, onNavigate })
             {/* Theme Toggle */}
             <button
               id="theme-toggle-btn"
-              className={styles.iconBtn}
+              className={styles.headerActionBtn}
               onClick={toggleTheme}
               aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
               title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
@@ -441,11 +457,11 @@ export const Dashboard: FC<DashboardProps> = ({ config, onSignOut, onNavigate })
             </button>
 
             {/* Notifications Bell */}
-            <div style={{ position: 'relative' }}>
+            <div className={styles.actionWrapper}>
               <button
                 ref={notifRef}
                 id="notifications-btn"
-                className={styles.iconBtn}
+                className={styles.headerActionBtn}
                 onClick={() => { setShowNotifPanel((v) => !v); setShowProfileMenu(false); }}
                 aria-label="Notifications"
                 aria-expanded={showNotifPanel}
@@ -488,16 +504,16 @@ export const Dashboard: FC<DashboardProps> = ({ config, onSignOut, onNavigate })
             </div>
 
             {/* Profile */}
-            <div style={{ position: 'relative' }}>
+            <div className={styles.actionWrapper}>
               <button
                 ref={profileRef}
                 id="profile-btn"
-                className={styles.avatar}
+                className={styles.avatarBtn}
                 onClick={() => { setShowProfileMenu((v) => !v); setShowNotifPanel(false); }}
                 aria-label="Profile menu"
                 aria-expanded={showProfileMenu}
               >
-                {initials}
+                <span className={styles.avatarBadge}>{initials}</span>
               </button>
 
               {showProfileMenu && (
@@ -522,134 +538,147 @@ export const Dashboard: FC<DashboardProps> = ({ config, onSignOut, onNavigate })
           </div>
         </header>
 
-        {/* ── Content ────────────────────────────────────── */}
-        <main className={styles.content} id="dashboard-content">
-          {/* Greeting */}
-          <section className={styles.greeting} aria-label="Greeting">
-            <h1 className={styles.greetingTitle}>{greeting.title}</h1>
-            <p className={styles.greetingSubtitle}>{greeting.subtitle}</p>
-          </section>
+        {/* ── Content Router ────────────────────────────────── */}
+        {activeNav === 'migrations' || activeNav === 'projects' ? (
+          <MigrationModule searchFilter={searchQuery} />
+        ) : activeNav === 'dashboard' ? (
+          <main className={styles.content} id="dashboard-content">
+            {/* Greeting */}
+            <section className={styles.greeting} aria-label="Greeting">
+              <h1 className={styles.greetingTitle}>{greeting.title}</h1>
+              <p className={styles.greetingSubtitle}>{greeting.subtitle}</p>
+            </section>
 
-          {/* Continue Working — only shown when active migration exists */}
-          {hasActiveMigration && (
-            <section aria-label="Continue working">
-              <div className={styles.sectionHeader}>
-                <span className={styles.sectionTitle}>Continue Working</span>
-              </div>
-              <div className={styles.heroCard}>
-                <div className={styles.heroLeft}>
-                  <div className={styles.heroMeta}>
-                    <StatusTag status={DEMO_ACTIVE.status} />
-                    <span className={styles.heroLastActive}>Last active {DEMO_ACTIVE.lastActiveAgo}</span>
-                  </div>
-                  <div className={styles.heroProjectName}>{DEMO_ACTIVE.name}</div>
-                  <div className={styles.heroProgressRow} style={{ marginTop: 14 }}>
-                    <div className={styles.heroProgressTrackWrap}>
-                      <ProgressBar pct={DEMO_ACTIVE.progress} status={DEMO_ACTIVE.status} />
+            {/* Continue Working — only shown when active migration exists */}
+            {hasActiveMigration && (
+              <section aria-label="Continue working">
+                <div className={styles.sectionHeader}>
+                  <span className={styles.sectionTitle}>Continue Working</span>
+                </div>
+                <div className={styles.heroCard}>
+                  <div className={styles.heroLeft}>
+                    <div className={styles.heroMeta}>
+                      <StatusTag status={DEMO_ACTIVE.status} />
+                      <span className={styles.heroLastActive}>Last active {DEMO_ACTIVE.lastActiveAgo}</span>
                     </div>
-                    <span className={styles.heroProgress}>{DEMO_ACTIVE.progress}%</span>
+                    <div className={styles.heroProjectName}>{DEMO_ACTIVE.name}</div>
+                    <div className={styles.heroProgressRow} style={{ marginTop: 14 }}>
+                      <div className={styles.heroProgressTrackWrap}>
+                        <ProgressBar pct={DEMO_ACTIVE.progress} status={DEMO_ACTIVE.status} />
+                      </div>
+                      <span className={styles.heroProgress}>{DEMO_ACTIVE.progress}%</span>
+                    </div>
+                  </div>
+                  <div className={styles.heroRight}>
+                    <button
+                      id="continue-working-btn"
+                      className={styles.resumeBtn}
+                      onClick={() => handleNavClick('migrations')}
+                    >
+                      Resume <IconArrowRight />
+                    </button>
                   </div>
                 </div>
-                <div className={styles.heroRight}>
-                  <button
-                    id="continue-working-btn"
-                    className={styles.resumeBtn}
-                    onClick={() => notificationService.push('Migration Resumed', 'success', `${DEMO_ACTIVE.name} is now active.`)}
-                  >
-                    Resume <IconArrowRight />
-                  </button>
-                </div>
+              </section>
+            )}
+
+            {/* Quick Actions — Displays ONLY Icon and Title */}
+            <section aria-label="Quick actions">
+              <div className={styles.sectionHeader}>
+                <span className={styles.sectionTitle}>Quick Actions</span>
+              </div>
+              <div className={styles.quickActionsGrid}>
+                {quickActions.map((action) => {
+                  const Icon = action.icon;
+                  return (
+                    <button
+                      key={action.id}
+                      id={action.id}
+                      className={styles.quickCard}
+                      onClick={() => handleNavClick(action.navTarget)}
+                    >
+                      <div className={styles.quickCardIcon}><Icon /></div>
+                      <div className={styles.quickCardLabel}>{action.label}</div>
+                    </button>
+                  );
+                })}
               </div>
             </section>
-          )}
 
-          {/* Quick Actions — Displays ONLY Icon and Title */}
-          <section aria-label="Quick actions">
-            <div className={styles.sectionHeader}>
-              <span className={styles.sectionTitle}>Quick Actions</span>
-            </div>
-            <div className={styles.quickActionsGrid}>
-              {quickActions.map((action) => {
-                const Icon = action.icon;
-                return (
-                  <button
-                    key={action.id}
-                    id={action.id}
-                    className={styles.quickCard}
-                    onClick={() => handleNavClick(action.navTarget)}
-                  >
-                    <div className={styles.quickCardIcon}><Icon /></div>
-                    <div className={styles.quickCardLabel}>{action.label}</div>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
+            {/* Needs Attention — only shown when alerts exist */}
+            {hasAlerts && (
+              <section aria-label="Needs attention">
+                <div className={styles.sectionHeader}>
+                  <span className={styles.sectionTitle}>Needs Attention</span>
+                </div>
+                <div className={styles.alertList}>
+                  {DEMO_ALERTS.map((alert) => (
+                    <div key={alert.id} className={styles.alertRow}>
+                      <div className={[
+                        styles.alertDot,
+                        alert.severity === 'error' ? styles.alertDotError :
+                          alert.severity === 'warning' ? styles.alertDotWarning :
+                            styles.alertDotInfo
+                      ].filter(Boolean).join(' ')} />
+                      <div className={styles.alertText}>{alert.title}</div>
+                      <div className={styles.alertSub}>{alert.sub}</div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
 
-          {/* Needs Attention — only shown when alerts exist */}
-          {hasAlerts && (
-            <section aria-label="Needs attention">
+            {/* Recent Projects */}
+            <section aria-label="Recent projects">
               <div className={styles.sectionHeader}>
-                <span className={styles.sectionTitle}>Needs Attention</span>
+                <span className={styles.sectionTitle}>Recent Projects</span>
+                <button className={styles.sectionLink} onClick={() => handleNavClick('projects')}>
+                  View all →
+                </button>
               </div>
-              <div className={styles.alertList}>
-                {DEMO_ALERTS.map((alert) => (
-                  <div key={alert.id} className={styles.alertRow}>
-                    <div className={[
-                      styles.alertDot,
-                      alert.severity === 'error'   ? styles.alertDotError :
-                      alert.severity === 'warning' ? styles.alertDotWarning :
-                      styles.alertDotInfo
-                    ].filter(Boolean).join(' ')} />
-                    <div className={styles.alertText}>{alert.title}</div>
-                    <div className={styles.alertSub}>{alert.sub}</div>
+              <div className={styles.projectList}>
+                {DEMO_RECENT.map((proj) => (
+                  <div
+                    key={proj.id}
+                    className={styles.projectRow}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => handleNavClick('migrations')}
+                    onKeyDown={(e) => e.key === 'Enter' && handleNavClick('migrations')}
+                  >
+                    <div className={styles.projectInfo}>
+                      <div className={styles.projectName}>{proj.name}</div>
+                      <div className={styles.projectMeta}>
+                        <StatusTag status={proj.status} />
+                      </div>
+                    </div>
+                    {proj.progress !== undefined && (
+                      <div className={styles.projectProgress}>
+                        <div className={styles.miniProgressTrack}>
+                          <div
+                            className={styles.miniProgressFill}
+                            style={{ width: `${proj.progress}%` }}
+                          />
+                        </div>
+                        <span className={styles.projectPct}>{proj.progress}%</span>
+                      </div>
+                    )}
+                    <span className={styles.projectLastActive}>{proj.lastActivity}</span>
                   </div>
                 ))}
               </div>
             </section>
-          )}
-
-          {/* Recent Projects */}
-          <section aria-label="Recent projects">
-            <div className={styles.sectionHeader}>
-              <span className={styles.sectionTitle}>Recent Projects</span>
-              <button className={styles.sectionLink} onClick={() => handleNavClick('projects')}>
-                View all →
-              </button>
-            </div>
-            <div className={styles.projectList}>
-              {DEMO_RECENT.map((proj) => (
-                <div
-                  key={proj.id}
-                  className={styles.projectRow}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => notificationService.push(proj.name, 'info', 'Project detail — coming in Sprint 4 Part 2.')}
-                  onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.click()}
-                >
-                  <div className={styles.projectInfo}>
-                    <div className={styles.projectName}>{proj.name}</div>
-                    <div className={styles.projectMeta}>
-                      <StatusTag status={proj.status} />
-                    </div>
-                  </div>
-                  {proj.progress !== undefined && (
-                    <div className={styles.projectProgress}>
-                      <div className={styles.miniProgressTrack}>
-                        <div
-                          className={styles.miniProgressFill}
-                          style={{ width: `${proj.progress}%` }}
-                        />
-                      </div>
-                      <span className={styles.projectPct}>{proj.progress}%</span>
-                    </div>
-                  )}
-                  <span className={styles.projectLastActive}>{proj.lastActivity}</span>
-                </div>
-              ))}
-            </div>
-          </section>
-        </main>
+          </main>
+        ) : (
+          <main className={styles.content} id="module-content">
+            <h2 style={{ fontSize: 20, fontWeight: 700, margin: '0 0 8px 0' }}>
+              {activeNav.charAt(0).toUpperCase() + activeNav.slice(1)} Module
+            </h2>
+            <p style={{ fontSize: 13, color: 'var(--dash-text-secondary)' }}>
+              Enterprise {activeNav} workspace controls are initialized and ready.
+            </p>
+          </main>
+        )}
       </div>
     </div>
   );

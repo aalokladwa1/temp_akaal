@@ -1,62 +1,72 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { migrationService } from '../services/migrationService';
-import type { MigrationProject } from '../types/migration';
+import type { MigrationPipeline, DatabaseEngine, MigrationDraftState } from '../types/migration';
 
 export function useMigrationProjects(currentUser: string = 'Aalok') {
-  const [projects, setProjects] = useState<MigrationProject[]>(() =>
-    migrationService.getProjects()
+  const [pipelines, setPipelines] = useState<MigrationPipeline[]>(() =>
+    migrationService.getPipelines()
   );
 
   useEffect(() => {
-    return migrationService.subscribe((updated) => setProjects(updated));
+    return migrationService.subscribe((updated) => setPipelines(updated));
   }, []);
 
   const continueWorkingProject = useMemo(
-    () => migrationService.getContinueWorkingProject(currentUser),
-    [projects, currentUser]
+    () => migrationService.getHeroPipeline(currentUser),
+    [pipelines, currentUser]
+  );
+
+  const draftProjects = useMemo(
+    () => pipelines.filter((p) => p.isDraft && !p.isArchived),
+    [pipelines]
   );
 
   const pinnedProjects = useMemo(
-    () => projects.filter((p) => p.isPinned && !p.isArchived),
-    [projects]
+    () => pipelines.filter((p) => p.isPinned && !p.isArchived && !p.isDraft),
+    [pipelines]
   );
 
   const regularProjects = useMemo(
-    () => projects.filter((p) => !p.isPinned && !p.isArchived && !p.isShared),
-    [projects]
+    () => pipelines.filter((p) => !p.isPinned && !p.isArchived && !p.isShared && !p.isDraft),
+    [pipelines]
   );
 
   const sharedProjects = useMemo(
-    () => projects.filter((p) => p.isShared && !p.isArchived),
-    [projects]
+    () => pipelines.filter((p) => p.isShared && !p.isArchived && !p.isDraft),
+    [pipelines]
   );
 
   const archivedProjects = useMemo(
-    () => projects.filter((p) => p.isArchived),
-    [projects]
+    () => pipelines.filter((p) => p.isArchived),
+    [pipelines]
   );
 
   const activeProjectsCount = useMemo(
-    () => projects.filter((p) => !p.isArchived).length,
-    [projects]
+    () => pipelines.filter((p) => !p.isArchived && !p.isDraft).length,
+    [pipelines]
   );
 
   const togglePin = useCallback((id: string) => migrationService.togglePin(id), []);
-  const renameProject = useCallback((id: string, newName: string) => migrationService.renameProject(id, newName), []);
-  const duplicateProject = useCallback((id: string) => migrationService.duplicateProject(id), []);
-  const archiveProject = useCallback((id: string) => migrationService.archiveProject(id), []);
-  const unarchiveProject = useCallback((id: string) => migrationService.unarchiveProject(id), []);
-  const deleteProject = useCallback((id: string) => migrationService.deleteProject(id), []);
-  const createProject = useCallback(
-    (name: string, sourceDb: string, targetDb: string) =>
-      migrationService.createProject(name, sourceDb, targetDb, currentUser),
+  const renameProject = useCallback((id: string, newName: string) => migrationService.renamePipeline(id, newName), []);
+  const duplicateProject = useCallback((id: string) => migrationService.duplicatePipeline(id), []);
+  const archiveProject = useCallback((id: string) => migrationService.archivePipeline(id), []);
+  const unarchiveProject = useCallback((id: string) => migrationService.unarchivePipeline(id), []);
+  const deleteProject = useCallback((id: string) => migrationService.deletePipeline(id), []);
+  const saveDraft = useCallback(
+    (draft: MigrationDraftState) => migrationService.saveDraft(draft, currentUser),
     [currentUser]
   );
-  const touchProject = useCallback((id: string) => migrationService.touchProject(id), []);
+  const createProject = useCallback(
+    (name: string, sourceEngine: DatabaseEngine, targetEngine: DatabaseEngine) =>
+      migrationService.createPipeline(name, sourceEngine, targetEngine, currentUser),
+    [currentUser]
+  );
+  const touchProject = useCallback((id: string) => migrationService.touchPipeline(id), []);
 
   return {
-    projects,
+    projects: pipelines,
     continueWorkingProject,
+    draftProjects,
     pinnedProjects,
     regularProjects,
     sharedProjects,
@@ -68,6 +78,7 @@ export function useMigrationProjects(currentUser: string = 'Aalok') {
     archiveProject,
     unarchiveProject,
     deleteProject,
+    saveDraft,
     createProject,
     touchProject,
   };
