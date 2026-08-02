@@ -101,7 +101,7 @@ class AuthenticationManager {
 
         this.initialized = true;
 
-        if (!bootstrapStatus.isWorkspaceConfigured) {
+        if (!bootstrapStatus.isWorkspaceConfigured || !bootstrapStatus.isAdminConfigured) {
           this.updateState({
             authState: 'setup_required',
             providers,
@@ -167,6 +167,7 @@ class AuthenticationManager {
 
         const fallbackStatus: BootstrapStatus = {
           isWorkspaceConfigured: true,
+          isAdminConfigured: true,
           isIntegrityOk: true,
           activeSession: null,
           lastUsername: 'administrator',

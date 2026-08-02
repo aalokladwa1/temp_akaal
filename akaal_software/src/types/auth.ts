@@ -50,6 +50,7 @@ export interface AuthProviderInfo {
 
 export interface BootstrapStatus {
   isWorkspaceConfigured: boolean;
+  isAdminConfigured: boolean;
   isIntegrityOk: boolean;
   activeSession: SessionInfo | null;
   lastUsername: string | null;

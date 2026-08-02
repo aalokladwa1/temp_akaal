@@ -29,7 +29,18 @@ export const ReviewSummary: FC<ReviewSummaryProps> = ({ data }) => {
         <div className={styles.reviewLabel}>Appearance</div>
         <div className={styles.reviewValue}>{themeLabelMap[data.theme] || data.theme}</div>
       </div>
+
+      <div className={styles.reviewItem}>
+        <div className={styles.reviewLabel}>Administrator</div>
+        <div className={styles.reviewValue}>{data.adminFullName.trim() || '—'}</div>
+      </div>
+
+      <div className={styles.reviewItem}>
+        <div className={styles.reviewLabel}>Username</div>
+        <div className={styles.reviewValue}>
+          {data.adminUsername.trim().toLowerCase() || '—'}
+        </div>
+      </div>
     </div>
   );
 };
-

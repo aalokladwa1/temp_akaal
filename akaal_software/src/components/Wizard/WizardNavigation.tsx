@@ -12,6 +12,7 @@ const STEPS: StepItem[] = [
   { id: 'workspace', label: 'Workspace' },
   { id: 'storage', label: 'Storage' },
   { id: 'appearance', label: 'Appearance' },
+  { id: 'administrator', label: 'Administrator Account' },
   { id: 'review', label: 'Review' },
 ];
 

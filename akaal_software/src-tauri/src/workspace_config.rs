@@ -11,6 +11,10 @@ pub struct WorkspaceConfig {
     pub workspace_path: String,
     pub theme: String,
     pub onboarding_completed: bool,
+    pub owner_display_name: Option<String>,
+    pub admin_username: Option<String>,
+    #[serde(default)]
+    pub has_admin_configured: bool,
     pub created_at: Option<String>,
     pub updated_at: Option<String>,
 }
@@ -23,6 +27,9 @@ impl Default for WorkspaceConfig {
             workspace_path: String::new(),
             theme: "light".to_string(),
             onboarding_completed: false,
+            owner_display_name: None,
+            admin_username: None,
+            has_admin_configured: false,
             created_at: None,
             updated_at: None,
         }
@@ -69,7 +76,6 @@ pub fn load_workspace_config_cmd(app_handle: tauri::AppHandle) -> Result<Workspa
         Ok(config) => Ok(config),
         Err(err) => {
             // Corrupted configuration recovery procedure:
-            // 1. Rename workspace.json to workspace.json.bak
             let backup_path = get_backup_file_path(&app_handle)?;
             let _ = fs::rename(&config_path, &backup_path);
             
@@ -78,7 +84,6 @@ pub fn load_workspace_config_cmd(app_handle: tauri::AppHandle) -> Result<Workspa
                 err
             );
             
-            // 2. Return fresh default configuration to restart onboarding safely
             Ok(WorkspaceConfig::default())
         }
     }
@@ -198,6 +203,5 @@ pub fn validate_workspace_path_cmd(path: String) -> Result<bool, String> {
 }
 
 fn chrono_timestamp() -> String {
-    // Simple ISO 8601 string representation
     format!("{:?}", std::time::SystemTime::now())
 }

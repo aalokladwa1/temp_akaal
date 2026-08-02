@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { SplashScreen } from './screens/SplashScreen/SplashScreen';
 import { WelcomeScreen } from './screens/WelcomeScreen';
@@ -39,6 +39,7 @@ export function App() {
   // React to AuthenticationManager state updates when not in splash
   useEffect(() => {
     if (screenState === 'splash') return; // Wait for splash sequence completion
+    if (screenState === 'wizard') return; // User has entered the wizard — do not override
 
     let target: AppScreenState | null = null;
     if (authState === 'setup_required') {
@@ -48,6 +49,8 @@ export function App() {
     } else if (authState === 'unauthenticated' || authState === 'locked') {
       target = 'auth';
     } else if (authState === 'authenticated') {
+      // Reload config fresh on authentication to pick up ownerDisplayName
+      workspaceConfigurationService.load().then((cfg) => setActiveConfig(cfg)).catch(() => {});
       target = 'home';
     }
 
@@ -56,7 +59,7 @@ export function App() {
     }
   }, [authState, screenState]);
 
-  const handleSplashComplete = () => {
+  const handleSplashComplete = useCallback(() => {
     const currentAuthState = authenticationManager.getState().authState;
     if (currentAuthState === 'setup_required') {
       setScreenState('welcome');
@@ -67,16 +70,16 @@ export function App() {
     } else {
       setScreenState('auth');
     }
-  };
+  }, []);
 
-  const handleStartSetup = () => {
+  const handleStartSetup = useCallback(() => {
     setScreenState('wizard');
-  };
+  }, []);
 
-  const handleLaunchWorkspace = async (config: WorkspaceConfig) => {
+  const handleLaunchWorkspace = useCallback(async (config: WorkspaceConfig) => {
     setActiveConfig(config);
     setScreenState('auth');
-  };
+  }, []);
 
   const handleExit = async (e?: React.MouseEvent) => {
     if (e && typeof e.preventDefault === 'function') {

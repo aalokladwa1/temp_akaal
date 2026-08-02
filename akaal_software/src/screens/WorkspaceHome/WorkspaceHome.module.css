@@ -1,4 +1,4 @@
-/* WorkspaceHome Module CSS - Temporary Main Shell Placeholder */
+/* WorkspaceHome Module CSS — Enterprise Greeting Home Shell */
 
 .container {
   position: relative;
@@ -10,16 +10,12 @@
   align-items: center;
   justify-content: center;
   background-color: var(--akaal-color-bg-canvas);
-  animation: fadeIn 180ms ease-out forwards;
+  animation: fadeIn 220ms ease-out forwards;
 }
 
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 .bgImage {
@@ -37,39 +33,66 @@
 .card {
   position: relative;
   z-index: 1;
-  width: 580px;
-  min-height: 240px;
+  width: 540px;
   border-radius: var(--akaal-card-radius);
-  padding: 40px 32px;
+  padding: 44px 40px 36px 40px;
   background-color: var(--akaal-color-bg-surface);
   border: 1px solid var(--akaal-color-border-neutral);
   box-shadow: var(--akaal-shadow-card);
   display: flex;
   flex-direction: column;
-  align-items: center;
-  text-align: center;
   box-sizing: border-box;
 }
 
-.header {
+.greetingTitle {
   font-family: var(--akaal-font-sans);
-  font-size: 28px;
+  font-size: 26px;
   font-weight: var(--akaal-font-weight-bold);
-  color: var(--akaal-color-text-brand-emphasis);
-  margin-bottom: 12px;
-}
-
-.workspaceName {
-  font-family: var(--akaal-font-sans);
-  font-size: 20px;
-  font-weight: var(--akaal-font-weight-semibold);
   color: var(--akaal-color-text-primary);
-  margin-bottom: 8px;
+  margin: 0 0 8px 0;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
 }
 
-.workspacePath {
-  font-family: var(--akaal-font-mono);
-  font-size: 12px;
+.greetingSubtitle {
+  font-family: var(--akaal-font-sans);
+  font-size: 14px;
   font-weight: var(--akaal-font-weight-regular);
   color: var(--akaal-color-text-secondary);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.divider {
+  height: 1px;
+  background-color: var(--akaal-color-border-neutral);
+  margin: 28px 0 20px 0;
+}
+
+.metaRow {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.metaRow:last-child {
+  margin-bottom: 0;
+}
+
+.metaLabel {
+  font-family: var(--akaal-font-sans);
+  font-size: 13px;
+  font-weight: var(--akaal-font-weight-medium);
+  color: var(--akaal-color-text-primary);
+  min-width: 80px;
+  flex-shrink: 0;
+}
+
+.metaValue {
+  font-family: var(--akaal-font-sans);
+  font-size: 13px;
+  font-weight: var(--akaal-font-weight-regular);
+  color: var(--akaal-color-text-secondary);
+  word-break: break-all;
 }

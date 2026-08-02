@@ -263,3 +263,78 @@
   font-size: 13px;
   color: var(--akaal-color-text-primary);
 }
+
+/* Administrator Step — Password Input Row with Toggle */
+.passwordInputRow {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.passwordToggleBtn {
+  position: absolute;
+  right: 12px;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--akaal-color-text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  transition: color 100ms ease;
+  flex-shrink: 0;
+}
+
+.passwordToggleBtn:hover {
+  color: var(--akaal-color-text-primary);
+}
+
+/* Password Strength Indicator */
+.strengthBar {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.strengthSegment {
+  height: 3px;
+  flex: 1;
+  border-radius: 2px;
+  background-color: var(--akaal-color-border-neutral);
+  transition: background-color 250ms ease;
+}
+
+.strengthSegmentWeak {
+  background-color: #EF4444;
+}
+
+.strengthSegmentFair {
+  background-color: #F59E0B;
+}
+
+.strengthSegmentGood {
+  background-color: #10B981;
+}
+
+.strengthSegmentStrong {
+  background-color: #3B82F6;
+}
+
+.strengthLabel {
+  font-family: var(--akaal-font-sans);
+  font-size: 12px;
+  font-weight: var(--akaal-font-weight-medium);
+  margin-top: 4px;
+  color: var(--akaal-color-text-secondary);
+}
+
+/* Admin step two-column grid */
+.adminGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 20px;
+}
+

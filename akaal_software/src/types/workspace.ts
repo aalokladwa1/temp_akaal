@@ -10,6 +10,9 @@ export interface WorkspaceConfig {
   workspacePath: string;
   theme: ThemePreference;
   onboardingCompleted: boolean;
+  ownerDisplayName?: string;
+  adminUsername?: string;
+  hasAdminConfigured?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }

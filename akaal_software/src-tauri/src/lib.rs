@@ -6,15 +6,21 @@ pub mod session;
 mod workspace_config;
 
 use audit::{
-    authentication::create_auth_event, session::create_session_event, AuditEngine, AuditSeverity,
+    administration::create_administration_event, authentication::create_auth_event,
+    session::create_session_event, AuditEngine, AuditSeverity,
 };
 use core::{execute_startup_bootstrap, BootstrapStatus};
-use identity::{UserDisplayInfo, UserRole};
-use security::{clear_secure_token, save_secure_token, RateLimiter};
+use identity::{
+    load_admin_credentials, save_admin_credentials, verify_admin_password, UserDisplayInfo,
+};
+use security::{
+    clear_secure_token, save_secure_token, RateLimiter,
+};
 use serde::{Deserialize, Serialize};
 use session::{generate_session_token, SessionStore, UserSession};
 use workspace_config::{
     load_workspace_config_cmd, save_workspace_config_cmd, validate_workspace_path_cmd,
+    WorkspaceConfig,
 };
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -58,6 +64,15 @@ pub struct AuthResponse {
     pub message: String,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BootstrapAdminPayload {
+    pub config: WorkspaceConfig,
+    pub admin_full_name: String,
+    pub admin_username: String,
+    pub admin_password: ZeroizeString,
+}
+
 #[tauri::command]
 fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
@@ -71,6 +86,39 @@ fn exit_app(app_handle: tauri::AppHandle) {
 #[tauri::command]
 fn bootstrap_app_cmd(app_handle: tauri::AppHandle) -> BootstrapStatus {
     execute_startup_bootstrap(&app_handle)
+}
+
+#[tauri::command]
+fn create_bootstrap_admin_cmd(
+    app_handle: tauri::AppHandle,
+    payload: BootstrapAdminPayload,
+) -> Result<WorkspaceConfig, String> {
+    let record = save_admin_credentials(
+        &app_handle,
+        &payload.admin_username,
+        &payload.admin_full_name,
+        &payload.admin_password.0,
+    )?;
+
+    let mut config = payload.config;
+    config.owner_display_name = Some(record.display_name.clone());
+    config.admin_username = Some(record.username.clone());
+    config.has_admin_configured = true;
+
+    let saved_config = save_workspace_config_cmd(app_handle, config)?;
+
+    AuditEngine::global().log_event(create_administration_event(
+        "ADMIN_BOOTSTRAP_CREATED",
+        Some(&record.username),
+        AuditSeverity::Info,
+        serde_json::json!({
+            "username": record.username,
+            "displayName": record.display_name,
+            "role": record.role
+        }),
+    ));
+
+    Ok(saved_config)
 }
 
 #[tauri::command]
@@ -89,24 +137,22 @@ fn authenticate_user_cmd(
     // 1. Check Rate Limiter
     rate_limiter.check_lockout(&username_clean)?;
 
-    // 2. Local Account Verification
-    // Accept valid admin login or hash verification
-    let is_valid = if username_clean == "admin" || username_clean == "administrator" {
-        credentials.password.0 == "admin123" || credentials.password.0 == "password"
-    } else {
-        false
-    };
+    // 2. Real Administrator Credential Verification against identity store
+    let verified_admin = verify_admin_password(&app_handle, &username_clean, &credentials.password.0)?;
 
-    if !is_valid {
-        rate_limiter.record_failure(&username_clean);
-        audit.log_event(create_auth_event(
-            "AUTH_FAILED_INVALID_CREDENTIALS",
-            Some(&username_clean),
-            AuditSeverity::Warning,
-            serde_json::json!({"reason": "invalid_username_or_password"}),
-        ));
-        return Err("Invalid username or password.".to_string());
-    }
+    let admin = match verified_admin {
+        Some(record) => record,
+        None => {
+            rate_limiter.record_failure(&username_clean);
+            audit.log_event(create_auth_event(
+                "AUTH_FAILED_INVALID_CREDENTIALS",
+                Some(&username_clean),
+                AuditSeverity::Warning,
+                serde_json::json!({"reason": "invalid_username_or_password"}),
+            ));
+            return Err("The username or password you entered is incorrect.".to_string());
+        }
+    };
 
     // Successful Login: Reset rate limiter count
     rate_limiter.reset(&username_clean);
@@ -114,14 +160,10 @@ fn authenticate_user_cmd(
     let session_id = generate_session_token();
     let session = SessionStore::global().create_session(
         session_id.clone(),
-        format!("usr_{}", username_clean),
-        username_clean.clone(),
-        if username_clean == "admin" || username_clean == "administrator" {
-            "System Administrator".to_string()
-        } else {
-            username_clean.clone()
-        },
-        UserRole::SuperAdministrator,
+        format!("usr_{}", admin.username),
+        admin.username.clone(),
+        admin.display_name.clone(),
+        admin.role,
         credentials.remember_device,
     );
 
@@ -134,7 +176,7 @@ fn authenticate_user_cmd(
 
     audit.log_event(create_auth_event(
         "AUTH_SUCCESSFUL",
-        Some(&username_clean),
+        Some(&admin.username),
         AuditSeverity::Info,
         serde_json::json!({
             "sessionId": session_id,
@@ -179,12 +221,14 @@ fn lock_session_cmd(session_id: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn unlock_session_cmd(session_id: String, password: String) -> Result<UserSession, String> {
+fn unlock_session_cmd(app_handle: tauri::AppHandle, session_id: String, password: String) -> Result<UserSession, String> {
     let session = SessionStore::global()
         .get_session(&session_id)
         .ok_or_else(|| "Session not found.".to_string())?;
 
-    if password.trim() != "admin123" && password.trim() != "password" {
+    let verified = verify_admin_password(&app_handle, &session.username, &password)?;
+
+    if verified.is_none() {
         AuditEngine::global().log_event(create_session_event(
             "SESSION_UNLOCK_FAILED",
             Some(&session.username),
@@ -205,12 +249,23 @@ fn unlock_session_cmd(session_id: String, password: String) -> Result<UserSessio
 }
 
 #[tauri::command]
-fn get_last_known_user_cmd() -> Option<UserDisplayInfo> {
-    Some(UserDisplayInfo {
-        username: "administrator".to_string(),
-        display_name: "System Administrator".to_string(),
-        avatar_initials: "SA".to_string(),
-    })
+fn get_last_known_user_cmd(app_handle: tauri::AppHandle) -> Option<UserDisplayInfo> {
+    if let Ok(Some(admin)) = load_admin_credentials(&app_handle) {
+        let initials = admin
+            .display_name
+            .split_whitespace()
+            .map(|w| w.chars().next().unwrap_or(' '))
+            .collect::<String>()
+            .to_uppercase();
+
+        Some(UserDisplayInfo {
+            username: admin.username,
+            display_name: admin.display_name,
+            avatar_initials: if initials.is_empty() { "SA".to_string() } else { initials },
+        })
+    } else {
+        None
+    }
 }
 
 #[tauri::command]
@@ -319,6 +374,7 @@ pub fn run() {
             greet,
             exit_app,
             bootstrap_app_cmd,
+            create_bootstrap_admin_cmd,
             authenticate_user_cmd,
             validate_session_cmd,
             logout_session_cmd,

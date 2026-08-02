@@ -5,6 +5,7 @@ import { WizardNavigation } from '../../components/Wizard/WizardNavigation';
 import { WizardFooter } from '../../components/Wizard/WizardFooter';
 import { ReviewSummary } from '../../components/Wizard/ReviewSummary';
 import { SetupErrorState } from '../../components/Wizard/SetupErrorState';
+import { AdministratorStep } from '../../components/Wizard/AdministratorStep';
 import { FormField } from '../../components/Form/FormField';
 import { TextInput } from '../../components/Form/TextInput';
 import { DirectoryPicker } from '../../components/Form/DirectoryPicker';
@@ -33,19 +34,23 @@ export const SetupWizardScreen: FC<SetupWizardScreenProps> = ({
     isCurrentStepValid,
     workspaceNameError,
     workspacePathError,
+    adminFullNameError,
+    adminUsernameError,
+    adminPasswordError,
+    adminConfirmPasswordError,
     setWorkspaceName,
     setWorkspacePath,
     touchStorageLocation,
     setTheme,
+    setAdminField,
+    touchAdminField,
     pickStorageDirectory,
     goNext,
     goBack,
     finishSetup,
-  } = useSetupWizard({
-    initialConfig,
-  });
+  } = useSetupWizard({ initialConfig });
 
-  // If finish setup succeeded & verified, render Completion Screen (WorkspaceReadyScreen)
+  // If finish setup succeeded & verified, render Completion Screen
   if (isReady && verifiedConfig) {
     return (
       <WorkspaceReadyScreen
@@ -138,7 +143,32 @@ export const SetupWizardScreen: FC<SetupWizardScreenProps> = ({
           </>
         )}
 
-        {/* Step 4: Review */}
+        {/* Step 4: Administrator Account */}
+        {currentStep === 'administrator' && (
+          <>
+            <header className={styles.stepHeader}>
+              <h2 className={styles.stepTitle}>Administrator Account</h2>
+              <p className={styles.stepSubtitle}>
+                Create the workspace administrator. These credentials are stored securely using Argon2id hashing.
+              </p>
+            </header>
+
+            <AdministratorStep
+              adminFullName={formData.adminFullName}
+              adminUsername={formData.adminUsername}
+              adminPassword={formData.adminPassword}
+              adminConfirmPassword={formData.adminConfirmPassword}
+              adminFullNameError={adminFullNameError}
+              adminUsernameError={adminUsernameError}
+              adminPasswordError={adminPasswordError}
+              adminConfirmPasswordError={adminConfirmPasswordError}
+              onChange={(field, value) => setAdminField(field, value)}
+              onBlur={(field) => touchAdminField(field)}
+            />
+          </>
+        )}
+
+        {/* Step 5: Review */}
         {currentStep === 'review' && (
           <>
             <header className={styles.stepHeader}>
@@ -154,7 +184,7 @@ export const SetupWizardScreen: FC<SetupWizardScreenProps> = ({
           </>
         )}
 
-        {/* Footer Navigation - Always visible, fixed positions */}
+        {/* Footer Navigation */}
         <WizardFooter
           currentStep={currentStep}
           canContinue={isCurrentStepValid}

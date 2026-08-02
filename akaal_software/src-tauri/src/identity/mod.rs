@@ -1,5 +1,9 @@
+pub mod bootstrap;
 pub mod roles;
 
+pub use bootstrap::{
+    load_admin_credentials, save_admin_credentials, verify_admin_password, AdminCredentialRecord,
+};
 pub use roles::UserRole;
 use serde::{Deserialize, Serialize};
 

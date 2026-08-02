@@ -12,13 +12,29 @@ import type {
 } from '../types/auth';
 
 export const ipcService = {
-  // Workspace Config (Sprint 2)
+  // Workspace Config (Sprint 2 & 3.1)
   async loadWorkspaceConfig(): Promise<WorkspaceConfig> {
     return await invoke<WorkspaceConfig>('load_workspace_config_cmd');
   },
 
   async saveWorkspaceConfig(config: WorkspaceConfig): Promise<WorkspaceConfig> {
     return await invoke<WorkspaceConfig>('save_workspace_config_cmd', { config });
+  },
+
+  async createBootstrapAdmin(
+    config: WorkspaceConfig,
+    adminFullName: string,
+    adminUsername: string,
+    adminPassword: string
+  ): Promise<WorkspaceConfig> {
+    return await invoke<WorkspaceConfig>('create_bootstrap_admin_cmd', {
+      payload: {
+        config,
+        adminFullName,
+        adminUsername,
+        adminPassword,
+      },
+    });
   },
 
   async validateWorkspacePath(path: string): Promise<boolean> {
