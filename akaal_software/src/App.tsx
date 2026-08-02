@@ -1,9 +1,42 @@
-import React from "react";
+import { useState, useEffect } from "react";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { WelcomeScreen } from "./screens/WelcomeScreen";
+import { SetupWizardScreen } from "./screens/SetupWizardScreen";
+import { WorkspaceHome } from "./screens/WorkspaceHome";
+import { workspaceConfigurationService } from "./services/workspaceConfigurationService";
+import type { WorkspaceConfig } from "./types/workspace";
+
+export type ScreenState = "loading" | "welcome" | "wizard" | "home";
 
 export function App() {
+  const [screenState, setScreenState] = useState<ScreenState>("loading");
+  const [activeConfig, setActiveConfig] = useState<WorkspaceConfig | null>(null);
+
+  useEffect(() => {
+    async function initAppConfig() {
+      try {
+        const loaded = await workspaceConfigurationService.load();
+        setActiveConfig(loaded);
+        if (loaded.onboardingCompleted && loaded.workspacePath) {
+          setScreenState("home");
+        } else {
+          setScreenState("welcome");
+        }
+      } catch (err) {
+        console.warn("Failed to load workspace config during app init:", err);
+        setScreenState("welcome");
+      }
+    }
+    initAppConfig();
+  }, []);
+
   const handleStartSetup = () => {
-    // Stopped per Sprint 1 scope
+    setScreenState("wizard");
+  };
+
+  const handleLaunchWorkspace = (config: WorkspaceConfig) => {
+    setActiveConfig(config);
+    setScreenState("home");
   };
 
   const handleExit = async (e?: React.MouseEvent) => {
@@ -11,40 +44,47 @@ export function App() {
       e.preventDefault();
     }
 
-    // 1. Primary Tauri API Window Destroy (Instant Unconditional Termination)
     try {
-      const { getCurrentWindow } = await import("@tauri-apps/api/window");
       const appWindow = getCurrentWindow();
       await appWindow.destroy();
       return;
-    } catch (err) {
-      console.warn("Tauri getCurrentWindow().destroy() call bypassed/failed:", err);
-    }
-
-    // 2. Secondary Tauri API Window Close
-    try {
-      const { getCurrentWindow } = await import("@tauri-apps/api/window");
-      const appWindow = getCurrentWindow();
-      await appWindow.close();
-      return;
-    } catch (err) {
-      console.warn("Tauri getCurrentWindow().close() call bypassed/failed:", err);
-    }
-
-    // 3. Custom Rust IPC Command (Explicit parameterless call)
-    try {
-      const { invoke } = await import("@tauri-apps/api/core");
-      await invoke("exit_app");
-      return;
-    } catch (err) {
-      console.warn("Tauri invoke('exit_app') failed:", err);
-    }
-
-    // 4. Fallback for non-Tauri browser context
-    if (typeof window !== "undefined") {
-      window.close();
+    } catch {
+      try {
+        const appWindow = getCurrentWindow();
+        await appWindow.close();
+        return;
+      } catch {
+        try {
+          const { invoke } = await import("@tauri-apps/api/core");
+          await invoke("exit_app");
+          return;
+        } catch {
+          if (typeof window !== "undefined") {
+            window.close();
+          }
+        }
+      }
     }
   };
+
+  if (screenState === "loading") {
+    return (
+      <div style={{ width: "100vw", height: "100vh", backgroundColor: "#0B0D11" }} />
+    );
+  }
+
+  if (screenState === "home" && activeConfig) {
+    return <WorkspaceHome config={activeConfig} />;
+  }
+
+  if (screenState === "wizard") {
+    return (
+      <SetupWizardScreen
+        initialConfig={activeConfig || undefined}
+        onLaunchWorkspace={handleLaunchWorkspace}
+      />
+    );
+  }
 
   return <WelcomeScreen onStartSetup={handleStartSetup} onExit={handleExit} />;
 }

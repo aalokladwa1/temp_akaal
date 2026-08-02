@@ -1,0 +1,265 @@
+/* Wizard Module CSS - Layout, Sidebar, Footer, Review */
+
+.wizardWindow {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--akaal-color-bg-canvas);
+  animation: fadeIn 180ms ease-out forwards;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.bgImage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.95;
+}
+
+/* Outer Card Container */
+.surface {
+  position: relative;
+  z-index: 1;
+  width: 900px;
+  min-height: 520px;
+  border-radius: var(--akaal-card-radius);
+  background-color: var(--akaal-color-bg-surface);
+  border: 1px solid var(--akaal-color-border-neutral);
+  box-shadow: var(--akaal-shadow-card);
+  display: flex;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+/* Fixed 280px Left Sidebar Panel */
+.sidebar {
+  width: 280px !important;
+  min-width: 280px !important;
+  max-width: 280px !important;
+  padding: 40px 32px;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  background-color: transparent; /* Same surface material */
+}
+
+/* 1px Vertical Divider */
+.verticalDivider {
+  width: 1px;
+  background-color: var(--akaal-color-border-neutral);
+  align-self: stretch;
+}
+
+/* Main Content Area */
+.contentArea {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 40px 40px 0 40px;
+  box-sizing: border-box;
+}
+
+.stepBody {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  opacity: 1;
+  transition: opacity 180ms ease-in-out;
+}
+
+/* Sidebar Title */
+.sidebarTitle {
+  font-family: var(--akaal-font-sans);
+  font-size: 28px;
+  font-weight: var(--akaal-font-weight-bold);
+  color: var(--akaal-color-text-brand-emphasis);
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  margin-bottom: 36px;
+}
+
+/* Navigation List */
+.navList {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.navItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  user-select: none;
+}
+
+.indicatorDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: var(--akaal-color-bg-primary-btn);
+  flex-shrink: 0;
+}
+
+.indicatorCheck {
+  font-family: var(--akaal-font-sans);
+  font-size: 14px;
+  font-weight: var(--akaal-font-weight-bold);
+  color: var(--akaal-color-bg-primary-btn);
+  flex-shrink: 0;
+  width: 14px;
+  text-align: center;
+}
+
+.indicatorCircle {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1.5px solid var(--akaal-color-text-secondary);
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+.itemTextCurrent {
+  font-family: var(--akaal-font-sans);
+  font-size: 14px;
+  font-weight: var(--akaal-font-weight-bold);
+  color: var(--akaal-color-bg-primary-btn);
+}
+
+.itemTextCompleted {
+  font-family: var(--akaal-font-sans);
+  font-size: 14px;
+  font-weight: var(--akaal-font-weight-medium);
+  color: var(--akaal-color-text-primary);
+}
+
+.itemTextUpcoming {
+  font-family: var(--akaal-font-sans);
+  font-size: 14px;
+  font-weight: var(--akaal-font-weight-medium);
+  color: var(--akaal-color-text-secondary);
+  opacity: 0.7;
+}
+
+/* Step Header */
+.stepHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 28px;
+}
+
+.stepTitle {
+  font-family: var(--akaal-font-sans);
+  font-size: 20px;
+  font-weight: var(--akaal-font-weight-bold);
+  color: var(--akaal-color-text-primary);
+}
+
+.stepSubtitle {
+  font-family: var(--akaal-font-sans);
+  font-size: 14px;
+  font-weight: var(--akaal-font-weight-regular);
+  color: var(--akaal-color-text-secondary);
+}
+
+/* Right Area Footer - Fixed Navigation Buttons */
+.footerContainer {
+  margin-top: auto;
+  padding: 20px 0 32px 0;
+}
+
+.horizontalDivider {
+  height: 1px;
+  background-color: var(--akaal-color-border-neutral);
+  width: 100%;
+  margin-bottom: 20px;
+}
+
+.footerButtons {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--akaal-button-gap);
+  width: 100%;
+}
+
+.footerButtonWidth {
+  width: 140px !important;
+}
+
+/* Review Step Styling */
+.reviewList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  margin-top: 8px;
+}
+
+.reviewItem {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background-color: var(--akaal-color-bg-canvas);
+  border: 1px solid var(--akaal-color-border-neutral);
+}
+
+.reviewLabel {
+  font-family: var(--akaal-font-sans);
+  font-size: 13px;
+  font-weight: var(--akaal-font-weight-medium);
+  color: var(--akaal-color-text-primary);
+}
+
+.reviewValue {
+  font-family: var(--akaal-font-sans);
+  font-size: 14px;
+  font-weight: var(--akaal-font-weight-regular);
+  color: var(--akaal-color-text-secondary);
+  word-break: break-all;
+}
+
+/* Error State Banner */
+.errorBanner {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  border-radius: 8px;
+  background-color: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  margin-bottom: 16px;
+}
+
+.errorBannerTitle {
+  font-family: var(--akaal-font-sans);
+  font-size: 14px;
+  font-weight: var(--akaal-font-weight-bold);
+  color: #EF4444;
+}
+
+.errorBannerBody {
+  font-family: var(--akaal-font-sans);
+  font-size: 13px;
+  color: var(--akaal-color-text-primary);
+}

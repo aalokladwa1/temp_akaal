@@ -1,4 +1,9 @@
-// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
+mod workspace_config;
+
+use workspace_config::{
+    load_workspace_config_cmd, save_workspace_config_cmd, validate_workspace_path_cmd,
+};
+
 #[tauri::command]
 fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
@@ -13,7 +18,14 @@ fn exit_app(app_handle: tauri::AppHandle) {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet, exit_app])
+        .plugin(tauri_plugin_dialog::init())
+        .invoke_handler(tauri::generate_handler![
+            greet,
+            exit_app,
+            load_workspace_config_cmd,
+            save_workspace_config_cmd,
+            validate_workspace_path_cmd
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
