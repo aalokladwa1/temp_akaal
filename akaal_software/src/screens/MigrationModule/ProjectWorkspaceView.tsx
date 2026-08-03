@@ -532,31 +532,33 @@ export const ProjectWorkspaceView: FC<ProjectWorkspaceViewProps> = ({
                 </div>
               )}
 
-              {/* SECTION 3: PIPELINE STEPPER */}
+              {/* SECTION 3: READ-ONLY PIPELINE STEPPER (Engine-Driven Workflow) */}
               <div style={{ padding: 16, background: 'var(--dash-card-bg)', borderRadius: 12, border: '1px solid var(--dash-border)', marginBottom: 20 }}>
-                <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: 'var(--dash-text-secondary)', marginBottom: 12 }}>
-                  ENTERPRISE MIGRATION PIPELINE STEPPER
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: 'var(--dash-text-secondary)' }}>
+                    ENGINE-DRIVEN PIPELINE STATE (READ-ONLY)
+                  </div>
+                  <span style={{ fontSize: 11, color: '#3B82F6', fontWeight: 600 }}>
+                    ⚡ Controlled by AKAAL Engine IPC
+                  </span>
                 </div>
 
                 <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 4 }}>
                   {STAGE_LIST.map((stageId, idx) => {
                     const meta = ENGINE_STAGE_METADATA[stageId];
                     const isActive = stageId === activeMigrationRuntime.currentStage;
-                    const isSelected = stageId === selectedStage;
-                    const isPast = idx < currentStageIndex;
-                    const isFutureLocked = isApprovalPending && idx > currentStageIndex;
+                    const isPast = idx < STAGE_LIST.indexOf(activeMigrationRuntime.currentStage);
+                    const isFutureLocked = idx > STAGE_LIST.indexOf(activeMigrationRuntime.currentStage);
 
                     return (
-                      <button
+                      <div
                         key={stageId}
-                        disabled={isFutureLocked}
-                        onClick={() => !isFutureLocked && setSelectedStage(stageId)}
                         style={{
                           flex: 1,
                           minWidth: 90,
                           padding: '10px 8px',
                           borderRadius: 8,
-                          border: isSelected ? '1px solid #3B82F6' : '1px solid var(--dash-border)',
+                          border: isActive ? '1px solid #3B82F6' : '1px solid var(--dash-border)',
                           background: isActive
                             ? isApprovalPending
                               ? 'rgba(245, 158, 11, 0.15)'
@@ -572,101 +574,37 @@ export const ProjectWorkspaceView: FC<ProjectWorkspaceViewProps> = ({
                             ? '#10B981'
                             : 'var(--dash-text-secondary)',
                           opacity: isFutureLocked ? 0.4 : 1,
-                          cursor: isFutureLocked ? 'not-allowed' : 'pointer',
                           textAlign: 'center',
-                          transition: 'all 200ms ease',
+                          userSelect: 'none',
                         }}
                       >
                         <div style={{ fontSize: 10, fontWeight: 700 }}>
-                          {isPast ? '✓ ST ' + (idx + 1) : isActive ? '▶ ST ' + (idx + 1) : isFutureLocked ? '🔒 ST ' + (idx + 1) : '○ ST ' + (idx + 1)}
+                          {isPast ? '✓ ST ' + (idx + 1) : isActive ? '▶ ST ' + (idx + 1) : '🔒 ST ' + (idx + 1)}
                         </div>
                         <div style={{ fontSize: 11, fontWeight: 600, marginTop: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {meta.label.split(' ')[0]}
                         </div>
-                      </button>
+                      </div>
                     );
                   })}
                 </div>
               </div>
 
-              {/* SECTION 4: ACTIVE STAGE WORKBENCH */}
-              <div style={{ padding: 20, background: 'var(--dash-card-bg)', borderRadius: 12, border: '1px solid var(--dash-border)' }}>
+              {/* SECTION 4: CURRENT STAGE WORKBENCH (Shows ONLY currently executing stage) */}
+              <div style={{ padding: 20, background: 'var(--dash-card-bg)', borderRadius: 12, border: '1px solid var(--dash-border)', marginBottom: 20 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                   <div>
                     <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: 'var(--dash-text-primary)' }}>
-                      Stage {currentStageIndex + 1}: {currentStageMeta.label}
+                      Current Stage: {ENGINE_STAGE_METADATA[activeMigrationRuntime.currentStage].label}
                     </h3>
                     <p style={{ fontSize: 12, color: 'var(--dash-text-secondary)', margin: '4px 0 0 0' }}>
-                      {currentStageMeta.description} • Owner Agent: <strong style={{ color: '#3B82F6' }}>{currentStageMeta.ownerAgent}</strong>
+                      {ENGINE_STAGE_METADATA[activeMigrationRuntime.currentStage].description} • Owner Agent: <strong style={{ color: '#3B82F6' }}>{ENGINE_STAGE_METADATA[activeMigrationRuntime.currentStage].ownerAgent}</strong>
                     </p>
-                  </div>
-                  <div style={{ display: 'flex', gap: 10 }}>
-                    {selectedStage === 'data_migration' && (
-                      <button
-                        onClick={handleCheckpointPrompt}
-                        style={{
-                          padding: '8px 16px',
-                          borderRadius: 8,
-                          background: 'var(--dash-surface)',
-                          border: '1px solid var(--dash-border)',
-                          color: 'var(--dash-text-primary)',
-                          fontSize: 12,
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                        }}
-                      >
-                        ⚡ Checkpoint
-                      </button>
-                    )}
-                    <button
-                      onClick={() => {
-                        if (selectedStage === 'scout') {
-                          runtimeSessionRepository.appendEvent(existingSession?.sessionId || 'sess-1', {
-                            eventId: `evt-${Date.now()}`,
-                            timestamp: new Date().toISOString(),
-                            sessionId: existingSession?.sessionId || 'sess-1',
-                            migrationId: project.id,
-                            severity: 'info',
-                            source: 'scout',
-                            stageNumber: 1,
-                            eventType: 'ScoutStarted',
-                            payload: { tables_discovered: 48, columns_profiled: 412 },
-                          });
-                        } else if (selectedStage === 'data_migration') {
-                          if (existingSession && existingSession.throughputMbps > 0) {
-                            handlePausePrompt();
-                          } else {
-                            handleResumePrompt();
-                          }
-                        }
-                      }}
-                      style={{
-                        padding: '8px 16px',
-                        borderRadius: 8,
-                        background: '#2563EB',
-                        color: '#ffffff',
-                        border: 'none',
-                        fontSize: 12,
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      {selectedStage === 'scout' && 'Start Discovery'}
-                      {selectedStage === 'advisor' && 'Run Compatibility Analysis'}
-                      {selectedStage === 'live_intel' && 'Simulate Execution'}
-                      {selectedStage === 'planner' && 'Generate Execution Plan'}
-                      {selectedStage === 'manager' && 'Review Readiness'}
-                      {selectedStage === 'schema_exec' && 'Execute Schema'}
-                      {selectedStage === 'data_migration' && (existingSession?.throughputMbps === 0 ? '▶ Resume Stream' : '⏸ Pause Stream')}
-                      {selectedStage === 'validator' && 'Run Checksum Audit'}
-                      {selectedStage === 'healing' && 'Execute Recovery'}
-                      {selectedStage === 'certification' && 'Issue Certificate'}
-                    </button>
                   </div>
                 </div>
 
-                {/* Custom Workbench Views per Stage */}
-                {selectedStage === 'scout' && (
+                {/* Custom Workbench View for Active Stage */}
+                {activeMigrationRuntime.currentStage === 'scout' && (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
                     <div style={{ padding: 14, background: 'var(--dash-surface)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
                       <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)' }}>Discovered Tables</div>
@@ -687,7 +625,7 @@ export const ProjectWorkspaceView: FC<ProjectWorkspaceViewProps> = ({
                   </div>
                 )}
 
-                {selectedStage === 'advisor' && (
+                {activeMigrationRuntime.currentStage === 'advisor' && (
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                     <div style={{ padding: 16, background: 'var(--dash-surface)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
                       <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)' }}>Engine Compatibility Score</div>
@@ -700,7 +638,7 @@ export const ProjectWorkspaceView: FC<ProjectWorkspaceViewProps> = ({
                   </div>
                 )}
 
-                {selectedStage === 'data_migration' && (
+                {activeMigrationRuntime.currentStage === 'data_migration' && (
                   <div>
                     <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--dash-text-secondary)', textTransform: 'uppercase', marginBottom: 10 }}>
                       8 Parallel Stream Partition Workers
@@ -724,7 +662,7 @@ export const ProjectWorkspaceView: FC<ProjectWorkspaceViewProps> = ({
                   </div>
                 )}
 
-                {selectedStage === 'certification' && (
+                {activeMigrationRuntime.currentStage === 'certification' && (
                   <div style={{ padding: 16, background: 'rgba(16, 185, 129, 0.08)', borderRadius: 8, border: '1px solid rgba(16, 185, 129, 0.2)' }}>
                     <div style={{ fontWeight: 700, color: '#10B981', fontSize: 14 }}>SHA-256 Cryptographic Proof Seal</div>
                     <code style={{ fontSize: 12, color: '#60A5FA', marginTop: 4, display: 'block' }}>
@@ -732,6 +670,169 @@ export const ProjectWorkspaceView: FC<ProjectWorkspaceViewProps> = ({
                     </code>
                   </div>
                 )}
+              </div>
+
+              {/* SECTION 5: OPERATIONS PANEL (Context-Aware Valid Operations) */}
+              <div style={{ padding: 20, background: 'var(--dash-card-bg)', borderRadius: 12, border: '1px solid var(--dash-border)' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--dash-text-secondary)', marginBottom: 12 }}>
+                  MIGRATION OPERATIONS CONTROL PANEL
+                </div>
+                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                  <button
+                    disabled={hasActiveRuntime}
+                    onClick={handleInitializeMigrationPrompt}
+                    style={{
+                      padding: '10px 18px',
+                      borderRadius: 8,
+                      background: hasActiveRuntime ? 'var(--dash-surface)' : '#2563EB',
+                      color: hasActiveRuntime ? 'var(--dash-text-secondary)' : '#ffffff',
+                      border: 'none',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: hasActiveRuntime ? 'not-allowed' : 'pointer',
+                      opacity: hasActiveRuntime ? 0.5 : 1,
+                    }}
+                  >
+                    🚀 Initialize Migration
+                  </button>
+
+                  <button
+                    disabled={!hasActiveRuntime || existingSession?.throughputMbps === 0}
+                    onClick={handlePausePrompt}
+                    style={{
+                      padding: '10px 18px',
+                      borderRadius: 8,
+                      background: !hasActiveRuntime || existingSession?.throughputMbps === 0 ? 'var(--dash-surface)' : '#F59E0B',
+                      color: !hasActiveRuntime || existingSession?.throughputMbps === 0 ? 'var(--dash-text-secondary)' : '#111111',
+                      border: 'none',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: !hasActiveRuntime || existingSession?.throughputMbps === 0 ? 'not-allowed' : 'pointer',
+                      opacity: !hasActiveRuntime || existingSession?.throughputMbps === 0 ? 0.5 : 1,
+                    }}
+                  >
+                    ⏸ Pause Stream
+                  </button>
+
+                  <button
+                    disabled={!hasActiveRuntime || (existingSession?.throughputMbps !== 0)}
+                    onClick={handleResumePrompt}
+                    style={{
+                      padding: '10px 18px',
+                      borderRadius: 8,
+                      background: !hasActiveRuntime || (existingSession?.throughputMbps !== 0) ? 'var(--dash-surface)' : '#10B981',
+                      color: !hasActiveRuntime || (existingSession?.throughputMbps !== 0) ? 'var(--dash-text-secondary)' : '#ffffff',
+                      border: 'none',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: !hasActiveRuntime || (existingSession?.throughputMbps !== 0) ? 'not-allowed' : 'pointer',
+                      opacity: !hasActiveRuntime || (existingSession?.throughputMbps !== 0) ? 0.5 : 1,
+                    }}
+                  >
+                    ▶ Resume Stream
+                  </button>
+
+                  <button
+                    disabled={!hasActiveRuntime}
+                    onClick={handleCheckpointPrompt}
+                    style={{
+                      padding: '10px 18px',
+                      borderRadius: 8,
+                      background: !hasActiveRuntime ? 'var(--dash-surface)' : 'var(--dash-surface)',
+                      color: !hasActiveRuntime ? 'var(--dash-text-secondary)' : 'var(--dash-text-primary)',
+                      border: '1px solid var(--dash-border)',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: !hasActiveRuntime ? 'not-allowed' : 'pointer',
+                      opacity: !hasActiveRuntime ? 0.5 : 1,
+                    }}
+                  >
+                    ⚡ Trigger Checkpoint
+                  </button>
+
+                  <button
+                    disabled={!hasActiveRuntime}
+                    onClick={() => {
+                      setConfirmState({
+                        isOpen: true,
+                        title: 'Terminate Migration?',
+                        affectedObject: `Session: ${existingSession?.sessionId || 'sess-active'}`,
+                        message: 'This operation will stop the active migration. You can resume later only if a valid checkpoint exists.',
+                        bulletPoints: [
+                          'stop active partition worker threads',
+                          'flush pending CDC change buffers',
+                          'release engine socket locks',
+                        ],
+                        consequence: 'Transport stream will be terminated.',
+                        confirmText: 'Terminate Migration',
+                        severity: 'danger',
+                        onConfirm: () => {
+                          runtimeSessionRepository.updateTelemetry(existingSession?.sessionId || 'sess-1', { throughputMbps: 0 });
+                          setActiveMigrationRuntime(null);
+                        },
+                      });
+                    }}
+                    style={{
+                      padding: '10px 18px',
+                      borderRadius: 8,
+                      background: !hasActiveRuntime ? 'var(--dash-surface)' : 'rgba(239, 68, 68, 0.15)',
+                      color: !hasActiveRuntime ? 'var(--dash-text-secondary)' : '#EF4444',
+                      border: !hasActiveRuntime ? '1px solid var(--dash-border)' : '1px solid rgba(239, 68, 68, 0.3)',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: !hasActiveRuntime ? 'not-allowed' : 'pointer',
+                      opacity: !hasActiveRuntime ? 0.5 : 1,
+                    }}
+                  >
+                    🛑 Terminate Migration
+                  </button>
+
+                  <button
+                    disabled={!hasActiveRuntime}
+                    onClick={() => {
+                      setConfirmState({
+                        isOpen: true,
+                        title: 'Rollback Migration?',
+                        affectedObject: `Target Database: ${project.targetEndpoint}`,
+                        message: 'Restore the target database to the latest rollback snapshot?',
+                        bulletPoints: [
+                          'revert applied target DDL statements',
+                          'truncate staged data transport partitions',
+                          'restore pre-migration snapshot state',
+                        ],
+                        consequence: 'Target database state will be restored to pre-migration baseline.',
+                        confirmText: 'Rollback Target',
+                        severity: 'danger',
+                        onConfirm: () => {
+                          runtimeSessionRepository.appendEvent(existingSession?.sessionId || 'sess-1', {
+                            eventId: `evt-rb-${Date.now()}`,
+                            timestamp: new Date().toISOString(),
+                            sessionId: existingSession?.sessionId || 'sess-1',
+                            migrationId: project.id,
+                            severity: 'warning',
+                            source: 'manager',
+                            stageNumber: 5,
+                            eventType: 'TransportPaused',
+                            payload: { action: 'rollback_executed' },
+                          });
+                        },
+                      });
+                    }}
+                    style={{
+                      padding: '10px 18px',
+                      borderRadius: 8,
+                      background: !hasActiveRuntime ? 'var(--dash-surface)' : 'rgba(239, 68, 68, 0.15)',
+                      color: !hasActiveRuntime ? 'var(--dash-text-secondary)' : '#EF4444',
+                      border: !hasActiveRuntime ? '1px solid var(--dash-border)' : '1px solid rgba(239, 68, 68, 0.3)',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: !hasActiveRuntime ? 'not-allowed' : 'pointer',
+                      opacity: !hasActiveRuntime ? 0.5 : 1,
+                    }}
+                  >
+                    🔄 Rollback Snapshot
+                  </button>
+                </div>
               </div>
             </div>
           ) : (
