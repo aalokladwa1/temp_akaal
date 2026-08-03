@@ -1,5 +1,6 @@
 pub mod audit;
 pub mod core;
+pub mod engine_bridge;
 pub mod identity;
 pub mod security;
 pub mod session;
@@ -367,9 +368,15 @@ fn get_auth_providers_cmd() -> Vec<AuthProviderInfo> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let bridge_state: engine_bridge::commands::EngineBridgeState = std::sync::Arc::new(
+        std::sync::Mutex::new(engine_bridge::EngineBridge::with_default_transport(
+            engine_bridge::BridgeConfig::default(),
+        )),
+    );
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_dialog::init())
+        .manage(bridge_state)
         .invoke_handler(tauri::generate_handler![
             greet,
             exit_app,
@@ -384,7 +391,13 @@ pub fn run() {
             get_auth_providers_cmd,
             load_workspace_config_cmd,
             save_workspace_config_cmd,
-            validate_workspace_path_cmd
+            validate_workspace_path_cmd,
+            engine_bridge::commands::get_bridge_status_cmd,
+            engine_bridge::commands::start_engine_daemon_cmd,
+            engine_bridge::commands::stop_engine_daemon_cmd,
+            engine_bridge::commands::invoke_engine_capability_cmd,
+            engine_bridge::commands::list_capabilities_cmd,
+            engine_bridge::commands::get_heartbeat_status_cmd
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

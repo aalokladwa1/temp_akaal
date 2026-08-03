@@ -1,8 +1,8 @@
 [package]
 name = "akaal_software"
 version = "0.1.0"
-description = "A Tauri App"
-authors = ["you"]
+description = "AKAAL Enterprise Migration Platform Desktop App"
+authors = ["AKAAL Integration Team"]
 edition = "2021"
 
 [lib]
@@ -15,11 +15,9 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
-tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+uuid = { version = "1", features = ["v4", "serde"] }
 argon2 = "0.5"
-zeroize = { version = "1.8", features = ["derive"] }
-uuid = { version = "1", features = ["v4"] }
+zeroize = { version = "1", features = ["zeroize_derive"] }
 chrono = { version = "0.4", features = ["serde"] }
-

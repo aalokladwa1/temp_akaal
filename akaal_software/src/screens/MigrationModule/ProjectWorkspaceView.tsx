@@ -1,6 +1,12 @@
-import { useState, type FC } from 'react';
-import type { MigrationPipeline, EngineStageId } from '../../types/migration';
+import { useState, useEffect, type FC } from 'react';
+import type { MigrationPipeline, EngineStageId, GovernanceApproval } from '../../types/migration';
 import { ENGINE_STAGE_METADATA } from '../../services/migrationService';
+import { connectionRepository } from '../../repositories/connectionRepository';
+import { approvalRepository } from '../../repositories/approvalRepository';
+import { runtimeSessionRepository } from '../../repositories/runtimeSessionRepository';
+import { ApprovalModal } from '../../components/ApprovalModal/ApprovalModal';
+import { ConfirmDialog, type ConfirmSeverity } from '../../components/ConfirmDialog';
+import { EmptyState } from '../../components/EmptyState/EmptyState';
 import styles from './MigrationModule.module.css';
 
 export interface ProjectWorkspaceViewProps {
@@ -19,7 +25,7 @@ export type ProjectNavSection =
   | 'notes'
   | 'settings';
 
-export type DockTabId = 'logs' | 'events' | 'notifications' | 'output' | 'timeline';
+export type DockTabId = 'logs' | 'events' | 'notifications' | 'output' | 'timeline' | 'decisions';
 
 const STAGE_LIST: EngineStageId[] = [
   'scout',
@@ -110,23 +116,6 @@ const NAV_ITEMS: { id: ProjectNavSection; label: string; Icon: FC }[] = [
   { id: 'settings',    label: 'Settings',    Icon: IconSettings    },
 ];
 
-// Reusable Connection Item
-interface ReusableConnection {
-  id: string;
-  name: string;
-  engine: string;
-  endpoint: string;
-  environment: string;
-  latencyMs: number;
-  status: 'Healthy' | 'Testing';
-}
-
-const DEMO_CONNECTIONS: ReusableConnection[] = [
-  { id: 'conn-01', name: 'Oracle Enterprise ERP Core', engine: 'Oracle 19c', endpoint: 'db-oracle.enterprise.internal:1521/ORCL', environment: 'Production', latencyMs: 1.2, status: 'Healthy' },
-  { id: 'conn-02', name: 'PostgreSQL Target Cluster', engine: 'PostgreSQL 16', endpoint: 'pg-cluster.enterprise.internal:5432/app_target_db', environment: 'Production', latencyMs: 0.8, status: 'Healthy' },
-  { id: 'conn-03', name: 'SQL Server Payroll DB', engine: 'SQL Server 2019', endpoint: 'sql-payroll.corp.internal:1433/PayrollDB', environment: 'Production', latencyMs: 2.1, status: 'Healthy' },
-];
-
 export const ProjectWorkspaceView: FC<ProjectWorkspaceViewProps> = ({
   project,
   onBack,
@@ -138,9 +127,92 @@ export const ProjectWorkspaceView: FC<ProjectWorkspaceViewProps> = ({
   const [dockTab, setDockTab] = useState<DockTabId>('logs');
   const [dockCollapsed, setDockCollapsed] = useState<boolean>(false);
   const [inspectorCollapsed, setInspectorCollapsed] = useState<boolean>(false);
+  const [connections, setConnections] = useState(() => connectionRepository.getConnections(project.id));
+  const [sessions, setSessions] = useState(() => runtimeSessionRepository.getSessions());
+  const [activeApprovalModal, setActiveApprovalModal] = useState<GovernanceApproval | null>(null);
+  const [confirmState, setConfirmState] = useState<{
+    isOpen: boolean;
+    title: string;
+    affectedObject?: string;
+    message?: string;
+    bulletPoints?: string[];
+    consequence?: string;
+    confirmText?: string;
+    severity?: ConfirmSeverity;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    onConfirm: () => {},
+  });
+
+  useEffect(() => {
+    const unsubConn = connectionRepository.subscribe(() => {
+      setConnections(connectionRepository.getConnections(project.id));
+    });
+    const unsubSess = runtimeSessionRepository.subscribe((updated) => {
+      setSessions(updated);
+    });
+    return () => {
+      unsubConn();
+      unsubSess();
+    };
+  }, [project.id]);
+
+  const existingSession = runtimeSessionRepository.getSessionForMigration(project.id);
+  const hasActiveRuntime = !!existingSession && existingSession.status !== 'completed' && existingSession.status !== 'failed';
+  const historicalSessions = sessions.filter((s) => s.migrationId === project.id);
+
+  const handleOpenMigrationOverview = () => {
+    setActiveMigrationRuntime(project);
+    setSelectedStage('scout');
+  };
+
+  const handleInitializeMigrationPrompt = () => {
+    setConfirmState({
+      isOpen: true,
+      title: 'Initialize Migration',
+      affectedObject: `Migration Pipeline: ${project.name}`,
+      message: 'Initializing this migration will:',
+      bulletPoints: [
+        'allocate active runtime session',
+        'initiate database schema profiling & Scout discovery',
+        'establish zero-lock connection checks',
+      ],
+      consequence: 'This operation allocates dynamic engine resources.',
+      confirmText: 'Initialize Migration',
+      severity: 'info',
+      onConfirm: () => {
+        runtimeSessionRepository.allocateSession(project.id, 'scout');
+        setActiveMigrationRuntime(project);
+        setSelectedStage('scout');
+      },
+    });
+  };
 
   const currentStageIndex = STAGE_LIST.indexOf(selectedStage);
   const currentStageMeta = ENGINE_STAGE_METADATA[selectedStage] || ENGINE_STAGE_METADATA['scout'];
+
+  const isApprovalPending =
+    activeMigrationRuntime?.health === 'approval_required' ||
+    activeMigrationRuntime?.currentStage === 'manager';
+
+  const handleCreateApprovalModal = () => {
+    if (!activeMigrationRuntime) return;
+    const req = approvalRepository.createApprovalRequest(
+      'GATE_2',
+      'Migration Planning & Execution Gate',
+      activeMigrationRuntime.id,
+      activeMigrationRuntime.name,
+      project.name,
+      activeMigrationRuntime.owner,
+      ['Approver', 'Validation Lead'],
+      'Execution DAG & Parallel partition strategy ready for Four-Eyes sign-off.',
+      'BLAKE3 Checksum Pre-flight Simulation Passed',
+      activeMigrationRuntime.riskScore
+    );
+    setActiveApprovalModal(req);
+  };
 
   return (
     <div className={styles.workspaceViewContainer} style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--dash-bg)' }}>
@@ -162,7 +234,6 @@ export const ProjectWorkspaceView: FC<ProjectWorkspaceViewProps> = ({
           </button>
           <div style={{ width: 1, height: 18, background: 'var(--dash-border)' }} />
 
-          {/* Theme-Aware Project Logo Box (Light Theme: Light Surface, Dark Text | Dark Theme: Dark Surface, Light Text) */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div
               style={{
@@ -310,16 +381,56 @@ export const ProjectWorkspaceView: FC<ProjectWorkspaceViewProps> = ({
                       borderRadius: 6,
                       fontSize: 12,
                       fontWeight: 600,
-                      background: 'rgba(16, 185, 129, 0.12)',
-                      color: '#10B981',
-                      border: '1px solid rgba(16, 185, 129, 0.2)',
+                      background: isApprovalPending ? 'rgba(245, 158, 11, 0.12)' : 'rgba(16, 185, 129, 0.12)',
+                      color: isApprovalPending ? '#F59E0B' : '#10B981',
+                      border: isApprovalPending ? '1px solid rgba(245, 158, 11, 0.2)' : '1px solid rgba(16, 185, 129, 0.2)',
                     }}
                   >
-                    ✓ Runtime Active
+                    {isApprovalPending ? '⏳ Waiting For Approval (GATE 2)' : '✓ Runtime Active'}
                   </span>
                 </div>
 
-                {/* 10-Stage AKAAL Engine Pipeline Bar (ONLY VISIBLE INSIDE RUNTIME) */}
+                {/* Task 5: Approval Pending Lock Banner */}
+                {isApprovalPending && (
+                  <div
+                    style={{
+                      padding: 16,
+                      borderRadius: 12,
+                      background: 'rgba(245, 158, 11, 0.10)',
+                      border: '1px solid rgba(245, 158, 11, 0.25)',
+                      marginBottom: 20,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: '#F59E0B' }}>
+                        Four-Eyes Governance Sign-off Pending (GATE 2)
+                      </div>
+                      <div style={{ fontSize: 12, color: 'var(--dash-text-secondary)', marginTop: 2 }}>
+                        Elapsed Time: <strong>14m 20s</strong> • Required Approvers: <strong>Lead DBA & Approver Role</strong>
+                      </div>
+                    </div>
+                    <button
+                      onClick={handleCreateApprovalModal}
+                      style={{
+                        padding: '8px 16px',
+                        borderRadius: 8,
+                        background: '#F59E0B',
+                        color: '#111',
+                        border: 'none',
+                        fontSize: 12,
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Review & Sign Off →
+                    </button>
+                  </div>
+                )}
+
+                {/* 10-Stage AKAAL Engine Pipeline Bar (Task 5: Visually Locked Future Stages) */}
                 <div style={{ padding: 20, background: 'var(--dash-card-bg)', borderRadius: 12, border: '1px solid var(--dash-border)', marginBottom: 24 }}>
                   <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--dash-text-secondary)', marginBottom: 14 }}>
                     10-Stage AKAAL Engine Runtime State
@@ -331,24 +442,41 @@ export const ProjectWorkspaceView: FC<ProjectWorkspaceViewProps> = ({
                       const isActive = stageId === activeMigrationRuntime.currentStage;
                       const isSelected = stageId === selectedStage;
                       const isPast = idx < currentStageIndex;
+                      const isFutureLocked = isApprovalPending && idx > currentStageIndex;
 
                       return (
                         <button
                           key={stageId}
-                          onClick={() => setSelectedStage(stageId)}
+                          disabled={isFutureLocked}
+                          onClick={() => !isFutureLocked && setSelectedStage(stageId)}
                           style={{
                             flex: 1,
                             minWidth: 84,
                             padding: '10px 8px',
                             borderRadius: 8,
                             border: isSelected ? '1px solid #3B82F6' : '1px solid var(--dash-border)',
-                            background: isActive ? 'rgba(59, 130, 246, 0.15)' : isPast ? 'rgba(16, 185, 129, 0.1)' : 'var(--dash-surface)',
-                            color: isActive ? '#3B82F6' : isPast ? '#10B981' : 'var(--dash-text-secondary)',
-                            cursor: 'pointer',
+                            background: isActive
+                              ? isApprovalPending
+                                ? 'rgba(245, 158, 11, 0.15)'
+                                : 'rgba(59, 130, 246, 0.15)'
+                              : isPast
+                              ? 'rgba(16, 185, 129, 0.1)'
+                              : 'var(--dash-surface)',
+                            color: isActive
+                              ? isApprovalPending
+                                ? '#F59E0B'
+                                : '#3B82F6'
+                              : isPast
+                              ? '#10B981'
+                              : 'var(--dash-text-secondary)',
+                            opacity: isFutureLocked ? 0.4 : 1,
+                            cursor: isFutureLocked ? 'not-allowed' : 'pointer',
                             textAlign: 'center',
                           }}
                         >
-                          <div style={{ fontSize: 10, fontWeight: 700 }}>ST {idx + 1}</div>
+                          <div style={{ fontSize: 10, fontWeight: 700 }}>
+                            {isFutureLocked ? '🔒 ST ' + (idx + 1) : 'ST ' + (idx + 1)}
+                          </div>
                           <div style={{ fontSize: 11, fontWeight: 600, marginTop: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {meta.label.split(' ')[0]}
                           </div>
@@ -363,10 +491,24 @@ export const ProjectWorkspaceView: FC<ProjectWorkspaceViewProps> = ({
                   <h3 style={{ fontSize: 15, fontWeight: 700, margin: '0 0 8px 0', color: 'var(--dash-text-primary)' }}>{currentStageMeta.label} Overview</h3>
                   <p style={{ fontSize: 13, color: 'var(--dash-text-secondary)', margin: '0 0 16px 0' }}>{currentStageMeta.description}</p>
                   <div style={{ fontSize: 12, fontWeight: 600, color: '#3B82F6' }}>Owner Agent: {currentStageMeta.ownerAgent}</div>
+
+                  {historicalSessions.length > 0 && (
+                    <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--dash-border)' }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--dash-text-secondary)', marginBottom: 8 }}>
+                        Execution History ({historicalSessions.length} session{historicalSessions.length === 1 ? '' : 's'})
+                      </div>
+                      {historicalSessions.map((sess) => (
+                        <div key={sess.sessionId} style={{ fontSize: 11, color: 'var(--dash-text-secondary)', display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
+                          <span>Session #{sess.executionNumber} ({sess.status})</span>
+                          <span>Started: {new Date(sess.startedAt).toLocaleString()}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (
-              /* ── 2. PROJECT OVERVIEW (Simplified, Clean Project Management) ── */
+              /* ── 2. PROJECT OVERVIEW ── */
               <div>
                 {activeNav === 'overview' && (
                   <div>
@@ -389,7 +531,7 @@ export const ProjectWorkspaceView: FC<ProjectWorkspaceViewProps> = ({
                       </div>
                       <div style={{ padding: 18, background: 'var(--dash-card-bg)', borderRadius: 12, border: '1px solid var(--dash-border)' }}>
                         <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)', textTransform: 'uppercase' }}>Project Connections</div>
-                        <div style={{ fontSize: 20, fontWeight: 700, marginTop: 6, color: 'var(--dash-text-primary)' }}>{DEMO_CONNECTIONS.length} Endpoints</div>
+                        <div style={{ fontSize: 20, fontWeight: 700, marginTop: 6, color: 'var(--dash-text-primary)' }}>{connections.length} Endpoints</div>
                       </div>
                       <div style={{ padding: 18, background: 'var(--dash-card-bg)', borderRadius: 12, border: '1px solid var(--dash-border)' }}>
                         <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)', textTransform: 'uppercase' }}>Team Members</div>
@@ -416,24 +558,49 @@ export const ProjectWorkspaceView: FC<ProjectWorkspaceViewProps> = ({
                       </div>
 
                       <div style={{ padding: 16, background: 'var(--dash-card-bg)', borderRadius: 12, border: '1px solid var(--dash-border)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', background: 'var(--dash-surface)', borderRadius: 8 }}>
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '14px 18px',
+                            background: 'var(--dash-surface)',
+                            borderRadius: 8,
+                            cursor: 'pointer',
+                          }}
+                          role="button"
+                          tabIndex={0}
+                          onClick={handleOpenMigrationOverview}
+                          onKeyDown={(e) => e.key === 'Enter' && handleOpenMigrationOverview()}
+                        >
                           <div>
                             <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--dash-text-primary)' }}>{project.name}</div>
                             <div style={{ fontSize: 12, color: 'var(--dash-text-secondary)', marginTop: 2 }}>{project.sourceEndpoint} → {project.targetEndpoint}</div>
                           </div>
-                          <button
-                            onClick={() => setActiveMigrationRuntime(project)}
-                            style={{ padding: '8px 16px', borderRadius: 6, background: 'var(--dash-card-bg)', border: '1px solid var(--dash-border)', color: 'var(--dash-text-primary)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-                          >
-                            Open Migration Runtime →
-                          </button>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }} onClick={(e) => e.stopPropagation()}>
+                            {hasActiveRuntime ? (
+                              <button
+                                onClick={handleOpenMigrationOverview}
+                                style={{ padding: '8px 16px', borderRadius: 6, background: '#2563EB', color: '#ffffff', border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                              >
+                                Resume Runtime →
+                              </button>
+                            ) : (
+                              <button
+                                onClick={handleInitializeMigrationPrompt}
+                                style={{ padding: '8px 16px', borderRadius: 6, background: 'var(--dash-card-bg)', border: '1px solid var(--dash-border)', color: 'var(--dash-text-primary)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                              >
+                                Initialize Migration
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
                 )}
 
-                {/* ── 3. REUSABLE CONNECTIONS ── */}
+                {/* ── 3. REUSABLE CONNECTIONS (Task 7) ── */}
                 {activeNav === 'connections' && (
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
@@ -446,25 +613,49 @@ export const ProjectWorkspaceView: FC<ProjectWorkspaceViewProps> = ({
                         </p>
                       </div>
                       <button
+                        onClick={() =>
+                          connectionRepository.addConnection(
+                            project.id,
+                            `Connection ${connections.length + 1}`,
+                            project.sourceEngine,
+                            project.sourceEndpoint
+                          )
+                        }
                         style={{ padding: '8px 14px', borderRadius: 6, background: '#2563EB', color: '#fff', border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
                       >
                         + Add Connection
                       </button>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                      {DEMO_CONNECTIONS.map((conn) => (
-                        <div key={conn.id} style={{ padding: 18, background: 'var(--dash-card-bg)', borderRadius: 12, border: '1px solid var(--dash-border)' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                            <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: '#3B82F6' }}>{conn.engine}</span>
-                            <span style={{ fontSize: 11, fontWeight: 600, color: '#10B981' }}>✓ {conn.status}</span>
+                    {connections.length === 0 ? (
+                      <EmptyState
+                        title="No Connection Endpoints"
+                        description="No database connection endpoints have been configured for this project yet. Add a connection pool to enable Scout schema profiling."
+                        actionLabel="+ Add First Connection"
+                        onAction={() =>
+                          connectionRepository.addConnection(
+                            project.id,
+                            'Primary Production DB',
+                            project.sourceEngine,
+                            project.sourceEndpoint
+                          )
+                        }
+                      />
+                    ) : (
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                        {connections.map((conn) => (
+                          <div key={conn.id} style={{ padding: 18, background: 'var(--dash-card-bg)', borderRadius: 12, border: '1px solid var(--dash-border)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                              <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: '#3B82F6' }}>{conn.engine}</span>
+                              <span style={{ fontSize: 11, fontWeight: 600, color: '#10B981' }}>✓ {conn.status}</span>
+                            </div>
+                            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--dash-text-primary)' }}>{conn.name}</div>
+                            <div style={{ fontSize: 12, color: 'var(--dash-text-secondary)', marginTop: 4, fontFamily: "'JetBrains Mono', monospace" }}>{conn.endpoint}</div>
+                            <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)', marginTop: 10 }}>Environment: {conn.environment} • SSL: {conn.sslStatus}</div>
                           </div>
-                          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--dash-text-primary)' }}>{conn.name}</div>
-                          <div style={{ fontSize: 12, color: 'var(--dash-text-secondary)', marginTop: 4, fontFamily: "'JetBrains Mono', monospace" }}>{conn.endpoint}</div>
-                          <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)', marginTop: 10 }}>Environment: {conn.environment} • Latency: {conn.latencyMs}ms</div>
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -480,14 +671,42 @@ export const ProjectWorkspaceView: FC<ProjectWorkspaceViewProps> = ({
                       )}
                     </div>
                     <div style={{ padding: 16, background: 'var(--dash-card-bg)', borderRadius: 12, border: '1px solid var(--dash-border)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', background: 'var(--dash-surface)', borderRadius: 8 }}>
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '14px 18px',
+                          background: 'var(--dash-surface)',
+                          borderRadius: 8,
+                          cursor: 'pointer',
+                        }}
+                        role="button"
+                        tabIndex={0}
+                        onClick={handleOpenMigrationOverview}
+                        onKeyDown={(e) => e.key === 'Enter' && handleOpenMigrationOverview()}
+                      >
                         <div>
                           <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--dash-text-primary)' }}>{project.name}</div>
                           <div style={{ fontSize: 12, color: 'var(--dash-text-secondary)', marginTop: 2 }}>{project.sourceEndpoint} → {project.targetEndpoint}</div>
                         </div>
-                        <button onClick={() => setActiveMigrationRuntime(project)} style={{ padding: '8px 16px', borderRadius: 6, background: 'var(--dash-card-bg)', border: '1px solid var(--dash-border)', color: 'var(--dash-text-primary)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-                          Open Migration Runtime →
-                        </button>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }} onClick={(e) => e.stopPropagation()}>
+                          {hasActiveRuntime ? (
+                            <button
+                              onClick={handleOpenMigrationOverview}
+                              style={{ padding: '8px 16px', borderRadius: 6, background: '#2563EB', color: '#ffffff', border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                            >
+                              Resume Runtime →
+                            </button>
+                          ) : (
+                            <button
+                              onClick={handleInitializeMigrationPrompt}
+                              style={{ padding: '8px 16px', borderRadius: 6, background: 'var(--dash-card-bg)', border: '1px solid var(--dash-border)', color: 'var(--dash-text-primary)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                            >
+                              Initialize Migration
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -549,9 +768,7 @@ export const ProjectWorkspaceView: FC<ProjectWorkspaceViewProps> = ({
         )}
       </div>
 
-      {/* ── Bottom Runtime Dock (Logs | Events | Notifications | Output | Timeline) ──
-          CRITICAL ARCHITECTURAL REQUIREMENT: Renders ONLY during active Migration Runtime!
-      */}
+      {/* ── Bottom Runtime Dock ── */}
       {activeMigrationRuntime && (
         <div
           style={{
@@ -564,7 +781,7 @@ export const ProjectWorkspaceView: FC<ProjectWorkspaceViewProps> = ({
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 16px', borderBottom: dockCollapsed ? 'none' : '1px solid var(--dash-border)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              {(['logs', 'events', 'notifications', 'output', 'timeline'] as DockTabId[]).map((tab) => (
+              {(['logs', 'events', 'notifications', 'output', 'timeline', 'decisions'] as DockTabId[]).map((tab) => (
                 <button
                   key={tab}
                   onClick={() => { setDockTab(tab); setDockCollapsed(false); }}
@@ -606,21 +823,51 @@ export const ProjectWorkspaceView: FC<ProjectWorkspaceViewProps> = ({
                 overflowY: 'auto',
               }}
             >
-              {dockTab === 'logs' && (
-                <div>
-                  [AKAAL Engine] Initializing parallel partitioning transport worker thread #4...<br />
-                  [SCOUT Agent] Source table checksum validation passed for ORCL.CUSTOMERS (12,450,000 rows)<br />
-                  [GB VALIDATOR] Column hash verification algorithm: BLAKE3 (99.98% matching)
-                </div>
-              )}
-              {dockTab === 'events' && <div>[EVENT STREAM] StageTransition → data_migration (data streaming active)</div>}
-              {dockTab === 'notifications' && <div>[SYSTEM NOTIFICATION] Four-Eyes approval confirmed by Aalok.</div>}
-              {dockTab === 'output' && <div>[CLI STDOUT] akaal-engine-runtime v1.0.4 initialized with 32 worker partitions.</div>}
-              {dockTab === 'timeline' && <div>[AUDIT TIMELINE] 18:42:10 UTC - Project Workspace initialized by Aalok.</div>}
+              {dockTab === 'logs' && <div>[AKAAL Engine] Awaiting live runtime log stream from Tauri IPC channel...</div>}
+              {dockTab === 'events' && <div>[EVENT STREAM] Listening to akaal://engine/lifecycle...</div>}
+              {dockTab === 'notifications' && <div>[NOTIFICATIONS] System initialized cleanly.</div>}
+              {dockTab === 'output' && <div>[STDOUT] Ready for Engine stdout binding.</div>}
+              {dockTab === 'timeline' && <div>[TIMELINE] Session allocated.</div>}
+              {dockTab === 'decisions' && <div>[DECISIONS STREAM] Listening to akaal://engine/decisions...</div>}
             </div>
           )}
         </div>
       )}
+
+      {/* Approval Modal */}
+      {activeApprovalModal && (
+        <ApprovalModal
+          approval={activeApprovalModal}
+          isOpen={!!activeApprovalModal}
+          onClose={() => setActiveApprovalModal(null)}
+          onSubmitDecision={(id, decision, reason) => {
+            approvalRepository.processDecision(id, decision, 'Aalok', reason);
+            if (activeMigrationRuntime) {
+              setActiveMigrationRuntime({
+                ...activeMigrationRuntime,
+                health: decision === 'approved' ? 'healthy' : 'approval_required',
+                currentStage: decision === 'approved' ? 'schema_exec' : 'manager',
+              });
+            }
+          }}
+        />
+      )}
+
+      <ConfirmDialog
+        isOpen={confirmState.isOpen}
+        title={confirmState.title}
+        affectedObject={confirmState.affectedObject}
+        message={confirmState.message}
+        bulletPoints={confirmState.bulletPoints}
+        consequence={confirmState.consequence}
+        confirmText={confirmState.confirmText}
+        severity={confirmState.severity}
+        onConfirm={() => {
+          confirmState.onConfirm();
+          setConfirmState((prev) => ({ ...prev, isOpen: false }));
+        }}
+        onClose={() => setConfirmState((prev) => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 };

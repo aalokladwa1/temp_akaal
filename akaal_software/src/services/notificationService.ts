@@ -14,6 +14,7 @@ export interface AppNotification {
   severity: NotificationSeverity;
   createdAt: number;
   dismissedAt?: number;
+  persistent?: boolean;
 }
 
 type NotificationListener = (notifications: AppNotification[], history: AppNotification[]) => void;
@@ -32,9 +33,9 @@ class NotificationService {
     return () => this.listeners.delete(listener);
   }
 
-  push(title: string, severity: NotificationSeverity = 'info', message?: string): string {
+  push(title: string, severity: NotificationSeverity = 'info', message?: string, persistent = false): string {
     const id = `notif_${Date.now()}_${++this.counter}`;
-    const notif: AppNotification = { id, title, message, severity, createdAt: Date.now() };
+    const notif: AppNotification = { id, title, message, severity, createdAt: Date.now(), persistent };
 
     if (this.active.length >= MAX_VISIBLE) {
       // Dismiss oldest to make room
@@ -59,9 +60,14 @@ class NotificationService {
     this.notify();
   }
 
-  clearHistory(): void {
-    this.history = [];
+  clearAll(): void {
+    this.active = this.active.filter((n) => n.persistent);
+    this.history = this.history.filter((n) => n.persistent);
     this.notify();
+  }
+
+  clearHistory(): void {
+    this.clearAll();
   }
 
   private notify(): void {

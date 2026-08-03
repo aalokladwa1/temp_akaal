@@ -2,12 +2,15 @@ import { useState, useRef, useEffect, type FC } from 'react';
 import type { MigrationPipeline, MigrationDraftState } from '../../types/migration';
 import { useMigrationProjects } from '../../hooks/useMigrationProjects';
 import { notificationService } from '../../services/notificationService';
+import { EmptyState } from '../../components/EmptyState/EmptyState';
+import { ConfirmDialog, type ConfirmSeverity } from '../../components/ConfirmDialog';
 import styles from './MigrationModule.module.css';
 
 export interface MigrationLandingProps {
   onOpenProject: (pipeline: MigrationPipeline) => void;
   onOpenNewMigrationConfig: (resumeDraftData?: MigrationDraftState) => void;
   onOpenNewProjectConfig: () => void;
+  onOpenGovernanceCenter?: () => void;
   searchFilter?: string;
 }
 
@@ -55,12 +58,7 @@ const IconImport = () => (
   </svg>
 );
 
-const IconTemplate = () => (
-  <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-    <rect x="2" y="2" width="12" height="12" rx="2" />
-    <path d="M2 6h12M6 6v8" strokeLinecap="round" />
-  </svg>
-);
+
 
 const IconPin = () => (
   <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" style={{ color: '#F59E0B' }}>
@@ -231,6 +229,7 @@ export const MigrationLanding: FC<MigrationLandingProps> = ({
   onOpenProject,
   onOpenNewMigrationConfig,
   onOpenNewProjectConfig,
+  onOpenGovernanceCenter,
   searchFilter = '',
 }) => {
   const {
@@ -274,17 +273,102 @@ export const MigrationLanding: FC<MigrationLandingProps> = ({
   const filteredShared = sharedProjects.filter(filterFn);
   const filteredArchived = archivedProjects.filter(filterFn);
 
+  const [renameTarget, setRenameTarget] = useState<{ id: string; currentName: string; value: string; error?: string | null } | null>(null);
+  const [confirmState, setConfirmState] = useState<{
+    isOpen: boolean;
+    title: string;
+    affectedObject?: string;
+    message?: string;
+    bulletPoints?: string[];
+    consequence?: string;
+    confirmText?: string;
+    severity?: ConfirmSeverity;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    onConfirm: () => {},
+  });
+
   const handleRenamePrompt = (id: string) => {
-    const current = [...pinnedProjects, ...regularProjects, ...sharedProjects, ...archivedProjects].find(
+    const current = [...pinnedProjects, ...regularProjects, ...sharedProjects, ...archivedProjects, ...draftProjects].find(
       (p) => p.id === id
     );
     if (!current) return;
+    setRenameTarget({ id, currentName: current.name, value: current.name, error: null });
+  };
 
-    const input = window.prompt('Enter new migration pipeline name:', current.name);
-    if (input && input.trim()) {
-      renameProject(id, input.trim());
-      notificationService.push('Pipeline Renamed', 'info', `Renamed to "${input.trim()}".`);
-    }
+  const handleArchivePrompt = (id: string) => {
+    const current = [...pinnedProjects, ...regularProjects, ...sharedProjects, ...draftProjects].find(
+      (p) => p.id === id
+    );
+    if (!current) return;
+    setConfirmState({
+      isOpen: true,
+      title: 'Archive Project Workspace',
+      affectedObject: `Project Workspace: ${current.name}`,
+      message: 'Archiving this Project Workspace will:',
+      bulletPoints: [
+        'move it into Archived Projects',
+        'preserve all migrations',
+        'preserve execution history',
+      ],
+      consequence: 'This operation preserves all migration history.',
+      confirmText: 'Archive Project Workspace',
+      severity: 'warning',
+      onConfirm: () => {
+        archiveProject(id);
+      },
+    });
+  };
+
+  const handleDeletePrompt = (id: string) => {
+    const current = [...pinnedProjects, ...regularProjects, ...sharedProjects, ...archivedProjects, ...draftProjects].find(
+      (p) => p.id === id
+    );
+    if (!current) return;
+    setConfirmState({
+      isOpen: true,
+      title: 'Delete Project Workspace',
+      affectedObject: `Project Workspace: ${current.name}`,
+      message: 'Deleting this Project Workspace will permanently remove:',
+      bulletPoints: [
+        'workspace metadata',
+        'migration definitions',
+        'runtime history',
+        'local workspace configuration',
+      ],
+      consequence: 'This action cannot be undone.',
+      confirmText: 'Delete Project Workspace',
+      severity: 'danger',
+      onConfirm: () => {
+        deleteProject(id);
+      },
+    });
+  };
+
+  const handleRestorePrompt = (id: string) => {
+    const current = [...pinnedProjects, ...regularProjects, ...sharedProjects, ...archivedProjects, ...draftProjects].find(
+      (p) => p.id === id
+    );
+    if (!current) return;
+    setConfirmState({
+      isOpen: true,
+      title: 'Restore Project Workspace',
+      affectedObject: `Project Workspace: ${current.name}`,
+      message: 'Restoring this Project Workspace will:',
+      bulletPoints: [
+        'return it to Active Projects',
+        'preserve all migrations',
+        'preserve execution history',
+      ],
+      consequence: 'This operation preserves all migration history.',
+      confirmText: 'Restore Project Workspace',
+      severity: 'info',
+      onConfirm: () => {
+        unarchiveProject(id);
+      },
+    });
   };
 
 
@@ -331,12 +415,16 @@ export const MigrationLanding: FC<MigrationLandingProps> = ({
         </button>
 
         <button
-          id="act-card-templates"
+          id="act-card-governance"
           className={styles.actionCard}
-          onClick={() => notificationService.push('Templates', 'info', 'Enterprise schema & policy templates available.')}
+          onClick={() => onOpenGovernanceCenter && onOpenGovernanceCenter()}
         >
-          <div className={styles.actionIconBox}><IconTemplate /></div>
-          <div className={styles.actionCardTitle}>Templates</div>
+          <div className={styles.actionIconBox}>
+            <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75">
+              <path d="M8 1.5L2 4v4.5c0 3.8 2.6 7.3 6 8 3.4-.7 6-4.2 6-8V4L8 1.5z" />
+            </svg>
+          </div>
+          <div className={styles.actionCardTitle}>Governance Center</div>
         </button>
       </section>
 
@@ -405,9 +493,9 @@ export const MigrationLanding: FC<MigrationLandingProps> = ({
                 onPinToggle={togglePin}
                 onRename={handleRenamePrompt}
                 onDuplicate={duplicateProject}
-                onArchive={archiveProject}
-                onUnarchive={unarchiveProject}
-                onDelete={deleteProject}
+                onArchive={handleArchivePrompt}
+                onUnarchive={handleRestorePrompt}
+                onDelete={handleDeletePrompt}
               />
             ))}
           </div>
@@ -430,9 +518,9 @@ export const MigrationLanding: FC<MigrationLandingProps> = ({
                 onPinToggle={togglePin}
                 onRename={handleRenamePrompt}
                 onDuplicate={duplicateProject}
-                onArchive={archiveProject}
-                onUnarchive={unarchiveProject}
-                onDelete={deleteProject}
+                onArchive={handleArchivePrompt}
+                onUnarchive={handleRestorePrompt}
+                onDelete={handleDeletePrompt}
               />
             ))}
 
@@ -444,27 +532,22 @@ export const MigrationLanding: FC<MigrationLandingProps> = ({
                 onPinToggle={togglePin}
                 onRename={handleRenamePrompt}
                 onDuplicate={duplicateProject}
-                onArchive={archiveProject}
-                onUnarchive={unarchiveProject}
-                onDelete={deleteProject}
+                onArchive={handleArchivePrompt}
+                onUnarchive={handleRestorePrompt}
+                onDelete={handleDeletePrompt}
               />
             ))}
           </div>
         </section>
       ) : (
         filteredDrafts.length === 0 && (
-          <div style={{ padding: '64px 32px', textAlign: 'center', background: 'var(--dash-card-bg)', border: '1px dashed var(--dash-border-hover)', borderRadius: 16 }}>
-            <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 8px 0' }}>Your workspace is ready.</h2>
-            <p style={{ fontSize: 13, color: 'var(--dash-text-secondary)', margin: '0 0 24px 0' }}>
-              Create your first migration workspace to begin database discovery.
-            </p>
-            <button
-              className={styles.resumeBtn}
-              onClick={() => onOpenNewMigrationConfig()}
-            >
-              <IconPlus /> Create First Migration
-            </button>
-          </div>
+          <EmptyState
+            title="Your Workspace is Ready"
+            description="Create your first project or migration workspace to begin automated database schema discovery and risk analysis."
+            actionLabel="+ Create First Migration"
+            onAction={() => onOpenNewMigrationConfig()}
+            actionId="btn-empty-create-first-migration"
+          />
         )
       )}
 
@@ -483,9 +566,9 @@ export const MigrationLanding: FC<MigrationLandingProps> = ({
                 onPinToggle={togglePin}
                 onRename={handleRenamePrompt}
                 onDuplicate={duplicateProject}
-                onArchive={archiveProject}
-                onUnarchive={unarchiveProject}
-                onDelete={deleteProject}
+                onArchive={handleArchivePrompt}
+                onUnarchive={handleRestorePrompt}
+                onDelete={handleDeletePrompt}
               />
             ))}
           </div>
@@ -517,9 +600,9 @@ export const MigrationLanding: FC<MigrationLandingProps> = ({
                     onPinToggle={togglePin}
                     onRename={handleRenamePrompt}
                     onDuplicate={duplicateProject}
-                    onArchive={archiveProject}
-                    onUnarchive={unarchiveProject}
-                    onDelete={deleteProject}
+                    onArchive={handleArchivePrompt}
+                    onUnarchive={handleRestorePrompt}
+                    onDelete={handleDeletePrompt}
                   />
                 ))}
               </div>
@@ -527,6 +610,67 @@ export const MigrationLanding: FC<MigrationLandingProps> = ({
           )}
         </section>
       )}
+
+      {/* ── Modals ────────────────────────────────────────── */}
+      {renameTarget && (
+        <ConfirmDialog
+          isOpen={!!renameTarget}
+          title="Rename Project Workspace"
+          affectedObject={`Project Workspace: ${renameTarget.currentName}`}
+          message="Renaming this Project Workspace will:"
+          bulletPoints={[
+            'update the workspace name',
+            'preserve identifiers',
+            'preserve migrations',
+            'preserve execution history',
+          ]}
+          consequence="This operation preserves all migration history."
+          confirmText="Rename Project Workspace"
+          severity="info"
+          inputConfig={{
+            label: 'Enter new project workspace name:',
+            value: renameTarget.value,
+            maxLength: 64,
+            error: renameTarget.error,
+            onChange: (val) => {
+              const trimmed = val.trim();
+              let err: string | null = null;
+              if (!trimmed) {
+                err = 'Project workspace name cannot be empty.';
+              } else if (
+                [...pinnedProjects, ...regularProjects, ...sharedProjects, ...archivedProjects, ...draftProjects].some(
+                  (p) => p.name.trim().toLowerCase() === trimmed.toLowerCase() && p.name.trim().toLowerCase() !== renameTarget.currentName.trim().toLowerCase()
+                )
+              ) {
+                err = `A project workspace named "${trimmed}" already exists.`;
+              }
+              setRenameTarget((prev) => (prev ? { ...prev, value: val, error: err } : null));
+            },
+          }}
+          isConfirmDisabled={!renameTarget.value.trim() || !!renameTarget.error}
+          onConfirm={() => {
+            renameProject(renameTarget.id, renameTarget.value.trim());
+            setRenameTarget(null);
+          }}
+          onClose={() => setRenameTarget(null)}
+        />
+      )}
+
+      <ConfirmDialog
+        isOpen={confirmState.isOpen}
+        title={confirmState.title}
+        affectedObject={confirmState.affectedObject}
+        message={confirmState.message}
+        bulletPoints={confirmState.bulletPoints}
+        consequence={confirmState.consequence}
+        confirmText={confirmState.confirmText}
+        severity={confirmState.severity}
+        onConfirm={() => {
+          confirmState.onConfirm();
+          setConfirmState((prev) => ({ ...prev, isOpen: false }));
+        }}
+        onClose={() => setConfirmState((prev) => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 };

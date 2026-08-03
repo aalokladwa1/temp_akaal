@@ -10,29 +10,15 @@ import type { WorkspaceConfig } from '../../types/workspace';
 import { getEnterpriseGreeting } from '../../utils/greetingUtils';
 import { useTheme } from '../../hooks/useTheme';
 import { useNotifications } from '../../hooks/useNotifications';
-import { notificationService } from '../../services/notificationService';
+import { useMigrationProjects } from '../../hooks/useMigrationProjects';
+import { EmptyState } from '../../components/EmptyState/EmptyState';
+import { notificationService, type AppNotification } from '../../services/notificationService';
 import { MigrationModule } from '../MigrationModule';
 import styles from './Dashboard.module.css';
 
 // ── Types ────────────────────────────────────────────────────
 
 type MigrationStatus = 'running' | 'paused' | 'failed' | 'completed';
-
-interface ActiveMigration {
-  id: string;
-  name: string;
-  status: MigrationStatus;
-  progress: number; // 0–100
-  lastActiveAgo: string;
-}
-
-interface RecentProject {
-  id: string;
-  name: string;
-  status: MigrationStatus;
-  progress?: number;
-  lastActivity: string;
-}
 
 interface Alert {
   id: string;
@@ -57,25 +43,7 @@ interface SearchDestination {
   targetSection: NavSection;
 }
 
-// ── Demo Data ────────────────────────────────────────────────
-
-const DEMO_ACTIVE: ActiveMigration = {
-  id: 'mig_001',
-  name: 'Oracle → PostgreSQL',
-  status: 'running',
-  progress: 87,
-  lastActiveAgo: '18 minutes ago',
-};
-
-const DEMO_RECENT: RecentProject[] = [
-  { id: 'p1', name: 'Oracle → PostgreSQL', status: 'running', progress: 87, lastActivity: '18m ago' },
-  { id: 'p2', name: 'SQL Server → PostgreSQL', status: 'completed', lastActivity: 'Yesterday' },
-  { id: 'p3', name: 'MongoDB → PostgreSQL', status: 'paused', progress: 54, lastActivity: '3 days ago' },
-];
-
-const DEMO_ALERTS: Alert[] = [
-  { id: 'a1', title: 'Validation Pending', sub: 'MongoDB → PostgreSQL requires schema review.', severity: 'warning' },
-];
+const DEMO_ALERTS: Alert[] = [];
 
 const SEARCH_DESTINATIONS: SearchDestination[] = [
   { id: 'nav-migrations', title: 'Migration Workspaces', category: 'Page', targetSection: 'migrations' },
@@ -228,9 +196,18 @@ export interface DashboardProps {
 
 export const Dashboard: FC<DashboardProps> = ({ config, onSignOut, onNavigate }) => {
   const { theme, toggle: toggleTheme } = useTheme();
-  const { history: notifHistory } = useNotifications();
+  const { active: notifActive, history: notifHistory } = useNotifications();
+  const allNotifs = useMemo(() => {
+    // Combine active and history without duplicate IDs
+    const map = new Map<string, AppNotification>();
+    [...notifActive, ...notifHistory].forEach((n) => map.set(n.id, n));
+    return Array.from(map.values()).sort((a, b) => b.createdAt - a.createdAt);
+  }, [notifActive, notifHistory]);
+  const totalNotifCount = allNotifs.length;
+  const { projects, continueWorkingProject } = useMigrationProjects();
 
   const [activeNav, setActiveNav] = useState<NavSection>('dashboard');
+  const [migrationKey, setMigrationKey] = useState(0);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showNotifPanel, setShowNotifPanel] = useState(false);
 
@@ -241,6 +218,7 @@ export const Dashboard: FC<DashboardProps> = ({ config, onSignOut, onNavigate })
 
   const profileRef = useRef<HTMLButtonElement>(null);
   const notifRef = useRef<HTMLButtonElement>(null);
+  const notifWrapperRef = useRef<HTMLDivElement>(null);
   const searchWrapperRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -263,13 +241,11 @@ export const Dashboard: FC<DashboardProps> = ({ config, onSignOut, onNavigate })
   }, [searchQuery]);
 
   const handleNavClick = useCallback((section: NavSection) => {
+    if (section === 'migrations' || section === 'projects') {
+      setMigrationKey((prev) => prev + 1);
+    }
     setActiveNav(section);
     onNavigate(section);
-    if (section === 'migrations') {
-      notificationService.push('Migrations', 'info', '3 migrations are currently active.');
-    } else if (section === 'monitoring') {
-      notificationService.push('Monitoring', 'info', 'System metrics healthy.');
-    }
   }, [onNavigate]);
 
   const handleSelectSearchResult = useCallback((item: SearchDestination) => {
@@ -297,7 +273,7 @@ export const Dashboard: FC<DashboardProps> = ({ config, onSignOut, onNavigate })
       if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
         setShowProfileMenu(false);
       }
-      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+      if (notifWrapperRef.current && !notifWrapperRef.current.contains(e.target as Node)) {
         setShowNotifPanel(false);
       }
       if (searchWrapperRef.current && !searchWrapperRef.current.contains(e.target as Node)) {
@@ -354,7 +330,7 @@ export const Dashboard: FC<DashboardProps> = ({ config, onSignOut, onNavigate })
   ];
 
   const hasAlerts = DEMO_ALERTS.length > 0;
-  const hasActiveMigration = !!DEMO_ACTIVE;
+  const hasActiveMigration = !!continueWorkingProject;
 
   return (
     <div className={styles.shell}>
@@ -457,7 +433,7 @@ export const Dashboard: FC<DashboardProps> = ({ config, onSignOut, onNavigate })
             </button>
 
             {/* Notifications Bell */}
-            <div className={styles.actionWrapper}>
+            <div className={styles.actionWrapper} ref={notifWrapperRef}>
               <button
                 ref={notifRef}
                 id="notifications-btn"
@@ -467,27 +443,27 @@ export const Dashboard: FC<DashboardProps> = ({ config, onSignOut, onNavigate })
                 aria-expanded={showNotifPanel}
               >
                 <IconBell />
-                {notifHistory.length > 0 && <div className={styles.notifBadge} />}
+                {totalNotifCount > 0 && <div className={styles.notifBadge} />}
               </button>
 
               {showNotifPanel && (
                 <div className={styles.notifPanel}>
                   <div className={styles.notifPanelHeader}>
                     <span className={styles.notifPanelTitle}>Notifications</span>
-                    {notifHistory.length > 0 && (
+                    {totalNotifCount > 0 && (
                       <button
                         className={styles.notifPanelClear}
-                        onClick={() => { notificationService.clearHistory(); }}
+                        onClick={() => { notificationService.clearAll(); }}
                       >
                         Clear all
                       </button>
                     )}
                   </div>
                   <div className={styles.notifPanelList}>
-                    {notifHistory.length === 0 ? (
+                    {allNotifs.length === 0 ? (
                       <div className={styles.notifPanelEmpty}>No notifications</div>
                     ) : (
-                      notifHistory.slice(0, 20).map((n) => (
+                      allNotifs.slice(0, 20).map((n) => (
                         <div key={n.id} className={styles.notifPanelItem}>
                           <div className={[styles.alertDot, n.severity === 'error' ? styles.alertDotError : n.severity === 'warning' ? styles.alertDotWarning : styles.alertDotInfo].join(' ')} />
                           <div className={styles.notifPanelItemBody}>
@@ -540,7 +516,7 @@ export const Dashboard: FC<DashboardProps> = ({ config, onSignOut, onNavigate })
 
         {/* ── Content Router ────────────────────────────────── */}
         {activeNav === 'migrations' || activeNav === 'projects' ? (
-          <MigrationModule searchFilter={searchQuery} />
+          <MigrationModule key={migrationKey} searchFilter={searchQuery} />
         ) : activeNav === 'dashboard' ? (
           <main className={styles.content} id="dashboard-content">
             {/* Greeting */}
@@ -550,7 +526,7 @@ export const Dashboard: FC<DashboardProps> = ({ config, onSignOut, onNavigate })
             </section>
 
             {/* Continue Working — only shown when active migration exists */}
-            {hasActiveMigration && (
+            {hasActiveMigration && continueWorkingProject && (
               <section aria-label="Continue working">
                 <div className={styles.sectionHeader}>
                   <span className={styles.sectionTitle}>Continue Working</span>
@@ -558,15 +534,15 @@ export const Dashboard: FC<DashboardProps> = ({ config, onSignOut, onNavigate })
                 <div className={styles.heroCard}>
                   <div className={styles.heroLeft}>
                     <div className={styles.heroMeta}>
-                      <StatusTag status={DEMO_ACTIVE.status} />
-                      <span className={styles.heroLastActive}>Last active {DEMO_ACTIVE.lastActiveAgo}</span>
+                      <StatusTag status={continueWorkingProject.health === 'healthy' ? 'running' : 'paused'} />
+                      <span className={styles.heroLastActive}>Last active {continueWorkingProject.lastActivity}</span>
                     </div>
-                    <div className={styles.heroProjectName}>{DEMO_ACTIVE.name}</div>
+                    <div className={styles.heroProjectName}>{continueWorkingProject.name}</div>
                     <div className={styles.heroProgressRow} style={{ marginTop: 14 }}>
                       <div className={styles.heroProgressTrackWrap}>
-                        <ProgressBar pct={DEMO_ACTIVE.progress} status={DEMO_ACTIVE.status} />
+                        <ProgressBar pct={continueWorkingProject.progress} status={continueWorkingProject.health === 'healthy' ? 'running' : 'paused'} />
                       </div>
-                      <span className={styles.heroProgress}>{DEMO_ACTIVE.progress}%</span>
+                      <span className={styles.heroProgress}>{continueWorkingProject.progress}%</span>
                     </div>
                   </div>
                   <div className={styles.heroRight}>
@@ -631,28 +607,38 @@ export const Dashboard: FC<DashboardProps> = ({ config, onSignOut, onNavigate })
             {/* Recent Projects */}
             <section aria-label="Recent projects">
               <div className={styles.sectionHeader}>
-                <span className={styles.sectionTitle}>Recent Projects</span>
-                <button className={styles.sectionLink} onClick={() => handleNavClick('projects')}>
-                  View all →
-                </button>
+                <span className={styles.sectionTitle}>Recent Projects ({projects.length})</span>
+                {projects.length > 0 && (
+                  <button className={styles.sectionLink} onClick={() => handleNavClick('projects')}>
+                    View all →
+                  </button>
+                )}
               </div>
-              <div className={styles.projectList}>
-                {DEMO_RECENT.map((proj) => (
-                  <div
-                    key={proj.id}
-                    className={styles.projectRow}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => handleNavClick('migrations')}
-                    onKeyDown={(e) => e.key === 'Enter' && handleNavClick('migrations')}
-                  >
-                    <div className={styles.projectInfo}>
-                      <div className={styles.projectName}>{proj.name}</div>
-                      <div className={styles.projectMeta}>
-                        <StatusTag status={proj.status} />
+
+              {projects.length === 0 ? (
+                <EmptyState
+                  title="No Active Projects"
+                  description="Your workspace has no database migration projects yet. Create a new migration to begin discovery."
+                  actionLabel="+ Create First Migration"
+                  onAction={() => handleNavClick('migrations')}
+                />
+              ) : (
+                <div className={styles.projectList}>
+                  {projects.slice(0, 5).map((proj) => (
+                    <div
+                      key={proj.id}
+                      className={styles.projectRow}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => handleNavClick('migrations')}
+                      onKeyDown={(e) => e.key === 'Enter' && handleNavClick('migrations')}
+                    >
+                      <div className={styles.projectInfo}>
+                        <div className={styles.projectName}>{proj.name}</div>
+                        <div className={styles.projectMeta}>
+                          <StatusTag status={proj.health === 'healthy' ? 'running' : 'paused'} />
+                        </div>
                       </div>
-                    </div>
-                    {proj.progress !== undefined && (
                       <div className={styles.projectProgress}>
                         <div className={styles.miniProgressTrack}>
                           <div
@@ -662,11 +648,11 @@ export const Dashboard: FC<DashboardProps> = ({ config, onSignOut, onNavigate })
                         </div>
                         <span className={styles.projectPct}>{proj.progress}%</span>
                       </div>
-                    )}
-                    <span className={styles.projectLastActive}>{proj.lastActivity}</span>
-                  </div>
-                ))}
-              </div>
+                      <span className={styles.projectLastActive}>{proj.lastActivity}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </section>
           </main>
         ) : (

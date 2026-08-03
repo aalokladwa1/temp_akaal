@@ -10,6 +10,11 @@ import type {
   UserDisplayInfo,
   AuthProviderInfo,
 } from '../types/auth';
+import type {
+  BridgeStatusDTO,
+  CapabilityDTO,
+  HeartbeatStatusDTO,
+} from '../types/bridge';
 
 export const ipcService = {
   // Workspace Config (Sprint 2 & 3.1)
@@ -82,5 +87,33 @@ export const ipcService = {
 
   async getAuthProviders(): Promise<AuthProviderInfo[]> {
     return await invoke<AuthProviderInfo[]>('get_auth_providers_cmd');
+  },
+
+  // Engine Bridge Foundation (Sprint 5 Milestone 1)
+  async getBridgeStatus(): Promise<BridgeStatusDTO> {
+    return await invoke<BridgeStatusDTO>('get_bridge_status_cmd');
+  },
+
+  async startEngineDaemon(): Promise<BridgeStatusDTO> {
+    return await invoke<BridgeStatusDTO>('start_engine_daemon_cmd');
+  },
+
+  async stopEngineDaemon(): Promise<BridgeStatusDTO> {
+    return await invoke<BridgeStatusDTO>('stop_engine_daemon_cmd');
+  },
+
+  async invokeEngineCapability(capabilityId: string, payload: string): Promise<string> {
+    return await invoke<string>('invoke_engine_capability_cmd', {
+      capabilityId,
+      payload,
+    });
+  },
+
+  async listCapabilities(): Promise<CapabilityDTO[]> {
+    return await invoke<CapabilityDTO[]>('list_capabilities_cmd');
+  },
+
+  async getHeartbeatStatus(): Promise<HeartbeatStatusDTO> {
+    return await invoke<HeartbeatStatusDTO>('get_heartbeat_status_cmd');
   },
 };

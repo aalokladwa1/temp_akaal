@@ -98,6 +98,49 @@ export interface MigrationPipeline {
   discoveryProfile: DiscoveryProfileType;
   estimatedRows: number;
   estimatedDuration: string;
+  activeSessionId?: string;
+  sessionsCount?: number;
+  recentSessions?: RuntimeSession[];
+}
+
+export type RuntimeSessionStatus =
+  | 'initializing'
+  | 'active'
+  | 'paused'
+  | 'approval_pending'
+  | 'completed'
+  | 'failed'
+  | 'cancelled';
+
+export interface EngineDecisionEvent {
+  id: string;
+  timestamp: string;
+  stage: EngineStageId;
+  subsystem: 'Planner' | 'Advisor' | 'Healing' | 'Certification' | 'Scout' | 'Schema';
+  title: string;
+  decision: string;
+  reason: string;
+  impactScore?: number;
+  confidenceScore?: number;
+  metadata?: Record<string, any>;
+}
+
+export interface RuntimeSession {
+  sessionId: string;
+  migrationId: string;
+  executionNumber: number;
+  status: RuntimeSessionStatus;
+  startedAt: string;
+  endedAt?: string;
+  currentStage: EngineStageId;
+  progressPercent: number;
+  rowsTransferred: number;
+  bytesTransferred: number;
+  throughputMbps: number;
+  activeWorkers: number;
+  decisions: EngineDecisionEvent[];
+  trustScore?: number;
+  riskScore?: number;
 }
 
 export type WorkspaceTabId =
@@ -110,3 +153,42 @@ export type WorkspaceTabId =
   | 'team'
   | 'notes'
   | 'settings';
+
+export type GateId = 'GATE_1' | 'GATE_2' | 'GATE_3';
+
+export interface GovernanceApproval {
+  id: string;
+  gate: GateId;
+  gateTitle: string;
+  migrationId: string;
+  migrationName: string;
+  projectName: string;
+  requestedBy: string;
+  requestedAt: string;
+  expiresAt: string;
+  status: 'pending' | 'approved' | 'rejected' | 'changes_requested' | 'delegated' | 'escalated' | 'expired';
+  requiredRoles: TeamRole[];
+  fourEyesConfirmed: boolean;
+  riskScore?: number;
+  summary: string;
+  comments?: { author: string; timestamp: string; text: string }[];
+  evidenceSummary?: string;
+  decisionReason?: string;
+  approver?: string;
+  approvedAt?: string;
+}
+
+export interface ProjectConnection {
+  id: string;
+  projectId: string;
+  name: string;
+  engine: DatabaseEngine;
+  endpoint: string;
+  environment: 'Production' | 'Staging' | 'UAT' | 'Development';
+  sslStatus: 'Enabled' | 'Disabled' | 'Enforced';
+  vaultReference: string;
+  latencyMs?: number;
+  status: 'Healthy' | 'Testing' | 'Offline' | 'Unvalidated';
+  lastValidatedAt?: string;
+}
+

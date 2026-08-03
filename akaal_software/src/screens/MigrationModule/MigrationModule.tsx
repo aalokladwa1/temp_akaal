@@ -6,12 +6,14 @@ import { ProjectWorkspaceView } from './ProjectWorkspaceView';
 import { NewMigrationConfigView } from './NewMigrationConfigView';
 import { NewProjectConfigView } from './NewProjectConfigView';
 
+import { GovernanceCenterView } from './GovernanceCenterView';
+
 export interface MigrationModuleProps {
   searchFilter?: string;
 }
 
 export const MigrationModule: FC<MigrationModuleProps> = ({ searchFilter = '' }) => {
-  const [viewState, setViewState] = useState<'landing' | 'new_migration' | 'new_project' | 'workspace'>('landing');
+  const [viewState, setViewState] = useState<'landing' | 'new_migration' | 'new_project' | 'workspace' | 'governance'>('landing');
   const [parentContext, setParentContext] = useState<'landing' | 'workspace'>('landing');
   const [selectedPipeline, setSelectedPipeline] = useState<MigrationPipeline | null>(null);
   const [resumeDraftData, setResumeDraftData] = useState<MigrationDraftState | undefined>(undefined);
@@ -25,6 +27,10 @@ export const MigrationModule: FC<MigrationModuleProps> = ({ searchFilter = '' })
       setViewState('landing');
     }
   };
+
+  if (viewState === 'governance') {
+    return <GovernanceCenterView onBack={() => setViewState('landing')} />;
+  }
 
   if (viewState === 'workspace' && selectedPipeline) {
     return (
@@ -83,6 +89,9 @@ export const MigrationModule: FC<MigrationModuleProps> = ({ searchFilter = '' })
       }}
       onOpenNewProjectConfig={() => {
         setViewState('new_project');
+      }}
+      onOpenGovernanceCenter={() => {
+        setViewState('governance');
       }}
       searchFilter={searchFilter}
     />

@@ -1,6 +1,7 @@
 import { useState, type FC } from 'react';
 import type { MigrationPipeline, DatabaseEngine, DiscoveryProfileType, MigrationDraftState } from '../../types/migration';
 import { notificationService } from '../../services/notificationService';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
 import styles from './MigrationModule.module.css';
 
 export interface NewMigrationConfigViewProps {
@@ -91,6 +92,8 @@ export const NewMigrationConfigView: FC<NewMigrationConfigViewProps> = ({
     requireFourEyes,
   });
 
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
+
   const handleSaveDraft = () => {
     onSaveDraft(getCurrentDraftState());
     notificationService.push('Draft Saved', 'success', `Configuration draft saved for "${migName || 'Untitled Migration'}".`);
@@ -98,9 +101,7 @@ export const NewMigrationConfigView: FC<NewMigrationConfigViewProps> = ({
   };
 
   const handleDiscardDraft = () => {
-    if (window.confirm('Discard this migration configuration draft? All entered values will be reset.')) {
-      onBack();
-    }
+    setShowDiscardConfirm(true);
   };
 
   const handleTestSource = () => {
@@ -637,6 +638,22 @@ export const NewMigrationConfigView: FC<NewMigrationConfigViewProps> = ({
           </button>
         )}
       </div>
+
+      <ConfirmDialog
+        isOpen={showDiscardConfirm}
+        title="Discard Draft Migration"
+        affectedObject={`Migration Draft: ${migName || 'Untitled Migration'}`}
+        message="Discarding this draft will:"
+        bulletPoints={[
+          'permanently remove unsaved configuration',
+          'no migration runtime will be created',
+        ]}
+        consequence="This action cannot be undone."
+        confirmText="Discard Draft Migration"
+        severity="danger"
+        onConfirm={onBack}
+        onClose={() => setShowDiscardConfirm(false)}
+      />
     </div>
   );
 };

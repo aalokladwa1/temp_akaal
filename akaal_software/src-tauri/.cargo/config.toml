@@ -1,0 +1,6 @@
+[build]
+jobs = 1
+rustflags = ["-C", "codegen-units=1"]
+
+[profile.dev]
+incremental = false
