@@ -1,0 +1,1 @@
+{"rustc":3720210673988096810,"features":"[]","declared_features":"[]","target":5883693644829684020,"profile":15657897354478470176,"path":4942398508502643691,"deps":[],"local":[{"CheckDepInfo":{"dep_info":"debug\\.fingerprint\\test_windows-200972abf3707766\\dep-bin-test_windows","checksum":false}}],"rustflags":["-C","codegen-units=1"],"config":9396254390672932401,"compile_kind":0}

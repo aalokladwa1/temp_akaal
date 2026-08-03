@@ -4,12 +4,12 @@ mod tests {
     use crate::engine_bridge::config::BridgeConfig;
     use crate::engine_bridge::dto::BridgeStateEnum;
     use crate::engine_bridge::error::BridgeError;
-    use crate::engine_bridge::transport::MockTransport;
+    use crate::engine_bridge::transport::{MockTransport, NullTransport};
 
     #[test]
     fn test_null_transport_returns_not_implemented() {
         let config = BridgeConfig::default();
-        let mut bridge = EngineBridge::with_default_transport(config);
+        let mut bridge = EngineBridge::new(config, Box::new(NullTransport::new()));
 
         let result = bridge.invoke_capability("test_connection", "{}");
         assert!(matches!(result, Err(BridgeError::NotYetImplemented(_))));

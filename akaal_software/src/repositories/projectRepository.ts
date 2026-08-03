@@ -1,4 +1,5 @@
 import type { MigrationPipeline, DatabaseEngine, MigrationDraftState } from '../types/migration';
+import { ipcService } from '../services/ipcService';
 
 type ProjectChangeListener = (projects: MigrationPipeline[]) => void;
 
@@ -54,6 +55,13 @@ class ProjectRepository {
       estimatedRows: 0,
       estimatedDuration: 'Pending Scout',
     };
+
+    // Forward capability to Engine Bridge via IPC
+    ipcService.invokeEngineCapability('create_project', JSON.stringify({
+      project_name: name,
+      source_engine: sourceEngine,
+      target_engine: targetEngine,
+    })).catch(() => {});
 
     this.projects = [newProject, ...this.projects];
     this.notify();

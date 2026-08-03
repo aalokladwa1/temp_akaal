@@ -107,4 +107,8 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    if "--ipc" in sys.argv or "--server" in sys.argv:
+        from akaal.ipc_server import start_ipc_server
+        start_ipc_server()
+    else:
+        asyncio.run(main())

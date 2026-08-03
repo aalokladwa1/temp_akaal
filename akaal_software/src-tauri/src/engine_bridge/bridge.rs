@@ -6,7 +6,7 @@ use crate::engine_bridge::error::BridgeError;
 use crate::engine_bridge::heartbeat::HeartbeatManager;
 use crate::engine_bridge::logging::BridgeLogger;
 use crate::engine_bridge::session_manager::SessionManager;
-use crate::engine_bridge::transport::{EngineTransport, NullTransport};
+use crate::engine_bridge::transport::{EngineTransport, RealTransport};
 use uuid::Uuid;
 
 pub struct EngineBridge {
@@ -35,7 +35,7 @@ impl EngineBridge {
     }
 
     pub fn with_default_transport(config: BridgeConfig) -> Self {
-        Self::new(config, Box::new(NullTransport::new()))
+        Self::new(config, Box::new(RealTransport::new(None)))
     }
 
     pub fn get_status(&self) -> BridgeStatusDTO {
