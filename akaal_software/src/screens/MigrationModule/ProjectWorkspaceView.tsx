@@ -378,43 +378,57 @@ export const ProjectWorkspaceView: FC<ProjectWorkspaceViewProps> = ({
         </div>
       </div>
 
-      {/* ── SECTION 2: MISSION TELEMETRY RIBBON ─────────────────────────── */}
+      {/* ── SECTION 2: LIVE MIGRATION STATUS PANEL ─────────────────────────── */}
       {activeMigrationRuntime && (
         <div
           style={{
-            padding: '10px 24px',
+            padding: '12px 24px',
             background: 'var(--dash-surface)',
             borderBottom: '1px solid var(--dash-border)',
-            display: 'grid',
-            gridTemplateColumns: 'repeat(6, 1fr)',
-            gap: 12,
-            fontSize: 11,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 10,
             flexShrink: 0,
           }}
         >
-          <div>
-            <div style={{ color: 'var(--dash-text-secondary)', textTransform: 'uppercase', fontSize: 10, fontWeight: 700 }}>Current Stage</div>
-            <div style={{ color: '#3B82F6', fontWeight: 700, marginTop: 2 }}>{currentStageMeta.label}</div>
-          </div>
-          <div>
-            <div style={{ color: 'var(--dash-text-secondary)', textTransform: 'uppercase', fontSize: 10, fontWeight: 700 }}>Throughput Rate</div>
-            <div style={{ color: 'var(--dash-text-primary)', fontWeight: 700, marginTop: 2 }}>145.2 MB/s (18.4k r/s)</div>
-          </div>
-          <div>
-            <div style={{ color: 'var(--dash-text-secondary)', textTransform: 'uppercase', fontSize: 10, fontWeight: 700 }}>Transferred / Total</div>
-            <div style={{ color: 'var(--dash-text-primary)', fontWeight: 700, marginTop: 2 }}>1,248,910 / 2,500,000 (52.4%)</div>
-          </div>
-          <div>
-            <div style={{ color: 'var(--dash-text-secondary)', textTransform: 'uppercase', fontSize: 10, fontWeight: 700 }}>Active Partition Workers</div>
-            <div style={{ color: '#10B981', fontWeight: 700, marginTop: 2 }}>8 / 8 Active Threads</div>
-          </div>
-          <div>
-            <div style={{ color: 'var(--dash-text-secondary)', textTransform: 'uppercase', fontSize: 10, fontWeight: 700 }}>CDC Sync Lag</div>
-            <div style={{ color: '#10B981', fontWeight: 700, marginTop: 2 }}>12 ms (0 overflow)</div>
-          </div>
-          <div>
-            <div style={{ color: 'var(--dash-text-secondary)', textTransform: 'uppercase', fontSize: 10, fontWeight: 700 }}>Elapsed / ETA</div>
-            <div style={{ color: 'var(--dash-text-primary)', fontWeight: 700, marginTop: 2 }}>00:18:42 / 00:23:18</div>
+          {/* Stage Progression Vector */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1.5fr', gap: 16, alignItems: 'center', fontSize: 11 }}>
+            <div style={{ padding: '8px 12px', background: 'rgba(16, 185, 129, 0.08)', borderRadius: 6, border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+              <div style={{ color: 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>Previous Stage</div>
+              <div style={{ color: '#10B981', fontWeight: 700, marginTop: 2 }}>✓ {currentStageIndex > 0 ? ENGINE_STAGE_METADATA[STAGE_LIST[currentStageIndex - 1]].label : 'Pre-flight Initialization'}</div>
+              <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', marginTop: 2 }}>Completed in 6.4 sec</div>
+            </div>
+
+            <div style={{ padding: '8px 12px', background: 'rgba(59, 130, 246, 0.12)', borderRadius: 6, border: '1px solid rgba(59, 130, 246, 0.3)' }}>
+              <div style={{ color: 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>Current Stage</div>
+              <div style={{ color: '#3B82F6', fontWeight: 700, marginTop: 2 }}>▶ {currentStageMeta.label}</div>
+              <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', marginTop: 2 }}>Owner: {currentStageMeta.ownerAgent}</div>
+            </div>
+
+            <div style={{ padding: '8px 12px', background: 'var(--dash-card-bg)', borderRadius: 6, border: '1px solid var(--dash-border)' }}>
+              <div style={{ color: 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>Next Stage</div>
+              <div style={{ color: 'var(--dash-text-primary)', fontWeight: 700, marginTop: 2 }}>
+                {currentStageIndex < STAGE_LIST.length - 1 ? ENGINE_STAGE_METADATA[STAGE_LIST[currentStageIndex + 1]].label : 'Certification Complete'}
+              </div>
+              <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', marginTop: 2 }}>
+                {currentStageIndex === 3 ? '🛡️ Gate 1 Required' : currentStageIndex === 6 ? '🛡️ Gate 2 Required' : 'Sequential Pipeline'}
+              </div>
+            </div>
+
+            {/* Overall Migration Progress Bar */}
+            <div style={{ padding: '8px 12px', background: 'var(--dash-card-bg)', borderRadius: 6, border: '1px solid var(--dash-border)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>
+                <span>Overall Migration Progress</span>
+                <span style={{ color: '#3B82F6' }}>52.4%</span>
+              </div>
+              <div style={{ height: 6, background: 'var(--dash-border)', borderRadius: 3, marginTop: 6, overflow: 'hidden' }}>
+                <div style={{ width: '52.4%', height: '100%', background: 'linear-gradient(90deg, #3B82F6 0%, #10B981 100%)', borderRadius: 3, transition: 'width 300ms ease' }} />
+              </div>
+              <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', marginTop: 4, display: 'flex', justifyContent: 'space-between' }}>
+                <span>1.2M / 2.5M rows</span>
+                <span>Throughput: 145.2 MB/s (18.4k r/s)</span>
+              </div>
+            </div>
           </div>
         </div>
       )}
