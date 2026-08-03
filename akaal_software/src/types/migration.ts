@@ -125,6 +125,32 @@ export interface EngineDecisionEvent {
   metadata?: Record<string, any>;
 }
 
+export type EventSeverity = 'info' | 'warning' | 'error' | 'critical';
+
+export type EventSource = 
+  | 'scout'
+  | 'advisor'
+  | 'planner'
+  | 'manager'
+  | 'schema'
+  | 'streaming'
+  | 'validator'
+  | 'healing'
+  | 'trust'
+  | 'bridge';
+
+export interface RuntimeEvent {
+  eventId: string;
+  timestamp: string;
+  sessionId: string;
+  migrationId: string;
+  severity: EventSeverity;
+  source: EventSource;
+  stageNumber: number;
+  eventType: string;
+  payload: Record<string, unknown>;
+}
+
 export interface RuntimeSession {
   sessionId: string;
   migrationId: string;
@@ -138,7 +164,9 @@ export interface RuntimeSession {
   bytesTransferred: number;
   throughputMbps: number;
   activeWorkers: number;
+  cdcSyncLagMs?: number;
   decisions: EngineDecisionEvent[];
+  events?: RuntimeEvent[];
   trustScore?: number;
   riskScore?: number;
 }
