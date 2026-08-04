@@ -170,60 +170,58 @@ export const NewMigrationConfigView: FC<NewMigrationConfigViewProps> = ({
   const fetchPreflightSummary = async () => {
     setLoadingPreflight(true);
     try {
-      // 1. Dispatch Scout Discovery
-      const scoutRes = await ipcService.invokeEngineCapability('start_scout', JSON.stringify({
+      // Dispatch single authoritative run_preflight capability to Python AKAAL Engine
+      const res = await ipcService.invokeEngineCapability('run_preflight', JSON.stringify({
         source_engine: sourceEngine,
+        source_host: sourceHost,
+        source_port: parseInt(sourcePort, 10) || 1521,
+        source_db: sourceDbName,
+        source_user: sourceUser,
+        source_pass: sourcePass,
         target_engine: targetEngine,
+        target_host: targetHost,
+        target_port: parseInt(targetPort, 10) || 5432,
+        target_db: targetDbName,
+        target_user: targetUser,
+        target_pass: targetPass,
         include_schemas: includeSchemas,
       }));
-      const scoutData = typeof scoutRes === 'string' ? JSON.parse(scoutRes) : scoutRes;
 
-      // 2. Dispatch Advisor Risk Analysis
-      const advisorRes = await ipcService.invokeEngineCapability('run_advisor', JSON.stringify({
-        source_engine: sourceEngine,
-        target_engine: targetEngine,
-      }));
-      const advisorData = typeof advisorRes === 'string' ? JSON.parse(advisorRes) : advisorRes;
-
-      // 3. Dispatch Planner Batch Strategy
-      const planRes = await ipcService.invokeEngineCapability('generate_plan', JSON.stringify({
-        source_engine: sourceEngine,
-        target_engine: targetEngine,
-      }));
-      const planData = typeof planRes === 'string' ? JSON.parse(planRes) : planRes;
-
+      const report = typeof res === 'string' ? JSON.parse(res) : res;
       setEnginePreflightData({
-        tables: scoutData.tables_discovered ?? 'Waiting for Engine...',
-        views: scoutData.views_discovered ?? 'Waiting for Engine...',
-        indexes: scoutData.indexes_discovered ?? 'Waiting for Engine...',
-        lobTables: scoutData.lob_tables_count ?? 0,
-        estimatedRows: scoutData.estimated_rows ?? 'Waiting for Engine...',
-        compatibilityScore: advisorData.compatibility_score ? `${advisorData.compatibility_score}%` : 'Waiting for Engine...',
-        riskScore: advisorData.risk_level ?? 'Waiting for Engine...',
-        trustScore: 'Pending Certification',
-        unsupportedObjects: scoutData.unsupported_objects ?? 'None',
-        executionPlan: planData.plan_name ?? 'Waiting for Engine...',
-        estimatedDuration: planData.estimated_duration ?? 'Waiting for Engine...',
-        rollbackAvailability: 'Snapshot Protection Active',
-        expectedThroughput: planData.expected_throughput ?? 'Waiting for Engine...',
-        expectedWorkers: planData.worker_count ?? 8,
+        tables: report.table_count ?? 'Not Available',
+        tableNames: report.table_names ?? [],
+        views: report.view_count ?? 0,
+        indexes: report.index_count ?? 0,
+        lobTables: report.lob_count ?? 0,
+        estimatedRows: report.row_count != null ? `${report.row_count} rows` : 'Not Available',
+        compatibilityScore: report.compatibility_score ? `${report.compatibility_score}%` : 'Not Available',
+        riskScore: report.risk_score ?? 'Not Available',
+        trustScore: report.trust_score ?? 'Pending Certification',
+        unsupportedObjects: report.unsupported_objects?.length ? report.unsupported_objects.join(', ') : 'None',
+        executionPlan: report.execution_plan ?? 'Topological DAG Partitioning',
+        estimatedDuration: report.estimated_duration ?? 'Not Available',
+        rollbackAvailability: report.rollback_readiness ?? 'Snapshot Protection Active',
+        expectedThroughput: report.estimated_throughput ?? 'Not Available',
+        expectedWorkers: report.worker_allocation ?? 4,
       });
     } catch {
       setEnginePreflightData({
-        tables: 'Loading...',
-        views: 'Loading...',
-        indexes: 'Loading...',
+        tables: 'Waiting for Engine',
+        tableNames: [],
+        views: 'Waiting for Engine',
+        indexes: 'Waiting for Engine',
         lobTables: 0,
-        estimatedRows: 'Loading...',
-        compatibilityScore: 'Loading...',
-        riskScore: 'Loading...',
-        trustScore: 'Loading...',
+        estimatedRows: 'Waiting for Engine',
+        compatibilityScore: 'Waiting for Engine',
+        riskScore: 'Waiting for Engine',
+        trustScore: 'Waiting for Engine',
         unsupportedObjects: 'None',
-        executionPlan: 'Loading...',
-        estimatedDuration: 'Loading...',
-        rollbackAvailability: 'Snapshot Available',
-        expectedThroughput: 'Loading...',
-        expectedWorkers: 8,
+        executionPlan: 'Waiting for Engine',
+        estimatedDuration: 'Waiting for Engine',
+        rollbackAvailability: 'Waiting for Engine',
+        expectedThroughput: 'Waiting for Engine',
+        expectedWorkers: 4,
       });
     } finally {
       setLoadingPreflight(false);
