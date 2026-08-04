@@ -46,13 +46,6 @@ class RuntimeSessionRepository {
       riskScore: 0.0,
     };
 
-    // Forward start_scout capability invocation to Engine Bridge via IPC
-    ipcService.invokeEngineCapability('start_scout', JSON.stringify({
-      migration_id: migrationId,
-      session_id: session.sessionId,
-      initial_stage: initialStage,
-    })).catch(() => {});
-
     this.sessions.set(session.sessionId, session);
     this.notify();
     return session;

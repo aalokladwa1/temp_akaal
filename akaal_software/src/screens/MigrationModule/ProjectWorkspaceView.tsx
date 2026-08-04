@@ -288,7 +288,7 @@ export const ProjectWorkspaceView: FC<ProjectWorkspaceViewProps> = ({
       onConfirm: async () => {
         const sessId = existingSession?.sessionId || 'sess-1';
         try {
-          await runtimeSessionRepository.invokeEngineCapability(sessId, 'run_validation', {});
+          await runtimeSessionRepository.invokeEngineCapability(sessId, 'trigger_checkpoint', {});
         } catch {
           runtimeSessionRepository.appendEvent(sessId, {
             eventId: `evt-cp-${Date.now()}`,

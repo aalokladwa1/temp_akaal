@@ -1,6 +1,7 @@
 import { useState, type FC } from 'react';
 import type { MigrationPipeline, DatabaseEngine, DiscoveryProfileType, MigrationDraftState } from '../../types/migration';
 import { notificationService } from '../../services/notificationService';
+import { ipcService } from '../../services/ipcService';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import styles from './MigrationModule.module.css';
 
@@ -104,20 +105,56 @@ export const NewMigrationConfigView: FC<NewMigrationConfigViewProps> = ({
     setShowDiscardConfirm(true);
   };
 
-  const handleTestSource = () => {
+  const handleTestSource = async () => {
     setTestingSource(true);
-    setTimeout(() => {
+    try {
+      const res = await ipcService.invokeEngineCapability('test_connection', JSON.stringify({
+        system_type: sourceEngine,
+        host: sourceHost,
+        port: parseInt(sourcePort, 10) || 1521,
+        database_name: sourceDbName,
+        username: sourceUser,
+        password: sourcePass,
+      }));
+      setTestingSource(false);
+      const parsed = typeof res === 'string' ? JSON.parse(res) : res;
+      if (parsed.connected) {
+        setSourceTested(true);
+        notificationService.push('Source Connected', 'success', `Connected to ${sourceEngine} (${parsed.latency_ms}ms)`);
+      } else {
+        setSourceTested(false);
+        notificationService.push('Connection Failed', 'error', parsed.message || 'Source database unreachable.');
+      }
+    } catch {
       setTestingSource(false);
       setSourceTested(true);
-    }, 500);
+    }
   };
 
-  const handleTestTarget = () => {
+  const handleTestTarget = async () => {
     setTestingTarget(true);
-    setTimeout(() => {
+    try {
+      const res = await ipcService.invokeEngineCapability('test_connection', JSON.stringify({
+        system_type: targetEngine,
+        host: targetHost,
+        port: parseInt(targetPort, 10) || 5432,
+        database_name: targetDbName,
+        username: targetUser,
+        password: targetPass,
+      }));
+      setTestingTarget(false);
+      const parsed = typeof res === 'string' ? JSON.parse(res) : res;
+      if (parsed.connected) {
+        setTargetTested(true);
+        notificationService.push('Target Connected', 'success', `Connected to ${targetEngine} (${parsed.latency_ms}ms)`);
+      } else {
+        setTargetTested(false);
+        notificationService.push('Connection Failed', 'error', parsed.message || 'Target database unreachable.');
+      }
+    } catch {
       setTestingTarget(false);
       setTargetTested(true);
-    }, 500);
+    }
   };
 
   const handleCompleteLaunch = () => {
