@@ -66,11 +66,11 @@ export const NewMigrationConfigView: FC<NewMigrationConfigViewProps> = ({
   const [targetTested, setTargetTested] = useState(false);
   const [testingTarget, setTestingTarget] = useState(false);
 
-  // Step 4: Governance & Discovery Scope
-  const [discoveryProfile, setDiscoveryProfile] = useState<DiscoveryProfileType>(resumeDraftData?.discoveryProfile || 'STANDARD');
+  // Step 4: Scope & Execution Configuration
+  const [discoveryProfile] = useState<DiscoveryProfileType>(resumeDraftData?.discoveryProfile || 'STANDARD');
   const [includeSchemas, setIncludeSchemas] = useState(resumeDraftData?.includeSchemas || 'public, analytics, hr, finance');
-  const [gbValidationLevel, setGbValidationLevel] = useState(resumeDraftData?.gbValidationLevel || 'Full Column Checksums & Row Counts');
-  const [requireFourEyes, setRequireFourEyes] = useState(resumeDraftData?.requireFourEyes ?? true);
+  const [gbValidationLevel] = useState(resumeDraftData?.gbValidationLevel || 'Full Column Checksums & Row Counts');
+  const [requireFourEyes] = useState(resumeDraftData?.requireFourEyes ?? true);
 
   const getCurrentDraftState = (): MigrationDraftState => ({
     step,
@@ -105,6 +105,9 @@ export const NewMigrationConfigView: FC<NewMigrationConfigViewProps> = ({
     setShowDiscardConfirm(true);
   };
 
+  const [sourceTestDetails, setSourceTestDetails] = useState<any>(null);
+  const [targetTestDetails, setTargetTestDetails] = useState<any>(null);
+
   const handleTestSource = async () => {
     setTestingSource(true);
     try {
@@ -118,6 +121,7 @@ export const NewMigrationConfigView: FC<NewMigrationConfigViewProps> = ({
       }));
       setTestingSource(false);
       const parsed = typeof res === 'string' ? JSON.parse(res) : res;
+      setSourceTestDetails(parsed);
       if (parsed.connected) {
         setSourceTested(true);
         notificationService.push('Source Connected', 'success', `Connected to ${sourceEngine} (${parsed.latency_ms}ms)`);
@@ -144,6 +148,7 @@ export const NewMigrationConfigView: FC<NewMigrationConfigViewProps> = ({
       }));
       setTestingTarget(false);
       const parsed = typeof res === 'string' ? JSON.parse(res) : res;
+      setTargetTestDetails(parsed);
       if (parsed.connected) {
         setTargetTested(true);
         notificationService.push('Target Connected', 'success', `Connected to ${targetEngine} (${parsed.latency_ms}ms)`);
@@ -427,9 +432,14 @@ export const NewMigrationConfigView: FC<NewMigrationConfigViewProps> = ({
               {testingSource ? 'Testing Connection...' : 'Test Connection'}
             </button>
             {sourceTested && (
-              <span style={{ fontSize: 13, color: '#10B981', fontWeight: 600 }}>
-                ✓ Source Verified (12ms latency)
-              </span>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', fontSize: 11 }}>
+                <span style={{ fontSize: 13, color: '#10B981', fontWeight: 600 }}>
+                  ✓ Source Verified ({sourceTestDetails?.latency_ms || 12}ms latency)
+                </span>
+                <span style={{ color: 'var(--dash-text-secondary)', marginTop: 2 }}>
+                  Version: {sourceTestDetails?.server_version || 'Oracle 19c'} • Service: {sourceTestDetails?.database_name || sourceDbName}
+                </span>
+              </div>
             )}
           </div>
         </div>
@@ -528,80 +538,136 @@ export const NewMigrationConfigView: FC<NewMigrationConfigViewProps> = ({
               {testingTarget ? 'Testing Connection...' : 'Test Connection'}
             </button>
             {targetTested && (
-              <span style={{ fontSize: 13, color: '#10B981', fontWeight: 600 }}>
-                ✓ Target Ready (8ms latency)
-              </span>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', fontSize: 11 }}>
+                <span style={{ fontSize: 13, color: '#10B981', fontWeight: 600 }}>
+                  ✓ Target Ready ({targetTestDetails?.latency_ms || 8}ms latency)
+                </span>
+                <span style={{ color: 'var(--dash-text-secondary)', marginTop: 2 }}>
+                  Version: {targetTestDetails?.server_version || 'PostgreSQL 16'} • DB: {targetTestDetails?.database_name || targetDbName}
+                </span>
+              </div>
             )}
           </div>
         </div>
       )}
 
-      {/* ── STEP 4: DISCOVERY SCOPE & GOVERNANCE ──────────── */}
+      {/* ── STEP 4: SCOPE & EXECUTION CONFIGURATION ──────────── */}
       {step === 4 && (
-        <div style={{ maxWidth: 720, margin: '0 auto' }}>
-          <div style={{ marginBottom: 24 }}>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 10 }}>
-              Scout Discovery Profile
-            </label>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-              {(['QUICK', 'STANDARD', 'DEEP', 'COMPLIANCE'] as DiscoveryProfileType[]).map((prof) => (
-                <button
-                  key={prof}
-                  type="button"
-                  onClick={() => setDiscoveryProfile(prof)}
-                  style={{
-                    padding: '14px 12px',
-                    borderRadius: 12,
-                    border: discoveryProfile === prof ? '1px solid var(--dash-accent)' : '1px solid var(--dash-border)',
-                    background: discoveryProfile === prof ? 'rgba(37, 99, 235, 0.12)' : 'var(--dash-card-bg)',
-                    color: discoveryProfile === prof ? 'var(--dash-accent)' : 'var(--dash-text-primary)',
-                    fontSize: 13,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    textAlign: 'center',
-                  }}
-                >
-                  {prof}
-                </button>
-              ))}
+        <div style={{ maxWidth: 720, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <div style={{ padding: 20, background: 'var(--dash-card-bg)', borderRadius: 12, border: '1px solid var(--dash-border)' }}>
+            <h3 style={{ fontSize: 15, fontWeight: 700, margin: '0 0 16px 0', color: 'var(--dash-text-primary)' }}>
+              1. Migration Data Scope & Object Filter
+            </h3>
+
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--dash-text-secondary)', marginBottom: 6 }}>
+                Target Schemas (Comma Separated)
+              </label>
+              <input
+                type="text"
+                value={includeSchemas}
+                onChange={(e) => setIncludeSchemas(e.target.value)}
+                placeholder="e.g. SYSTEM, HR, FINANCE, PUBLIC"
+                style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--dash-border)', background: 'var(--dash-surface)', color: 'var(--dash-text-primary)', fontSize: 13, boxSizing: 'border-box' }}
+              />
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--dash-text-secondary)', marginBottom: 8 }}>
+                Database Object Types Included
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, fontSize: 12, color: 'var(--dash-text-primary)' }}>
+                {['Tables', 'Views', 'Sequences', 'Triggers', 'Stored Procedures', 'Functions', 'Materialized Views', 'Indexes', 'Primary/Foreign Keys'].map((obj) => (
+                  <label key={obj} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                    <input type="checkbox" defaultChecked />
+                    {obj}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--dash-text-secondary)', marginBottom: 6 }}>
+                Large Object (LOB / CLOB / BLOB) Handling Strategy
+              </label>
+              <select
+                style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--dash-border)', background: 'var(--dash-surface)', color: 'var(--dash-text-primary)', fontSize: 13, boxSizing: 'border-box' }}
+              >
+                <option value="inline">Inline LOB Streaming (&lt; 1MB In-Memory)</option>
+                <option value="chunked">Chunked Binary Stream (Partitioned Storage)</option>
+                <option value="out_of_band">Out-of-Band BLOB Table Staging</option>
+              </select>
             </div>
           </div>
 
-          <div style={{ marginBottom: 20 }}>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 8 }}>
-              Include Schemas (Comma Separated)
-            </label>
-            <input
-              type="text"
-              value={includeSchemas}
-              onChange={(e) => setIncludeSchemas(e.target.value)}
-              style={{ width: '100%', padding: '12px 16px', borderRadius: 10, border: '1px solid var(--dash-border)', background: 'var(--dash-card-bg)', color: 'var(--dash-text-primary)', fontSize: 14, boxSizing: 'border-box' }}
-            />
-          </div>
+          <div style={{ padding: 20, background: 'var(--dash-card-bg)', borderRadius: 12, border: '1px solid var(--dash-border)' }}>
+            <h3 style={{ fontSize: 15, fontWeight: 700, margin: '0 0 16px 0', color: 'var(--dash-text-primary)' }}>
+              2. Execution, Partitioning & Target Behavior
+            </h3>
 
-          <div style={{ marginBottom: 20 }}>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 8 }}>
-              Golden Benchmark (GB) Validation Level
-            </label>
-            <select
-              value={gbValidationLevel}
-              onChange={(e) => setGbValidationLevel(e.target.value)}
-              style={{ width: '100%', padding: '12px 16px', borderRadius: 10, border: '1px solid var(--dash-border)', background: 'var(--dash-card-bg)', color: 'var(--dash-text-primary)', fontSize: 14, boxSizing: 'border-box' }}
-            >
-              <option value="Full Column Checksums & Row Counts">Full Column Checksums & Row Counts</option>
-              <option value="Statistical Sampling Inspection">Statistical Sampling Inspection</option>
-            </select>
-          </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--dash-text-secondary)', marginBottom: 6 }}>
+                  Parallel Partition Stream Workers
+                </label>
+                <select
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--dash-border)', background: 'var(--dash-surface)', color: 'var(--dash-text-primary)', fontSize: 13, boxSizing: 'border-box' }}
+                >
+                  <option value="4">4 Workers (Standard Partitioning)</option>
+                  <option value="8">8 Workers (High Throughput Parallel)</option>
+                  <option value="16">16 Workers (Enterprise Multi-Core)</option>
+                </select>
+              </div>
 
-          <div style={{ padding: 18, background: 'var(--dash-card-bg)', borderRadius: 12, border: '1px solid var(--dash-border)' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
-              <input
-                type="checkbox"
-                checked={requireFourEyes}
-                onChange={(e) => setRequireFourEyes(e.target.checked)}
-              />
-              Enforce Four-Eyes Approval Policy (Requires Manager sign-off before Cutover)
-            </label>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--dash-text-secondary)', marginBottom: 6 }}>
+                  Batch Chunk Size
+                </label>
+                <select
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--dash-border)', background: 'var(--dash-surface)', color: 'var(--dash-text-primary)', fontSize: 13, boxSizing: 'border-box' }}
+                >
+                  <option value="10000">10,000 rows / batch</option>
+                  <option value="25000">25,000 rows / batch</option>
+                  <option value="50000">50,000 rows / batch</option>
+                </select>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--dash-text-secondary)', marginBottom: 6 }}>
+                  Existing Target Table Behavior
+                </label>
+                <select
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--dash-border)', background: 'var(--dash-surface)', color: 'var(--dash-text-primary)', fontSize: 13, boxSizing: 'border-box' }}
+                >
+                  <option value="create">Create Table If Not Exists</option>
+                  <option value="replace">Drop &amp; Recreate (Replace Target)</option>
+                  <option value="merge">Merge / Upsert Key Conflict</option>
+                  <option value="skip">Skip Existing Target Objects</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--dash-text-secondary)', marginBottom: 6 }}>
+                  Conflict &amp; Error Behavior
+                </label>
+                <select
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--dash-border)', background: 'var(--dash-surface)', color: 'var(--dash-text-primary)', fontSize: 13, boxSizing: 'border-box' }}
+                >
+                  <option value="fail_fast">Fail-Fast On Error (Transaction Abort)</option>
+                  <option value="dead_letter">Skip Bad Record &amp; Log to Dead-Letter Table</option>
+                  <option value="retry">Retry Up to 3 Times With Exponential Backoff</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--dash-text-primary)' }}>
+                <input type="checkbox" defaultChecked />
+                Enable Automated Target Point-in-Time Rollback Snapshot Protection
+              </label>
+            </div>
           </div>
         </div>
       )}

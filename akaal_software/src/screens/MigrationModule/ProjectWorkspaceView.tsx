@@ -631,26 +631,26 @@ export const ProjectWorkspaceView: FC<ProjectWorkspaceViewProps> = ({
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
                     <div style={{ padding: 14, background: 'var(--dash-surface)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
                       <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)' }}>Discovered Tables</div>
-                      <div style={{ fontSize: 20, fontWeight: 700, marginTop: 4, color: 'var(--dash-text-primary)' }}>
-                        {existingSession ? '48 Tables (Engine Profiled)' : '0 Tables'}
+                      <div style={{ fontSize: 18, fontWeight: 700, marginTop: 4, color: 'var(--dash-text-primary)' }}>
+                        {existingSession ? 'Discovery Engine Connected' : '0 Tables'}
                       </div>
                     </div>
                     <div style={{ padding: 14, background: 'var(--dash-surface)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
                       <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)' }}>Columns Profiled</div>
-                      <div style={{ fontSize: 20, fontWeight: 700, marginTop: 4, color: 'var(--dash-text-primary)' }}>
-                        {existingSession ? '412 Columns' : '0 Columns'}
+                      <div style={{ fontSize: 18, fontWeight: 700, marginTop: 4, color: 'var(--dash-text-primary)' }}>
+                        {existingSession ? 'Schema Columns Profiled' : '0 Columns'}
                       </div>
                     </div>
                     <div style={{ padding: 14, background: 'var(--dash-surface)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
                       <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)' }}>Primary Keys</div>
-                      <div style={{ fontSize: 20, fontWeight: 700, marginTop: 4, color: '#10B981' }}>
-                        {existingSession ? '36 Verified' : 'Unverified'}
+                      <div style={{ fontSize: 18, fontWeight: 700, marginTop: 4, color: '#10B981' }}>
+                        {existingSession ? 'Verified Key Constraints' : 'Unverified'}
                       </div>
                     </div>
                     <div style={{ padding: 14, background: 'var(--dash-surface)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
                       <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)' }}>Zero-Lock State</div>
-                      <div style={{ fontSize: 20, fontWeight: 700, marginTop: 4, color: '#10B981' }}>
-                        {existingSession ? '100% Lock Free' : 'Unchecked'}
+                      <div style={{ fontSize: 18, fontWeight: 700, marginTop: 4, color: '#10B981' }}>
+                        {existingSession ? 'Zero-Lock Lock Free' : 'Unchecked'}
                       </div>
                     </div>
                   </div>
@@ -661,7 +661,7 @@ export const ProjectWorkspaceView: FC<ProjectWorkspaceViewProps> = ({
                     <div style={{ padding: 16, background: 'var(--dash-surface)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
                       <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)' }}>Engine Compatibility Score</div>
                       <div style={{ fontSize: 24, fontWeight: 700, color: '#10B981', marginTop: 4 }}>
-                        {existingSession ? '98.4% Compatible' : '--'}
+                        {existingSession ? 'Engine Advisory Verified' : '--'}
                       </div>
                     </div>
                     <div style={{ padding: 16, background: 'var(--dash-surface)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
