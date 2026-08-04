@@ -743,18 +743,18 @@ export const ProjectWorkspaceView: FC<ProjectWorkspaceViewProps> = ({
                   </button>
 
                   <button
-                    disabled={!hasActiveRuntime || (existingSession?.throughputMbps !== 0 && existingSession?.status !== 'paused')}
+                    disabled={!hasActiveRuntime || existingSession?.status !== 'paused'}
                     onClick={handleResumePrompt}
                     style={{
                       padding: '10px 18px',
                       borderRadius: 8,
-                      background: !hasActiveRuntime || (existingSession?.throughputMbps !== 0 && existingSession?.status !== 'paused') ? 'var(--dash-surface)' : '#10B981',
-                      color: !hasActiveRuntime || (existingSession?.throughputMbps !== 0 && existingSession?.status !== 'paused') ? 'var(--dash-text-secondary)' : '#ffffff',
+                      background: !hasActiveRuntime || existingSession?.status !== 'paused' ? 'var(--dash-surface)' : '#10B981',
+                      color: !hasActiveRuntime || existingSession?.status !== 'paused' ? 'var(--dash-text-secondary)' : '#ffffff',
                       border: 'none',
                       fontSize: 12,
                       fontWeight: 600,
-                      cursor: !hasActiveRuntime || (existingSession?.throughputMbps !== 0 && existingSession?.status !== 'paused') ? 'not-allowed' : 'pointer',
-                      opacity: !hasActiveRuntime || (existingSession?.throughputMbps !== 0 && existingSession?.status !== 'paused') ? 0.4 : 1,
+                      cursor: !hasActiveRuntime || existingSession?.status !== 'paused' ? 'not-allowed' : 'pointer',
+                      opacity: !hasActiveRuntime || existingSession?.status !== 'paused' ? 0.4 : 1,
                     }}
                   >
                     ▶ Resume Stream

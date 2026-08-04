@@ -193,19 +193,19 @@ export const NewMigrationConfigView: FC<NewMigrationConfigViewProps> = ({
       const planData = typeof planRes === 'string' ? JSON.parse(planRes) : planRes;
 
       setEnginePreflightData({
-        tables: scoutData.tables_discovered ?? 'Loading...',
-        views: scoutData.views_discovered ?? 'Loading...',
-        indexes: scoutData.indexes_discovered ?? 'Loading...',
+        tables: scoutData.tables_discovered ?? 'Waiting for Engine...',
+        views: scoutData.views_discovered ?? 'Waiting for Engine...',
+        indexes: scoutData.indexes_discovered ?? 'Waiting for Engine...',
         lobTables: scoutData.lob_tables_count ?? 0,
-        estimatedRows: scoutData.estimated_rows ?? '1,248,910 rows',
-        compatibilityScore: advisorData.compatibility_score ? `${advisorData.compatibility_score}%` : '98.4%',
-        riskScore: advisorData.risk_level ?? 'LOW',
-        trustScore: '100% Verified',
+        estimatedRows: scoutData.estimated_rows ?? 'Waiting for Engine...',
+        compatibilityScore: advisorData.compatibility_score ? `${advisorData.compatibility_score}%` : 'Waiting for Engine...',
+        riskScore: advisorData.risk_level ?? 'Waiting for Engine...',
+        trustScore: 'Pending Certification',
         unsupportedObjects: scoutData.unsupported_objects ?? 'None',
-        executionPlan: planData.plan_name ?? 'Topological DAG Batch Strategy',
-        estimatedDuration: planData.estimated_duration ?? '42 Mins',
-        rollbackAvailability: 'Snapshot Available',
-        expectedThroughput: planData.expected_throughput ?? '145.2 MB/s',
+        executionPlan: planData.plan_name ?? 'Waiting for Engine...',
+        estimatedDuration: planData.estimated_duration ?? 'Waiting for Engine...',
+        rollbackAvailability: 'Snapshot Protection Active',
+        expectedThroughput: planData.expected_throughput ?? 'Waiting for Engine...',
         expectedWorkers: planData.worker_count ?? 8,
       });
     } catch {
