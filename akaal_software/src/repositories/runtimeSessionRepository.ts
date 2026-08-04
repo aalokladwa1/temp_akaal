@@ -175,6 +175,46 @@ class RuntimeSessionRepository {
     }
   }
 
+  public async syncSnapshotFromEngine(migrationId: string, sessionId: string = 'sess-active'): Promise<void> {
+    try {
+      const rawResp = await ipcService.invokeEngineCapability('get_runtime_snapshot', JSON.stringify({
+        migration_id: migrationId,
+        session_id: sessionId,
+      }));
+      const parsed = typeof rawResp === 'string' ? JSON.parse(rawResp) : rawResp;
+      const snap = parsed?.result ? (typeof parsed.result === 'string' ? JSON.parse(parsed.result) : parsed.result) : parsed;
+
+      if (snap) {
+        const existing = this.sessions.get(sessionId) || this.allocateSession(migrationId, snap.current_stage || 'scout');
+        const restored: RuntimeSession = {
+          ...existing,
+          sessionId: snap.runtime_session_id || sessionId,
+          migrationId: snap.migration_id || migrationId,
+          currentStage: snap.current_stage || existing.currentStage,
+          progressPercent: typeof snap.progress_percent === 'number' ? snap.progress_percent : existing.progressPercent,
+          rowsTransferred: typeof snap.rows_transferred === 'number' ? snap.rows_transferred : existing.rowsTransferred,
+          throughputMbps: typeof snap.throughput_mbps === 'number' ? snap.throughput_mbps : existing.throughputMbps,
+          activeWorkers: typeof snap.active_workers === 'number' ? snap.active_workers : existing.activeWorkers,
+          status: snap.health_status === 'HEALTHY' ? 'active' : existing.status,
+        };
+        this.sessions.set(restored.sessionId, restored);
+        this.notify();
+      }
+    } catch (err) {
+      // Reconnect sync attempt failed gracefully
+    }
+  }
+
+  public async subscribeRuntimeEvents(): Promise<void> {
+    try {
+      await ipcService.invokeEngineCapability('subscribe_runtime_events', JSON.stringify({
+        channel: 'akaal_engine_events',
+      }));
+    } catch {
+      // Event channel registration
+    }
+  }
+
   public updateSessionFromIPC(updated: RuntimeSession): void {
     this.sessions.set(updated.sessionId, updated);
     this.notify();

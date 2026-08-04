@@ -1,4 +1,5 @@
 import type { GovernanceApproval, GateId, TeamRole } from '../types/migration';
+import { ipcService } from '../services/ipcService';
 
 type ApprovalChangeListener = (approvals: GovernanceApproval[]) => void;
 
@@ -86,6 +87,15 @@ class ApprovalRepository {
         { author: approver, timestamp: new Date().toISOString(), text: `Decision: ${decision.toUpperCase()} — ${reason}` },
       ],
     };
+
+    // Forward approval decision to Engine Gateway over IPC
+    ipcService.invokeEngineCapability('request_approval', JSON.stringify({
+      approval_id: id,
+      decision,
+      approver,
+      reason,
+      gate: item.gate,
+    })).catch(() => {});
 
     this.approvals[index] = updated;
     this.notify();

@@ -153,6 +153,11 @@ export const ProjectWorkspaceView: FC<ProjectWorkspaceViewProps> = ({
     const unsubSess = runtimeSessionRepository.subscribe((updated) => {
       setSessions(updated);
     });
+
+    // Restore runtime snapshot and subscribe to live engine events on mount
+    runtimeSessionRepository.syncSnapshotFromEngine(project.id);
+    runtimeSessionRepository.subscribeRuntimeEvents();
+
     return () => {
       unsubConn();
       unsubSess();
@@ -187,7 +192,7 @@ export const ProjectWorkspaceView: FC<ProjectWorkspaceViewProps> = ({
         setActiveMigrationRuntime(project);
         setSelectedStage('scout');
         try {
-          await runtimeSessionRepository.invokeEngineCapability(session.sessionId, 'start_scout', {
+          await runtimeSessionRepository.invokeEngineCapability(session.sessionId, 'run_preflight', {
             migration_id: project.id,
             project_name: project.name,
           });
