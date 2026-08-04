@@ -1,4 +1,5 @@
 import { useState, useEffect, type FC } from 'react';
+import { CheckCircle2, Play, Clock } from 'lucide-react';
 import type { MigrationPipeline, EngineStageId, GovernanceApproval } from '../../types/migration';
 import { ENGINE_STAGE_METADATA } from '../../services/migrationService';
 import { connectionRepository } from '../../repositories/connectionRepository';
@@ -418,23 +419,27 @@ export const ProjectWorkspaceView: FC<ProjectWorkspaceViewProps> = ({
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1.5fr', gap: 16, alignItems: 'center', fontSize: 11 }}>
             <div style={{ padding: '8px 12px', background: 'rgba(16, 185, 129, 0.08)', borderRadius: 6, border: '1px solid rgba(16, 185, 129, 0.2)' }}>
               <div style={{ color: 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>Previous Stage</div>
-              <div style={{ color: '#10B981', fontWeight: 700, marginTop: 2 }}>✓ {currentStageIndex > 0 ? ENGINE_STAGE_METADATA[STAGE_LIST[currentStageIndex - 1]].label : 'Pre-flight Initialization'}</div>
+              <div style={{ color: '#10B981', fontWeight: 700, marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
+                <CheckCircle2 size={12} /> {currentStageIndex > 0 ? ENGINE_STAGE_METADATA[STAGE_LIST[currentStageIndex - 1]].label : 'Pre-flight Initialization'}
+              </div>
               <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', marginTop: 2 }}>{existingSession ? 'Engine Controlled' : 'Awaiting Initialization'}</div>
             </div>
 
             <div style={{ padding: '8px 12px', background: 'rgba(59, 130, 246, 0.12)', borderRadius: 6, border: '1px solid rgba(59, 130, 246, 0.3)' }}>
               <div style={{ color: 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>Current Stage</div>
-              <div style={{ color: '#3B82F6', fontWeight: 700, marginTop: 2 }}>▶ {existingSession ? ENGINE_STAGE_METADATA[existingSession.currentStage].label : 'READY'}</div>
+              <div style={{ color: '#3B82F6', fontWeight: 700, marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
+                <Play size={12} /> {existingSession ? ENGINE_STAGE_METADATA[existingSession.currentStage].label : 'READY'}
+              </div>
               <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', marginTop: 2 }}>Owner: {currentStageMeta.ownerAgent}</div>
             </div>
 
             <div style={{ padding: '8px 12px', background: 'var(--dash-card-bg)', borderRadius: 6, border: '1px solid var(--dash-border)' }}>
               <div style={{ color: 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>Next Stage</div>
-              <div style={{ color: 'var(--dash-text-primary)', fontWeight: 700, marginTop: 2 }}>
-                {currentStageIndex < STAGE_LIST.length - 1 ? ENGINE_STAGE_METADATA[STAGE_LIST[currentStageIndex + 1]].label : 'Certification Complete'}
+              <div style={{ color: 'var(--dash-text-primary)', fontWeight: 700, marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
+                <Clock size={12} /> {currentStageIndex < STAGE_LIST.length - 1 ? ENGINE_STAGE_METADATA[STAGE_LIST[currentStageIndex + 1]].label : 'Certification Complete'}
               </div>
               <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', marginTop: 2 }}>
-                {currentStageIndex === 3 ? '🛡️ Gate 1 Required' : currentStageIndex === 6 ? '🛡️ Gate 2 Required' : 'Sequential Pipeline'}
+                {currentStageIndex === 3 ? 'Gate 1 Required' : currentStageIndex === 6 ? 'Gate 2 Required' : 'Sequential Pipeline'}
               </div>
             </div>
 

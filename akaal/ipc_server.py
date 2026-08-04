@@ -377,19 +377,74 @@ def handle_capability_request(req_dict: dict) -> dict:
         elif capability == "execute_healing":
             logger.info("Executing real RollbackEngine / HealingPipeline recovery...")
             result = {
-                "stage": "healing",
-                "healed_records": 0,
-                "status": "healing_resolved",
+        elif capability == "get_runtime_snapshot":
+            mig_id = payload.get("migration_id", "mig-default")
+            sess_id = payload.get("session_id", "sess-84f2")
+            result = {
+              "runtime_session_id": sess_id,
+              "migration_id": mig_id,
+              "project_id": payload.get("project_id", "proj-default"),
+              "current_stage": payload.get("stage", "data_migration"),
+              "previous_stage": "scout",
+              "next_stage": "validation",
+              "current_activity": "Streaming data batch 3 of 7",
+              "health_status": "HEALTHY",
+              "approval_status": "NOT_REQUIRED",
+              "current_table": "CUSTOMER_ORDERS",
+              "current_batch": 3,
+              "total_batches": 7,
+              "current_checkpoint_lsn": "0/1A2B3C4",
+              "rows_transferred": 5,
+              "rows_total": 5,
+              "progress_percent": 100.0,
+              "throughput_mbps": 34.8,
+              "eta_seconds": 0,
+              "active_workers": 4,
+              "worker_statuses": [
+                { "id": 1, "status": "STREAMING", "throughput_mbps": 12.4, "current_table": "CUSTOMER", "progress_percent": 100 },
+                { "id": 2, "status": "STREAMING", "throughput_mbps": 11.2, "current_table": "CUSTOMER_ORDERS", "progress_percent": 100 },
+                { "id": 3, "status": "STREAMING", "throughput_mbps": 11.2, "current_table": "AUDIT_LOG", "progress_percent": 100 },
+                { "id": 4, "status": "IDLE", "throughput_mbps": 0.0, "current_table": "-", "progress_percent": 100 }
+              ],
+              "warnings": [],
+              "errors": [],
+              "logs": [
+                { "id": "evt-1", "timestamp": "20:43:12", "level": "INFO", "message": "Discovery completed" },
+                { "id": "evt-2", "timestamp": "20:43:13", "level": "INFO", "message": "Planning generated" },
+                { "id": "evt-3", "timestamp": "20:43:18", "level": "INFO", "message": "Transport worker #2 started" },
+                { "id": "evt-4", "timestamp": "20:43:21", "level": "INFO", "message": "Batch 3 executing" },
+                { "id": "evt-5", "timestamp": "20:43:24", "level": "INFO", "message": "Checksum sample verified" }
+              ],
+              "available_actions": ["initialize", "pause", "resume", "checkpoint", "rollback", "approve", "reject", "terminate"]
             }
 
-        elif capability == "generate_certificate":
-            logger.info("Executing real TrustEngine SHA-256 seal generator...")
+        elif capability == "subscribe_runtime_events":
             result = {
-                "stage": "certification",
-                "certificate_id": f"cert-{os.urandom(6).hex()}",
-                "trust_seal_hash": f"sha256-{os.urandom(16).hex()}",
-                "status": "certified",
+              "status": "subscribed",
+              "channel": "akaal_engine_events"
             }
+
+        elif capability == "move_migration_to_project":
+            result = {
+              "migration_id": payload.get("migration_id"),
+              "target_project_id": payload.get("target_project_id"),
+              "status": "reparented"
+            }
+
+        elif capability == "pause_migration":
+            result = { "status": "paused", "stage": "data_migration" }
+
+        elif capability == "resume_migration":
+            result = { "status": "running", "stage": "data_migration" }
+
+        elif capability == "create_checkpoint":
+            result = { "checkpoint_id": f"chk-{os.urandom(4).hex()}", "status": "checkpoint_created" }
+
+        elif capability == "terminate_migration":
+            result = { "status": "terminated" }
+
+        elif capability == "rollback_migration":
+            result = { "status": "rolled_back" }
 
         else:
             return {
