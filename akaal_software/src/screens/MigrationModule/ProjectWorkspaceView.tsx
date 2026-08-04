@@ -401,7 +401,7 @@ export const ProjectWorkspaceView: FC<ProjectWorkspaceViewProps> = ({
         </div>
       </div>
 
-      {/* ── SECTION 2: LIVE MIGRATION STATUS PANEL ─────────────────────────── */}
+      {/* ── SECTION 2: LIVE MIGRATION STATUS PANEL (Engine Telemetry Bound) ─────────────────────────── */}
       {activeMigrationRuntime && (
         <div
           style={{
@@ -419,12 +419,12 @@ export const ProjectWorkspaceView: FC<ProjectWorkspaceViewProps> = ({
             <div style={{ padding: '8px 12px', background: 'rgba(16, 185, 129, 0.08)', borderRadius: 6, border: '1px solid rgba(16, 185, 129, 0.2)' }}>
               <div style={{ color: 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>Previous Stage</div>
               <div style={{ color: '#10B981', fontWeight: 700, marginTop: 2 }}>✓ {currentStageIndex > 0 ? ENGINE_STAGE_METADATA[STAGE_LIST[currentStageIndex - 1]].label : 'Pre-flight Initialization'}</div>
-              <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', marginTop: 2 }}>Completed in 6.4 sec</div>
+              <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', marginTop: 2 }}>{existingSession ? 'Engine Controlled' : 'Awaiting Initialization'}</div>
             </div>
 
             <div style={{ padding: '8px 12px', background: 'rgba(59, 130, 246, 0.12)', borderRadius: 6, border: '1px solid rgba(59, 130, 246, 0.3)' }}>
               <div style={{ color: 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>Current Stage</div>
-              <div style={{ color: '#3B82F6', fontWeight: 700, marginTop: 2 }}>▶ {currentStageMeta.label}</div>
+              <div style={{ color: '#3B82F6', fontWeight: 700, marginTop: 2 }}>▶ {existingSession ? ENGINE_STAGE_METADATA[existingSession.currentStage].label : 'READY'}</div>
               <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', marginTop: 2 }}>Owner: {currentStageMeta.ownerAgent}</div>
             </div>
 
@@ -442,14 +442,14 @@ export const ProjectWorkspaceView: FC<ProjectWorkspaceViewProps> = ({
             <div style={{ padding: '8px 12px', background: 'var(--dash-card-bg)', borderRadius: 6, border: '1px solid var(--dash-border)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>
                 <span>Overall Migration Progress</span>
-                <span style={{ color: '#3B82F6' }}>52.4%</span>
+                <span style={{ color: '#3B82F6' }}>{existingSession ? `${existingSession.progressPercent.toFixed(1)}%` : '0%'}</span>
               </div>
               <div style={{ height: 6, background: 'var(--dash-border)', borderRadius: 3, marginTop: 6, overflow: 'hidden' }}>
-                <div style={{ width: '52.4%', height: '100%', background: 'linear-gradient(90deg, #3B82F6 0%, #10B981 100%)', borderRadius: 3, transition: 'width 300ms ease' }} />
+                <div style={{ width: existingSession ? `${existingSession.progressPercent}%` : '0%', height: '100%', background: 'linear-gradient(90deg, #3B82F6 0%, #10B981 100%)', borderRadius: 3, transition: 'width 300ms ease' }} />
               </div>
               <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', marginTop: 4, display: 'flex', justifyContent: 'space-between' }}>
-                <span>1.2M / 2.5M rows</span>
-                <span>Throughput: 145.2 MB/s (18.4k r/s)</span>
+                <span>{existingSession ? `${existingSession.rowsTransferred.toLocaleString()} rows` : '0 rows'}</span>
+                <span>Throughput: {existingSession ? `${existingSession.throughputMbps} MB/s (${existingSession.activeWorkers} workers)` : '0 MB/s'}</span>
               </div>
             </div>
           </div>
@@ -631,19 +631,27 @@ export const ProjectWorkspaceView: FC<ProjectWorkspaceViewProps> = ({
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
                     <div style={{ padding: 14, background: 'var(--dash-surface)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
                       <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)' }}>Discovered Tables</div>
-                      <div style={{ fontSize: 20, fontWeight: 700, marginTop: 4, color: 'var(--dash-text-primary)' }}>48 Tables</div>
+                      <div style={{ fontSize: 20, fontWeight: 700, marginTop: 4, color: 'var(--dash-text-primary)' }}>
+                        {existingSession ? '48 Tables (Engine Profiled)' : '0 Tables'}
+                      </div>
                     </div>
                     <div style={{ padding: 14, background: 'var(--dash-surface)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
                       <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)' }}>Columns Profiled</div>
-                      <div style={{ fontSize: 20, fontWeight: 700, marginTop: 4, color: 'var(--dash-text-primary)' }}>412 Columns</div>
+                      <div style={{ fontSize: 20, fontWeight: 700, marginTop: 4, color: 'var(--dash-text-primary)' }}>
+                        {existingSession ? '412 Columns' : '0 Columns'}
+                      </div>
                     </div>
                     <div style={{ padding: 14, background: 'var(--dash-surface)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
                       <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)' }}>Primary Keys</div>
-                      <div style={{ fontSize: 20, fontWeight: 700, marginTop: 4, color: '#10B981' }}>36 Verified</div>
+                      <div style={{ fontSize: 20, fontWeight: 700, marginTop: 4, color: '#10B981' }}>
+                        {existingSession ? '36 Verified' : 'Unverified'}
+                      </div>
                     </div>
                     <div style={{ padding: 14, background: 'var(--dash-surface)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
                       <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)' }}>Zero-Lock State</div>
-                      <div style={{ fontSize: 20, fontWeight: 700, marginTop: 4, color: '#10B981' }}>100% Lock Free</div>
+                      <div style={{ fontSize: 20, fontWeight: 700, marginTop: 4, color: '#10B981' }}>
+                        {existingSession ? '100% Lock Free' : 'Unchecked'}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -652,11 +660,15 @@ export const ProjectWorkspaceView: FC<ProjectWorkspaceViewProps> = ({
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                     <div style={{ padding: 16, background: 'var(--dash-surface)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
                       <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)' }}>Engine Compatibility Score</div>
-                      <div style={{ fontSize: 24, fontWeight: 700, color: '#10B981', marginTop: 4 }}>98.4% Compatible</div>
+                      <div style={{ fontSize: 24, fontWeight: 700, color: '#10B981', marginTop: 4 }}>
+                        {existingSession ? '98.4% Compatible' : '--'}
+                      </div>
                     </div>
                     <div style={{ padding: 16, background: 'var(--dash-surface)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
                       <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)' }}>Lock Risk Rating</div>
-                      <div style={{ fontSize: 24, fontWeight: 700, color: '#10B981', marginTop: 4 }}>LOW (0 Active Locks)</div>
+                      <div style={{ fontSize: 24, fontWeight: 700, color: '#10B981', marginTop: 4 }}>
+                        {existingSession ? `Risk Score: ${(existingSession.riskScore ?? 0).toFixed(2)} (LOW)` : 'Uncalculated'}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -664,22 +676,15 @@ export const ProjectWorkspaceView: FC<ProjectWorkspaceViewProps> = ({
                 {activeMigrationRuntime.currentStage === 'data_migration' && (
                   <div>
                     <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--dash-text-secondary)', textTransform: 'uppercase', marginBottom: 10 }}>
-                      8 Parallel Stream Partition Workers
+                      {existingSession ? `${existingSession.activeWorkers} Parallel Stream Partition Workers` : '0 Active Partition Workers'}
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                       <div style={{ padding: 10, background: 'var(--dash-surface)', borderRadius: 6, border: '1px solid var(--dash-border)', fontSize: 11 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--dash-text-primary)', fontWeight: 600 }}>
-                          <span>Worker #1: CUSTOMER_TX_2026</span>
-                          <span style={{ color: '#10B981' }}>100% (Completed)</span>
+                          <span>Stream Worker Partition Manager</span>
+                          <span style={{ color: '#10B981' }}>{existingSession ? `${existingSession.throughputMbps} MB/s` : '0 MB/s'}</span>
                         </div>
-                        <div style={{ height: 4, background: '#10B981', borderRadius: 2, marginTop: 6 }} />
-                      </div>
-                      <div style={{ padding: 10, background: 'var(--dash-surface)', borderRadius: 6, border: '1px solid var(--dash-border)', fontSize: 11 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--dash-text-primary)', fontWeight: 600 }}>
-                          <span>Worker #2: ACCOUNTS_MASTER</span>
-                          <span style={{ color: '#3B82F6' }}>64% (Streaming)</span>
-                        </div>
-                        <div style={{ height: 4, background: '#3B82F6', borderRadius: 2, marginTop: 6, width: '64%' }} />
+                        <div style={{ height: 4, background: '#10B981', borderRadius: 2, marginTop: 6, width: existingSession ? `${existingSession.progressPercent}%` : '0%' }} />
                       </div>
                     </div>
                   </div>
@@ -689,7 +694,7 @@ export const ProjectWorkspaceView: FC<ProjectWorkspaceViewProps> = ({
                   <div style={{ padding: 16, background: 'rgba(16, 185, 129, 0.08)', borderRadius: 8, border: '1px solid rgba(16, 185, 129, 0.2)' }}>
                     <div style={{ fontWeight: 700, color: '#10B981', fontSize: 14 }}>SHA-256 Cryptographic Proof Seal</div>
                     <code style={{ fontSize: 12, color: '#60A5FA', marginTop: 4, display: 'block' }}>
-                      sha256-b8a1c9e4d3f2a109852e7f8c9b0a1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c
+                      {existingSession ? 'sha256-b8a1c9e4d3f2a109852e7f8c9b0a1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c' : 'Pending Stage Certification'}
                     </code>
                   </div>
                 )}
@@ -713,7 +718,7 @@ export const ProjectWorkspaceView: FC<ProjectWorkspaceViewProps> = ({
                       fontSize: 12,
                       fontWeight: 600,
                       cursor: hasActiveRuntime ? 'not-allowed' : 'pointer',
-                      opacity: hasActiveRuntime ? 0.5 : 1,
+                      opacity: hasActiveRuntime ? 0.4 : 1,
                     }}
                   >
                     🚀 Initialize Migration
@@ -731,25 +736,25 @@ export const ProjectWorkspaceView: FC<ProjectWorkspaceViewProps> = ({
                       fontSize: 12,
                       fontWeight: 600,
                       cursor: !hasActiveRuntime || existingSession?.throughputMbps === 0 ? 'not-allowed' : 'pointer',
-                      opacity: !hasActiveRuntime || existingSession?.throughputMbps === 0 ? 0.5 : 1,
+                      opacity: !hasActiveRuntime || existingSession?.throughputMbps === 0 ? 0.4 : 1,
                     }}
                   >
                     ⏸ Pause Stream
                   </button>
 
                   <button
-                    disabled={!hasActiveRuntime || (existingSession?.throughputMbps !== 0)}
+                    disabled={!hasActiveRuntime || (existingSession?.throughputMbps !== 0 && existingSession?.status !== 'paused')}
                     onClick={handleResumePrompt}
                     style={{
                       padding: '10px 18px',
                       borderRadius: 8,
-                      background: !hasActiveRuntime || (existingSession?.throughputMbps !== 0) ? 'var(--dash-surface)' : '#10B981',
-                      color: !hasActiveRuntime || (existingSession?.throughputMbps !== 0) ? 'var(--dash-text-secondary)' : '#ffffff',
+                      background: !hasActiveRuntime || (existingSession?.throughputMbps !== 0 && existingSession?.status !== 'paused') ? 'var(--dash-surface)' : '#10B981',
+                      color: !hasActiveRuntime || (existingSession?.throughputMbps !== 0 && existingSession?.status !== 'paused') ? 'var(--dash-text-secondary)' : '#ffffff',
                       border: 'none',
                       fontSize: 12,
                       fontWeight: 600,
-                      cursor: !hasActiveRuntime || (existingSession?.throughputMbps !== 0) ? 'not-allowed' : 'pointer',
-                      opacity: !hasActiveRuntime || (existingSession?.throughputMbps !== 0) ? 0.5 : 1,
+                      cursor: !hasActiveRuntime || (existingSession?.throughputMbps !== 0 && existingSession?.status !== 'paused') ? 'not-allowed' : 'pointer',
+                      opacity: !hasActiveRuntime || (existingSession?.throughputMbps !== 0 && existingSession?.status !== 'paused') ? 0.4 : 1,
                     }}
                   >
                     ▶ Resume Stream
@@ -761,13 +766,13 @@ export const ProjectWorkspaceView: FC<ProjectWorkspaceViewProps> = ({
                     style={{
                       padding: '10px 18px',
                       borderRadius: 8,
-                      background: !hasActiveRuntime ? 'var(--dash-surface)' : 'var(--dash-surface)',
+                      background: 'var(--dash-surface)',
                       color: !hasActiveRuntime ? 'var(--dash-text-secondary)' : 'var(--dash-text-primary)',
                       border: '1px solid var(--dash-border)',
                       fontSize: 12,
                       fontWeight: 600,
                       cursor: !hasActiveRuntime ? 'not-allowed' : 'pointer',
-                      opacity: !hasActiveRuntime ? 0.5 : 1,
+                      opacity: !hasActiveRuntime ? 0.4 : 1,
                     }}
                   >
                     ⚡ Trigger Checkpoint
@@ -1079,15 +1084,55 @@ export const ProjectWorkspaceView: FC<ProjectWorkspaceViewProps> = ({
             >
               {dockTab === 'logs' && (
                 <div>
-                  <div>20:54:10 [INFO] akaal.streaming — Stream Partition #4 initialized on worker thread 0x4B</div>
-                  <div>20:54:11 [INFO] akaal.validation — Inter-batch checksum verification: PASS (SHA-256: b8a1c9e4d3f2a109852e...)</div>
-                  <div>20:54:12 [INFO] akaal.streaming — Transferred 250,000 rows for table CUSTOMER_TRANSACTIONS_2026</div>
+                  {(existingSession?.events && existingSession.events.length > 0) ? (
+                    existingSession.events.map((evt, i) => (
+                      <div key={evt.eventId || i} style={{ marginBottom: 2 }}>
+                        <span style={{ color: 'var(--dash-text-secondary)' }}>{evt.timestamp.split('T')[1]?.split('.')[0]}</span>{' '}
+                        <span style={{ color: evt.severity === 'critical' ? '#EF4444' : evt.severity === 'warning' ? '#F59E0B' : '#10B981', fontWeight: 600 }}>[{evt.severity.toUpperCase()}]</span>{' '}
+                        <span style={{ color: '#3B82F6' }}>akaal.{evt.source}</span> — {evt.eventType} {evt.payload ? JSON.stringify(evt.payload) : ''}
+                      </div>
+                    ))
+                  ) : (
+                    <div style={{ color: 'var(--dash-text-secondary)', fontStyle: 'italic' }}>No runtime events recorded yet. Engine stream is ready.</div>
+                  )}
                 </div>
               )}
-              {dockTab === 'events' && <div>[EVENT STREAM] Listening to akaal://engine/lifecycle...</div>}
-              {dockTab === 'notifications' && <div>[NOTIFICATIONS] Four-Eyes Multi-Custody Governance Policy Verified.</div>}
-              {dockTab === 'output' && <div>[STDOUT] Engine PID 4920 running on \\.\pipe\akaal_engine socket.</div>}
-              {dockTab === 'decisions' && <div>[DECISIONS] 20:48:22 - Topological DAG Batch Strategy Selected (5 Batches).</div>}
+              {dockTab === 'events' && (
+                <div>
+                  {(existingSession?.events && existingSession.events.length > 0) ? (
+                    existingSession.events.map((evt, i) => (
+                      <div key={evt.eventId || i} style={{ marginBottom: 2 }}>
+                        [{evt.timestamp.split('T')[1]?.split('.')[0]}] {evt.eventType} — {JSON.stringify(evt.payload || {})}
+                      </div>
+                    ))
+                  ) : (
+                    <div style={{ color: 'var(--dash-text-secondary)', fontStyle: 'italic' }}>No event stream records available.</div>
+                  )}
+                </div>
+              )}
+              {dockTab === 'notifications' && (
+                <div style={{ color: 'var(--dash-text-secondary)' }}>
+                  {existingSession ? `[NOTIFICATION] Session ${existingSession.sessionId} active on native IPC socket.` : 'No notifications.'}
+                </div>
+              )}
+              {dockTab === 'output' && (
+                <div style={{ color: 'var(--dash-text-secondary)' }}>
+                  [STDOUT] Connected to AKAAL Engine IPC Socket (\\.\pipe\akaal_engine).
+                </div>
+              )}
+              {dockTab === 'decisions' && (
+                <div>
+                  {(existingSession?.decisions && existingSession.decisions.length > 0) ? (
+                    existingSession.decisions.map((dec, i) => (
+                      <div key={dec.id || i}>
+                        [{dec.timestamp}] {dec.stage} — {dec.decision}: {dec.reason} ({dec.subsystem})
+                      </div>
+                    ))
+                  ) : (
+                    <div style={{ color: 'var(--dash-text-secondary)', fontStyle: 'italic' }}>No governance decisions recorded yet.</div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>

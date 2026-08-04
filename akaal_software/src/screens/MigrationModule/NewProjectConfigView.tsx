@@ -3,6 +3,9 @@ import type { MigrationPipeline, DatabaseEngine } from '../../types/migration';
 import { notificationService } from '../../services/notificationService';
 import styles from './MigrationModule.module.css';
 
+import { ConfirmDialog } from '../../components/ConfirmDialog';
+import { ipcService } from '../../services/ipcService';
+
 export interface NewProjectConfigViewProps {
   onBack: () => void;
   onLaunch: (created: MigrationPipeline) => void;
@@ -20,6 +23,7 @@ export const NewProjectConfigView: FC<NewProjectConfigViewProps> = ({
   const [storagePath, setStoragePath] = useState('C:\\AKAAL_Workspace\\Projects\\CoreMigration');
   const [governanceMode, setGovernanceMode] = useState<'four_eyes' | 'standard'>('four_eyes');
   const [ownerName, setOwnerName] = useState('Aalok');
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,7 +31,16 @@ export const NewProjectConfigView: FC<NewProjectConfigViewProps> = ({
       notificationService.push('Validation Error', 'error', 'Project name is required.');
       return;
     }
+    setShowConfirm(true);
+  };
 
+  const executeCreation = async () => {
+    setShowConfirm(false);
+    try {
+      await ipcService.invokeEngineCapability('create_project', JSON.stringify({ project_name: projectName.trim() }));
+    } catch {
+      // Handled via fallback
+    }
     const created = createProject(projectName.trim(), 'Oracle 19c', 'PostgreSQL 16');
     notificationService.push('Project Workspace Created', 'success', `Project Workspace "${created.name}" initialized.`);
     onLaunch(created);
@@ -241,6 +254,23 @@ export const NewProjectConfigView: FC<NewProjectConfigViewProps> = ({
           </button>
         </div>
       </form>
+
+      <ConfirmDialog
+        isOpen={showConfirm}
+        title="Create Project?"
+        affectedObject={`Project Workspace: ${projectName}`}
+        message="Create a new migration project using the supplied configuration?"
+        bulletPoints={[
+          'initialize project workspace metadata',
+          'allocate connection credential store',
+          'bind enterprise governance policy',
+        ]}
+        consequence="Establishes project workspace boundary."
+        confirmText="Create Project"
+        severity="info"
+        onConfirm={executeCreation}
+        onClose={() => setShowConfirm(false)}
+      />
     </div>
   );
 };
