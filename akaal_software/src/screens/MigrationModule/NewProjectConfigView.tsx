@@ -1,9 +1,8 @@
 import { useState, type FC } from 'react';
 import type { MigrationPipeline, DatabaseEngine } from '../../types/migration';
 import { notificationService } from '../../services/notificationService';
-import styles from './MigrationModule.module.css';
-
 import { ConfirmDialog } from '../../components/ConfirmDialog';
+import styles from './MigrationModule.module.css';
 
 export interface NewProjectConfigViewProps {
   onBack: () => void;
@@ -16,12 +15,10 @@ export const NewProjectConfigView: FC<NewProjectConfigViewProps> = ({
   onLaunch,
   createProject,
 }) => {
-  const [projectName, setProjectName] = useState('Enterprise Core Migration Workspace');
-  const [projectDescription, setProjectDescription] = useState('Centralized database migration project workspace.');
-  const [environment, setEnvironment] = useState<'Production' | 'Staging' | 'UAT' | 'Development'>('Production');
-  const [storagePath, setStoragePath] = useState('C:\\AKAAL_Workspace\\Projects\\CoreMigration');
-  const [governanceMode, setGovernanceMode] = useState<'four_eyes' | 'standard'>('four_eyes');
-  const [ownerName, setOwnerName] = useState('Aalok');
+  const [projectName, setProjectName] = useState('Core Banking Modernization');
+  const [projectDescription, setProjectDescription] = useState('Centralized enterprise database migration project.');
+  const [owner, setOwner] = useState('Aalok');
+  const [tags, setTags] = useState('Production, Core, Oracle-PG');
   const [showConfirm, setShowConfirm] = useState(false);
 
   const handleCreate = (e: React.FormEvent) => {
@@ -36,94 +33,43 @@ export const NewProjectConfigView: FC<NewProjectConfigViewProps> = ({
   const executeCreation = async () => {
     setShowConfirm(false);
     const created = createProject(projectName.trim(), 'Oracle 19c', 'PostgreSQL 16');
-    notificationService.push('Project Workspace Created', 'success', `Project Workspace "${created.name}" initialized.`);
+    notificationService.push('Project Created', 'success', `Project "${created.name}" created.`);
     onLaunch(created);
   };
 
   return (
-    <div className={styles.workspaceViewContainer} style={{ maxWidth: 960, margin: '0 auto', padding: '36px 32px' }}>
-      {/* Workspace Top Navigation */}
+    <div className={styles.workspaceViewContainer} style={{ maxWidth: 720, margin: '0 auto', padding: '36px 32px' }}>
+      {/* Top Navigation */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28, paddingBottom: 16, borderBottom: '1px solid var(--dash-border)' }}>
         <button className={styles.backBtn} onClick={onBack} id="btn-back-to-landing">
-          ← Back to Migration Workspaces
+          ← Back to Projects
         </button>
         <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--dash-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-          Dedicated Project Workspace Setup
+          New Project Setup
         </span>
       </div>
 
       <div style={{ marginBottom: 32 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 700, margin: '0 0 8px 0', letterSpacing: '-0.02em' }}>
-          Create Enterprise Project Workspace
+        <h1 style={{ fontSize: 24, fontWeight: 700, margin: '0 0 8px 0', letterSpacing: '-0.02em', color: 'var(--dash-text-primary)' }}>
+          Create Project
         </h1>
         <p style={{ fontSize: 14, color: 'var(--dash-text-secondary)', margin: 0, lineHeight: 1.5 }}>
-          An AKAAL Project Workspace manages database connections, team governance policies, compliance audit reports, and multiple migration pipelines.
+          Projects contain database connections, migrations, compliance reports, timelines, and team governance policies.
         </p>
       </div>
 
       <form onSubmit={handleCreate}>
-        {/* Section 1: Identity & Scope */}
-        <div style={{ padding: 24, background: 'var(--dash-card-bg)', borderRadius: 12, border: '1px solid var(--dash-border)', marginBottom: 24 }}>
-          <h3 style={{ fontSize: 15, fontWeight: 600, margin: '0 0 16px 0', color: 'var(--dash-text-primary)' }}>
-            1. Project Workspace Identity & Metadata
-          </h3>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 16 }}>
-            <div>
-              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--dash-text-secondary)', marginBottom: 6 }}>
-                Project Workspace Name *
-              </label>
-              <input
-                type="text"
-                value={projectName}
-                onChange={(e) => setProjectName(e.target.value)}
-                placeholder="e.g. Core Banking Modernization"
-                required
-                style={{
-                  width: '100%',
-                  padding: '10px 14px',
-                  borderRadius: 8,
-                  border: '1px solid var(--dash-border)',
-                  background: 'var(--dash-surface)',
-                  color: 'var(--dash-text-primary)',
-                  fontSize: 13,
-                }}
-              />
-            </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--dash-text-secondary)', marginBottom: 6 }}>
-                Target Infrastructure Environment
-              </label>
-              <select
-                value={environment}
-                onChange={(e) => setEnvironment(e.target.value as any)}
-                style={{
-                  width: '100%',
-                  padding: '10px 14px',
-                  borderRadius: 8,
-                  border: '1px solid var(--dash-border)',
-                  background: 'var(--dash-surface)',
-                  color: 'var(--dash-text-primary)',
-                  fontSize: 13,
-                }}
-              >
-                <option value="Production">Production Enterprise Workload</option>
-                <option value="Staging">Staging & Pre-Prod Sandbox</option>
-                <option value="UAT">UAT Validation Cluster</option>
-                <option value="Development">Development Lab</option>
-              </select>
-            </div>
-          </div>
-
-          <div style={{ marginBottom: 16 }}>
+        <div style={{ padding: 24, background: 'var(--dash-card-bg)', borderRadius: 12, border: '1px solid var(--dash-border)', marginBottom: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <div>
             <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--dash-text-secondary)', marginBottom: 6 }}>
-              Project Owner
+              Project Name *
             </label>
             <input
               type="text"
-              value={ownerName}
-              onChange={(e) => setOwnerName(e.target.value)}
+              value={projectName}
+              onChange={(e) => setProjectName(e.target.value)}
+              placeholder="e.g. Core Banking Modernization"
+              required
               style={{
                 width: '100%',
                 padding: '10px 14px',
@@ -131,19 +77,21 @@ export const NewProjectConfigView: FC<NewProjectConfigViewProps> = ({
                 border: '1px solid var(--dash-border)',
                 background: 'var(--dash-surface)',
                 color: 'var(--dash-text-primary)',
-                fontSize: 13,
+                fontSize: 14,
+                boxSizing: 'border-box',
               }}
             />
           </div>
 
           <div>
             <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--dash-text-secondary)', marginBottom: 6 }}>
-              Architectural Scope & Objectives
+              Description
             </label>
             <textarea
               value={projectDescription}
               onChange={(e) => setProjectDescription(e.target.value)}
-              rows={2}
+              rows={3}
+              placeholder="Describe the scope and objective of this project..."
               style={{
                 width: '100%',
                 padding: '10px 14px',
@@ -152,28 +100,22 @@ export const NewProjectConfigView: FC<NewProjectConfigViewProps> = ({
                 background: 'var(--dash-surface)',
                 color: 'var(--dash-text-primary)',
                 fontSize: 13,
-                resize: 'vertical',
                 fontFamily: 'inherit',
+                boxSizing: 'border-box',
+                resize: 'vertical',
               }}
             />
           </div>
-        </div>
 
-        {/* Section 2: Storage & Governance */}
-        <div style={{ padding: 24, background: 'var(--dash-card-bg)', borderRadius: 12, border: '1px solid var(--dash-border)', marginBottom: 32 }}>
-          <h3 style={{ fontSize: 15, fontWeight: 600, margin: '0 0 16px 0', color: 'var(--dash-text-primary)' }}>
-            2. Local Artifact Storage & Four-Eyes Governance
-          </h3>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <div>
               <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--dash-text-secondary)', marginBottom: 6 }}>
-                Workspace Local Artifact Directory
+                Owner / Lead Engineer
               </label>
               <input
                 type="text"
-                value={storagePath}
-                onChange={(e) => setStoragePath(e.target.value)}
+                value={owner}
+                onChange={(e) => setOwner(e.target.value)}
                 style={{
                   width: '100%',
                   padding: '10px 14px',
@@ -182,18 +124,20 @@ export const NewProjectConfigView: FC<NewProjectConfigViewProps> = ({
                   background: 'var(--dash-surface)',
                   color: 'var(--dash-text-primary)',
                   fontSize: 13,
-                  fontFamily: "'JetBrains Mono', monospace",
+                  boxSizing: 'border-box',
                 }}
               />
             </div>
 
             <div>
               <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--dash-text-secondary)', marginBottom: 6 }}>
-                Governance Approval Policy
+                Tags (Comma Separated)
               </label>
-              <select
-                value={governanceMode}
-                onChange={(e) => setGovernanceMode(e.target.value as any)}
+              <input
+                type="text"
+                value={tags}
+                onChange={(e) => setTags(e.target.value)}
+                placeholder="e.g. Production, Core, Oracle"
                 style={{
                   width: '100%',
                   padding: '10px 14px',
@@ -202,16 +146,14 @@ export const NewProjectConfigView: FC<NewProjectConfigViewProps> = ({
                   background: 'var(--dash-surface)',
                   color: 'var(--dash-text-primary)',
                   fontSize: 13,
+                  boxSizing: 'border-box',
                 }}
-              >
-                <option value="four_eyes">Enforce Four-Eyes Manager Sign-off Policy</option>
-                <option value="standard">Standard Single-User Direct Execution</option>
-              </select>
+              />
             </div>
           </div>
         </div>
 
-        {/* Action Controls */}
+        {/* Action Buttons */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 14 }}>
           <button
             type="button"
@@ -241,10 +183,9 @@ export const NewProjectConfigView: FC<NewProjectConfigViewProps> = ({
               fontSize: 13,
               fontWeight: 600,
               cursor: 'pointer',
-              boxShadow: '0 2px 4px rgba(37, 99, 235, 0.2)',
             }}
           >
-            Initialize Project Workspace →
+            Create Project →
           </button>
         </div>
       </form>
@@ -252,14 +193,13 @@ export const NewProjectConfigView: FC<NewProjectConfigViewProps> = ({
       <ConfirmDialog
         isOpen={showConfirm}
         title="Create Project?"
-        affectedObject={`Project Workspace: ${projectName}`}
-        message="Create a new migration project using the supplied configuration?"
+        affectedObject={`Project: ${projectName}`}
+        message={`Description: ${projectDescription || 'No description provided.'}`}
         bulletPoints={[
-          'initialize project workspace metadata',
-          'allocate connection credential store',
-          'bind enterprise governance policy',
+          `Owner: ${owner}`,
+          `Tags: ${tags}`,
+          'Establishes permanent project container boundary',
         ]}
-        consequence="Establishes project workspace boundary."
         confirmText="Create Project"
         severity="info"
         onConfirm={executeCreation}
