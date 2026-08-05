@@ -11,7 +11,6 @@ export interface NewMigrationWizardProps {
 
 // ─── Engine-Compatible DTOs ─────────────────────────────────────────────────
 // These DTOs map 1:1 with future SchemaDiscoveryDTO engine responses.
-// Replacing INITIAL_SCHEMAS with a live fetch is the only change needed.
 
 interface DiscoveredObjectDTO {
   object_id: string;
@@ -61,19 +60,19 @@ const fmtSize = (gb: number): string => {
   return '< 1 MB';
 };
 
-// ─── Object Type Badges ─────────────────────────────────────────────────────
+// ─── Object Type Badges & Icons ─────────────────────────────────────────────
 
-const OBJ_BADGE: Record<string, { label: string; color: string; bg: string }> = {
-  'Table':             { label: 'T',   color: '#10B981', bg: 'rgba(16,185,129,0.12)' },
-  'View':              { label: 'V',   color: '#3B82F6', bg: 'rgba(59,130,246,0.12)' },
-  'Materialized View': { label: 'MV',  color: '#8B5CF6', bg: 'rgba(139,92,246,0.12)' },
-  'Procedure':         { label: 'P',   color: '#F59E0B', bg: 'rgba(245,158,11,0.12)' },
-  'Function':          { label: 'F',   color: '#F97316', bg: 'rgba(249,115,22,0.12)' },
-  'Package':           { label: 'PKG', color: '#EC4899', bg: 'rgba(236,72,153,0.12)' },
-  'Trigger':           { label: 'TRG', color: '#EF4444', bg: 'rgba(239,68,68,0.12)' },
-  'Sequence':          { label: 'SEQ', color: '#06B6D4', bg: 'rgba(6,182,212,0.12)' },
-  'Role':              { label: 'R',   color: '#84CC16', bg: 'rgba(132,204,22,0.12)' },
-  'Synonym':           { label: 'SYN', color: '#6B7280', bg: 'rgba(107,114,128,0.12)' },
+const OBJ_BADGE: Record<string, { label: string; icon: string; color: string; bg: string }> = {
+  'Table':             { label: 'TBL', icon: '📋', color: '#10B981', bg: 'rgba(16,185,129,0.12)' },
+  'View':              { label: 'VIEW', icon: '👁️', color: '#3B82F6', bg: 'rgba(59,130,246,0.12)' },
+  'Materialized View': { label: 'MVIEW', icon: '📊', color: '#8B5CF6', bg: 'rgba(139,92,246,0.12)' },
+  'Procedure':         { label: 'PROC', icon: '⚡', color: '#F59E0B', bg: 'rgba(245,158,11,0.12)' },
+  'Function':          { label: 'FUNC', icon: '⚙️', color: '#F97316', bg: 'rgba(249,115,22,0.12)' },
+  'Package':           { label: 'PKG',  icon: '📦', color: '#EC4899', bg: 'rgba(236,72,153,0.12)' },
+  'Trigger':           { label: 'TRG',  icon: '🔄', color: '#EF4444', bg: 'rgba(239,68,68,0.12)' },
+  'Sequence':          { label: 'SEQ',  icon: '🔢', color: '#06B6D4', bg: 'rgba(6,182,212,0.12)' },
+  'Role':              { label: 'ROLE', icon: '👤', color: '#84CC16', bg: 'rgba(132,204,22,0.12)' },
+  'Synonym':           { label: 'SYN',  icon: '🔗', color: '#6B7280', bg: 'rgba(107,114,128,0.12)' },
 };
 
 const STATUS_CHIP: Record<string, { color: string; bg: string }> = {
@@ -381,14 +380,11 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
   const [testingTarget, setTestingTarget] = useState(false);
 
   // ─── Step 4: Discovery & Scope — Enterprise Schema-First State ─────────────
-  // schemas: full mutable selection state; never lost on filter/expand changes
   const [schemas, setSchemas] = useState<SchemaDiscoveryDTO[]>(INITIAL_SCHEMAS);
-  // Stable expand sets — survive filter changes, persist across re-renders
   const [expandedSchemas, setExpandedSchemas] = useState<Set<string>>(INITIAL_EXPANDED_SCHEMAS);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(INITIAL_EXPANDED_GROUPS);
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
   const [discoveryProfile, setDiscoveryProfile] = useState<DiscoveryProfileType>('DEEP');
-  // Filters: narrow the visible tree only — never affect selection state
   const [schemaFilter, setSchemaFilter] = useState<string>('ALL');
   const [typeFilter, setTypeFilter] = useState<string>('ALL');
   const [objectSearch, setObjectSearch] = useState<string>('');
@@ -449,7 +445,6 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
 
   // ── Step 4: Memoized Derived Values ──────────────────────────────────────
 
-  // Static schema stats — computed once from initial data, never re-computed
   const schemaStaticStats = useMemo(() => {
     const map = new Map<string, { typeCounts: Record<string, number>; totalRows: number; totalSizeGb: number }>();
     for (const schema of INITIAL_SCHEMAS) {
@@ -466,16 +461,14 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
       map.set(schema.schema_id, { typeCounts, totalRows, totalSizeGb });
     }
     return map;
-  }, []); // empty deps — computed once from static constant
+  }, []);
 
-  // All unique object types — for the type filter dropdown
   const allObjectTypes = useMemo(() => {
     const types = new Set<string>();
     INITIAL_SCHEMAS.forEach((s) => s.object_groups.forEach((g) => types.add(g.object_type)));
     return Array.from(types).sort();
-  }, []); // empty deps — static
+  }, []);
 
-  // Filtered visible tree — preserves schema-first hierarchy, NEVER affects selection
   const visibleSchemas = useMemo<SchemaDiscoveryDTO[]>(() => {
     return schemas
       .map((schema) => {
@@ -496,7 +489,6 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
       .filter(Boolean) as SchemaDiscoveryDTO[];
   }, [schemas, schemaFilter, typeFilter, objectSearch]);
 
-  // Live selection counts — derived from full schemas state (not just visible)
   const { selectedCount, schemasIncludedCount } = useMemo(() => {
     let total = 0;
     let included = 0;
@@ -514,7 +506,6 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
 
   const excludedCount = TOTAL_OBJECTS_DETECTED - selectedCount;
 
-  // Detail panel — find selected object across all schemas
   const selectedObjectDetail = useMemo<DiscoveredObjectDTO | null>(() => {
     if (!selectedObjectId) return null;
     for (const s of schemas) {
@@ -526,7 +517,6 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
     return null;
   }, [schemas, selectedObjectId]);
 
-  // includeSchemas string — derived from schemas with at least 1 selected object
   const includeSchemas = useMemo(() =>
     schemas
       .filter((s) => s.object_groups.some((g) => g.objects.some((o) => o.selected)))
@@ -738,14 +728,42 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
 
   return (
     <div className={styles.modalBackdrop} onClick={onClose} role="dialog" aria-modal="true" aria-label={migName || 'New Enterprise Migration Workspace'}>
-      {/* Scoped hover & focus styles for tree items */}
+      {/* Scoped hover, focus, connector line & animation styles */}
       <style>{`
-        .akaal-tree-schema:hover { background: rgba(37,99,235,0.05) !important; }
-        .akaal-tree-group:hover  { background: rgba(37,99,235,0.03) !important; }
-        .akaal-tree-obj:hover    { background: rgba(37,99,235,0.07) !important; }
-        .akaal-tree-schema:focus,
-        .akaal-tree-group:focus,
-        .akaal-tree-obj:focus    { outline: 2px solid var(--dash-accent); outline-offset: -2px; border-radius: 0; }
+        .akaal-tree-schema {
+          position: relative;
+          transition: background 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+        }
+        .akaal-tree-schema:hover {
+          background: rgba(37,99,235,0.07) !important;
+        }
+        .akaal-tree-group {
+          position: relative;
+          transition: background 150ms ease;
+        }
+        .akaal-tree-group:hover {
+          background: rgba(37,99,235,0.05) !important;
+        }
+        .akaal-tree-obj {
+          position: relative;
+          transition: background 120ms ease, border-left-color 120ms ease;
+        }
+        .akaal-tree-obj:hover {
+          background: rgba(37,99,235,0.08) !important;
+        }
+        .akaal-tree-schema:focus-visible,
+        .akaal-tree-group:focus-visible,
+        .akaal-tree-obj:focus-visible {
+          outline: 2px solid var(--dash-accent);
+          outline-offset: -2px;
+        }
+        .akaal-kpi-card {
+          transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease;
+        }
+        .akaal-kpi-card:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
       `}</style>
 
       <div
@@ -859,7 +877,7 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
                   </div>
                   <div>
                     <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Migration Window</label>
-                    <input type="text" value="2 Hours (Off-Peak Weekend)" disabled style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--dash-border)', background: 'var(--dash-surface)', color: 'var(--dash-text-secondary)', fontSize: 13 }} />
+                    <input type="text" value="2 Hours (Off-Peak Weekend)" disabled style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--dash-surface)', color: 'var(--dash-text-secondary)', fontSize: 13 }} />
                   </div>
                 </div>
               </div>
@@ -986,7 +1004,7 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
 
             {/* ── STEP 4: ENTERPRISE DISCOVERY & SCOPE EXPLORER ───────────── */}
             {step === 4 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
                 {/* Header row: Discovery Profile + Status badge */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14 }}>
@@ -994,97 +1012,104 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
                     <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--dash-text-secondary)' }}>Discovery Profile:</span>
                     {(['QUICK', 'STANDARD', 'DEEP', 'COMPLIANCE'] as DiscoveryProfileType[]).map((prof) => (
                       <button key={prof} type="button" onClick={() => setDiscoveryProfile(prof)}
-                        style={{ padding: '4px 10px', borderRadius: 6, border: discoveryProfile === prof ? '1px solid var(--dash-accent)' : '1px solid var(--dash-border)', background: discoveryProfile === prof ? 'rgba(37,99,235,0.15)' : 'var(--dash-bg)', color: discoveryProfile === prof ? 'var(--dash-accent)' : 'var(--dash-text-secondary)', fontSize: 11, fontWeight: 600, cursor: 'pointer', transition: 'all 150ms ease' }}>
+                        style={{ padding: '4px 12px', borderRadius: 6, border: discoveryProfile === prof ? '1px solid var(--dash-accent)' : '1px solid var(--dash-border)', background: discoveryProfile === prof ? 'rgba(37,99,235,0.15)' : 'var(--dash-bg)', color: discoveryProfile === prof ? 'var(--dash-accent)' : 'var(--dash-text-secondary)', fontSize: 11, fontWeight: 600, cursor: 'pointer', transition: 'all 150ms ease' }}>
                         {prof}
                       </button>
                     ))}
                   </div>
-                  <span style={{ fontSize: 11, color: '#10B981', fontWeight: 700, padding: '3px 10px', borderRadius: 4, background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.25)' }}>
-                    ● DISCOVERY COMPLETE
+                  <span style={{ fontSize: 11, color: '#10B981', fontWeight: 700, padding: '4px 12px', borderRadius: 20, background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.3)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10B981' }} /> DISCOVERY COMPLETE
                   </span>
                 </div>
 
-                {/* KPI Cards — Detected totals are fixed; Selected/Excluded update live */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+                {/* KPI Cards — Telemetry tiles with colored top accents & icons */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
                   {[
-                    { label: 'Schemas Detected', value: TOTAL_SCHEMAS_DETECTED.toString(), color: '#3B82F6', note: 'Discovery total · fixed' },
-                    { label: 'Objects Detected', value: TOTAL_OBJECTS_DETECTED.toLocaleString(), color: '#8B5CF6', note: 'Discovery total · fixed' },
-                    { label: 'Objects Selected', value: selectedCount.toLocaleString(), color: '#10B981', note: 'Updates with selection' },
-                    { label: 'Objects Excluded', value: excludedCount.toLocaleString(), color: excludedCount > 0 ? '#F59E0B' : '#10B981', note: 'Detected − Selected' },
+                    { label: 'Schemas Detected', value: TOTAL_SCHEMAS_DETECTED.toString(), color: '#3B82F6', icon: '🗄️', note: 'Discovery total · Fixed', border: '#3B82F6' },
+                    { label: 'Objects Detected', value: TOTAL_OBJECTS_DETECTED.toLocaleString(), color: '#8B5CF6', icon: '📦', note: 'Discovery total · Fixed', border: '#8B5CF6' },
+                    { label: 'Objects Selected', value: selectedCount.toLocaleString(), color: '#10B981', icon: '✓', note: 'Updates live', border: '#10B981' },
+                    { label: 'Objects Excluded', value: excludedCount.toLocaleString(), color: excludedCount > 0 ? '#F59E0B' : '#10B981', icon: '🚫', note: 'Detected − Selected', border: excludedCount > 0 ? '#F59E0B' : '#10B981' },
                   ].map((kpi) => (
-                    <div key={kpi.label} style={{ padding: '10px 14px', background: 'var(--dash-surface)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
-                      <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{kpi.label}</div>
-                      <div style={{ fontSize: 24, fontWeight: 800, color: kpi.color, marginTop: 4, fontVariantNumeric: 'tabular-nums' }}>{kpi.value}</div>
-                      <div style={{ fontSize: 9, color: 'var(--dash-text-secondary)', marginTop: 2 }}>{kpi.note}</div>
+                    <div key={kpi.label} className="akaal-kpi-card" style={{ padding: '12px 16px', background: 'var(--dash-surface)', borderRadius: 10, border: '1px solid var(--dash-border)', borderTop: `3px solid ${kpi.border}`, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{kpi.label}</span>
+                        <span style={{ fontSize: 13, opacity: 0.85 }}>{kpi.icon}</span>
+                      </div>
+                      <div style={{ fontSize: 26, fontWeight: 800, color: kpi.color, fontVariantNumeric: 'tabular-nums', lineHeight: 1.1, marginTop: 2 }}>{kpi.value}</div>
+                      <div style={{ fontSize: 9, color: 'var(--dash-text-secondary)', fontWeight: 500 }}>{kpi.note}</div>
                     </div>
                   ))}
                 </div>
 
                 {/* Filter Bar */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: 'var(--dash-surface)', borderRadius: 8, border: '1px solid var(--dash-border)', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: 'var(--dash-surface)', borderRadius: 10, border: '1px solid var(--dash-border)', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--dash-text-secondary)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    ⚡ Scope Filters:
+                  </span>
+
                   <select value={schemaFilter} onChange={(e) => setSchemaFilter(e.target.value)} aria-label="Filter by schema"
-                    style={{ padding: '5px 8px', borderRadius: 6, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 11, fontWeight: 600 }}>
+                    style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 11, fontWeight: 600 }}>
                     <option value="ALL">All Schemas</option>
                     {INITIAL_SCHEMAS.map((s) => (<option key={s.schema_id} value={s.schema_id}>{s.schema_name}</option>))}
                   </select>
 
                   <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} aria-label="Filter by object type"
-                    style={{ padding: '5px 8px', borderRadius: 6, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 11, fontWeight: 600 }}>
+                    style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 11, fontWeight: 600 }}>
                     <option value="ALL">All Types</option>
                     {allObjectTypes.map((t) => (<option key={t} value={t}>{t}s</option>))}
                   </select>
 
                   <input
                     type="text" value={objectSearch} onChange={(e) => setObjectSearch(e.target.value)}
-                    placeholder="Search objects..." aria-label="Search objects"
-                    style={{ flex: 1, minWidth: 140, padding: '5px 10px', borderRadius: 6, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 11 }}
+                    placeholder="Filter by object name..." aria-label="Search objects"
+                    style={{ flex: 1, minWidth: 160, padding: '6px 12px', borderRadius: 6, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 11 }}
                   />
 
-                  <div style={{ display: 'flex', gap: 5, marginLeft: 'auto', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', gap: 6, marginLeft: 'auto', flexWrap: 'wrap' }}>
                     {isFiltered && (
-                      <button type="button" onClick={clearFilters} style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid #EF4444', background: 'rgba(239,68,68,0.08)', color: '#EF4444', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>✕ Clear Filters</button>
+                      <button type="button" onClick={clearFilters} style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid #EF4444', background: 'rgba(239,68,68,0.1)', color: '#EF4444', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>✕ Clear Filters</button>
                     )}
-                    <button type="button" onClick={() => selectVisible(true)} style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 600, cursor: 'pointer' }}>Select Visible</button>
-                    <button type="button" onClick={() => selectVisible(false)} style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 600, cursor: 'pointer' }}>Deselect Visible</button>
-                    <button type="button" onClick={() => selectAll(true)} style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 600, cursor: 'pointer' }}>Select All</button>
-                    <button type="button" onClick={() => selectAll(false)} style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 600, cursor: 'pointer' }}>Deselect All</button>
-                    <button type="button" onClick={expandAll} style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 600, cursor: 'pointer' }}>⊞ Expand All</button>
-                    <button type="button" onClick={collapseAll} style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 600, cursor: 'pointer' }}>⊟ Collapse All</button>
+                    <button type="button" onClick={() => selectVisible(true)} style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 600, cursor: 'pointer' }}>Select Visible</button>
+                    <button type="button" onClick={() => selectVisible(false)} style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 600, cursor: 'pointer' }}>Deselect Visible</button>
+                    <button type="button" onClick={() => selectAll(true)} style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 600, cursor: 'pointer' }}>Select All</button>
+                    <button type="button" onClick={() => selectAll(false)} style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 600, cursor: 'pointer' }}>Deselect All</button>
+                    <button type="button" onClick={expandAll} style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 600, cursor: 'pointer' }}>⊞ Expand All</button>
+                    <button type="button" onClick={collapseAll} style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 600, cursor: 'pointer' }}>⊟ Collapse All</button>
                   </div>
                 </div>
 
-                {/* Explorer: Schema-First Tree + Detail Panel */}
-                <div style={{ display: 'flex', gap: 12 }}>
+                {/* Explorer Workspace: Schema-First Tree Container + Structured Detail Panel */}
+                <div style={{ display: 'flex', gap: 14 }}>
 
-                  {/* ── Schema-First Tree ── */}
+                  {/* ── Schema-First Tree Explorer ── */}
                   <div
                     ref={treeRef}
                     role="tree"
                     aria-label="Database schema object explorer"
                     onKeyDown={handleTreeKeyDown}
-                    style={{ flex: 1, border: '1px solid var(--dash-border)', borderRadius: 8, overflow: 'hidden', background: 'var(--dash-surface)', display: 'flex', flexDirection: 'column', minWidth: 0 }}
+                    style={{ flex: 1, border: '1px solid var(--dash-border)', borderRadius: 10, overflow: 'hidden', background: 'var(--dash-surface)', display: 'flex', flexDirection: 'column', minWidth: 0 }}
                   >
-                    {/* Column header */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '22px 22px 1fr 76px 76px 72px', gap: 6, padding: '7px 12px', background: 'var(--dash-bg)', borderBottom: '1px solid var(--dash-border)', fontSize: 10, fontWeight: 700, color: 'var(--dash-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', alignItems: 'center' }}>
+                    {/* Column header bar */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '26px 26px 1fr 84px 84px 76px', gap: 8, padding: '8px 14px', background: 'var(--dash-bg)', borderBottom: '1px solid var(--dash-border)', fontSize: 10, fontWeight: 700, color: 'var(--dash-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', alignItems: 'center' }}>
                       <span /><span />
-                      <span>Object</span>
+                      <span>Schema & Object Hierarchy</span>
                       <span>Est. Rows</span>
                       <span>Est. Size</span>
-                      <span>Status</span>
+                      <span>Compatibility</span>
                     </div>
 
-                    {/* Scrollable body */}
-                    <div style={{ overflowY: 'auto', maxHeight: 400 }}>
+                    {/* Scrollable body with enterprise hierarchy containers */}
+                    <div style={{ overflowY: 'auto', maxHeight: 420, padding: 8 }}>
                       {visibleSchemas.length === 0 ? (
                         /* Enterprise empty state */
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 24px', gap: 10 }}>
-                          <span style={{ fontSize: 28 }}>🔍</span>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--dash-text-primary)' }}>No objects match current filters</div>
-                          <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)', textAlign: 'center', maxWidth: 260 }}>
-                            Adjust the schema, type, or search query to find objects.
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '50px 24px', gap: 12 }}>
+                          <span style={{ fontSize: 32 }}>🔍</span>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--dash-text-primary)' }}>No database objects match your filter parameters</div>
+                          <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)', textAlign: 'center', maxWidth: 300, lineHeight: 1.5 }}>
+                            Try selecting a different schema, clearing object search, or choosing "All Types".
                           </div>
                           <button type="button" onClick={clearFilters}
-                            style={{ marginTop: 4, padding: '8px 18px', borderRadius: 6, background: 'var(--dash-accent)', border: 'none', color: '#FFF', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                            style={{ marginTop: 6, padding: '8px 20px', borderRadius: 8, background: 'var(--dash-accent)', border: 'none', color: '#FFF', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
                             Clear All Filters
                           </button>
                         </div>
@@ -1093,10 +1118,11 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
                           const schemaCheck = getSchemaCheckState(schema);
                           const schemaExpanded = expandedSchemas.has(schema.schema_id);
                           const stats = schemaStaticStats.get(schema.schema_id);
+                          const totalSchemaObjs = schema.object_groups.reduce((sum, g) => sum + g.objects.length, 0);
 
                           return (
-                            <div key={schema.schema_id}>
-                              {/* Schema Row */}
+                            <div key={schema.schema_id} style={{ border: '1px solid var(--dash-border)', borderRadius: 8, marginBottom: 10, overflow: 'hidden', background: 'var(--dash-bg)' }}>
+                              {/* Enterprise Schema Header Row */}
                               <div
                                 className="akaal-tree-schema"
                                 role="treeitem"
@@ -1105,9 +1131,14 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
                                 data-tree-item="true"
                                 data-schema-id={schema.schema_id}
                                 onClick={() => toggleSchemaExpand(schema.schema_id)}
-                                style={{ display: 'grid', gridTemplateColumns: '22px 22px 1fr 76px 76px 72px', gap: 6, padding: '9px 12px', alignItems: 'center', cursor: 'pointer', borderBottom: '1px solid var(--dash-border)', background: 'var(--dash-bg)', transition: 'background 150ms ease' }}
+                                style={{
+                                  display: 'grid', gridTemplateColumns: '26px 26px 1fr 84px 84px 76px', gap: 8,
+                                  padding: '10px 14px', alignItems: 'center', cursor: 'pointer',
+                                  borderBottom: schemaExpanded ? '1px solid var(--dash-border)' : 'none',
+                                  background: 'var(--dash-surface)', transition: 'all 150ms ease'
+                                }}
                               >
-                                <span style={{ fontSize: 11, color: 'var(--dash-text-secondary)', userSelect: 'none', fontWeight: 700, transition: 'transform 150ms ease', display: 'inline-block', transform: schemaExpanded ? 'rotate(0deg)' : 'rotate(-90deg)' }}>▼</span>
+                                <span style={{ fontSize: 11, color: 'var(--dash-accent)', userSelect: 'none', fontWeight: 800, transition: 'transform 150ms ease', display: 'inline-block', transform: schemaExpanded ? 'rotate(0deg)' : 'rotate(-90deg)' }}>▼</span>
                                 <IndeterminateCheckbox
                                   checked={schemaCheck.checked}
                                   indeterminate={schemaCheck.indeterminate}
@@ -1115,45 +1146,51 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
                                   aria-label={`Select all objects in schema ${schema.schema_name}`}
                                 />
                                 <div>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                     <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--dash-text-primary)' }}>
-                                      🗄 {schema.schema_name}
+                                      🗄️ {schema.schema_name}
                                     </span>
-                                    <span style={{ fontSize: 10, color: 'var(--dash-text-secondary)', padding: '1px 5px', borderRadius: 3, background: 'var(--dash-surface)', border: '1px solid var(--dash-border)', fontWeight: 600 }}>
-                                      {schema.object_groups.reduce((sum, g) => sum + g.objects.length, 0)} objects
+                                    <span style={{ fontSize: 10, color: '#3B82F6', padding: '2px 8px', borderRadius: 12, background: 'rgba(37,99,235,0.12)', border: '1px solid rgba(37,99,235,0.25)', fontWeight: 700 }}>
+                                      {totalSchemaObjs} Objects
+                                    </span>
+                                    <span style={{ fontSize: 10, color: schemaCheck.checked ? '#10B981' : schemaCheck.indeterminate ? '#F59E0B' : 'var(--dash-text-secondary)', fontWeight: 700, marginLeft: 'auto', marginRight: 10 }}>
+                                      {schemaCheck.checked ? 'ALL SELECTED' : schemaCheck.indeterminate ? 'PARTIAL' : 'EXCLUDED'}
                                     </span>
                                   </div>
                                   {stats && (
-                                    <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                       {getSchemaOverview(schema.schema_id)}
                                     </div>
                                   )}
                                 </div>
-                                <span style={{ fontSize: 11, color: 'var(--dash-text-secondary)', fontVariantNumeric: 'tabular-nums' }}>
+                                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--dash-text-secondary)', fontVariantNumeric: 'tabular-nums' }}>
                                   {stats && stats.totalRows > 0 ? fmtRows(stats.totalRows) : '—'}
                                 </span>
-                                <span style={{ fontSize: 11, color: 'var(--dash-text-secondary)' }}>
+                                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--dash-text-secondary)' }}>
                                   {stats && stats.totalSizeGb > 0 ? fmtSize(stats.totalSizeGb) : '—'}
                                 </span>
-                                <span />
+                                <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'rgba(16,185,129,0.12)', color: '#10B981', textAlign: 'center', border: '1px solid rgba(16,185,129,0.25)' }}>
+                                  OPTIMAL
+                                </span>
                               </div>
 
-                              {/* Schema children — animated expand/collapse */}
+                              {/* Schema Nested Content Container */}
                               <div style={{
                                 overflow: 'hidden',
                                 maxHeight: schemaExpanded ? '20000px' : '0px',
                                 transition: 'max-height 200ms ease-in-out, opacity 180ms ease',
                                 opacity: schemaExpanded ? 1 : 0,
+                                background: 'var(--dash-bg)',
                               }}>
                                 {schema.object_groups.map((group) => {
                                   const groupKey = `${schema.schema_id}:${group.object_type}`;
                                   const groupExpanded = expandedGroups.has(groupKey);
                                   const groupCheck = getGroupCheckState(group);
-                                  const badge = OBJ_BADGE[group.object_type] ?? { label: group.object_type.substring(0, 3).toUpperCase(), color: '#6B7280', bg: 'rgba(107,114,128,0.12)' };
+                                  const badge = OBJ_BADGE[group.object_type] ?? { label: group.object_type.substring(0, 3).toUpperCase(), icon: '📄', color: '#6B7280', bg: 'rgba(107,114,128,0.12)' };
 
                                   return (
-                                    <div key={groupKey}>
-                                      {/* Object Group Row */}
+                                    <div key={groupKey} style={{ borderLeft: '2px solid rgba(59, 130, 246, 0.25)', marginLeft: 16 }}>
+                                      {/* Object Type Group Header */}
                                       <div
                                         className="akaal-tree-group"
                                         role="treeitem"
@@ -1162,7 +1199,12 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
                                         data-tree-item="true"
                                         data-group-key={groupKey}
                                         onClick={() => toggleGroupExpand(groupKey)}
-                                        style={{ display: 'grid', gridTemplateColumns: '22px 22px 1fr 76px 76px 72px', gap: 6, padding: '6px 12px 6px 26px', alignItems: 'center', cursor: 'pointer', borderBottom: '1px solid var(--dash-border)', background: 'var(--dash-surface)', transition: 'background 150ms ease' }}
+                                        style={{
+                                          display: 'grid', gridTemplateColumns: '22px 22px 1fr 84px 84px 76px', gap: 8,
+                                          padding: '7px 12px 7px 16px', alignItems: 'center', cursor: 'pointer',
+                                          borderBottom: '1px solid var(--dash-border)', background: 'var(--dash-surface)',
+                                          transition: 'background 150ms ease'
+                                        }}
                                       >
                                         <span style={{ fontSize: 10, color: 'var(--dash-text-secondary)', userSelect: 'none', display: 'inline-block', transform: groupExpanded ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 150ms ease' }}>▼</span>
                                         <IndeterminateCheckbox
@@ -1171,24 +1213,26 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
                                           onChange={(checked) => toggleGroup(schema.schema_id, group.object_type, checked)}
                                           aria-label={`Select all ${group.object_type}s in ${schema.schema_name}`}
                                         />
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                          <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 5px', borderRadius: 3, color: badge.color, background: badge.bg, letterSpacing: '0.02em', whiteSpace: 'nowrap' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                          <span style={{ fontSize: 10, fontWeight: 800, padding: '2px 6px', borderRadius: 4, color: badge.color, background: badge.bg, letterSpacing: '0.04em', border: `1px solid ${badge.color}33` }}>
                                             {badge.label}
                                           </span>
-                                          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--dash-text-primary)' }}>{group.object_type}s</span>
-                                          <span style={{ fontSize: 10, color: 'var(--dash-text-secondary)' }}>
+                                          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--dash-text-primary)' }}>{badge.icon} {group.object_type}s</span>
+                                          <span style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 500 }}>
                                             ({group.objects.length}) — {getGroupSelectionLabel(group)}
                                           </span>
                                         </div>
                                         <span /><span /><span />
                                       </div>
 
-                                      {/* Individual Objects */}
+                                      {/* Individual Object Rows nested under Type */}
                                       <div style={{
                                         overflow: 'hidden',
                                         maxHeight: groupExpanded ? '9999px' : '0px',
                                         transition: 'max-height 180ms ease-in-out, opacity 160ms ease',
                                         opacity: groupExpanded ? 1 : 0,
+                                        borderLeft: '1px dashed rgba(255,255,255,0.1)',
+                                        marginLeft: 26,
                                       }}>
                                         <div role="group">
                                           {group.objects.map((obj) => {
@@ -1205,11 +1249,12 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
                                                 data-object-id={obj.object_id}
                                                 onClick={() => setSelectedObjectId(isActive ? null : obj.object_id)}
                                                 style={{
-                                                  display: 'grid', gridTemplateColumns: '22px 22px 1fr 76px 76px 72px', gap: 6,
-                                                  padding: '5px 12px 5px 52px', alignItems: 'center',
-                                                  borderBottom: '1px solid rgba(71,85,105,0.2)',
-                                                  background: isActive ? 'rgba(37,99,235,0.09)' : 'transparent',
-                                                  cursor: 'pointer', transition: 'background 120ms ease',
+                                                  display: 'grid', gridTemplateColumns: '22px 22px 1fr 84px 84px 76px', gap: 8,
+                                                  padding: '6px 12px 6px 18px', alignItems: 'center',
+                                                  borderBottom: '1px solid rgba(71,85,105,0.15)',
+                                                  background: isActive ? 'rgba(37,99,235,0.12)' : 'transparent',
+                                                  borderLeft: isActive ? '3px solid var(--dash-accent)' : '3px solid transparent',
+                                                  cursor: 'pointer', transition: 'all 120ms ease',
                                                 }}
                                               >
                                                 <span /><input
@@ -1220,15 +1265,15 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
                                                   aria-label={`Include ${obj.object_name}`}
                                                   style={{ cursor: 'pointer', accentColor: 'var(--dash-accent)' }}
                                                 />
-                                                <span style={{ fontSize: 11, fontWeight: obj.selected ? 600 : 400, color: obj.selected ? 'var(--dash-text-primary)' : 'var(--dash-text-secondary)', fontFamily: 'var(--akaal-font-mono, monospace)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                  {obj.object_name}
+                                                <span style={{ fontSize: 11, fontWeight: obj.selected ? 600 : 400, color: obj.selected ? 'var(--dash-text-primary)' : 'var(--dash-text-secondary)', fontFamily: 'var(--akaal-font-mono, monospace)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                  📄 {obj.object_name}
                                                   {obj.warnings.length > 0 && (
-                                                    <span title={obj.warnings.join('; ')} style={{ marginLeft: 5, fontSize: 10, color: '#F59E0B', cursor: 'help' }}>⚠</span>
+                                                    <span title={obj.warnings.join('; ')} style={{ fontSize: 10, color: '#F59E0B', cursor: 'help' }}>⚠️</span>
                                                   )}
                                                 </span>
                                                 <span style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontVariantNumeric: 'tabular-nums' }}>{fmtRows(obj.estimated_rows)}</span>
                                                 <span style={{ fontSize: 10, color: 'var(--dash-text-secondary)' }}>{fmtSize(obj.estimated_size_gb)}</span>
-                                                <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 4px', borderRadius: 3, color: chip.color, background: chip.bg, textAlign: 'center' }}>
+                                                <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 5px', borderRadius: 4, color: chip.color, background: chip.bg, textAlign: 'center', border: `1px solid ${chip.color}33` }}>
                                                   {obj.compatibility_status}
                                                 </span>
                                               </div>
@@ -1247,81 +1292,125 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
                     </div>
                   </div>
 
-                  {/* ── Object Detail Panel ── */}
+                  {/* ── Structured Enterprise Object Detail Panel ── */}
                   {selectedObjectDetail ? (
-                    <div style={{ width: 252, flexShrink: 0, border: '1px solid var(--dash-border)', borderRadius: 8, background: 'var(--dash-surface)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                      <div style={{ padding: '9px 12px', borderBottom: '1px solid var(--dash-border)', background: 'var(--dash-bg)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--dash-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Object Details</span>
+                    <div style={{ width: 280, flexShrink: 0, border: '1px solid var(--dash-border)', borderRadius: 10, background: 'var(--dash-surface)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                      {/* Header */}
+                      <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--dash-border)', background: 'var(--dash-bg)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--dash-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: 4 }}>
+                          ⚡ Enterprise Object Telemetry
+                        </span>
                         <button type="button" onClick={() => setSelectedObjectId(null)} style={{ background: 'none', border: 'none', color: 'var(--dash-text-secondary)', fontSize: 16, cursor: 'pointer', lineHeight: 1 }}>×</button>
                       </div>
-                      <div style={{ padding: 12, overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        <div style={{ fontFamily: 'var(--akaal-font-mono, monospace)', fontSize: 12, fontWeight: 800, color: 'var(--dash-text-primary)', wordBreak: 'break-all' }}>
-                          {selectedObjectDetail.object_name}
-                        </div>
 
-                        {[
-                          { label: 'Schema', value: selectedObjectDetail.schema_id },
-                          { label: 'Type', value: selectedObjectDetail.object_type },
-                          { label: 'Est. Rows', value: fmtRows(selectedObjectDetail.estimated_rows) },
-                          { label: 'Est. Size', value: fmtSize(selectedObjectDetail.estimated_size_gb) },
-                        ].map(({ label, value }) => (
-                          <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, padding: '4px 0', borderBottom: '1px solid var(--dash-border)' }}>
-                            <span style={{ color: 'var(--dash-text-secondary)', fontWeight: 600 }}>{label}</span>
-                            <span style={{ color: 'var(--dash-text-primary)', fontWeight: 700 }}>{value}</span>
+                      {/* Content Body */}
+                      <div style={{ padding: 14, overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        {/* Title Block */}
+                        <div style={{ padding: 10, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
+                          <div style={{ fontSize: 9, color: 'var(--dash-text-secondary)', fontWeight: 700, textTransform: 'uppercase' }}>Target Object Name</div>
+                          <div style={{ fontFamily: 'var(--akaal-font-mono, monospace)', fontSize: 13, fontWeight: 800, color: 'var(--dash-text-primary)', marginTop: 2, wordBreak: 'break-all' }}>
+                            {selectedObjectDetail.object_name}
                           </div>
-                        ))}
-
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, padding: '4px 0', borderBottom: '1px solid var(--dash-border)' }}>
-                          <span style={{ color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Compatibility</span>
-                          <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 5px', borderRadius: 3, color: (STATUS_CHIP[selectedObjectDetail.compatibility_status] ?? STATUS_CHIP['OPTIMAL']).color, background: (STATUS_CHIP[selectedObjectDetail.compatibility_status] ?? STATUS_CHIP['OPTIMAL']).bg }}>
-                            {selectedObjectDetail.compatibility_status}
-                          </span>
                         </div>
 
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, padding: '4px 0', borderBottom: '1px solid var(--dash-border)' }}>
-                          <span style={{ color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Included</span>
-                          <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 5px', borderRadius: 3, color: selectedObjectDetail.selected ? '#10B981' : '#EF4444', background: selectedObjectDetail.selected ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)' }}>
-                            {selectedObjectDetail.selected ? 'YES' : 'EXCLUDED'}
-                          </span>
-                        </div>
-
-                        {selectedObjectDetail.dependency_ids.length > 0 && (
-                          <div style={{ fontSize: 11, marginTop: 2 }}>
-                            <div style={{ color: 'var(--dash-text-secondary)', fontWeight: 600, marginBottom: 3 }}>Dependencies ({selectedObjectDetail.dependency_ids.length})</div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                              {selectedObjectDetail.dependency_ids.map((dep) => (
-                                <span key={dep} style={{ fontSize: 10, fontFamily: 'var(--akaal-font-mono, monospace)', color: 'var(--dash-text-secondary)', padding: '2px 4px', background: 'var(--dash-bg)', borderRadius: 3, border: '1px solid var(--dash-border)' }}>{dep}</span>
-                              ))}
+                        {/* Section 1: General Metadata */}
+                        <div>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--dash-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>1. General Specifications</div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, background: 'var(--dash-bg)', padding: 8, borderRadius: 6, border: '1px solid var(--dash-border)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+                              <span style={{ color: 'var(--dash-text-secondary)' }}>Owning Schema</span>
+                              <strong style={{ color: 'var(--dash-text-primary)' }}>{selectedObjectDetail.schema_id}</strong>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+                              <span style={{ color: 'var(--dash-text-secondary)' }}>Object Category</span>
+                              <strong style={{ color: 'var(--dash-text-primary)' }}>{selectedObjectDetail.object_type}</strong>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+                              <span style={{ color: 'var(--dash-text-secondary)' }}>Discovered ID</span>
+                              <span style={{ fontFamily: 'var(--akaal-font-mono, monospace)', fontSize: 10, color: 'var(--dash-text-secondary)' }}>{selectedObjectDetail.object_id}</span>
                             </div>
                           </div>
-                        )}
+                        </div>
 
+                        {/* Section 2: Storage & Volume */}
+                        <div>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--dash-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>2. Storage & Volume Metrics</div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, background: 'var(--dash-bg)', padding: 8, borderRadius: 6, border: '1px solid var(--dash-border)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+                              <span style={{ color: 'var(--dash-text-secondary)' }}>Estimated Rows</span>
+                              <strong style={{ color: 'var(--dash-text-primary)' }}>{fmtRows(selectedObjectDetail.estimated_rows)}</strong>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+                              <span style={{ color: 'var(--dash-text-secondary)' }}>Estimated Size</span>
+                              <strong style={{ color: 'var(--dash-text-primary)' }}>{fmtSize(selectedObjectDetail.estimated_size_gb)}</strong>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Section 3: Compatibility & Intelligence */}
+                        <div>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--dash-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>3. Engine Compatibility</div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, background: 'var(--dash-bg)', padding: 8, borderRadius: 6, border: '1px solid var(--dash-border)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11 }}>
+                              <span style={{ color: 'var(--dash-text-secondary)' }}>Status</span>
+                              <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4, color: (STATUS_CHIP[selectedObjectDetail.compatibility_status] ?? STATUS_CHIP['OPTIMAL']).color, background: (STATUS_CHIP[selectedObjectDetail.compatibility_status] ?? STATUS_CHIP['OPTIMAL']).bg }}>
+                                {selectedObjectDetail.compatibility_status}
+                              </span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11 }}>
+                              <span style={{ color: 'var(--dash-text-secondary)' }}>Migration Inclusion</span>
+                              <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4, color: selectedObjectDetail.selected ? '#10B981' : '#EF4444', background: selectedObjectDetail.selected ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)' }}>
+                                {selectedObjectDetail.selected ? 'INCLUDED' : 'EXCLUDED'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Section 4: Dependencies */}
+                        <div>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--dash-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>4. Upstream Dependencies</div>
+                          {selectedObjectDetail.dependency_ids.length > 0 ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, background: 'var(--dash-bg)', padding: 8, borderRadius: 6, border: '1px solid var(--dash-border)' }}>
+                              {selectedObjectDetail.dependency_ids.map((dep) => (
+                                <span key={dep} style={{ fontSize: 10, fontFamily: 'var(--akaal-font-mono, monospace)', color: 'var(--dash-text-secondary)', padding: '3px 6px', background: 'var(--dash-surface)', borderRadius: 4, border: '1px solid var(--dash-border)' }}>
+                                  🔗 {dep}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <div style={{ fontSize: 10, color: '#10B981', padding: '6px 8px', background: 'rgba(16,185,129,0.06)', borderRadius: 6, border: '1px solid rgba(16,185,129,0.2)' }}>
+                              ✓ No upstream object dependencies detected
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Section 5: Warnings */}
                         {selectedObjectDetail.warnings.length > 0 && (
-                          <div style={{ fontSize: 11, marginTop: 2 }}>
-                            <div style={{ color: '#F59E0B', fontWeight: 700, marginBottom: 3 }}>⚠ Warnings</div>
+                          <div>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: '#F59E0B', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>5. Advisory Notices</div>
                             {selectedObjectDetail.warnings.map((w, i) => (
-                              <div key={i} style={{ fontSize: 10, color: '#F59E0B', padding: '4px 6px', background: 'rgba(245,158,11,0.08)', borderRadius: 4, border: '1px solid rgba(245,158,11,0.2)', marginBottom: 3 }}>{w}</div>
+                              <div key={i} style={{ fontSize: 10, color: '#F59E0B', padding: '6px 8px', background: 'rgba(245,158,11,0.08)', borderRadius: 6, border: '1px solid rgba(245,158,11,0.2)', lineHeight: 1.4 }}>
+                                ⚠️ {w}
+                              </div>
                             ))}
                           </div>
                         )}
 
-                        {selectedObjectDetail.warnings.length === 0 && selectedObjectDetail.dependency_ids.length === 0 && (
-                          <div style={{ fontSize: 10, color: '#10B981', padding: 8, background: 'rgba(16,185,129,0.06)', borderRadius: 4, border: '1px solid rgba(16,185,129,0.2)', textAlign: 'center', marginTop: 4 }}>
-                            ✓ No warnings · No dependencies
-                          </div>
-                        )}
-
                         <button type="button" onClick={() => toggleObject(selectedObjectDetail.object_id, !selectedObjectDetail.selected)}
-                          style={{ marginTop: 'auto', padding: '8px 12px', borderRadius: 6, border: 'none', fontSize: 11, fontWeight: 700, cursor: 'pointer', background: selectedObjectDetail.selected ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)', color: selectedObjectDetail.selected ? '#EF4444' : '#10B981' }}>
+                          style={{ marginTop: 'auto', padding: '9px 14px', borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: 'pointer', background: selectedObjectDetail.selected ? 'rgba(239,68,68,0.12)' : 'rgba(16,185,129,0.12)', color: selectedObjectDetail.selected ? '#EF4444' : '#10B981', border: selectedObjectDetail.selected ? '1px solid rgba(239,68,68,0.3)' : '1px solid rgba(16,185,129,0.3)' }}>
                           {selectedObjectDetail.selected ? '✕ Exclude from Migration' : '✓ Include in Migration'}
                         </button>
                       </div>
                     </div>
                   ) : (
-                    <div style={{ width: 252, flexShrink: 0, border: '1px dashed var(--dash-border)', borderRadius: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 20, gap: 8, opacity: 0.55 }}>
-                      <span style={{ fontSize: 22 }}>👆</span>
-                      <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--dash-text-secondary)', textAlign: 'center', lineHeight: 1.5 }}>
-                        Click any object to view details, warnings, and dependencies
+                    /* Rich Enterprise Empty State for Detail Panel */
+                    <div style={{ width: 280, flexShrink: 0, border: '1px dashed var(--dash-border)', borderRadius: 10, background: 'var(--dash-surface)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, gap: 12 }}>
+                      <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'rgba(37,99,235,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>
+                        📊
+                      </div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--dash-text-primary)', textAlign: 'center' }}>Object Telemetry Explorer</div>
+                      <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)', textAlign: 'center', lineHeight: 1.5 }}>
+                        Select any database object from the tree to inspect specifications, storage metrics, compatibility status, dependencies, and advisory notes.
                       </div>
                     </div>
                   )}
@@ -1463,7 +1552,7 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
                             </div>
                             <div>
                               <label style={{ fontSize: 11, fontWeight: 600, display: 'block', marginBottom: 4 }}>WAL Ring Buffer Capacity</label>
-                              <input type="text" defaultValue="10,000 Records (CRC32 Checksummed)" disabled style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-secondary)', fontSize: 12 }} />
+                              <input type="text" defaultValue="10,000 Records (CRC32 Checksummed)" disabled style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid var(--dash-border)', background: 'var(--dash-surface)', color: 'var(--dash-text-secondary)', fontSize: 12 }} />
                             </div>
                           </>
                         )}
@@ -1534,83 +1623,101 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
 
           {/* ── Persistent Right Enterprise Summary Panel ─────────────────── */}
           <div style={{ width: 290, borderLeft: '1px solid var(--dash-border)', background: 'var(--dash-surface)', padding: 16, display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'auto' }}>
-            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--dash-text-secondary)', letterSpacing: '0.05em' }}>Live Executive Summary</div>
+            <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', color: 'var(--dash-text-secondary)', letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: 6 }}>
+              📊 Executive Live Summary
+            </div>
 
             <div style={{ padding: 10, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
-              <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)' }}>Migration Title</div>
+              <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Migration Workspace</div>
               <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--dash-text-primary)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {migName || 'Untitled Migration'}
               </div>
             </div>
 
-            {/* View Execution Plan Drawer */}
+            {/* View Execution Plan Drawer Button */}
             <button type="button" onClick={() => setShowExecutionPlanDrawer(true)}
-              style={{ width: '100%', padding: '10px 14px', borderRadius: 8, background: 'rgba(37,99,235,0.12)', border: '1px solid var(--dash-accent)', color: 'var(--dash-accent)', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-              <span>⚡ View Execution Plan</span>
+              style={{ width: '100%', padding: '10px 14px', borderRadius: 8, background: 'rgba(37,99,235,0.12)', border: '1px solid var(--dash-accent)', color: 'var(--dash-accent)', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: 'all 150ms ease' }}>
+              <span>⚡ View Execution Plan DAG</span>
             </button>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+            {/* Engine Topology Card */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
               <div style={{ padding: 8, background: 'var(--dash-bg)', borderRadius: 6, border: '1px solid var(--dash-border)' }}>
-                <div style={{ fontSize: 9, color: 'var(--dash-text-secondary)' }}>Source</div>
-                <div style={{ fontSize: 11, fontWeight: 700, marginTop: 2 }}>{sourceEngine.split(' ')[0]}</div>
+                <div style={{ fontSize: 9, color: 'var(--dash-text-secondary)', textTransform: 'uppercase', fontWeight: 600 }}>Source Engine</div>
+                <div style={{ fontSize: 11, fontWeight: 700, marginTop: 2, color: 'var(--dash-text-primary)' }}>{sourceEngine.split(' ')[0]}</div>
               </div>
               <div style={{ padding: 8, background: 'var(--dash-bg)', borderRadius: 6, border: '1px solid var(--dash-border)' }}>
-                <div style={{ fontSize: 9, color: 'var(--dash-text-secondary)' }}>Target</div>
-                <div style={{ fontSize: 11, fontWeight: 700, marginTop: 2 }}>{targetEngine.split(' ')[0]}</div>
+                <div style={{ fontSize: 9, color: 'var(--dash-text-secondary)', textTransform: 'uppercase', fontWeight: 600 }}>Target Engine</div>
+                <div style={{ fontSize: 11, fontWeight: 700, marginTop: 2, color: 'var(--dash-text-primary)' }}>{targetEngine.split(' ')[0]}</div>
               </div>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 7, fontSize: 11, color: 'var(--dash-text-secondary)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>Schemas Detected:</span>
+            {/* Group 1: Scope & Telemetry */}
+            <div style={{ background: 'var(--dash-bg)', padding: 10, borderRadius: 8, border: '1px solid var(--dash-border)', display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--dash-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid var(--dash-border)', paddingBottom: 4 }}>
+                1. Scope Telemetry
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+                <span style={{ color: 'var(--dash-text-secondary)' }}>Schemas Detected:</span>
                 <strong style={{ color: 'var(--dash-text-primary)' }}>{TOTAL_SCHEMAS_DETECTED}</strong>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>Objects Detected:</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+                <span style={{ color: 'var(--dash-text-secondary)' }}>Objects Detected:</span>
                 <strong style={{ color: 'var(--dash-text-primary)' }}>{TOTAL_OBJECTS_DETECTED.toLocaleString()}</strong>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>Schemas Included:</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+                <span style={{ color: 'var(--dash-text-secondary)' }}>Schemas Included:</span>
                 <strong style={{ color: schemasIncludedCount > 0 ? '#10B981' : 'var(--dash-text-secondary)' }}>{schemasIncludedCount}</strong>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>Objects Selected:</span>
-                <strong style={{ color: 'var(--dash-text-primary)' }}>{selectedCount.toLocaleString()}</strong>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+                <span style={{ color: 'var(--dash-text-secondary)' }}>Objects Selected:</span>
+                <strong style={{ color: '#10B981' }}>{selectedCount.toLocaleString()}</strong>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>Objects Excluded:</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+                <span style={{ color: 'var(--dash-text-secondary)' }}>Objects Excluded:</span>
                 <strong style={{ color: excludedCount > 0 ? '#F59E0B' : '#10B981' }}>{excludedCount.toLocaleString()}</strong>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>Compatibility:</span>
+            </div>
+
+            {/* Group 2: Intelligence & Allocation */}
+            <div style={{ background: 'var(--dash-bg)', padding: 10, borderRadius: 8, border: '1px solid var(--dash-border)', display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--dash-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid var(--dash-border)', paddingBottom: 4 }}>
+                2. Intelligence & Allocation
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+                <span style={{ color: 'var(--dash-text-secondary)' }}>Compatibility:</span>
                 <strong style={{ color: '#10B981' }}>98.5%</strong>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>Risk Score:</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+                <span style={{ color: 'var(--dash-text-secondary)' }}>Risk Score:</span>
                 <strong style={{ color: '#3B82F6' }}>0.12 (LOW)</strong>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>Workers:</span>
-                <strong style={{ color: 'var(--dash-text-primary)' }}>{parallelism} Workers</strong>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+                <span style={{ color: 'var(--dash-text-secondary)' }}>Workers:</span>
+                <strong style={{ color: 'var(--dash-text-primary)' }}>{parallelism} Pool</strong>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>ETA:</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+                <span style={{ color: 'var(--dash-text-secondary)' }}>Est. Duration:</span>
                 <strong style={{ color: 'var(--dash-text-primary)' }}>42 Mins</strong>
               </div>
             </div>
 
-            <div style={{ borderTop: '1px solid var(--dash-border)', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 6, fontSize: 11 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span>Source Status:</span>
-                <span style={{ color: sourceTested ? '#10B981' : '#F59E0B', fontWeight: 700 }}>{sourceTested ? 'CONNECTED' : 'PENDING'}</span>
+            {/* Group 3: Connection & Governance Gates */}
+            <div style={{ background: 'var(--dash-bg)', padding: 10, borderRadius: 8, border: '1px solid var(--dash-border)', display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--dash-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid var(--dash-border)', paddingBottom: 4 }}>
+                3. Governance & Connections
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span>Target Status:</span>
-                <span style={{ color: targetTested ? '#10B981' : '#F59E0B', fontWeight: 700 }}>{targetTested ? 'CONNECTED' : 'PENDING'}</span>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 11 }}>
+                <span style={{ color: 'var(--dash-text-secondary)' }}>Source Link:</span>
+                <span style={{ color: sourceTested ? '#10B981' : '#F59E0B', fontWeight: 700 }}>{sourceTested ? '● CONNECTED' : '○ PENDING'}</span>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span>Approval Gate:</span>
-                <span style={{ color: '#10B981', fontWeight: 700 }}>PASSED</span>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 11 }}>
+                <span style={{ color: 'var(--dash-text-secondary)' }}>Target Link:</span>
+                <span style={{ color: targetTested ? '#10B981' : '#F59E0B', fontWeight: 700 }}>{targetTested ? '● CONNECTED' : '○ PENDING'}</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 11 }}>
+                <span style={{ color: 'var(--dash-text-secondary)' }}>Four-Eyes Policy:</span>
+                <span style={{ color: '#10B981', fontWeight: 700 }}>✓ PASSED</span>
               </div>
             </div>
           </div>
