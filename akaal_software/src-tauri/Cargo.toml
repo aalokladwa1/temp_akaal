@@ -7,20 +7,21 @@ edition = "2021"
 
 [lib]
 name = "akaal_software_lib"
-crate-type = ["staticlib", "cdylib", "rlib"]
+crate-type = ["lib", "cdylib"]
 
 [build-dependencies]
 tauri-build = { version = "2", default-features = false , features = [] }
 
 [dependencies]
 tauri = { version = "2", default-features = false, features = ["wry"] }
-tauri-plugin-opener = { version = "2", default-features = false }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+tauri-plugin-opener = "2"
+serde = { version = "1", features = ["derive", "std"] }
+serde_json = { version = "1", features = ["std"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 argon2 = "0.5"
 zeroize = { version = "1", features = ["zeroize_derive"] }
 chrono = { version = "0.4", features = ["serde"] }
+windows = { version = "0.61", default-features = false, features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_System_Threading"] }
 
 [features]
 default = ["custom-protocol"]
@@ -29,11 +30,23 @@ custom-protocol = ["tauri/custom-protocol"]
 [profile.dev]
 opt-level = 0
 debug = 0
+strip = true
+panic = "abort"
 incremental = false
-codegen-units = 16
+codegen-units = 1
+
+[profile.dev.package."*"]
+opt-level = 0
+debug = false
 
 [profile.dev.package.windows]
-opt-level = 1
+opt-level = 0
+debug = false
+debug-assertions = false
+overflow-checks = false
 
 [profile.dev.package.windows-sys]
-opt-level = 1
+opt-level = 0
+debug = false
+debug-assertions = false
+overflow-checks = false

@@ -29,6 +29,7 @@ dependencies = [
  "tauri-build",
  "tauri-plugin-opener",
  "uuid",
+ "windows",
  "zeroize",
 ]
 
