@@ -100,10 +100,10 @@ export const NewMigrationConfigView: FC<NewMigrationConfigViewProps> = ({
 
   // Step 4: Discovery & Object Explorer
   const [discoveryProfile, setDiscoveryProfile] = useState<DiscoveryProfileType>(resumeDraftData?.discoveryProfile || 'DEEP');
-  const [includeSchemas, setIncludeSchemas] = useState(resumeDraftData?.includeSchemas || 'SYSTEM, HR, FIN, SALES');
+  const [includeSchemas] = useState(resumeDraftData?.includeSchemas || 'SYSTEM, HR, FIN, SALES');
   const [catalog, setCatalog] = useState<CatalogObject[]>(INITIAL_CATALOG);
   const [typeFilter, setTypeFilter] = useState<string>('ALL');
-  const [schemaFilter, setSchemaFilter] = useState<string>('ALL');
+  const [schemaFilter] = useState<string>('ALL');
   const [objectSearch, setObjectSearch] = useState<string>('');
 
   // Step 6: Rules & Transformations
@@ -137,6 +137,8 @@ export const NewMigrationConfigView: FC<NewMigrationConfigViewProps> = ({
     targetUser,
     discoveryProfile,
     includeSchemas,
+    gbValidationLevel: 'STANDARD',
+    requireFourEyes: true,
   });
 
   const handleSaveDraft = () => {
@@ -1060,7 +1062,7 @@ export const NewMigrationConfigView: FC<NewMigrationConfigViewProps> = ({
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              justify: 'center',
+              justifyContent: 'center',
               gap: 6,
             }}
           >
