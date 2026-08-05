@@ -330,8 +330,8 @@ const TOTAL_OBJECTS_DETECTED = INITIAL_SCHEMAS.reduce(
   (sum, s) => sum + s.object_groups.reduce((gs, g) => gs + g.objects.length, 0), 0
 ); // 124
 
-// Initial expand state — schemas expanded, groups collapsed
-const INITIAL_EXPANDED_SCHEMAS = new Set(INITIAL_SCHEMAS.map((s) => s.schema_id));
+// Initial expand state — schemas and groups collapsed by default for compact view
+const INITIAL_EXPANDED_SCHEMAS = new Set<string>();
 const INITIAL_EXPANDED_GROUPS = new Set<string>();
 
 // ─── Step Titles ────────────────────────────────────────────────────────────
@@ -1022,23 +1022,21 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
                   </span>
                 </div>
 
-                {/* KPI Cards — Telemetry tiles with colored top accents & icons */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-                  {[
-                    { label: 'Schemas Detected', value: TOTAL_SCHEMAS_DETECTED.toString(), color: '#3B82F6', icon: '🗄️', note: 'Discovery total · Fixed', border: '#3B82F6' },
-                    { label: 'Objects Detected', value: TOTAL_OBJECTS_DETECTED.toLocaleString(), color: '#8B5CF6', icon: '📦', note: 'Discovery total · Fixed', border: '#8B5CF6' },
-                    { label: 'Objects Selected', value: selectedCount.toLocaleString(), color: '#10B981', icon: '✓', note: 'Updates live', border: '#10B981' },
-                    { label: 'Objects Excluded', value: excludedCount.toLocaleString(), color: excludedCount > 0 ? '#F59E0B' : '#10B981', icon: '🚫', note: 'Detected − Selected', border: excludedCount > 0 ? '#F59E0B' : '#10B981' },
-                  ].map((kpi) => (
-                    <div key={kpi.label} className="akaal-kpi-card" style={{ padding: '12px 16px', background: 'var(--dash-surface)', borderRadius: 10, border: '1px solid var(--dash-border)', borderTop: `3px solid ${kpi.border}`, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <span style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{kpi.label}</span>
-                        <span style={{ fontSize: 13, opacity: 0.85 }}>{kpi.icon}</span>
-                      </div>
-                      <div style={{ fontSize: 26, fontWeight: 800, color: kpi.color, fontVariantNumeric: 'tabular-nums', lineHeight: 1.1, marginTop: 2 }}>{kpi.value}</div>
-                      <div style={{ fontSize: 9, color: 'var(--dash-text-secondary)', fontWeight: 500 }}>{kpi.note}</div>
-                    </div>
-                  ))}
+                {/* Compact Discovery Summary Card (2 Values: Schemas Detected, Objects Detected) */}
+                <div style={{ padding: '12px 18px', background: 'var(--dash-surface)', borderRadius: 10, border: '1px solid var(--dash-border)', display: 'inline-flex', alignItems: 'center', gap: 24, alignSelf: 'flex-start' }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--dash-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span>📊</span> Discovery Summary
+                  </span>
+                  <div style={{ width: 1, height: 22, background: 'var(--dash-border)' }} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 11, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Schemas Detected:</span>
+                    <strong style={{ fontSize: 16, fontWeight: 800, color: '#3B82F6', fontVariantNumeric: 'tabular-nums' }}>{TOTAL_SCHEMAS_DETECTED}</strong>
+                  </div>
+                  <div style={{ width: 1, height: 22, background: 'var(--dash-border)' }} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 11, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Objects Detected:</span>
+                    <strong style={{ fontSize: 16, fontWeight: 800, color: '#8B5CF6', fontVariantNumeric: 'tabular-nums' }}>{TOTAL_OBJECTS_DETECTED.toLocaleString()}</strong>
+                  </div>
                 </div>
 
                 {/* Filter Bar */}
