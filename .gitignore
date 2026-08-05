@@ -31,6 +31,14 @@ validation_workspace_resume/
 # Python cache
 *.py[cod]
 
+# Rust / Tauri build targets
+target/
+target_dev/
+target_build/
+akaal_software/src-tauri/target/
+akaal_software/src-tauri/target_dev/
+akaal_software/src-tauri/target_build/
+
 # OS
 Thumbs.db
 .DS_Store

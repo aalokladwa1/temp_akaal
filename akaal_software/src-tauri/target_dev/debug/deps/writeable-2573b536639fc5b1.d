@@ -1,0 +1,11 @@
+A:\temp_akaal\akaal_software\src-tauri\target_dev\debug\deps\writeable-2573b536639fc5b1.d: C:\Users\AALOK\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\writeable-0.6.3\src\lib.rs C:\Users\AALOK\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\writeable-0.6.3\src\cmp.rs C:\Users\AALOK\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\writeable-0.6.3\src\concat.rs C:\Users\AALOK\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\writeable-0.6.3\src\impls.rs C:\Users\AALOK\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\writeable-0.6.3\src\ops.rs C:\Users\AALOK\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\writeable-0.6.3\src\parts_write_adapter.rs C:\Users\AALOK\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\writeable-0.6.3\src\try_writeable.rs
+
+A:\temp_akaal\akaal_software\src-tauri\target_dev\debug\deps\libwriteable-2573b536639fc5b1.rmeta: C:\Users\AALOK\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\writeable-0.6.3\src\lib.rs C:\Users\AALOK\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\writeable-0.6.3\src\cmp.rs C:\Users\AALOK\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\writeable-0.6.3\src\concat.rs C:\Users\AALOK\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\writeable-0.6.3\src\impls.rs C:\Users\AALOK\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\writeable-0.6.3\src\ops.rs C:\Users\AALOK\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\writeable-0.6.3\src\parts_write_adapter.rs C:\Users\AALOK\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\writeable-0.6.3\src\try_writeable.rs
+
+C:\Users\AALOK\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\writeable-0.6.3\src\lib.rs:
+C:\Users\AALOK\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\writeable-0.6.3\src\cmp.rs:
+C:\Users\AALOK\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\writeable-0.6.3\src\concat.rs:
+C:\Users\AALOK\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\writeable-0.6.3\src\impls.rs:
+C:\Users\AALOK\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\writeable-0.6.3\src\ops.rs:
+C:\Users\AALOK\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\writeable-0.6.3\src\parts_write_adapter.rs:
+C:\Users\AALOK\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\writeable-0.6.3\src\try_writeable.rs:
