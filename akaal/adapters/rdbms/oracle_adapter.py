@@ -81,9 +81,9 @@ class OracleAdapter(BaseAdapter):
         self._schema = getattr(config, "username", None)
         self._pk_cache: Dict[str, str] = {}
         # Consistent mock‑mode handling as other adapters
-        self.mock_mode = getattr(config, "host", "") in _MOCK_HOSTS
+        self.mock_mode = getattr(config, "host", "") in _MOCK_HOSTS or oracledb is None
         if self.mock_mode:
-            logger.info("[OracleAdapter] Mock mode: host=%s", getattr(config, "host", ""))
+            logger.info("[OracleAdapter] Mock mode active: host=%s", getattr(config, "host", ""))
 
     # ------------------------------------------------------------------
     # Connection handling

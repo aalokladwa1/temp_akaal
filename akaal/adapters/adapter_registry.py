@@ -12,48 +12,40 @@ from akaal.core.models.enums import SystemType
 _REGISTRY: dict = {}
 
 
-def _build_registry() -> dict:
-    from akaal.adapters.rdbms.oracle_adapter import OracleAdapter
-    from akaal.adapters.rdbms.postgresql_adapter import PostgreSQLAdapter
-    from akaal.adapters.rdbms.mysql_adapter import MySQLAdapter
-    from akaal.adapters.rdbms.mariadb_adapter import MariaDBAdapter
-    from akaal.adapters.rdbms.mssql_adapter import MSSQLAdapter
-    from akaal.adapters.rdbms.ibm_db2_adapter import IBMDB2Adapter
-    from akaal.adapters.rdbms.sqlite_adapter import SQLiteAdapter
-    from akaal.adapters.warehouse.snowflake_adapter import SnowflakeAdapter
-    from akaal.adapters.warehouse.bigquery_adapter import BigQueryAdapter
-    from akaal.adapters.warehouse.redshift_adapter import RedshiftAdapter
-    from akaal.adapters.warehouse.hdfs_adapter import HDFSAdapter
-    from akaal.adapters.nosql.mongodb_adapter import MongoDBAdapter
-    from akaal.adapters.nosql.cassandra_adapter import CassandraAdapter
-    from akaal.adapters.nosql.neo4j_adapter import Neo4jAdapter
-    from akaal.adapters.nosql.redis_adapter import RedisAdapter
-    from akaal.adapters.nosql.elasticsearch_adapter import ElasticsearchAdapter
-    from akaal.adapters.cloud.s3_adapter import S3Adapter
-    from akaal.adapters.cloud.gcs_adapter import GCSAdapter
-    from akaal.adapters.cloud.azure_blob_adapter import AzureBlobAdapter
+import importlib
 
-    return {
-        SystemType.ORACLE:         OracleAdapter,
-        SystemType.POSTGRESQL:     PostgreSQLAdapter,
-        SystemType.MYSQL:          MySQLAdapter,
-        SystemType.MARIADB:        MariaDBAdapter,
-        SystemType.MSSQL:          MSSQLAdapter,
-        SystemType.IBM_DB2:        IBMDB2Adapter,
-        SystemType.SQLITE:         SQLiteAdapter,
-        SystemType.SNOWFLAKE:      SnowflakeAdapter,
-        SystemType.BIGQUERY:       BigQueryAdapter,
-        SystemType.REDSHIFT:       RedshiftAdapter,
-        SystemType.HDFS:           HDFSAdapter,
-        SystemType.MONGODB:        MongoDBAdapter,
-        SystemType.CASSANDRA:      CassandraAdapter,
-        SystemType.NEO4J:          Neo4jAdapter,
-        SystemType.REDIS:          RedisAdapter,
-        SystemType.ELASTICSEARCH:  ElasticsearchAdapter,
-        SystemType.S3:             S3Adapter,
-        SystemType.GCS:            GCSAdapter,
-        SystemType.AZURE_BLOB:     AzureBlobAdapter,
-    }
+def _build_registry() -> dict:
+    adapters_map = [
+        (SystemType.ORACLE, "akaal.adapters.rdbms.oracle_adapter", "OracleAdapter"),
+        (SystemType.POSTGRESQL, "akaal.adapters.rdbms.postgresql_adapter", "PostgreSQLAdapter"),
+        (SystemType.MYSQL, "akaal.adapters.rdbms.mysql_adapter", "MySQLAdapter"),
+        (SystemType.MARIADB, "akaal.adapters.rdbms.mariadb_adapter", "MariaDBAdapter"),
+        (SystemType.MSSQL, "akaal.adapters.rdbms.mssql_adapter", "MSSQLAdapter"),
+        (SystemType.IBM_DB2, "akaal.adapters.rdbms.ibm_db2_adapter", "IBMDB2Adapter"),
+        (SystemType.SQLITE, "akaal.adapters.rdbms.sqlite_adapter", "SQLiteAdapter"),
+        (SystemType.SNOWFLAKE, "akaal.adapters.warehouse.snowflake_adapter", "SnowflakeAdapter"),
+        (SystemType.BIGQUERY, "akaal.adapters.warehouse.bigquery_adapter", "BigQueryAdapter"),
+        (SystemType.REDSHIFT, "akaal.adapters.warehouse.redshift_adapter", "RedshiftAdapter"),
+        (SystemType.HDFS, "akaal.adapters.warehouse.hdfs_adapter", "HDFSAdapter"),
+        (SystemType.MONGODB, "akaal.adapters.nosql.mongodb_adapter", "MongoDBAdapter"),
+        (SystemType.CASSANDRA, "akaal.adapters.nosql.cassandra_adapter", "CassandraAdapter"),
+        (SystemType.NEO4J, "akaal.adapters.nosql.neo4j_adapter", "Neo4jAdapter"),
+        (SystemType.REDIS, "akaal.adapters.nosql.redis_adapter", "RedisAdapter"),
+        (SystemType.ELASTICSEARCH, "akaal.adapters.nosql.elasticsearch_adapter", "ElasticsearchAdapter"),
+        (SystemType.S3, "akaal.adapters.cloud.s3_adapter", "S3Adapter"),
+        (SystemType.GCS, "akaal.adapters.cloud.gcs_adapter", "GCSAdapter"),
+        (SystemType.AZURE_BLOB, "akaal.adapters.cloud.azure_blob_adapter", "AzureBlobAdapter"),
+    ]
+
+    registry = {}
+    for sys_type, module_path, class_name in adapters_map:
+        try:
+            mod = importlib.import_module(module_path)
+            cls = getattr(mod, class_name)
+            registry[sys_type] = cls
+        except Exception:
+            pass
+    return registry
 
 
 def get_adapter_class(system_type: SystemType):

@@ -57,6 +57,14 @@ class ConnectionConfig:
     read_only: bool = True       # Source systems must always be read-only
     extra: Dict[str, Any] = field(default_factory=dict)
 
+    @property
+    def username(self) -> str:
+        return self.credentials_ref or self.extra.get("username", "")
+
+    @property
+    def password(self) -> str:
+        return self.extra.get("password", "")
+
     def __repr__(self) -> str:
         return (
             f"ConnectionConfig(type={self.system_type.value}, "

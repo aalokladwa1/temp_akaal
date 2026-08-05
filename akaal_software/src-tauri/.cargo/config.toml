@@ -1,6 +1,7 @@
 [build]
 jobs = 1
-rustflags = ["-C", "codegen-units=1"]
+target-dir = "C:/Users/AALOK/.cargo/target_akaal"
+rustflags = ["-C", "codegen-units=16", "-C", "link-arg=/STACK:33554432", "-C", "link-arg=/INCREMENTAL:NO"]
 
 [profile.dev]
 incremental = false
