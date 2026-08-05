@@ -534,14 +534,20 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
-                  <button
-                    type="button"
-                    onClick={handleTestTarget}
-                    disabled={testingTarget}
-                    style={{ padding: '9px 18px', borderRadius: 8, background: 'var(--dash-accent)', border: 'none', color: '#FFF', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-                  >
-                    {testingTarget ? 'Testing Connection...' : 'Test Target Connection (IPC)'}
-                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                    <button
+                      type="button"
+                      onClick={handleTestTarget}
+                      disabled={testingTarget}
+                      style={{ padding: '9px 18px', borderRadius: 8, background: 'var(--dash-accent)', border: 'none', color: '#FFF', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                    >
+                      {testingTarget ? 'Testing Connection...' : 'Test Target Connection (IPC)'}
+                    </button>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                      <input type="checkbox" checked={targetSsl} onChange={(e) => setTargetSsl(e.target.checked)} />
+                      SSL Encrypted Transport
+                    </label>
+                  </div>
                   {targetTested && (
                     <span style={{ fontSize: 12, color: '#10B981', fontWeight: 600 }}>✓ Verified Target (8ms Latency)</span>
                   )}

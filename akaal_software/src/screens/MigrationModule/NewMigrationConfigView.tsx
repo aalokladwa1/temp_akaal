@@ -607,14 +607,20 @@ export const NewMigrationConfigView: FC<NewMigrationConfigViewProps> = ({
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
-                <button
-                  type="button"
-                  onClick={handleTestTarget}
-                  disabled={testingTarget}
-                  style={{ padding: '9px 18px', borderRadius: 8, background: 'var(--dash-accent)', border: 'none', color: '#FFF', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-                >
-                  {testingTarget ? 'Testing Connection...' : 'Test Target Connection (IPC)'}
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                  <button
+                    type="button"
+                    onClick={handleTestTarget}
+                    disabled={testingTarget}
+                    style={{ padding: '9px 18px', borderRadius: 8, background: 'var(--dash-accent)', border: 'none', color: '#FFF', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                  >
+                    {testingTarget ? 'Testing Connection...' : 'Test Target Connection (IPC)'}
+                  </button>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                    <input type="checkbox" checked={targetSsl} onChange={(e) => setTargetSsl(e.target.checked)} />
+                    SSL Encrypted Transport
+                  </label>
+                </div>
                 {targetTested && (
                   <span style={{ fontSize: 12, color: '#10B981', fontWeight: 600 }}>✓ Verified Target ({targetTestDetails?.latency_ms || 8}ms Latency)</span>
                 )}
@@ -672,6 +678,26 @@ export const NewMigrationConfigView: FC<NewMigrationConfigViewProps> = ({
                     onChange={(e) => setIncludeSchemas(e.target.value)}
                     style={{ width: 220, padding: '6px 12px', borderRadius: 6, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 12 }}
                   />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 14 }}>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Golden Benchmark (GB) Validation Level</label>
+                  <select
+                    value={gbValidationLevel}
+                    onChange={(e) => setGbValidationLevel(e.target.value)}
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: 6, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 12 }}
+                  >
+                    <option value="Full Column Checksums & Row Counts">Full Column Checksums & Row Counts</option>
+                    <option value="Statistical Sampling Inspection">Statistical Sampling Inspection</option>
+                  </select>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', paddingTop: 16 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                    <input type="checkbox" checked={requireFourEyes} onChange={(e) => setRequireFourEyes(e.target.checked)} />
+                    Enforce Four-Eyes Approval Policy
+                  </label>
                 </div>
               </div>
 
@@ -1053,7 +1079,10 @@ export const NewMigrationConfigView: FC<NewMigrationConfigViewProps> = ({
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 16, borderTop: '1px solid var(--dash-border)' }}>
         <button
           type="button"
-          onClick={handleSaveDraft}
+          onClick={() => {
+            if (step > 1) setStep((s) => (s - 1) as any);
+            else handleSaveDraft();
+          }}
           style={{ padding: '8px 16px', borderRadius: 8, background: 'none', border: '1px solid var(--dash-border)', color: 'var(--dash-text-secondary)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
         >
           {step === 1 ? 'Cancel / Back' : '← Previous Step'}
@@ -1064,7 +1093,7 @@ export const NewMigrationConfigView: FC<NewMigrationConfigViewProps> = ({
             <button
               type="button"
               className={styles.resumeBtn}
-              onClick={() => handleStepChange(step + 1)}
+              onClick={() => setStep((s) => (s + 1) as any)}
               style={{ padding: '9px 20px', borderRadius: 8, background: 'var(--dash-accent)', color: '#FFF', border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
             >
               Continue to Step {step + 1} →
@@ -1075,7 +1104,7 @@ export const NewMigrationConfigView: FC<NewMigrationConfigViewProps> = ({
             <button
               type="button"
               className={styles.resumeBtn}
-              onClick={handleCompleteLaunchPrompt}
+              onClick={() => setShowInitializeConfirm(true)}
               style={{ padding: '9px 24px', borderRadius: 8, background: '#10B981', color: '#FFF', border: 'none', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
             >
               Initialize Migration & Launch Workspace
@@ -1089,14 +1118,14 @@ export const NewMigrationConfigView: FC<NewMigrationConfigViewProps> = ({
           isOpen={showDiscardConfirm}
           title="Discard Configuration Draft?"
           message="Are you sure you want to discard this configuration draft? All unsaved inputs will be cleared."
-          confirmLabel="Discard Draft"
-          cancelLabel="Continue Editing"
-          isDanger
+          confirmText="Discard Draft"
+          cancelText="Continue Editing"
+          severity="danger"
           onConfirm={() => {
             setShowDiscardConfirm(false);
             onBack();
           }}
-          onCancel={() => setShowDiscardConfirm(false)}
+          onClose={() => setShowDiscardConfirm(false)}
         />
       )}
 
@@ -1105,10 +1134,10 @@ export const NewMigrationConfigView: FC<NewMigrationConfigViewProps> = ({
           isOpen={showInitializeConfirm}
           title="Initialize Migration Execution?"
           message={`Are you ready to initialize "${migName || 'Oracle ERP Core Migration'}" on the AKAAL Runtime V3 Engine?`}
-          confirmLabel="Launch Migration"
-          cancelLabel="Review Plan"
+          confirmText="Launch Migration"
+          cancelText="Review Plan"
           onConfirm={handleCompleteLaunchConfirmed}
-          onCancel={() => setShowInitializeConfirm(false)}
+          onClose={() => setShowInitializeConfirm(false)}
         />
       )}
     </div>
