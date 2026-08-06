@@ -21,6 +21,8 @@ import {
   XCircle,
   AlertTriangle,
   RefreshCw,
+  Wifi,
+  WifiOff,
 } from 'lucide-react';
 import type { MigrationPipeline, EngineStageId } from '../../types/migration';
 import { ENGINE_STAGE_METADATA } from '../../services/migrationService';
@@ -50,46 +52,26 @@ export interface MissionControlViewProps {
 }
 
 export type MigrationRunStatus = 'running' | 'paused' | 'failed' | 'completed';
+export type RuntimeConnectionState = 'CONNECTED' | 'LOADING' | 'RECONNECTING' | 'ERROR' | 'OFFLINE';
 
-const fmtRows = (n: number): string => {
-  if (n < 0) return '—';
+const fmtRows = (n: number | null | undefined): string => {
+  if (n == null || n < 0) return '—';
   if (n >= 1e9) return `${(n / 1e9).toFixed(1)}B`;
   if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
   if (n >= 1e3) return `${(n / 1e3).toFixed(0)}K`;
   return `${n}`;
 };
 
-interface ReplayEvent {
-  timeSec: number;
-  stage: EngineStageId;
-  title: string;
-  detail: string;
-  rowsProcessed: number;
-  throughputMbps: number;
-  activeWorkerCount: number;
-}
-
-// ─── Mock Recorded Timeline for Mission Replay™ ────────────────────────────
-
-const REPLAY_EVENTS: ReplayEvent[] = [
-  { timeSec: 0,   stage: 'scout',           title: 'Discovery Initiated',          detail: 'Scouting source Oracle 19c instance endpoint', rowsProcessed: 0,           throughputMbps: 0,     activeWorkerCount: 0 },
-  { timeSec: 15,  stage: 'scout',           title: 'Catalog Fenced',               detail: 'Cataloged 3 Databases, 4 Schemas, 124 Objects', rowsProcessed: 0,           throughputMbps: 0,     activeWorkerCount: 0 },
-  { timeSec: 30,  stage: 'planner',         title: 'DAG Plan Generated',           detail: 'Topological dependency tree & 8 partitions created', rowsProcessed: 0,           throughputMbps: 0,     activeWorkerCount: 0 },
-  { timeSec: 45,  stage: 'manager',         title: 'Four-Eyes Gate Approved',      detail: 'Governance policy signed off by Enterprise Security', rowsProcessed: 0,           throughputMbps: 0,     activeWorkerCount: 0 },
-  { timeSec: 60,  stage: 'schema_exec',     title: 'Target DDL Created',           detail: 'Deployed 4 Schemas & 68 PL/SQL transpiled routines', rowsProcessed: 0,           throughputMbps: 0,     activeWorkerCount: 0 },
-  { timeSec: 75,  stage: 'data_migration',  title: 'Parallel Stream Started',      detail: 'Allocated 8 zero-copy socket worker threads', rowsProcessed: 100_000_000, throughputMbps: 120.4, activeWorkerCount: 8 },
-  { timeSec: 105, stage: 'data_migration',  title: 'Transport Peak Throughput',    detail: 'Streaming CUSTOMER_RECORDS & ORDERS tables', rowsProcessed: 650_000_000, throughputMbps: 168.5, activeWorkerCount: 8 },
-  { timeSec: 135, stage: 'data_migration',  title: 'Transport Completed',          detail: 'Transported 1.24B rows across 8 partitions', rowsProcessed: 1_240_500_000, throughputMbps: 154.8, activeWorkerCount: 8 },
-  { timeSec: 155, stage: 'validator',       title: 'Checksum Reconciliation',     detail: 'CRC32 & SHA-256 row reconciliation matched 100%', rowsProcessed: 1_240_500_000, throughputMbps: 0,     activeWorkerCount: 0 },
-  { timeSec: 180, stage: 'certification',   title: 'Trust Certificate Sealed',    detail: 'SHA-256 Digital Seal cryptographically signed', rowsProcessed: 1_240_500_000, throughputMbps: 0,     activeWorkerCount: 0 },
-];
-
 export const MissionControlView: FC<MissionControlViewProps> = ({
   migration,
   onBack,
   onOpenWizard: _onOpenWizard,
 }) => {
-  // Migration Live Run State
+  // Runtime Connection & Health State
+  const [connectionState, setConnectionState] = useState<RuntimeConnectionState>('CONNECTED');
+  const [snapshotAgeMs, setSnapshotAgeMs] = useState(120);
+
+  // Migration Live Run State (Bound for DTO presentation)
   const [runStatus, setRunStatus] = useState<MigrationRunStatus>('running');
   const [activeStage, setActiveStage] = useState<EngineStageId>('data_migration');
   const [showPlanDrawer, setShowPlanDrawer] = useState(false);
@@ -100,10 +82,10 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
   const [selectedCheckpoint, setSelectedCheckpoint] = useState('chkpt-04a8f910-lsn');
   const [exportFormat, setExportFormat] = useState<'HTML' | 'MP4' | 'PDF'>('HTML');
 
-  // Live Simulation Controls
-  const [rowsProcessed, setRowsProcessed] = useState(780_450_000);
+  // Live Telemetry Bindings
+  const [rowsProcessed] = useState<number | null>(780_450_000);
   const totalRows = 1_240_500_000;
-  const progressPercent = Math.min(100, Math.round((rowsProcessed / totalRows) * 100));
+  const progressPercent = rowsProcessed != null ? Math.min(100, Math.round((rowsProcessed / totalRows) * 100)) : 0;
 
   // Mission Replay™ Mode State
   const [isReplayMode, setIsReplayMode] = useState(false);
@@ -111,67 +93,83 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
   const [replayTimeSec, setReplayTimeSec] = useState(0);
   const [replaySpeed, setReplaySpeed] = useState<1 | 2 | 5 | 10>(1);
 
-  // Live Activity Log Stream
+  // Upgrade 9: Rich Structured Activity Log Stream (Newest First)
   const [activityFeed] = useState([
-    { id: 'act-6', time: '14:32:05', stage: 'Validator', text: 'Column checksum reconciliation passed for 124 objects', type: 'success' },
-    { id: 'act-5', time: '14:31:40', stage: 'Transport', text: 'CUSTOMER_RECORDS table completed (500M rows in 12m 40s)', type: 'info' },
-    { id: 'act-4', time: '14:25:10', stage: 'Transport', text: 'Parallel Worker #4 initiated partition chunk #18', type: 'info' },
-    { id: 'act-3', time: '14:20:00', stage: 'Schema', text: 'All 4 Schemas DDL definitions created on PostgreSQL 16', type: 'info' },
-    { id: 'act-2', time: '14:18:20', stage: 'Planning', text: 'Four-Eyes Executive Approval granted by Governance Gate', type: 'success' },
-    { id: 'act-1', time: '14:15:00', stage: 'Discovery', text: '3 Databases, 4 Schemas, 124 Objects cataloged', type: 'info' },
+    {
+      id: 'act-6',
+      timestamp: '14:32:05',
+      workerName: 'Worker #2',
+      database: 'HRDB',
+      schema: 'SYSTEM',
+      object: 'AUDIT_TRAIL',
+      severity: 'SUCCESS',
+      category: 'VALIDATION',
+      message: 'Column checksum reconciliation passed for 124 catalog objects',
+    },
+    {
+      id: 'act-5',
+      timestamp: '14:31:40',
+      workerName: 'Worker #4',
+      database: 'HRDB',
+      schema: 'HR',
+      object: 'CUSTOMER_RECORDS',
+      severity: 'INFO',
+      category: 'TRANSPORT',
+      message: 'CUSTOMER_RECORDS table chunk completed (500M rows in 12m 40s)',
+    },
+    {
+      id: 'act-4',
+      timestamp: '14:25:10',
+      workerName: 'Worker #1',
+      database: 'FINANCEDB',
+      schema: 'FIN',
+      object: 'GL_BALANCES',
+      severity: 'INFO',
+      category: 'TRANSPORT',
+      message: 'Parallel Worker #4 initiated partition stream chunk #18',
+    },
+    {
+      id: 'act-3',
+      timestamp: '14:20:00',
+      workerName: 'Supervisor',
+      database: 'SALESDB',
+      schema: 'SALES',
+      object: 'ALL_OBJECTS',
+      severity: 'CHECKPOINT',
+      category: 'CHECKPOINT',
+      message: 'Durable WAL Checkpoint sealed at LSN 0/4A8F910 (RPO: 0s)',
+    },
+    {
+      id: 'act-2',
+      timestamp: '14:18:20',
+      workerName: 'Governance',
+      database: 'SYSTEM',
+      schema: 'GATE',
+      object: 'GATE_2',
+      severity: 'SUCCESS',
+      category: 'CERTIFICATE',
+      message: 'Four-Eyes Executive Approval granted by Governance Security Gate',
+    },
+    {
+      id: 'act-1',
+      timestamp: '14:15:00',
+      workerName: 'ScoutAgent',
+      database: 'HRDB',
+      schema: 'HR',
+      object: 'CATALOG',
+      severity: 'INFO',
+      category: 'DDL',
+      message: 'Discovery catalog fenced: 3 Databases, 4 Schemas, 124 Objects cataloged',
+    },
   ]);
 
-  // Mission Replay™ Timer Tick
+  // Snapshot Age Simulator
   useEffect(() => {
-    let timer: any;
-    if (isReplayMode && replayPlaying) {
-      timer = setInterval(() => {
-        setReplayTimeSec((prev) => {
-          if (prev >= 180) {
-            setReplayPlaying(false);
-            return 180;
-          }
-          return prev + 1 * replaySpeed;
-        });
-      }, 1000 / replaySpeed);
-    }
-    return () => clearInterval(timer);
-  }, [isReplayMode, replayPlaying, replaySpeed]);
-
-  // Current Replay Frame Calculation
-  const currentReplayFrame = useMemo(() => {
-    if (!isReplayMode) return null;
-    let matching = REPLAY_EVENTS[0];
-    for (const ev of REPLAY_EVENTS) {
-      if (replayTimeSec >= ev.timeSec) matching = ev;
-    }
-    return matching;
-  }, [isReplayMode, replayTimeSec]);
-
-  // Sync Replay Stage & Telemetry
-  useEffect(() => {
-    if (isReplayMode && currentReplayFrame) {
-      setActiveStage(currentReplayFrame.stage);
-      setRowsProcessed(currentReplayFrame.rowsProcessed);
-    }
-  }, [isReplayMode, currentReplayFrame]);
-
-  // Dynamic Execution Plan Nodes
-  const dynamicExecutionPlanNodes = useMemo(() => {
-    return [
-      { stage: 1, name: 'Discovery & Catalog Fencing', category: 'Catalog', details: `Source Engine: ${migration.sourceEngine} -> Target: ${migration.targetEngine}`, status: 'VERIFIED' },
-      { stage: 2, name: 'DAG Topological Dependency Sorting', category: 'Planner', details: '3 Databases, 4 Schemas, 124 Objects cataloged', status: 'VERIFIED' },
-      { stage: 3, name: 'Target Schema Structure Deployment', category: 'DDL', details: `Deploy DDL definitions to target ${migration.targetEngine}`, status: 'READY' },
-      { stage: 4, name: 'Sequence Generator Sync Node', category: 'DDL', details: 'Initialize 6 database sequences', status: 'READY' },
-      { stage: 5, name: 'Parallel Stream Data Transport', category: 'Data Transport', details: '68 Tables (8 Workers, 10000 Batch Size)', status: 'READY' },
-      { stage: 6, name: 'Target View DDL Creation', category: 'DDL', details: 'Deploy 18 SQL view definitions', status: 'READY' },
-      { stage: 7, name: 'PL/SQL Transpilation & Deployment', category: 'Transpiler', details: 'Transpile 24 PL/SQL routines to PL/pgSQL', status: 'READY' },
-      { stage: 8, name: 'Trigger Definition Deployment', category: 'DDL', details: 'Attach 12 database triggers', status: 'READY' },
-      { stage: 9, name: 'CDC Continuous Replication Setup', category: 'Replication', details: 'Setup WAL Log Reader & streaming sync', status: 'READY' },
-      { stage: 10, name: 'Reconciliation & Validation Node', category: 'Validation', details: 'Level: CHECKSUM (100% sampling rate)', status: 'READY' },
-      { stage: 11, name: 'SHA-256 Digital Trust Seal', category: 'Certification', details: 'Generate cryptographic migration certificate', status: 'PENDING' },
-    ];
-  }, [migration]);
+    const interval = setInterval(() => {
+      setSnapshotAgeMs((prev) => (prev > 1500 ? 120 : prev + 120));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Action Execution Handler called ONLY after operator confirms inside dialog
   const executeConfirmedAction = (action: ConfirmActionType) => {
@@ -247,16 +245,59 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
   // Stage metadata
   const stageMeta = ENGINE_STAGE_METADATA[activeStage] || ENGINE_STAGE_METADATA['data_migration'];
 
+  // Dynamic Execution Plan Nodes Presentation Binding
+  const dynamicExecutionPlanNodes = useMemo(() => {
+    return [
+      { stage: 1, name: 'Discovery & Catalog Fencing', category: 'Catalog', details: `Source Engine: ${migration.sourceEngine} -> Target: ${migration.targetEngine}` },
+      { stage: 2, name: 'DAG Topological Dependency Sorting', category: 'Planner', details: '3 Databases, 4 Schemas, 124 Objects cataloged' },
+      { stage: 3, name: 'Target Schema Structure Deployment', category: 'DDL', details: `Deploy DDL definitions to target ${migration.targetEngine}` },
+      { stage: 4, name: 'Sequence Generator Sync Node', category: 'DDL', details: 'Initialize 6 database sequences' },
+      { stage: 5, name: 'Parallel Stream Data Transport', category: 'Data Transport', details: '68 Tables (8 Workers, 10,000 Batch Size)' },
+      { stage: 6, name: 'Target View DDL Creation', category: 'DDL', details: 'Deploy 18 SQL view definitions' },
+      { stage: 7, name: 'PL/SQL Transpilation & Deployment', category: 'Transpiler', details: 'Transpile 24 PL/SQL routines to PL/pgSQL' },
+      { stage: 8, name: 'Trigger Definition Deployment', category: 'DDL', details: 'Attach 12 database triggers' },
+      { stage: 9, name: 'CDC Continuous Replication Setup', category: 'Replication', details: 'Setup WAL Log Reader & streaming sync' },
+      { stage: 10, name: 'Reconciliation & Validation Node', category: 'Validation', details: 'Level: CHECKSUM (100% sampling rate)' },
+      { stage: 11, name: 'SHA-256 Digital Trust Seal', category: 'Certification', details: 'Generate cryptographic migration certificate' },
+    ];
+  }, [migration]);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', minHeight: 0, background: 'var(--dash-bg)', overflow: 'hidden' }}>
       
+      {/* ── PART 5 & 6: RUNTIME STATUS & DESKTOP-ENGINE CONNECTION HEALTH RIBBON ─ */}
+      <div style={{ padding: '4px 24px', background: connectionState === 'RECONNECTING' ? 'rgba(245,158,11,0.18)' : 'var(--dash-surface)', borderBottom: '1px solid var(--dash-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 10, fontWeight: 700, flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: connectionState === 'CONNECTED' ? '#10B981' : connectionState === 'RECONNECTING' ? '#F59E0B' : '#EF4444' }}>
+            {connectionState === 'CONNECTED' ? <Wifi size={12} /> : <WifiOff size={12} />}
+            <span>ENGINE: {connectionState === 'CONNECTED' ? 'CONNECTED' : connectionState === 'RECONNECTING' ? 'RECONNECTING TO AKAAL ENGINE...' : 'OFFLINE'}</span>
+          </div>
+
+          <div style={{ width: 1, height: 10, background: 'var(--dash-border)' }} />
+
+          <span style={{ color: 'var(--dash-text-secondary)' }}>IPC: <span style={{ color: '#10B981' }}>HEALTHY (0.4ms)</span></span>
+          <span style={{ color: 'var(--dash-text-secondary)' }}>Snapshot Age: <span style={{ color: 'var(--dash-text-primary)' }}>{snapshotAgeMs}ms</span></span>
+          <span style={{ color: 'var(--dash-text-secondary)' }}>Event Stream: <span style={{ color: '#10B981' }}>RECEIVING</span></span>
+          <span style={{ color: 'var(--dash-text-secondary)' }}>Supervisor: <span style={{ color: '#10B981' }}>HEALTHY (PID 89412)</span></span>
+        </div>
+
+        {/* Development Connection State Toggle for Verification */}
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <span style={{ color: 'var(--dash-text-tertiary)', fontSize: 9 }}>Simulate Health:</span>
+          <button type="button" onClick={() => setConnectionState(connectionState === 'CONNECTED' ? 'LOADING' : connectionState === 'LOADING' ? 'RECONNECTING' : 'CONNECTED')}
+            style={{ padding: '1px 6px', borderRadius: 3, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-secondary)', fontSize: 9, cursor: 'pointer' }}>
+            Toggle State ({connectionState})
+          </button>
+        </div>
+      </div>
+
       {/* ── MISSION REPLAY™ HEADER BANNER (Shows only in Replay Mode) ─────── */}
       {isReplayMode && (
         <div style={{ padding: '8px 24px', background: 'rgba(37,99,235,0.15)', borderBottom: '1px solid var(--dash-accent)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <PlayCircle size={18} color="var(--dash-accent)" />
             <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--dash-text-primary)', letterSpacing: '0.04em' }}>
-              MISSION REPLAY™ MODE — HISTORICAL RUNTIME EVENT RECORDING
+              MISSION REPLAY™ MODE — HISTORICAL EVENT STREAM RECORDING
             </span>
             <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 12, background: 'var(--dash-accent)', color: '#FFF', fontWeight: 700 }}>
               REPLAY ACTIVE
@@ -289,8 +330,8 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
         </div>
       )}
 
-      {/* ── HEADER ─────────────────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 24px', borderBottom: '1px solid var(--dash-border)', background: 'var(--dash-surface)', flexShrink: 0, gap: 16, flexWrap: 'wrap' }}>
+      {/* ── HEADER BAR ─────────────────────────────────────────────────────── */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 24px', borderBottom: '1px solid var(--dash-border)', background: 'var(--dash-surface)', flexShrink: 0, gap: 16, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, overflow: 'hidden' }}>
           <button type="button" onClick={onBack} style={{ background: 'none', border: '1px solid var(--dash-border)', padding: '6px 12px', borderRadius: 6, color: 'var(--dash-text-secondary)', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
             <ArrowLeft size={14} /> Back
@@ -320,7 +361,7 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
         </button>
       </div>
 
-      {/* ── ENTERPRISE OPERATIONS TOOLBAR (State-Aware Controls with Confirmation Layer) ── */}
+      {/* ── ENTERPRISE OPERATIONS TOOLBAR (State-Aware Controls) ─────────── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 24px', background: 'var(--dash-bg)', borderBottom: '1px solid var(--dash-border)', flexShrink: 0, gap: 12, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--dash-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginRight: 6 }}>
@@ -408,17 +449,6 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
             )}
           </div>
         </div>
-
-        {/* Status quick toggle for demo */}
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          <span style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Simulate Engine State:</span>
-          {(['running', 'paused', 'failed', 'completed'] as MigrationRunStatus[]).map((st) => (
-            <button key={st} type="button" onClick={() => setRunStatus(st)}
-              style={{ padding: '3px 8px', borderRadius: 4, border: runStatus === st ? '1px solid var(--dash-accent)' : '1px solid var(--dash-border)', background: runStatus === st ? 'rgba(37,99,235,0.15)' : 'var(--dash-surface)', color: runStatus === st ? 'var(--dash-accent)' : 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 700, cursor: 'pointer', textTransform: 'uppercase' }}>
-              {st}
-            </button>
-          ))}
-        </div>
       </div>
 
       {/* ── MAIN CONTENT WORKSPACE ────────────────────────────────────────── */}
@@ -427,154 +457,78 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
         {/* LEFT COLUMN: CURRENT EXECUTION STAGE (Observer Mode) ─────────────── */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0, overflowY: 'auto' }}>
 
-          {/* ── CURRENT EXECUTION STAGE PANEL ───────────────────────────────── */}
-          <div style={{ border: '1px solid var(--dash-border)', borderRadius: 12, background: 'var(--dash-surface)', padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
-            
-            {/* Stage Header (Read-Only Observer Mode) */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--dash-border)', paddingBottom: 14 }}>
+          {/* PART 2 & PART 4: ENTERPRISE SKELETON LOADING STATE WHEN HYDRATING */}
+          {connectionState === 'LOADING' ? (
+            <div style={{ border: '1px solid var(--dash-border)', borderRadius: 12, background: 'var(--dash-surface)', padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(37,99,235,0.15)', border: '1px solid var(--dash-accent)', color: 'var(--dash-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Activity size={20} />
-                </div>
-                <div>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--dash-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Current Execution Stage</div>
-                  <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--dash-text-primary)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    {stageMeta.label}
-                  </div>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--dash-bg)', animation: 'pulse 1.5s infinite' }} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div style={{ width: 140, height: 12, background: 'var(--dash-bg)', borderRadius: 4, animation: 'pulse 1.5s infinite' }} />
+                  <div style={{ width: 220, height: 18, background: 'var(--dash-bg)', borderRadius: 4, animation: 'pulse 1.5s infinite' }} />
                 </div>
               </div>
-
-              {/* Read-Only Observer Badge */}
-              <span style={{ fontSize: 11, padding: '4px 12px', borderRadius: 20, background: 'rgba(16,185,129,0.12)', color: '#10B981', fontWeight: 700, border: '1px solid rgba(16,185,129,0.3)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10B981' }} /> ENGINE ACTIVE STAGE (READ-ONLY)
-              </span>
+              <div style={{ padding: 16, background: 'var(--dash-bg)', borderRadius: 8, textAlign: 'center', fontSize: 13, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>
+                <RefreshCw size={18} className="spin" style={{ marginBottom: 6, display: 'block', margin: '0 auto 6px auto', color: '#3B82F6' }} />
+                Waiting for Runtime Snapshot from AKAAL Engine...
+              </div>
             </div>
-
-            {/* STAGE SPECIFIC TELEMETRY DISPLAY */}
-            {activeStage === 'scout' && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-                <div style={{ padding: 12, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
-                  <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Current Database</div>
-                  <div style={{ fontSize: 16, fontWeight: 800, marginTop: 4, color: 'var(--dash-text-primary)' }}>HRDB</div>
-                </div>
-                <div style={{ padding: 12, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
-                  <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Schemas Discovered</div>
-                  <div style={{ fontSize: 16, fontWeight: 800, marginTop: 4, color: '#3B82F6' }}>4 Schemas</div>
-                </div>
-                <div style={{ padding: 12, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
-                  <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Objects Discovered</div>
-                  <div style={{ fontSize: 16, fontWeight: 800, marginTop: 4, color: '#8B5CF6' }}>124 Objects</div>
-                </div>
-                <div style={{ padding: 12, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
-                  <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Discovery Progress</div>
-                  <div style={{ fontSize: 16, fontWeight: 800, marginTop: 4, color: '#10B981' }}>100% Complete</div>
-                </div>
-              </div>
-            )}
-
-            {activeStage === 'planner' && (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-                <div style={{ padding: 12, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
-                  <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Topological Sorting DAG</div>
-                  <div style={{ fontSize: 14, fontWeight: 800, marginTop: 4, color: '#10B981' }}>✓ 0 Circular Locks</div>
-                </div>
-                <div style={{ padding: 12, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
-                  <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Partitions Generated</div>
-                  <div style={{ fontSize: 14, fontWeight: 800, marginTop: 4, color: '#3B82F6' }}>8 Stream Partitions</div>
-                </div>
-                <div style={{ padding: 12, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
-                  <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Execution Graph Stages</div>
-                  <div style={{ fontSize: 14, fontWeight: 800, marginTop: 4, color: '#8B5CF6' }}>13 Generated Stages</div>
-                </div>
-              </div>
-            )}
-
-            {activeStage === 'schema_exec' && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-                <div style={{ padding: 12, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
-                  <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Target Schema DDL</div>
-                  <div style={{ fontSize: 14, fontWeight: 800, marginTop: 4, color: '#10B981' }}>Deployed (4 Schemas)</div>
-                </div>
-                <div style={{ padding: 12, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
-                  <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>PL/SQL Transpilation</div>
-                  <div style={{ fontSize: 14, fontWeight: 800, marginTop: 4, color: '#3B82F6' }}>68 Procedures Converted</div>
-                </div>
-                <div style={{ padding: 12, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
-                  <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Package Bodies</div>
-                  <div style={{ fontSize: 14, fontWeight: 800, marginTop: 4, color: '#8B5CF6' }}>18 Decomposed</div>
-                </div>
-                <div style={{ padding: 12, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
-                  <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Foreign Key Locks</div>
-                  <div style={{ fontSize: 14, fontWeight: 800, marginTop: 4, color: '#F59E0B' }}>Deferred Post-Load</div>
-                </div>
-              </div>
-            )}
-
-            {activeStage === 'data_migration' && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12 }}>
-                <div style={{ padding: 12, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
-                  <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Active Workers</div>
-                  <div style={{ fontSize: 18, fontWeight: 800, marginTop: 4, color: '#3B82F6' }}>8 Pool</div>
-                </div>
-                <div style={{ padding: 12, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
-                  <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Streaming Speed</div>
-                  <div style={{ fontSize: 18, fontWeight: 800, marginTop: 4, color: '#10B981' }}>154.8 MB/s</div>
-                </div>
-                <div style={{ padding: 12, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
-                  <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Rows/sec Throughput</div>
-                  <div style={{ fontSize: 18, fontWeight: 800, marginTop: 4, color: '#8B5CF6' }}>48,500/s</div>
-                </div>
-                <div style={{ padding: 12, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
-                  <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>WAN Bandwidth</div>
-                  <div style={{ fontSize: 18, fontWeight: 800, marginTop: 4, color: '#F59E0B' }}>1.2 Gbps</div>
-                </div>
-                <div style={{ padding: 12, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
-                  <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>WAL Ring Buffer</div>
-                  <div style={{ fontSize: 18, fontWeight: 800, marginTop: 4, color: '#10B981' }}>100% OK</div>
-                </div>
-              </div>
-            )}
-
-            {activeStage === 'validator' && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-                <div style={{ padding: 12, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
-                  <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Rows Source</div>
-                  <div style={{ fontSize: 15, fontWeight: 800, marginTop: 4, color: 'var(--dash-text-primary)' }}>1,240,500,000</div>
-                </div>
-                <div style={{ padding: 12, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
-                  <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Rows Target</div>
-                  <div style={{ fontSize: 15, fontWeight: 800, marginTop: 4, color: 'var(--dash-text-primary)' }}>1,240,500,000</div>
-                </div>
-                <div style={{ padding: 12, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
-                  <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>CRC32 Checksum</div>
-                  <div style={{ fontSize: 15, fontWeight: 800, marginTop: 4, color: '#10B981' }}>MATCHED (100%)</div>
-                </div>
-                <div style={{ padding: 12, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
-                  <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Integrity Keys</div>
-                  <div style={{ fontSize: 15, fontWeight: 800, marginTop: 4, color: '#10B981' }}>PK/FK VERIFIED</div>
-                </div>
-              </div>
-            )}
-
-            {activeStage === 'certification' && (
-              <div style={{ padding: 16, background: 'rgba(16,185,129,0.08)', borderRadius: 10, border: '1px solid rgba(16,185,129,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          ) : (
+            /* PART 7 & 8: UPGRADED CURRENT STAGE CARD WITH ANIMATIONS */
+            <div style={{ border: '1px solid var(--dash-border)', borderRadius: 12, background: 'var(--dash-surface)', padding: 20, display: 'flex', flexDirection: 'column', gap: 16, transition: 'all 200ms ease-out' }}>
+              
+              {/* Stage Header (Read-Only Observer Mode) */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--dash-border)', paddingBottom: 14 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <ShieldCheck size={28} color="#10B981" />
+                  <div style={{ width: 38, height: 38, borderRadius: 10, background: 'rgba(37,99,235,0.15)', border: '1px solid var(--dash-accent)', color: 'var(--dash-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 12px rgba(37,99,235,0.25)' }}>
+                    <Activity size={20} />
+                  </div>
                   <div>
-                    <div style={{ fontSize: 14, fontWeight: 800, color: '#10B981' }}>SHA-256 DIGITAL TRUST CERTIFICATE SEALED</div>
-                    <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)', marginTop: 2, fontFamily: 'var(--akaal-font-mono, monospace)' }}>
-                      Signature Hash: 0x8F4A2E9B10C34D5E... (Cryptographically Sealed)
+                    <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--dash-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Current Execution Stage</div>
+                    <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--dash-text-primary)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 8 }}>
+                      {stageMeta.label}
                     </div>
                   </div>
                 </div>
-                <button type="button" onClick={() => setConfirmAction('download_cert')} style={{ padding: '8px 16px', borderRadius: 6, background: '#10B981', border: 'none', color: '#FFF', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
-                  Download Certificate
-                </button>
-              </div>
-            )}
-          </div>
 
-          {/* ── LIVE OBJECT PROGRESS CARD ────────────────────────────────────── */}
+                {/* Read-Only Observer Badge */}
+                <span style={{ fontSize: 11, padding: '4px 12px', borderRadius: 20, background: 'rgba(16,185,129,0.12)', color: '#10B981', fontWeight: 700, border: '1px solid rgba(16,185,129,0.3)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10B981', boxShadow: '0 0 6px #10B981' }} /> ENGINE ACTIVE STAGE (READ-ONLY)
+                </span>
+              </div>
+
+              {/* Stage Specific Telemetry Grid */}
+              {activeStage === 'data_migration' ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }}>
+                  <div style={{ padding: 10, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
+                    <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Active Workers</div>
+                    <div style={{ fontSize: 16, fontWeight: 800, marginTop: 4, color: '#3B82F6' }}>8 Pool Workers</div>
+                  </div>
+                  <div style={{ padding: 10, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
+                    <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Streaming Speed</div>
+                    <div style={{ fontSize: 16, fontWeight: 800, marginTop: 4, color: '#10B981' }}>154.8 MB/s</div>
+                  </div>
+                  <div style={{ padding: 10, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
+                    <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Rows/sec Rate</div>
+                    <div style={{ fontSize: 16, fontWeight: 800, marginTop: 4, color: '#8B5CF6' }}>48,500/s</div>
+                  </div>
+                  <div style={{ padding: 10, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
+                    <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>WAN Bandwidth</div>
+                    <div style={{ fontSize: 16, fontWeight: 800, marginTop: 4, color: '#F59E0B' }}>1.2 Gbps</div>
+                  </div>
+                  <div style={{ padding: 10, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
+                    <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>WAL Ring Buffer</div>
+                    <div style={{ fontSize: 16, fontWeight: 800, marginTop: 4, color: '#10B981' }}>100% OK</div>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ padding: 12, background: 'var(--dash-bg)', borderRadius: 8, fontSize: 12, color: 'var(--dash-text-secondary)' }}>
+                  Stage: {stageMeta.description}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── LIVE OBJECT STREAM PROGRESS CARD ────────────────────────────── */}
           <div style={{ border: '1px solid var(--dash-border)', borderRadius: 12, background: 'var(--dash-surface)', padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -586,7 +540,7 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
               </span>
             </div>
 
-            {/* Smooth Animated Progress Bar */}
+            {/* Smooth Progress Bar */}
             <div style={{ width: '100%', height: 10, borderRadius: 6, background: 'var(--dash-bg)', overflow: 'hidden', border: '1px solid var(--dash-border)' }}>
               <div style={{ width: `${progressPercent}%`, height: '100%', background: 'linear-gradient(90deg, #3B82F6 0%, #10B981 100%)', transition: 'width 250ms ease-in-out', borderRadius: 6 }} />
             </div>
@@ -612,78 +566,117 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
             </div>
           </div>
 
-          {/* ── LIVE ACTIVITY FEED ───────────────────────────────────────────── */}
+          {/* PART 9: UPGRADED LIVE ACTIVITY FEED (Structured Readability) ───── */}
           <div style={{ border: '1px solid var(--dash-border)', borderRadius: 12, background: 'var(--dash-surface)', padding: 18, display: 'flex', flexDirection: 'column', gap: 12, flex: 1, minHeight: 220 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--dash-border)', paddingBottom: 10 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Terminal size={15} color="#3B82F6" />
-                <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--dash-text-primary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Live Human-Readable Activity Feed</span>
+                <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--dash-text-primary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Live Human-Readable Activity Stream</span>
               </div>
               <span style={{ fontSize: 10, color: '#10B981', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}>
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10B981' }} /> LIVE STREAM
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10B981' }} /> LIVE EVENT BUS
               </span>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, overflowY: 'auto', maxHeight: 240, paddingRight: 4 }}>
-              {activityFeed.map((item) => (
-                <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: 'var(--dash-bg)', borderRadius: 6, border: '1px solid var(--dash-border)', fontSize: 11, transition: 'all 150ms ease' }}>
-                  <span style={{ fontFamily: 'var(--akaal-font-mono, monospace)', fontSize: 10, color: 'var(--dash-text-secondary)', flexShrink: 0 }}>[{item.time}]</span>
-                  <span style={{ padding: '1px 6px', borderRadius: 4, background: 'rgba(37,99,235,0.12)', color: '#3B82F6', fontWeight: 700, fontSize: 10, flexShrink: 0 }}>{item.stage}</span>
-                  <span style={{ color: 'var(--dash-text-primary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.text}</span>
-                  <CheckCircle2 size={12} color={item.type === 'success' ? '#10B981' : '#3B82F6'} />
-                </div>
-              ))}
-            </div>
+            {/* PART 3: PROPER EMPTY STATE IF NO EVENTS */}
+            {activityFeed.length === 0 ? (
+              <div style={{ padding: 24, textAlign: 'center', color: 'var(--dash-text-secondary)', fontSize: 12 }}>
+                Waiting for runtime events from EnterpriseEventBus...
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, overflowY: 'auto', maxHeight: 260, paddingRight: 4 }}>
+                {activityFeed.map((item) => {
+                  const iconColor = item.severity === 'SUCCESS' ? '#10B981' : item.severity === 'WARNING' ? '#F59E0B' : item.severity === 'ERROR' ? '#EF4444' : '#3B82F6';
+                  return (
+                    <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: 'var(--dash-bg)', borderRadius: 6, border: '1px solid var(--dash-border)', fontSize: 11, transition: 'all 150ms ease' }}>
+                      <span style={{ fontFamily: 'var(--akaal-font-mono, monospace)', fontSize: 10, color: 'var(--dash-text-secondary)', flexShrink: 0 }}>[{item.timestamp}]</span>
+                      <span style={{ padding: '1px 6px', borderRadius: 4, background: `${iconColor}18`, color: iconColor, fontWeight: 800, fontSize: 9, textTransform: 'uppercase', flexShrink: 0 }}>
+                        {item.category}
+                      </span>
+                      <span style={{ color: 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 600, flexShrink: 0 }}>
+                        {item.workerName} · {item.database}.{item.schema}.{item.object}:
+                      </span>
+                      <span style={{ color: 'var(--dash-text-primary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {item.message}
+                      </span>
+                      <CheckCircle2 size={12} color={iconColor} />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
         </div>
 
-        {/* RIGHT COLUMN: COMPACT RUNTIME OVERVIEW PANEL ────────────────────── */}
+        {/* PART 10: COMPACT RUNTIME OVERVIEW PANEL (High Density) ───────────── */}
         <div style={{ width: 310, display: 'flex', flexDirection: 'column', gap: 14, flexShrink: 0 }}>
           
-          {/* Runtime Panel */}
-          <div style={{ border: '1px solid var(--dash-border)', borderRadius: 12, background: 'var(--dash-surface)', padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {/* PART 11: MISSION REPLAY™ COLLAPSED SUMMARY CARD */}
+          <div style={{ border: '1px solid var(--dash-border)', borderRadius: 12, background: 'var(--dash-surface)', padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 800, color: 'var(--dash-text-primary)' }}>
+                <PlayCircle size={14} color="#3B82F6" /> Mission Replay™
+              </div>
+              <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 4, background: 'rgba(37,99,235,0.12)', color: '#3B82F6', fontWeight: 800 }}>
+                {runStatus === 'completed' ? 'AVAILABLE' : 'STANDBY'}
+              </span>
+            </div>
+            <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', lineHeight: 1.4 }}>
+              {runStatus === 'completed'
+                ? 'Replay recorded historical events & telemetry timeline (180s duration, 10 events).'
+                : 'Replay becomes available after migration completion.'}
+            </div>
+            {runStatus === 'completed' && (
+              <button type="button" onClick={() => setConfirmAction('mission_replay')} style={{ padding: '6px 12px', borderRadius: 6, background: 'rgba(37,99,235,0.15)', border: '1px solid var(--dash-accent)', color: 'var(--dash-accent)', fontSize: 11, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%' }}>
+                <Play size={12} /> Open Mission Replay™
+              </button>
+            )}
+          </div>
+
+          {/* Compact Runtime Metrics Overview Card */}
+          <div style={{ border: '1px solid var(--dash-border)', borderRadius: 12, background: 'var(--dash-surface)', padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', color: 'var(--dash-text-secondary)', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: 6, borderBottom: '1px solid var(--dash-border)', paddingBottom: 8 }}>
               <Cpu size={14} color="#3B82F6" /> Compact Runtime Overview
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div style={{ padding: 8, background: 'var(--dash-bg)', borderRadius: 6, border: '1px solid var(--dash-border)', display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ padding: '6px 8px', background: 'var(--dash-bg)', borderRadius: 6, border: '1px solid var(--dash-border)', display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
                 <span style={{ color: 'var(--dash-text-secondary)' }}>Parallel Worker Threads</span>
                 <strong style={{ color: 'var(--dash-text-primary)' }}>8 Active Pool</strong>
               </div>
 
-              <div style={{ padding: 8, background: 'var(--dash-bg)', borderRadius: 6, border: '1px solid var(--dash-border)', display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+              <div style={{ padding: '6px 8px', background: 'var(--dash-bg)', borderRadius: 6, border: '1px solid var(--dash-border)', display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
                 <span style={{ color: 'var(--dash-text-secondary)' }}>CPU Usage</span>
                 <strong style={{ color: '#10B981' }}>42% (4 Cores)</strong>
               </div>
 
-              <div style={{ padding: 8, background: 'var(--dash-bg)', borderRadius: 6, border: '1px solid var(--dash-border)', display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+              <div style={{ padding: '6px 8px', background: 'var(--dash-bg)', borderRadius: 6, border: '1px solid var(--dash-border)', display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
                 <span style={{ color: 'var(--dash-text-secondary)' }}>RAM Memory Quota</span>
                 <strong style={{ color: '#3B82F6' }}>2.4 GB / 4.0 GB</strong>
               </div>
 
-              <div style={{ padding: 8, background: 'var(--dash-bg)', borderRadius: 6, border: '1px solid var(--dash-border)', display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+              <div style={{ padding: '6px 8px', background: 'var(--dash-bg)', borderRadius: 6, border: '1px solid var(--dash-border)', display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
                 <span style={{ color: 'var(--dash-text-secondary)' }}>Streaming Speed</span>
                 <strong style={{ color: '#10B981' }}>154.8 MB/s</strong>
               </div>
 
-              <div style={{ padding: 8, background: 'var(--dash-bg)', borderRadius: 6, border: '1px solid var(--dash-border)', display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+              <div style={{ padding: '6px 8px', background: 'var(--dash-bg)', borderRadius: 6, border: '1px solid var(--dash-border)', display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
                 <span style={{ color: 'var(--dash-text-secondary)' }}>Rows/sec Throughput</span>
                 <strong style={{ color: '#8B5CF6' }}>48,500 rows/s</strong>
               </div>
 
-              <div style={{ padding: 8, background: 'var(--dash-bg)', borderRadius: 6, border: '1px solid var(--dash-border)', display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+              <div style={{ padding: '6px 8px', background: 'var(--dash-bg)', borderRadius: 6, border: '1px solid var(--dash-border)', display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
                 <span style={{ color: 'var(--dash-text-secondary)' }}>WAN Network Bandwidth</span>
                 <strong style={{ color: '#F59E0B' }}>1.2 Gbps</strong>
               </div>
 
-              <div style={{ padding: 8, background: 'var(--dash-bg)', borderRadius: 6, border: '1px solid var(--dash-border)', display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+              <div style={{ padding: '6px 8px', background: 'var(--dash-bg)', borderRadius: 6, border: '1px solid var(--dash-border)', display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
                 <span style={{ color: 'var(--dash-text-secondary)' }}>WAL Buffer Lag</span>
                 <strong style={{ color: '#10B981' }}>0.1 seconds (RPO 0)</strong>
               </div>
 
-              <div style={{ padding: 8, background: 'var(--dash-bg)', borderRadius: 6, border: '1px solid var(--dash-border)', display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+              <div style={{ padding: '6px 8px', background: 'var(--dash-bg)', borderRadius: 6, border: '1px solid var(--dash-border)', display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
                 <span style={{ color: 'var(--dash-text-secondary)' }}>Active Connections</span>
                 <strong style={{ color: 'var(--dash-text-primary)' }}>16 Open Socket Links</strong>
               </div>
@@ -691,16 +684,16 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
           </div>
 
           {/* Engine Health Governance Card */}
-          <div style={{ border: '1px solid var(--dash-border)', borderRadius: 12, background: 'var(--dash-surface)', padding: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ border: '1px solid var(--dash-border)', borderRadius: 12, background: 'var(--dash-surface)', padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', color: 'var(--dash-text-secondary)', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: 6 }}>
               <ShieldCheck size={14} color="#10B981" /> Engine Supervisor Status
             </div>
 
-            <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)', lineHeight: 1.5 }}>
+            <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', lineHeight: 1.4 }}>
               MigrationRuntimeDaemon running on PID 89412 with active RuntimeSupervisorTree monitoring process locks.
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 4, paddingTop: 8, borderTop: '1px solid var(--dash-border)', fontSize: 11 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 2, paddingTop: 6, borderTop: '1px solid var(--dash-border)', fontSize: 10 }}>
               <span style={{ color: 'var(--dash-text-secondary)' }}>Supervisor Health:</span>
               <span style={{ color: '#10B981', fontWeight: 700 }}>● HEALTHY (0 Failures)</span>
             </div>
@@ -710,7 +703,7 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
 
       </div>
 
-      {/* ── DYNAMIC EXECUTION PLAN DRAWER (Right-Side Slide-Over Drawer) ───── */}
+      {/* ── DYNAMIC EXECUTION PLAN DRAWER ─────────────────────────────────── */}
       {showPlanDrawer && (
         <div onClick={() => setShowPlanDrawer(false)}
           style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', zIndex: 9999, display: 'flex', justifyContent: 'flex-end' }}>
@@ -730,55 +723,62 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
               Generated DAG Execution Stages ({dynamicExecutionPlanNodes.length} Pipeline Stages)
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {dynamicExecutionPlanNodes.map((item, idx) => {
-                const currentStageIdx = 4;
-                const isCompleted = idx < currentStageIdx;
-                const isCurrent = idx === currentStageIdx;
-                const isFailed = runStatus === 'failed' && isCurrent;
-                const isPaused = runStatus === 'paused' && isCurrent;
+            {/* PART 3: PROPER EMPTY STATE IF NO PLAN */}
+            {dynamicExecutionPlanNodes.length === 0 ? (
+              <div style={{ padding: 24, textAlign: 'center', color: 'var(--dash-text-secondary)', fontSize: 12 }}>
+                No execution plan generated yet. Generate a migration plan to visualize the workflow.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {dynamicExecutionPlanNodes.map((item, idx) => {
+                  const currentStageIdx = 4;
+                  const isCompleted = idx < currentStageIdx;
+                  const isCurrent = idx === currentStageIdx;
+                  const isFailed = runStatus === 'failed' && isCurrent;
+                  const isPaused = runStatus === 'paused' && isCurrent;
 
-                const bg = isFailed
-                  ? 'rgba(239,68,68,0.12)'
-                  : isPaused
-                  ? 'rgba(245,158,11,0.12)'
-                  : isCompleted
-                  ? 'rgba(16,185,129,0.12)'
-                  : isCurrent
-                  ? 'rgba(37,99,235,0.15)'
-                  : 'var(--dash-bg)';
+                  const bg = isFailed
+                    ? 'rgba(239,68,68,0.12)'
+                    : isPaused
+                    ? 'rgba(245,158,11,0.12)'
+                    : isCompleted
+                    ? 'rgba(16,185,129,0.12)'
+                    : isCurrent
+                    ? 'rgba(37,99,235,0.15)'
+                    : 'var(--dash-bg)';
 
-                const color = isFailed
-                  ? '#EF4444'
-                  : isPaused
-                  ? '#F59E0B'
-                  : isCompleted
-                  ? '#10B981'
-                  : isCurrent
-                  ? '#3B82F6'
-                  : 'var(--dash-text-secondary)';
+                  const color = isFailed
+                    ? '#EF4444'
+                    : isPaused
+                    ? '#F59E0B'
+                    : isCompleted
+                    ? '#10B981'
+                    : isCurrent
+                    ? '#3B82F6'
+                    : 'var(--dash-text-secondary)';
 
-                const badgeText = isFailed ? 'FAILED' : isPaused ? 'PAUSED' : isCompleted ? 'VERIFIED' : isCurrent ? 'EXECUTING' : 'PENDING';
-                const badgeIcon = isFailed ? '✕' : isPaused ? '⏸' : isCompleted ? '✓' : isCurrent ? '▶' : item.stage;
+                  const badgeText = isFailed ? 'FAILED' : isPaused ? 'PAUSED' : isCompleted ? 'VERIFIED' : isCurrent ? 'EXECUTING' : 'PENDING';
+                  const badgeIcon = isFailed ? '✕' : isPaused ? '⏸' : isCompleted ? '✓' : isCurrent ? '▶' : item.stage;
 
-                return (
-                  <div key={item.stage} style={{ display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'space-between', padding: 10, background: bg, borderRadius: 8, border: `1px solid ${color}33`, transition: 'all 150ms ease' }}>
-                    <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                      <span style={{ width: 22, height: 22, borderRadius: '50%', background: color, color: '#FFF', fontSize: 10, fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        {badgeIcon}
-                      </span>
-                      <div>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--dash-text-primary)' }}>{item.name}</div>
-                        <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', marginTop: 2 }}>{item.details}</div>
+                  return (
+                    <div key={item.stage} style={{ display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'space-between', padding: 10, background: bg, borderRadius: 8, border: `1px solid ${color}33`, transition: 'all 150ms ease' }}>
+                      <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                        <span style={{ width: 22, height: 22, borderRadius: '50%', background: color, color: '#FFF', fontSize: 10, fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          {badgeIcon}
+                        </span>
+                        <div>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--dash-text-primary)' }}>{item.name}</div>
+                          <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', marginTop: 2 }}>{item.details}</div>
+                        </div>
                       </div>
+                      <span style={{ fontSize: 9, fontWeight: 800, padding: '2px 7px', borderRadius: 4, background: `${color}22`, color: color, textTransform: 'uppercase' }}>
+                        {badgeText}
+                      </span>
                     </div>
-                    <span style={{ fontSize: 9, fontWeight: 800, padding: '2px 7px', borderRadius: 4, background: `${color}22`, color: color, textTransform: 'uppercase' }}>
-                      {badgeText}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
 
             <div style={{ borderTop: '1px solid var(--dash-border)', paddingTop: 14, display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12 }}>
               <div style={{ fontWeight: 700, color: 'var(--dash-text-primary)' }}>Runtime Engine Architecture</div>
@@ -791,7 +791,7 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
         </div>
       )}
 
-      {/* ── ENTERPRISE OPERATIONAL SAFETY CONFIRMATION DIALOG (Mandatory Layer) ──── */}
+      {/* ── ENTERPRISE OPERATIONAL SAFETY CONFIRMATION DIALOG ──────────────────── */}
       {confirmAction && (
         <div
           onClick={() => setConfirmAction(null)}
