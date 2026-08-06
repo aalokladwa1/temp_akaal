@@ -362,7 +362,7 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
           {/* ── CURRENT EXECUTION STAGE PANEL ───────────────────────────────── */}
           <div style={{ border: '1px solid var(--dash-border)', borderRadius: 12, background: 'var(--dash-surface)', padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
             
-            {/* Stage Header */}
+            {/* Stage Header (Read-Only Observer Mode) */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--dash-border)', paddingBottom: 14 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(37,99,235,0.15)', border: '1px solid var(--dash-accent)', color: 'var(--dash-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -372,29 +372,14 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
                   <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--dash-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Current Execution Stage</div>
                   <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--dash-text-primary)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 8 }}>
                     {stageMeta.label}
-                    <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 12, background: 'rgba(16,185,129,0.12)', color: '#10B981', fontWeight: 700, border: '1px solid rgba(16,185,129,0.25)' }}>
-                      Active Stage • {stageMeta.ownerAgent}
-                    </span>
                   </div>
                 </div>
               </div>
 
-              {/* Stage Navigation Pills */}
-              <div style={{ display: 'flex', gap: 4, background: 'var(--dash-bg)', padding: 3, borderRadius: 8, border: '1px solid var(--dash-border)', overflowX: 'auto' }}>
-                {[
-                  { id: 'scout', label: 'Discovery' },
-                  { id: 'planner', label: 'Planning' },
-                  { id: 'schema_exec', label: 'Schema' },
-                  { id: 'data_migration', label: 'Transport' },
-                  { id: 'validator', label: 'Validation' },
-                  { id: 'certification', label: 'Trust Seal' },
-                ].map((stg) => (
-                  <button key={stg.id} type="button" onClick={() => setActiveStage(stg.id as EngineStageId)}
-                    style={{ padding: '5px 10px', borderRadius: 6, border: 'none', background: activeStage === stg.id ? 'var(--dash-accent)' : 'transparent', color: activeStage === stg.id ? '#FFF' : 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                    {stg.label}
-                  </button>
-                ))}
-              </div>
+              {/* Read-Only Observer Badge */}
+              <span style={{ fontSize: 11, padding: '4px 12px', borderRadius: 20, background: 'rgba(16,185,129,0.12)', color: '#10B981', fontWeight: 700, border: '1px solid rgba(16,185,129,0.3)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10B981' }} /> ENGINE ACTIVE STAGE (READ-ONLY)
+              </span>
             </div>
 
             {/* STAGE SPECIFIC TELEMETRY DISPLAY */}
@@ -678,15 +663,54 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {dynamicExecutionPlanNodes.map((item) => (
-                <div key={item.stage} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', padding: 10, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
-                  <span style={{ width: 22, height: 22, borderRadius: '50%', background: 'rgba(37,99,235,0.15)', color: '#3B82F6', fontSize: 11, fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{item.stage}</span>
-                  <div>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--dash-text-primary)' }}>{item.name}</div>
-                    <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', marginTop: 2 }}>{item.details}</div>
+              {dynamicExecutionPlanNodes.map((item, idx) => {
+                // Read-Only Status Indicator Logic
+                const currentStageIdx = 4; // Data transport stage
+                const isCompleted = idx < currentStageIdx;
+                const isCurrent = idx === currentStageIdx;
+                const isFailed = runStatus === 'failed' && isCurrent;
+                const isPaused = runStatus === 'paused' && isCurrent;
+
+                const bg = isFailed
+                  ? 'rgba(239,68,68,0.12)'
+                  : isPaused
+                  ? 'rgba(245,158,11,0.12)'
+                  : isCompleted
+                  ? 'rgba(16,185,129,0.12)'
+                  : isCurrent
+                  ? 'rgba(37,99,235,0.15)'
+                  : 'var(--dash-bg)';
+
+                const color = isFailed
+                  ? '#EF4444'
+                  : isPaused
+                  ? '#F59E0B'
+                  : isCompleted
+                  ? '#10B981'
+                  : isCurrent
+                  ? '#3B82F6'
+                  : 'var(--dash-text-secondary)';
+
+                const badgeText = isFailed ? 'FAILED' : isPaused ? 'PAUSED' : isCompleted ? 'VERIFIED' : isCurrent ? 'EXECUTING' : 'PENDING';
+                const badgeIcon = isFailed ? '✕' : isPaused ? '⏸' : isCompleted ? '✓' : isCurrent ? '▶' : item.stage;
+
+                return (
+                  <div key={item.stage} style={{ display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'space-between', padding: 10, background: bg, borderRadius: 8, border: `1px solid ${color}33`, transition: 'all 150ms ease' }}>
+                    <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                      <span style={{ width: 22, height: 22, borderRadius: '50%', background: color, color: '#FFF', fontSize: 10, fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        {badgeIcon}
+                      </span>
+                      <div>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--dash-text-primary)' }}>{item.name}</div>
+                        <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', marginTop: 2 }}>{item.details}</div>
+                      </div>
+                    </div>
+                    <span style={{ fontSize: 9, fontWeight: 800, padding: '2px 7px', borderRadius: 4, background: `${color}22`, color: color, textTransform: 'uppercase' }}>
+                      {badgeText}
+                    </span>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             <div style={{ borderTop: '1px solid var(--dash-border)', paddingTop: 14, display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12 }}>

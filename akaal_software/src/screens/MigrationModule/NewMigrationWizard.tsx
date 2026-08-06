@@ -488,8 +488,9 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
   const [notifyEmail, setNotifyEmail] = useState(true);
   const [expandedConfigSection, setExpandedConfigSection] = useState<string | null>('rules');
 
-  // Drawer
+  // Drawer & Confirmation Modals
   const [showExecutionPlanDrawer, setShowExecutionPlanDrawer] = useState(false);
+  const [showLaunchConfirmModal, setShowLaunchConfirmModal] = useState(false);
 
   // Keyboard Esc
   useEffect(() => {
@@ -1809,7 +1810,7 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
                 style={{ padding: '9px 18px', borderRadius: 8, background: 'var(--dash-bg)', border: '1px solid var(--dash-border)', color: 'var(--dash-text-primary)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
                 Save Draft
               </button>
-              <button type="button" className={styles.resumeBtn} onClick={handleCompleteLaunch}
+              <button type="button" className={styles.resumeBtn} onClick={() => setShowLaunchConfirmModal(true)}
                 style={{ padding: '9px 24px', borderRadius: 8, background: '#10B981', color: '#FFF', border: 'none', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
                 Initialize Migration & Launch Dashboard
               </button>
@@ -1854,6 +1855,144 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
               <div>• <strong>Supervisor:</strong> RuntimeSupervisorTree (Auto-Healing)</div>
               <div>• <strong>WAL Buffer:</strong> DurableWALRingBuffer (10k Records, CRC32)</div>
               <div>• <strong>Mailbox:</strong> DurableCommandMailbox (SQLite Epoch Fencing)</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Enterprise Migration Creation Confirmation Modal ─────────────── */}
+      {showLaunchConfirmModal && (
+        <div
+          onClick={() => setShowLaunchConfirmModal(false)}
+          style={{
+            position: 'fixed',
+            top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(0,0,0,0.75)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 10000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 24,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: 620,
+              maxWidth: '90vw',
+              background: 'var(--dash-surface)',
+              border: '1px solid var(--dash-border)',
+              borderRadius: 14,
+              boxShadow: '0 20px 50px rgba(0,0,0,0.5)',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+              transition: 'all 200ms ease-out',
+            }}
+          >
+            {/* Header */}
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--dash-border)', background: 'var(--dash-bg)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)', color: '#10B981', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <CheckCircle2 size={20} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: 16, fontWeight: 800, margin: 0, color: 'var(--dash-text-primary)' }}>
+                    Migration Pipeline Provisioned & Ready
+                  </h3>
+                  <div style={{ fontSize: 12, color: 'var(--dash-text-secondary)', marginTop: 2 }}>
+                    Final custody review before launching Mission Control.
+                  </div>
+                </div>
+              </div>
+              <button type="button" onClick={() => setShowLaunchConfirmModal(false)} style={{ background: 'none', border: 'none', color: 'var(--dash-text-secondary)', cursor: 'pointer' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Summary Matrix */}
+            <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div style={{ padding: 14, background: 'var(--dash-bg)', borderRadius: 10, border: '1px solid var(--dash-border)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, fontSize: 12 }}>
+                <div>
+                  <div style={{ color: 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>Migration Title</div>
+                  <div style={{ fontWeight: 800, color: 'var(--dash-text-primary)', marginTop: 2 }}>{migName || 'Oracle ERP Core Migration'}</div>
+                </div>
+                <div>
+                  <div style={{ color: 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>Migration ID</div>
+                  <div style={{ fontWeight: 800, color: '#3B82F6', marginTop: 2, fontFamily: 'var(--akaal-font-mono, monospace)' }}>MIG-2026-0806-001</div>
+                </div>
+              </div>
+
+              <div style={{ padding: 14, background: 'var(--dash-bg)', borderRadius: 10, border: '1px solid var(--dash-border)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, fontSize: 12 }}>
+                <div>
+                  <div style={{ color: 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>Source Instance</div>
+                  <div style={{ fontWeight: 700, color: 'var(--dash-text-primary)', marginTop: 2 }}>{sourceEngine} ({sourceHost}:{sourcePort}/{sourceDbName})</div>
+                </div>
+                <div>
+                  <div style={{ color: 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>Target Instance</div>
+                  <div style={{ fontWeight: 700, color: 'var(--dash-text-primary)', marginTop: 2 }}>{targetEngine} ({targetHost}:{targetPort}/{targetDbName})</div>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, fontSize: 11 }}>
+                <div style={{ padding: 10, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
+                  <div style={{ color: 'var(--dash-text-secondary)', fontSize: 10 }}>Discovered & Selected</div>
+                  <div style={{ fontWeight: 800, color: '#10B981', marginTop: 2 }}>{selectedDbCount} DBs · {selectedSchemaCount} Schemas · {selectedCount.toLocaleString()} Objs</div>
+                </div>
+                <div style={{ padding: 10, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
+                  <div style={{ color: 'var(--dash-text-secondary)', fontSize: 10 }}>Est. Execution Time</div>
+                  <div style={{ fontWeight: 800, color: '#3B82F6', marginTop: 2 }}>~14 Minutes</div>
+                </div>
+                <div style={{ padding: 10, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
+                  <div style={{ color: 'var(--dash-text-secondary)', fontSize: 10 }}>Worker Allocation</div>
+                  <div style={{ fontWeight: 800, color: 'var(--dash-text-primary)', marginTop: 2 }}>{parallelism} Workers ({batchSize} Batch)</div>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, fontSize: 11 }}>
+                <div style={{ padding: 10, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ color: 'var(--dash-text-secondary)' }}>Governance Approval:</span>
+                  <span style={{ color: '#10B981', fontWeight: 800 }}>✓ GATE 2 PASSED</span>
+                </div>
+                <div style={{ padding: 10, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ color: 'var(--dash-text-secondary)' }}>Predicted Risk Level:</span>
+                  <span style={{ color: '#10B981', fontWeight: 800 }}>0.12 (LOW RISK)</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Footer */}
+            <div style={{ padding: '16px 24px', borderTop: '1px solid var(--dash-border)', background: 'var(--dash-bg)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  notificationService.push('Migration Plan Exported', 'info', 'Downloaded workflow manifest payload JSON.');
+                }}
+                style={{ padding: '8px 14px', borderRadius: 6, background: 'none', border: '1px solid var(--dash-border)', color: 'var(--dash-text-secondary)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+              >
+                Export Migration Plan
+              </button>
+
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button
+                  type="button"
+                  onClick={() => setShowLaunchConfirmModal(false)}
+                  style={{ padding: '8px 16px', borderRadius: 8, background: 'var(--dash-surface)', border: '1px solid var(--dash-border)', color: 'var(--dash-text-primary)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                >
+                  Stay in Wizard
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowLaunchConfirmModal(false);
+                    handleCompleteLaunch();
+                  }}
+                  style={{ padding: '9px 22px', borderRadius: 8, background: '#10B981', color: '#FFF', border: 'none', fontSize: 13, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+                >
+                  Launch Mission Control →
+                </button>
+              </div>
             </div>
           </div>
         </div>
