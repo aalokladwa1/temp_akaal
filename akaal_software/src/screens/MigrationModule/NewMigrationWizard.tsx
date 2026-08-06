@@ -241,57 +241,53 @@ const IndeterminateCheckbox: FC<IndeterminateCheckboxProps> = ({
   );
 };
 
-// ─── Initial Dynamic Discovery Generator ───────────────────────────────────
+// ─── Engine Discovery Tree Transformer ──────────────────────────────────────
 
-const createInitialDiscovery = (dbName = 'FREE', schemaName = 'SYSTEM'): DatabaseDiscoveryDTO[] => [
-  {
+const buildDiscoveryFromEngine = (res: any): DatabaseDiscoveryDTO[] => {
+  if (!res) return [];
+  if (res.catalog_hierarchy && Array.isArray(res.catalog_hierarchy) && res.catalog_hierarchy.length > 0) {
+    return res.catalog_hierarchy;
+  }
+  const dbName = res.source_db || res.database_name || 'SOURCE_DB';
+  const schemaList = res.schemas || ['SYSTEM'];
+  const tableNames: string[] = res.table_names || [];
+  const rowCount = res.row_count || 0;
+
+  const tableObjects: DiscoveredObjectDTO[] = tableNames.map((tblName: string) => ({
+    object_id: `obj-${dbName.toLowerCase()}-${tblName.toLowerCase()}`,
+    schema_id: `schema-${schemaList[0] || 'SYSTEM'}`,
     db_id: `db-${dbName}`,
-    db_name: dbName.toUpperCase(),
-    instance_name: 'AKAAL Discovered Server',
-    schemas: [
-      {
-        schema_id: `schema-${schemaName}`,
-        schema_name: schemaName.toUpperCase(),
-        db_id: `db-${dbName}`,
-        object_groups: [
-          {
-            object_type: 'Table',
-            objects: [
-              {
-                object_id: `obj-${schemaName.toLowerCase()}-customer_records`,
-                schema_id: `schema-${schemaName}`,
-                db_id: `db-${dbName}`,
-                object_name: 'CUSTOMER_RECORDS',
-                object_type: 'Table',
-                estimated_rows: 500000000,
-                estimated_size_gb: 54.2,
-                compatibility_status: 'OPTIMAL',
-                dependency_ids: [],
-                warnings: [],
-                selected: true,
-              },
-              {
-                object_id: `obj-${schemaName.toLowerCase()}-migration_audit_log`,
-                schema_id: `schema-${schemaName}`,
-                db_id: `db-${dbName}`,
-                object_name: 'MIGRATION_AUDIT_LOG',
-                object_type: 'Table',
-                estimated_rows: 120000000,
-                estimated_size_gb: 12.4,
-                compatibility_status: 'OPTIMAL',
-                dependency_ids: [],
-                warnings: [],
-                selected: true,
-              },
-            ],
-          },
-        ],
-      },
-    ],
-  },
-];
+    object_name: tblName.toUpperCase(),
+    object_type: 'Table',
+    estimated_rows: Math.max(1, Math.floor(rowCount / Math.max(1, tableNames.length))),
+    estimated_size_gb: 0.1,
+    compatibility_status: 'OPTIMAL',
+    dependency_ids: [],
+    warnings: [],
+    selected: true,
+  }));
 
-
+  return [
+    {
+      db_id: `db-${dbName}`,
+      db_name: dbName.toUpperCase(),
+      instance_name: 'Discovered Source Engine Catalog',
+      schemas: [
+        {
+          schema_id: `schema-${schemaList[0] || 'SYSTEM'}`,
+          schema_name: (schemaList[0] || 'SYSTEM').toUpperCase(),
+          db_id: `db-${dbName}`,
+          object_groups: tableObjects.length > 0 ? [
+            {
+              object_type: 'Table',
+              objects: tableObjects,
+            }
+          ] : [],
+        }
+      ],
+    }
+  ];
+};
 
 const STEP_TITLES = [
   '1. Overview',
@@ -341,10 +337,10 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
   const [targetTested, setTargetTested] = useState(false);
   const [testingTarget, setTestingTarget] = useState(false);
 
-  // Step 4: Discovery & Scope State
-  const [databases, setDatabases] = useState<DatabaseDiscoveryDTO[]>(() => createInitialDiscovery('FREE', 'SYSTEM'));
-  const [expandedDatabases, setExpandedDatabases] = useState<Set<string>>(new Set(['db-FREE']));
-  const [expandedSchemas, setExpandedSchemas] = useState<Set<string>>(new Set(['schema-SYSTEM']));
+  // Step 4: Discovery & Scope State (Default empty array until real engine discovery executes)
+  const [databases, setDatabases] = useState<DatabaseDiscoveryDTO[]>([]);
+  const [expandedDatabases, setExpandedDatabases] = useState<Set<string>>(new Set());
+  const [expandedSchemas, setExpandedSchemas] = useState<Set<string>>(new Set());
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
   const [discoveryProfile, setDiscoveryProfile] = useState<DiscoveryProfileType>('DEEP');
@@ -595,6 +591,14 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
   };
 
   const handleRunDiscovery = async () => {
+    if (!sourceTested || !targetTested) {
+      notificationService.push(
+        'Connection Required',
+        'warning',
+        'Complete Source and Target connection verification before discovery.'
+      );
+      return;
+    }
     const token = ++reqTokenRef.current;
     setSession((prev) => ({ ...prev, discovery: { status: 'running' } }));
     try {
@@ -611,10 +615,14 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
       const res = JSON.parse(rawRes);
       if (token !== reqTokenRef.current) return;
 
-      const discoveredDbs = createInitialDiscovery(sourceDbName, sourceUser);
+      const discoveredDbs = buildDiscoveryFromEngine(res);
       setDatabases(discoveredDbs);
-      setExpandedDatabases(new Set([discoveredDbs[0]?.db_id || 'db-FREE']));
-      setExpandedSchemas(new Set([discoveredDbs[0]?.schemas[0]?.schema_id || 'schema-SYSTEM']));
+      if (discoveredDbs.length > 0) {
+        setExpandedDatabases(new Set([discoveredDbs[0]?.db_id]));
+        if (discoveredDbs[0]?.schemas?.[0]?.schema_id) {
+          setExpandedSchemas(new Set([discoveredDbs[0]?.schemas[0]?.schema_id]));
+        }
+      }
 
       setSession((prev) => ({
         ...prev,
@@ -1303,7 +1311,15 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
           {/* ── STEP 4: DISCOVERY & MIGRATION SCOPE (Clean layout, instruction panel removed) ─ */}
           {step === 4 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              {/* Discovery Profile + Completion Badge */}
+              {/* Connection Order Enforcement Warning Banner */}
+              {(!sourceTested || !targetTested) && (
+                <div style={{ padding: '12px 16px', borderRadius: 8, background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', color: '#F59E0B', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <AlertTriangle size={16} />
+                  <span>Complete Source and Target connection verification before discovery.</span>
+                </div>
+              )}
+
+              {/* Discovery Header & Run Action Bar */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--dash-text-secondary)', whiteSpace: 'nowrap' }}>Discovery Profile:</span>
@@ -1314,9 +1330,35 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
                     </button>
                   ))}
                 </div>
-                <span style={{ fontSize: 11, color: '#10B981', fontWeight: 700, padding: '4px 12px', borderRadius: 20, background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.3)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10B981' }} /> DISCOVERY COMPLETE
-                </span>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <button
+                    type="button"
+                    onClick={handleRunDiscovery}
+                    disabled={!sourceTested || !targetTested || session.discovery.status === 'running'}
+                    style={{
+                      padding: '8px 18px',
+                      borderRadius: 8,
+                      background: (!sourceTested || !targetTested) ? 'var(--dash-border)' : 'var(--dash-accent)',
+                      color: (!sourceTested || !targetTested) ? 'var(--dash-text-secondary)' : '#FFF',
+                      border: 'none',
+                      fontSize: 12,
+                      fontWeight: 700,
+                      cursor: (!sourceTested || !targetTested || session.discovery.status === 'running') ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      opacity: (!sourceTested || !targetTested) ? 0.6 : 1,
+                    }}
+                  >
+                    <RefreshCw size={14} className={session.discovery.status === 'running' ? 'spin' : ''} />
+                    {session.discovery.status === 'running' ? 'Cataloging Engine...' : 'Run Discovery'}
+                  </button>
+                  <span style={{ fontSize: 11, color: session.discovery.status === 'completed' ? '#10B981' : session.discovery.status === 'failed' ? '#EF4444' : 'var(--dash-text-secondary)', fontWeight: 700, padding: '4px 12px', borderRadius: 20, background: session.discovery.status === 'completed' ? 'rgba(16,185,129,0.12)' : 'var(--dash-bg)', border: '1px solid var(--dash-border)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: session.discovery.status === 'completed' ? '#10B981' : 'var(--dash-text-secondary)' }} />
+                    {session.discovery.status === 'completed' ? 'DISCOVERY COMPLETE' : session.discovery.status === 'running' ? 'DISCOVERING...' : session.discovery.status === 'failed' ? 'DISCOVERY FAILED' : 'DISCOVERY PENDING'}
+                  </span>
+                </div>
               </div>
 
               {/* Compact Discovery Summary Card (3 Values: Databases, Schemas, Objects) */}
@@ -1404,7 +1446,27 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
 
                   {/* Scrollable Explorer Tree */}
                   <div style={{ overflowY: 'auto', maxHeight: 460, padding: 8 }}>
-                    {visibleDatabases.length === 0 ? (
+                    {databases.length === 0 ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 24px', gap: 12, textAlign: 'center' }}>
+                        <Database size={36} color="var(--dash-text-secondary)" />
+                        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--dash-text-primary)' }}>No discovery has been executed</div>
+                        <div style={{ fontSize: 12, color: 'var(--dash-text-secondary)', maxWidth: 440 }}>
+                          {(!sourceTested || !targetTested)
+                            ? 'Complete Source and Target connection verification before discovery.'
+                            : 'Run Discovery to load the source catalog.'}
+                        </div>
+                        {sourceTested && targetTested && (
+                          <button
+                            type="button"
+                            onClick={handleRunDiscovery}
+                            disabled={session.discovery.status === 'running'}
+                            style={{ padding: '8px 20px', borderRadius: 8, background: 'var(--dash-accent)', border: 'none', color: '#FFF', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}
+                          >
+                            <RefreshCw size={14} className={session.discovery.status === 'running' ? 'spin' : ''} /> Run Discovery
+                          </button>
+                        )}
+                      </div>
+                    ) : visibleDatabases.length === 0 ? (
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '50px 24px', gap: 12 }}>
                         <Search size={32} color="var(--dash-text-secondary)" />
                         <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--dash-text-primary)' }}>No databases or objects match your filter parameters</div>

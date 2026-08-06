@@ -416,16 +416,31 @@ class EngineGateway:
         try:
             try:
                 report = loop.run_until_complete(self.discovery_orchestrator.execute_discovery(req))
-                tbl_count = len(report.table_summary) if hasattr(report, "table_summary") and report.table_summary else 0
-                row_count = sum(t.row_count for t in report.table_summary.values()) if hasattr(report, "table_summary") and report.table_summary else 0
-                tbl_names = list(report.table_summary.keys()) if hasattr(report, "table_summary") and report.table_summary else []
+                stats = getattr(report, "statistics", None)
+                tbl_count = getattr(stats, "total_tables", 0) if stats else 0
+                row_count = getattr(stats, "total_rows", 0) if stats else 0
+                col_count = getattr(stats, "total_columns", 0) if stats else 0
+                
+                obj_inv = getattr(report, "object_inventory", {}) or {}
+                sch_inv = getattr(report, "schema_inventory", {}) or {}
+                
+                tbl_names = []
+                if "tables" in obj_inv and isinstance(obj_inv["tables"], list):
+                    tbl_names = [t.get("name", "").upper() for t in obj_inv["tables"] if isinstance(t, dict) and t.get("name")]
+                elif hasattr(report, "table_summary") and report.table_summary:
+                    tbl_names = list(report.table_summary.keys())
+                
+                sch_list = list(sch_inv.keys()) if sch_inv else [cfg.credentials_ref.upper()]
+
                 if hasattr(report, "errors") and report.errors:
                     err_list.extend(report.errors)
             except Exception as disc_exc:
                 logger.warning("DiscoveryOrchestrator pre-flight profiling exception: %s", disc_exc)
                 tbl_count = 0
                 row_count = 0
+                col_count = 0
                 tbl_names = []
+                sch_list = [cfg.credentials_ref.upper()]
                 err_list.append(str(disc_exc))
 
             snap_id = f"snap-{uuid.uuid4().hex[:12]}"
@@ -437,10 +452,10 @@ class EngineGateway:
                 "migration_id": payload.get("migration_id", "mig-default"),
                 "source_engine": src_sys,
                 "target_engine": str(payload.get("target_engine", "PostgreSQL 16")),
-                "schemas": [cfg.credentials_ref.upper()],
+                "schemas": sch_list,
                 "table_count": tbl_count,
                 "table_names": tbl_names,
-                "column_count": sum(t.column_count for t in report.table_summary.values()) if ('report' in locals() and hasattr(report, "table_summary") and report.table_summary) else 0,
+                "column_count": col_count,
                 "row_count": row_count,
                 "view_count": 0,
                 "index_count": tbl_count,
