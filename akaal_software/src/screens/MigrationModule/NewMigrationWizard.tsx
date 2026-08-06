@@ -309,8 +309,8 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
   const [step, setStep] = useState<1 | 2 | 3 | 4 | 5 | 6 | 7>(1);
 
   // Step 1: Overview
-  const [migName, setMigName] = useState('Oracle ERP Core Migration');
-  const [description, setDescription] = useState('Production migration of Oracle ERP core schema to PostgreSQL 16');
+  const [migName, setMigName] = useState('');
+  const [description, setDescription] = useState('');
   const [migScope, setMigScope] = useState('Full Schema & Data Transport');
   const [strategy, setStrategy] = useState('Zero-Downtime Replication');
   const [projectName, setProjectName] = useState('ERP Modernization');
@@ -324,10 +324,10 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
   const [sourcePort, setSourcePort] = useState('1521');
   const [sourceDbName, setSourceDbName] = useState('FREE');
   const [sourceUser, setSourceUser] = useState('SYSTEM');
-  const [sourcePass, setSourcePass] = useState('••••••••••••');
+  const [sourcePass, setSourcePass] = useState('');
   const [sourceSsl, setSourceSsl] = useState(true);
   const [oracleWallet, setOracleWallet] = useState('/etc/oracle/wallets/cwallet.sso');
-  const [sourceTested, setSourceTested] = useState(true);
+  const [sourceTested, setSourceTested] = useState(false);
   const [testingSource, setTestingSource] = useState(false);
 
   // Step 3: Target Connection
@@ -336,9 +336,9 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
   const [targetPort, setTargetPort] = useState('5432');
   const [targetDbName, setTargetDbName] = useState('akaal_target');
   const [targetUser, setTargetUser] = useState('postgres');
-  const [targetPass, setTargetPass] = useState('••••••••••••');
+  const [targetPass, setTargetPass] = useState('');
   const [targetSsl, setTargetSsl] = useState(true);
-  const [targetTested, setTargetTested] = useState(true);
+  const [targetTested, setTargetTested] = useState(false);
   const [testingTarget, setTestingTarget] = useState(false);
 
   // Step 4: Discovery & Scope State
@@ -387,7 +387,7 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
 
   // ─── Authoritative Wizard Integration Session ─────────────────────────────
   const [session, setSession] = useState<WizardIntegrationSession>({
-    engineStatus: { available: true, version: '1.0.0', healthy: true, statusText: 'RUNNING' },
+    engineStatus: { available: false, version: 'Checking...', healthy: false, statusText: 'Connecting to Engine...' },
     supportedEngines: ['Oracle 19c', 'PostgreSQL 16', 'SQL Server 2019', 'MySQL 8.0'],
     sourceConnection: { tested: false },
     targetConnection: { tested: false },
@@ -399,12 +399,24 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
     createdMigration: {},
   });
 
-  // Step 1: Query Engine Readiness & Options
+  // Step 1: Query Engine Readiness & Auto-Boot Engine Daemon if offline
   useEffect(() => {
     let isMounted = true;
     const initEngine = async () => {
       try {
-        const rawStatus = await ipcService.invokeEngineCapability('get_engine_status', '{}');
+        let rawStatus: string;
+        try {
+          rawStatus = await ipcService.invokeEngineCapability('get_engine_status', '{}');
+        } catch (e) {
+          // Automatic Engine Auto-Boot: Invoke startEngineDaemon if daemon is not running
+          console.warn('Engine IPC offline, triggering startEngineDaemon auto-boot...', e);
+          try {
+            await ipcService.startEngineDaemon();
+            rawStatus = await ipcService.invokeEngineCapability('get_engine_status', '{}');
+          } catch (bootErr: any) {
+            throw new Error(`Engine auto-boot failed: ${typeof bootErr === 'string' ? bootErr : (bootErr?.message || String(bootErr))}`);
+          }
+        }
         const parsedStatus = JSON.parse(rawStatus);
 
         let supported: DatabaseEngine[] = ['Oracle 19c', 'PostgreSQL 16', 'SQL Server 2019', 'MySQL 8.0'];
@@ -424,7 +436,7 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
             if (mapped.length > 0) supported = mapped;
           }
         } catch (e) {
-          console.warn('supported_engines lookup failed, falling back to default relational engines', e);
+          console.warn('supported_engines lookup failed, using default relational engines', e);
         }
 
         if (isMounted) {
@@ -442,13 +454,14 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
         }
       } catch (err: any) {
         if (isMounted) {
+          const errMsg = typeof err === 'string' ? err : (err?.message || String(err));
           setSession((prev) => ({
             ...prev,
             engineStatus: {
               available: false,
               version: 'Offline',
               healthy: false,
-              statusText: `Engine error: ${err.message || 'Offline'}`,
+              statusText: `Engine offline: ${errMsg}`,
             },
           }));
         }
@@ -515,7 +528,8 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
       if (token !== reqTokenRef.current) return;
       setTestingSource(false);
       setSourceTested(false);
-      notificationService.push('Connection Error', 'error', err.message || 'Failed to invoke test_connection');
+      const errMsg = typeof err === 'string' ? err : (err?.message || String(err));
+      notificationService.push('Connection Error', 'error', errMsg);
     }
   };
 
@@ -543,7 +557,7 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
           ...prev,
           targetConnection: {
             tested: true,
-            connectionId: `conn-tgt-${targetEngine.toLowerCase()}-${targetHost}`,
+            connectionId: res.connection_id,
             serverVersion: res.server_version || 'Live Target Verified',
             databaseName: res.database_name || targetDbName,
             latencyMs: res.latency_ms || 1.2,
@@ -575,7 +589,8 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
       if (token !== reqTokenRef.current) return;
       setTestingTarget(false);
       setTargetTested(false);
-      notificationService.push('Connection Error', 'error', err.message || 'Failed to invoke test_connection');
+      const errMsg = typeof err === 'string' ? err : (err?.message || String(err));
+      notificationService.push('Connection Error', 'error', errMsg);
     }
   };
 
@@ -605,17 +620,17 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
         ...prev,
         discovery: {
           status: 'completed',
-          snapshotId: `snap-${Date.now()}`,
-          tableCount: res.table_count || 2,
-          columnCount: res.column_count || 48,
-          rowCount: res.row_count || 620000000,
+          snapshotId: res.discovery_snapshot_id,
+          tableCount: res.table_count || 0,
+          columnCount: res.column_count || 0,
+          rowCount: res.row_count || 0,
           schemas: res.schemas || [sourceUser.toUpperCase()],
-          tableNames: res.table_names || ['CUSTOMER_RECORDS', 'MIGRATION_AUDIT_LOG'],
+          tableNames: res.table_names || [],
           raw: res,
         },
         advisor: {
           status: 'completed',
-          reportId: `adv-${Date.now()}`,
+          reportId: res.advisor_report_id,
           readinessScore: res.compatibility_score ?? 100,
           riskScore: res.risk_score ?? 'LOW',
           trustScore: res.trust_score ?? '100% Ready',
@@ -633,14 +648,15 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
         migrationManifest: null,
         createdMigration: {},
       }));
-      notificationService.push('Discovery Complete', 'success', `Cataloged ${res.table_count || 2} tables from ${sourceEngine}.`);
+      notificationService.push('Discovery Complete', 'success', `Cataloged ${res.table_count || 0} tables from ${sourceEngine}.`);
     } catch (err: any) {
       if (token !== reqTokenRef.current) return;
+      const errMsg = typeof err === 'string' ? err : (err?.message || String(err));
       setSession((prev) => ({
         ...prev,
-        discovery: { status: 'failed', blockerReason: err.message || 'Discovery preflight failed' },
+        discovery: { status: 'failed', blockerReason: errMsg },
       }));
-      notificationService.push('Discovery Failed', 'error', err.message || 'Engine preflight execution failed');
+      notificationService.push('Discovery Failed', 'error', errMsg);
     }
   };
 
@@ -649,18 +665,13 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
     setSession((prev) => ({ ...prev, executionPlan: { status: 'running' } }));
     try {
       const payload = {
-        migration_id: `mig-plan-draft`,
+        migration_id: session.createdMigration?.migrationId || 'mig-plan-draft',
         source_engine: sourceEngine,
         target_engine: targetEngine,
         worker_allocation: parseInt(parallelism) || 8,
         batch_size: parseInt(batchSize) || 10000,
       };
-      let rawRes: string;
-      try {
-        rawRes = await ipcService.invokeEngineCapability('generate_plan', JSON.stringify(payload));
-      } catch (err) {
-        rawRes = await ipcService.invokeEngineCapability('run_preflight', JSON.stringify(payload));
-      }
+      const rawRes = await ipcService.invokeEngineCapability('generate_plan', JSON.stringify(payload));
       const res = JSON.parse(rawRes);
       if (token !== reqTokenRef.current) return;
 
@@ -668,8 +679,8 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
         ...prev,
         executionPlan: {
           status: 'completed',
-          planId: `plan-dag-${Date.now()}`,
-          executionPlanName: res.execution_plan || 'Topological DAG Stream Partitioning',
+          planId: res.execution_plan_id,
+          executionPlanName: res.execution_plan_name || res.execution_plan || 'Topological DAG Plan',
           raw: res,
         },
         approval: { status: 'idle' },
@@ -679,27 +690,31 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
       notificationService.push('Execution Plan Generated', 'success', `Built topological DAG execution plan with ${parallelism} workers.`);
     } catch (err: any) {
       if (token !== reqTokenRef.current) return;
+      const errMsg = typeof err === 'string' ? err : (err?.message || String(err));
       setSession((prev) => ({
         ...prev,
-        executionPlan: { status: 'failed', blockerReason: err.message || 'Plan generation failed' },
+        executionPlan: { status: 'failed', blockerReason: errMsg },
       }));
-      notificationService.push('Plan Generation Failed', 'error', err.message || 'Failed to generate execution plan');
+      notificationService.push('Plan Generation Failed', 'error', errMsg);
     }
   };
 
   const handleLaunchMigration = async () => {
     const token = ++reqTokenRef.current;
-    const migId = `mig-${Math.random().toString(36).substring(2, 10)}`;
     try {
-      let appRefId = `app-ref-${Date.now()}`;
-      let custodyHash = `sha256-4a8b12c9f0`;
+      let appRefId: string | undefined = undefined;
+      let custodyHash: string | undefined = undefined;
       try {
-        const rawApp = await ipcService.invokeEngineCapability('request_approval', JSON.stringify({ migration_id: migId, approver: 'Aalok', risk_score: session.advisor.riskScore || 'LOW' }));
+        const rawApp = await ipcService.invokeEngineCapability('request_approval', JSON.stringify({
+          migration_id: session.createdMigration?.migrationId || 'mig-draft',
+          approver: businessOwner || 'Aalok',
+          risk_score: session.advisor.riskScore || 'LOW'
+        }));
         const parsedApp = JSON.parse(rawApp);
-        appRefId = parsedApp.approval_id || appRefId;
-        custodyHash = parsedApp.custody_hash || custodyHash;
+        appRefId = parsedApp.approval_reference_id || parsedApp.approval_id;
+        custodyHash = parsedApp.custody_hash;
       } catch (e) {
-        console.warn('request_approval call failed, using default governance reference', e);
+        console.warn('request_approval engine capability call note', e);
       }
 
       if (token !== reqTokenRef.current) return;
@@ -707,14 +722,13 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
       const canonicalManifest = {
         manifest_schema_version: '3.0.0',
         engine_version: session.engineStatus.version,
-        migration_id: migId,
         migration_name: migName.trim() || `${sourceEngine} → ${targetEngine} Migration`,
         project_name: projectName,
-        source_connection_id: session.sourceConnection.connectionId || `conn-src-${sourceEngine}`,
-        target_connection_id: session.targetConnection.connectionId || `conn-tgt-${targetEngine}`,
-        discovery_snapshot_id: session.discovery.snapshotId || `snap-001`,
-        advisor_report_id: session.advisor.reportId || `adv-001`,
-        execution_plan_id: session.executionPlan.planId || `plan-001`,
+        source_connection_id: session.sourceConnection.connectionId,
+        target_connection_id: session.targetConnection.connectionId,
+        discovery_snapshot_id: session.discovery.snapshotId,
+        advisor_report_id: session.advisor.reportId,
+        execution_plan_id: session.executionPlan.planId,
         approval_reference_id: appRefId,
         custody_hash: custodyHash,
         selected_scope: {
@@ -742,7 +756,7 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
       const parsedMig = JSON.parse(rawMig);
       if (token !== reqTokenRef.current) return;
 
-      const finalMigId = parsedMig.migration_id || migId;
+      const finalMigId = parsedMig.migration_id;
       const finalMigName = parsedMig.migration_name || canonicalManifest.migration_name;
 
       setSession((prev) => ({
@@ -755,7 +769,8 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
       setShowLaunchConfirmModal(true);
     } catch (err: any) {
       if (token !== reqTokenRef.current) return;
-      notificationService.push('Migration Creation Failed', 'error', err.message || 'Failed to create migration pipeline');
+      const errMsg = typeof err === 'string' ? err : (err?.message || String(err));
+      notificationService.push('Migration Creation Failed', 'error', errMsg);
     }
   };
 
@@ -2186,12 +2201,12 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
               <div style={{ padding: 14, background: 'var(--dash-bg)', borderRadius: 10, border: '1px solid var(--dash-border)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, fontSize: 12 }}>
                 <div>
                   <div style={{ color: 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>Migration Title</div>
-                  <div style={{ fontWeight: 800, color: 'var(--dash-text-primary)', marginTop: 2 }}>{migName || 'Oracle ERP Core Migration'}</div>
+                  <div style={{ fontWeight: 800, color: 'var(--dash-text-primary)', marginTop: 2 }}>{migName || 'Untitled Migration'}</div>
                 </div>
                 <div>
                   <div style={{ color: 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>Migration ID</div>
                   <div style={{ fontWeight: 800, color: '#3B82F6', marginTop: 2, fontFamily: 'var(--akaal-font-mono, monospace)' }}>
-                    {session.createdMigration.migrationId || 'mig-04f8a1b2'}
+                    {session.createdMigration.migrationId || 'Pending Engine Assignment'}
                   </div>
                 </div>
               </div>
