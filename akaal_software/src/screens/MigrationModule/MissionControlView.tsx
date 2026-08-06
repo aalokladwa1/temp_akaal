@@ -19,10 +19,29 @@ import {
   ShieldCheck,
   Terminal,
   XCircle,
+  AlertTriangle,
+  RefreshCw,
 } from 'lucide-react';
 import type { MigrationPipeline, EngineStageId } from '../../types/migration';
 import { ENGINE_STAGE_METADATA } from '../../services/migrationService';
 import { notificationService } from '../../services/notificationService';
+
+export type ConfirmActionType =
+  | 'pause'
+  | 'resume'
+  | 'stop_batch'
+  | 'terminate'
+  | 'restart'
+  | 'recover'
+  | 'checkpoint'
+  | 'rollback'
+  | 'retry'
+  | 'maintenance'
+  | 'run_again'
+  | 'clone'
+  | 'mission_replay'
+  | 'export_replay'
+  | 'download_cert';
 
 export interface MissionControlViewProps {
   migration: MigrationPipeline;
@@ -75,6 +94,11 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
   const [activeStage, setActiveStage] = useState<EngineStageId>('data_migration');
   const [showPlanDrawer, setShowPlanDrawer] = useState(false);
   const [showOperationsMenu, setShowOperationsMenu] = useState(false);
+
+  // Operational Confirmation Modal State
+  const [confirmAction, setConfirmAction] = useState<ConfirmActionType | null>(null);
+  const [selectedCheckpoint, setSelectedCheckpoint] = useState('chkpt-04a8f910-lsn');
+  const [exportFormat, setExportFormat] = useState<'HTML' | 'MP4' | 'PDF'>('HTML');
 
   // Live Simulation Controls
   const [rowsProcessed, setRowsProcessed] = useState(780_450_000);
@@ -149,28 +173,70 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
     ];
   }, [migration]);
 
-  // Handlers for Operations
-  const handlePause = () => {
-    setRunStatus('paused');
-    notificationService.push('Migration Paused', 'warning', 'Transport workers held gracefully. Checkpoint recorded.');
-  };
-
-  const handleResume = () => {
-    setRunStatus('running');
-    notificationService.push('Migration Resumed', 'success', 'Resumed 8 parallel stream workers at ~154.8 MB/s.');
-  };
-
-  const handleRetry = () => {
-    setRunStatus('running');
-    setActiveStage('data_migration');
-    notificationService.push('Retrying Runtime Step', 'info', 'Re-executing failed stage with auto-healing supervisor.');
-  };
-
-  const handleLaunchReplay = () => {
-    setIsReplayMode(true);
-    setReplayTimeSec(0);
-    setReplayPlaying(true);
-    notificationService.push('Mission Replay™ Launched', 'info', 'Replaying recorded engine events and telemetry timeline.');
+  // Action Execution Handler called ONLY after operator confirms inside dialog
+  const executeConfirmedAction = (action: ConfirmActionType) => {
+    setConfirmAction(null);
+    switch (action) {
+      case 'pause':
+        setRunStatus('paused');
+        notificationService.push('Migration Paused', 'warning', 'Transport workers held gracefully. Checkpoint recorded.');
+        break;
+      case 'resume':
+        setRunStatus('running');
+        notificationService.push('Migration Resumed', 'success', 'Resumed 8 parallel stream workers at ~154.8 MB/s.');
+        break;
+      case 'stop_batch':
+        setRunStatus('paused');
+        notificationService.push('Stop After Current Batch', 'info', 'Current batch will finish and commit cleanly.');
+        break;
+      case 'terminate':
+        setRunStatus('failed');
+        notificationService.push('Migration Terminated', 'error', 'Runtime process terminated immediately.');
+        break;
+      case 'restart':
+        setRunStatus('running');
+        setActiveStage('data_migration');
+        notificationService.push('Runtime Restarted', 'info', 'Recycled process and restored from checkpoint LSN.');
+        break;
+      case 'recover':
+        setRunStatus('running');
+        notificationService.push('Runtime Recovered', 'info', 'WAL replayed and process locks reset.');
+        break;
+      case 'checkpoint':
+        notificationService.push('Checkpoint Created', 'success', 'Manual recovery checkpoint sealed (RPO: 0s).');
+        break;
+      case 'rollback':
+        setRunStatus('paused');
+        notificationService.push('Rollback Executed', 'warning', `Rolled back target database to checkpoint ${selectedCheckpoint}.`);
+        break;
+      case 'retry':
+        setRunStatus('running');
+        setActiveStage('data_migration');
+        notificationService.push('Retrying Failed Step', 'info', 'Re-executing current stage under supervisor.');
+        break;
+      case 'maintenance':
+        notificationService.push('Maintenance Mode Enabled', 'warning', 'Runtime isolated. New operation requests held.');
+        break;
+      case 'run_again':
+        setRunStatus('running');
+        notificationService.push('New Execution Run Created', 'success', 'Instantiated fresh pipeline run for workspace.');
+        break;
+      case 'clone':
+        notificationService.push('Migration Cloned', 'success', 'Cloned configuration into new pipeline template.');
+        break;
+      case 'mission_replay':
+        setIsReplayMode(true);
+        setReplayTimeSec(0);
+        setReplayPlaying(true);
+        notificationService.push('Mission Replay™ Active', 'info', 'Replaying recorded engine events & telemetry stream.');
+        break;
+      case 'export_replay':
+        notificationService.push('Replay Manifest Exported', 'success', `Exported Mission Replay as ${exportFormat} file.`);
+        break;
+      case 'download_cert':
+        notificationService.push('Trust Certificate Downloaded', 'success', 'Downloaded SHA-256 cryptographic proof document.');
+        break;
+    }
   };
 
   const handleExitReplay = () => {
@@ -178,7 +244,7 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
     setReplayPlaying(false);
   };
 
-  // Stage display info
+  // Stage metadata
   const stageMeta = ENGINE_STAGE_METADATA[activeStage] || ENGINE_STAGE_METADATA['data_migration'];
 
   return (
@@ -198,7 +264,6 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            {/* Replay Controls */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--dash-surface)', padding: '3px 8px', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
               <button type="button" onClick={() => setReplayTimeSec(0)} style={{ background: 'none', border: 'none', color: 'var(--dash-text-primary)', cursor: 'pointer', padding: 4 }} title="Restart Replay">
                 <RotateCcw size={14} />
@@ -255,7 +320,7 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
         </button>
       </div>
 
-      {/* ── ENTERPRISE OPERATIONS TOOLBAR (State-Aware Controls) ─────────── */}
+      {/* ── ENTERPRISE OPERATIONS TOOLBAR (State-Aware Controls with Confirmation Layer) ── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 24px', background: 'var(--dash-bg)', borderBottom: '1px solid var(--dash-border)', flexShrink: 0, gap: 12, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--dash-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginRight: 6 }}>
@@ -265,13 +330,13 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
           {/* RUNNING STATE CONTROLS */}
           {runStatus === 'running' && (
             <>
-              <button type="button" onClick={handlePause} style={{ padding: '6px 14px', borderRadius: 6, background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)', color: '#F59E0B', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <button type="button" onClick={() => setConfirmAction('pause')} style={{ padding: '6px 14px', borderRadius: 6, background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)', color: '#F59E0B', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
                 <Pause size={13} /> Pause Migration
               </button>
-              <button type="button" onClick={() => notificationService.push('Stop After Batch', 'info', 'Will stop gracefully after current batch commit.')} style={{ padding: '6px 14px', borderRadius: 6, background: 'var(--dash-surface)', border: '1px solid var(--dash-border)', color: 'var(--dash-text-secondary)', fontSize: 11, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <button type="button" onClick={() => setConfirmAction('stop_batch')} style={{ padding: '6px 14px', borderRadius: 6, background: 'var(--dash-surface)', border: '1px solid var(--dash-border)', color: 'var(--dash-text-secondary)', fontSize: 11, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
                 <Square size={13} /> Stop After Current Batch
               </button>
-              <button type="button" onClick={() => notificationService.push('Manual Checkpoint Created', 'success', 'FLushed WAL buffer & recorded LSN position.')} style={{ padding: '6px 14px', borderRadius: 6, background: 'var(--dash-surface)', border: '1px solid var(--dash-border)', color: 'var(--dash-text-secondary)', fontSize: 11, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <button type="button" onClick={() => setConfirmAction('checkpoint')} style={{ padding: '6px 14px', borderRadius: 6, background: 'var(--dash-surface)', border: '1px solid var(--dash-border)', color: 'var(--dash-text-secondary)', fontSize: 11, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
                 <Bookmark size={13} /> Create Manual Checkpoint
               </button>
             </>
@@ -280,13 +345,13 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
           {/* PAUSED STATE CONTROLS */}
           {runStatus === 'paused' && (
             <>
-              <button type="button" onClick={handleResume} style={{ padding: '6px 14px', borderRadius: 6, background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.3)', color: '#10B981', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <button type="button" onClick={() => setConfirmAction('resume')} style={{ padding: '6px 14px', borderRadius: 6, background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.3)', color: '#10B981', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
                 <Play size={13} /> Resume Migration
               </button>
-              <button type="button" onClick={() => setRunStatus('failed')} style={{ padding: '6px 14px', borderRadius: 6, background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', color: '#EF4444', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <button type="button" onClick={() => setConfirmAction('terminate')} style={{ padding: '6px 14px', borderRadius: 6, background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', color: '#EF4444', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
                 <XCircle size={13} /> Terminate Migration
               </button>
-              <button type="button" onClick={() => notificationService.push('Rollback Triggered', 'warning', 'Rolling back to LSN Checkpoint #0/4A8F910.')} style={{ padding: '6px 14px', borderRadius: 6, background: 'var(--dash-surface)', border: '1px solid var(--dash-border)', color: 'var(--dash-text-secondary)', fontSize: 11, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <button type="button" onClick={() => setConfirmAction('rollback')} style={{ padding: '6px 14px', borderRadius: 6, background: 'var(--dash-surface)', border: '1px solid var(--dash-border)', color: 'var(--dash-text-secondary)', fontSize: 11, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
                 <RotateCcw size={13} /> Rollback To Checkpoint
               </button>
             </>
@@ -295,13 +360,13 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
           {/* FAILED STATE CONTROLS */}
           {runStatus === 'failed' && (
             <>
-              <button type="button" onClick={handleRetry} style={{ padding: '6px 14px', borderRadius: 6, background: 'rgba(37,99,235,0.15)', border: '1px solid var(--dash-accent)', color: 'var(--dash-accent)', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <button type="button" onClick={() => setConfirmAction('retry')} style={{ padding: '6px 14px', borderRadius: 6, background: 'rgba(37,99,235,0.15)', border: '1px solid var(--dash-accent)', color: 'var(--dash-accent)', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
                 <RotateCcw size={13} /> Retry Failed Step
               </button>
-              <button type="button" onClick={() => notificationService.push('Runtime Recovered', 'info', 'Auto-healing supervisor reset process locks.')} style={{ padding: '6px 14px', borderRadius: 6, background: 'var(--dash-surface)', border: '1px solid var(--dash-border)', color: 'var(--dash-text-secondary)', fontSize: 11, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <button type="button" onClick={() => setConfirmAction('recover')} style={{ padding: '6px 14px', borderRadius: 6, background: 'var(--dash-surface)', border: '1px solid var(--dash-border)', color: 'var(--dash-text-secondary)', fontSize: 11, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
                 <ShieldAlert size={13} /> Recover Runtime
               </button>
-              <button type="button" onClick={() => notificationService.push('Diagnostics Exported', 'info', 'Dumped stack trace & WAL logs to file.')} style={{ padding: '6px 14px', borderRadius: 6, background: 'var(--dash-surface)', border: '1px solid var(--dash-border)', color: 'var(--dash-text-secondary)', fontSize: 11, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <button type="button" onClick={() => setConfirmAction('export_replay')} style={{ padding: '6px 14px', borderRadius: 6, background: 'var(--dash-surface)', border: '1px solid var(--dash-border)', color: 'var(--dash-text-secondary)', fontSize: 11, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
                 <Download size={13} /> Export Diagnostics
               </button>
             </>
@@ -310,14 +375,17 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
           {/* COMPLETED STATE CONTROLS (Mission Replay™ & Exports) */}
           {runStatus === 'completed' && (
             <>
-              <button type="button" onClick={handleLaunchReplay} style={{ padding: '6px 14px', borderRadius: 6, background: 'rgba(37,99,235,0.15)', border: '1px solid var(--dash-accent)', color: 'var(--dash-accent)', fontSize: 11, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <button type="button" onClick={() => setConfirmAction('mission_replay')} style={{ padding: '6px 14px', borderRadius: 6, background: 'rgba(37,99,235,0.15)', border: '1px solid var(--dash-accent)', color: 'var(--dash-accent)', fontSize: 11, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
                 <PlayCircle size={14} color="#3B82F6" /> Mission Replay™
               </button>
-              <button type="button" onClick={() => notificationService.push('Replay Exported', 'info', 'Exported recorded timeline manifest.')} style={{ padding: '6px 14px', borderRadius: 6, background: 'var(--dash-surface)', border: '1px solid var(--dash-border)', color: 'var(--dash-text-secondary)', fontSize: 11, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <button type="button" onClick={() => setConfirmAction('export_replay')} style={{ padding: '6px 14px', borderRadius: 6, background: 'var(--dash-surface)', border: '1px solid var(--dash-border)', color: 'var(--dash-text-secondary)', fontSize: 11, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
                 <Download size={13} /> Export Replay
               </button>
-              <button type="button" onClick={() => notificationService.push('Trust Certificate Downloaded', 'success', 'Downloaded SHA-256 signed certificate.')} style={{ padding: '6px 14px', borderRadius: 6, background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.3)', color: '#10B981', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <button type="button" onClick={() => setConfirmAction('download_cert')} style={{ padding: '6px 14px', borderRadius: 6, background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.3)', color: '#10B981', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
                 <ShieldCheck size={13} /> Download Trust Certificate
+              </button>
+              <button type="button" onClick={() => setConfirmAction('run_again')} style={{ padding: '6px 14px', borderRadius: 6, background: 'var(--dash-surface)', border: '1px solid var(--dash-border)', color: 'var(--dash-text-primary)', fontSize: 11, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <RefreshCw size={13} /> Run Again
               </button>
             </>
           )}
@@ -329,13 +397,13 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
               Operations <ChevronDown size={13} />
             </button>
             {showOperationsMenu && (
-              <div onClick={() => setShowOperationsMenu(false)} style={{ position: 'absolute', top: '100%', left: 0, marginTop: 4, width: 200, background: 'var(--dash-surface)', border: '1px solid var(--dash-border)', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.3)', zIndex: 99, padding: 4, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <button type="button" onClick={() => { setRunStatus('failed'); }} style={{ padding: '8px 12px', textAlign: 'left', background: 'none', border: 'none', color: '#EF4444', fontSize: 11, fontWeight: 600, cursor: 'pointer', borderRadius: 4 }}>Terminate Runtime</button>
-                <button type="button" onClick={() => { setRunStatus('failed'); }} style={{ padding: '8px 12px', textAlign: 'left', background: 'none', border: 'none', color: '#EF4444', fontSize: 11, fontWeight: 600, cursor: 'pointer', borderRadius: 4 }}>Force Stop Daemon</button>
-                <button type="button" onClick={() => { setRunStatus('running'); }} style={{ padding: '8px 12px', textAlign: 'left', background: 'none', border: 'none', color: 'var(--dash-text-primary)', fontSize: 11, fontWeight: 600, cursor: 'pointer', borderRadius: 4 }}>Restart Runtime Daemon</button>
-                <button type="button" onClick={() => { setRunStatus('running'); }} style={{ padding: '8px 12px', textAlign: 'left', background: 'none', border: 'none', color: 'var(--dash-text-primary)', fontSize: 11, fontWeight: 600, cursor: 'pointer', borderRadius: 4 }}>Recover Process Locks</button>
-                <button type="button" onClick={() => {}} style={{ padding: '8px 12px', textAlign: 'left', background: 'none', border: 'none', color: 'var(--dash-text-primary)', fontSize: 11, fontWeight: 600, cursor: 'pointer', borderRadius: 4 }}>Rollback LSN Checkpoint</button>
-                <button type="button" onClick={() => {}} style={{ padding: '8px 12px', textAlign: 'left', background: 'none', border: 'none', color: 'var(--dash-text-primary)', fontSize: 11, fontWeight: 600, cursor: 'pointer', borderRadius: 4 }}>Enable Maintenance Mode</button>
+              <div onClick={() => setShowOperationsMenu(false)} style={{ position: 'absolute', top: '100%', left: 0, marginTop: 4, width: 220, background: 'var(--dash-surface)', border: '1px solid var(--dash-border)', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.3)', zIndex: 99, padding: 4, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <button type="button" onClick={() => setConfirmAction('terminate')} style={{ padding: '8px 12px', textAlign: 'left', background: 'none', border: 'none', color: '#EF4444', fontSize: 11, fontWeight: 600, cursor: 'pointer', borderRadius: 4 }}>Terminate Runtime</button>
+                <button type="button" onClick={() => setConfirmAction('restart')} style={{ padding: '8px 12px', textAlign: 'left', background: 'none', border: 'none', color: 'var(--dash-text-primary)', fontSize: 11, fontWeight: 600, cursor: 'pointer', borderRadius: 4 }}>Restart Migration Runtime</button>
+                <button type="button" onClick={() => setConfirmAction('recover')} style={{ padding: '8px 12px', textAlign: 'left', background: 'none', border: 'none', color: 'var(--dash-text-primary)', fontSize: 11, fontWeight: 600, cursor: 'pointer', borderRadius: 4 }}>Recover Migration Runtime</button>
+                <button type="button" onClick={() => setConfirmAction('rollback')} style={{ padding: '8px 12px', textAlign: 'left', background: 'none', border: 'none', color: 'var(--dash-text-primary)', fontSize: 11, fontWeight: 600, cursor: 'pointer', borderRadius: 4 }}>Rollback To Checkpoint</button>
+                <button type="button" onClick={() => setConfirmAction('maintenance')} style={{ padding: '8px 12px', textAlign: 'left', background: 'none', border: 'none', color: 'var(--dash-text-primary)', fontSize: 11, fontWeight: 600, cursor: 'pointer', borderRadius: 4 }}>Enable Maintenance Mode</button>
+                <button type="button" onClick={() => setConfirmAction('clone')} style={{ padding: '8px 12px', textAlign: 'left', background: 'none', border: 'none', color: 'var(--dash-text-primary)', fontSize: 11, fontWeight: 600, cursor: 'pointer', borderRadius: 4 }}>Clone Migration</button>
               </div>
             )}
           </div>
@@ -356,7 +424,7 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
       {/* ── MAIN CONTENT WORKSPACE ────────────────────────────────────────── */}
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden', padding: 20, gap: 16, width: '100%' }}>
 
-        {/* LEFT COLUMN: CURRENT EXECUTION STAGE (Largest heart of page) ──── */}
+        {/* LEFT COLUMN: CURRENT EXECUTION STAGE (Observer Mode) ─────────────── */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0, overflowY: 'auto' }}>
 
           {/* ── CURRENT EXECUTION STAGE PANEL ───────────────────────────────── */}
@@ -499,7 +567,7 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
                     </div>
                   </div>
                 </div>
-                <button type="button" onClick={() => notificationService.push('Trust Certificate Downloaded', 'success', 'Downloaded SHA-256 certificate.')} style={{ padding: '8px 16px', borderRadius: 6, background: '#10B981', border: 'none', color: '#FFF', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                <button type="button" onClick={() => setConfirmAction('download_cert')} style={{ padding: '8px 16px', borderRadius: 6, background: '#10B981', border: 'none', color: '#FFF', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
                   Download Certificate
                 </button>
               </div>
@@ -664,8 +732,7 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {dynamicExecutionPlanNodes.map((item, idx) => {
-                // Read-Only Status Indicator Logic
-                const currentStageIdx = 4; // Data transport stage
+                const currentStageIdx = 4;
                 const isCompleted = idx < currentStageIdx;
                 const isCurrent = idx === currentStageIdx;
                 const isFailed = runStatus === 'failed' && isCurrent;
@@ -719,6 +786,209 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
               <div>• <strong>Supervisor:</strong> RuntimeSupervisorTree (Auto-Healing)</div>
               <div>• <strong>WAL Buffer:</strong> DurableWALRingBuffer (10k Records, CRC32)</div>
               <div>• <strong>Mailbox:</strong> DurableCommandMailbox (SQLite Epoch Fencing)</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── ENTERPRISE OPERATIONAL SAFETY CONFIRMATION DIALOG (Mandatory Layer) ──── */}
+      {confirmAction && (
+        <div
+          onClick={() => setConfirmAction(null)}
+          style={{
+            position: 'fixed',
+            top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(0,0,0,0.75)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 10000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 24,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: 560,
+              maxWidth: '90vw',
+              background: 'var(--dash-surface)',
+              border: confirmAction === 'terminate' || confirmAction === 'rollback' ? '1px solid #EF4444' : '1px solid var(--dash-border)',
+              borderRadius: 14,
+              boxShadow: '0 20px 50px rgba(0,0,0,0.5)',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+              transition: 'all 200ms ease-out',
+            }}
+          >
+            {/* Modal Header */}
+            <div style={{ padding: '18px 24px', borderBottom: '1px solid var(--dash-border)', background: 'var(--dash-bg)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{
+                  width: 36, height: 36, borderRadius: 10,
+                  background: confirmAction === 'terminate' || confirmAction === 'rollback' ? 'rgba(239,68,68,0.15)' : confirmAction === 'pause' || confirmAction === 'maintenance' ? 'rgba(245,158,11,0.15)' : 'rgba(37,99,235,0.15)',
+                  border: confirmAction === 'terminate' || confirmAction === 'rollback' ? '1px solid rgba(239,68,68,0.3)' : confirmAction === 'pause' || confirmAction === 'maintenance' ? '1px solid rgba(245,158,11,0.3)' : '1px solid rgba(37,99,235,0.3)',
+                  color: confirmAction === 'terminate' || confirmAction === 'rollback' ? '#EF4444' : confirmAction === 'pause' || confirmAction === 'maintenance' ? '#F59E0B' : '#3B82F6',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}>
+                  {confirmAction === 'terminate' || confirmAction === 'rollback' ? <AlertTriangle size={20} /> : confirmAction === 'pause' ? <Pause size={18} /> : confirmAction === 'resume' ? <Play size={18} /> : <Zap size={18} />}
+                </div>
+                <div>
+                  <h3 style={{ fontSize: 16, fontWeight: 800, margin: 0, color: 'var(--dash-text-primary)' }}>
+                    {confirmAction === 'pause' && 'Pause Migration'}
+                    {confirmAction === 'resume' && 'Resume Migration'}
+                    {confirmAction === 'stop_batch' && 'Stop Migration Gracefully'}
+                    {confirmAction === 'terminate' && 'Terminate Migration'}
+                    {confirmAction === 'restart' && 'Restart Migration Runtime'}
+                    {confirmAction === 'recover' && 'Recover Migration Runtime'}
+                    {confirmAction === 'checkpoint' && 'Create Checkpoint'}
+                    {confirmAction === 'rollback' && 'Rollback Migration'}
+                    {confirmAction === 'retry' && 'Retry Failed Step'}
+                    {confirmAction === 'maintenance' && 'Enable Maintenance Mode'}
+                    {confirmAction === 'run_again' && 'Run Migration Again'}
+                    {confirmAction === 'clone' && 'Clone Migration'}
+                    {confirmAction === 'mission_replay' && 'Open Mission Replay™'}
+                    {confirmAction === 'export_replay' && 'Export Mission Replay'}
+                    {confirmAction === 'download_cert' && 'Download Trust Certificate'}
+                  </h3>
+                  <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)', marginTop: 2 }}>
+                    AKAAL Enterprise Operational Safety Control Layer
+                  </div>
+                </div>
+              </div>
+              <button type="button" onClick={() => setConfirmAction(null)} style={{ background: 'none', border: 'none', color: 'var(--dash-text-secondary)', cursor: 'pointer' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ padding: 22, display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <p style={{ fontSize: 13, color: 'var(--dash-text-primary)', margin: 0, lineHeight: 1.5 }}>
+                {confirmAction === 'pause' && 'This will pause the migration after the current safe execution point. Current progress, checkpoints, and runtime state will be preserved.'}
+                {confirmAction === 'resume' && 'The migration will resume from the latest checkpoint and continue execution.'}
+                {confirmAction === 'stop_batch' && 'The engine will finish the current batch, commit any completed work, and stop safely. No in-flight data will be lost.'}
+                {confirmAction === 'terminate' && 'This action immediately terminates the migration runtime. Uncommitted work may be discarded. Recovery may require restarting from the latest checkpoint. This action should only be used during emergencies.'}
+                {confirmAction === 'restart' && 'The runtime process will be restarted. Recovery Coordinator will restore execution using the latest checkpoint.'}
+                {confirmAction === 'recover' && 'Recovery Coordinator will replay the WAL and restore the runtime from the latest recoverable checkpoint.'}
+                {confirmAction === 'checkpoint' && 'A manual recovery checkpoint will be created. This checkpoint can later be used for rollback or recovery.'}
+                {confirmAction === 'rollback' && 'Select the checkpoint to restore. Displaying available cryptographic LSN checkpoint snapshots below.'}
+                {confirmAction === 'retry' && 'Retry only the failed workflow step. Previously completed stages remain untouched.'}
+                {confirmAction === 'maintenance' && 'The runtime will enter maintenance mode. New operations will be blocked until maintenance mode is disabled.'}
+                {confirmAction === 'run_again' && 'A new migration execution will be created using the same migration configuration. The previous migration remains unchanged.'}
+                {confirmAction === 'clone' && 'A new migration configuration will be created using the current migration as its template.'}
+                {confirmAction === 'mission_replay' && 'Mission Replay will load the recorded runtime events and telemetry for this completed migration. This does not execute the migration again.'}
+                {confirmAction === 'export_replay' && 'Choose the export format for offline timeline report generation.'}
+                {confirmAction === 'download_cert' && 'The SHA-256 Trust Certificate and migration verification report will be downloaded.'}
+              </p>
+
+              {/* Special Controls for Rollback Checkpoint Selection */}
+              {confirmAction === 'rollback' && (
+                <div style={{ border: '1px solid var(--dash-border)', borderRadius: 8, padding: 12, background: 'var(--dash-bg)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--dash-text-secondary)', textTransform: 'uppercase' }}>Select Checkpoint to Restore</div>
+                  {[
+                    { id: 'chkpt-04a8f910-lsn', time: '2026-08-06 14:20:00', rows: '650,000,000', stage: 'Data Transport' },
+                    { id: 'chkpt-01b2c3d4-ddl', time: '2026-08-06 14:18:20', rows: '0', stage: 'Schema DDL' },
+                  ].map((chk) => (
+                    <label key={chk.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 8, borderRadius: 6, background: selectedCheckpoint === chk.id ? 'rgba(37,99,235,0.12)' : 'var(--dash-surface)', border: selectedCheckpoint === chk.id ? '1px solid var(--dash-accent)' : '1px solid var(--dash-border)', cursor: 'pointer', fontSize: 11 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <input type="radio" name="chkpt" checked={selectedCheckpoint === chk.id} onChange={() => setSelectedCheckpoint(chk.id)} />
+                        <div>
+                          <strong style={{ color: 'var(--dash-text-primary)', fontFamily: 'var(--akaal-font-mono, monospace)' }}>{chk.id}</strong>
+                          <div style={{ color: 'var(--dash-text-secondary)', fontSize: 10 }}>Stage: {chk.stage} · {chk.rows} Rows</div>
+                        </div>
+                      </div>
+                      <span style={{ color: 'var(--dash-text-secondary)', fontSize: 10 }}>{chk.time}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+
+              {/* Special Controls for Export Replay Format */}
+              {confirmAction === 'export_replay' && (
+                <div style={{ border: '1px solid var(--dash-border)', borderRadius: 8, padding: 12, background: 'var(--dash-bg)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--dash-text-secondary)', textTransform: 'uppercase' }}>Choose Export Format</div>
+                  {[
+                    { id: 'HTML', label: 'Interactive HTML Manifest', desc: 'Self-contained offline interactive timeline' },
+                    { id: 'MP4', label: 'MP4 Video Recording', desc: 'Rendered video recording of Mission Control playback' },
+                    { id: 'PDF', label: 'PDF Timeline Report', desc: 'Executive printable audit report document' },
+                  ].map((fmt) => (
+                    <label key={fmt.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 8, borderRadius: 6, background: exportFormat === fmt.id ? 'rgba(37,99,235,0.12)' : 'var(--dash-surface)', border: exportFormat === fmt.id ? '1px solid var(--dash-accent)' : '1px solid var(--dash-border)', cursor: 'pointer', fontSize: 11 }}>
+                      <input type="radio" name="expfmt" checked={exportFormat === fmt.id} onChange={() => setExportFormat(fmt.id as any)} />
+                      <div>
+                        <strong style={{ color: 'var(--dash-text-primary)' }}>{fmt.label}</strong>
+                        <div style={{ color: 'var(--dash-text-secondary)', fontSize: 10 }}>{fmt.desc}</div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              )}
+
+              {/* Enterprise Operational Safety Impact Matrix */}
+              <div style={{ padding: 12, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, fontSize: 11 }}>
+                <div>
+                  <div style={{ color: 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>Runtime Impact</div>
+                  <div style={{ fontWeight: 600, color: 'var(--dash-text-primary)', marginTop: 2 }}>
+                    {confirmAction === 'pause' && 'Holds stream workers & checkpoints WAL'}
+                    {confirmAction === 'resume' && 'Re-activates 8 parallel socket threads'}
+                    {confirmAction === 'stop_batch' && 'Commits current batch before halt'}
+                    {confirmAction === 'terminate' && 'Immediate process termination (Emergency)'}
+                    {confirmAction === 'restart' && 'Recycles daemon process & mailbox'}
+                    {confirmAction === 'recover' && 'Replays WAL & resets supervisor locks'}
+                    {confirmAction === 'checkpoint' && 'Flushes LSN write-ahead buffer'}
+                    {confirmAction === 'rollback' && 'Truncates target data & reverts DDL'}
+                    {confirmAction === 'retry' && 'Re-executes active stage under supervisor'}
+                    {confirmAction === 'maintenance' && 'Isolates IPC command mailbox queue'}
+                    {confirmAction === 'run_again' && 'Creates new execution session ID'}
+                    {confirmAction === 'clone' && 'Duplicates pipeline workspace template'}
+                    {confirmAction === 'mission_replay' && 'Loads recorded event telemetry'}
+                    {confirmAction === 'export_replay' && 'Generates offline timeline file'}
+                    {confirmAction === 'download_cert' && 'Generates signed SHA-256 certificate'}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ color: 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>Reversibility & Recovery</div>
+                  <div style={{ fontWeight: 600, color: confirmAction === 'terminate' || confirmAction === 'rollback' ? '#EF4444' : '#10B981', marginTop: 2 }}>
+                    {confirmAction === 'terminate' ? 'Irreversible (Requires Rollback)' : confirmAction === 'rollback' ? 'Reverts Target Changes' : '✓ Reversible / Safe Operation'}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div style={{ padding: '16px 24px', borderTop: '1px solid var(--dash-border)', background: 'var(--dash-bg)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10 }}>
+              <button
+                type="button"
+                onClick={() => setConfirmAction(null)}
+                style={{ padding: '8px 16px', borderRadius: 8, background: 'var(--dash-surface)', border: '1px solid var(--dash-border)', color: 'var(--dash-text-primary)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => executeConfirmedAction(confirmAction)}
+                style={{
+                  padding: '9px 20px', borderRadius: 8,
+                  background: confirmAction === 'terminate' || confirmAction === 'rollback' ? '#EF4444' : confirmAction === 'pause' || confirmAction === 'maintenance' ? '#F59E0B' : confirmAction === 'resume' || confirmAction === 'download_cert' ? '#10B981' : 'var(--dash-accent)',
+                  color: '#FFF', border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6
+                }}
+              >
+                {confirmAction === 'pause' && 'Pause Migration'}
+                {confirmAction === 'resume' && 'Resume Migration'}
+                {confirmAction === 'stop_batch' && 'Stop After Current Batch'}
+                {confirmAction === 'terminate' && 'Terminate Runtime'}
+                {confirmAction === 'restart' && 'Restart Runtime'}
+                {confirmAction === 'recover' && 'Recover Runtime'}
+                {confirmAction === 'checkpoint' && 'Create Checkpoint'}
+                {confirmAction === 'rollback' && 'Rollback'}
+                {confirmAction === 'retry' && 'Retry Step'}
+                {confirmAction === 'maintenance' && 'Enable Maintenance Mode'}
+                {confirmAction === 'run_again' && 'Run Again'}
+                {confirmAction === 'clone' && 'Clone Migration'}
+                {confirmAction === 'mission_replay' && 'Open Replay'}
+                {confirmAction === 'export_replay' && 'Export'}
+                {confirmAction === 'download_cert' && 'Download'}
+              </button>
             </div>
           </div>
         </div>
