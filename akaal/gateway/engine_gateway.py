@@ -21,6 +21,8 @@ import os
 import json
 import logging
 import asyncio
+import uuid
+import hashlib
 from typing import Any, Dict, Optional, List
 
 # Ensure akaal package imports
@@ -227,19 +229,23 @@ class EngineGateway:
                     loop.run_until_complete(adapter.disconnect())
                 except Exception:
                     pass
-                return {
-                    "connected": True,
-                    "system_type": sys_type_str,
-                    "host": cfg.host,
-                    "port": cfg.port,
-                    "database_name": cfg.database_name,
-                    "username": cfg.credentials_ref,
-                    "server_version": str(ver),
-                    "latency_ms": 1.5,
-                    "message": f"Successfully connected to {sys_type_str} at {cfg.host}:{cfg.port}/{cfg.database_name}",
-                }
+                    conn_id = f"conn-{hashlib.sha256(f'{sys_type_str}:{cfg.host}:{cfg.port}:{cfg.database_name}:{cfg.credentials_ref}'.encode()).hexdigest()[:12]}"
+                    return {
+                        "connected": True,
+                        "connection_id": conn_id,
+                        "system_type": sys_type_str,
+                        "host": cfg.host,
+                        "port": cfg.port,
+                        "database_name": cfg.database_name,
+                        "username": cfg.credentials_ref,
+                        "server_version": str(ver),
+                        "latency_ms": 1.5,
+                        "message": f"Successfully connected to {sys_type_str} at {cfg.host}:{cfg.port}/{cfg.database_name}",
+                    }
+            conn_id = f"conn-{hashlib.sha256(f'{sys_type_str}:{cfg.host}:{cfg.port}:{cfg.database_name}:{cfg.credentials_ref}'.encode()).hexdigest()[:12]}"
             return {
                 "connected": False,
+                "connection_id": conn_id,
                 "system_type": sys_type_str,
                 "host": cfg.host,
                 "port": cfg.port,
@@ -250,8 +256,10 @@ class EngineGateway:
                 "message": f"Connection failed to {cfg.host}:{cfg.port}",
             }
         except Exception as err:
+            conn_id = f"conn-{hashlib.sha256(f'{sys_type_str}:{cfg.host}:{cfg.port}:{cfg.database_name}:{cfg.credentials_ref}'.encode()).hexdigest()[:12]}"
             return {
                 "connected": False,
+                "connection_id": conn_id,
                 "system_type": sys_type_str,
                 "host": cfg.host,
                 "port": cfg.port,
@@ -276,14 +284,17 @@ class EngineGateway:
         }
 
     def create_migration(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        mig_id = payload.get("migration_id") or f"mig-{os.urandom(4).hex()}"
+        mig_id = payload.get("migration_id") or f"mig-{uuid.uuid4().hex[:12]}"
         name = payload.get("migration_name", "Core Database Migration")
-        self._migrations[mig_id] = {"migration_id": mig_id, "migration_name": name, "status": "configured", "config": payload}
+        config = payload.copy()
+        config["migration_id"] = mig_id
+
+        self._migrations[mig_id] = {"migration_id": mig_id, "migration_name": name, "status": "configured", "config": config}
         self._register_workflow_manifest(mig_id)
 
         # Control Plane Active Integration
-        self.runtime_registry.register_runtime(mig_id, mig_id, os.getpid(), payload)
-        self.state_store.set_state(mig_id, {"status": "configured", "config": payload}, category="migration")
+        self.runtime_registry.register_runtime(mig_id, mig_id, os.getpid(), config)
+        self.state_store.set_state(mig_id, {"status": "configured", "config": config}, category="migration")
         self.state_store.update_progress(mig_id, {
             "migration_id": mig_id,
             "rows_migrated": 0,
@@ -297,6 +308,12 @@ class EngineGateway:
             "migration_id": mig_id,
             "migration_name": name,
             "status": "configured",
+            "source_connection_id": payload.get("source_connection_id"),
+            "target_connection_id": payload.get("target_connection_id"),
+            "discovery_snapshot_id": payload.get("discovery_snapshot_id"),
+            "advisor_report_id": payload.get("advisor_report_id"),
+            "execution_plan_id": payload.get("execution_plan_id"),
+            "approval_reference_id": payload.get("approval_reference_id"),
         }
 
     def start_transport(self, payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -411,7 +428,11 @@ class EngineGateway:
                 tbl_names = []
                 err_list.append(str(disc_exc))
 
+            snap_id = f"snap-{uuid.uuid4().hex[:12]}"
+            adv_id = f"adv-{uuid.uuid4().hex[:12]}"
             return {
+                "discovery_snapshot_id": snap_id,
+                "advisor_report_id": adv_id,
                 "project_id": payload.get("project_id", "proj-default"),
                 "migration_id": payload.get("migration_id", "mig-default"),
                 "source_engine": src_sys,
@@ -446,16 +467,50 @@ class EngineGateway:
         finally:
             loop.close()
 
+    def start_scout(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        return self.run_preflight(payload)
+
+    def run_advisor(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        return self.run_preflight(payload)
+
+    def generate_plan(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        mig_id = payload.get("migration_id", "mig-default")
+        plan_id = f"plan-{uuid.uuid4().hex[:12]}"
+        workers = int(payload.get("worker_allocation", 8))
+        batch_size = int(payload.get("batch_size", 10000))
+        src_engine = payload.get("source_engine", "Oracle 19c")
+        tgt_engine = payload.get("target_engine", "PostgreSQL 16")
+
+        plan_payload = {
+            "execution_plan_id": plan_id,
+            "migration_id": mig_id,
+            "execution_plan_name": f"Topological DAG Execution Plan ({src_engine} → {tgt_engine})",
+            "worker_allocation": workers,
+            "batch_size": batch_size,
+            "stages": [
+                {"stage": 1, "name": "Catalog & Schema Barrier", "category": "DDL"},
+                {"stage": 2, "name": "DAG Topological Sorting", "category": "Planner"},
+                {"stage": 3, "name": "Parallel Stream Data Transport", "category": "Transport"},
+                {"stage": 4, "name": "Validation & Reconciliation", "category": "Audit"}
+            ],
+            "status": "generated"
+        }
+        self.state_store.set_state(plan_id, plan_payload, category="execution_plan")
+        return plan_payload
+
     def request_approval(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         mig_id = payload.get("migration_id", "mig-default")
+        app_id = f"app-ref-{uuid.uuid4().hex[:12]}"
         gate_info = self.policy_engine.evaluate_approval_gate(mig_id, "LOW")
         return {
+            "approval_reference_id": app_id,
             "stage": "approval",
             "decision": "approved",
             "approver": payload.get("approver", "Aalok"),
             "custody_hash": f"sha256-{os.urandom(8).hex()}",
             "gate_status": gate_info["gate_status"],
             "status": "approved",
+            "approval_packet_ref": f"packet-{app_id}"
         }
 
     def run_validation(self, payload: Dict[str, Any]) -> Dict[str, Any]:
