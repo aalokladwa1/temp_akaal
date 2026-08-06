@@ -10,11 +10,11 @@ export interface NewMigrationWizardProps {
 }
 
 // ─── Engine-Compatible DTOs ─────────────────────────────────────────────────
-// These DTOs map 1:1 with future SchemaDiscoveryDTO engine responses.
 
 interface DiscoveredObjectDTO {
   object_id: string;
   schema_id: string;
+  db_id: string;
   object_name: string;
   object_type: string;
   estimated_rows: number;    // -1 = N/A (procedures, functions, etc.)
@@ -33,7 +33,15 @@ interface ObjectGroupDTO {
 interface SchemaDiscoveryDTO {
   schema_id: string;
   schema_name: string;
+  db_id: string;
   object_groups: ObjectGroupDTO[];
+}
+
+interface DatabaseDiscoveryDTO {
+  db_id: string;
+  db_name: string;
+  instance_name: string;
+  schemas: SchemaDiscoveryDTO[];
 }
 
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -109,9 +117,10 @@ const IndeterminateCheckbox: FC<IndeterminateCheckboxProps> = ({
   );
 };
 
-// ─── Mock Discovery Data (Engine-Compatible, 124 objects across 4 schemas) ──
+// ─── Mock Discovery Data (Hierarchy: Instance -> Database -> Schema -> Object) ─
 
 const mk = (
+  db_id: string,
   schema_id: string,
   object_id: string,
   object_name: string,
@@ -122,223 +131,245 @@ const mk = (
   dependency_ids: string[] = [],
   warnings: string[] = [],
 ): DiscoveredObjectDTO => ({
-  object_id, schema_id, object_name, object_type,
+  object_id, schema_id, db_id, object_name, object_type,
   estimated_rows, estimated_size_gb, compatibility_status,
   dependency_ids, warnings, selected: true,
 });
 
-const INITIAL_SCHEMAS: SchemaDiscoveryDTO[] = [
+const INITIAL_DATABASES: DatabaseDiscoveryDTO[] = [
   {
-    schema_id: 'SYSTEM', schema_name: 'SYSTEM',
-    object_groups: [
-      { object_type: 'Table', objects: [
-        mk('SYSTEM','sys-t1','CUSTOMER_RECORDS','Table',500_000_000,54.2,'OPTIMAL'),
-        mk('SYSTEM','sys-t2','MIGRATION_AUDIT_LOG','Table',120_000_000,12.4,'OPTIMAL'),
-        mk('SYSTEM','sys-t3','SYSTEM_CONFIG','Table',500,0.001,'OPTIMAL'),
-        mk('SYSTEM','sys-t4','AUDIT_TRAIL','Table',800_000_000,82.1,'OPTIMAL'),
-        mk('SYSTEM','sys-t5','ERROR_LOG','Table',45_000_000,4.8,'OPTIMAL'),
-      ]},
-      { object_type: 'Procedure', objects: [
-        mk('SYSTEM','sys-p1','PROCESS_CUSTOMER_ORDER','Procedure',-1,-1,'TRANSPILED',['sys-t1'],['PL/SQL cursor rewrite required']),
-        mk('SYSTEM','sys-p2','HANDLE_EXCEPTIONS','Procedure',-1,-1,'OPTIMAL'),
-        mk('SYSTEM','sys-p3','REBUILD_INDEXES','Procedure',-1,-1,'ADVISORY',[],['DBMS_INDEX usage — manual review']),
-      ]},
-      { object_type: 'Sequence', objects: [
-        mk('SYSTEM','sys-s1','SEQ_CUSTOMER_ID','Sequence',-1,-1,'OPTIMAL'),
-        mk('SYSTEM','sys-s2','SEQ_AUDIT_ID','Sequence',-1,-1,'OPTIMAL'),
-        mk('SYSTEM','sys-s3','SEQ_ERROR_ID','Sequence',-1,-1,'OPTIMAL'),
-      ]},
-      { object_type: 'Role', objects: [
-        mk('SYSTEM','sys-r1','ROLE_FINANCE_ADMIN','Role',-1,-1,'OPTIMAL'),
-        mk('SYSTEM','sys-r2','ROLE_SALES_USER','Role',-1,-1,'OPTIMAL'),
-        mk('SYSTEM','sys-r3','ROLE_DBA','Role',-1,-1,'OPTIMAL'),
-        mk('SYSTEM','sys-r4','ROLE_READONLY','Role',-1,-1,'OPTIMAL'),
-      ]},
-      { object_type: 'Synonym', objects: [
-        mk('SYSTEM','sys-syn1','SYN_CUSTOMERS','Synonym',-1,-1,'OPTIMAL',['sys-t1']),
-        mk('SYSTEM','sys-syn2','SYN_ORDERS','Synonym',-1,-1,'OPTIMAL'),
-      ]},
+    db_id: 'HRDB',
+    db_name: 'HRDB',
+    instance_name: 'Oracle 19c Enterprise Server',
+    schemas: [
+      {
+        schema_id: 'HR', schema_name: 'HR', db_id: 'HRDB',
+        object_groups: [
+          { object_type: 'Table', objects: [
+            mk('HRDB','HR','hr-t1','EMPLOYEES','Table',18_400_000,4.2,'OPTIMAL'),
+            mk('HRDB','HR','hr-t2','DEPARTMENTS','Table',500,0.002,'OPTIMAL'),
+            mk('HRDB','HR','hr-t3','JOB_HISTORY','Table',55_000_000,6.1,'OPTIMAL',['hr-t1','hr-t2']),
+            mk('HRDB','HR','hr-t4','SALARIES','Table',95_000_000,9.8,'OPTIMAL',['hr-t1']),
+            mk('HRDB','HR','hr-t5','LOCATIONS','Table',1000,0.001,'OPTIMAL'),
+            mk('HRDB','HR','hr-t6','JOBS','Table',200,0.001,'OPTIMAL'),
+            mk('HRDB','HR','hr-t7','REGIONS','Table',20,0.001,'OPTIMAL'),
+            mk('HRDB','HR','hr-t8','COUNTRIES','Table',250,0.001,'OPTIMAL',['hr-t7']),
+          ]},
+          { object_type: 'View', objects: [
+            mk('HRDB','HR','hr-v1','EMPLOYEE_SUMMARY','View',-1,-1,'OPTIMAL',['hr-t1','hr-t2']),
+            mk('HRDB','HR','hr-v2','ACTIVE_EMPLOYEES','View',-1,-1,'OPTIMAL',['hr-t1']),
+            mk('HRDB','HR','hr-v3','DEPT_HEADCOUNT','View',-1,-1,'OPTIMAL',['hr-t2','hr-t1']),
+            mk('HRDB','HR','hr-v4','SALARY_BANDS','View',-1,-1,'ADVISORY',['hr-t4'],['CONNECT BY hierarchy — needs WITH RECURSIVE']),
+            mk('HRDB','HR','hr-v5','MANAGER_TREE','View',-1,-1,'TRANSPILED',['hr-t1'],['Hierarchical query transpiled']),
+          ]},
+          { object_type: 'Procedure', objects: [
+            mk('HRDB','HR','hr-p1','UPDATE_SALARY','Procedure',-1,-1,'OPTIMAL',['hr-t4']),
+            mk('HRDB','HR','hr-p2','ARCHIVE_EMPLOYEE','Procedure',-1,-1,'TRANSPILED',['hr-t1','hr-t3'],['Bulk DML rewrite']),
+            mk('HRDB','HR','hr-p3','TRANSFER_DEPARTMENT','Procedure',-1,-1,'OPTIMAL',['hr-t1','hr-t2']),
+            mk('HRDB','HR','hr-p4','PROMOTE_EMPLOYEE','Procedure',-1,-1,'OPTIMAL',['hr-t1','hr-t4']),
+            mk('HRDB','HR','hr-p5','AUDIT_CHANGES','Procedure',-1,-1,'OPTIMAL',['hr-t3']),
+            mk('HRDB','HR','hr-p6','BATCH_UPDATE','Procedure',-1,-1,'ADVISORY',[],['FORALL statement mapping required']),
+          ]},
+          { object_type: 'Function', objects: [
+            mk('HRDB','HR','hr-f1','CALC_SENIORITY','Function',-1,-1,'OPTIMAL',['hr-t1']),
+            mk('HRDB','HR','hr-f2','GET_DEPT_NAME','Function',-1,-1,'OPTIMAL',['hr-t2']),
+            mk('HRDB','HR','hr-f3','EMP_FULL_NAME','Function',-1,-1,'OPTIMAL',['hr-t1']),
+            mk('HRDB','HR','hr-f4','COUNT_REPORTS','Function',-1,-1,'TRANSPILED',['hr-t1'],['CONNECT BY used']),
+          ]},
+          { object_type: 'Trigger', objects: [
+            mk('HRDB','HR','hr-trg1','TRG_EMP_AUDIT','Trigger',-1,-1,'OPTIMAL',['hr-t1','hr-t3']),
+            mk('HRDB','HR','hr-trg2','TRG_SALARY_CHECK','Trigger',-1,-1,'OPTIMAL',['hr-t4']),
+            mk('HRDB','HR','hr-trg3','TRG_DEPT_VALIDATION','Trigger',-1,-1,'OPTIMAL',['hr-t2']),
+          ]},
+          { object_type: 'Sequence', objects: [
+            mk('HRDB','HR','hr-seq1','SEQ_EMP_ID','Sequence',-1,-1,'OPTIMAL'),
+            mk('HRDB','HR','hr-seq2','SEQ_DEPT_ID','Sequence',-1,-1,'OPTIMAL'),
+          ]},
+        ],
+      },
+      {
+        schema_id: 'SYSTEM', schema_name: 'SYSTEM', db_id: 'HRDB',
+        object_groups: [
+          { object_type: 'Table', objects: [
+            mk('HRDB','SYSTEM','sys-t1','CUSTOMER_RECORDS','Table',500_000_000,54.2,'OPTIMAL'),
+            mk('HRDB','SYSTEM','sys-t2','MIGRATION_AUDIT_LOG','Table',120_000_000,12.4,'OPTIMAL'),
+            mk('HRDB','SYSTEM','sys-t3','SYSTEM_CONFIG','Table',500,0.001,'OPTIMAL'),
+            mk('HRDB','SYSTEM','sys-t4','AUDIT_TRAIL','Table',800_000_000,82.1,'OPTIMAL'),
+            mk('HRDB','SYSTEM','sys-t5','ERROR_LOG','Table',45_000_000,4.8,'OPTIMAL'),
+          ]},
+          { object_type: 'Procedure', objects: [
+            mk('HRDB','SYSTEM','sys-p1','PROCESS_CUSTOMER_ORDER','Procedure',-1,-1,'TRANSPILED',['sys-t1'],['PL/SQL cursor rewrite required']),
+            mk('HRDB','SYSTEM','sys-p2','HANDLE_EXCEPTIONS','Procedure',-1,-1,'OPTIMAL'),
+            mk('HRDB','SYSTEM','sys-p3','REBUILD_INDEXES','Procedure',-1,-1,'ADVISORY',[],['DBMS_INDEX usage — manual review']),
+          ]},
+          { object_type: 'Sequence', objects: [
+            mk('HRDB','SYSTEM','sys-s1','SEQ_CUSTOMER_ID','Sequence',-1,-1,'OPTIMAL'),
+            mk('HRDB','SYSTEM','sys-s2','SEQ_AUDIT_ID','Sequence',-1,-1,'OPTIMAL'),
+            mk('HRDB','SYSTEM','sys-s3','SEQ_ERROR_ID','Sequence',-1,-1,'OPTIMAL'),
+          ]},
+          { object_type: 'Role', objects: [
+            mk('HRDB','SYSTEM','sys-r1','ROLE_FINANCE_ADMIN','Role',-1,-1,'OPTIMAL'),
+            mk('HRDB','SYSTEM','sys-r2','ROLE_SALES_USER','Role',-1,-1,'OPTIMAL'),
+            mk('HRDB','SYSTEM','sys-r3','ROLE_DBA','Role',-1,-1,'OPTIMAL'),
+            mk('HRDB','SYSTEM','sys-r4','ROLE_READONLY','Role',-1,-1,'OPTIMAL'),
+          ]},
+          { object_type: 'Synonym', objects: [
+            mk('HRDB','SYSTEM','sys-syn1','SYN_CUSTOMERS','Synonym',-1,-1,'OPTIMAL',['sys-t1']),
+            mk('HRDB','SYSTEM','sys-syn2','SYN_ORDERS','Synonym',-1,-1,'OPTIMAL'),
+          ]},
+        ],
+      },
     ],
   },
   {
-    schema_id: 'HR', schema_name: 'HR',
-    object_groups: [
-      { object_type: 'Table', objects: [
-        mk('HR','hr-t1','EMPLOYEES','Table',18_400_000,4.2,'OPTIMAL'),
-        mk('HR','hr-t2','DEPARTMENTS','Table',500,0.002,'OPTIMAL'),
-        mk('HR','hr-t3','JOB_HISTORY','Table',55_000_000,6.1,'OPTIMAL',['hr-t1','hr-t2']),
-        mk('HR','hr-t4','SALARIES','Table',95_000_000,9.8,'OPTIMAL',['hr-t1']),
-        mk('HR','hr-t5','LOCATIONS','Table',1000,0.001,'OPTIMAL'),
-        mk('HR','hr-t6','JOBS','Table',200,0.001,'OPTIMAL'),
-        mk('HR','hr-t7','REGIONS','Table',20,0.001,'OPTIMAL'),
-        mk('HR','hr-t8','COUNTRIES','Table',250,0.001,'OPTIMAL',['hr-t7']),
-      ]},
-      { object_type: 'View', objects: [
-        mk('HR','hr-v1','EMPLOYEE_SUMMARY','View',-1,-1,'OPTIMAL',['hr-t1','hr-t2']),
-        mk('HR','hr-v2','ACTIVE_EMPLOYEES','View',-1,-1,'OPTIMAL',['hr-t1']),
-        mk('HR','hr-v3','DEPT_HEADCOUNT','View',-1,-1,'OPTIMAL',['hr-t2','hr-t1']),
-        mk('HR','hr-v4','SALARY_BANDS','View',-1,-1,'ADVISORY',['hr-t4'],['CONNECT BY hierarchy — needs WITH RECURSIVE']),
-        mk('HR','hr-v5','MANAGER_TREE','View',-1,-1,'TRANSPILED',['hr-t1'],['Hierarchical query transpiled']),
-      ]},
-      { object_type: 'Procedure', objects: [
-        mk('HR','hr-p1','UPDATE_SALARY','Procedure',-1,-1,'OPTIMAL',['hr-t4']),
-        mk('HR','hr-p2','ARCHIVE_EMPLOYEE','Procedure',-1,-1,'TRANSPILED',['hr-t1','hr-t3'],['Bulk DML rewrite']),
-        mk('HR','hr-p3','TRANSFER_DEPARTMENT','Procedure',-1,-1,'OPTIMAL',['hr-t1','hr-t2']),
-        mk('HR','hr-p4','PROMOTE_EMPLOYEE','Procedure',-1,-1,'OPTIMAL',['hr-t1','hr-t4']),
-        mk('HR','hr-p5','AUDIT_CHANGES','Procedure',-1,-1,'OPTIMAL',['hr-t3']),
-        mk('HR','hr-p6','BATCH_UPDATE','Procedure',-1,-1,'ADVISORY',[],['FORALL statement mapping required']),
-      ]},
-      { object_type: 'Function', objects: [
-        mk('HR','hr-f1','CALC_SENIORITY','Function',-1,-1,'OPTIMAL',['hr-t1']),
-        mk('HR','hr-f2','GET_DEPT_NAME','Function',-1,-1,'OPTIMAL',['hr-t2']),
-        mk('HR','hr-f3','EMP_FULL_NAME','Function',-1,-1,'OPTIMAL',['hr-t1']),
-        mk('HR','hr-f4','COUNT_REPORTS','Function',-1,-1,'TRANSPILED',['hr-t1'],['CONNECT BY used']),
-      ]},
-      { object_type: 'Trigger', objects: [
-        mk('HR','hr-trg1','TRG_EMP_AUDIT','Trigger',-1,-1,'OPTIMAL',['hr-t1','hr-t3']),
-        mk('HR','hr-trg2','TRG_SALARY_CHECK','Trigger',-1,-1,'OPTIMAL',['hr-t4']),
-        mk('HR','hr-trg3','TRG_DEPT_VALIDATION','Trigger',-1,-1,'OPTIMAL',['hr-t2']),
-      ]},
-      { object_type: 'Sequence', objects: [
-        mk('HR','hr-seq1','SEQ_EMP_ID','Sequence',-1,-1,'OPTIMAL'),
-        mk('HR','hr-seq2','SEQ_DEPT_ID','Sequence',-1,-1,'OPTIMAL'),
-      ]},
+    db_id: 'FINANCEDB',
+    db_name: 'FINANCEDB',
+    instance_name: 'Oracle 19c Enterprise Server',
+    schemas: [
+      {
+        schema_id: 'FIN', schema_name: 'FIN', db_id: 'FINANCEDB',
+        object_groups: [
+          { object_type: 'Table', objects: [
+            mk('FINANCEDB','FIN','fin-t1','PAYMENT_TRANSACTIONS','Table',100_000_000,19.6,'OPTIMAL'),
+            mk('FINANCEDB','FIN','fin-t2','INVOICES','Table',45_000_000,8.2,'OPTIMAL'),
+            mk('FINANCEDB','FIN','fin-t3','ACCOUNTS','Table',12_000_000,2.4,'OPTIMAL'),
+            mk('FINANCEDB','FIN','fin-t4','LEDGER_ENTRIES','Table',280_000_000,38.4,'OPTIMAL'),
+            mk('FINANCEDB','FIN','fin-t5','TAX_RECORDS','Table',55_000_000,7.8,'OPTIMAL'),
+            mk('FINANCEDB','FIN','fin-t6','EXCHANGE_RATES','Table',850_000,0.12,'OPTIMAL'),
+            mk('FINANCEDB','FIN','fin-t7','BUDGET_LINES','Table',4_200_000,0.62,'OPTIMAL'),
+            mk('FINANCEDB','FIN','fin-t8','COST_CENTERS','Table',8500,0.002,'OPTIMAL'),
+            mk('FINANCEDB','FIN','fin-t9','FISCAL_PERIODS','Table',240,0.001,'OPTIMAL'),
+            mk('FINANCEDB','FIN','fin-t10','CURRENCY_CODES','Table',190,0.001,'OPTIMAL'),
+          ]},
+          { object_type: 'View', objects: [
+            mk('FINANCEDB','FIN','fin-v1','MONTHLY_REVENUE','View',-1,-1,'ADVISORY',['fin-t1','fin-t4'],['ROLLUP clause — verify aggregation']),
+            mk('FINANCEDB','FIN','fin-v2','TAX_SUMMARY','View',-1,-1,'OPTIMAL',['fin-t5']),
+            mk('FINANCEDB','FIN','fin-v3','ACCOUNT_BALANCES','View',-1,-1,'OPTIMAL',['fin-t3','fin-t4']),
+            mk('FINANCEDB','FIN','fin-v4','RECONCILIATION_VIEW','View',-1,-1,'TRANSPILED',['fin-t1','fin-t4'],['PIVOT transpiled to crosstab']),
+            mk('FINANCEDB','FIN','fin-v5','COST_ANALYSIS','View',-1,-1,'OPTIMAL',['fin-t7','fin-t8']),
+            mk('FINANCEDB','FIN','fin-v6','BUDGET_VS_ACTUAL','View',-1,-1,'ADVISORY',['fin-t7'],['MERGE statement reference']),
+          ]},
+          { object_type: 'Procedure', objects: [
+            mk('FINANCEDB','FIN','fin-p1','CALCULATE_TAX_RATE','Procedure',-1,-1,'OPTIMAL',['fin-t5']),
+            mk('FINANCEDB','FIN','fin-p2','RECONCILE_ACCOUNTS','Procedure',-1,-1,'TRANSPILED',['fin-t3','fin-t4'],['Cursor FOR LOOP rewrite']),
+            mk('FINANCEDB','FIN','fin-p3','CLOSE_FISCAL_PERIOD','Procedure',-1,-1,'ADVISORY',['fin-t9'],['DBMS_LOCK usage']),
+            mk('FINANCEDB','FIN','fin-p4','GENERATE_INVOICE','Procedure',-1,-1,'OPTIMAL',['fin-t2']),
+            mk('FINANCEDB','FIN','fin-p5','PROCESS_PAYMENT','Procedure',-1,-1,'OPTIMAL',['fin-t1','fin-t3']),
+            mk('FINANCEDB','FIN','fin-p6','AUDIT_TRANSACTIONS','Procedure',-1,-1,'OPTIMAL',['fin-t1']),
+            mk('FINANCEDB','FIN','fin-p7','APPLY_EXCHANGE_RATE','Procedure',-1,-1,'OPTIMAL',['fin-t6']),
+            mk('FINANCEDB','FIN','fin-p8','BATCH_RECONCILE','Procedure',-1,-1,'TRANSPILED',['fin-t4'],['FORALL + BULK COLLECT']),
+          ]},
+          { object_type: 'Function', objects: [
+            mk('FINANCEDB','FIN','fin-f1','CALC_TAX','Function',-1,-1,'OPTIMAL',['fin-t5']),
+            mk('FINANCEDB','FIN','fin-f2','GET_EXCHANGE_RATE','Function',-1,-1,'OPTIMAL',['fin-t6']),
+            mk('FINANCEDB','FIN','fin-f3','COMPUTE_MARGIN','Function',-1,-1,'TRANSPILED',[],['UTL_RAW usage mapped']),
+            mk('FINANCEDB','FIN','fin-f4','FISCAL_QUARTER','Function',-1,-1,'OPTIMAL',['fin-t9']),
+            mk('FINANCEDB','FIN','fin-f5','GET_ACCOUNT_BALANCE','Function',-1,-1,'OPTIMAL',['fin-t3','fin-t4']),
+          ]},
+          { object_type: 'Package', objects: [
+            mk('FINANCEDB','FIN','fin-pkg1','PKG_FINANCIAL_YEAR','Package',-1,-1,'TRANSPILED',[],['Package body decomposed to 4 procedures']),
+            mk('FINANCEDB','FIN','fin-pkg2','PKG_TAX_ENGINE','Package',-1,-1,'TRANSPILED',[],['Package body decomposed to 3 procedures']),
+            mk('FINANCEDB','FIN','fin-pkg3','PKG_REPORTING','Package',-1,-1,'ADVISORY',[],['UTL_HTTP usage — manual migration']),
+          ]},
+          { object_type: 'Trigger', objects: [
+            mk('FINANCEDB','FIN','fin-trg1','TRG_PAYMENT_AUDIT','Trigger',-1,-1,'OPTIMAL',['fin-t1']),
+            mk('FINANCEDB','FIN','fin-trg2','TRG_INVOICE_CREATE','Trigger',-1,-1,'OPTIMAL',['fin-t2']),
+            mk('FINANCEDB','FIN','fin-trg3','TRG_LEDGER_BALANCE','Trigger',-1,-1,'OPTIMAL',['fin-t4']),
+            mk('FINANCEDB','FIN','fin-trg4','TRG_BUDGET_CHECK','Trigger',-1,-1,'ADVISORY',['fin-t7'],['Compound trigger pattern']),
+          ]},
+          { object_type: 'Materialized View', objects: [
+            mk('FINANCEDB','FIN','fin-mv1','MV_MONTHLY_SUMMARY','Materialized View',8_400_000,1.2,'ADVISORY',[],['Fast refresh compatibility check']),
+            mk('FINANCEDB','FIN','fin-mv2','MV_TAX_LIABILITY','Materialized View',2_100_000,0.3,'ADVISORY',[],['ON COMMIT refresh — needs pg_cron']),
+          ]},
+        ],
+      },
     ],
   },
   {
-    schema_id: 'FIN', schema_name: 'FIN',
-    object_groups: [
-      { object_type: 'Table', objects: [
-        mk('FIN','fin-t1','PAYMENT_TRANSACTIONS','Table',100_000_000,19.6,'OPTIMAL'),
-        mk('FIN','fin-t2','INVOICES','Table',45_000_000,8.2,'OPTIMAL'),
-        mk('FIN','fin-t3','ACCOUNTS','Table',12_000_000,2.4,'OPTIMAL'),
-        mk('FIN','fin-t4','LEDGER_ENTRIES','Table',280_000_000,38.4,'OPTIMAL'),
-        mk('FIN','fin-t5','TAX_RECORDS','Table',55_000_000,7.8,'OPTIMAL'),
-        mk('FIN','fin-t6','EXCHANGE_RATES','Table',850_000,0.12,'OPTIMAL'),
-        mk('FIN','fin-t7','BUDGET_LINES','Table',4_200_000,0.62,'OPTIMAL'),
-        mk('FIN','fin-t8','COST_CENTERS','Table',8500,0.002,'OPTIMAL'),
-        mk('FIN','fin-t9','FISCAL_PERIODS','Table',240,0.001,'OPTIMAL'),
-        mk('FIN','fin-t10','CURRENCY_CODES','Table',190,0.001,'OPTIMAL'),
-      ]},
-      { object_type: 'View', objects: [
-        mk('FIN','fin-v1','MONTHLY_REVENUE','View',-1,-1,'ADVISORY',['fin-t1','fin-t4'],['ROLLUP clause — verify aggregation']),
-        mk('FIN','fin-v2','TAX_SUMMARY','View',-1,-1,'OPTIMAL',['fin-t5']),
-        mk('FIN','fin-v3','ACCOUNT_BALANCES','View',-1,-1,'OPTIMAL',['fin-t3','fin-t4']),
-        mk('FIN','fin-v4','RECONCILIATION_VIEW','View',-1,-1,'TRANSPILED',['fin-t1','fin-t4'],['PIVOT transpiled to crosstab']),
-        mk('FIN','fin-v5','COST_ANALYSIS','View',-1,-1,'OPTIMAL',['fin-t7','fin-t8']),
-        mk('FIN','fin-v6','BUDGET_VS_ACTUAL','View',-1,-1,'ADVISORY',['fin-t7'],['MERGE statement reference']),
-      ]},
-      { object_type: 'Procedure', objects: [
-        mk('FIN','fin-p1','CALCULATE_TAX_RATE','Procedure',-1,-1,'OPTIMAL',['fin-t5']),
-        mk('FIN','fin-p2','RECONCILE_ACCOUNTS','Procedure',-1,-1,'TRANSPILED',['fin-t3','fin-t4'],['Cursor FOR LOOP rewrite']),
-        mk('FIN','fin-p3','CLOSE_FISCAL_PERIOD','Procedure',-1,-1,'ADVISORY',['fin-t9'],['DBMS_LOCK usage']),
-        mk('FIN','fin-p4','GENERATE_INVOICE','Procedure',-1,-1,'OPTIMAL',['fin-t2']),
-        mk('FIN','fin-p5','PROCESS_PAYMENT','Procedure',-1,-1,'OPTIMAL',['fin-t1','fin-t3']),
-        mk('FIN','fin-p6','AUDIT_TRANSACTIONS','Procedure',-1,-1,'OPTIMAL',['fin-t1']),
-        mk('FIN','fin-p7','APPLY_EXCHANGE_RATE','Procedure',-1,-1,'OPTIMAL',['fin-t6']),
-        mk('FIN','fin-p8','BATCH_RECONCILE','Procedure',-1,-1,'TRANSPILED',['fin-t4'],['FORALL + BULK COLLECT']),
-      ]},
-      { object_type: 'Function', objects: [
-        mk('FIN','fin-f1','CALC_TAX','Function',-1,-1,'OPTIMAL',['fin-t5']),
-        mk('FIN','fin-f2','GET_EXCHANGE_RATE','Function',-1,-1,'OPTIMAL',['fin-t6']),
-        mk('FIN','fin-f3','COMPUTE_MARGIN','Function',-1,-1,'TRANSPILED',[],['UTL_RAW usage mapped']),
-        mk('FIN','fin-f4','FISCAL_QUARTER','Function',-1,-1,'OPTIMAL',['fin-t9']),
-        mk('FIN','fin-f5','GET_ACCOUNT_BALANCE','Function',-1,-1,'OPTIMAL',['fin-t3','fin-t4']),
-      ]},
-      { object_type: 'Package', objects: [
-        mk('FIN','fin-pkg1','PKG_FINANCIAL_YEAR','Package',-1,-1,'TRANSPILED',[],['Package body decomposed to 4 procedures']),
-        mk('FIN','fin-pkg2','PKG_TAX_ENGINE','Package',-1,-1,'TRANSPILED',[],['Package body decomposed to 3 procedures']),
-        mk('FIN','fin-pkg3','PKG_REPORTING','Package',-1,-1,'ADVISORY',[],['UTL_HTTP usage — manual migration']),
-      ]},
-      { object_type: 'Trigger', objects: [
-        mk('FIN','fin-trg1','TRG_PAYMENT_AUDIT','Trigger',-1,-1,'OPTIMAL',['fin-t1']),
-        mk('FIN','fin-trg2','TRG_INVOICE_CREATE','Trigger',-1,-1,'OPTIMAL',['fin-t2']),
-        mk('FIN','fin-trg3','TRG_LEDGER_BALANCE','Trigger',-1,-1,'OPTIMAL',['fin-t4']),
-        mk('FIN','fin-trg4','TRG_BUDGET_CHECK','Trigger',-1,-1,'ADVISORY',['fin-t7'],['Compound trigger pattern']),
-      ]},
-      { object_type: 'Materialized View', objects: [
-        mk('FIN','fin-mv1','MV_MONTHLY_SUMMARY','Materialized View',8_400_000,1.2,'ADVISORY',[],['Fast refresh compatibility check']),
-        mk('FIN','fin-mv2','MV_TAX_LIABILITY','Materialized View',2_100_000,0.3,'ADVISORY',[],['ON COMMIT refresh — needs pg_cron']),
-      ]},
-    ],
-  },
-  {
-    schema_id: 'SALES', schema_name: 'SALES',
-    object_groups: [
-      { object_type: 'Table', objects: [
-        mk('SALES','sal-t1','ORDERS','Table',450_000_000,48.1,'OPTIMAL'),
-        mk('SALES','sal-t2','CUSTOMERS','Table',85_000_000,12.4,'OPTIMAL'),
-        mk('SALES','sal-t3','PRODUCTS','Table',4_200_000,0.58,'OPTIMAL'),
-        mk('SALES','sal-t4','ORDER_ITEMS','Table',1_800_000_000,184.2,'OPTIMAL',['sal-t1','sal-t3']),
-        mk('SALES','sal-t5','SHIPMENTS','Table',380_000_000,41.2,'OPTIMAL',['sal-t1']),
-        mk('SALES','sal-t6','PROMOTIONS','Table',125_000,0.02,'OPTIMAL'),
-        mk('SALES','sal-t7','TERRITORIES','Table',520,0.001,'OPTIMAL'),
-        mk('SALES','sal-t8','SALES_TARGETS','Table',18_000,0.004,'OPTIMAL',['sal-t7']),
-        mk('SALES','sal-t9','RETURNS','Table',12_000_000,1.8,'OPTIMAL',['sal-t1','sal-t2']),
-        mk('SALES','sal-t10','CUSTOMER_SEGMENTS','Table',250_000,0.04,'OPTIMAL',['sal-t2']),
-        mk('SALES','sal-t11','PRODUCT_CATEGORIES','Table',8200,0.002,'OPTIMAL'),
-        mk('SALES','sal-t12','INVENTORY_ITEMS','Table',80_000_000,8.2,'OPTIMAL',['sal-t3']),
-      ]},
-      { object_type: 'View', objects: [
-        mk('SALES','sal-v1','ORDER_SUMMARY','View',-1,-1,'OPTIMAL',['sal-t1','sal-t4']),
-        mk('SALES','sal-v2','CUSTOMER_LIFETIME','View',-1,-1,'ADVISORY',['sal-t2','sal-t1'],['Analytical window function verify']),
-        mk('SALES','sal-v3','PRODUCT_PERFORMANCE','View',-1,-1,'OPTIMAL',['sal-t3','sal-t4']),
-        mk('SALES','sal-v4','TERRITORY_SALES','View',-1,-1,'OPTIMAL',['sal-t1','sal-t7']),
-        mk('SALES','sal-v5','PROMO_EFFECTIVENESS','View',-1,-1,'ADVISORY',['sal-t6','sal-t1'],['DECODE to CASE rewrite']),
-        mk('SALES','sal-v6','PENDING_ORDERS','View',-1,-1,'OPTIMAL',['sal-t1']),
-        mk('SALES','sal-v7','FULFILLED_ORDERS','View',-1,-1,'OPTIMAL',['sal-t1','sal-t5']),
-        mk('SALES','sal-v8','RETURN_ANALYSIS','View',-1,-1,'ADVISORY',['sal-t9'],['PIVOT usage — crosstab required']),
-      ]},
-      { object_type: 'Procedure', objects: [
-        mk('SALES','sal-p1','PROCESS_ORDER','Procedure',-1,-1,'OPTIMAL',['sal-t1','sal-t4','sal-t12']),
-        mk('SALES','sal-p2','CANCEL_ORDER','Procedure',-1,-1,'OPTIMAL',['sal-t1','sal-t9']),
-        mk('SALES','sal-p3','APPLY_DISCOUNT','Procedure',-1,-1,'TRANSPILED',['sal-t6','sal-t4'],['Package-level variable reference']),
-        mk('SALES','sal-p4','UPDATE_INVENTORY','Procedure',-1,-1,'OPTIMAL',['sal-t12']),
-        mk('SALES','sal-p5','GENERATE_REPORT','Procedure',-1,-1,'ADVISORY',[],['UTL_FILE usage — pgcopy alternative']),
-        mk('SALES','sal-p6','CLOSE_SALE','Procedure',-1,-1,'OPTIMAL',['sal-t1','sal-t2']),
-      ]},
-      { object_type: 'Function', objects: [
-        mk('SALES','sal-f1','CALC_DISCOUNT','Function',-1,-1,'TRANSPILED',['sal-t6'],['NOCOPY parameter hint removed']),
-        mk('SALES','sal-f2','ORDER_TOTAL','Function',-1,-1,'OPTIMAL',['sal-t4']),
-        mk('SALES','sal-f3','CUSTOMER_TIER','Function',-1,-1,'OPTIMAL',['sal-t2','sal-t10']),
-        mk('SALES','sal-f4','SHIPPING_COST','Function',-1,-1,'OPTIMAL',['sal-t5','sal-t7']),
-      ]},
-      { object_type: 'Trigger', objects: [
-        mk('SALES','sal-trg1','TRG_ORDERS_AUDIT','Trigger',-1,-1,'OPTIMAL',['sal-t1']),
-        mk('SALES','sal-trg2','TRG_INVENTORY_UPDATE','Trigger',-1,-1,'OPTIMAL',['sal-t12']),
-        mk('SALES','sal-trg3','TRG_PROMO_VALIDATE','Trigger',-1,-1,'ADVISORY',['sal-t6'],['Mutating table check']),
-        mk('SALES','sal-trg4','TRG_SHIPMENT_CREATE','Trigger',-1,-1,'OPTIMAL',['sal-t5']),
-        mk('SALES','sal-trg5','TRG_RETURN_PROCESS','Trigger',-1,-1,'OPTIMAL',['sal-t9','sal-t12']),
-      ]},
-      { object_type: 'Sequence', objects: [
-        mk('SALES','sal-seq1','SEQ_ORDER_ID','Sequence',-1,-1,'OPTIMAL'),
-        mk('SALES','sal-seq2','SEQ_CUSTOMER_ID','Sequence',-1,-1,'OPTIMAL'),
-        mk('SALES','sal-seq3','SEQ_PRODUCT_ID','Sequence',-1,-1,'OPTIMAL'),
-        mk('SALES','sal-seq4','SEQ_SHIPMENT_ID','Sequence',-1,-1,'OPTIMAL'),
-      ]},
-      { object_type: 'Materialized View', objects: [
-        mk('SALES','sal-mv1','MV_DAILY_SALES_SUMMARY','Materialized View',5_000_000,1.2,'ADVISORY',[],['Fast refresh requires trigger-based approach']),
-        mk('SALES','sal-mv2','MV_QUARTERLY_TARGETS','Materialized View',840_000,0.18,'OPTIMAL'),
-      ]},
+    db_id: 'SALESDB',
+    db_name: 'SALESDB',
+    instance_name: 'Oracle 19c Enterprise Server',
+    schemas: [
+      {
+        schema_id: 'SALES', schema_name: 'SALES', db_id: 'SALESDB',
+        object_groups: [
+          { object_type: 'Table', objects: [
+            mk('SALESDB','SALES','sal-t1','ORDERS','Table',450_000_000,48.1,'OPTIMAL'),
+            mk('SALESDB','SALES','sal-t2','CUSTOMERS','Table',85_000_000,12.4,'OPTIMAL'),
+            mk('SALESDB','SALES','sal-t3','PRODUCTS','Table',4_200_000,0.58,'OPTIMAL'),
+            mk('SALESDB','SALES','sal-t4','ORDER_ITEMS','Table',1_800_000_000,184.2,'OPTIMAL',['sal-t1','sal-t3']),
+            mk('SALESDB','SALES','sal-t5','SHIPMENTS','Table',380_000_000,41.2,'OPTIMAL',['sal-t1']),
+            mk('SALESDB','SALES','sal-t6','PROMOTIONS','Table',125_000,0.02,'OPTIMAL'),
+            mk('SALESDB','SALES','sal-t7','TERRITORIES','Table',520,0.001,'OPTIMAL'),
+            mk('SALESDB','SALES','sal-t8','SALES_TARGETS','Table',18_000,0.004,'OPTIMAL',['sal-t7']),
+            mk('SALESDB','SALES','sal-t9','RETURNS','Table',12_000_000,1.8,'OPTIMAL',['sal-t1','sal-t2']),
+            mk('SALESDB','SALES','sal-t10','CUSTOMER_SEGMENTS','Table',250_000,0.04,'OPTIMAL',['sal-t2']),
+            mk('SALESDB','SALES','sal-t11','PRODUCT_CATEGORIES','Table',8200,0.002,'OPTIMAL'),
+            mk('SALESDB','SALES','sal-t12','INVENTORY_ITEMS','Table',80_000_000,8.2,'OPTIMAL',['sal-t3']),
+          ]},
+          { object_type: 'View', objects: [
+            mk('SALESDB','SALES','sal-v1','ORDER_SUMMARY','View',-1,-1,'OPTIMAL',['sal-t1','sal-t4']),
+            mk('SALESDB','SALES','sal-v2','CUSTOMER_LIFETIME','View',-1,-1,'ADVISORY',['sal-t2','sal-t1'],['Analytical window function verify']),
+            mk('SALESDB','SALES','sal-v3','PRODUCT_PERFORMANCE','View',-1,-1,'OPTIMAL',['sal-t3','sal-t4']),
+            mk('SALESDB','SALES','sal-v4','TERRITORY_SALES','View',-1,-1,'OPTIMAL',['sal-t1','sal-t7']),
+            mk('SALESDB','SALES','sal-v5','PROMO_EFFECTIVENESS','View',-1,-1,'ADVISORY',['sal-t6','sal-t1'],['DECODE to CASE rewrite']),
+            mk('SALESDB','SALES','sal-v6','PENDING_ORDERS','View',-1,-1,'OPTIMAL',['sal-t1']),
+            mk('SALESDB','SALES','sal-v7','FULFILLED_ORDERS','View',-1,-1,'OPTIMAL',['sal-t1','sal-t5']),
+            mk('SALESDB','SALES','sal-v8','RETURN_ANALYSIS','View',-1,-1,'ADVISORY',['sal-t9'],['PIVOT usage — crosstab required']),
+          ]},
+          { object_type: 'Procedure', objects: [
+            mk('SALESDB','SALES','sal-p1','PROCESS_ORDER','Procedure',-1,-1,'OPTIMAL',['sal-t1','sal-t4','sal-t12']),
+            mk('SALESDB','SALES','sal-p2','CANCEL_ORDER','Procedure',-1,-1,'OPTIMAL',['sal-t1','sal-t9']),
+            mk('SALESDB','SALES','sal-p3','APPLY_DISCOUNT','Procedure',-1,-1,'TRANSPILED',['sal-t6','sal-t4'],['Package-level variable reference']),
+            mk('SALESDB','SALES','sal-p4','UPDATE_INVENTORY','Procedure',-1,-1,'OPTIMAL',['sal-t12']),
+            mk('SALESDB','SALES','sal-p5','GENERATE_REPORT','Procedure',-1,-1,'ADVISORY',[],['UTL_FILE usage — pgcopy alternative']),
+            mk('SALESDB','SALES','sal-p6','CLOSE_SALE','Procedure',-1,-1,'OPTIMAL',['sal-t1','sal-t2']),
+          ]},
+          { object_type: 'Function', objects: [
+            mk('SALESDB','SALES','sal-f1','CALC_DISCOUNT','Function',-1,-1,'TRANSPILED',['sal-t6'],['NOCOPY parameter hint removed']),
+            mk('SALESDB','SALES','sal-f2','ORDER_TOTAL','Function',-1,-1,'OPTIMAL',['sal-t4']),
+            mk('SALESDB','SALES','sal-f3','CUSTOMER_TIER','Function',-1,-1,'OPTIMAL',['sal-t2','sal-t10']),
+            mk('SALESDB','SALES','sal-f4','SHIPPING_COST','Function',-1,-1,'OPTIMAL',['sal-t5','sal-t7']),
+          ]},
+          { object_type: 'Trigger', objects: [
+            mk('SALESDB','SALES','sal-trg1','TRG_ORDERS_AUDIT','Trigger',-1,-1,'OPTIMAL',['sal-t1']),
+            mk('SALESDB','SALES','sal-trg2','TRG_INVENTORY_UPDATE','Trigger',-1,-1,'OPTIMAL',['sal-t12']),
+            mk('SALESDB','SALES','sal-trg3','TRG_PROMO_VALIDATE','Trigger',-1,-1,'ADVISORY',['sal-t6'],['Mutating table check']),
+            mk('SALESDB','SALES','sal-trg4','TRG_SHIPMENT_CREATE','Trigger',-1,-1,'OPTIMAL',['sal-t5']),
+            mk('SALESDB','SALES','sal-trg5','TRG_RETURN_PROCESS','Trigger',-1,-1,'OPTIMAL',['sal-t9','sal-t12']),
+          ]},
+          { object_type: 'Sequence', objects: [
+            mk('SALESDB','SALES','sal-seq1','SEQ_ORDER_ID','Sequence',-1,-1,'OPTIMAL'),
+            mk('SALESDB','SALES','sal-seq2','SEQ_CUSTOMER_ID','Sequence',-1,-1,'OPTIMAL'),
+            mk('SALESDB','SALES','sal-seq3','SEQ_PRODUCT_ID','Sequence',-1,-1,'OPTIMAL'),
+            mk('SALESDB','SALES','sal-seq4','SEQ_SHIPMENT_ID','Sequence',-1,-1,'OPTIMAL'),
+          ]},
+          { object_type: 'Materialized View', objects: [
+            mk('SALESDB','SALES','sal-mv1','MV_DAILY_SALES_SUMMARY','Materialized View',5_000_000,1.2,'ADVISORY',[],['Fast refresh requires trigger-based approach']),
+            mk('SALESDB','SALES','sal-mv2','MV_QUARTERLY_TARGETS','Materialized View',840_000,0.18,'OPTIMAL'),
+          ]},
+        ],
+      },
     ],
   },
 ];
 
-// Precomputed discovery totals — fixed after discovery, never change with selections
-const TOTAL_SCHEMAS_DETECTED = INITIAL_SCHEMAS.length; // 4
-const TOTAL_OBJECTS_DETECTED = INITIAL_SCHEMAS.reduce(
-  (sum, s) => sum + s.object_groups.reduce((gs, g) => gs + g.objects.length, 0), 0
+// Discovery totals
+const TOTAL_DATABASES_DETECTED = INITIAL_DATABASES.length; // 3
+const TOTAL_SCHEMAS_DETECTED = INITIAL_DATABASES.reduce((sum, d) => sum + d.schemas.length, 0); // 4
+const TOTAL_OBJECTS_DETECTED = INITIAL_DATABASES.reduce(
+  (sum, d) => sum + d.schemas.reduce((ss, s) => ss + s.object_groups.reduce((gs, g) => gs + g.objects.length, 0), 0), 0
 ); // 124
 
-// Initial expand state — schemas and groups collapsed by default for compact view
-const INITIAL_EXPANDED_SCHEMAS = new Set<string>();
-const INITIAL_EXPANDED_GROUPS = new Set<string>();
-
-// ─── Step Titles ────────────────────────────────────────────────────────────
-
+// Step Titles — Fully spelled out, zero abbreviations
 const STEP_TITLES = [
-  '1. Overview', '2. Source Conn', '3. Target Conn',
-  '4. Scope & Discovery', '5. Advisor Dashboard', '6. Rules & Tuning', '7. Deploy Review',
+  '1. Overview',
+  '2. Source Connection',
+  '3. Target Connection',
+  '4. Discovery & Migration Scope',
+  '5. Dynamic Execution Plan',
+  '6. Enterprise Configuration Center',
+  '7. Deployment Review',
 ];
 
 // ─── Main Component ──────────────────────────────────────────────────────────
@@ -379,25 +410,44 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
   const [targetTested, setTargetTested] = useState(true);
   const [testingTarget, setTestingTarget] = useState(false);
 
-  // ─── Step 4: Discovery & Scope — Enterprise Schema-First State ─────────────
-  const [schemas, setSchemas] = useState<SchemaDiscoveryDTO[]>(INITIAL_SCHEMAS);
-  const [expandedSchemas, setExpandedSchemas] = useState<Set<string>>(INITIAL_EXPANDED_SCHEMAS);
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(INITIAL_EXPANDED_GROUPS);
+  // ─── Step 4: Discovery & Scope State (Instance -> DB -> Schema -> Object) ─
+  const [databases, setDatabases] = useState<DatabaseDiscoveryDTO[]>(INITIAL_DATABASES);
+  const [expandedDatabases, setExpandedDatabases] = useState<Set<string>>(new Set(['HRDB'])); // HRDB expanded by default
+  const [expandedSchemas, setExpandedSchemas] = useState<Set<string>>(new Set(['HR']));
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
   const [discoveryProfile, setDiscoveryProfile] = useState<DiscoveryProfileType>('DEEP');
+
+  // Filters
+  const [dbFilter, setDbFilter] = useState<string>('ALL');
   const [schemaFilter, setSchemaFilter] = useState<string>('ALL');
   const [typeFilter, setTypeFilter] = useState<string>('ALL');
+  const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [objectSearch, setObjectSearch] = useState<string>('');
+
   const treeRef = useRef<HTMLDivElement>(null);
 
-  // Step 6: Rules & Tuning
+  // ─── Step 6: Enterprise Configuration Center State ─────────────────────────
+  const [configMode, setConfigMode] = useState<'BASIC' | 'ADVANCED'>('BASIC');
+  const [actionOnExisting, setActionOnExisting] = useState('SKIP');
+  const [tableRenamePattern, setTableRenamePattern] = useState('');
   const [maskingEnabled, setMaskingEnabled] = useState(true);
-  const [batchSize, setBatchSize] = useState('10000');
+  const [maskingMethod, setMaskingMethod] = useState('SHA-256');
   const [parallelism, setParallelism] = useState('8');
-  const [checkpointInterval, setCheckpointInterval] = useState('50000');
-  const [expandedCard, setExpandedCard] = useState<string | null>('cleansing');
+  const [batchSize, setBatchSize] = useState('10000');
+  const [commitInterval, setCommitInterval] = useState('5000');
+  const [ramLimitGb, setRamLimitGb] = useState('4.0');
+  const [retryCount, setRetryCount] = useState('3');
+  const [validationLevel, setValidationLevel] = useState('CHECKSUM');
+  const [samplingRate, setSamplingRate] = useState('100');
+  const [errorAction, setErrorAction] = useState('CONTINUE_AND_LOG');
+  const [enableCdc, setEnableCdc] = useState(true);
+  const [fourEyesPolicy, setFourEyesPolicy] = useState(true);
+  const [notifySlack, setNotifySlack] = useState(true);
+  const [notifyEmail, setNotifyEmail] = useState(true);
+  const [expandedConfigSection, setExpandedConfigSection] = useState<string | null>('rules');
 
-  // Execution Plan Drawer
+  // Drawer
   const [showExecutionPlanDrawer, setShowExecutionPlanDrawer] = useState(false);
 
   // ── Keyboard Esc ──────────────────────────────────────────────────────────
@@ -443,91 +493,95 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
     onLaunch(created);
   };
 
-  // ── Step 4: Memoized Derived Values ──────────────────────────────────────
-
-  const schemaStaticStats = useMemo(() => {
-    const map = new Map<string, { typeCounts: Record<string, number>; totalRows: number; totalSizeGb: number }>();
-    for (const schema of INITIAL_SCHEMAS) {
-      const typeCounts: Record<string, number> = {};
-      let totalRows = 0;
-      let totalSizeGb = 0;
-      for (const group of schema.object_groups) {
-        typeCounts[group.object_type] = group.objects.length;
-        for (const obj of group.objects) {
-          if (obj.estimated_rows > 0) totalRows += obj.estimated_rows;
-          if (obj.estimated_size_gb > 0) totalSizeGb += obj.estimated_size_gb;
-        }
-      }
-      map.set(schema.schema_id, { typeCounts, totalRows, totalSizeGb });
-    }
-    return map;
-  }, []);
+  // ── Step 4: Derived & Filtered Tree ───────────────────────────────────────
 
   const allObjectTypes = useMemo(() => {
     const types = new Set<string>();
-    INITIAL_SCHEMAS.forEach((s) => s.object_groups.forEach((g) => types.add(g.object_type)));
+    INITIAL_DATABASES.forEach((d) => d.schemas.forEach((s) => s.object_groups.forEach((g) => types.add(g.object_type))));
     return Array.from(types).sort();
   }, []);
 
-  const visibleSchemas = useMemo<SchemaDiscoveryDTO[]>(() => {
-    return schemas
-      .map((schema) => {
-        if (schemaFilter !== 'ALL' && schema.schema_id !== schemaFilter) return null;
-        const filteredGroups = schema.object_groups
-          .map((group) => {
-            if (typeFilter !== 'ALL' && group.object_type !== typeFilter) return null;
-            const filteredObjects = objectSearch
-              ? group.objects.filter((obj) => obj.object_name.toLowerCase().includes(objectSearch.toLowerCase()))
-              : group.objects;
-            if (filteredObjects.length === 0) return null;
-            return { ...group, objects: filteredObjects };
+  const visibleDatabases = useMemo<DatabaseDiscoveryDTO[]>(() => {
+    return databases
+      .map((db) => {
+        if (dbFilter !== 'ALL' && db.db_id !== dbFilter) return null;
+        const filteredSchemas = db.schemas
+          .map((schema) => {
+            if (schemaFilter !== 'ALL' && schema.schema_id !== schemaFilter) return null;
+            const filteredGroups = schema.object_groups
+              .map((group) => {
+                if (typeFilter !== 'ALL' && group.object_type !== typeFilter) return null;
+                const filteredObjects = group.objects.filter((obj) => {
+                  if (statusFilter !== 'ALL' && obj.compatibility_status !== statusFilter) return false;
+                  if (objectSearch && !obj.object_name.toLowerCase().includes(objectSearch.toLowerCase())) return false;
+                  return true;
+                });
+                if (filteredObjects.length === 0) return null;
+                return { ...group, objects: filteredObjects };
+              })
+              .filter(Boolean) as ObjectGroupDTO[];
+            if (filteredGroups.length === 0) return null;
+            return { ...schema, object_groups: filteredGroups };
           })
-          .filter(Boolean) as ObjectGroupDTO[];
-        if (filteredGroups.length === 0) return null;
-        return { ...schema, object_groups: filteredGroups };
+          .filter(Boolean) as SchemaDiscoveryDTO[];
+        if (filteredSchemas.length === 0) return null;
+        return { ...db, schemas: filteredSchemas };
       })
-      .filter(Boolean) as SchemaDiscoveryDTO[];
-  }, [schemas, schemaFilter, typeFilter, objectSearch]);
+      .filter(Boolean) as DatabaseDiscoveryDTO[];
+  }, [databases, dbFilter, schemaFilter, typeFilter, statusFilter, objectSearch]);
 
-  const { selectedCount, schemasIncludedCount } = useMemo(() => {
-    let total = 0;
-    let included = 0;
-    for (const s of schemas) {
-      let hasSelection = false;
-      for (const g of s.object_groups) {
-        for (const o of g.objects) {
-          if (o.selected) { total++; hasSelection = true; }
+  const { selectedCount, selectedDbCount, selectedSchemaCount, selectedObjectsBreakdown } = useMemo(() => {
+    let totalObj = 0;
+    const selectedDbs = new Set<string>();
+    const selectedSchs = new Set<string>();
+    const breakdown: Record<string, number> = {};
+
+    for (const d of databases) {
+      for (const s of d.schemas) {
+        for (const g of s.object_groups) {
+          for (const o of g.objects) {
+            if (o.selected) {
+              totalObj++;
+              selectedDbs.add(d.db_id);
+              selectedSchs.add(s.schema_id);
+              breakdown[o.object_type] = (breakdown[o.object_type] || 0) + 1;
+            }
+          }
         }
       }
-      if (hasSelection) included++;
     }
-    return { selectedCount: total, schemasIncludedCount: included };
-  }, [schemas]);
+    return {
+      selectedCount: totalObj,
+      selectedDbCount: selectedDbs.size,
+      selectedSchemaCount: selectedSchs.size,
+      selectedObjectsBreakdown: breakdown,
+    };
+  }, [databases]);
 
   const excludedCount = TOTAL_OBJECTS_DETECTED - selectedCount;
 
   const selectedObjectDetail = useMemo<DiscoveredObjectDTO | null>(() => {
     if (!selectedObjectId) return null;
-    for (const s of schemas) {
-      for (const g of s.object_groups) {
-        const obj = g.objects.find((o) => o.object_id === selectedObjectId);
-        if (obj) return obj;
+    for (const d of databases) {
+      for (const s of d.schemas) {
+        for (const g of s.object_groups) {
+          const obj = g.objects.find((o) => o.object_id === selectedObjectId);
+          if (obj) return obj;
+        }
       }
     }
     return null;
-  }, [schemas, selectedObjectId]);
+  }, [databases, selectedObjectId]);
 
-  const includeSchemas = useMemo(() =>
-    schemas
-      .filter((s) => s.object_groups.some((g) => g.objects.some((o) => o.selected)))
-      .map((s) => s.schema_name)
-      .join(', '),
-    [schemas]
-  );
+  const isFiltered = dbFilter !== 'ALL' || schemaFilter !== 'ALL' || typeFilter !== 'ALL' || statusFilter !== 'ALL' || objectSearch !== '';
 
-  const isFiltered = schemaFilter !== 'ALL' || typeFilter !== 'ALL' || objectSearch !== '';
+  // ── Step 4 Check State Helpers ─────────────────────────────────────────────
 
-  // ── Step 4: Check State Helpers ───────────────────────────────────────────
+  const getDatabaseCheckState = useCallback((db: DatabaseDiscoveryDTO) => {
+    const all = db.schemas.flatMap((s) => s.object_groups.flatMap((g) => g.objects));
+    const sel = all.filter((o) => o.selected).length;
+    return { checked: sel === all.length && all.length > 0, indeterminate: sel > 0 && sel < all.length };
+  }, []);
 
   const getSchemaCheckState = useCallback((schema: SchemaDiscoveryDTO) => {
     const all = schema.object_groups.flatMap((g) => g.objects);
@@ -540,27 +594,49 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
     return { checked: sel === group.objects.length && group.objects.length > 0, indeterminate: sel > 0 && sel < group.objects.length };
   }, []);
 
-  // ── Step 4: Selection Handlers ────────────────────────────────────────────
+  // ── Step 4 Selection Handlers ──────────────────────────────────────────────
 
-  const toggleSchema = useCallback((schemaId: string, checked: boolean) => {
-    setSchemas((prev) =>
-      prev.map((s) =>
-        s.schema_id !== schemaId ? s : {
-          ...s, object_groups: s.object_groups.map((g) => ({
-            ...g, objects: g.objects.map((o) => ({ ...o, selected: checked })),
+  const toggleDatabase = useCallback((dbId: string, checked: boolean) => {
+    setDatabases((prev) =>
+      prev.map((d) =>
+        d.db_id !== dbId ? d : {
+          ...d, schemas: d.schemas.map((s) => ({
+            ...s, object_groups: s.object_groups.map((g) => ({
+              ...g, objects: g.objects.map((o) => ({ ...o, selected: checked })),
+            })),
           })),
         }
       )
     );
   }, []);
 
-  const toggleGroup = useCallback((schemaId: string, objectType: string, checked: boolean) => {
-    setSchemas((prev) =>
-      prev.map((s) =>
-        s.schema_id !== schemaId ? s : {
-          ...s, object_groups: s.object_groups.map((g) =>
-            g.object_type !== objectType ? g : {
-              ...g, objects: g.objects.map((o) => ({ ...o, selected: checked })),
+  const toggleSchema = useCallback((dbId: string, schemaId: string, checked: boolean) => {
+    setDatabases((prev) =>
+      prev.map((d) =>
+        d.db_id !== dbId ? d : {
+          ...d, schemas: d.schemas.map((s) =>
+            s.schema_id !== schemaId ? s : {
+              ...s, object_groups: s.object_groups.map((g) => ({
+                ...g, objects: g.objects.map((o) => ({ ...o, selected: checked })),
+              })),
+            }
+          ),
+        }
+      )
+    );
+  }, []);
+
+  const toggleGroup = useCallback((dbId: string, schemaId: string, objectType: string, checked: boolean) => {
+    setDatabases((prev) =>
+      prev.map((d) =>
+        d.db_id !== dbId ? d : {
+          ...d, schemas: d.schemas.map((s) =>
+            s.schema_id !== schemaId ? s : {
+              ...s, object_groups: s.object_groups.map((g) =>
+                g.object_type !== objectType ? g : {
+                  ...g, objects: g.objects.map((o) => ({ ...o, selected: checked })),
+                }
+              ),
             }
           ),
         }
@@ -569,18 +645,28 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
   }, []);
 
   const toggleObject = useCallback((objectId: string, checked: boolean) => {
-    setSchemas((prev) =>
-      prev.map((s) => ({
-        ...s, object_groups: s.object_groups.map((g) => ({
-          ...g, objects: g.objects.map((o) =>
-            o.object_id !== objectId ? o : { ...o, selected: checked }
-          ),
+    setDatabases((prev) =>
+      prev.map((d) => ({
+        ...d, schemas: d.schemas.map((s) => ({
+          ...s, object_groups: s.object_groups.map((g) => ({
+            ...g, objects: g.objects.map((o) =>
+              o.object_id !== objectId ? o : { ...o, selected: checked }
+            ),
+          })),
         })),
       }))
     );
   }, []);
 
-  // ── Step 4: Expand/Collapse Handlers ─────────────────────────────────────
+  // ── Step 4 Expand Handlers ─────────────────────────────────────────────────
+
+  const toggleDbExpand = useCallback((dbId: string) => {
+    setExpandedDatabases((prev) => {
+      const next = new Set(prev);
+      if (next.has(dbId)) next.delete(dbId); else next.add(dbId);
+      return next;
+    });
+  }, []);
 
   const toggleSchemaExpand = useCallback((schemaId: string) => {
     setExpandedSchemas((prev) => {
@@ -599,128 +685,78 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
   }, []);
 
   const expandAll = useCallback(() => {
-    setExpandedSchemas(new Set(INITIAL_SCHEMAS.map((s) => s.schema_id)));
+    setExpandedDatabases(new Set(INITIAL_DATABASES.map((d) => d.db_id)));
+    setExpandedSchemas(new Set(INITIAL_DATABASES.flatMap((d) => d.schemas.map((s) => s.schema_id))));
     const keys = new Set<string>();
-    INITIAL_SCHEMAS.forEach((s) => s.object_groups.forEach((g) => keys.add(`${s.schema_id}:${g.object_type}`)));
+    INITIAL_DATABASES.forEach((d) => d.schemas.forEach((s) => s.object_groups.forEach((g) => keys.add(`${s.schema_id}:${g.object_type}`))));
     setExpandedGroups(keys);
   }, []);
 
   const collapseAll = useCallback(() => {
+    setExpandedDatabases(new Set());
     setExpandedSchemas(new Set());
     setExpandedGroups(new Set());
   }, []);
 
-  // ── Step 4: Bulk Selection ────────────────────────────────────────────────
-
   const selectAll = useCallback((checked: boolean) => {
-    setSchemas((prev) =>
-      prev.map((s) => ({
-        ...s, object_groups: s.object_groups.map((g) => ({
-          ...g, objects: g.objects.map((o) => ({ ...o, selected: checked })),
+    setDatabases((prev) =>
+      prev.map((d) => ({
+        ...d, schemas: d.schemas.map((s) => ({
+          ...s, object_groups: s.object_groups.map((g) => ({
+            ...g, objects: g.objects.map((o) => ({ ...o, selected: checked })),
+          })),
         })),
       }))
     );
   }, []);
 
-  const selectVisible = useCallback((checked: boolean) => {
-    const visibleIds = new Set<string>();
-    visibleSchemas.forEach((s) => s.object_groups.forEach((g) => g.objects.forEach((o) => visibleIds.add(o.object_id))));
-    setSchemas((prev) =>
-      prev.map((s) => ({
-        ...s, object_groups: s.object_groups.map((g) => ({
-          ...g, objects: g.objects.map((o) =>
-            visibleIds.has(o.object_id) ? { ...o, selected: checked } : o
-          ),
-        })),
-      }))
-    );
-  }, [visibleSchemas]);
-
   const clearFilters = useCallback(() => {
+    setDbFilter('ALL');
     setSchemaFilter('ALL');
     setTypeFilter('ALL');
+    setStatusFilter('ALL');
     setObjectSearch('');
   }, []);
 
-  // ── Step 4: Schema Summary Helper ────────────────────────────────────────
+  // ── Step 5: Dynamic Execution Plan Generator ───────────────────────────────
 
-  const getSchemaOverview = useCallback((schemaId: string): string => {
-    const stats = schemaStaticStats.get(schemaId);
-    if (!stats) return '';
-    const parts: string[] = [];
-    Object.entries(stats.typeCounts).slice(0, 5).forEach(([type, count]) =>
-      parts.push(`${count} ${type}${count !== 1 ? 's' : ''}`)
-    );
-    if (stats.totalRows > 0) parts.push(`${fmtRows(stats.totalRows)} rows`);
-    if (stats.totalSizeGb > 0) parts.push(fmtSize(stats.totalSizeGb));
-    return parts.join(' · ');
-  }, [schemaStaticStats]);
+  const dynamicExecutionPlanNodes = useMemo(() => {
+    const nodes: { stage: number; name: string; category: string; details: string; status: string }[] = [];
+    let stage = 1;
 
-  const getGroupSelectionLabel = useCallback((group: ObjectGroupDTO): string => {
-    const sel = group.objects.filter((o) => o.selected).length;
-    const total = group.objects.length;
-    if (sel === total) return `${total} selected`;
-    if (sel === 0) return `0 of ${total}`;
-    return `${sel} of ${total}`;
-  }, []);
+    nodes.push({ stage: stage++, name: 'Discovery & Catalog Fencing', category: 'Catalog', details: `Source Engine: ${sourceEngine} -> Target: ${targetEngine}`, status: 'VERIFIED' });
+    nodes.push({ stage: stage++, name: 'DAG Topological Dependency Sorting', category: 'Planner', details: `${selectedDbCount} Databases, ${selectedSchemaCount} Schemas, ${selectedCount} Objects`, status: 'VERIFIED' });
+    nodes.push({ stage: stage++, name: 'Target Schema Structure Deployment', category: 'DDL', details: `Deploy DDL definitions to target ${targetDbName}`, status: 'READY' });
 
-  // ── Step 4: Keyboard Navigation ───────────────────────────────────────────
-
-  const handleTreeKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
-    const tree = treeRef.current;
-    if (!tree) return;
-    const items = Array.from(tree.querySelectorAll<HTMLElement>('[data-tree-item]'));
-    const focused = document.activeElement as HTMLElement;
-    const currentIdx = items.indexOf(focused);
-
-    switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault();
-        if (currentIdx < items.length - 1) items[currentIdx + 1].focus();
-        break;
-      case 'ArrowUp':
-        e.preventDefault();
-        if (currentIdx > 0) items[currentIdx - 1].focus();
-        else if (items.length > 0) items[0].focus();
-        break;
-      case 'ArrowRight': {
-        e.preventDefault();
-        const sid = focused?.dataset.schemaId;
-        const gk = focused?.dataset.groupKey;
-        if (sid && !expandedSchemas.has(sid)) toggleSchemaExpand(sid);
-        else if (gk && !expandedGroups.has(gk)) toggleGroupExpand(gk);
-        break;
-      }
-      case 'ArrowLeft': {
-        e.preventDefault();
-        const sid = focused?.dataset.schemaId;
-        const gk = focused?.dataset.groupKey;
-        if (sid && expandedSchemas.has(sid)) toggleSchemaExpand(sid);
-        else if (gk && expandedGroups.has(gk)) toggleGroupExpand(gk);
-        break;
-      }
-      case ' ':
-      case 'Enter': {
-        e.preventDefault();
-        const sid = focused?.dataset.schemaId;
-        const gk = focused?.dataset.groupKey;
-        const oid = focused?.dataset.objectId;
-        if (sid) {
-          const s = schemas.find((x) => x.schema_id === sid);
-          if (s) { const { checked } = getSchemaCheckState(s); toggleSchema(sid, !checked); }
-        } else if (gk) {
-          const [schId, ...rest] = gk.split(':');
-          const objType = rest.join(':');
-          const grp = schemas.find((x) => x.schema_id === schId)?.object_groups.find((g) => g.object_type === objType);
-          if (grp) { const { checked } = getGroupCheckState(grp); toggleGroup(schId, objType, !checked); }
-        } else if (oid) {
-          const obj = schemas.flatMap((s) => s.object_groups.flatMap((g) => g.objects)).find((o) => o.object_id === oid);
-          if (obj) toggleObject(oid, !obj.selected);
-        }
-        break;
-      }
+    if (selectedObjectsBreakdown['Sequence']) {
+      nodes.push({ stage: stage++, name: 'Sequence Generator Sync Node', category: 'DDL', details: `Initialize ${selectedObjectsBreakdown['Sequence']} database sequences`, status: 'READY' });
     }
-  }, [expandedSchemas, expandedGroups, schemas, getSchemaCheckState, getGroupCheckState, toggleSchemaExpand, toggleGroupExpand, toggleSchema, toggleGroup, toggleObject]);
+    if (selectedObjectsBreakdown['Table']) {
+      nodes.push({ stage: stage++, name: 'Parallel Stream Data Transport', category: 'Data Transport', details: `${selectedObjectsBreakdown['Table']} Tables (${parallelism} Workers, ${batchSize} Batch Size)`, status: 'READY' });
+    }
+    if (selectedObjectsBreakdown['View']) {
+      nodes.push({ stage: stage++, name: 'Target View DDL Creation', category: 'DDL', details: `Deploy ${selectedObjectsBreakdown['View']} SQL view definitions`, status: 'READY' });
+    }
+    if (selectedObjectsBreakdown['Procedure'] || selectedObjectsBreakdown['Function'] || selectedObjectsBreakdown['Package']) {
+      const routines = (selectedObjectsBreakdown['Procedure'] || 0) + (selectedObjectsBreakdown['Function'] || 0) + (selectedObjectsBreakdown['Package'] || 0);
+      nodes.push({ stage: stage++, name: 'PL/SQL Transpilation & Deployment', category: 'Transpiler', details: `Transpile ${routines} PL/SQL routines to PL/pgSQL`, status: 'READY' });
+    }
+    if (selectedObjectsBreakdown['Trigger']) {
+      nodes.push({ stage: stage++, name: 'Trigger Definition Deployment', category: 'DDL', details: `Attach ${selectedObjectsBreakdown['Trigger']} database triggers`, status: 'READY' });
+    }
+    if (selectedObjectsBreakdown['Materialized View']) {
+      nodes.push({ stage: stage++, name: 'Materialized View Refresh Strategy', category: 'DDL', details: `Deploy ${selectedObjectsBreakdown['Materialized View']} Materialized Views`, status: 'READY' });
+    }
+    if (enableCdc) {
+      nodes.push({ stage: stage++, name: 'CDC Continuous Replication Setup', category: 'Replication', details: 'Setup WAL Log Reader & streaming sync', status: 'READY' });
+    }
+    if (validationLevel !== 'NONE') {
+      nodes.push({ stage: stage++, name: 'Reconciliation & Validation Node', category: 'Validation', details: `Level: ${validationLevel} (${samplingRate}% sampling rate)`, status: 'READY' });
+    }
+    nodes.push({ stage: stage++, name: 'SHA-256 Digital Trust Seal', category: 'Certification', details: 'Generate cryptographic migration certificate', status: 'PENDING' });
+
+    return nodes;
+  }, [sourceEngine, targetEngine, selectedDbCount, selectedSchemaCount, selectedCount, selectedObjectsBreakdown, parallelism, batchSize, enableCdc, validationLevel, samplingRate, targetDbName]);
 
   // ─────────────────────────────────────────────────────────────────────────
   // JSX
@@ -728,48 +764,21 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
 
   return (
     <div className={styles.modalBackdrop} onClick={onClose} role="dialog" aria-modal="true" aria-label={migName || 'New Enterprise Migration Workspace'}>
-      {/* Scoped hover, focus, connector line & animation styles */}
       <style>{`
-        .akaal-tree-schema {
-          position: relative;
-          transition: background 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
-        }
-        .akaal-tree-schema:hover {
-          background: rgba(37,99,235,0.07) !important;
-        }
-        .akaal-tree-group {
-          position: relative;
-          transition: background 150ms ease;
-        }
-        .akaal-tree-group:hover {
-          background: rgba(37,99,235,0.05) !important;
-        }
-        .akaal-tree-obj {
-          position: relative;
-          transition: background 120ms ease, border-left-color 120ms ease;
-        }
-        .akaal-tree-obj:hover {
-          background: rgba(37,99,235,0.08) !important;
-        }
-        .akaal-tree-schema:focus-visible,
-        .akaal-tree-group:focus-visible,
-        .akaal-tree-obj:focus-visible {
-          outline: 2px solid var(--dash-accent);
-          outline-offset: -2px;
-        }
-        .akaal-kpi-card {
-          transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease;
-        }
-        .akaal-kpi-card:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 4px 12px rgba(0,0,0,0.25);
-        }
+        .akaal-tree-db { transition: background 150ms ease, border-color 150ms ease; }
+        .akaal-tree-db:hover { background: rgba(37,99,235,0.08) !important; }
+        .akaal-tree-schema { transition: background 150ms ease; }
+        .akaal-tree-schema:hover { background: rgba(37,99,235,0.06) !important; }
+        .akaal-tree-group { transition: background 150ms ease; }
+        .akaal-tree-group:hover { background: rgba(37,99,235,0.04) !important; }
+        .akaal-tree-obj { transition: background 120ms ease; }
+        .akaal-tree-obj:hover { background: rgba(37,99,235,0.09) !important; }
       `}</style>
 
       <div
         className={styles.modalBox}
         onClick={(e) => e.stopPropagation()}
-        style={{ width: '94vw', maxWidth: 1320, height: '90vh', maxHeight: 900, display: 'flex', flexDirection: 'column', padding: 0, overflow: 'hidden' }}
+        style={{ width: '95vw', maxWidth: 1380, height: '92vh', maxHeight: 920, display: 'flex', flexDirection: 'column', padding: 0, overflow: 'hidden' }}
       >
         {/* ── Header Bar ─────────────────────────────────────────────────── */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 24px', borderBottom: '1px solid var(--dash-border)', background: 'var(--dash-surface)' }}>
@@ -777,13 +786,13 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
             <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0, color: 'var(--dash-text-primary)' }}>
               {migName || 'New Enterprise Migration Workspace'}
             </h2>
-            <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: 'rgba(37,99,235,0.15)', color: '#3B82F6', fontWeight: 600 }}>MIG-2026-0805-001</span>
+            <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: 'rgba(37,99,235,0.15)', color: '#3B82F6', fontWeight: 600 }}>MIG-2026-0806-001</span>
             <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: 'rgba(16,185,129,0.15)', color: '#10B981', fontWeight: 600 }}>AKAAL Engine V3.4.0</span>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--dash-text-secondary)', fontSize: 22, cursor: 'pointer' }} aria-label="Close setup experience">×</button>
         </div>
 
-        {/* ── Workflow 7-Step Nav Bar ─────────────────────────────────────── */}
+        {/* ── Workflow 7-Step Nav Bar (Spelled out fully, zero abbreviations) ─ */}
         <div style={{ display: 'flex', background: 'var(--dash-bg)', padding: '10px 24px', borderBottom: '1px solid var(--dash-border)', gap: 6, overflowX: 'auto' }}>
           {STEP_TITLES.map((title, idx) => {
             const stepNum = idx + 1;
@@ -794,7 +803,7 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
                 key={title}
                 onClick={() => { if (stepNum < step) setStep(stepNum as any); }}
                 style={{
-                  flex: 1, minWidth: 115, padding: '6px 12px', borderRadius: 6,
+                  flex: 1, minWidth: 135, padding: '7px 12px', borderRadius: 6,
                   background: isCurrent ? 'var(--dash-accent)' : isCompleted ? 'rgba(16,185,129,0.12)' : 'var(--dash-surface)',
                   border: isCurrent ? '1px solid var(--dash-accent)' : isCompleted ? '1px solid rgba(16,185,129,0.3)' : '1px solid var(--dash-border)',
                   color: isCurrent ? '#FFFFFF' : isCompleted ? '#10B981' : 'var(--dash-text-secondary)',
@@ -896,7 +905,7 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
                   <div>
                     <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Saved Profiles</label>
                     <select style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 13 }}>
-                      <option value="prod_oracle_free">Production Oracle (localhost:1521/FREE)</option>
+                      <option value="prod_oracle_free">Production Oracle Instance (localhost:1521/FREE)</option>
                     </select>
                   </div>
                 </div>
@@ -931,10 +940,7 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 16, paddingTop: 20 }}>
                     <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-                      <input type="checkbox" checked={sourceSsl} onChange={(e) => setSourceSsl(e.target.checked)} /> SSL Encrypted
-                    </label>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-                      <input type="checkbox" defaultChecked /> SSH Tunnel
+                      <input type="checkbox" checked={sourceSsl} onChange={(e) => setSourceSsl(e.target.checked)} /> SSL Encrypted Connection
                     </label>
                   </div>
                 </div>
@@ -942,7 +948,7 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
                   <button type="button" onClick={handleTestSource} disabled={testingSource} style={{ padding: '9px 18px', borderRadius: 8, background: 'var(--dash-accent)', border: 'none', color: '#FFF', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
                     {testingSource ? 'Testing Connection...' : 'Test Source Connection (IPC)'}
                   </button>
-                  {sourceTested && (<span style={{ fontSize: 12, color: '#10B981', fontWeight: 600 }}>✓ Verified (12ms Latency)</span>)}
+                  {sourceTested && (<span style={{ fontSize: 12, color: '#10B981', fontWeight: 600 }}>✓ Source Connection Verified (12ms Latency)</span>)}
                 </div>
               </div>
             )}
@@ -960,7 +966,7 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
                   <div>
                     <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Saved Profiles</label>
                     <select style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 13 }}>
-                      <option value="prod_pg_target">PostgreSQL akaal_target (localhost:5432)</option>
+                      <option value="prod_pg_target">PostgreSQL akaal_target Instance (localhost:5432)</option>
                     </select>
                   </div>
                 </div>
@@ -997,16 +1003,15 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
                       <input type="checkbox" checked={targetSsl} onChange={(e) => setTargetSsl(e.target.checked)} /> SSL Encrypted Transport
                     </label>
                   </div>
-                  {targetTested && (<span style={{ fontSize: 12, color: '#10B981', fontWeight: 600 }}>✓ Verified Target (8ms Latency)</span>)}
+                  {targetTested && (<span style={{ fontSize: 12, color: '#10B981', fontWeight: 600 }}>✓ Target Connection Verified (8ms Latency)</span>)}
                 </div>
               </div>
             )}
 
-            {/* ── STEP 4: ENTERPRISE DISCOVERY & SCOPE EXPLORER ───────────── */}
+            {/* ── STEP 4: DISCOVERY & MIGRATION SCOPE (Instance -> DB -> Schema) */}
             {step === 4 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-
-                {/* Header row: Discovery Profile + Status badge */}
+                {/* Discovery Profile + Completion Badge */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--dash-text-secondary)' }}>Discovery Profile:</span>
@@ -1022,36 +1027,47 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
                   </span>
                 </div>
 
-                {/* Compact Discovery Summary Card (2 Values: Schemas Detected, Objects Detected) */}
-                <div style={{ padding: '12px 18px', background: 'var(--dash-surface)', borderRadius: 10, border: '1px solid var(--dash-border)', display: 'inline-flex', alignItems: 'center', gap: 24, alignSelf: 'flex-start' }}>
+                {/* Compact Discovery Summary Card (3 Values: Databases, Schemas, Objects) */}
+                <div style={{ padding: '12px 20px', background: 'var(--dash-surface)', borderRadius: 10, border: '1px solid var(--dash-border)', display: 'inline-flex', alignItems: 'center', gap: 24, alignSelf: 'flex-start' }}>
                   <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--dash-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span>📊</span> Discovery Summary
                   </span>
                   <div style={{ width: 1, height: 22, background: 'var(--dash-border)' }} />
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 11, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Schemas Detected:</span>
-                    <strong style={{ fontSize: 16, fontWeight: 800, color: '#3B82F6', fontVariantNumeric: 'tabular-nums' }}>{TOTAL_SCHEMAS_DETECTED}</strong>
+                    <span style={{ fontSize: 11, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Databases Discovered:</span>
+                    <strong style={{ fontSize: 16, fontWeight: 800, color: '#3B82F6', fontVariantNumeric: 'tabular-nums' }}>{TOTAL_DATABASES_DETECTED}</strong>
                   </div>
                   <div style={{ width: 1, height: 22, background: 'var(--dash-border)' }} />
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 11, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Objects Detected:</span>
-                    <strong style={{ fontSize: 16, fontWeight: 800, color: '#8B5CF6', fontVariantNumeric: 'tabular-nums' }}>{TOTAL_OBJECTS_DETECTED.toLocaleString()}</strong>
+                    <span style={{ fontSize: 11, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Schemas Discovered:</span>
+                    <strong style={{ fontSize: 16, fontWeight: 800, color: '#8B5CF6', fontVariantNumeric: 'tabular-nums' }}>{TOTAL_SCHEMAS_DETECTED}</strong>
+                  </div>
+                  <div style={{ width: 1, height: 22, background: 'var(--dash-border)' }} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 11, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Objects Discovered:</span>
+                    <strong style={{ fontSize: 16, fontWeight: 800, color: '#10B981', fontVariantNumeric: 'tabular-nums' }}>{TOTAL_OBJECTS_DETECTED.toLocaleString()}</strong>
                   </div>
                 </div>
 
-                {/* Filter Bar */}
+                {/* Hierarchy Filter Bar */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: 'var(--dash-surface)', borderRadius: 10, border: '1px solid var(--dash-border)', flexWrap: 'wrap' }}>
                   <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--dash-text-secondary)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                    ⚡ Scope Filters:
+                    ⚡ Hierarchy Filters:
                   </span>
 
-                  <select value={schemaFilter} onChange={(e) => setSchemaFilter(e.target.value)} aria-label="Filter by schema"
+                  <select value={dbFilter} onChange={(e) => setDbFilter(e.target.value)} aria-label="Filter by Database"
                     style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 11, fontWeight: 600 }}>
-                    <option value="ALL">All Schemas</option>
-                    {INITIAL_SCHEMAS.map((s) => (<option key={s.schema_id} value={s.schema_id}>{s.schema_name}</option>))}
+                    <option value="ALL">All Databases</option>
+                    {INITIAL_DATABASES.map((d) => (<option key={d.db_id} value={d.db_id}>{d.db_name}</option>))}
                   </select>
 
-                  <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} aria-label="Filter by object type"
+                  <select value={schemaFilter} onChange={(e) => setSchemaFilter(e.target.value)} aria-label="Filter by Schema"
+                    style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 11, fontWeight: 600 }}>
+                    <option value="ALL">All Schemas</option>
+                    {INITIAL_DATABASES.flatMap((d) => d.schemas).map((s) => (<option key={s.schema_id} value={s.schema_id}>{s.schema_name}</option>))}
+                  </select>
+
+                  <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} aria-label="Filter by Object Type"
                     style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 11, fontWeight: 600 }}>
                     <option value="ALL">All Types</option>
                     {allObjectTypes.map((t) => (<option key={t} value={t}>{t}s</option>))}
@@ -1059,16 +1075,14 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
 
                   <input
                     type="text" value={objectSearch} onChange={(e) => setObjectSearch(e.target.value)}
-                    placeholder="Filter by object name..." aria-label="Search objects"
-                    style={{ flex: 1, minWidth: 160, padding: '6px 12px', borderRadius: 6, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 11 }}
+                    placeholder="Search object name..." aria-label="Search objects"
+                    style={{ flex: 1, minWidth: 140, padding: '6px 12px', borderRadius: 6, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 11 }}
                   />
 
                   <div style={{ display: 'flex', gap: 6, marginLeft: 'auto', flexWrap: 'wrap' }}>
                     {isFiltered && (
                       <button type="button" onClick={clearFilters} style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid #EF4444', background: 'rgba(239,68,68,0.1)', color: '#EF4444', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>✕ Clear Filters</button>
                     )}
-                    <button type="button" onClick={() => selectVisible(true)} style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 600, cursor: 'pointer' }}>Select Visible</button>
-                    <button type="button" onClick={() => selectVisible(false)} style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 600, cursor: 'pointer' }}>Deselect Visible</button>
                     <button type="button" onClick={() => selectAll(true)} style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 600, cursor: 'pointer' }}>Select All</button>
                     <button type="button" onClick={() => selectAll(false)} style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 600, cursor: 'pointer' }}>Deselect All</button>
                     <button type="button" onClick={expandAll} style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 600, cursor: 'pointer' }}>⊞ Expand All</button>
@@ -1076,208 +1090,219 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
                   </div>
                 </div>
 
-                {/* Explorer Workspace: Schema-First Tree Container + Structured Detail Panel */}
+                {/* Instance -> DB -> Schema -> Object Type Tree + Detail Panel */}
                 <div style={{ display: 'flex', gap: 14 }}>
-
-                  {/* ── Schema-First Tree Explorer ── */}
                   <div
                     ref={treeRef}
                     role="tree"
-                    aria-label="Database schema object explorer"
-                    onKeyDown={handleTreeKeyDown}
+                    aria-label="Database Discovery Explorer"
                     style={{ flex: 1, border: '1px solid var(--dash-border)', borderRadius: 10, overflow: 'hidden', background: 'var(--dash-surface)', display: 'flex', flexDirection: 'column', minWidth: 0 }}
                   >
-                    {/* Column header bar */}
+                    {/* Header */}
                     <div style={{ display: 'grid', gridTemplateColumns: '26px 26px 1fr 84px 84px 76px', gap: 8, padding: '8px 14px', background: 'var(--dash-bg)', borderBottom: '1px solid var(--dash-border)', fontSize: 10, fontWeight: 700, color: 'var(--dash-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', alignItems: 'center' }}>
                       <span /><span />
-                      <span>Schema & Object Hierarchy</span>
+                      <span>Database & Schema Hierarchy</span>
                       <span>Est. Rows</span>
                       <span>Est. Size</span>
                       <span>Compatibility</span>
                     </div>
 
-                    {/* Scrollable body with enterprise hierarchy containers */}
-                    <div style={{ overflowY: 'auto', maxHeight: 420, padding: 8 }}>
-                      {visibleSchemas.length === 0 ? (
-                        /* Enterprise empty state */
+                    {/* Scrollable Explorer Body */}
+                    <div style={{ overflowY: 'auto', maxHeight: 440, padding: 8 }}>
+                      {visibleDatabases.length === 0 ? (
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '50px 24px', gap: 12 }}>
                           <span style={{ fontSize: 32 }}>🔍</span>
-                          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--dash-text-primary)' }}>No database objects match your filter parameters</div>
-                          <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)', textAlign: 'center', maxWidth: 300, lineHeight: 1.5 }}>
-                            Try selecting a different schema, clearing object search, or choosing "All Types".
-                          </div>
-                          <button type="button" onClick={clearFilters}
-                            style={{ marginTop: 6, padding: '8px 20px', borderRadius: 8, background: 'var(--dash-accent)', border: 'none', color: '#FFF', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-                            Clear All Filters
-                          </button>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--dash-text-primary)' }}>No databases or objects match your filter parameters</div>
+                          <button type="button" onClick={clearFilters} style={{ padding: '8px 20px', borderRadius: 8, background: 'var(--dash-accent)', border: 'none', color: '#FFF', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Clear All Filters</button>
                         </div>
                       ) : (
-                        visibleSchemas.map((schema) => {
-                          const schemaCheck = getSchemaCheckState(schema);
-                          const schemaExpanded = expandedSchemas.has(schema.schema_id);
-                          const stats = schemaStaticStats.get(schema.schema_id);
-                          const totalSchemaObjs = schema.object_groups.reduce((sum, g) => sum + g.objects.length, 0);
+                        visibleDatabases.map((db) => {
+                          const dbCheck = getDatabaseCheckState(db);
+                          const dbExpanded = expandedDatabases.has(db.db_id);
+                          const totalDbObjs = db.schemas.reduce((ss, s) => ss + s.object_groups.reduce((gs, g) => gs + g.objects.length, 0), 0);
 
                           return (
-                            <div key={schema.schema_id} style={{ border: '1px solid var(--dash-border)', borderRadius: 8, marginBottom: 10, overflow: 'hidden', background: 'var(--dash-bg)' }}>
-                              {/* Enterprise Schema Header Row */}
+                            <div key={db.db_id} style={{ border: '1px solid var(--dash-border)', borderRadius: 8, marginBottom: 10, overflow: 'hidden', background: 'var(--dash-bg)' }}>
+                              {/* 1. DATABASE LEVEL ROW */}
                               <div
-                                className="akaal-tree-schema"
+                                className="akaal-tree-db"
                                 role="treeitem"
-                                aria-expanded={schemaExpanded}
-                                tabIndex={0}
-                                data-tree-item="true"
-                                data-schema-id={schema.schema_id}
-                                onClick={() => toggleSchemaExpand(schema.schema_id)}
+                                aria-expanded={dbExpanded}
+                                onClick={() => toggleDbExpand(db.db_id)}
                                 style={{
                                   display: 'grid', gridTemplateColumns: '26px 26px 1fr 84px 84px 76px', gap: 8,
                                   padding: '10px 14px', alignItems: 'center', cursor: 'pointer',
-                                  borderBottom: schemaExpanded ? '1px solid var(--dash-border)' : 'none',
-                                  background: 'var(--dash-surface)', transition: 'all 150ms ease'
+                                  borderBottom: dbExpanded ? '1px solid var(--dash-border)' : 'none',
+                                  background: 'var(--dash-surface)'
                                 }}
                               >
-                                <span style={{ fontSize: 11, color: 'var(--dash-accent)', userSelect: 'none', fontWeight: 800, transition: 'transform 150ms ease', display: 'inline-block', transform: schemaExpanded ? 'rotate(0deg)' : 'rotate(-90deg)' }}>▼</span>
+                                <span style={{ fontSize: 11, color: 'var(--dash-accent)', userSelect: 'none', fontWeight: 800, transition: 'transform 150ms ease', display: 'inline-block', transform: dbExpanded ? 'rotate(0deg)' : 'rotate(-90deg)' }}>▼</span>
                                 <IndeterminateCheckbox
-                                  checked={schemaCheck.checked}
-                                  indeterminate={schemaCheck.indeterminate}
-                                  onChange={(checked) => toggleSchema(schema.schema_id, checked)}
-                                  aria-label={`Select all objects in schema ${schema.schema_name}`}
+                                  checked={dbCheck.checked}
+                                  indeterminate={dbCheck.indeterminate}
+                                  onChange={(checked) => toggleDatabase(db.db_id, checked)}
+                                  aria-label={`Select all objects in database ${db.db_name}`}
                                 />
-                                <div>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--dash-text-primary)' }}>
-                                      🗄️ {schema.schema_name}
-                                    </span>
-                                    <span style={{ fontSize: 10, color: '#3B82F6', padding: '2px 8px', borderRadius: 12, background: 'rgba(37,99,235,0.12)', border: '1px solid rgba(37,99,235,0.25)', fontWeight: 700 }}>
-                                      {totalSchemaObjs} Objects
-                                    </span>
-                                    <span style={{ fontSize: 10, color: schemaCheck.checked ? '#10B981' : schemaCheck.indeterminate ? '#F59E0B' : 'var(--dash-text-secondary)', fontWeight: 700, marginLeft: 'auto', marginRight: 10 }}>
-                                      {schemaCheck.checked ? 'ALL SELECTED' : schemaCheck.indeterminate ? 'PARTIAL' : 'EXCLUDED'}
-                                    </span>
-                                  </div>
-                                  {stats && (
-                                    <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                      {getSchemaOverview(schema.schema_id)}
-                                    </div>
-                                  )}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                  <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--dash-text-primary)' }}>
+                                    🗄️ {db.db_name}
+                                  </span>
+                                  <span style={{ fontSize: 10, color: '#3B82F6', padding: '2px 8px', borderRadius: 12, background: 'rgba(37,99,235,0.12)', border: '1px solid rgba(37,99,235,0.25)', fontWeight: 700 }}>
+                                    {db.schemas.length} Schemas · {totalDbObjs} Objects
+                                  </span>
+                                  <span style={{ fontSize: 10, color: dbCheck.checked ? '#10B981' : dbCheck.indeterminate ? '#F59E0B' : 'var(--dash-text-secondary)', fontWeight: 700, marginLeft: 'auto', marginRight: 10 }}>
+                                    {dbCheck.checked ? 'ALL SELECTED' : dbCheck.indeterminate ? 'PARTIAL' : 'EXCLUDED'}
+                                  </span>
                                 </div>
-                                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--dash-text-secondary)', fontVariantNumeric: 'tabular-nums' }}>
-                                  {stats && stats.totalRows > 0 ? fmtRows(stats.totalRows) : '—'}
-                                </span>
-                                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--dash-text-secondary)' }}>
-                                  {stats && stats.totalSizeGb > 0 ? fmtSize(stats.totalSizeGb) : '—'}
-                                </span>
+                                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--dash-text-secondary)' }}>DB Container</span>
+                                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--dash-text-secondary)' }}>Oracle EE</span>
                                 <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'rgba(16,185,129,0.12)', color: '#10B981', textAlign: 'center', border: '1px solid rgba(16,185,129,0.25)' }}>
                                   OPTIMAL
                                 </span>
                               </div>
 
-                              {/* Schema Nested Content Container */}
+                              {/* 2. SCHEMA LEVEL LIST (Nested inside Database) */}
                               <div style={{
                                 overflow: 'hidden',
-                                maxHeight: schemaExpanded ? '20000px' : '0px',
+                                maxHeight: dbExpanded ? '30000px' : '0px',
                                 transition: 'max-height 200ms ease-in-out, opacity 180ms ease',
-                                opacity: schemaExpanded ? 1 : 0,
+                                opacity: dbExpanded ? 1 : 0,
                                 background: 'var(--dash-bg)',
                               }}>
-                                {schema.object_groups.map((group) => {
-                                  const groupKey = `${schema.schema_id}:${group.object_type}`;
-                                  const groupExpanded = expandedGroups.has(groupKey);
-                                  const groupCheck = getGroupCheckState(group);
-                                  const badge = OBJ_BADGE[group.object_type] ?? { label: group.object_type.substring(0, 3).toUpperCase(), icon: '📄', color: '#6B7280', bg: 'rgba(107,114,128,0.12)' };
+                                {db.schemas.map((schema) => {
+                                  const schemaCheck = getSchemaCheckState(schema);
+                                  const schemaExpanded = expandedSchemas.has(schema.schema_id);
+                                  const totalSchemaObjs = schema.object_groups.reduce((sum, g) => sum + g.objects.length, 0);
 
                                   return (
-                                    <div key={groupKey} style={{ borderLeft: '2px solid rgba(59, 130, 246, 0.25)', marginLeft: 16 }}>
-                                      {/* Object Type Group Header */}
+                                    <div key={schema.schema_id} style={{ borderLeft: '3px solid rgba(59, 130, 246, 0.3)', marginLeft: 16, marginTop: 6, marginBottom: 6 }}>
+                                      {/* Schema Row */}
                                       <div
-                                        className="akaal-tree-group"
+                                        className="akaal-tree-schema"
                                         role="treeitem"
-                                        aria-expanded={groupExpanded}
-                                        tabIndex={0}
-                                        data-tree-item="true"
-                                        data-group-key={groupKey}
-                                        onClick={() => toggleGroupExpand(groupKey)}
+                                        aria-expanded={schemaExpanded}
+                                        onClick={() => toggleSchemaExpand(schema.schema_id)}
                                         style={{
-                                          display: 'grid', gridTemplateColumns: '22px 22px 1fr 84px 84px 76px', gap: 8,
-                                          padding: '7px 12px 7px 16px', alignItems: 'center', cursor: 'pointer',
+                                          display: 'grid', gridTemplateColumns: '26px 26px 1fr 84px 84px 76px', gap: 8,
+                                          padding: '8px 12px', alignItems: 'center', cursor: 'pointer',
                                           borderBottom: '1px solid var(--dash-border)', background: 'var(--dash-surface)',
-                                          transition: 'background 150ms ease'
                                         }}
                                       >
-                                        <span style={{ fontSize: 10, color: 'var(--dash-text-secondary)', userSelect: 'none', display: 'inline-block', transform: groupExpanded ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 150ms ease' }}>▼</span>
+                                        <span style={{ fontSize: 10, color: 'var(--dash-text-secondary)', userSelect: 'none', display: 'inline-block', transform: schemaExpanded ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 150ms ease' }}>▼</span>
                                         <IndeterminateCheckbox
-                                          checked={groupCheck.checked}
-                                          indeterminate={groupCheck.indeterminate}
-                                          onChange={(checked) => toggleGroup(schema.schema_id, group.object_type, checked)}
-                                          aria-label={`Select all ${group.object_type}s in ${schema.schema_name}`}
+                                          checked={schemaCheck.checked}
+                                          indeterminate={schemaCheck.indeterminate}
+                                          onChange={(checked) => toggleSchema(db.db_id, schema.schema_id, checked)}
+                                          aria-label={`Select all objects in schema ${schema.schema_name}`}
                                         />
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                          <span style={{ fontSize: 10, fontWeight: 800, padding: '2px 6px', borderRadius: 4, color: badge.color, background: badge.bg, letterSpacing: '0.04em', border: `1px solid ${badge.color}33` }}>
-                                            {badge.label}
+                                          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--dash-text-primary)' }}>
+                                            📁 {schema.schema_name} Schema
                                           </span>
-                                          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--dash-text-primary)' }}>{badge.icon} {group.object_type}s</span>
                                           <span style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 500 }}>
-                                            ({group.objects.length}) — {getGroupSelectionLabel(group)}
+                                            ({totalSchemaObjs} Objects)
                                           </span>
                                         </div>
                                         <span /><span /><span />
                                       </div>
 
-                                      {/* Individual Object Rows nested under Type */}
+                                      {/* 3. OBJECT TYPE LEVEL (Nested inside Schema) */}
                                       <div style={{
                                         overflow: 'hidden',
-                                        maxHeight: groupExpanded ? '9999px' : '0px',
+                                        maxHeight: schemaExpanded ? '20000px' : '0px',
                                         transition: 'max-height 180ms ease-in-out, opacity 160ms ease',
-                                        opacity: groupExpanded ? 1 : 0,
-                                        borderLeft: '1px dashed rgba(255,255,255,0.1)',
-                                        marginLeft: 26,
+                                        opacity: schemaExpanded ? 1 : 0,
                                       }}>
-                                        <div role="group">
-                                          {group.objects.map((obj) => {
-                                            const isActive = obj.object_id === selectedObjectId;
-                                            const chip = STATUS_CHIP[obj.compatibility_status] ?? STATUS_CHIP['OPTIMAL'];
-                                            return (
+                                        {schema.object_groups.map((group) => {
+                                          const groupKey = `${schema.schema_id}:${group.object_type}`;
+                                          const groupExpanded = expandedGroups.has(groupKey);
+                                          const groupCheck = getGroupCheckState(group);
+                                          const badge = OBJ_BADGE[group.object_type] ?? { label: group.object_type.substring(0, 3).toUpperCase(), icon: '📄', color: '#6B7280', bg: 'rgba(107,114,128,0.12)' };
+
+                                          return (
+                                            <div key={groupKey} style={{ borderLeft: '2px solid rgba(139, 92, 246, 0.25)', marginLeft: 16 }}>
+                                              {/* Object Type Row */}
                                               <div
-                                                key={obj.object_id}
-                                                className="akaal-tree-obj"
+                                                className="akaal-tree-group"
                                                 role="treeitem"
-                                                aria-selected={obj.selected}
-                                                tabIndex={0}
-                                                data-tree-item="true"
-                                                data-object-id={obj.object_id}
-                                                onClick={() => setSelectedObjectId(isActive ? null : obj.object_id)}
+                                                aria-expanded={groupExpanded}
+                                                onClick={() => toggleGroupExpand(groupKey)}
                                                 style={{
                                                   display: 'grid', gridTemplateColumns: '22px 22px 1fr 84px 84px 76px', gap: 8,
-                                                  padding: '6px 12px 6px 18px', alignItems: 'center',
-                                                  borderBottom: '1px solid rgba(71,85,105,0.15)',
-                                                  background: isActive ? 'rgba(37,99,235,0.12)' : 'transparent',
-                                                  borderLeft: isActive ? '3px solid var(--dash-accent)' : '3px solid transparent',
-                                                  cursor: 'pointer', transition: 'all 120ms ease',
+                                                  padding: '6px 12px 6px 14px', alignItems: 'center', cursor: 'pointer',
+                                                  borderBottom: '1px solid var(--dash-border)', background: 'var(--dash-bg)',
                                                 }}
                                               >
-                                                <span /><input
-                                                  type="checkbox"
-                                                  checked={obj.selected}
-                                                  onChange={(e) => { e.stopPropagation(); toggleObject(obj.object_id, e.target.checked); }}
-                                                  onClick={(e) => e.stopPropagation()}
-                                                  aria-label={`Include ${obj.object_name}`}
-                                                  style={{ cursor: 'pointer', accentColor: 'var(--dash-accent)' }}
+                                                <span style={{ fontSize: 10, color: 'var(--dash-text-secondary)', userSelect: 'none', display: 'inline-block', transform: groupExpanded ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 150ms ease' }}>▼</span>
+                                                <IndeterminateCheckbox
+                                                  checked={groupCheck.checked}
+                                                  indeterminate={groupCheck.indeterminate}
+                                                  onChange={(checked) => toggleGroup(db.db_id, schema.schema_id, group.object_type, checked)}
+                                                  aria-label={`Select all ${group.object_type}s in ${schema.schema_name}`}
                                                 />
-                                                <span style={{ fontSize: 11, fontWeight: obj.selected ? 600 : 400, color: obj.selected ? 'var(--dash-text-primary)' : 'var(--dash-text-secondary)', fontFamily: 'var(--akaal-font-mono, monospace)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                  📄 {obj.object_name}
-                                                  {obj.warnings.length > 0 && (
-                                                    <span title={obj.warnings.join('; ')} style={{ fontSize: 10, color: '#F59E0B', cursor: 'help' }}>⚠️</span>
-                                                  )}
-                                                </span>
-                                                <span style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontVariantNumeric: 'tabular-nums' }}>{fmtRows(obj.estimated_rows)}</span>
-                                                <span style={{ fontSize: 10, color: 'var(--dash-text-secondary)' }}>{fmtSize(obj.estimated_size_gb)}</span>
-                                                <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 5px', borderRadius: 4, color: chip.color, background: chip.bg, textAlign: 'center', border: `1px solid ${chip.color}33` }}>
-                                                  {obj.compatibility_status}
-                                                </span>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                  <span style={{ fontSize: 9, fontWeight: 800, padding: '1px 5px', borderRadius: 4, color: badge.color, background: badge.bg, border: `1px solid ${badge.color}33` }}>
+                                                    {badge.label}
+                                                  </span>
+                                                  <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--dash-text-primary)' }}>{badge.icon} {group.object_type}s</span>
+                                                  <span style={{ fontSize: 10, color: 'var(--dash-text-secondary)' }}>
+                                                    ({group.objects.length})
+                                                  </span>
+                                                </div>
+                                                <span /><span /><span />
                                               </div>
-                                            );
-                                          })}
-                                        </div>
+
+                                              {/* 4. INDIVIDUAL OBJECT NAME LEVEL */}
+                                              <div style={{
+                                                overflow: 'hidden',
+                                                maxHeight: groupExpanded ? '9999px' : '0px',
+                                                transition: 'max-height 160ms ease-in-out, opacity 140ms ease',
+                                                opacity: groupExpanded ? 1 : 0,
+                                                marginLeft: 24,
+                                              }}>
+                                                {group.objects.map((obj) => {
+                                                  const isActive = obj.object_id === selectedObjectId;
+                                                  const chip = STATUS_CHIP[obj.compatibility_status] ?? STATUS_CHIP['OPTIMAL'];
+                                                  return (
+                                                    <div
+                                                      key={obj.object_id}
+                                                      className="akaal-tree-obj"
+                                                      role="treeitem"
+                                                      aria-selected={obj.selected}
+                                                      onClick={() => setSelectedObjectId(isActive ? null : obj.object_id)}
+                                                      style={{
+                                                        display: 'grid', gridTemplateColumns: '22px 22px 1fr 84px 84px 76px', gap: 8,
+                                                        padding: '5px 12px 5px 14px', alignItems: 'center',
+                                                        borderBottom: '1px solid rgba(71,85,105,0.12)',
+                                                        background: isActive ? 'rgba(37,99,235,0.12)' : 'transparent',
+                                                        borderLeft: isActive ? '3px solid var(--dash-accent)' : '3px solid transparent',
+                                                        cursor: 'pointer',
+                                                      }}
+                                                    >
+                                                      <span /><input
+                                                        type="checkbox"
+                                                        checked={obj.selected}
+                                                        onChange={(e) => { e.stopPropagation(); toggleObject(obj.object_id, e.target.checked); }}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        aria-label={`Include ${obj.object_name}`}
+                                                        style={{ cursor: 'pointer', accentColor: 'var(--dash-accent)' }}
+                                                      />
+                                                      <span style={{ fontSize: 11, fontWeight: obj.selected ? 600 : 400, color: obj.selected ? 'var(--dash-text-primary)' : 'var(--dash-text-secondary)', fontFamily: 'var(--akaal-font-mono, monospace)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                        📄 {obj.object_name}
+                                                        {obj.warnings.length > 0 && (<span title={obj.warnings.join('; ')} style={{ fontSize: 10, color: '#F59E0B' }}>⚠️</span>)}
+                                                      </span>
+                                                      <span style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontVariantNumeric: 'tabular-nums' }}>{fmtRows(obj.estimated_rows)}</span>
+                                                      <span style={{ fontSize: 10, color: 'var(--dash-text-secondary)' }}>{fmtSize(obj.estimated_size_gb)}</span>
+                                                      <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 5px', borderRadius: 4, color: chip.color, background: chip.bg, textAlign: 'center' }}>
+                                                        {obj.compatibility_status}
+                                                      </span>
+                                                    </div>
+                                                  );
+                                                })}
+                                              </div>
+                                            </div>
+                                          );
+                                        })}
                                       </div>
                                     </div>
                                   );
@@ -1290,110 +1315,25 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
                     </div>
                   </div>
 
-                  {/* ── Structured Enterprise Object Detail Panel ── */}
+                  {/* Object Detail Panel */}
                   {selectedObjectDetail ? (
                     <div style={{ width: 280, flexShrink: 0, border: '1px solid var(--dash-border)', borderRadius: 10, background: 'var(--dash-surface)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                      {/* Header */}
                       <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--dash-border)', background: 'var(--dash-bg)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--dash-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: 4 }}>
-                          ⚡ Enterprise Object Telemetry
-                        </span>
-                        <button type="button" onClick={() => setSelectedObjectId(null)} style={{ background: 'none', border: 'none', color: 'var(--dash-text-secondary)', fontSize: 16, cursor: 'pointer', lineHeight: 1 }}>×</button>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--dash-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>⚡ Object Telemetry</span>
+                        <button type="button" onClick={() => setSelectedObjectId(null)} style={{ background: 'none', border: 'none', color: 'var(--dash-text-secondary)', fontSize: 16, cursor: 'pointer' }}>×</button>
                       </div>
-
-                      {/* Content Body */}
                       <div style={{ padding: 14, overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 12 }}>
-                        {/* Title Block */}
                         <div style={{ padding: 10, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
                           <div style={{ fontSize: 9, color: 'var(--dash-text-secondary)', fontWeight: 700, textTransform: 'uppercase' }}>Target Object Name</div>
-                          <div style={{ fontFamily: 'var(--akaal-font-mono, monospace)', fontSize: 13, fontWeight: 800, color: 'var(--dash-text-primary)', marginTop: 2, wordBreak: 'break-all' }}>
-                            {selectedObjectDetail.object_name}
-                          </div>
+                          <div style={{ fontFamily: 'var(--akaal-font-mono, monospace)', fontSize: 13, fontWeight: 800, color: 'var(--dash-text-primary)', marginTop: 2 }}>{selectedObjectDetail.object_name}</div>
                         </div>
-
-                        {/* Section 1: General Metadata */}
-                        <div>
-                          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--dash-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>1. General Specifications</div>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, background: 'var(--dash-bg)', padding: 8, borderRadius: 6, border: '1px solid var(--dash-border)' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
-                              <span style={{ color: 'var(--dash-text-secondary)' }}>Owning Schema</span>
-                              <strong style={{ color: 'var(--dash-text-primary)' }}>{selectedObjectDetail.schema_id}</strong>
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
-                              <span style={{ color: 'var(--dash-text-secondary)' }}>Object Category</span>
-                              <strong style={{ color: 'var(--dash-text-primary)' }}>{selectedObjectDetail.object_type}</strong>
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
-                              <span style={{ color: 'var(--dash-text-secondary)' }}>Discovered ID</span>
-                              <span style={{ fontFamily: 'var(--akaal-font-mono, monospace)', fontSize: 10, color: 'var(--dash-text-secondary)' }}>{selectedObjectDetail.object_id}</span>
-                            </div>
-                          </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, background: 'var(--dash-bg)', padding: 8, borderRadius: 6, border: '1px solid var(--dash-border)', fontSize: 11 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--dash-text-secondary)' }}>Database</span><strong>{selectedObjectDetail.db_id}</strong></div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--dash-text-secondary)' }}>Schema</span><strong>{selectedObjectDetail.schema_id}</strong></div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--dash-text-secondary)' }}>Type</span><strong>{selectedObjectDetail.object_type}</strong></div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--dash-text-secondary)' }}>Est. Rows</span><strong>{fmtRows(selectedObjectDetail.estimated_rows)}</strong></div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--dash-text-secondary)' }}>Est. Size</span><strong>{fmtSize(selectedObjectDetail.estimated_size_gb)}</strong></div>
                         </div>
-
-                        {/* Section 2: Storage & Volume */}
-                        <div>
-                          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--dash-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>2. Storage & Volume Metrics</div>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, background: 'var(--dash-bg)', padding: 8, borderRadius: 6, border: '1px solid var(--dash-border)' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
-                              <span style={{ color: 'var(--dash-text-secondary)' }}>Estimated Rows</span>
-                              <strong style={{ color: 'var(--dash-text-primary)' }}>{fmtRows(selectedObjectDetail.estimated_rows)}</strong>
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
-                              <span style={{ color: 'var(--dash-text-secondary)' }}>Estimated Size</span>
-                              <strong style={{ color: 'var(--dash-text-primary)' }}>{fmtSize(selectedObjectDetail.estimated_size_gb)}</strong>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Section 3: Compatibility & Intelligence */}
-                        <div>
-                          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--dash-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>3. Engine Compatibility</div>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, background: 'var(--dash-bg)', padding: 8, borderRadius: 6, border: '1px solid var(--dash-border)' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11 }}>
-                              <span style={{ color: 'var(--dash-text-secondary)' }}>Status</span>
-                              <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4, color: (STATUS_CHIP[selectedObjectDetail.compatibility_status] ?? STATUS_CHIP['OPTIMAL']).color, background: (STATUS_CHIP[selectedObjectDetail.compatibility_status] ?? STATUS_CHIP['OPTIMAL']).bg }}>
-                                {selectedObjectDetail.compatibility_status}
-                              </span>
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11 }}>
-                              <span style={{ color: 'var(--dash-text-secondary)' }}>Migration Inclusion</span>
-                              <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4, color: selectedObjectDetail.selected ? '#10B981' : '#EF4444', background: selectedObjectDetail.selected ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)' }}>
-                                {selectedObjectDetail.selected ? 'INCLUDED' : 'EXCLUDED'}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Section 4: Dependencies */}
-                        <div>
-                          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--dash-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>4. Upstream Dependencies</div>
-                          {selectedObjectDetail.dependency_ids.length > 0 ? (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, background: 'var(--dash-bg)', padding: 8, borderRadius: 6, border: '1px solid var(--dash-border)' }}>
-                              {selectedObjectDetail.dependency_ids.map((dep) => (
-                                <span key={dep} style={{ fontSize: 10, fontFamily: 'var(--akaal-font-mono, monospace)', color: 'var(--dash-text-secondary)', padding: '3px 6px', background: 'var(--dash-surface)', borderRadius: 4, border: '1px solid var(--dash-border)' }}>
-                                  🔗 {dep}
-                                </span>
-                              ))}
-                            </div>
-                          ) : (
-                            <div style={{ fontSize: 10, color: '#10B981', padding: '6px 8px', background: 'rgba(16,185,129,0.06)', borderRadius: 6, border: '1px solid rgba(16,185,129,0.2)' }}>
-                              ✓ No upstream object dependencies detected
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Section 5: Warnings */}
-                        {selectedObjectDetail.warnings.length > 0 && (
-                          <div>
-                            <div style={{ fontSize: 10, fontWeight: 700, color: '#F59E0B', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>5. Advisory Notices</div>
-                            {selectedObjectDetail.warnings.map((w, i) => (
-                              <div key={i} style={{ fontSize: 10, color: '#F59E0B', padding: '6px 8px', background: 'rgba(245,158,11,0.08)', borderRadius: 6, border: '1px solid rgba(245,158,11,0.2)', lineHeight: 1.4 }}>
-                                ⚠️ {w}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
                         <button type="button" onClick={() => toggleObject(selectedObjectDetail.object_id, !selectedObjectDetail.selected)}
                           style={{ marginTop: 'auto', padding: '9px 14px', borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: 'pointer', background: selectedObjectDetail.selected ? 'rgba(239,68,68,0.12)' : 'rgba(16,185,129,0.12)', color: selectedObjectDetail.selected ? '#EF4444' : '#10B981', border: selectedObjectDetail.selected ? '1px solid rgba(239,68,68,0.3)' : '1px solid rgba(16,185,129,0.3)' }}>
                           {selectedObjectDetail.selected ? '✕ Exclude from Migration' : '✓ Include in Migration'}
@@ -1401,159 +1341,231 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
                       </div>
                     </div>
                   ) : (
-                    /* Rich Enterprise Empty State for Detail Panel */
                     <div style={{ width: 280, flexShrink: 0, border: '1px dashed var(--dash-border)', borderRadius: 10, background: 'var(--dash-surface)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, gap: 12 }}>
-                      <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'rgba(37,99,235,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>
-                        📊
-                      </div>
+                      <span style={{ fontSize: 28 }}>📊</span>
                       <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--dash-text-primary)', textAlign: 'center' }}>Object Telemetry Explorer</div>
-                      <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)', textAlign: 'center', lineHeight: 1.5 }}>
-                        Select any database object from the tree to inspect specifications, storage metrics, compatibility status, dependencies, and advisory notes.
-                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)', textAlign: 'center', lineHeight: 1.5 }}>Select any object in the tree to view specs, storage metrics, compatibility status, and dependency telemetry.</div>
                     </div>
                   )}
                 </div>
               </div>
             )}
 
-            {/* ── STEP 5: MIGRATION ADVISOR DASHBOARD ─────────────────────── */}
+            {/* ── STEP 5: DYNAMIC EXECUTION PLAN (Visual DAG Engine Graph) ──── */}
             {step === 5 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                 <div style={{ padding: 14, background: 'rgba(16,185,129,0.12)', borderRadius: 10, border: '1px solid rgba(16,185,129,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div>
-                    <div style={{ fontSize: 15, fontWeight: 800, color: '#10B981' }}>✓ SAFE TO EXECUTE — 99.2% PREDICTED TRUST SCORE</div>
-                    <div style={{ fontSize: 12, color: 'var(--dash-text-secondary)', marginTop: 2 }}>Automated topological dependency checks, DDL compatibility, and worker allocations verified.</div>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: '#10B981' }}>✓ DYNAMIC EXECUTION PLAN GENERATED — 99.4% PREDICTED TRUST SCORE</div>
+                    <div style={{ fontSize: 12, color: 'var(--dash-text-secondary)', marginTop: 2 }}>
+                      Generated dynamically for {selectedDbCount} Databases, {selectedSchemaCount} Schemas, and {selectedCount} Objects.
+                    </div>
                   </div>
-                  <span style={{ fontSize: 11, padding: '4px 10px', borderRadius: 6, background: '#10B981', color: '#FFF', fontWeight: 700 }}>VERIFIED</span>
+                  <span style={{ fontSize: 11, padding: '4px 12px', borderRadius: 6, background: '#10B981', color: '#FFF', fontWeight: 700 }}>DYNAMIC DAG</span>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-                  <div style={{ padding: 14, background: 'var(--dash-surface)', borderRadius: 10, border: '1px solid var(--dash-border)' }}>
-                    <div style={{ fontSize: 11, color: '#10B981', fontWeight: 700 }}>Compatibility Score</div>
-                    <div style={{ fontSize: 24, fontWeight: 800, color: '#10B981', marginTop: 4 }}>98.5%</div>
-                    <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', marginTop: 4 }}>2 minor builtin transpiler maps</div>
-                  </div>
-                  <div style={{ padding: 14, background: 'var(--dash-surface)', borderRadius: 10, border: '1px solid var(--dash-border)' }}>
-                    <div style={{ fontSize: 11, color: '#3B82F6', fontWeight: 700 }}>Migration Risk Score</div>
-                    <div style={{ fontSize: 24, fontWeight: 800, color: '#3B82F6', marginTop: 4 }}>0.12 (LOW)</div>
-                    <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', marginTop: 4 }}>Zero schema lock conflicts</div>
-                  </div>
-                  <div style={{ padding: 14, background: 'var(--dash-surface)', borderRadius: 10, border: '1px solid var(--dash-border)' }}>
-                    <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)', fontWeight: 700 }}>Est. Cutover Downtime</div>
-                    <div style={{ fontSize: 24, fontWeight: 800, marginTop: 4 }}>&lt; 5 Mins</div>
-                    <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', marginTop: 4 }}>CDC catchup buffer ready</div>
-                  </div>
-                  <div style={{ padding: 14, background: 'var(--dash-surface)', borderRadius: 10, border: '1px solid var(--dash-border)' }}>
-                    <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)', fontWeight: 700 }}>Est. Execution Duration</div>
-                    <div style={{ fontSize: 24, fontWeight: 800, marginTop: 4 }}>42 Mins</div>
-                    <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', marginTop: 4 }}>At 150 MB/s streaming speed</div>
-                  </div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--dash-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Generated DAG Execution Stages ({dynamicExecutionPlanNodes.length} Pipeline Stages)
                 </div>
 
-                <div style={{ padding: 14, background: 'var(--dash-surface)', borderRadius: 10, border: '1px solid var(--dash-border)' }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 10, color: 'var(--dash-text-primary)' }}>Recommended Engine Allocation</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, fontSize: 12 }}>
-                    {[
-                      { label: 'Parallel Workers', value: '8 Pool' },
-                      { label: 'Batch Insertion', value: '10,000 Rows' },
-                      { label: 'RAM Quota', value: '2.4 GB' },
-                      { label: 'CPU Usage', value: '65% (4 Cores)' },
-                      { label: 'WAN Bandwidth', value: '1.2 Gbps' },
-                    ].map((item) => (
-                      <div key={item.label} style={{ padding: 8, background: 'var(--dash-bg)', borderRadius: 6 }}>
-                        <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)' }}>{item.label}</div>
-                        <div style={{ fontSize: 13, fontWeight: 700, marginTop: 2 }}>{item.value}</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {dynamicExecutionPlanNodes.map((node) => (
+                    <div key={node.stage} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--dash-surface)', borderRadius: 8, border: '1px solid var(--dash-border)', gap: 12 }}>
+                      <span style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(37,99,235,0.15)', color: '#3B82F6', fontSize: 11, fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        {node.stage}
+                      </span>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--dash-text-primary)' }}>{node.name}</span>
+                          <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: 'var(--dash-bg)', border: '1px solid var(--dash-border)', color: 'var(--dash-text-secondary)', fontWeight: 600 }}>{node.category}</span>
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)', marginTop: 2 }}>{node.details}</div>
                       </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                  <div style={{ padding: 14, background: 'rgba(16,185,129,0.05)', borderRadius: 10, border: '1px solid rgba(16,185,129,0.2)' }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: '#10B981', marginBottom: 6 }}>✓ Automatic Optimizations</div>
-                    <div style={{ fontSize: 12, color: 'var(--dash-text-secondary)', lineHeight: 1.6 }}>
-                      • 68 Procedures transpiled to PL/pgSQL<br />
-                      • 18 Package Bodies decomposed into PostgreSQL schema functions<br />
-                      • Zero-copy memoryview socket buffer allocation active
+                      <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 4, background: node.status === 'VERIFIED' ? 'rgba(16,185,129,0.15)' : 'rgba(37,99,235,0.15)', color: node.status === 'VERIFIED' ? '#10B981' : '#3B82F6' }}>
+                        {node.status}
+                      </span>
                     </div>
-                  </div>
-                  <div style={{ padding: 14, background: 'rgba(245,158,11,0.05)', borderRadius: 10, border: '1px solid rgba(245,158,11,0.2)' }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: '#F59E0B', marginBottom: 6 }}>⚠ Advisory Notices & Recommendations</div>
-                    <div style={{ fontSize: 12, color: 'var(--dash-text-secondary)', lineHeight: 1.6 }}>
-                      • 2 XMLType columns mapped to PostgreSQL `xml`<br />
-                      • Materialized views set to concurrent refresh post-load<br />
-                      • Blockers: NONE
-                    </div>
-                  </div>
+                  ))}
                 </div>
               </div>
             )}
 
-            {/* ── STEP 6: RULES & TUNING ───────────────────────────────────── */}
+            {/* ── STEP 6: ENTERPRISE CONFIGURATION CENTER ─────────────────── */}
             {step === 6 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                {/* Config Header Mode Toggle */}
+                <div style={{ padding: 14, background: 'var(--dash-surface)', borderRadius: 10, border: '1px solid var(--dash-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--dash-text-primary)' }}>Enterprise Configuration Center</div>
+                    <div style={{ fontSize: 12, color: 'var(--dash-text-secondary)', marginTop: 2 }}>Tune engine behavior, performance allocations, security, validation policies, and notifications.</div>
+                  </div>
+                  <div style={{ display: 'flex', background: 'var(--dash-bg)', padding: 3, borderRadius: 8, border: '1px solid var(--dash-border)' }}>
+                    <button type="button" onClick={() => setConfigMode('BASIC')}
+                      style={{ padding: '6px 14px', borderRadius: 6, border: 'none', background: configMode === 'BASIC' ? 'var(--dash-accent)' : 'transparent', color: configMode === 'BASIC' ? '#FFF' : 'var(--dash-text-secondary)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                      Basic Mode
+                    </button>
+                    <button type="button" onClick={() => setConfigMode('ADVANCED')}
+                      style={{ padding: '6px 14px', borderRadius: 6, border: 'none', background: configMode === 'ADVANCED' ? 'var(--dash-accent)' : 'transparent', color: configMode === 'ADVANCED' ? '#FFF' : 'var(--dash-text-secondary)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                      Advanced Configuration
+                    </button>
+                  </div>
+                </div>
+
+                {/* Expandable Enterprise Configuration Sections */}
                 {[
-                  { id: 'cleansing', title: 'Data Cleansing & Column Mappings', desc: 'Trimming, encoding, type coercion, and UTF-8 sanitization' },
-                  { id: 'masking', title: 'Data Masking & PII Redaction Rules', desc: 'SHA-256 hash masking for SSN, Email, and Credit Card fields' },
-                  { id: 'tuning', title: 'High-Performance Stream & Buffer Tuning', desc: 'Zero-copy memoryview buffers, LOB chunks, worker pool allocation' },
-                  { id: 'checkpoint', title: 'Durability & Recovery Policies', desc: 'WAL Ring Buffer, SQLite checkpoint intervals, auto-restart' },
+                  {
+                    id: 'rules', icon: '📋', title: 'Migration Rules & Object Actions',
+                    desc: 'Define include/exclude patterns, renaming rules, and action on existing target tables.',
+                    content: (
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                        <div>
+                          <label style={{ fontSize: 11, fontWeight: 600, display: 'block', marginBottom: 4 }}>Action on Existing Target Table</label>
+                          <select value={actionOnExisting} onChange={(e) => setActionOnExisting(e.target.value)} style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 12 }}>
+                            <option value="SKIP">Skip Existing Tables</option>
+                            <option value="OVERWRITE">Truncate & Overwrite</option>
+                            <option value="MERGE">Merge / Append Data</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label style={{ fontSize: 11, fontWeight: 600, display: 'block', marginBottom: 4 }}>Table Renaming Pattern (Regex)</label>
+                          <input type="text" value={tableRenamePattern} onChange={(e) => setTableRenamePattern(e.target.value)} placeholder="e.g. TBL_$1 -> $1_V2" style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 12 }} />
+                        </div>
+                      </div>
+                    )
+                  },
+                  {
+                    id: 'transform', icon: '🔄', title: 'Data Transformation & PII Masking',
+                    desc: 'Column mapping rules, type coercions, and SHA-256 PII redaction.',
+                    content: (
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                          <input type="checkbox" checked={maskingEnabled} onChange={(e) => setMaskingEnabled(e.target.checked)} />
+                          Enforce PII Data Redaction
+                        </label>
+                        <div>
+                          <label style={{ fontSize: 11, fontWeight: 600, display: 'block', marginBottom: 4 }}>Masking Method</label>
+                          <select value={maskingMethod} onChange={(e) => setMaskingMethod(e.target.value)} style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 12 }}>
+                            <option value="SHA-256">SHA-256 Salted Hash</option>
+                            <option value="SALTED_HMAC">Salted HMAC Key</option>
+                            <option value="NULL_REDACTION">Full Nullification</option>
+                          </select>
+                        </div>
+                      </div>
+                    )
+                  },
+                  {
+                    id: 'perf', icon: '⚡', title: 'High-Performance Stream & Buffer Allocations',
+                    desc: 'Parallel worker pool size, batch insertion capacity, and WAL ring buffers.',
+                    content: (
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 14 }}>
+                        <div>
+                          <label style={{ fontSize: 11, fontWeight: 600, display: 'block', marginBottom: 4 }}>Parallel Workers</label>
+                          <input type="text" value={parallelism} onChange={(e) => setParallelism(e.target.value)} style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 12 }} />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: 11, fontWeight: 600, display: 'block', marginBottom: 4 }}>Batch Insertion Size</label>
+                          <input type="text" value={batchSize} onChange={(e) => setBatchSize(e.target.value)} style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 12 }} />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: 11, fontWeight: 600, display: 'block', marginBottom: 4 }}>Commit Interval</label>
+                          <input type="text" value={commitInterval} onChange={(e) => setCommitInterval(e.target.value)} style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 12 }} />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: 11, fontWeight: 600, display: 'block', marginBottom: 4 }}>RAM Quota (GB)</label>
+                          <input type="text" value={ramLimitGb} onChange={(e) => setRamLimitGb(e.target.value)} style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 12 }} />
+                        </div>
+                      </div>
+                    )
+                  },
+                  {
+                    id: 'validation', icon: '🔍', title: 'Data Validation & Reconciliation Policy',
+                    desc: 'Row count verification, CRC32/SHA256 checksums, and sampling percentage.',
+                    content: (
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                        <div>
+                          <label style={{ fontSize: 11, fontWeight: 600, display: 'block', marginBottom: 4 }}>Validation Strategy</label>
+                          <select value={validationLevel} onChange={(e) => setValidationLevel(e.target.value)} style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 12 }}>
+                            <option value="CHECKSUM">Full CRC32 Checksum & Row Count</option>
+                            <option value="ROW_COUNT">Row Count Only</option>
+                            <option value="SAMPLING">Randomized Sample Inspection</option>
+                            <option value="NONE">Skip Post Validation</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label style={{ fontSize: 11, fontWeight: 600, display: 'block', marginBottom: 4 }}>Sampling Percentage (%)</label>
+                          <input type="text" value={samplingRate} onChange={(e) => setSamplingRate(e.target.value)} style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 12 }} />
+                        </div>
+                      </div>
+                    )
+                  },
+                  {
+                    id: 'error', icon: '⚠️', title: 'Error Handling & Fault Tolerance',
+                    desc: 'Rollback policies, retry attempts, and failed row quarantine handling.',
+                    content: (
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                        <div>
+                          <label style={{ fontSize: 11, fontWeight: 600, display: 'block', marginBottom: 4 }}>Error Action</label>
+                          <select value={errorAction} onChange={(e) => setErrorAction(e.target.value)} style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 12 }}>
+                            <option value="CONTINUE_AND_LOG">Continue Execution & Quarantine Errors</option>
+                            <option value="STOP_ON_ERROR">Halt Migration Immediately</option>
+                            <option value="ROLLBACK_TRANSACTION">Rollback Target Transaction</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label style={{ fontSize: 11, fontWeight: 600, display: 'block', marginBottom: 4 }}>Max Retries</label>
+                          <input type="text" value={retryCount} onChange={(e) => setRetryCount(e.target.value)} style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 12 }} />
+                        </div>
+                      </div>
+                    )
+                  },
+                  {
+                    id: 'security', icon: '🔒', title: 'Security, TLS & Governance Controls',
+                    desc: 'Encrypted transport, secret vault credentials, and four-eyes policy gates.',
+                    content: (
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                          <input type="checkbox" checked={fourEyesPolicy} onChange={(e) => setFourEyesPolicy(e.target.checked)} />
+                          Enforce Four-Eyes Executive Approval Gate
+                        </label>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                          <input type="checkbox" checked={enableCdc} onChange={(e) => setEnableCdc(e.target.checked)} />
+                          Enable CDC Continuous Streaming Replication
+                        </label>
+                      </div>
+                    )
+                  },
+                  {
+                    id: 'notifications', icon: '🔔', title: 'Notification Alerts & Webhooks',
+                    desc: 'Send execution alerts to Slack, MS Teams, or Email upon completion.',
+                    content: (
+                      <div style={{ display: 'flex', gap: 20 }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                          <input type="checkbox" checked={notifyEmail} onChange={(e) => setNotifyEmail(e.target.checked)} />
+                          Email Executive Alerts
+                        </label>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                          <input type="checkbox" checked={notifySlack} onChange={(e) => setNotifySlack(e.target.checked)} />
+                          Slack Webhook Dispatch
+                        </label>
+                      </div>
+                    )
+                  },
                 ].map((card) => (
                   <div key={card.id} style={{ border: '1px solid var(--dash-border)', borderRadius: 10, background: 'var(--dash-surface)', overflow: 'hidden' }}>
-                    <div onClick={() => setExpandedCard(expandedCard === card.id ? null : card.id)}
-                      style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', background: expandedCard === card.id ? 'var(--dash-bg)' : 'transparent' }}>
-                      <div>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--dash-text-primary)' }}>{card.title}</div>
-                        <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)', marginTop: 2 }}>{card.desc}</div>
+                    <div onClick={() => setExpandedConfigSection(expandedConfigSection === card.id ? null : card.id)}
+                      style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', background: expandedConfigSection === card.id ? 'var(--dash-bg)' : 'transparent' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <span style={{ fontSize: 16 }}>{card.icon}</span>
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--dash-text-primary)' }}>{card.title}</div>
+                          <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)', marginTop: 2 }}>{card.desc}</div>
+                        </div>
                       </div>
-                      <span style={{ fontSize: 14, color: 'var(--dash-text-secondary)' }}>{expandedCard === card.id ? '▲' : '▼'}</span>
+                      <span style={{ fontSize: 14, color: 'var(--dash-text-secondary)' }}>{expandedConfigSection === card.id ? '▲' : '▼'}</span>
                     </div>
-                    {expandedCard === card.id && (
-                      <div style={{ padding: 16, borderTop: '1px solid var(--dash-border)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-                        {card.id === 'cleansing' && (
-                          <>
-                            <div>
-                              <label style={{ fontSize: 11, fontWeight: 600, display: 'block', marginBottom: 4 }}>Table Mapping Rule</label>
-                              <input type="text" defaultValue="SYSTEM.* -> public.*" style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 12 }} />
-                            </div>
-                            <div>
-                              <label style={{ fontSize: 11, fontWeight: 600, display: 'block', marginBottom: 4 }}>LOB Chunk Size</label>
-                              <input type="text" defaultValue="64 KB (Configurable)" style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 12 }} />
-                            </div>
-                          </>
-                        )}
-                        {card.id === 'masking' && (
-                          <>
-                            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-                              <input type="checkbox" checked={maskingEnabled} onChange={(e) => setMaskingEnabled(e.target.checked)} />
-                              Enforce PII Data Redaction
-                            </label>
-                            <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)' }}>Masking technique: SHA-256 salted hash</div>
-                          </>
-                        )}
-                        {card.id === 'tuning' && (
-                          <>
-                            <div>
-                              <label style={{ fontSize: 11, fontWeight: 600, display: 'block', marginBottom: 4 }}>Parallel Workers</label>
-                              <input type="text" value={parallelism} onChange={(e) => setParallelism(e.target.value)} style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 12 }} />
-                            </div>
-                            <div>
-                              <label style={{ fontSize: 11, fontWeight: 600, display: 'block', marginBottom: 4 }}>Batch Insertion Size</label>
-                              <input type="text" value={batchSize} onChange={(e) => setBatchSize(e.target.value)} style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 12 }} />
-                            </div>
-                          </>
-                        )}
-                        {card.id === 'checkpoint' && (
-                          <>
-                            <div>
-                              <label style={{ fontSize: 11, fontWeight: 600, display: 'block', marginBottom: 4 }}>Checkpoint Interval (Rows)</label>
-                              <input type="text" value={checkpointInterval} onChange={(e) => setCheckpointInterval(e.target.value)} style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 12 }} />
-                            </div>
-                            <div>
-                              <label style={{ fontSize: 11, fontWeight: 600, display: 'block', marginBottom: 4 }}>WAL Ring Buffer Capacity</label>
-                              <input type="text" defaultValue="10,000 Records (CRC32 Checksummed)" disabled style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid var(--dash-border)', background: 'var(--dash-surface)', color: 'var(--dash-text-secondary)', fontSize: 12 }} />
-                            </div>
-                          </>
-                        )}
+                    {(configMode === 'ADVANCED' || expandedConfigSection === card.id) && (
+                      <div style={{ padding: 16, borderTop: '1px solid var(--dash-border)' }}>
+                        {card.content}
                       </div>
                     )}
                   </div>
@@ -1574,44 +1586,40 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                   <div style={{ padding: 14, background: 'var(--dash-surface)', borderRadius: 10, border: '1px solid var(--dash-border)', fontSize: 12, lineHeight: 1.6 }}>
-                    <div style={{ fontWeight: 700, marginBottom: 8, color: 'var(--dash-text-primary)', borderBottom: '1px solid var(--dash-border)', paddingBottom: 4 }}>1. Migration Overview</div>
+                    <div style={{ fontWeight: 700, marginBottom: 8, color: 'var(--dash-text-primary)', borderBottom: '1px solid var(--dash-border)', paddingBottom: 4 }}>1. Migration Connections</div>
                     • <strong>Source:</strong> {sourceEngine} ({sourceHost}:{sourcePort}/{sourceDbName})<br />
                     • <strong>Target:</strong> {targetEngine} ({targetHost}:{targetPort}/{targetDbName})<br />
-                    • <strong>Type & Scope:</strong> {migScope}<br />
-                    • <strong>Strategy:</strong> {strategy}<br />
-                    • <strong>Project & Owner:</strong> {projectName} ({businessOwner})
+                    • <strong>Strategy:</strong> {strategy} ({environment})<br />
+                    • <strong>Owner:</strong> {businessOwner} ({priority})
                   </div>
                   <div style={{ padding: 14, background: 'var(--dash-surface)', borderRadius: 10, border: '1px solid var(--dash-border)', fontSize: 12, lineHeight: 1.6 }}>
-                    <div style={{ fontWeight: 700, marginBottom: 8, color: 'var(--dash-text-primary)', borderBottom: '1px solid var(--dash-border)', paddingBottom: 4 }}>2. Scope Summary</div>
-                    • <strong>Schemas Detected:</strong> {TOTAL_SCHEMAS_DETECTED}<br />
-                    • <strong>Objects Detected:</strong> {TOTAL_OBJECTS_DETECTED.toLocaleString()}<br />
-                    • <strong>Objects Selected:</strong> {selectedCount.toLocaleString()}<br />
-                    • <strong>Schemas Included:</strong> {includeSchemas || '—'}<br />
+                    <div style={{ fontWeight: 700, marginBottom: 8, color: 'var(--dash-text-primary)', borderBottom: '1px solid var(--dash-border)', paddingBottom: 4 }}>2. Discovered & Selected Scope</div>
+                    • <strong>Databases Selected:</strong> {selectedDbCount} of {TOTAL_DATABASES_DETECTED}<br />
+                    • <strong>Schemas Selected:</strong> {selectedSchemaCount} of {TOTAL_SCHEMAS_DETECTED}<br />
+                    • <strong>Objects Selected:</strong> {selectedCount.toLocaleString()} of {TOTAL_OBJECTS_DETECTED.toLocaleString()}<br />
                     • <strong>Objects Excluded:</strong> {excludedCount.toLocaleString()}
                   </div>
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                   <div style={{ padding: 14, background: 'var(--dash-surface)', borderRadius: 10, border: '1px solid var(--dash-border)', fontSize: 12, lineHeight: 1.6 }}>
-                    <div style={{ fontWeight: 700, marginBottom: 8, color: 'var(--dash-text-primary)', borderBottom: '1px solid var(--dash-border)', paddingBottom: 4 }}>3. Migration Intelligence</div>
-                    • <strong>Compatibility Score:</strong> 98.5%<br />
-                    • <strong>Risk Score:</strong> 0.12 (LOW)<br />
-                    • <strong>Transpiled Routines:</strong> 68 PL/SQL Procedures ➔ PL/pgSQL<br />
-                    • <strong>Package Bodies:</strong> 18 Decomposed<br />
-                    • <strong>Cutover Window:</strong> &lt; 5 Minutes Downtime
+                    <div style={{ fontWeight: 700, marginBottom: 8, color: 'var(--dash-text-primary)', borderBottom: '1px solid var(--dash-border)', paddingBottom: 4 }}>3. Enterprise Configuration Center</div>
+                    • <strong>Config Mode:</strong> {configMode}<br />
+                    • <strong>Parallel Workers:</strong> {parallelism} Workers ({batchSize} Row Batches)<br />
+                    • <strong>Validation Level:</strong> {validationLevel}<br />
+                    • <strong>PII Masking:</strong> {maskingEnabled ? `Active (${maskingMethod})` : 'Disabled'}
                   </div>
                   <div style={{ padding: 14, background: 'var(--dash-surface)', borderRadius: 10, border: '1px solid var(--dash-border)', fontSize: 12, lineHeight: 1.6 }}>
-                    <div style={{ fontWeight: 700, marginBottom: 8, color: 'var(--dash-text-primary)', borderBottom: '1px solid var(--dash-border)', paddingBottom: 4 }}>4. Execution Summary</div>
-                    • <strong>Parallel Workers:</strong> {parallelism} Workers ({batchSize} Row Batches)<br />
-                    • <strong>Checkpoint Frequency:</strong> Every {checkpointInterval} Rows<br />
-                    • <strong>Recovery Model:</strong> WAL Ring Buffer (CRC32 Checksummed)<br />
-                    • <strong>Validation Strategy:</strong> Full Column Checksums & Row Counts<br />
-                    • <strong>Trust Certification:</strong> SHA-256 Digital Seal Active
+                    <div style={{ fontWeight: 700, marginBottom: 8, color: 'var(--dash-text-primary)', borderBottom: '1px solid var(--dash-border)', paddingBottom: 4 }}>4. Dynamic Execution Graph</div>
+                    • <strong>Pipeline Stages:</strong> {dynamicExecutionPlanNodes.length} Generated Stages<br />
+                    • <strong>CDC Replication:</strong> {enableCdc ? 'Active Stream' : 'Batch Sync'}<br />
+                    • <strong>Predicted Trust Score:</strong> 99.4%<br />
+                    • <strong>Risk Level:</strong> 0.12 (LOW)
                   </div>
                 </div>
 
                 <div style={{ padding: 14, background: 'var(--dash-surface)', borderRadius: 10, border: '1px solid var(--dash-border)', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div><strong style={{ color: 'var(--dash-text-primary)' }}>Governance Gate:</strong> Four-Eyes Executive Approval Enforced</div>
+                  <div><strong style={{ color: 'var(--dash-text-primary)' }}>Governance Policy:</strong> {fourEyesPolicy ? 'Four-Eyes Executive Approval Enforced' : 'Single Operator Approval'}</div>
                   <span style={{ fontSize: 11, padding: '4px 10px', borderRadius: 4, background: 'rgba(16,185,129,0.15)', color: '#10B981', fontWeight: 700 }}>APPROVAL PASSED</span>
                 </div>
               </div>
@@ -1632,13 +1640,11 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
               </div>
             </div>
 
-            {/* View Execution Plan Drawer Button */}
             <button type="button" onClick={() => setShowExecutionPlanDrawer(true)}
-              style={{ width: '100%', padding: '10px 14px', borderRadius: 8, background: 'rgba(37,99,235,0.12)', border: '1px solid var(--dash-accent)', color: 'var(--dash-accent)', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: 'all 150ms ease' }}>
+              style={{ width: '100%', padding: '10px 14px', borderRadius: 8, background: 'rgba(37,99,235,0.12)', border: '1px solid var(--dash-accent)', color: 'var(--dash-accent)', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
               <span>⚡ View Execution Plan DAG</span>
             </button>
 
-            {/* Engine Topology Card */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
               <div style={{ padding: 8, background: 'var(--dash-bg)', borderRadius: 6, border: '1px solid var(--dash-border)' }}>
                 <div style={{ fontSize: 9, color: 'var(--dash-text-secondary)', textTransform: 'uppercase', fontWeight: 600 }}>Source Engine</div>
@@ -1650,22 +1656,18 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
               </div>
             </div>
 
-            {/* Group 1: Scope & Telemetry */}
+            {/* Telemetry Group 1 */}
             <div style={{ background: 'var(--dash-bg)', padding: 10, borderRadius: 8, border: '1px solid var(--dash-border)', display: 'flex', flexDirection: 'column', gap: 6 }}>
               <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--dash-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid var(--dash-border)', paddingBottom: 4 }}>
                 1. Scope Telemetry
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
-                <span style={{ color: 'var(--dash-text-secondary)' }}>Schemas Detected:</span>
-                <strong style={{ color: 'var(--dash-text-primary)' }}>{TOTAL_SCHEMAS_DETECTED}</strong>
+                <span style={{ color: 'var(--dash-text-secondary)' }}>Databases Selected:</span>
+                <strong style={{ color: 'var(--dash-text-primary)' }}>{selectedDbCount} / {TOTAL_DATABASES_DETECTED}</strong>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
-                <span style={{ color: 'var(--dash-text-secondary)' }}>Objects Detected:</span>
-                <strong style={{ color: 'var(--dash-text-primary)' }}>{TOTAL_OBJECTS_DETECTED.toLocaleString()}</strong>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
-                <span style={{ color: 'var(--dash-text-secondary)' }}>Schemas Included:</span>
-                <strong style={{ color: schemasIncludedCount > 0 ? '#10B981' : 'var(--dash-text-secondary)' }}>{schemasIncludedCount}</strong>
+                <span style={{ color: 'var(--dash-text-secondary)' }}>Schemas Selected:</span>
+                <strong style={{ color: 'var(--dash-text-primary)' }}>{selectedSchemaCount} / {TOTAL_SCHEMAS_DETECTED}</strong>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
                 <span style={{ color: 'var(--dash-text-secondary)' }}>Objects Selected:</span>
@@ -1677,33 +1679,33 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
               </div>
             </div>
 
-            {/* Group 2: Intelligence & Allocation */}
+            {/* Telemetry Group 2 */}
             <div style={{ background: 'var(--dash-bg)', padding: 10, borderRadius: 8, border: '1px solid var(--dash-border)', display: 'flex', flexDirection: 'column', gap: 6 }}>
               <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--dash-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid var(--dash-border)', paddingBottom: 4 }}>
-                2. Intelligence & Allocation
+                2. Intelligence & DAG
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
-                <span style={{ color: 'var(--dash-text-secondary)' }}>Compatibility:</span>
-                <strong style={{ color: '#10B981' }}>98.5%</strong>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
-                <span style={{ color: 'var(--dash-text-secondary)' }}>Risk Score:</span>
-                <strong style={{ color: '#3B82F6' }}>0.12 (LOW)</strong>
+                <span style={{ color: 'var(--dash-text-secondary)' }}>DAG Stages:</span>
+                <strong style={{ color: '#3B82F6' }}>{dynamicExecutionPlanNodes.length} Stages</strong>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
                 <span style={{ color: 'var(--dash-text-secondary)' }}>Workers:</span>
                 <strong style={{ color: 'var(--dash-text-primary)' }}>{parallelism} Pool</strong>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
-                <span style={{ color: 'var(--dash-text-secondary)' }}>Est. Duration:</span>
-                <strong style={{ color: 'var(--dash-text-primary)' }}>42 Mins</strong>
+                <span style={{ color: 'var(--dash-text-secondary)' }}>Validation:</span>
+                <strong style={{ color: 'var(--dash-text-primary)' }}>{validationLevel}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+                <span style={{ color: 'var(--dash-text-secondary)' }}>Predicted Trust:</span>
+                <strong style={{ color: '#10B981' }}>99.4%</strong>
               </div>
             </div>
 
-            {/* Group 3: Connection & Governance Gates */}
+            {/* Telemetry Group 3 */}
             <div style={{ background: 'var(--dash-bg)', padding: 10, borderRadius: 8, border: '1px solid var(--dash-border)', display: 'flex', flexDirection: 'column', gap: 6 }}>
               <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--dash-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid var(--dash-border)', paddingBottom: 4 }}>
-                3. Governance & Connections
+                3. Connections & Policy
               </div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 11 }}>
                 <span style={{ color: 'var(--dash-text-secondary)' }}>Source Link:</span>
@@ -1757,38 +1759,24 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
           <div onClick={() => setShowExecutionPlanDrawer(false)}
             style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', zIndex: 9999, display: 'flex', justifyContent: 'flex-end' }}>
             <div onClick={(e) => e.stopPropagation()}
-              style={{ width: 480, height: '100%', background: 'var(--dash-surface)', borderLeft: '1px solid var(--dash-border)', padding: 24, display: 'flex', flexDirection: 'column', gap: 18, overflowY: 'auto' }}>
+              style={{ width: 500, height: '100%', background: 'var(--dash-surface)', borderLeft: '1px solid var(--dash-border)', padding: 24, display: 'flex', flexDirection: 'column', gap: 18, overflowY: 'auto' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--dash-border)', paddingBottom: 12 }}>
                 <div>
-                  <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>Frozen Engine Execution Lifecycle</h3>
-                  <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)', marginTop: 2 }}>Runtime V3 Execution Plan</div>
+                  <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>Dynamic Migration Execution Plan</h3>
+                  <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)', marginTop: 2 }}>Generated for current selection & configuration</div>
                 </div>
                 <button onClick={() => setShowExecutionPlanDrawer(false)} style={{ background: 'none', border: 'none', color: 'var(--dash-text-secondary)', fontSize: 20, cursor: 'pointer' }}>×</button>
               </div>
 
-              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--dash-text-secondary)', textTransform: 'uppercase' }}>Visual Execution DAG Pipeline</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--dash-text-secondary)', textTransform: 'uppercase' }}>Visual Execution DAG Pipeline ({dynamicExecutionPlanNodes.length} Stages)</div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {[
-                  { name: '1. Discovery & Catalog', desc: 'Inspect source database metadata & catalog definitions' },
-                  { name: '2. Advisor Analysis', desc: 'Rule checking, compatibility scoring, risk assessment' },
-                  { name: '3. DAG Planning', desc: 'Topological dependency sorting & partition creation' },
-                  { name: '4. Policy Approval', desc: 'Four-eyes executive sign-off & epoch fencing' },
-                  { name: '5. Runtime Creation', desc: 'Spawn MigrationRuntimeDaemon & SupervisorTree' },
-                  { name: '6. Checkpoint Initialization', desc: 'WAL Ring Buffer & command mailbox allocation' },
-                  { name: '7. Schema Deployment', desc: 'Deploy target DDL structures & constraint locks' },
-                  { name: '8. Enterprise Objects', desc: 'Deploy sequences, views, synonyms, and UDTs' },
-                  { name: '9. PL/SQL Transpilation', desc: 'Transpile procedures & functions to PL/pgSQL' },
-                  { name: '10. Worker Allocation', desc: 'Allocate 8 zero-copy worker threads & memoryview' },
-                  { name: '11. Parallel Data Transport', desc: 'High-throughput stream pipeline execution' },
-                  { name: '12. Post Validation', desc: 'Column checksums & row count reconciliation' },
-                  { name: '13. Trust Certification', desc: 'Generate SHA-256 digital migration certificate' },
-                ].map((item, idx) => (
-                  <div key={item.name} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', padding: 8, background: 'var(--dash-bg)', borderRadius: 6, border: '1px solid var(--dash-border)' }}>
-                    <span style={{ width: 20, height: 20, borderRadius: '50%', background: 'rgba(37,99,235,0.2)', color: '#3B82F6', fontSize: 10, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{idx + 1}</span>
+                {dynamicExecutionPlanNodes.map((item) => (
+                  <div key={item.stage} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', padding: 10, background: 'var(--dash-bg)', borderRadius: 6, border: '1px solid var(--dash-border)' }}>
+                    <span style={{ width: 22, height: 22, borderRadius: '50%', background: 'rgba(37,99,235,0.2)', color: '#3B82F6', fontSize: 11, fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{item.stage}</span>
                     <div>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--dash-text-primary)' }}>{item.name.split('. ')[1]}</div>
-                      <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', marginTop: 2 }}>{item.desc}</div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--dash-text-primary)' }}>{item.name}</div>
+                      <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', marginTop: 2 }}>{item.details}</div>
                     </div>
                   </div>
                 ))}
