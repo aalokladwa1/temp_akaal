@@ -1,0 +1,704 @@
+import { useState, useEffect, useMemo, type FC } from 'react';
+import {
+  Table,
+  Zap,
+  Cpu,
+  CheckCircle2,
+  ChevronDown,
+  ArrowLeft,
+  X,
+  Activity,
+  Play,
+  Pause,
+  Square,
+  Bookmark,
+  RotateCcw,
+  ShieldAlert,
+  Download,
+  PlayCircle,
+  ShieldCheck,
+  Terminal,
+  XCircle,
+} from 'lucide-react';
+import type { MigrationPipeline, EngineStageId } from '../../types/migration';
+import { ENGINE_STAGE_METADATA } from '../../services/migrationService';
+import { notificationService } from '../../services/notificationService';
+
+export interface MissionControlViewProps {
+  migration: MigrationPipeline;
+  onBack: () => void;
+  onOpenWizard?: () => void;
+}
+
+export type MigrationRunStatus = 'running' | 'paused' | 'failed' | 'completed';
+
+const fmtRows = (n: number): string => {
+  if (n < 0) return '—';
+  if (n >= 1e9) return `${(n / 1e9).toFixed(1)}B`;
+  if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
+  if (n >= 1e3) return `${(n / 1e3).toFixed(0)}K`;
+  return `${n}`;
+};
+
+interface ReplayEvent {
+  timeSec: number;
+  stage: EngineStageId;
+  title: string;
+  detail: string;
+  rowsProcessed: number;
+  throughputMbps: number;
+  activeWorkerCount: number;
+}
+
+// ─── Mock Recorded Timeline for Mission Replay™ ────────────────────────────
+
+const REPLAY_EVENTS: ReplayEvent[] = [
+  { timeSec: 0,   stage: 'scout',           title: 'Discovery Initiated',          detail: 'Scouting source Oracle 19c instance endpoint', rowsProcessed: 0,           throughputMbps: 0,     activeWorkerCount: 0 },
+  { timeSec: 15,  stage: 'scout',           title: 'Catalog Fenced',               detail: 'Cataloged 3 Databases, 4 Schemas, 124 Objects', rowsProcessed: 0,           throughputMbps: 0,     activeWorkerCount: 0 },
+  { timeSec: 30,  stage: 'planner',         title: 'DAG Plan Generated',           detail: 'Topological dependency tree & 8 partitions created', rowsProcessed: 0,           throughputMbps: 0,     activeWorkerCount: 0 },
+  { timeSec: 45,  stage: 'manager',         title: 'Four-Eyes Gate Approved',      detail: 'Governance policy signed off by Enterprise Security', rowsProcessed: 0,           throughputMbps: 0,     activeWorkerCount: 0 },
+  { timeSec: 60,  stage: 'schema_exec',     title: 'Target DDL Created',           detail: 'Deployed 4 Schemas & 68 PL/SQL transpiled routines', rowsProcessed: 0,           throughputMbps: 0,     activeWorkerCount: 0 },
+  { timeSec: 75,  stage: 'data_migration',  title: 'Parallel Stream Started',      detail: 'Allocated 8 zero-copy socket worker threads', rowsProcessed: 100_000_000, throughputMbps: 120.4, activeWorkerCount: 8 },
+  { timeSec: 105, stage: 'data_migration',  title: 'Transport Peak Throughput',    detail: 'Streaming CUSTOMER_RECORDS & ORDERS tables', rowsProcessed: 650_000_000, throughputMbps: 168.5, activeWorkerCount: 8 },
+  { timeSec: 135, stage: 'data_migration',  title: 'Transport Completed',          detail: 'Transported 1.24B rows across 8 partitions', rowsProcessed: 1_240_500_000, throughputMbps: 154.8, activeWorkerCount: 8 },
+  { timeSec: 155, stage: 'validator',       title: 'Checksum Reconciliation',     detail: 'CRC32 & SHA-256 row reconciliation matched 100%', rowsProcessed: 1_240_500_000, throughputMbps: 0,     activeWorkerCount: 0 },
+  { timeSec: 180, stage: 'certification',   title: 'Trust Certificate Sealed',    detail: 'SHA-256 Digital Seal cryptographically signed', rowsProcessed: 1_240_500_000, throughputMbps: 0,     activeWorkerCount: 0 },
+];
+
+export const MissionControlView: FC<MissionControlViewProps> = ({
+  migration,
+  onBack,
+  onOpenWizard: _onOpenWizard,
+}) => {
+  // Migration Live Run State
+  const [runStatus, setRunStatus] = useState<MigrationRunStatus>('running');
+  const [activeStage, setActiveStage] = useState<EngineStageId>('data_migration');
+  const [showPlanDrawer, setShowPlanDrawer] = useState(false);
+  const [showOperationsMenu, setShowOperationsMenu] = useState(false);
+
+  // Live Simulation Controls
+  const [rowsProcessed, setRowsProcessed] = useState(780_450_000);
+  const totalRows = 1_240_500_000;
+  const progressPercent = Math.min(100, Math.round((rowsProcessed / totalRows) * 100));
+
+  // Mission Replay™ Mode State
+  const [isReplayMode, setIsReplayMode] = useState(false);
+  const [replayPlaying, setReplayPlaying] = useState(false);
+  const [replayTimeSec, setReplayTimeSec] = useState(0);
+  const [replaySpeed, setReplaySpeed] = useState<1 | 2 | 5 | 10>(1);
+
+  // Live Activity Log Stream
+  const [activityFeed] = useState([
+    { id: 'act-6', time: '14:32:05', stage: 'Validator', text: 'Column checksum reconciliation passed for 124 objects', type: 'success' },
+    { id: 'act-5', time: '14:31:40', stage: 'Transport', text: 'CUSTOMER_RECORDS table completed (500M rows in 12m 40s)', type: 'info' },
+    { id: 'act-4', time: '14:25:10', stage: 'Transport', text: 'Parallel Worker #4 initiated partition chunk #18', type: 'info' },
+    { id: 'act-3', time: '14:20:00', stage: 'Schema', text: 'All 4 Schemas DDL definitions created on PostgreSQL 16', type: 'info' },
+    { id: 'act-2', time: '14:18:20', stage: 'Planning', text: 'Four-Eyes Executive Approval granted by Governance Gate', type: 'success' },
+    { id: 'act-1', time: '14:15:00', stage: 'Discovery', text: '3 Databases, 4 Schemas, 124 Objects cataloged', type: 'info' },
+  ]);
+
+  // Mission Replay™ Timer Tick
+  useEffect(() => {
+    let timer: any;
+    if (isReplayMode && replayPlaying) {
+      timer = setInterval(() => {
+        setReplayTimeSec((prev) => {
+          if (prev >= 180) {
+            setReplayPlaying(false);
+            return 180;
+          }
+          return prev + 1 * replaySpeed;
+        });
+      }, 1000 / replaySpeed);
+    }
+    return () => clearInterval(timer);
+  }, [isReplayMode, replayPlaying, replaySpeed]);
+
+  // Current Replay Frame Calculation
+  const currentReplayFrame = useMemo(() => {
+    if (!isReplayMode) return null;
+    let matching = REPLAY_EVENTS[0];
+    for (const ev of REPLAY_EVENTS) {
+      if (replayTimeSec >= ev.timeSec) matching = ev;
+    }
+    return matching;
+  }, [isReplayMode, replayTimeSec]);
+
+  // Sync Replay Stage & Telemetry
+  useEffect(() => {
+    if (isReplayMode && currentReplayFrame) {
+      setActiveStage(currentReplayFrame.stage);
+      setRowsProcessed(currentReplayFrame.rowsProcessed);
+    }
+  }, [isReplayMode, currentReplayFrame]);
+
+  // Dynamic Execution Plan Nodes
+  const dynamicExecutionPlanNodes = useMemo(() => {
+    return [
+      { stage: 1, name: 'Discovery & Catalog Fencing', category: 'Catalog', details: `Source Engine: ${migration.sourceEngine} -> Target: ${migration.targetEngine}`, status: 'VERIFIED' },
+      { stage: 2, name: 'DAG Topological Dependency Sorting', category: 'Planner', details: '3 Databases, 4 Schemas, 124 Objects cataloged', status: 'VERIFIED' },
+      { stage: 3, name: 'Target Schema Structure Deployment', category: 'DDL', details: `Deploy DDL definitions to target ${migration.targetEngine}`, status: 'READY' },
+      { stage: 4, name: 'Sequence Generator Sync Node', category: 'DDL', details: 'Initialize 6 database sequences', status: 'READY' },
+      { stage: 5, name: 'Parallel Stream Data Transport', category: 'Data Transport', details: '68 Tables (8 Workers, 10000 Batch Size)', status: 'READY' },
+      { stage: 6, name: 'Target View DDL Creation', category: 'DDL', details: 'Deploy 18 SQL view definitions', status: 'READY' },
+      { stage: 7, name: 'PL/SQL Transpilation & Deployment', category: 'Transpiler', details: 'Transpile 24 PL/SQL routines to PL/pgSQL', status: 'READY' },
+      { stage: 8, name: 'Trigger Definition Deployment', category: 'DDL', details: 'Attach 12 database triggers', status: 'READY' },
+      { stage: 9, name: 'CDC Continuous Replication Setup', category: 'Replication', details: 'Setup WAL Log Reader & streaming sync', status: 'READY' },
+      { stage: 10, name: 'Reconciliation & Validation Node', category: 'Validation', details: 'Level: CHECKSUM (100% sampling rate)', status: 'READY' },
+      { stage: 11, name: 'SHA-256 Digital Trust Seal', category: 'Certification', details: 'Generate cryptographic migration certificate', status: 'PENDING' },
+    ];
+  }, [migration]);
+
+  // Handlers for Operations
+  const handlePause = () => {
+    setRunStatus('paused');
+    notificationService.push('Migration Paused', 'warning', 'Transport workers held gracefully. Checkpoint recorded.');
+  };
+
+  const handleResume = () => {
+    setRunStatus('running');
+    notificationService.push('Migration Resumed', 'success', 'Resumed 8 parallel stream workers at ~154.8 MB/s.');
+  };
+
+  const handleRetry = () => {
+    setRunStatus('running');
+    setActiveStage('data_migration');
+    notificationService.push('Retrying Runtime Step', 'info', 'Re-executing failed stage with auto-healing supervisor.');
+  };
+
+  const handleLaunchReplay = () => {
+    setIsReplayMode(true);
+    setReplayTimeSec(0);
+    setReplayPlaying(true);
+    notificationService.push('Mission Replay™ Launched', 'info', 'Replaying recorded engine events and telemetry timeline.');
+  };
+
+  const handleExitReplay = () => {
+    setIsReplayMode(false);
+    setReplayPlaying(false);
+  };
+
+  // Stage display info
+  const stageMeta = ENGINE_STAGE_METADATA[activeStage] || ENGINE_STAGE_METADATA['data_migration'];
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', minHeight: 0, background: 'var(--dash-bg)', overflow: 'hidden' }}>
+      
+      {/* ── MISSION REPLAY™ HEADER BANNER (Shows only in Replay Mode) ─────── */}
+      {isReplayMode && (
+        <div style={{ padding: '8px 24px', background: 'rgba(37,99,235,0.15)', borderBottom: '1px solid var(--dash-accent)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <PlayCircle size={18} color="var(--dash-accent)" />
+            <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--dash-text-primary)', letterSpacing: '0.04em' }}>
+              MISSION REPLAY™ MODE — HISTORICAL RUNTIME EVENT RECORDING
+            </span>
+            <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 12, background: 'var(--dash-accent)', color: '#FFF', fontWeight: 700 }}>
+              REPLAY ACTIVE
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            {/* Replay Controls */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--dash-surface)', padding: '3px 8px', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
+              <button type="button" onClick={() => setReplayTimeSec(0)} style={{ background: 'none', border: 'none', color: 'var(--dash-text-primary)', cursor: 'pointer', padding: 4 }} title="Restart Replay">
+                <RotateCcw size={14} />
+              </button>
+              <button type="button" onClick={() => setReplayPlaying(!replayPlaying)} style={{ background: 'none', border: 'none', color: 'var(--dash-accent)', cursor: 'pointer', padding: 4 }} title={replayPlaying ? 'Pause' : 'Play'}>
+                {replayPlaying ? <Pause size={14} /> : <Play size={14} />}
+              </button>
+              <span style={{ fontSize: 11, fontFamily: 'var(--akaal-font-mono, monospace)', color: 'var(--dash-text-primary)', fontWeight: 700, padding: '0 6px' }}>
+                {replayTimeSec}s / 180s
+              </span>
+              {( [1, 2, 5, 10] as const).map((spd) => (
+                <button key={spd} type="button" onClick={() => setReplaySpeed(spd)}
+                  style={{ padding: '2px 6px', borderRadius: 4, border: 'none', background: replaySpeed === spd ? 'var(--dash-accent)' : 'transparent', color: replaySpeed === spd ? '#FFF' : 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>
+                  {spd}x
+                </button>
+              ))}
+            </div>
+
+            <button type="button" onClick={handleExitReplay} style={{ padding: '4px 12px', borderRadius: 6, background: 'var(--dash-surface)', border: '1px solid var(--dash-border)', color: 'var(--dash-text-primary)', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+              Exit Replay Mode
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── HEADER ─────────────────────────────────────────────────────────── */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 24px', borderBottom: '1px solid var(--dash-border)', background: 'var(--dash-surface)', flexShrink: 0, gap: 16, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, overflow: 'hidden' }}>
+          <button type="button" onClick={onBack} style={{ background: 'none', border: '1px solid var(--dash-border)', padding: '6px 12px', borderRadius: 6, color: 'var(--dash-text-secondary)', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+            <ArrowLeft size={14} /> Back
+          </button>
+          <div style={{ width: 1, height: 20, background: 'var(--dash-border)' }} />
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <h2 style={{ fontSize: 18, fontWeight: 800, margin: 0, color: 'var(--dash-text-primary)', whiteSpace: 'nowrap' }}>
+                {migration.name}
+              </h2>
+              <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: runStatus === 'running' ? 'rgba(16,185,129,0.15)' : runStatus === 'paused' ? 'rgba(245,158,11,0.15)' : runStatus === 'failed' ? 'rgba(239,68,68,0.15)' : 'rgba(37,99,235,0.15)', color: runStatus === 'running' ? '#10B981' : runStatus === 'paused' ? '#F59E0B' : runStatus === 'failed' ? '#EF4444' : '#3B82F6', fontWeight: 700, textTransform: 'uppercase' }}>
+                ● {runStatus}
+              </span>
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span>{migration.sourceEngine} ──► {migration.targetEngine}</span>
+              <span>• ETA: 14 Mins</span>
+              <span>• ID: MIG-2026-0806-001</span>
+              <span>• Owner: {migration.owner}</span>
+            </div>
+          </div>
+        </div>
+
+        <button type="button" onClick={() => setShowPlanDrawer(true)}
+          style={{ padding: '8px 16px', borderRadius: 8, background: 'rgba(37,99,235,0.12)', border: '1px solid var(--dash-accent)', color: 'var(--dash-accent)', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+          <Zap size={15} /> View Plan
+        </button>
+      </div>
+
+      {/* ── ENTERPRISE OPERATIONS TOOLBAR (State-Aware Controls) ─────────── */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 24px', background: 'var(--dash-bg)', borderBottom: '1px solid var(--dash-border)', flexShrink: 0, gap: 12, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--dash-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginRight: 6 }}>
+            Operations Console:
+          </span>
+
+          {/* RUNNING STATE CONTROLS */}
+          {runStatus === 'running' && (
+            <>
+              <button type="button" onClick={handlePause} style={{ padding: '6px 14px', borderRadius: 6, background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)', color: '#F59E0B', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Pause size={13} /> Pause Migration
+              </button>
+              <button type="button" onClick={() => notificationService.push('Stop After Batch', 'info', 'Will stop gracefully after current batch commit.')} style={{ padding: '6px 14px', borderRadius: 6, background: 'var(--dash-surface)', border: '1px solid var(--dash-border)', color: 'var(--dash-text-secondary)', fontSize: 11, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Square size={13} /> Stop After Current Batch
+              </button>
+              <button type="button" onClick={() => notificationService.push('Manual Checkpoint Created', 'success', 'FLushed WAL buffer & recorded LSN position.')} style={{ padding: '6px 14px', borderRadius: 6, background: 'var(--dash-surface)', border: '1px solid var(--dash-border)', color: 'var(--dash-text-secondary)', fontSize: 11, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Bookmark size={13} /> Create Manual Checkpoint
+              </button>
+            </>
+          )}
+
+          {/* PAUSED STATE CONTROLS */}
+          {runStatus === 'paused' && (
+            <>
+              <button type="button" onClick={handleResume} style={{ padding: '6px 14px', borderRadius: 6, background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.3)', color: '#10B981', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Play size={13} /> Resume Migration
+              </button>
+              <button type="button" onClick={() => setRunStatus('failed')} style={{ padding: '6px 14px', borderRadius: 6, background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', color: '#EF4444', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <XCircle size={13} /> Terminate Migration
+              </button>
+              <button type="button" onClick={() => notificationService.push('Rollback Triggered', 'warning', 'Rolling back to LSN Checkpoint #0/4A8F910.')} style={{ padding: '6px 14px', borderRadius: 6, background: 'var(--dash-surface)', border: '1px solid var(--dash-border)', color: 'var(--dash-text-secondary)', fontSize: 11, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <RotateCcw size={13} /> Rollback To Checkpoint
+              </button>
+            </>
+          )}
+
+          {/* FAILED STATE CONTROLS */}
+          {runStatus === 'failed' && (
+            <>
+              <button type="button" onClick={handleRetry} style={{ padding: '6px 14px', borderRadius: 6, background: 'rgba(37,99,235,0.15)', border: '1px solid var(--dash-accent)', color: 'var(--dash-accent)', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <RotateCcw size={13} /> Retry Failed Step
+              </button>
+              <button type="button" onClick={() => notificationService.push('Runtime Recovered', 'info', 'Auto-healing supervisor reset process locks.')} style={{ padding: '6px 14px', borderRadius: 6, background: 'var(--dash-surface)', border: '1px solid var(--dash-border)', color: 'var(--dash-text-secondary)', fontSize: 11, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <ShieldAlert size={13} /> Recover Runtime
+              </button>
+              <button type="button" onClick={() => notificationService.push('Diagnostics Exported', 'info', 'Dumped stack trace & WAL logs to file.')} style={{ padding: '6px 14px', borderRadius: 6, background: 'var(--dash-surface)', border: '1px solid var(--dash-border)', color: 'var(--dash-text-secondary)', fontSize: 11, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Download size={13} /> Export Diagnostics
+              </button>
+            </>
+          )}
+
+          {/* COMPLETED STATE CONTROLS (Mission Replay™ & Exports) */}
+          {runStatus === 'completed' && (
+            <>
+              <button type="button" onClick={handleLaunchReplay} style={{ padding: '6px 14px', borderRadius: 6, background: 'rgba(37,99,235,0.15)', border: '1px solid var(--dash-accent)', color: 'var(--dash-accent)', fontSize: 11, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <PlayCircle size={14} color="#3B82F6" /> Mission Replay™
+              </button>
+              <button type="button" onClick={() => notificationService.push('Replay Exported', 'info', 'Exported recorded timeline manifest.')} style={{ padding: '6px 14px', borderRadius: 6, background: 'var(--dash-surface)', border: '1px solid var(--dash-border)', color: 'var(--dash-text-secondary)', fontSize: 11, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Download size={13} /> Export Replay
+              </button>
+              <button type="button" onClick={() => notificationService.push('Trust Certificate Downloaded', 'success', 'Downloaded SHA-256 signed certificate.')} style={{ padding: '6px 14px', borderRadius: 6, background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.3)', color: '#10B981', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <ShieldCheck size={13} /> Download Trust Certificate
+              </button>
+            </>
+          )}
+
+          {/* Operations Dropdown Menu */}
+          <div style={{ position: 'relative' }}>
+            <button type="button" onClick={() => setShowOperationsMenu(!showOperationsMenu)}
+              style={{ padding: '6px 12px', borderRadius: 6, background: 'var(--dash-surface)', border: '1px solid var(--dash-border)', color: 'var(--dash-text-primary)', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+              Operations <ChevronDown size={13} />
+            </button>
+            {showOperationsMenu && (
+              <div onClick={() => setShowOperationsMenu(false)} style={{ position: 'absolute', top: '100%', left: 0, marginTop: 4, width: 200, background: 'var(--dash-surface)', border: '1px solid var(--dash-border)', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.3)', zIndex: 99, padding: 4, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <button type="button" onClick={() => { setRunStatus('failed'); }} style={{ padding: '8px 12px', textAlign: 'left', background: 'none', border: 'none', color: '#EF4444', fontSize: 11, fontWeight: 600, cursor: 'pointer', borderRadius: 4 }}>Terminate Runtime</button>
+                <button type="button" onClick={() => { setRunStatus('failed'); }} style={{ padding: '8px 12px', textAlign: 'left', background: 'none', border: 'none', color: '#EF4444', fontSize: 11, fontWeight: 600, cursor: 'pointer', borderRadius: 4 }}>Force Stop Daemon</button>
+                <button type="button" onClick={() => { setRunStatus('running'); }} style={{ padding: '8px 12px', textAlign: 'left', background: 'none', border: 'none', color: 'var(--dash-text-primary)', fontSize: 11, fontWeight: 600, cursor: 'pointer', borderRadius: 4 }}>Restart Runtime Daemon</button>
+                <button type="button" onClick={() => { setRunStatus('running'); }} style={{ padding: '8px 12px', textAlign: 'left', background: 'none', border: 'none', color: 'var(--dash-text-primary)', fontSize: 11, fontWeight: 600, cursor: 'pointer', borderRadius: 4 }}>Recover Process Locks</button>
+                <button type="button" onClick={() => {}} style={{ padding: '8px 12px', textAlign: 'left', background: 'none', border: 'none', color: 'var(--dash-text-primary)', fontSize: 11, fontWeight: 600, cursor: 'pointer', borderRadius: 4 }}>Rollback LSN Checkpoint</button>
+                <button type="button" onClick={() => {}} style={{ padding: '8px 12px', textAlign: 'left', background: 'none', border: 'none', color: 'var(--dash-text-primary)', fontSize: 11, fontWeight: 600, cursor: 'pointer', borderRadius: 4 }}>Enable Maintenance Mode</button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Status quick toggle for demo */}
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <span style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Simulate Engine State:</span>
+          {(['running', 'paused', 'failed', 'completed'] as MigrationRunStatus[]).map((st) => (
+            <button key={st} type="button" onClick={() => setRunStatus(st)}
+              style={{ padding: '3px 8px', borderRadius: 4, border: runStatus === st ? '1px solid var(--dash-accent)' : '1px solid var(--dash-border)', background: runStatus === st ? 'rgba(37,99,235,0.15)' : 'var(--dash-surface)', color: runStatus === st ? 'var(--dash-accent)' : 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 700, cursor: 'pointer', textTransform: 'uppercase' }}>
+              {st}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── MAIN CONTENT WORKSPACE ────────────────────────────────────────── */}
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden', padding: 20, gap: 16, width: '100%' }}>
+
+        {/* LEFT COLUMN: CURRENT EXECUTION STAGE (Largest heart of page) ──── */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0, overflowY: 'auto' }}>
+
+          {/* ── CURRENT EXECUTION STAGE PANEL ───────────────────────────────── */}
+          <div style={{ border: '1px solid var(--dash-border)', borderRadius: 12, background: 'var(--dash-surface)', padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
+            
+            {/* Stage Header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--dash-border)', paddingBottom: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(37,99,235,0.15)', border: '1px solid var(--dash-accent)', color: 'var(--dash-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Activity size={20} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--dash-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Current Execution Stage</div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--dash-text-primary)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {stageMeta.label}
+                    <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 12, background: 'rgba(16,185,129,0.12)', color: '#10B981', fontWeight: 700, border: '1px solid rgba(16,185,129,0.25)' }}>
+                      Active Stage • {stageMeta.ownerAgent}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Stage Navigation Pills */}
+              <div style={{ display: 'flex', gap: 4, background: 'var(--dash-bg)', padding: 3, borderRadius: 8, border: '1px solid var(--dash-border)', overflowX: 'auto' }}>
+                {[
+                  { id: 'scout', label: 'Discovery' },
+                  { id: 'planner', label: 'Planning' },
+                  { id: 'schema_exec', label: 'Schema' },
+                  { id: 'data_migration', label: 'Transport' },
+                  { id: 'validator', label: 'Validation' },
+                  { id: 'certification', label: 'Trust Seal' },
+                ].map((stg) => (
+                  <button key={stg.id} type="button" onClick={() => setActiveStage(stg.id as EngineStageId)}
+                    style={{ padding: '5px 10px', borderRadius: 6, border: 'none', background: activeStage === stg.id ? 'var(--dash-accent)' : 'transparent', color: activeStage === stg.id ? '#FFF' : 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                    {stg.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* STAGE SPECIFIC TELEMETRY DISPLAY */}
+            {activeStage === 'scout' && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+                <div style={{ padding: 12, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
+                  <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Current Database</div>
+                  <div style={{ fontSize: 16, fontWeight: 800, marginTop: 4, color: 'var(--dash-text-primary)' }}>HRDB</div>
+                </div>
+                <div style={{ padding: 12, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
+                  <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Schemas Discovered</div>
+                  <div style={{ fontSize: 16, fontWeight: 800, marginTop: 4, color: '#3B82F6' }}>4 Schemas</div>
+                </div>
+                <div style={{ padding: 12, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
+                  <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Objects Discovered</div>
+                  <div style={{ fontSize: 16, fontWeight: 800, marginTop: 4, color: '#8B5CF6' }}>124 Objects</div>
+                </div>
+                <div style={{ padding: 12, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
+                  <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Discovery Progress</div>
+                  <div style={{ fontSize: 16, fontWeight: 800, marginTop: 4, color: '#10B981' }}>100% Complete</div>
+                </div>
+              </div>
+            )}
+
+            {activeStage === 'planner' && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+                <div style={{ padding: 12, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
+                  <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Topological Sorting DAG</div>
+                  <div style={{ fontSize: 14, fontWeight: 800, marginTop: 4, color: '#10B981' }}>✓ 0 Circular Locks</div>
+                </div>
+                <div style={{ padding: 12, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
+                  <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Partitions Generated</div>
+                  <div style={{ fontSize: 14, fontWeight: 800, marginTop: 4, color: '#3B82F6' }}>8 Stream Partitions</div>
+                </div>
+                <div style={{ padding: 12, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
+                  <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Execution Graph Stages</div>
+                  <div style={{ fontSize: 14, fontWeight: 800, marginTop: 4, color: '#8B5CF6' }}>13 Generated Stages</div>
+                </div>
+              </div>
+            )}
+
+            {activeStage === 'schema_exec' && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+                <div style={{ padding: 12, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
+                  <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Target Schema DDL</div>
+                  <div style={{ fontSize: 14, fontWeight: 800, marginTop: 4, color: '#10B981' }}>Deployed (4 Schemas)</div>
+                </div>
+                <div style={{ padding: 12, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
+                  <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>PL/SQL Transpilation</div>
+                  <div style={{ fontSize: 14, fontWeight: 800, marginTop: 4, color: '#3B82F6' }}>68 Procedures Converted</div>
+                </div>
+                <div style={{ padding: 12, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
+                  <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Package Bodies</div>
+                  <div style={{ fontSize: 14, fontWeight: 800, marginTop: 4, color: '#8B5CF6' }}>18 Decomposed</div>
+                </div>
+                <div style={{ padding: 12, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
+                  <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Foreign Key Locks</div>
+                  <div style={{ fontSize: 14, fontWeight: 800, marginTop: 4, color: '#F59E0B' }}>Deferred Post-Load</div>
+                </div>
+              </div>
+            )}
+
+            {activeStage === 'data_migration' && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12 }}>
+                <div style={{ padding: 12, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
+                  <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Active Workers</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, marginTop: 4, color: '#3B82F6' }}>8 Pool</div>
+                </div>
+                <div style={{ padding: 12, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
+                  <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Streaming Speed</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, marginTop: 4, color: '#10B981' }}>154.8 MB/s</div>
+                </div>
+                <div style={{ padding: 12, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
+                  <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Rows/sec Throughput</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, marginTop: 4, color: '#8B5CF6' }}>48,500/s</div>
+                </div>
+                <div style={{ padding: 12, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
+                  <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>WAN Bandwidth</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, marginTop: 4, color: '#F59E0B' }}>1.2 Gbps</div>
+                </div>
+                <div style={{ padding: 12, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
+                  <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>WAL Ring Buffer</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, marginTop: 4, color: '#10B981' }}>100% OK</div>
+                </div>
+              </div>
+            )}
+
+            {activeStage === 'validator' && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+                <div style={{ padding: 12, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
+                  <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Rows Source</div>
+                  <div style={{ fontSize: 15, fontWeight: 800, marginTop: 4, color: 'var(--dash-text-primary)' }}>1,240,500,000</div>
+                </div>
+                <div style={{ padding: 12, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
+                  <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Rows Target</div>
+                  <div style={{ fontSize: 15, fontWeight: 800, marginTop: 4, color: 'var(--dash-text-primary)' }}>1,240,500,000</div>
+                </div>
+                <div style={{ padding: 12, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
+                  <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>CRC32 Checksum</div>
+                  <div style={{ fontSize: 15, fontWeight: 800, marginTop: 4, color: '#10B981' }}>MATCHED (100%)</div>
+                </div>
+                <div style={{ padding: 12, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
+                  <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Integrity Keys</div>
+                  <div style={{ fontSize: 15, fontWeight: 800, marginTop: 4, color: '#10B981' }}>PK/FK VERIFIED</div>
+                </div>
+              </div>
+            )}
+
+            {activeStage === 'certification' && (
+              <div style={{ padding: 16, background: 'rgba(16,185,129,0.08)', borderRadius: 10, border: '1px solid rgba(16,185,129,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <ShieldCheck size={28} color="#10B981" />
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: '#10B981' }}>SHA-256 DIGITAL TRUST CERTIFICATE SEALED</div>
+                    <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)', marginTop: 2, fontFamily: 'var(--akaal-font-mono, monospace)' }}>
+                      Signature Hash: 0x8F4A2E9B10C34D5E... (Cryptographically Sealed)
+                    </div>
+                  </div>
+                </div>
+                <button type="button" onClick={() => notificationService.push('Trust Certificate Downloaded', 'success', 'Downloaded SHA-256 certificate.')} style={{ padding: '8px 16px', borderRadius: 6, background: '#10B981', border: 'none', color: '#FFF', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                  Download Certificate
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* ── LIVE OBJECT PROGRESS CARD ────────────────────────────────────── */}
+          <div style={{ border: '1px solid var(--dash-border)', borderRadius: 12, background: 'var(--dash-surface)', padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Table size={16} color="#10B981" />
+                <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--dash-text-primary)' }}>Live Object Stream Progress</span>
+              </div>
+              <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--dash-accent)', fontVariantNumeric: 'tabular-nums' }}>
+                {progressPercent}% Complete ({fmtRows(rowsProcessed)} / {fmtRows(totalRows)} Rows)
+              </span>
+            </div>
+
+            {/* Smooth Animated Progress Bar */}
+            <div style={{ width: '100%', height: 10, borderRadius: 6, background: 'var(--dash-bg)', overflow: 'hidden', border: '1px solid var(--dash-border)' }}>
+              <div style={{ width: `${progressPercent}%`, height: '100%', background: 'linear-gradient(90deg, #3B82F6 0%, #10B981 100%)', transition: 'width 250ms ease-in-out', borderRadius: 6 }} />
+            </div>
+
+            {/* Active Object Telemetry Matrix */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, fontSize: 11, marginTop: 4 }}>
+              <div style={{ padding: 8, background: 'var(--dash-bg)', borderRadius: 6, border: '1px solid var(--dash-border)' }}>
+                <div style={{ color: 'var(--dash-text-secondary)', fontSize: 10 }}>Current Target Object</div>
+                <div style={{ fontWeight: 700, color: 'var(--dash-text-primary)', marginTop: 2, fontFamily: 'var(--akaal-font-mono, monospace)' }}>CUSTOMER_RECORDS</div>
+              </div>
+              <div style={{ padding: 8, background: 'var(--dash-bg)', borderRadius: 6, border: '1px solid var(--dash-border)' }}>
+                <div style={{ color: 'var(--dash-text-secondary)', fontSize: 10 }}>Indexes Built</div>
+                <div style={{ fontWeight: 700, color: '#10B981', marginTop: 2 }}>4 of 5 Indexes</div>
+              </div>
+              <div style={{ padding: 8, background: 'var(--dash-bg)', borderRadius: 6, border: '1px solid var(--dash-border)' }}>
+                <div style={{ color: 'var(--dash-text-secondary)', fontSize: 10 }}>Constraints Verified</div>
+                <div style={{ fontWeight: 700, color: '#10B981', marginTop: 2 }}>2 PK / 4 FK Verified</div>
+              </div>
+              <div style={{ padding: 8, background: 'var(--dash-bg)', borderRadius: 6, border: '1px solid var(--dash-border)' }}>
+                <div style={{ color: 'var(--dash-text-secondary)', fontSize: 10 }}>Upstream Lock Status</div>
+                <div style={{ fontWeight: 700, color: '#3B82F6', marginTop: 2 }}>0 Lock Conflicts</div>
+              </div>
+            </div>
+          </div>
+
+          {/* ── LIVE ACTIVITY FEED ───────────────────────────────────────────── */}
+          <div style={{ border: '1px solid var(--dash-border)', borderRadius: 12, background: 'var(--dash-surface)', padding: 18, display: 'flex', flexDirection: 'column', gap: 12, flex: 1, minHeight: 220 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--dash-border)', paddingBottom: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Terminal size={15} color="#3B82F6" />
+                <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--dash-text-primary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Live Human-Readable Activity Feed</span>
+              </div>
+              <span style={{ fontSize: 10, color: '#10B981', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10B981' }} /> LIVE STREAM
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, overflowY: 'auto', maxHeight: 240, paddingRight: 4 }}>
+              {activityFeed.map((item) => (
+                <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: 'var(--dash-bg)', borderRadius: 6, border: '1px solid var(--dash-border)', fontSize: 11, transition: 'all 150ms ease' }}>
+                  <span style={{ fontFamily: 'var(--akaal-font-mono, monospace)', fontSize: 10, color: 'var(--dash-text-secondary)', flexShrink: 0 }}>[{item.time}]</span>
+                  <span style={{ padding: '1px 6px', borderRadius: 4, background: 'rgba(37,99,235,0.12)', color: '#3B82F6', fontWeight: 700, fontSize: 10, flexShrink: 0 }}>{item.stage}</span>
+                  <span style={{ color: 'var(--dash-text-primary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.text}</span>
+                  <CheckCircle2 size={12} color={item.type === 'success' ? '#10B981' : '#3B82F6'} />
+                </div>
+              ))}
+            </div>
+          </div>
+
+        </div>
+
+        {/* RIGHT COLUMN: COMPACT RUNTIME OVERVIEW PANEL ────────────────────── */}
+        <div style={{ width: 310, display: 'flex', flexDirection: 'column', gap: 14, flexShrink: 0 }}>
+          
+          {/* Runtime Panel */}
+          <div style={{ border: '1px solid var(--dash-border)', borderRadius: 12, background: 'var(--dash-surface)', padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', color: 'var(--dash-text-secondary)', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: 6, borderBottom: '1px solid var(--dash-border)', paddingBottom: 8 }}>
+              <Cpu size={14} color="#3B82F6" /> Compact Runtime Overview
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ padding: 8, background: 'var(--dash-bg)', borderRadius: 6, border: '1px solid var(--dash-border)', display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+                <span style={{ color: 'var(--dash-text-secondary)' }}>Parallel Worker Threads</span>
+                <strong style={{ color: 'var(--dash-text-primary)' }}>8 Active Pool</strong>
+              </div>
+
+              <div style={{ padding: 8, background: 'var(--dash-bg)', borderRadius: 6, border: '1px solid var(--dash-border)', display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+                <span style={{ color: 'var(--dash-text-secondary)' }}>CPU Usage</span>
+                <strong style={{ color: '#10B981' }}>42% (4 Cores)</strong>
+              </div>
+
+              <div style={{ padding: 8, background: 'var(--dash-bg)', borderRadius: 6, border: '1px solid var(--dash-border)', display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+                <span style={{ color: 'var(--dash-text-secondary)' }}>RAM Memory Quota</span>
+                <strong style={{ color: '#3B82F6' }}>2.4 GB / 4.0 GB</strong>
+              </div>
+
+              <div style={{ padding: 8, background: 'var(--dash-bg)', borderRadius: 6, border: '1px solid var(--dash-border)', display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+                <span style={{ color: 'var(--dash-text-secondary)' }}>Streaming Speed</span>
+                <strong style={{ color: '#10B981' }}>154.8 MB/s</strong>
+              </div>
+
+              <div style={{ padding: 8, background: 'var(--dash-bg)', borderRadius: 6, border: '1px solid var(--dash-border)', display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+                <span style={{ color: 'var(--dash-text-secondary)' }}>Rows/sec Throughput</span>
+                <strong style={{ color: '#8B5CF6' }}>48,500 rows/s</strong>
+              </div>
+
+              <div style={{ padding: 8, background: 'var(--dash-bg)', borderRadius: 6, border: '1px solid var(--dash-border)', display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+                <span style={{ color: 'var(--dash-text-secondary)' }}>WAN Network Bandwidth</span>
+                <strong style={{ color: '#F59E0B' }}>1.2 Gbps</strong>
+              </div>
+
+              <div style={{ padding: 8, background: 'var(--dash-bg)', borderRadius: 6, border: '1px solid var(--dash-border)', display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+                <span style={{ color: 'var(--dash-text-secondary)' }}>WAL Buffer Lag</span>
+                <strong style={{ color: '#10B981' }}>0.1 seconds (RPO 0)</strong>
+              </div>
+
+              <div style={{ padding: 8, background: 'var(--dash-bg)', borderRadius: 6, border: '1px solid var(--dash-border)', display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+                <span style={{ color: 'var(--dash-text-secondary)' }}>Active Connections</span>
+                <strong style={{ color: 'var(--dash-text-primary)' }}>16 Open Socket Links</strong>
+              </div>
+            </div>
+          </div>
+
+          {/* Engine Health Governance Card */}
+          <div style={{ border: '1px solid var(--dash-border)', borderRadius: 12, background: 'var(--dash-surface)', padding: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', color: 'var(--dash-text-secondary)', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <ShieldCheck size={14} color="#10B981" /> Engine Supervisor Status
+            </div>
+
+            <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)', lineHeight: 1.5 }}>
+              MigrationRuntimeDaemon running on PID 89412 with active RuntimeSupervisorTree monitoring process locks.
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 4, paddingTop: 8, borderTop: '1px solid var(--dash-border)', fontSize: 11 }}>
+              <span style={{ color: 'var(--dash-text-secondary)' }}>Supervisor Health:</span>
+              <span style={{ color: '#10B981', fontWeight: 700 }}>● HEALTHY (0 Failures)</span>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+      {/* ── DYNAMIC EXECUTION PLAN DRAWER (Right-Side Slide-Over Drawer) ───── */}
+      {showPlanDrawer && (
+        <div onClick={() => setShowPlanDrawer(false)}
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', zIndex: 9999, display: 'flex', justifyContent: 'flex-end' }}>
+          <div onClick={(e) => e.stopPropagation()}
+            style={{ width: 520, height: '100%', background: 'var(--dash-surface)', borderLeft: '1px solid var(--dash-border)', padding: 24, display: 'flex', flexDirection: 'column', gap: 18, overflowY: 'auto' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--dash-border)', paddingBottom: 14 }}>
+              <div>
+                <h3 style={{ fontSize: 16, fontWeight: 800, margin: 0, color: 'var(--dash-text-primary)' }}>Dynamic Migration Execution Plan</h3>
+                <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)', marginTop: 2 }}>Generated for current migration pipeline</div>
+              </div>
+              <button onClick={() => setShowPlanDrawer(false)} style={{ background: 'none', border: 'none', color: 'var(--dash-text-secondary)', cursor: 'pointer', padding: 4 }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--dash-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Generated DAG Execution Stages ({dynamicExecutionPlanNodes.length} Pipeline Stages)
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {dynamicExecutionPlanNodes.map((item) => (
+                <div key={item.stage} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', padding: 10, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
+                  <span style={{ width: 22, height: 22, borderRadius: '50%', background: 'rgba(37,99,235,0.15)', color: '#3B82F6', fontSize: 11, fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{item.stage}</span>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--dash-text-primary)' }}>{item.name}</div>
+                    <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', marginTop: 2 }}>{item.details}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ borderTop: '1px solid var(--dash-border)', paddingTop: 14, display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12 }}>
+              <div style={{ fontWeight: 700, color: 'var(--dash-text-primary)' }}>Runtime Engine Architecture</div>
+              <div>• <strong>Daemon:</strong> MigrationRuntimeDaemon (Isolated Process)</div>
+              <div>• <strong>Supervisor:</strong> RuntimeSupervisorTree (Auto-Healing)</div>
+              <div>• <strong>WAL Buffer:</strong> DurableWALRingBuffer (10k Records, CRC32)</div>
+              <div>• <strong>Mailbox:</strong> DurableCommandMailbox (SQLite Epoch Fencing)</div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};

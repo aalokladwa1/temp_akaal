@@ -4,3 +4,4 @@ export { ProjectWorkspaceView } from './ProjectWorkspaceView';
 export { NewMigrationConfigView } from './NewMigrationConfigView';
 export { NewMigrationWizard } from './NewMigrationWizard';
 export { NewProjectConfigView } from './NewProjectConfigView';
+export { MissionControlView } from './MissionControlView';

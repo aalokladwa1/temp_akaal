@@ -1,12 +1,11 @@
 import { useState, useEffect, type FC } from 'react';
-import { CheckCircle2, Play, Clock } from 'lucide-react';
-import type { MigrationPipeline, EngineStageId, GovernanceApproval } from '../../types/migration';
-import { ENGINE_STAGE_METADATA } from '../../services/migrationService';
+import type { MigrationPipeline, GovernanceApproval } from '../../types/migration';
 import { connectionRepository } from '../../repositories/connectionRepository';
 import { approvalRepository } from '../../repositories/approvalRepository';
 import { runtimeSessionRepository } from '../../repositories/runtimeSessionRepository';
 import { ApprovalModal } from '../../components/ApprovalModal/ApprovalModal';
 import { ConfirmDialog, type ConfirmSeverity } from '../../components/ConfirmDialog';
+import { MissionControlView } from './MissionControlView';
 import styles from './MigrationModule.module.css';
 
 export interface ProjectWorkspaceViewProps {
@@ -27,18 +26,7 @@ export type ProjectNavSection =
 
 export type DockTabId = 'logs' | 'events' | 'notifications' | 'output' | 'timeline' | 'decisions';
 
-const STAGE_LIST: EngineStageId[] = [
-  'scout',
-  'advisor',
-  'live_intel',
-  'planner',
-  'manager',
-  'schema_exec',
-  'data_migration',
-  'validator',
-  'healing',
-  'certification',
-];
+
 
 // ── SVG Lucide Icons ────────────────────────────────────────────────
 
@@ -123,7 +111,7 @@ export const ProjectWorkspaceView: FC<ProjectWorkspaceViewProps> = ({
 }) => {
   const [activeNav, setActiveNav] = useState<ProjectNavSection>('overview');
   const [activeMigrationRuntime, setActiveMigrationRuntime] = useState<MigrationPipeline | null>(null);
-  const [selectedStage, setSelectedStage] = useState<EngineStageId>(project.currentStage);
+  const [_selectedStage, setSelectedStage] = useState(project.currentStage);
   const [dockTab, setDockTab] = useState<DockTabId>('logs');
   const [dockCollapsed, setDockCollapsed] = useState<boolean>(false);
   const [inspectorCollapsed, setInspectorCollapsed] = useState<boolean>(false);
@@ -203,114 +191,7 @@ export const ProjectWorkspaceView: FC<ProjectWorkspaceViewProps> = ({
     });
   };
 
-  const currentStageIndex = STAGE_LIST.indexOf(selectedStage);
-  const currentStageMeta = ENGINE_STAGE_METADATA[selectedStage] || ENGINE_STAGE_METADATA['scout'];
-
-  const isApprovalPending =
-    activeMigrationRuntime?.health === 'approval_required' ||
-    activeMigrationRuntime?.currentStage === 'manager';
-
-  const handleCreateApprovalModal = () => {
-    if (!activeMigrationRuntime) return;
-    const req = approvalRepository.createApprovalRequest(
-      'GATE_2',
-      'Migration Planning & Execution Gate',
-      activeMigrationRuntime.id,
-      activeMigrationRuntime.name,
-      project.name,
-      activeMigrationRuntime.owner,
-      ['Approver', 'Validation Lead'],
-      'Execution DAG & Parallel partition strategy ready for Four-Eyes sign-off.',
-      'BLAKE3 Checksum Pre-flight Simulation Passed',
-      activeMigrationRuntime.riskScore
-    );
-    setActiveApprovalModal(req);
-  };
-
-  const handlePausePrompt = () => {
-    setConfirmState({
-      isOpen: true,
-      title: 'Pause Stream Transport',
-      affectedObject: `Session: ${existingSession?.sessionId || 'sess-active'}`,
-      message: 'Pausing the live migration stream will:',
-      bulletPoints: [
-        'hold active CDC change buffer in memory',
-        'pause partition worker threads gracefully',
-        'record checkpoint position in local vault',
-      ],
-      consequence: 'Transport stream will remain paused until manually resumed.',
-      confirmText: 'Pause Stream',
-      severity: 'warning',
-      onConfirm: async () => {
-        const sessId = existingSession?.sessionId || 'sess-1';
-        try {
-          await runtimeSessionRepository.invokeEngineCapability(sessId, 'pause_transport', {});
-        } catch {
-          runtimeSessionRepository.updateTelemetry(sessId, { throughputMbps: 0 });
-        }
-      },
-    });
-  };
-
-  const handleResumePrompt = () => {
-    setConfirmState({
-      isOpen: true,
-      title: 'Resume Stream Transport',
-      affectedObject: `Session: ${existingSession?.sessionId || 'sess-active'}`,
-      message: 'Resuming the live migration stream will:',
-      bulletPoints: [
-        're-activate 8 parallel partition worker threads',
-        'drain pending CDC change buffer records',
-        'resume throughput at ~145.2 MB/s',
-      ],
-      consequence: 'Data transfer stream will continue execution.',
-      confirmText: 'Resume Stream',
-      severity: 'info',
-      onConfirm: async () => {
-        const sessId = existingSession?.sessionId || 'sess-1';
-        try {
-          await runtimeSessionRepository.invokeEngineCapability(sessId, 'start_transport', {});
-        } catch {
-          runtimeSessionRepository.updateTelemetry(sessId, { throughputMbps: 145.2 });
-        }
-      },
-    });
-  };
-
-  const handleCheckpointPrompt = () => {
-    setConfirmState({
-      isOpen: true,
-      title: 'Trigger Execution Checkpoint',
-      affectedObject: `Migration Pipeline: ${project.name}`,
-      message: 'Triggering an execution checkpoint will:',
-      bulletPoints: [
-        'flush in-memory CDC records to target DB',
-        'generate cryptographic LSN snapshot hash',
-        'update recovery point objective (RPO: 0s)',
-      ],
-      consequence: 'Execution state will be sealed at current position.',
-      confirmText: 'Create Checkpoint',
-      severity: 'info',
-      onConfirm: async () => {
-        const sessId = existingSession?.sessionId || 'sess-1';
-        try {
-          await runtimeSessionRepository.invokeEngineCapability(sessId, 'trigger_checkpoint', {});
-        } catch {
-          runtimeSessionRepository.appendEvent(sessId, {
-            eventId: `evt-cp-${Date.now()}`,
-            timestamp: new Date().toISOString(),
-            sessionId: sessId,
-            migrationId: project.id,
-            severity: 'info',
-            source: 'streaming',
-            stageNumber: 7,
-            eventType: 'TransportPaused',
-            payload: { checkpoint_lsn: 'LSN 0/4A8F910' },
-          });
-        }
-      },
-    });
-  };
+  // Session status helpers
 
   return (
     <div className={styles.workspaceViewContainer} style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--dash-bg)' }}>
@@ -407,64 +288,7 @@ export const ProjectWorkspaceView: FC<ProjectWorkspaceViewProps> = ({
         </div>
       </div>
 
-      {/* ── SECTION 2: LIVE MIGRATION STATUS PANEL (Engine Telemetry Bound) ─────────────────────────── */}
-      {activeMigrationRuntime && (
-        <div
-          style={{
-            padding: '12px 24px',
-            background: 'var(--dash-surface)',
-            borderBottom: '1px solid var(--dash-border)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 10,
-            flexShrink: 0,
-          }}
-        >
-          {/* Stage Progression Vector */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1.5fr', gap: 16, alignItems: 'center', fontSize: 11 }}>
-            <div style={{ padding: '8px 12px', background: 'rgba(16, 185, 129, 0.08)', borderRadius: 6, border: '1px solid rgba(16, 185, 129, 0.2)' }}>
-              <div style={{ color: 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>Previous Stage</div>
-              <div style={{ color: '#10B981', fontWeight: 700, marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
-                <CheckCircle2 size={12} /> {currentStageIndex > 0 ? ENGINE_STAGE_METADATA[STAGE_LIST[currentStageIndex - 1]].label : 'Pre-flight Initialization'}
-              </div>
-              <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', marginTop: 2 }}>{existingSession ? 'Engine Controlled' : 'Awaiting Initialization'}</div>
-            </div>
 
-            <div style={{ padding: '8px 12px', background: 'rgba(59, 130, 246, 0.12)', borderRadius: 6, border: '1px solid rgba(59, 130, 246, 0.3)' }}>
-              <div style={{ color: 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>Current Stage</div>
-              <div style={{ color: '#3B82F6', fontWeight: 700, marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
-                <Play size={12} /> {existingSession ? ENGINE_STAGE_METADATA[existingSession.currentStage].label : 'READY'}
-              </div>
-              <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', marginTop: 2 }}>Owner: {currentStageMeta.ownerAgent}</div>
-            </div>
-
-            <div style={{ padding: '8px 12px', background: 'var(--dash-card-bg)', borderRadius: 6, border: '1px solid var(--dash-border)' }}>
-              <div style={{ color: 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>Next Stage</div>
-              <div style={{ color: 'var(--dash-text-primary)', fontWeight: 700, marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
-                <Clock size={12} /> {currentStageIndex < STAGE_LIST.length - 1 ? ENGINE_STAGE_METADATA[STAGE_LIST[currentStageIndex + 1]].label : 'Certification Complete'}
-              </div>
-              <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', marginTop: 2 }}>
-                {currentStageIndex === 3 ? 'Gate 1 Required' : currentStageIndex === 6 ? 'Gate 2 Required' : 'Sequential Pipeline'}
-              </div>
-            </div>
-
-            {/* Overall Migration Progress Bar */}
-            <div style={{ padding: '8px 12px', background: 'var(--dash-card-bg)', borderRadius: 6, border: '1px solid var(--dash-border)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>
-                <span>Overall Migration Progress</span>
-                <span style={{ color: '#3B82F6' }}>{existingSession ? `${existingSession.progressPercent.toFixed(1)}%` : '0%'}</span>
-              </div>
-              <div style={{ height: 6, background: 'var(--dash-border)', borderRadius: 3, marginTop: 6, overflow: 'hidden' }}>
-                <div style={{ width: existingSession ? `${existingSession.progressPercent}%` : '0%', height: '100%', background: 'linear-gradient(90deg, #3B82F6 0%, #10B981 100%)', borderRadius: 3, transition: 'width 300ms ease' }} />
-              </div>
-              <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', marginTop: 4, display: 'flex', justifyContent: 'space-between' }}>
-                <span>{existingSession ? `${existingSession.rowsTransferred.toLocaleString()} rows` : '0 rows'}</span>
-                <span>Throughput: {existingSession ? `${existingSession.throughputMbps} MB/s (${existingSession.activeWorkers} workers)` : '0 MB/s'}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ── 3-Pane Desktop Workspace ───────────────────────────────── */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
@@ -520,359 +344,11 @@ export const ProjectWorkspaceView: FC<ProjectWorkspaceViewProps> = ({
         {/* Center Main Workstation Surface */}
         <div style={{ flex: 1, overflowY: 'auto', padding: 24, display: 'flex', flexDirection: 'column' }}>
           {activeMigrationRuntime ? (
-            /* ── 1. MISSION CONTROL EXECUTION WORKSPACE ── */
-            <div>
-              {/* Contextual Governance Gate Approval Banner */}
-              {isApprovalPending && (
-                <div
-                  style={{
-                    padding: '16px 20px',
-                    borderRadius: 10,
-                    background: 'rgba(245, 158, 11, 0.12)',
-                    border: '1px solid rgba(245, 158, 11, 0.3)',
-                    marginBottom: 20,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                  }}
-                >
-                  <div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: '#F59E0B' }}>
-                      🛡️ GOVERNANCE CHECKPOINT: GATE 2 APPROVAL REQUIRED
-                    </div>
-                    <div style={{ fontSize: 12, color: 'var(--dash-text-secondary)', marginTop: 4 }}>
-                      Stage 4 (Batch Planner) is locked until Four-Eyes Sign-off is granted by Approver.
-                    </div>
-                    <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)', marginTop: 4 }}>
-                      Risk Score: <strong style={{ color: '#10B981' }}>0.00 / 100 (LOW)</strong> • Custody Hash: <code style={{ color: '#60A5FA' }}>sha256-b8a1c9e4...</code> • Rollback: <strong style={{ color: '#10B981' }}>AVAILABLE</strong>
-                    </div>
-                  </div>
-                  <button
-                    onClick={handleCreateApprovalModal}
-                    style={{
-                      padding: '10px 18px',
-                      borderRadius: 8,
-                      background: '#F59E0B',
-                      color: '#111',
-                      border: 'none',
-                      fontSize: 12,
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    Review Evidence & Sign Off →
-                  </button>
-                </div>
-              )}
-
-              {/* SECTION 3: READ-ONLY PIPELINE STEPPER (Engine-Driven Workflow) */}
-              <div style={{ padding: 16, background: 'var(--dash-card-bg)', borderRadius: 12, border: '1px solid var(--dash-border)', marginBottom: 20 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: 'var(--dash-text-secondary)' }}>
-                    ENGINE-DRIVEN PIPELINE STATE (READ-ONLY)
-                  </div>
-                  <span style={{ fontSize: 11, color: '#3B82F6', fontWeight: 600 }}>
-                    ⚡ Controlled by AKAAL Engine IPC
-                  </span>
-                </div>
-
-                <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 4 }}>
-                  {STAGE_LIST.map((stageId, idx) => {
-                    const meta = ENGINE_STAGE_METADATA[stageId];
-                    const isActive = stageId === activeMigrationRuntime.currentStage;
-                    const isPast = idx < STAGE_LIST.indexOf(activeMigrationRuntime.currentStage);
-                    const isFutureLocked = idx > STAGE_LIST.indexOf(activeMigrationRuntime.currentStage);
-
-                    return (
-                      <div
-                        key={stageId}
-                        style={{
-                          flex: 1,
-                          minWidth: 90,
-                          padding: '10px 8px',
-                          borderRadius: 8,
-                          border: isActive ? '1px solid #3B82F6' : '1px solid var(--dash-border)',
-                          background: isActive
-                            ? isApprovalPending
-                              ? 'rgba(245, 158, 11, 0.15)'
-                              : 'rgba(59, 130, 246, 0.15)'
-                            : isPast
-                            ? 'rgba(16, 185, 129, 0.1)'
-                            : 'var(--dash-surface)',
-                          color: isActive
-                            ? isApprovalPending
-                              ? '#F59E0B'
-                              : '#3B82F6'
-                            : isPast
-                            ? '#10B981'
-                            : 'var(--dash-text-secondary)',
-                          opacity: isFutureLocked ? 0.4 : 1,
-                          textAlign: 'center',
-                          userSelect: 'none',
-                        }}
-                      >
-                        <div style={{ fontSize: 10, fontWeight: 700 }}>
-                          {isPast ? '✓ ST ' + (idx + 1) : isActive ? '▶ ST ' + (idx + 1) : '🔒 ST ' + (idx + 1)}
-                        </div>
-                        <div style={{ fontSize: 11, fontWeight: 600, marginTop: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {meta.label.split(' ')[0]}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* SECTION 4: CURRENT STAGE WORKBENCH (Shows ONLY currently executing stage) */}
-              <div style={{ padding: 20, background: 'var(--dash-card-bg)', borderRadius: 12, border: '1px solid var(--dash-border)', marginBottom: 20 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                  <div>
-                    <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: 'var(--dash-text-primary)' }}>
-                      Current Stage: {ENGINE_STAGE_METADATA[activeMigrationRuntime.currentStage].label}
-                    </h3>
-                    <p style={{ fontSize: 12, color: 'var(--dash-text-secondary)', margin: '4px 0 0 0' }}>
-                      {ENGINE_STAGE_METADATA[activeMigrationRuntime.currentStage].description} • Owner Agent: <strong style={{ color: '#3B82F6' }}>{ENGINE_STAGE_METADATA[activeMigrationRuntime.currentStage].ownerAgent}</strong>
-                    </p>
-                  </div>
-                </div>
-
-                {/* Custom Workbench View for Active Stage */}
-                {activeMigrationRuntime.currentStage === 'scout' && (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-                    <div style={{ padding: 14, background: 'var(--dash-surface)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
-                      <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)' }}>Discovered Tables</div>
-                      <div style={{ fontSize: 18, fontWeight: 700, marginTop: 4, color: 'var(--dash-text-primary)' }}>
-                        {existingSession ? 'Discovery Engine Connected' : '0 Tables'}
-                      </div>
-                    </div>
-                    <div style={{ padding: 14, background: 'var(--dash-surface)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
-                      <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)' }}>Columns Profiled</div>
-                      <div style={{ fontSize: 18, fontWeight: 700, marginTop: 4, color: 'var(--dash-text-primary)' }}>
-                        {existingSession ? 'Schema Columns Profiled' : '0 Columns'}
-                      </div>
-                    </div>
-                    <div style={{ padding: 14, background: 'var(--dash-surface)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
-                      <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)' }}>Primary Keys</div>
-                      <div style={{ fontSize: 18, fontWeight: 700, marginTop: 4, color: '#10B981' }}>
-                        {existingSession ? 'Verified Key Constraints' : 'Unverified'}
-                      </div>
-                    </div>
-                    <div style={{ padding: 14, background: 'var(--dash-surface)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
-                      <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)' }}>Zero-Lock State</div>
-                      <div style={{ fontSize: 18, fontWeight: 700, marginTop: 4, color: '#10B981' }}>
-                        {existingSession ? 'Zero-Lock Lock Free' : 'Unchecked'}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {activeMigrationRuntime.currentStage === 'advisor' && (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                    <div style={{ padding: 16, background: 'var(--dash-surface)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
-                      <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)' }}>Engine Compatibility Score</div>
-                      <div style={{ fontSize: 24, fontWeight: 700, color: '#10B981', marginTop: 4 }}>
-                        {existingSession ? 'Engine Advisory Verified' : '--'}
-                      </div>
-                    </div>
-                    <div style={{ padding: 16, background: 'var(--dash-surface)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
-                      <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)' }}>Lock Risk Rating</div>
-                      <div style={{ fontSize: 24, fontWeight: 700, color: '#10B981', marginTop: 4 }}>
-                        {existingSession ? `Risk Score: ${(existingSession.riskScore ?? 0).toFixed(2)} (LOW)` : 'Uncalculated'}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {activeMigrationRuntime.currentStage === 'data_migration' && (
-                  <div>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--dash-text-secondary)', textTransform: 'uppercase', marginBottom: 10 }}>
-                      {existingSession ? `${existingSession.activeWorkers} Parallel Stream Partition Workers` : '0 Active Partition Workers'}
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                      <div style={{ padding: 10, background: 'var(--dash-surface)', borderRadius: 6, border: '1px solid var(--dash-border)', fontSize: 11 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--dash-text-primary)', fontWeight: 600 }}>
-                          <span>Stream Worker Partition Manager</span>
-                          <span style={{ color: '#10B981' }}>{existingSession ? `${existingSession.throughputMbps} MB/s` : '0 MB/s'}</span>
-                        </div>
-                        <div style={{ height: 4, background: '#10B981', borderRadius: 2, marginTop: 6, width: existingSession ? `${existingSession.progressPercent}%` : '0%' }} />
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {activeMigrationRuntime.currentStage === 'certification' && (
-                  <div style={{ padding: 16, background: 'rgba(16, 185, 129, 0.08)', borderRadius: 8, border: '1px solid rgba(16, 185, 129, 0.2)' }}>
-                    <div style={{ fontWeight: 700, color: '#10B981', fontSize: 14 }}>SHA-256 Cryptographic Proof Seal</div>
-                    <code style={{ fontSize: 12, color: '#60A5FA', marginTop: 4, display: 'block' }}>
-                      {existingSession ? 'sha256-b8a1c9e4d3f2a109852e7f8c9b0a1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c' : 'Pending Stage Certification'}
-                    </code>
-                  </div>
-                )}
-              </div>
-
-              {/* SECTION 5: OPERATIONS PANEL (Context-Aware Valid Operations) */}
-              <div style={{ padding: 20, background: 'var(--dash-card-bg)', borderRadius: 12, border: '1px solid var(--dash-border)' }}>
-                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--dash-text-secondary)', marginBottom: 12 }}>
-                  MIGRATION OPERATIONS CONTROL PANEL
-                </div>
-                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                  <button
-                    disabled={hasActiveRuntime}
-                    onClick={handleInitializeMigrationPrompt}
-                    style={{
-                      padding: '10px 18px',
-                      borderRadius: 8,
-                      background: hasActiveRuntime ? 'var(--dash-surface)' : '#2563EB',
-                      color: hasActiveRuntime ? 'var(--dash-text-secondary)' : '#ffffff',
-                      border: 'none',
-                      fontSize: 12,
-                      fontWeight: 600,
-                      cursor: hasActiveRuntime ? 'not-allowed' : 'pointer',
-                      opacity: hasActiveRuntime ? 0.4 : 1,
-                    }}
-                  >
-                    🚀 Initialize Migration
-                  </button>
-
-                  <button
-                    disabled={!hasActiveRuntime || existingSession?.throughputMbps === 0}
-                    onClick={handlePausePrompt}
-                    style={{
-                      padding: '10px 18px',
-                      borderRadius: 8,
-                      background: !hasActiveRuntime || existingSession?.throughputMbps === 0 ? 'var(--dash-surface)' : '#F59E0B',
-                      color: !hasActiveRuntime || existingSession?.throughputMbps === 0 ? 'var(--dash-text-secondary)' : '#111111',
-                      border: 'none',
-                      fontSize: 12,
-                      fontWeight: 600,
-                      cursor: !hasActiveRuntime || existingSession?.throughputMbps === 0 ? 'not-allowed' : 'pointer',
-                      opacity: !hasActiveRuntime || existingSession?.throughputMbps === 0 ? 0.4 : 1,
-                    }}
-                  >
-                    ⏸ Pause Stream
-                  </button>
-
-                  <button
-                    disabled={!hasActiveRuntime || existingSession?.status !== 'paused'}
-                    onClick={handleResumePrompt}
-                    style={{
-                      padding: '10px 18px',
-                      borderRadius: 8,
-                      background: !hasActiveRuntime || existingSession?.status !== 'paused' ? 'var(--dash-surface)' : '#10B981',
-                      color: !hasActiveRuntime || existingSession?.status !== 'paused' ? 'var(--dash-text-secondary)' : '#ffffff',
-                      border: 'none',
-                      fontSize: 12,
-                      fontWeight: 600,
-                      cursor: !hasActiveRuntime || existingSession?.status !== 'paused' ? 'not-allowed' : 'pointer',
-                      opacity: !hasActiveRuntime || existingSession?.status !== 'paused' ? 0.4 : 1,
-                    }}
-                  >
-                    ▶ Resume Stream
-                  </button>
-
-                  <button
-                    disabled={!hasActiveRuntime}
-                    onClick={handleCheckpointPrompt}
-                    style={{
-                      padding: '10px 18px',
-                      borderRadius: 8,
-                      background: 'var(--dash-surface)',
-                      color: !hasActiveRuntime ? 'var(--dash-text-secondary)' : 'var(--dash-text-primary)',
-                      border: '1px solid var(--dash-border)',
-                      fontSize: 12,
-                      fontWeight: 600,
-                      cursor: !hasActiveRuntime ? 'not-allowed' : 'pointer',
-                      opacity: !hasActiveRuntime ? 0.4 : 1,
-                    }}
-                  >
-                    ⚡ Trigger Checkpoint
-                  </button>
-
-                  <button
-                    disabled={!hasActiveRuntime}
-                    onClick={() => {
-                      setConfirmState({
-                        isOpen: true,
-                        title: 'Terminate Migration?',
-                        affectedObject: `Session: ${existingSession?.sessionId || 'sess-active'}`,
-                        message: 'This operation will stop the active migration. You can resume later only if a valid checkpoint exists.',
-                        bulletPoints: [
-                          'stop active partition worker threads',
-                          'flush pending CDC change buffers',
-                          'release engine socket locks',
-                        ],
-                        consequence: 'Transport stream will be terminated.',
-                        confirmText: 'Terminate Migration',
-                        severity: 'danger',
-                        onConfirm: () => {
-                          runtimeSessionRepository.updateTelemetry(existingSession?.sessionId || 'sess-1', { throughputMbps: 0 });
-                          setActiveMigrationRuntime(null);
-                        },
-                      });
-                    }}
-                    style={{
-                      padding: '10px 18px',
-                      borderRadius: 8,
-                      background: !hasActiveRuntime ? 'var(--dash-surface)' : 'rgba(239, 68, 68, 0.15)',
-                      color: !hasActiveRuntime ? 'var(--dash-text-secondary)' : '#EF4444',
-                      border: !hasActiveRuntime ? '1px solid var(--dash-border)' : '1px solid rgba(239, 68, 68, 0.3)',
-                      fontSize: 12,
-                      fontWeight: 600,
-                      cursor: !hasActiveRuntime ? 'not-allowed' : 'pointer',
-                      opacity: !hasActiveRuntime ? 0.5 : 1,
-                    }}
-                  >
-                    🛑 Terminate Migration
-                  </button>
-
-                  <button
-                    disabled={!hasActiveRuntime}
-                    onClick={() => {
-                      setConfirmState({
-                        isOpen: true,
-                        title: 'Rollback Migration?',
-                        affectedObject: `Target Database: ${project.targetEndpoint}`,
-                        message: 'Restore the target database to the latest rollback snapshot?',
-                        bulletPoints: [
-                          'revert applied target DDL statements',
-                          'truncate staged data transport partitions',
-                          'restore pre-migration snapshot state',
-                        ],
-                        consequence: 'Target database state will be restored to pre-migration baseline.',
-                        confirmText: 'Rollback Target',
-                        severity: 'danger',
-                        onConfirm: () => {
-                          runtimeSessionRepository.appendEvent(existingSession?.sessionId || 'sess-1', {
-                            eventId: `evt-rb-${Date.now()}`,
-                            timestamp: new Date().toISOString(),
-                            sessionId: existingSession?.sessionId || 'sess-1',
-                            migrationId: project.id,
-                            severity: 'warning',
-                            source: 'manager',
-                            stageNumber: 5,
-                            eventType: 'TransportPaused',
-                            payload: { action: 'rollback_executed' },
-                          });
-                        },
-                      });
-                    }}
-                    style={{
-                      padding: '10px 18px',
-                      borderRadius: 8,
-                      background: !hasActiveRuntime ? 'var(--dash-surface)' : 'rgba(239, 68, 68, 0.15)',
-                      color: !hasActiveRuntime ? 'var(--dash-text-secondary)' : '#EF4444',
-                      border: !hasActiveRuntime ? '1px solid var(--dash-border)' : '1px solid rgba(239, 68, 68, 0.3)',
-                      fontSize: 12,
-                      fontWeight: 600,
-                      cursor: !hasActiveRuntime ? 'not-allowed' : 'pointer',
-                      opacity: !hasActiveRuntime ? 0.5 : 1,
-                    }}
-                  >
-                    🔄 Rollback Snapshot
-                  </button>
-                </div>
-              </div>
-            </div>
+            <MissionControlView
+              migration={activeMigrationRuntime}
+              onBack={() => setActiveMigrationRuntime(null)}
+              onOpenWizard={onOpenNewMigration}
+            />
           ) : (
             /* ── 2. PROJECT OVERVIEW ── */
             <div>
@@ -1017,10 +493,10 @@ export const ProjectWorkspaceView: FC<ProjectWorkspaceViewProps> = ({
             <div style={{ padding: 14, background: 'var(--dash-card-bg)', borderRadius: 10, border: '1px solid var(--dash-border)' }}>
               <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)' }}>Selected Stage Context</div>
               <div style={{ fontSize: 14, fontWeight: 700, marginTop: 4, color: 'var(--dash-text-primary)' }}>
-                {activeMigrationRuntime ? currentStageMeta.label : 'Project Workspace'}
+                {activeMigrationRuntime ? activeMigrationRuntime.name : 'Project Workspace'}
               </div>
               <p style={{ fontSize: 11, color: 'var(--dash-text-secondary)', marginTop: 8, lineHeight: 1.4 }}>
-                {activeMigrationRuntime ? currentStageMeta.description : 'Viewing top-level project metadata and connection pools.'}
+                {activeMigrationRuntime ? `Active Stage: ${activeMigrationRuntime.currentStage}` : 'Viewing top-level project metadata and connection pools.'}
               </p>
             </div>
 
