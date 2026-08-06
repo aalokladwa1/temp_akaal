@@ -413,35 +413,154 @@ class EngineGateway:
         req = DiscoveryRequest(connection_config=cfg)
         loop = asyncio.new_event_loop()
         err_list: List[str] = []
+        schema_dict: Dict[str, Any] = {}
+        object_dict: Dict[str, Any] = {}
+        report_obj = None
         try:
             try:
-                report = loop.run_until_complete(self.discovery_orchestrator.execute_discovery(req))
-                stats = getattr(report, "statistics", None)
-                tbl_count = getattr(stats, "total_tables", 0) if stats else 0
-                row_count = getattr(stats, "total_rows", 0) if stats else 0
-                col_count = getattr(stats, "total_columns", 0) if stats else 0
+                report_obj = loop.run_until_complete(self.discovery_orchestrator.execute_discovery(req))
+                if hasattr(report_obj, "schema_inventory"):
+                    schema_dict = report_obj.schema_inventory.to_dict() if hasattr(report_obj.schema_inventory, "to_dict") else (report_obj.schema_inventory or {})
+                if hasattr(report_obj, "object_inventory"):
+                    object_dict = report_obj.object_inventory.to_dict() if hasattr(report_obj.object_inventory, "to_dict") else (report_obj.object_inventory or {})
                 
-                obj_inv = getattr(report, "object_inventory", {}) or {}
-                sch_inv = getattr(report, "schema_inventory", {}) or {}
-                
-                tbl_names = []
-                if "tables" in obj_inv and isinstance(obj_inv["tables"], list):
-                    tbl_names = [t.get("name", "").upper() for t in obj_inv["tables"] if isinstance(t, dict) and t.get("name")]
-                elif hasattr(report, "table_summary") and report.table_summary:
-                    tbl_names = list(report.table_summary.keys())
-                
-                sch_list = list(sch_inv.keys()) if sch_inv else [cfg.credentials_ref.upper()]
-
-                if hasattr(report, "errors") and report.errors:
-                    err_list.extend(report.errors)
+                if hasattr(report_obj, "errors") and report_obj.errors:
+                    err_list.extend(report_obj.errors)
             except Exception as disc_exc:
                 logger.warning("DiscoveryOrchestrator pre-flight profiling exception: %s", disc_exc)
-                tbl_count = 0
-                row_count = 0
-                col_count = 0
-                tbl_names = []
-                sch_list = [cfg.credentials_ref.upper()]
                 err_list.append(str(disc_exc))
+
+            db_name = cfg.database_name.upper()
+            sch_name = cfg.credentials_ref.upper()
+            inst_name = f"{src_sys} Server ({cfg.host}:{cfg.port})"
+
+            # Build Canonical Object Groups & Hierarchy
+            table_objs = []
+            raw_tables = schema_dict.get("tables", [])
+            if isinstance(raw_tables, list):
+                for t in raw_tables:
+                    t_name = (t.get("table_name") or t.get("name") or "UNKNOWN").upper() if isinstance(t, dict) else str(t).upper()
+                    s_name = (t.get("schema_name") or t.get("schema") or sch_name).upper() if isinstance(t, dict) else sch_name
+                    r_count = t.get("row_count", 0) if isinstance(t, dict) else 0
+                    s_bytes = t.get("size_bytes", 0) if isinstance(t, dict) else 0
+                    s_gb = round(s_bytes / (1024 ** 3), 6) if s_bytes else 0.0
+                    table_objs.append({
+                        "object_id": f"obj-{db_name.lower()}-{s_name.lower()}-tbl-{t_name.lower()}",
+                        "schema_id": f"schema-{s_name}",
+                        "db_id": f"db-{db_name}",
+                        "object_name": t_name,
+                        "object_type": "Table",
+                        "estimated_rows": r_count,
+                        "estimated_size_gb": s_gb,
+                        "dependencies": [],
+                        "warnings": [],
+                        "compatibility_status": "OPTIMAL",
+                        "selected": True,
+                    })
+
+            object_groups = []
+            if table_objs:
+                object_groups.append({
+                    "object_type_id": "grp-table",
+                    "object_type_name": "Table",
+                    "object_type": "Table",
+                    "objects": table_objs
+                })
+
+            # Views
+            views_list = schema_dict.get("views", [])
+            if isinstance(views_list, list) and views_list:
+                view_objs = []
+                for v in views_list:
+                    v_name = (v.get("name") or v.get("view_name") or str(v)).upper() if isinstance(v, dict) else str(v).upper()
+                    view_objs.append({
+                        "object_id": f"obj-{db_name.lower()}-{sch_name.lower()}-vw-{v_name.lower()}",
+                        "schema_id": f"schema-{sch_name}",
+                        "db_id": f"db-{db_name}",
+                        "object_name": v_name,
+                        "object_type": "View",
+                        "estimated_rows": 0,
+                        "estimated_size_gb": 0.0,
+                        "dependencies": [],
+                        "warnings": [],
+                        "compatibility_status": "OPTIMAL",
+                        "selected": True,
+                    })
+                object_groups.append({
+                    "object_type_id": "grp-view",
+                    "object_type_name": "View",
+                    "object_type": "View",
+                    "objects": view_objs
+                })
+
+            # Procedures, Functions, Triggers, Sequences
+            for obj_type, item_list in [("Procedure", object_dict.get("procedures", [])),
+                                         ("Function", object_dict.get("functions", [])),
+                                         ("Trigger", object_dict.get("triggers", [])),
+                                         ("Sequence", object_dict.get("sequences", []))]:
+                if isinstance(item_list, list) and item_list:
+                    grp_objs = []
+                    for item in item_list:
+                        i_name = (item.get("name") or str(item)).upper() if isinstance(item, dict) else str(item).upper()
+                        grp_objs.append({
+                            "object_id": f"obj-{db_name.lower()}-{sch_name.lower()}-{obj_type.lower()[:3]}-{i_name.lower()}",
+                            "schema_id": f"schema-{sch_name}",
+                            "db_id": f"db-{db_name}",
+                            "object_name": i_name,
+                            "object_type": obj_type,
+                            "estimated_rows": 0,
+                            "estimated_size_gb": 0.0,
+                            "dependencies": [],
+                            "warnings": [],
+                            "compatibility_status": "OPTIMAL",
+                            "selected": True,
+                        })
+                    object_groups.append({
+                        "object_type_id": f"grp-{obj_type.lower()}",
+                        "object_type_name": obj_type,
+                        "object_type": obj_type,
+                        "objects": grp_objs
+                    })
+
+            schemas_nodes = [
+                {
+                    "schema_id": f"schema-{sch_name}",
+                    "schema_name": sch_name,
+                    "db_id": f"db-{db_name}",
+                    "object_groups": object_groups
+                }
+            ]
+
+            databases_nodes = [
+                {
+                    "database_id": f"db-{db_name}",
+                    "database_name": db_name,
+                    "db_id": f"db-{db_name}",
+                    "db_name": db_name,
+                    "instance_name": inst_name,
+                    "schemas": schemas_nodes
+                }
+            ]
+
+            canonical_instance = {
+                "instance_id": f"inst-{hashlib.md5(inst_name.encode()).hexdigest()[:8]}",
+                "instance_name": inst_name,
+                "databases": databases_nodes
+            }
+
+            total_objs_count = sum(len(grp["objects"]) for grp in object_groups)
+            total_tables_count = len(table_objs)
+            total_rows_sum = sum(t["estimated_rows"] for t in table_objs)
+            total_bytes_sum = int(sum(t["estimated_size_gb"] for t in table_objs) * (1024 ** 3))
+
+            canonical_metrics = {
+                "databases_detected": len(databases_nodes),
+                "schemas_detected": len(schemas_nodes),
+                "objects_detected": total_objs_count,
+                "tables_detected": total_tables_count,
+                "estimated_rows": total_rows_sum,
+                "estimated_size_bytes": total_bytes_sum
+            }
 
             snap_id = f"snap-{uuid.uuid4().hex[:12]}"
             adv_id = f"adv-{uuid.uuid4().hex[:12]}"
@@ -452,26 +571,28 @@ class EngineGateway:
                 "migration_id": payload.get("migration_id", "mig-default"),
                 "source_engine": src_sys,
                 "target_engine": str(payload.get("target_engine", "PostgreSQL 16")),
-                "schemas": sch_list,
-                "table_count": tbl_count,
-                "table_names": tbl_names,
-                "column_count": col_count,
-                "row_count": row_count,
-                "view_count": 0,
-                "index_count": tbl_count,
+                "instance": canonical_instance,
+                "metrics": canonical_metrics,
+                "schemas": [sch_name],
+                "table_count": total_tables_count,
+                "table_names": [t["object_name"] for t in table_objs],
+                "column_count": sum(len(t.get("columns", [])) for t in raw_tables) if isinstance(raw_tables, list) else 0,
+                "row_count": total_rows_sum,
+                "view_count": len(object_groups[1]["objects"]) if len(object_groups) > 1 and object_groups[1]["object_type"] == "View" else 0,
+                "index_count": total_tables_count,
                 "sequence_count": 0,
                 "trigger_count": 0,
                 "procedure_count": 0,
                 "function_count": 0,
                 "lob_count": 0,
-                "compatibility_score": 100.0 if tbl_count > 0 else 0.0,
+                "compatibility_score": 100.0 if total_tables_count > 0 else 0.0,
                 "risk_score": "LOW" if not err_list else "HIGH",
                 "trust_score": "100% Ready" if not err_list else "Errors Detected",
                 "unsupported_objects": [],
                 "warnings": err_list,
                 "execution_plan": "Topological DAG Stream Partitioning",
-                "worker_allocation": 4 if row_count < 1000 else 8,
-                "estimated_duration": "< 1 Min" if row_count < 1000 else "12 Mins",
+                "worker_allocation": 4 if total_rows_sum < 1000 else 8,
+                "estimated_duration": "< 1 Min" if total_rows_sum < 1000 else "12 Mins",
                 "estimated_throughput": "45.0 MB/s",
                 "rollback_readiness": "Snapshot Protection Active",
                 "validation_strategy": "Full Row Count & Checksum Auditing",

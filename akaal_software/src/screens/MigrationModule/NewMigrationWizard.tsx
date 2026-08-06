@@ -245,48 +245,13 @@ const IndeterminateCheckbox: FC<IndeterminateCheckboxProps> = ({
 
 const buildDiscoveryFromEngine = (res: any): DatabaseDiscoveryDTO[] => {
   if (!res) return [];
+  if (res.instance?.databases && Array.isArray(res.instance.databases) && res.instance.databases.length > 0) {
+    return res.instance.databases;
+  }
   if (res.catalog_hierarchy && Array.isArray(res.catalog_hierarchy) && res.catalog_hierarchy.length > 0) {
     return res.catalog_hierarchy;
   }
-  const dbName = res.source_db || res.database_name || 'SOURCE_DB';
-  const schemaList = res.schemas || ['SYSTEM'];
-  const tableNames: string[] = res.table_names || [];
-  const rowCount = res.row_count || 0;
-
-  const tableObjects: DiscoveredObjectDTO[] = tableNames.map((tblName: string) => ({
-    object_id: `obj-${dbName.toLowerCase()}-${tblName.toLowerCase()}`,
-    schema_id: `schema-${schemaList[0] || 'SYSTEM'}`,
-    db_id: `db-${dbName}`,
-    object_name: tblName.toUpperCase(),
-    object_type: 'Table',
-    estimated_rows: Math.max(1, Math.floor(rowCount / Math.max(1, tableNames.length))),
-    estimated_size_gb: 0.1,
-    compatibility_status: 'OPTIMAL',
-    dependency_ids: [],
-    warnings: [],
-    selected: true,
-  }));
-
-  return [
-    {
-      db_id: `db-${dbName}`,
-      db_name: dbName.toUpperCase(),
-      instance_name: 'Discovered Source Engine Catalog',
-      schemas: [
-        {
-          schema_id: `schema-${schemaList[0] || 'SYSTEM'}`,
-          schema_name: (schemaList[0] || 'SYSTEM').toUpperCase(),
-          db_id: `db-${dbName}`,
-          object_groups: tableObjects.length > 0 ? [
-            {
-              object_type: 'Table',
-              objects: tableObjects,
-            }
-          ] : [],
-        }
-      ],
-    }
-  ];
+  return [];
 };
 
 const STEP_TITLES = [
