@@ -12,6 +12,7 @@ export interface ProjectWorkspaceViewProps {
   project: MigrationPipeline;
   onBack: () => void;
   onOpenNewMigration?: () => void;
+  onOpenGovernance?: (migrationId?: string, gateId?: string) => void;
 }
 
 export type ProjectNavSection =
@@ -108,6 +109,7 @@ export const ProjectWorkspaceView: FC<ProjectWorkspaceViewProps> = ({
   project,
   onBack,
   onOpenNewMigration,
+  onOpenGovernance,
 }) => {
   const [activeNav, setActiveNav] = useState<ProjectNavSection>('overview');
   const [activeMigrationRuntime, setActiveMigrationRuntime] = useState<MigrationPipeline | null>(null);
@@ -348,6 +350,7 @@ export const ProjectWorkspaceView: FC<ProjectWorkspaceViewProps> = ({
               migration={activeMigrationRuntime}
               onBack={() => setActiveMigrationRuntime(null)}
               onOpenWizard={onOpenNewMigration}
+              onOpenGovernance={onOpenGovernance}
             />
           ) : (
             /* ── 2. PROJECT OVERVIEW ── */

@@ -17,6 +17,8 @@ export const MigrationModule: FC<MigrationModuleProps> = ({ searchFilter = '' })
   const [parentContext, setParentContext] = useState<'landing' | 'workspace'>('landing');
   const [selectedPipeline, setSelectedPipeline] = useState<MigrationPipeline | null>(null);
   const [resumeDraftData, setResumeDraftData] = useState<MigrationDraftState | undefined>(undefined);
+  const [govTargetMigrationId, setGovTargetMigrationId] = useState<string | undefined>(undefined);
+  const [govTargetGateId, setGovTargetGateId] = useState<string | undefined>(undefined);
 
   const { createProject, saveDraft } = useMigrationProjects('Aalok');
 
@@ -28,8 +30,27 @@ export const MigrationModule: FC<MigrationModuleProps> = ({ searchFilter = '' })
     }
   };
 
+  const handleOpenGovernanceTarget = (migId?: string, gateId?: string) => {
+    setGovTargetMigrationId(migId);
+    setGovTargetGateId(gateId);
+    setViewState('governance');
+  };
+
   if (viewState === 'governance') {
-    return <GovernanceCenterView onBack={() => setViewState('landing')} />;
+    return (
+      <GovernanceCenterView
+        onBack={() => setViewState('landing')}
+        initialMigrationId={govTargetMigrationId}
+        initialGateId={govTargetGateId}
+        onNavigateToMissionControl={(migId) => {
+          if (selectedPipeline && selectedPipeline.id === migId) {
+            setViewState('workspace');
+          } else {
+            setViewState('landing');
+          }
+        }}
+      />
+    );
   }
 
   if (viewState === 'workspace' && selectedPipeline) {
@@ -41,6 +62,7 @@ export const MigrationModule: FC<MigrationModuleProps> = ({ searchFilter = '' })
           setParentContext('workspace');
           setViewState('new_migration');
         }}
+        onOpenGovernance={handleOpenGovernanceTarget}
       />
     );
   }

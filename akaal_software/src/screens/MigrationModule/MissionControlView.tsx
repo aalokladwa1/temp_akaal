@@ -49,6 +49,7 @@ export interface MissionControlViewProps {
   migration: MigrationPipeline;
   onBack: () => void;
   onOpenWizard?: () => void;
+  onOpenGovernance?: (migrationId?: string, gateId?: string) => void;
 }
 
 export type MigrationRunStatus = 'running' | 'paused' | 'failed' | 'completed';
@@ -66,6 +67,7 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
   migration,
   onBack,
   onOpenWizard: _onOpenWizard,
+  onOpenGovernance,
 }) => {
   // Runtime Connection & Health State
   const [connectionState, setConnectionState] = useState<RuntimeConnectionState>('CONNECTED');
@@ -456,6 +458,55 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
 
         {/* LEFT COLUMN: CURRENT EXECUTION STAGE (Observer Mode) ─────────────── */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0, overflowY: 'auto' }}>
+
+          {/* MISSION CONTROL DOES NOT PERFORM APPROVALS — ONLY DETECTS AND OPENS GOVERNANCE CENTRE */}
+          {runStatus === 'paused' && (
+            <div
+              style={{
+                padding: '14px 20px',
+                borderRadius: 10,
+                background: 'rgba(245, 158, 11, 0.12)',
+                border: '1px solid rgba(245, 158, 11, 0.4)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 16,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <ShieldAlert size={22} color="#F59E0B" />
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#F59E0B', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    ⚡ WAITING FOR ENTERPRISE APPROVAL (GATE 3)
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)', marginTop: 2 }}>
+                    Runtime paused at Cutover Gate. Waiting for Migration Director & Operations Lead sign-off.
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => onOpenGovernance && onOpenGovernance(migration.id, 'GATE_3')}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: 6,
+                  background: '#F59E0B',
+                  color: '#000',
+                  fontWeight: 700,
+                  fontSize: 12,
+                  border: 'none',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                Open Governance Centre →
+              </button>
+            </div>
+          )}
 
           {/* PART 2 & PART 4: ENTERPRISE SKELETON LOADING STATE WHEN HYDRATING */}
           {connectionState === 'LOADING' ? (

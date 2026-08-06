@@ -44,7 +44,13 @@ export type TeamRole =
   | 'Migration Engineer'
   | 'Validation Lead'
   | 'Approver'
-  | 'Observer';
+  | 'Observer'
+  | 'Lead DBA'
+  | 'Enterprise Architect'
+  | 'Security Lead'
+  | 'Compliance Officer'
+  | 'Migration Director'
+  | 'Operations Lead';
 
 export interface MigrationDraftState {
   step: number;
