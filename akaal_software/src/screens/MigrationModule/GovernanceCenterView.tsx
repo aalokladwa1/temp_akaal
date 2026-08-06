@@ -91,16 +91,15 @@ export const GovernanceCenterView: FC<GovernanceCenterViewProps> = ({
     });
   }, []);
 
-  // Sync initial selection if provided
-  useEffect(() => {
-    if (approvals.length > 0) {
-      if (!selectedMigrationId) {
-        const first = approvals[0];
-        setSelectedMigrationId(first.migrationId);
-        setSelectedGateId(first.gate);
-      }
+  // Sync selection when main tab changes
+  const handleMainTabChange = (tab: 'pending' | 'history') => {
+    setActiveMainTab(tab);
+    const targetList = approvals.filter((a) => (tab === 'pending' ? a.status === 'pending' : a.status !== 'pending'));
+    if (targetList.length > 0) {
+      setSelectedMigrationId(targetList[0].migrationId);
+      setSelectedGateId(targetList[0].gate);
     }
-  }, [approvals, selectedMigrationId]);
+  };
 
   // Derived KPI Counts
   const kpis = useMemo(() => {
@@ -372,7 +371,7 @@ export const GovernanceCenterView: FC<GovernanceCenterViewProps> = ({
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <button
             type="button"
-            onClick={() => setActiveMainTab('pending')}
+            onClick={() => handleMainTabChange('pending')}
             style={{
               padding: '6px 14px',
               borderRadius: 6,
@@ -388,7 +387,7 @@ export const GovernanceCenterView: FC<GovernanceCenterViewProps> = ({
           </button>
           <button
             type="button"
-            onClick={() => setActiveMainTab('history')}
+            onClick={() => handleMainTabChange('history')}
             style={{
               padding: '6px 14px',
               borderRadius: 6,
@@ -616,6 +615,31 @@ export const GovernanceCenterView: FC<GovernanceCenterViewProps> = ({
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflowY: 'auto' }}>
 
+              {/* Immutable Archive Banner for Historical Approvals */}
+              {selectedApproval.status !== 'pending' && (
+                <div
+                  style={{
+                    padding: '10px 20px',
+                    background: 'rgba(107, 114, 128, 0.12)',
+                    borderBottom: '1px solid var(--dash-border)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 16,
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Lock size={15} color="#9CA3AF" />
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      🔒 IMMUTABLE HISTORICAL ARCHIVE — READ ONLY ({selectedApproval.status.toUpperCase()})
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 11, fontFamily: 'var(--akaal-font-mono, monospace)', color: 'var(--dash-text-secondary)' }}>
+                    SHA256: 3a7f8e91c2b409aef12d0831 • Version: v8 • Duration: 4m 12s
+                  </div>
+                </div>
+              )}
+
               {/* Approval Packet Header */}
               <div style={{ padding: 20, borderBottom: '1px solid var(--dash-border)', background: 'var(--dash-bg)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16 }}>
                 <div>
@@ -636,9 +660,11 @@ export const GovernanceCenterView: FC<GovernanceCenterViewProps> = ({
                 </div>
 
                 <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)' }}>SLA Countdown</div>
-                  <div style={{ fontSize: 16, fontWeight: 800, color: '#F59E0B', fontFamily: 'var(--akaal-font-mono, monospace)' }}>
-                    03h 42m 15s
+                  <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)' }}>
+                    {selectedApproval.status === 'pending' ? 'SLA Countdown' : 'Archived On'}
+                  </div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: selectedApproval.status === 'pending' ? '#F59E0B' : '#9CA3AF', fontFamily: 'var(--akaal-font-mono, monospace)' }}>
+                    {selectedApproval.status === 'pending' ? '03h 42m 15s' : selectedApproval.approvedAt ? new Date(selectedApproval.approvedAt).toLocaleDateString() : '2026-08-05'}
                   </div>
                 </div>
               </div>
@@ -838,92 +864,115 @@ export const GovernanceCenterView: FC<GovernanceCenterViewProps> = ({
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setConfirmModal({
-                        isOpen: true,
-                        title: 'Approve Migration Gate',
-                        message: `Grant formal multi-custody approval for ${selectedApproval.migrationName} at ${selectedApproval.gate}.`,
-                        actionType: 'approved',
-                        approvalId: selectedApproval.id,
-                        migrationId: selectedApproval.migrationId,
-                      })
-                    }
-                    style={{
-                      padding: '8px 18px',
-                      borderRadius: 6,
-                      background: '#10B981',
-                      color: '#FFF',
-                      fontSize: 12,
-                      fontWeight: 800,
-                      border: 'none',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 6,
-                    }}
-                  >
-                    <CheckCircle2 size={15} /> Approve Gate
-                  </button>
+                  {selectedApproval.status === 'pending' ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setConfirmModal({
+                            isOpen: true,
+                            title: 'Approve Migration Gate',
+                            message: `Grant formal multi-custody approval for ${selectedApproval.migrationName} at ${selectedApproval.gate}.`,
+                            actionType: 'approved',
+                            approvalId: selectedApproval.id,
+                            migrationId: selectedApproval.migrationId,
+                          })
+                        }
+                        style={{
+                          padding: '8px 18px',
+                          borderRadius: 6,
+                          background: '#10B981',
+                          color: '#FFF',
+                          fontSize: 12,
+                          fontWeight: 800,
+                          border: 'none',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                        }}
+                      >
+                        <CheckCircle2 size={15} /> Approve Gate
+                      </button>
 
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setConfirmModal({
-                        isOpen: true,
-                        title: 'Request Changes',
-                        message: `Request plan or schema modifications before approving ${selectedApproval.migrationName}.`,
-                        actionType: 'changes_requested',
-                        approvalId: selectedApproval.id,
-                        migrationId: selectedApproval.migrationId,
-                      })
-                    }
-                    style={{
-                      padding: '8px 16px',
-                      borderRadius: 6,
-                      background: 'rgba(245,158,11,0.15)',
-                      border: '1px solid #F59E0B',
-                      color: '#F59E0B',
-                      fontSize: 12,
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 6,
-                    }}
-                  >
-                    <AlertTriangle size={15} /> Request Changes
-                  </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setConfirmModal({
+                            isOpen: true,
+                            title: 'Request Changes',
+                            message: `Request plan or schema modifications before approving ${selectedApproval.migrationName}.`,
+                            actionType: 'changes_requested',
+                            approvalId: selectedApproval.id,
+                            migrationId: selectedApproval.migrationId,
+                          })
+                        }
+                        style={{
+                          padding: '8px 16px',
+                          borderRadius: 6,
+                          background: 'rgba(245,158,11,0.15)',
+                          border: '1px solid #F59E0B',
+                          color: '#F59E0B',
+                          fontSize: 12,
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                        }}
+                      >
+                        <AlertTriangle size={15} /> Request Changes
+                      </button>
 
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setConfirmModal({
-                        isOpen: true,
-                        title: 'Reject Migration Gate',
-                        message: `Reject approval request for ${selectedApproval.migrationName}. Pipeline execution will remain held.`,
-                        actionType: 'rejected',
-                        approvalId: selectedApproval.id,
-                        migrationId: selectedApproval.migrationId,
-                      })
-                    }
-                    style={{
-                      padding: '8px 16px',
-                      borderRadius: 6,
-                      background: 'rgba(239,68,68,0.15)',
-                      border: '1px solid #EF4444',
-                      color: '#EF4444',
-                      fontSize: 12,
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 6,
-                    }}
-                  >
-                    <XCircle size={15} /> Reject
-                  </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setConfirmModal({
+                            isOpen: true,
+                            title: 'Reject Migration Gate',
+                            message: `Reject approval request for ${selectedApproval.migrationName}. Pipeline execution will remain held.`,
+                            actionType: 'rejected',
+                            approvalId: selectedApproval.id,
+                            migrationId: selectedApproval.migrationId,
+                          })
+                        }
+                        style={{
+                          padding: '8px 16px',
+                          borderRadius: 6,
+                          background: 'rgba(239,68,68,0.15)',
+                          border: '1px solid #EF4444',
+                          color: '#EF4444',
+                          fontSize: 12,
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                        }}
+                      >
+                        <XCircle size={15} /> Reject
+                      </button>
+                    </>
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span
+                        style={{
+                          fontSize: 11,
+                          padding: '6px 12px',
+                          borderRadius: 6,
+                          background: 'rgba(107, 114, 128, 0.15)',
+                          border: '1px solid #6B7280',
+                          color: '#9CA3AF',
+                          fontWeight: 700,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                        }}
+                      >
+                        🔒 ARCHIVED RECORD — READ ONLY ({selectedApproval.status.toUpperCase()})
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
