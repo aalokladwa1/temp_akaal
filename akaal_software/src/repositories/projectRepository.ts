@@ -25,10 +25,11 @@ class ProjectRepository {
     name: string,
     sourceEngine: DatabaseEngine,
     targetEngine: DatabaseEngine,
-    currentUser: string = 'Aalok'
+    currentUser: string = 'Aalok',
+    migrationId?: string
   ): MigrationPipeline {
     const newProject: MigrationPipeline = {
-      id: `proj-${Date.now()}`,
+      id: migrationId || `proj-${Date.now()}`,
       name,
       sourceEngine,
       sourceEndpoint: `src-${sourceEngine.toLowerCase().replace(/\s+/g, '-')}.internal`,

@@ -34,7 +34,7 @@ import styles from './MigrationModule.module.css';
 export interface NewMigrationWizardProps {
   onClose: () => void;
   onLaunch: (newPipeline: MigrationPipeline) => void;
-  createProject: (name: string, sourceEngine: DatabaseEngine, targetEngine: DatabaseEngine) => MigrationPipeline;
+  createProject: (name: string, sourceEngine: DatabaseEngine, targetEngine: DatabaseEngine, migrationId?: string) => MigrationPipeline;
 }
 
 // ─── Authoritative Wizard Integration Session Interface ─────────────────────
@@ -846,10 +846,7 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
 
   const handleCompleteLaunch = () => {
     const nameToUse = session.createdMigration.migrationName || migName.trim() || `${sourceEngine} → ${targetEngine} Migration`;
-    const created = createProject(nameToUse, sourceEngine, targetEngine);
-    if (session.createdMigration.migrationId) {
-      created.id = session.createdMigration.migrationId;
-    }
+    const created = createProject(nameToUse, sourceEngine, targetEngine, session.createdMigration.migrationId);
     onLaunch(created);
   };
 

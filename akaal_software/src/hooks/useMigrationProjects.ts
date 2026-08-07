@@ -57,8 +57,8 @@ export function useMigrationProjects(currentUser: string = 'Aalok') {
     [currentUser]
   );
   const createProject = useCallback(
-    (name: string, sourceEngine: DatabaseEngine, targetEngine: DatabaseEngine) =>
-      migrationService.createPipeline(name, sourceEngine, targetEngine, currentUser),
+    (name: string, sourceEngine: DatabaseEngine, targetEngine: DatabaseEngine, migrationId?: string) =>
+      migrationService.createPipeline(name, sourceEngine, targetEngine, currentUser, migrationId),
     [currentUser]
   );
   const touchProject = useCallback((id: string) => migrationService.touchPipeline(id), []);

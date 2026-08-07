@@ -233,6 +233,7 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
       case 'terminate':
         cap = 'terminate_migration';
         break;
+      case 'start':
       case 'restart':
       case 'retry':
         cap = 'start_transport';
@@ -932,10 +933,11 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
                   color: confirmAction === 'terminate' || confirmAction === 'rollback' ? '#EF4444' : confirmAction === 'pause' || confirmAction === 'maintenance' ? '#F59E0B' : '#3B82F6',
                   display: 'flex', alignItems: 'center', justifyContent: 'center'
                 }}>
-                  {confirmAction === 'terminate' || confirmAction === 'rollback' ? <AlertTriangle size={20} /> : confirmAction === 'pause' ? <Pause size={18} /> : confirmAction === 'resume' ? <Play size={18} /> : <Zap size={18} />}
+                  {confirmAction === 'terminate' || confirmAction === 'rollback' ? <AlertTriangle size={20} /> : confirmAction === 'pause' ? <Pause size={18} /> : confirmAction === 'resume' || confirmAction === 'start' ? <Play size={18} /> : <Zap size={18} />}
                 </div>
                 <div>
                   <h3 style={{ fontSize: 16, fontWeight: 800, margin: 0, color: 'var(--dash-text-primary)' }}>
+                    {confirmAction === 'start' && 'Start Migration Execution'}
                     {confirmAction === 'pause' && 'Pause Migration'}
                     {confirmAction === 'resume' && 'Resume Migration'}
                     {confirmAction === 'stop_batch' && 'Stop Migration Gracefully'}
@@ -965,6 +967,7 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
             {/* Modal Body */}
             <div style={{ padding: 22, display: 'flex', flexDirection: 'column', gap: 14 }}>
               <p style={{ fontSize: 13, color: 'var(--dash-text-primary)', margin: 0, lineHeight: 1.5 }}>
+                {confirmAction === 'start' && 'This action will begin real data movement between the configured source and target databases using the AKAAL execution engine. Physical DDL, schema objects, and table data will be written.'}
                 {confirmAction === 'pause' && 'This will pause the migration after the current safe execution point. Current progress, checkpoints, and runtime state will be preserved.'}
                 {confirmAction === 'resume' && 'The migration will resume from the latest checkpoint and continue execution.'}
                 {confirmAction === 'stop_batch' && 'The engine will finish the current batch, commit any completed work, and stop safely. No in-flight data will be lost.'}
@@ -981,6 +984,16 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
                 {confirmAction === 'export_replay' && 'Choose the export format for offline timeline report generation.'}
                 {confirmAction === 'download_cert' && 'The SHA-256 Trust Certificate and migration verification report will be downloaded.'}
               </p>
+
+              {/* Special Metadata Matrix for Start Action */}
+              {confirmAction === 'start' && (
+                <div style={{ border: '1px solid var(--dash-border)', borderRadius: 8, padding: 12, background: 'var(--dash-bg)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 11 }}>
+                  <div><span style={{ color: 'var(--dash-text-secondary)' }}>Migration ID:</span> <strong style={{ color: 'var(--dash-text-primary)', fontFamily: 'var(--akaal-font-mono, monospace)' }}>{migration.id}</strong></div>
+                  <div><span style={{ color: 'var(--dash-text-secondary)' }}>Pipeline Name:</span> <strong style={{ color: 'var(--dash-text-primary)' }}>{migration.name}</strong></div>
+                  <div><span style={{ color: 'var(--dash-text-secondary)' }}>Source Engine:</span> <strong style={{ color: 'var(--dash-text-primary)' }}>{migration.sourceEngine}</strong></div>
+                  <div><span style={{ color: 'var(--dash-text-secondary)' }}>Target Engine:</span> <strong style={{ color: 'var(--dash-text-primary)' }}>{migration.targetEngine}</strong></div>
+                </div>
+              )}
 
               {/* Special Controls for Rollback Checkpoint Selection */}
               {confirmAction === 'rollback' && (
@@ -1029,6 +1042,7 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
                 <div>
                   <div style={{ color: 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>Runtime Impact</div>
                   <div style={{ fontWeight: 600, color: 'var(--dash-text-primary)', marginTop: 2 }}>
+                    {confirmAction === 'start' && 'Spawns MigrationRuntimeDaemon & launches transport pipeline'}
                     {confirmAction === 'pause' && 'Holds stream workers & checkpoints WAL'}
                     {confirmAction === 'resume' && 'Re-activates 8 parallel socket threads'}
                     {confirmAction === 'stop_batch' && 'Commits current batch before halt'}
@@ -1066,13 +1080,14 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
               </button>
               <button
                 type="button"
-                onClick={() => executeConfirmedAction(confirmAction)}
+                onClick={() => executeConfirmedAction(confirmAction!)}
                 style={{
                   padding: '9px 20px', borderRadius: 8,
-                  background: confirmAction === 'terminate' || confirmAction === 'rollback' ? '#EF4444' : confirmAction === 'pause' || confirmAction === 'maintenance' ? '#F59E0B' : confirmAction === 'resume' || confirmAction === 'download_cert' ? '#10B981' : 'var(--dash-accent)',
+                  background: confirmAction === 'terminate' || confirmAction === 'rollback' ? '#EF4444' : confirmAction === 'pause' || confirmAction === 'maintenance' ? '#F59E0B' : confirmAction === 'start' || confirmAction === 'resume' || confirmAction === 'download_cert' ? '#10B981' : 'var(--dash-accent)',
                   color: '#FFF', border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6
                 }}
               >
+                {confirmAction === 'start' && 'Start Migration'}
                 {confirmAction === 'pause' && 'Pause Migration'}
                 {confirmAction === 'resume' && 'Resume Migration'}
                 {confirmAction === 'stop_batch' && 'Stop After Current Batch'}

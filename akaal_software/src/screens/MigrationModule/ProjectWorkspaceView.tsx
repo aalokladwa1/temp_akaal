@@ -155,42 +155,11 @@ export const ProjectWorkspaceView: FC<ProjectWorkspaceViewProps> = ({
   }, [project.id]);
 
   const existingSession = runtimeSessionRepository.getSessionForMigration(project.id);
-  const hasActiveRuntime = !!existingSession && existingSession.status !== 'completed' && existingSession.status !== 'failed';
   const historicalSessions = sessions.filter((s) => s.migrationId === project.id);
 
   const handleOpenMigrationOverview = () => {
     setActiveMigrationRuntime(project);
     setSelectedStage('scout');
-  };
-
-  const handleInitializeMigrationPrompt = () => {
-    setConfirmState({
-      isOpen: true,
-      title: 'Initialize Migration',
-      affectedObject: `Migration Pipeline: ${project.name}`,
-      message: 'Initializing this migration will:',
-      bulletPoints: [
-        'allocate active runtime session',
-        'initiate database schema profiling & Scout discovery',
-        'establish zero-lock connection checks',
-      ],
-      consequence: 'This operation allocates dynamic engine resources.',
-      confirmText: 'Initialize Migration',
-      severity: 'info',
-      onConfirm: async () => {
-        const session = runtimeSessionRepository.allocateSession(project.id, 'scout');
-        setActiveMigrationRuntime(project);
-        setSelectedStage('scout');
-        try {
-          await runtimeSessionRepository.invokeEngineCapability(session.sessionId, 'run_preflight', {
-            migration_id: project.id,
-            project_name: project.name,
-          });
-        } catch {
-          // Failure logged via event stream
-        }
-      },
-    });
   };
 
   // Session status helpers
@@ -423,21 +392,16 @@ export const ProjectWorkspaceView: FC<ProjectWorkspaceViewProps> = ({
                           <div style={{ fontSize: 12, color: 'var(--dash-text-secondary)', marginTop: 2 }}>{project.sourceEndpoint} → {project.targetEndpoint}</div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }} onClick={(e) => e.stopPropagation()}>
-                          {hasActiveRuntime ? (
-                            <button
-                              onClick={handleOpenMigrationOverview}
-                              style={{ padding: '8px 16px', borderRadius: 6, background: '#2563EB', color: '#ffffff', border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-                            >
-                              Resume Mission Control →
-                            </button>
-                          ) : (
-                            <button
-                              onClick={handleInitializeMigrationPrompt}
-                              style={{ padding: '8px 16px', borderRadius: 6, background: 'var(--dash-card-bg)', border: '1px solid var(--dash-border)', color: 'var(--dash-text-primary)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-                            >
-                              Initialize Migration
-                            </button>
-                          )}
+                          <button
+                            onClick={handleOpenMigrationOverview}
+                            style={{ padding: '8px 16px', borderRadius: 6, background: '#2563EB', color: '#ffffff', border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                          >
+                            {existingSession?.status === 'paused' || project.lastEvent === 'PAUSED'
+                              ? 'RESUME MIGRATION →'
+                              : existingSession?.status === 'completed'
+                              ? 'VIEW MIGRATION →'
+                              : 'OPEN MISSION CONTROL →'}
+                          </button>
                         </div>
                       </div>
                     </div>

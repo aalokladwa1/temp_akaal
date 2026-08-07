@@ -98,9 +98,10 @@ class MigrationService {
     name: string,
     sourceEngine: DatabaseEngine,
     targetEngine: DatabaseEngine,
-    currentUser: string = 'Aalok'
+    currentUser: string = 'Aalok',
+    migrationId?: string
   ): MigrationPipeline {
-    return projectRepository.createProject(name, sourceEngine, targetEngine, currentUser);
+    return projectRepository.createProject(name, sourceEngine, targetEngine, currentUser, migrationId);
   }
 
   touchPipeline(_id: string): void {
