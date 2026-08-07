@@ -72,6 +72,10 @@ class BaseAdapter(ABC):
     async def close(self) -> None:
         """Close the connection cleanly."""
 
+    async def disconnect(self) -> None:
+        """Close the connection cleanly."""
+        await self.close()
+
     @abstractmethod
     async def check_permissions(self) -> bool:
         """

@@ -194,12 +194,29 @@ class MSSQLAdapter(BaseAdapter):
         logger.info("[MSSQLAdapter] Connected to real SQL Server at %s:%s/%s using driver %s.", host, port, database, driver)
 
     async def close(self) -> None:
-        if self._pool:
-            self._pool.close()
-            await self._pool.wait_closed()
-            self._pool = None
+        if self._pool is not None:
+            try:
+                self._pool.close()
+                await self._pool.wait_closed()
+            except Exception as ex:
+                logger.warning("[MSSQLAdapter] Error closing aioodbc pool: %s", ex)
+            finally:
+                self._pool = None
+        if hasattr(self, "_conn") and self._conn is not None:
+            try:
+                if asyncio.iscoroutinefunction(getattr(self._conn, "close", None)):
+                    await self._conn.close()
+                else:
+                    self._conn.close()
+            except Exception:
+                pass
+            self._conn = None
         self.is_connected = False
-        logger.info("[MSSQLAdapter] Connection closed.")
+        logger.info("[MSSQLAdapter] Connection closed cleanly.")
+
+    async def disconnect(self) -> None:
+        """Alias for close() to fulfill BaseAdapter lifecycle contract."""
+        await self.close()
 
     def _connection(self):
         class MSSQLConnectionContext:

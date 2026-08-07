@@ -730,10 +730,15 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
     try {
       const payload = {
         migration_id: session.createdMigration?.migrationId || 'mig-plan-draft',
+        discovery_snapshot_id: session.discovery?.snapshotId,
         source_engine: sourceEngine,
         target_engine: targetEngine,
+        parallelism: parseInt(parallelism) || 8,
         worker_allocation: parseInt(parallelism) || 8,
         batch_size: parseInt(batchSize) || 10000,
+        ram_limit_gb: parseFloat(ramLimitGb) || 4.0,
+        validation_level: validationLevel,
+        enable_cdc: enableCdc,
       };
       const rawRes = await ipcService.invokeEngineCapability('generate_plan', JSON.stringify(payload));
       const res = JSON.parse(rawRes);
@@ -771,6 +776,7 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
       try {
         const rawApp = await ipcService.invokeEngineCapability('request_approval', JSON.stringify({
           migration_id: session.createdMigration?.migrationId || 'mig-draft',
+          discovery_snapshot_id: session.discovery?.snapshotId,
           approver: businessOwner || 'Aalok',
           risk_score: session.advisor.riskScore || 'LOW'
         }));

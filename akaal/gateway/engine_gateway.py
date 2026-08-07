@@ -608,6 +608,63 @@ class EngineGateway:
 
             snap_id = f"snap-{uuid.uuid4().hex[:12]}"
             adv_id = f"adv-{uuid.uuid4().hex[:12]}"
+
+            # ── Real Intelligence Pipeline Execution ─────────────────────────
+            # 1. Normalize DiscoveryReport via DecoderPlatform
+            from akaal.decoder.api.decoder_platform import DecoderPlatform
+            from akaal.rulebook.models.migration_ruleset import MigrationRuleSet
+            
+            canonical_model = None
+            risk_model = None
+            risk_dict = {}
+
+            if report_obj is not None:
+                try:
+                    ruleset = MigrationRuleSet()
+                    canonical_model = DecoderPlatform.normalize(discovery_report=report_obj, migration_ruleset=ruleset)
+                    
+                    # 2. Assess Risk & Readiness via RiskPlatform
+                    from akaal.risk.api.risk_platform import RiskPlatform
+                    risk_model = RiskPlatform.assess_risk(canonical_model=canonical_model)
+                    risk_dict = risk_model.to_dict() if hasattr(risk_model, "to_dict") else {}
+                except Exception as intel_exc:
+                    logger.warning("[EngineGateway] Intelligence pipeline warning: %s", intel_exc)
+                    err_list.append(f"Intelligence Pipeline: {intel_exc}")
+
+            # Store canonical model and risk model in state store for downstream planning/approval
+            self.state_store.set_state(snap_id, {
+                "canonical_model": canonical_model,
+                "risk_model": risk_model,
+                "discovery_report": report_obj,
+                "snapshot_id": snap_id,
+                "advisor_id": adv_id,
+            }, category="discovery_snapshot")
+
+            # Extract real metrics from RiskAssessmentModel artifact
+            ov_score = risk_dict.get("overall_risk_score", {})
+            readiness_dict = risk_dict.get("readiness", {})
+            complexity_dict = risk_dict.get("complexity", {})
+            downtime_dict = risk_dict.get("downtime_estimate", {})
+            resource_dict = risk_dict.get("resource_estimate", {})
+            perf_dict = risk_dict.get("performance_prediction", {})
+            risk_items_list = risk_dict.get("risk_items", [])
+
+            real_risk_level = ov_score.get("overall_risk_level", ov_score.get("level", "LOW" if not err_list else "HIGH"))
+            real_risk_score = ov_score.get("overall_risk_score", ov_score.get("score", 0.0))
+            real_compatibility = readiness_dict.get("technical_readiness", readiness_dict.get("score", 100.0 if total_tables_count > 0 else 0.0))
+            real_trust = f"{int(real_compatibility)}% Ready" if not err_list else "Errors Detected"
+            
+            dur_sec = perf_dict.get("duration_seconds", downtime_dict.get("estimated_seconds", 30))
+            dur_formatted = f"< {max(1, int(dur_sec // 60))} Mins" if dur_sec >= 60 else f"< {int(dur_sec)} Secs"
+            tput_formatted = f"{perf_dict.get('throughput_mbps', 45.0):.1f} MB/s"
+            rec_workers = resource_dict.get("recommended_workers", 4 if total_rows_sum < 1000 else 8)
+
+            real_warnings = [item.get("title", item.get("description", "")) for item in risk_items_list if isinstance(item, dict)]
+            if not real_warnings and err_list:
+                real_warnings = err_list
+
+            unsupported_objs = complexity_dict.get("unsupported_objects", [])
+
             return {
                 "discovery_snapshot_id": snap_id,
                 "advisor_report_id": adv_id,
@@ -629,15 +686,16 @@ class EngineGateway:
                 "procedure_count": 0,
                 "function_count": 0,
                 "lob_count": 0,
-                "compatibility_score": 100.0 if total_tables_count > 0 else 0.0,
-                "risk_score": "LOW" if not err_list else "HIGH",
-                "trust_score": "100% Ready" if not err_list else "Errors Detected",
-                "unsupported_objects": [],
-                "warnings": err_list,
-                "execution_plan": "Topological DAG Stream Partitioning",
-                "worker_allocation": 4 if total_rows_sum < 1000 else 8,
-                "estimated_duration": "< 1 Min" if total_rows_sum < 1000 else "12 Mins",
-                "estimated_throughput": "45.0 MB/s",
+                "compatibility_score": real_compatibility,
+                "risk_score": real_risk_level,
+                "risk_score_numeric": real_risk_score,
+                "trust_score": real_trust,
+                "unsupported_objects": unsupported_objs,
+                "warnings": real_warnings,
+                "execution_plan": "Dynamic Topological DAG Plan",
+                "worker_allocation": rec_workers,
+                "estimated_duration": dur_formatted,
+                "estimated_throughput": tput_formatted,
                 "rollback_readiness": "Snapshot Protection Active",
                 "validation_strategy": "Full Row Count & Checksum Auditing",
                 "approval_requirements": ["Gate 1: Pre-Flight Review", "Gate 2: Schema Approval", "Gate 3: Cutover Certification"],
@@ -654,25 +712,78 @@ class EngineGateway:
         return self.run_preflight(payload)
 
     def generate_plan(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        mig_id = payload.get("migration_id", "mig-default")
-        plan_id = f"plan-{uuid.uuid4().hex[:12]}"
-        workers = int(payload.get("worker_allocation", 8))
-        batch_size = int(payload.get("batch_size", 10000))
+        snap_id = payload.get("discovery_snapshot_id")
+        snapshot_state = self.state_store.get_state(snap_id) if snap_id else None
+
+        risk_model = snapshot_state.get("risk_model") if isinstance(snapshot_state, dict) else None
+
+        if not risk_model:
+            from akaal.decoder.models.canonical_migration_model import CanonicalMigrationModel
+            from akaal.risk.api.risk_platform import RiskPlatform
+            canon = CanonicalMigrationModel()
+            risk_model = RiskPlatform.assess_risk(canon)
+
+        from akaal.planner.models.planning_strategy import PlanningStrategy, StrategyType
+        from akaal.planner.models.execution_constraint import ExecutionConstraints
+        from akaal.planner.api.planner_platform import PlannerPlatform
+
+        enable_cdc = payload.get("enable_cdc", True)
+        strat_type = StrategyType.ZERO_DOWNTIME_MIGRATION if enable_cdc else StrategyType.BULK_CUTOVER
+
+        strategy = PlanningStrategy(strategy_type=strat_type)
+        workers_count = int(payload.get("parallelism", payload.get("worker_allocation", 8)))
+        ram_gb = float(payload.get("ram_limit_gb", 4.0))
+        constraints = ExecutionConstraints(
+            max_parallelism=workers_count,
+            max_workers=workers_count,
+            memory_limit_gb=ram_gb,
+        )
+
+        plan_obj = PlannerPlatform.build_execution_plan(
+            risk_model=risk_model,
+            strategy=strategy,
+            constraints=constraints,
+            configuration=payload
+        )
+        plan_dict = plan_obj.to_dict()
+
+        plan_id = f"plan-{plan_obj.sha256_checksum[:12]}"
+
+        raw_stages = plan_dict.get("execution_stages", [])
+        formatted_stages = []
+        for idx, stg in enumerate(raw_stages, 1):
+            s_name = stg.get("stage_name", stg.get("name", f"Stage {idx}"))
+            s_cat = stg.get("category", stg.get("type", "Execution"))
+            formatted_stages.append({
+                "stage": idx,
+                "name": s_name,
+                "category": s_cat,
+                "details": stg.get("description", ""),
+                "tasks": stg.get("tasks", [])
+            })
+
+        if not formatted_stages:
+            formatted_stages = [
+                {"stage": 1, "name": "Catalog & Schema Barrier", "category": "DDL"},
+                {"stage": 2, "name": "DAG Topological Sorting", "category": "Planner"},
+                {"stage": 3, "name": "Parallel Stream Data Transport", "category": "Transport"},
+                {"stage": 4, "name": "Validation & Reconciliation", "category": "Audit"}
+            ]
+
         src_engine = payload.get("source_engine", "Oracle 19c")
         tgt_engine = payload.get("target_engine", "PostgreSQL 16")
 
         plan_payload = {
             "execution_plan_id": plan_id,
-            "migration_id": mig_id,
+            "sha256_checksum": plan_obj.sha256_checksum,
+            "migration_id": payload.get("migration_id", "mig-default"),
             "execution_plan_name": f"Topological DAG Execution Plan ({src_engine} → {tgt_engine})",
-            "worker_allocation": workers,
-            "batch_size": batch_size,
-            "stages": [
-                {"stage": 1, "name": "Catalog & Schema Barrier", "category": "DDL"},
-                {"stage": 2, "name": "DAG Topological Sorting", "category": "Planner"},
-                {"stage": 3, "name": "Parallel Stream Data Transport", "category": "Transport"},
-                {"stage": 4, "name": "Validation & Reconciliation", "category": "Audit"}
-            ],
+            "worker_allocation": constraints.max_workers,
+            "batch_size": int(payload.get("batch_size", 10000)),
+            "ram_limit_gb": constraints.memory_limit_gb,
+            "stages": formatted_stages,
+            "execution_graph": plan_dict.get("execution_graph", {}),
+            "dependency_graph": plan_dict.get("dependency_graph", {}),
             "status": "generated"
         }
         self.state_store.set_state(plan_id, plan_payload, category="execution_plan")
@@ -680,16 +791,26 @@ class EngineGateway:
 
     def request_approval(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         mig_id = payload.get("migration_id", "mig-default")
+        snap_id = payload.get("discovery_snapshot_id")
+        snapshot_state = self.state_store.get_state(snap_id) if snap_id else None
+
+        risk_level = "LOW"
+        if isinstance(snapshot_state, dict) and "risk_model" in snapshot_state:
+            risk_model = snapshot_state["risk_model"]
+            ov_score = risk_model.overall_risk_score if hasattr(risk_model, "overall_risk_score") else {}
+            risk_level = ov_score.get("overall_risk_level", ov_score.get("level", "LOW"))
+
         app_id = f"app-ref-{uuid.uuid4().hex[:12]}"
-        gate_info = self.policy_engine.evaluate_approval_gate(mig_id, "LOW")
+        gate_info = self.policy_engine.evaluate_approval_gate(mig_id, risk_level)
         return {
             "approval_reference_id": app_id,
             "stage": "approval",
             "decision": "approved",
             "approver": payload.get("approver", "Aalok"),
             "custody_hash": f"sha256-{os.urandom(8).hex()}",
-            "gate_status": gate_info["gate_status"],
+            "gate_status": gate_info.get("gate_status", "PASSED"),
             "status": "approved",
+            "risk_level_evaluated": risk_level,
             "approval_packet_ref": f"packet-{app_id}"
         }
 
