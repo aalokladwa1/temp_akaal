@@ -27,6 +27,7 @@ import {
 import type { MigrationPipeline, EngineStageId } from '../../types/migration';
 import { ENGINE_STAGE_METADATA } from '../../services/migrationService';
 import { notificationService } from '../../services/notificationService';
+import { ipcService } from '../../services/ipcService';
 
 export type ConfirmActionType =
   | 'pause'
@@ -72,6 +73,7 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
   // Runtime Connection & Health State
   const [connectionState, setConnectionState] = useState<RuntimeConnectionState>('CONNECTED');
   const [snapshotAgeMs, setSnapshotAgeMs] = useState(120);
+  const [snapshot, setSnapshot] = useState<any>(null);
 
   // Migration Live Run State (Bound for DTO presentation)
   const [runStatus, setRunStatus] = useState<MigrationRunStatus>('running');
@@ -85,9 +87,9 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
   const [exportFormat, setExportFormat] = useState<'HTML' | 'MP4' | 'PDF'>('HTML');
 
   // Live Telemetry Bindings
-  const [rowsProcessed] = useState<number | null>(780_450_000);
-  const totalRows = 1_240_500_000;
-  const progressPercent = rowsProcessed != null ? Math.min(100, Math.round((rowsProcessed / totalRows) * 100)) : 0;
+  const rowsProcessed = snapshot?.rows_transferred != null ? snapshot.rows_transferred : 780_450_000;
+  const totalRows = snapshot?.rows_total != null && snapshot.rows_total > 0 ? snapshot.rows_total : 1_240_500_000;
+  const progressPercent = snapshot?.progress_percent != null ? Math.min(100, Math.round(snapshot.progress_percent)) : (rowsProcessed != null ? Math.min(100, Math.round((rowsProcessed / totalRows) * 100)) : 0);
 
   // Mission Replay™ Mode State
   const [isReplayMode, setIsReplayMode] = useState(false);
@@ -165,77 +167,110 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
     },
   ]);
 
-  // Snapshot Age Simulator
+  const fetchRuntimeSnapshot = async () => {
+    try {
+      const raw = await ipcService.invokeEngineCapability(
+        'get_runtime_snapshot',
+        JSON.stringify({ migration_id: migration.id })
+      );
+      if (raw) {
+        const res = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        const snap = res?.result ? (typeof res.result === 'string' ? JSON.parse(res.result) : res.result) : res;
+        if (snap) {
+          setSnapshot(snap);
+          if (snap.current_activity) {
+            const act = String(snap.current_activity).toUpperCase();
+            if (act.includes('PAUSE')) setRunStatus('paused');
+            else if (act.includes('FAIL') || act.includes('ERROR')) setRunStatus('failed');
+            else if (act.includes('COMPLETE')) setRunStatus('completed');
+            else setRunStatus('running');
+          }
+          if (snap.current_stage) {
+            setActiveStage(snap.current_stage as any);
+          }
+          setConnectionState('CONNECTED');
+        }
+      }
+    } catch (err) {
+      setConnectionState('OFFLINE');
+    }
+  };
+
   useEffect(() => {
+    let isMounted = true;
+    fetchRuntimeSnapshot();
     const interval = setInterval(() => {
-      setSnapshotAgeMs((prev) => (prev > 1500 ? 120 : prev + 120));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
+      if (isMounted) {
+        fetchRuntimeSnapshot();
+        setSnapshotAgeMs((prev) => (prev > 1500 ? 120 : prev + 120));
+      }
+    }, 2000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [migration.id]);
 
   // Action Execution Handler called ONLY after operator confirms inside dialog
-  const executeConfirmedAction = (action: ConfirmActionType) => {
+  const executeConfirmedAction = async (action: ConfirmActionType) => {
     setConfirmAction(null);
+    let cap = '';
+    const payloadObj: any = { migration_id: migration.id };
+
     switch (action) {
       case 'pause':
-        setRunStatus('paused');
-        notificationService.push('Migration Paused', 'warning', 'Transport workers held gracefully. Checkpoint recorded.');
+        cap = 'pause_migration';
         break;
       case 'resume':
-        setRunStatus('running');
-        notificationService.push('Migration Resumed', 'success', 'Resumed 8 parallel stream workers at ~154.8 MB/s.');
+        cap = 'resume_migration';
         break;
       case 'stop_batch':
-        setRunStatus('paused');
-        notificationService.push('Stop After Current Batch', 'info', 'Current batch will finish and commit cleanly.');
+        cap = 'pause_migration';
+        payloadObj.mode = 'stop_after_batch';
         break;
       case 'terminate':
-        setRunStatus('failed');
-        notificationService.push('Migration Terminated', 'error', 'Runtime process terminated immediately.');
+        cap = 'terminate_migration';
         break;
       case 'restart':
-        setRunStatus('running');
-        setActiveStage('data_migration');
-        notificationService.push('Runtime Restarted', 'info', 'Recycled process and restored from checkpoint LSN.');
+      case 'retry':
+        cap = 'start_transport';
         break;
       case 'recover':
-        setRunStatus('running');
-        notificationService.push('Runtime Recovered', 'info', 'WAL replayed and process locks reset.');
+        cap = 'execute_healing';
         break;
       case 'checkpoint':
-        notificationService.push('Checkpoint Created', 'success', 'Manual recovery checkpoint sealed (RPO: 0s).');
+        cap = 'trigger_checkpoint';
         break;
       case 'rollback':
-        setRunStatus('paused');
-        notificationService.push('Rollback Executed', 'warning', `Rolled back target database to checkpoint ${selectedCheckpoint}.`);
+        cap = 'rollback_migration';
+        payloadObj.checkpoint = selectedCheckpoint;
         break;
-      case 'retry':
-        setRunStatus('running');
-        setActiveStage('data_migration');
-        notificationService.push('Retrying Failed Step', 'info', 'Re-executing current stage under supervisor.');
-        break;
-      case 'maintenance':
-        notificationService.push('Maintenance Mode Enabled', 'warning', 'Runtime isolated. New operation requests held.');
-        break;
-      case 'run_again':
-        setRunStatus('running');
-        notificationService.push('New Execution Run Created', 'success', 'Instantiated fresh pipeline run for workspace.');
-        break;
-      case 'clone':
-        notificationService.push('Migration Cloned', 'success', 'Cloned configuration into new pipeline template.');
+      case 'download_cert':
+        cap = 'generate_certificate';
         break;
       case 'mission_replay':
         setIsReplayMode(true);
         setReplayTimeSec(0);
         setReplayPlaying(true);
         notificationService.push('Mission Replay™ Active', 'info', 'Replaying recorded engine events & telemetry stream.');
-        break;
+        return;
       case 'export_replay':
         notificationService.push('Replay Manifest Exported', 'success', `Exported Mission Replay as ${exportFormat} file.`);
-        break;
-      case 'download_cert':
-        notificationService.push('Trust Certificate Downloaded', 'success', 'Downloaded SHA-256 cryptographic proof document.');
-        break;
+        return;
+      default:
+        notificationService.push(`Action ${action.toUpperCase()}`, 'info', 'Action acknowledged.');
+        return;
+    }
+
+    if (cap) {
+      try {
+        await ipcService.invokeEngineCapability(cap, JSON.stringify(payloadObj));
+        notificationService.push(`Engine Acknowledged: ${action.toUpperCase()}`, 'success', `State updated by AKAAL runtime for ${migration.id}`);
+        await fetchRuntimeSnapshot();
+      } catch (err: any) {
+        const errStr = typeof err === 'string' ? err : err?.message || String(err);
+        notificationService.push(`Operation Failed`, 'error', errStr);
+      }
     }
   };
 
