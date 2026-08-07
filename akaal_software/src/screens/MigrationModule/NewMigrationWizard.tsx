@@ -1977,41 +1977,58 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
           {/* ── STEP 5: DYNAMIC EXECUTION PLAN (Visual DAG Engine Graph) ──── */}
           {step === 5 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <div style={{ padding: 14, background: 'rgba(16,185,129,0.12)', borderRadius: 10, border: '1px solid rgba(16,185,129,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div>
-                  <div style={{ fontSize: 15, fontWeight: 800, color: '#10B981', display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <CheckCircle2 size={18} color="#10B981" /> DYNAMIC EXECUTION PLAN GENERATED — 99.4% PREDICTED TRUST SCORE
-                  </div>
-                  <div style={{ fontSize: 12, color: 'var(--dash-text-secondary)', marginTop: 2 }}>
-                    Generated dynamically for {selectedDbCount} Databases, {selectedSchemaCount} Schemas, and {selectedCount} Objects.
-                  </div>
-                </div>
-                <span style={{ fontSize: 11, padding: '4px 12px', borderRadius: 6, background: '#10B981', color: '#FFF', fontWeight: 700 }}>DYNAMIC DAG</span>
-              </div>
-
-              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--dash-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                Generated DAG Execution Stages ({dynamicExecutionPlanNodes.length} Pipeline Stages)
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {dynamicExecutionPlanNodes.map((node) => (
-                  <div key={node.stage} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--dash-surface)', borderRadius: 8, border: '1px solid var(--dash-border)', gap: 12 }}>
-                    <span style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(37,99,235,0.15)', color: '#3B82F6', fontSize: 11, fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      {node.stage}
-                    </span>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--dash-text-primary)' }}>{node.name}</span>
-                        <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: 'var(--dash-bg)', border: '1px solid var(--dash-border)', color: 'var(--dash-text-secondary)', fontWeight: 600 }}>{node.category}</span>
+              {session.executionPlan.status === 'completed' && session.executionPlan.raw?.stages ? (
+                <>
+                  <div style={{ padding: 14, background: 'rgba(16,185,129,0.12)', borderRadius: 10, border: '1px solid rgba(16,185,129,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 800, color: '#10B981', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <CheckCircle2 size={18} color="#10B981" /> DYNAMIC EXECUTION PLAN GENERATED
                       </div>
-                      <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)', marginTop: 2 }}>{node.details}</div>
+                      <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)', marginTop: 2, fontFamily: 'var(--akaal-font-mono, monospace)' }}>
+                        SHA-256 Checksum: {session.executionPlan.raw?.sha256_checksum || 'Pending'}
+                      </div>
                     </div>
-                    <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 4, background: node.status === 'VERIFIED' ? 'rgba(16,185,129,0.15)' : 'rgba(37,99,235,0.15)', color: node.status === 'VERIFIED' ? '#10B981' : '#3B82F6' }}>
-                      {node.status}
-                    </span>
+                    <span style={{ fontSize: 11, padding: '4px 12px', borderRadius: 6, background: '#10B981', color: '#FFF', fontWeight: 700 }}>AUTHORITATIVE DAG</span>
                   </div>
-                ))}
-              </div>
+
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--dash-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    PlannerPlatform Execution Stages ({session.executionPlan.raw.stages.length} Stages)
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {session.executionPlan.raw.stages.map((node: any) => (
+                      <div key={node.stage} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--dash-surface)', borderRadius: 8, border: '1px solid var(--dash-border)', gap: 12 }}>
+                        <span style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(37,99,235,0.15)', color: '#3B82F6', fontSize: 11, fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          {node.stage}
+                        </span>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--dash-text-primary)' }}>{node.name}</span>
+                            <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: 'var(--dash-bg)', border: '1px solid var(--dash-border)', color: 'var(--dash-text-secondary)', fontWeight: 600 }}>{node.category}</span>
+                          </div>
+                          {node.details && <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)', marginTop: 2 }}>{node.details}</div>}
+                        </div>
+                        <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 4, background: 'rgba(16,185,129,0.15)', color: '#10B981' }}>
+                          READY
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div style={{ padding: 32, background: 'var(--dash-surface)', borderRadius: 10, border: '1px dashed var(--dash-border)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, textAlign: 'center' }}>
+                  <Cpu size={36} color="var(--dash-accent)" />
+                  <div>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--dash-text-primary)' }}>Execution Plan Not Yet Generated</div>
+                    <div style={{ fontSize: 12, color: 'var(--dash-text-secondary)', marginTop: 4, maxWidth: 460 }}>
+                      Run AKAAL's PlannerPlatform to construct an authoritative topological execution plan and resource schedule.
+                    </div>
+                  </div>
+                  <button type="button" onClick={handleGeneratePlan} style={{ padding: '10px 20px', borderRadius: 8, background: 'var(--dash-accent)', color: '#FFF', border: 'none', fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Zap size={15} /> {session.executionPlan.status === 'running' ? 'Generating Plan...' : 'Generate Dynamic Execution Plan'}
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -2263,16 +2280,18 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
                 </div>
                 <div style={{ padding: 14, background: 'var(--dash-surface)', borderRadius: 10, border: '1px solid var(--dash-border)', fontSize: 12, lineHeight: 1.6 }}>
                   <div style={{ fontWeight: 700, marginBottom: 8, color: 'var(--dash-text-primary)', borderBottom: '1px solid var(--dash-border)', paddingBottom: 4 }}>4. Dynamic Execution Graph</div>
-                  • <strong>Pipeline Stages:</strong> {dynamicExecutionPlanNodes.length} Generated Stages<br />
+                  • <strong>Pipeline Stages:</strong> {session.executionPlan.status === 'completed' ? `${session.executionPlan.raw?.stages?.length || 0} Stages` : 'Not Generated'}<br />
                   • <strong>CDC Replication:</strong> {enableCdc ? 'Active Stream' : 'Batch Sync'}<br />
-                  • <strong>Predicted Trust Score:</strong> 99.4%<br />
-                  • <strong>Risk Level:</strong> 0.12 (LOW)
+                  • <strong>Predicted Trust Score:</strong> {session.advisor.status === 'completed' ? (session.advisor.trustScore || '—') : '—'}<br />
+                  • <strong>Risk Level:</strong> {session.advisor.status === 'completed' ? (session.advisor.riskScore || '—') : '—'}
                 </div>
               </div>
 
               <div style={{ padding: 14, background: 'var(--dash-surface)', borderRadius: 10, border: '1px solid var(--dash-border)', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div><strong style={{ color: 'var(--dash-text-primary)' }}>Governance Policy:</strong> {fourEyesPolicy ? 'Four-Eyes Executive Approval Enforced' : 'Single Operator Approval'}</div>
-                <span style={{ fontSize: 11, padding: '4px 10px', borderRadius: 4, background: 'rgba(16,185,129,0.15)', color: '#10B981', fontWeight: 700 }}>APPROVAL PASSED</span>
+                <span style={{ fontSize: 11, padding: '4px 10px', borderRadius: 4, background: session.approval.status === 'approved' ? 'rgba(16,185,129,0.15)' : 'var(--dash-bg)', color: session.approval.status === 'approved' ? '#10B981' : 'var(--dash-text-secondary)', fontWeight: 700 }}>
+                  {session.approval.status === 'approved' ? 'APPROVAL PASSED' : 'PENDING APPROVAL'}
+                </span>
               </div>
             </div>
           )}
@@ -2315,19 +2334,27 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
               <span style={{ color: 'var(--dash-text-secondary)' }}>Databases Selected:</span>
-              <strong style={{ color: 'var(--dash-text-primary)' }}>{selectedDbCount} / {totalDatabasesDetected}</strong>
+              <strong style={{ color: 'var(--dash-text-primary)' }}>
+                {session.discovery.status === 'completed' ? `${selectedDbCount} / ${totalDatabasesDetected}` : '—'}
+              </strong>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
               <span style={{ color: 'var(--dash-text-secondary)' }}>Schemas Selected:</span>
-              <strong style={{ color: 'var(--dash-text-primary)' }}>{selectedSchemaCount} / {totalSchemasDetected}</strong>
+              <strong style={{ color: 'var(--dash-text-primary)' }}>
+                {session.discovery.status === 'completed' ? `${selectedSchemaCount} / ${totalSchemasDetected}` : '—'}
+              </strong>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
               <span style={{ color: 'var(--dash-text-secondary)' }}>Objects Selected:</span>
-              <strong style={{ color: '#10B981' }}>{selectedCount.toLocaleString()}</strong>
+              <strong style={{ color: '#10B981' }}>
+                {session.discovery.status === 'completed' ? selectedCount.toLocaleString() : '—'}
+              </strong>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
               <span style={{ color: 'var(--dash-text-secondary)' }}>Objects Excluded:</span>
-              <strong style={{ color: excludedCount > 0 ? '#F59E0B' : '#10B981' }}>{excludedCount.toLocaleString()}</strong>
+              <strong style={{ color: excludedCount > 0 ? '#F59E0B' : '#10B981' }}>
+                {session.discovery.status === 'completed' ? excludedCount.toLocaleString() : '—'}
+              </strong>
             </div>
           </div>
 
@@ -2338,11 +2365,15 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
               <span style={{ color: 'var(--dash-text-secondary)' }}>DAG Stages:</span>
-              <strong style={{ color: '#3B82F6' }}>{dynamicExecutionPlanNodes.length} Stages</strong>
+              <strong style={{ color: '#3B82F6' }}>
+                {session.executionPlan.status === 'completed' ? `${session.executionPlan.raw?.stages?.length || 0} Stages` : '—'}
+              </strong>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
               <span style={{ color: 'var(--dash-text-secondary)' }}>Workers:</span>
-              <strong style={{ color: 'var(--dash-text-primary)' }}>{parallelism} Pool</strong>
+              <strong style={{ color: 'var(--dash-text-primary)' }}>
+                {session.executionPlan.status === 'completed' ? `${session.executionPlan.raw?.worker_allocation || parallelism} Pool` : '—'}
+              </strong>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
               <span style={{ color: 'var(--dash-text-secondary)' }}>Validation:</span>
@@ -2350,7 +2381,9 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
               <span style={{ color: 'var(--dash-text-secondary)' }}>Predicted Trust:</span>
-              <strong style={{ color: '#10B981' }}>99.4%</strong>
+              <strong style={{ color: '#10B981' }}>
+                {session.advisor.status === 'completed' ? (session.advisor.trustScore || '—') : '—'}
+              </strong>
             </div>
           </div>
 
@@ -2369,7 +2402,9 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
             </div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 11 }}>
               <span style={{ color: 'var(--dash-text-secondary)' }}>Four-Eyes Policy:</span>
-              <span style={{ color: '#10B981', fontWeight: 700 }}>✓ PASSED</span>
+              <span style={{ color: session.approval.status === 'approved' ? '#10B981' : 'var(--dash-text-secondary)', fontWeight: 700 }}>
+                {session.approval.status === 'approved' ? '✓ PASSED' : '○ PENDING'}
+              </span>
             </div>
           </div>
         </div>

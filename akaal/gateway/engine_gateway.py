@@ -241,19 +241,19 @@ class EngineGateway:
                     loop.run_until_complete(adapter.disconnect())
                 except Exception:
                     pass
-                    conn_id = f"conn-{hashlib.sha256(f'{sys_type_str}:{cfg.host}:{cfg.port}:{cfg.database_name}:{cfg.credentials_ref}'.encode()).hexdigest()[:12]}"
-                    return {
-                        "connected": True,
-                        "connection_id": conn_id,
-                        "system_type": sys_type_str,
-                        "host": cfg.host,
-                        "port": cfg.port,
-                        "database_name": cfg.database_name,
-                        "username": cfg.credentials_ref,
-                        "server_version": str(ver),
-                        "latency_ms": 1.5,
-                        "message": f"Successfully connected to {sys_type_str} at {cfg.host}:{cfg.port}/{cfg.database_name}",
-                    }
+                conn_id = f"conn-{hashlib.sha256(f'{sys_type_str}:{cfg.host}:{cfg.port}:{cfg.database_name}:{cfg.credentials_ref}'.encode()).hexdigest()[:12]}"
+                return {
+                    "connected": True,
+                    "connection_id": conn_id,
+                    "system_type": sys_type_str,
+                    "host": cfg.host,
+                    "port": cfg.port,
+                    "database_name": cfg.database_name,
+                    "username": cfg.credentials_ref,
+                    "server_version": str(ver),
+                    "latency_ms": 1.5,
+                    "message": f"Successfully connected to {sys_type_str} at {cfg.host}:{cfg.port}/{cfg.database_name}",
+                }
             conn_id = f"conn-{hashlib.sha256(f'{sys_type_str}:{cfg.host}:{cfg.port}:{cfg.database_name}:{cfg.credentials_ref}'.encode()).hexdigest()[:12]}"
             return {
                 "connected": False,
