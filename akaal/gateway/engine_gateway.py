@@ -431,83 +431,69 @@ class EngineGateway:
                 err_list.append(str(disc_exc))
 
             db_name = cfg.database_name.upper()
-            sch_name = cfg.credentials_ref.upper()
             inst_name = f"{src_sys} Server ({cfg.host}:{cfg.port})"
 
-            # Build Canonical Object Groups & Hierarchy
-            table_objs = []
+            discovered_schemas = schema_dict.get("schemas", [])
+            if not discovered_schemas:
+                discovered_schemas = [cfg.credentials_ref.upper()] if cfg.credentials_ref else ["SYSTEM"]
+
             raw_tables = schema_dict.get("tables", [])
-            if isinstance(raw_tables, list):
-                for t in raw_tables:
-                    t_name = (t.get("table_name") or t.get("name") or "UNKNOWN").upper() if isinstance(t, dict) else str(t).upper()
-                    s_name = (t.get("schema_name") or t.get("schema") or sch_name).upper() if isinstance(t, dict) else sch_name
-                    r_count = t.get("row_count", 0) if isinstance(t, dict) else 0
-                    s_bytes = t.get("size_bytes", 0) if isinstance(t, dict) else 0
-                    s_gb = round(s_bytes / (1024 ** 3), 6) if s_bytes else 0.0
-                    table_objs.append({
-                        "object_id": f"obj-{db_name.lower()}-{s_name.lower()}-tbl-{t_name.lower()}",
-                        "schema_id": f"schema-{s_name}",
-                        "db_id": f"db-{db_name}",
-                        "object_name": t_name,
-                        "object_type": "Table",
-                        "estimated_rows": r_count,
-                        "estimated_size_gb": s_gb,
-                        "dependencies": [],
-                        "warnings": [],
-                        "compatibility_status": "OPTIMAL",
-                        "selected": True,
-                    })
+            raw_views = schema_dict.get("views", [])
 
-            object_groups = []
-            if table_objs:
-                object_groups.append({
-                    "object_type_id": "grp-table",
-                    "object_type_name": "Table",
-                    "object_type": "Table",
-                    "objects": table_objs
-                })
+            schemas_nodes = []
+            all_table_objs = []
 
-            # Views
-            views_list = schema_dict.get("views", [])
-            if isinstance(views_list, list) and views_list:
-                view_objs = []
-                for v in views_list:
-                    v_name = (v.get("name") or v.get("view_name") or str(v)).upper() if isinstance(v, dict) else str(v).upper()
-                    view_objs.append({
-                        "object_id": f"obj-{db_name.lower()}-{sch_name.lower()}-vw-{v_name.lower()}",
-                        "schema_id": f"schema-{sch_name}",
-                        "db_id": f"db-{db_name}",
-                        "object_name": v_name,
-                        "object_type": "View",
-                        "estimated_rows": 0,
-                        "estimated_size_gb": 0.0,
-                        "dependencies": [],
-                        "warnings": [],
-                        "compatibility_status": "OPTIMAL",
-                        "selected": True,
-                    })
-                object_groups.append({
-                    "object_type_id": "grp-view",
-                    "object_type_name": "View",
-                    "object_type": "View",
-                    "objects": view_objs
-                })
-
-            # Procedures, Functions, Triggers, Sequences
-            for obj_type, item_list in [("Procedure", object_dict.get("procedures", [])),
-                                         ("Function", object_dict.get("functions", [])),
-                                         ("Trigger", object_dict.get("triggers", [])),
-                                         ("Sequence", object_dict.get("sequences", []))]:
-                if isinstance(item_list, list) and item_list:
-                    grp_objs = []
-                    for item in item_list:
-                        i_name = (item.get("name") or str(item)).upper() if isinstance(item, dict) else str(item).upper()
-                        grp_objs.append({
-                            "object_id": f"obj-{db_name.lower()}-{sch_name.lower()}-{obj_type.lower()[:3]}-{i_name.lower()}",
-                            "schema_id": f"schema-{sch_name}",
+            for sch_item in discovered_schemas:
+                s_name = sch_item.upper() if isinstance(sch_item, str) else str(sch_item).upper()
+                table_objs = []
+                if isinstance(raw_tables, list):
+                    for t in raw_tables:
+                        t_sch = (t.get("schema_name") or t.get("schema") or s_name).upper() if isinstance(t, dict) else s_name
+                        if t_sch != s_name:
+                            continue
+                        t_name = (t.get("table_name") or t.get("name") or "UNKNOWN").upper() if isinstance(t, dict) else str(t).upper()
+                        r_count = t.get("row_count", 0) if isinstance(t, dict) else 0
+                        s_bytes = t.get("size_bytes", 0) if isinstance(t, dict) else 0
+                        s_gb = round(s_bytes / (1024 ** 3), 6) if s_bytes else 0.0
+                        t_entry = {
+                            "object_id": f"obj-{db_name.lower()}-{s_name.lower()}-tbl-{t_name.lower()}",
+                            "schema_id": f"schema-{s_name}",
                             "db_id": f"db-{db_name}",
-                            "object_name": i_name,
-                            "object_type": obj_type,
+                            "object_name": t_name,
+                            "object_type": "Table",
+                            "estimated_rows": r_count,
+                            "estimated_size_gb": s_gb,
+                            "dependencies": [],
+                            "warnings": [],
+                            "compatibility_status": "OPTIMAL",
+                            "selected": True,
+                        }
+                        table_objs.append(t_entry)
+                        all_table_objs.append(t_entry)
+
+                object_groups = []
+                if table_objs:
+                    object_groups.append({
+                        "object_type_id": f"grp-{s_name.lower()}-table",
+                        "object_type_name": "Table",
+                        "object_type": "Table",
+                        "objects": table_objs
+                    })
+
+                # Views for this schema
+                if isinstance(raw_views, list) and raw_views:
+                    view_objs = []
+                    for v in raw_views:
+                        v_sch = (v.get("schema_name") or v.get("schema") or s_name).upper() if isinstance(v, dict) else s_name
+                        if v_sch != s_name:
+                            continue
+                        v_name = (v.get("name") or v.get("view_name") or str(v)).upper() if isinstance(v, dict) else str(v).upper()
+                        view_objs.append({
+                            "object_id": f"obj-{db_name.lower()}-{s_name.lower()}-vw-{v_name.lower()}",
+                            "schema_id": f"schema-{s_name}",
+                            "db_id": f"db-{db_name}",
+                            "object_name": v_name,
+                            "object_type": "View",
                             "estimated_rows": 0,
                             "estimated_size_gb": 0.0,
                             "dependencies": [],
@@ -515,21 +501,53 @@ class EngineGateway:
                             "compatibility_status": "OPTIMAL",
                             "selected": True,
                         })
-                    object_groups.append({
-                        "object_type_id": f"grp-{obj_type.lower()}",
-                        "object_type_name": obj_type,
-                        "object_type": obj_type,
-                        "objects": grp_objs
-                    })
+                    if view_objs:
+                        object_groups.append({
+                            "object_type_id": f"grp-{s_name.lower()}-view",
+                            "object_type_name": "View",
+                            "object_type": "View",
+                            "objects": view_objs
+                        })
 
-            schemas_nodes = [
-                {
-                    "schema_id": f"schema-{sch_name}",
-                    "schema_name": sch_name,
+                # Procedures, Functions, Triggers, Sequences for this schema
+                for obj_type, item_list in [("Procedure", object_dict.get("procedures", [])),
+                                             ("Function", object_dict.get("functions", [])),
+                                             ("Trigger", object_dict.get("triggers", [])),
+                                             ("Sequence", object_dict.get("sequences", []))]:
+                    if isinstance(item_list, list) and item_list:
+                        grp_objs = []
+                        for item in item_list:
+                            i_sch = (item.get("schema_name") or item.get("schema") or s_name).upper() if isinstance(item, dict) else s_name
+                            if i_sch != s_name:
+                                continue
+                            i_name = (item.get("name") or str(item)).upper() if isinstance(item, dict) else str(item).upper()
+                            grp_objs.append({
+                                "object_id": f"obj-{db_name.lower()}-{s_name.lower()}-{obj_type.lower()[:3]}-{i_name.lower()}",
+                                "schema_id": f"schema-{s_name}",
+                                "db_id": f"db-{db_name}",
+                                "object_name": i_name,
+                                "object_type": obj_type,
+                                "estimated_rows": 0,
+                                "estimated_size_gb": 0.0,
+                                "dependencies": [],
+                                "warnings": [],
+                                "compatibility_status": "OPTIMAL",
+                                "selected": True,
+                            })
+                        if grp_objs:
+                            object_groups.append({
+                                "object_type_id": f"grp-{s_name.lower()}-{obj_type.lower()}",
+                                "object_type_name": obj_type,
+                                "object_type": obj_type,
+                                "objects": grp_objs
+                            })
+
+                schemas_nodes.append({
+                    "schema_id": f"schema-{s_name}",
+                    "schema_name": s_name,
                     "db_id": f"db-{db_name}",
                     "object_groups": object_groups
-                }
-            ]
+                })
 
             databases_nodes = [
                 {
@@ -548,10 +566,10 @@ class EngineGateway:
                 "databases": databases_nodes
             }
 
-            total_objs_count = sum(len(grp["objects"]) for grp in object_groups)
-            total_tables_count = len(table_objs)
-            total_rows_sum = sum(t["estimated_rows"] for t in table_objs)
-            total_bytes_sum = int(sum(t["estimated_size_gb"] for t in table_objs) * (1024 ** 3))
+            total_objs_count = sum(sum(len(grp["objects"]) for grp in sch["object_groups"]) for sch in schemas_nodes)
+            total_tables_count = len(all_table_objs)
+            total_rows_sum = sum(t["estimated_rows"] for t in all_table_objs)
+            total_bytes_sum = int(sum(t["estimated_size_gb"] for t in all_table_objs) * (1024 ** 3))
 
             canonical_metrics = {
                 "databases_detected": len(databases_nodes),
@@ -573,12 +591,12 @@ class EngineGateway:
                 "target_engine": str(payload.get("target_engine", "PostgreSQL 16")),
                 "instance": canonical_instance,
                 "metrics": canonical_metrics,
-                "schemas": [sch_name],
+                "schemas": [s.upper() if isinstance(s, str) else str(s) for s in discovered_schemas],
                 "table_count": total_tables_count,
-                "table_names": [t["object_name"] for t in table_objs],
+                "table_names": [t["object_name"] for t in all_table_objs],
                 "column_count": sum(len(t.get("columns", [])) for t in raw_tables) if isinstance(raw_tables, list) else 0,
                 "row_count": total_rows_sum,
-                "view_count": len(object_groups[1]["objects"]) if len(object_groups) > 1 and object_groups[1]["object_type"] == "View" else 0,
+                "view_count": sum(len(grp["objects"]) for sch in schemas_nodes for grp in sch["object_groups"] if grp["object_type"] == "View"),
                 "index_count": total_tables_count,
                 "sequence_count": 0,
                 "trigger_count": 0,

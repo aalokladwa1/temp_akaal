@@ -1334,17 +1334,23 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
                 <div style={{ width: 1, height: 22, background: 'var(--dash-border)' }} />
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span style={{ fontSize: 11, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Databases Discovered:</span>
-                  <strong style={{ fontSize: 16, fontWeight: 800, color: '#3B82F6', fontVariantNumeric: 'tabular-nums' }}>{totalDatabasesDetected}</strong>
+                  <strong style={{ fontSize: 16, fontWeight: 800, color: '#3B82F6', fontVariantNumeric: 'tabular-nums' }}>
+                    {session.discovery.status === 'idle' ? '—' : totalDatabasesDetected}
+                  </strong>
                 </div>
                 <div style={{ width: 1, height: 22, background: 'var(--dash-border)' }} />
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span style={{ fontSize: 11, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Schemas Discovered:</span>
-                  <strong style={{ fontSize: 16, fontWeight: 800, color: '#8B5CF6', fontVariantNumeric: 'tabular-nums' }}>{totalSchemasDetected}</strong>
+                  <strong style={{ fontSize: 16, fontWeight: 800, color: '#8B5CF6', fontVariantNumeric: 'tabular-nums' }}>
+                    {session.discovery.status === 'idle' ? '—' : totalSchemasDetected}
+                  </strong>
                 </div>
                 <div style={{ width: 1, height: 22, background: 'var(--dash-border)' }} />
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span style={{ fontSize: 11, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Objects Discovered:</span>
-                  <strong style={{ fontSize: 16, fontWeight: 800, color: '#10B981', fontVariantNumeric: 'tabular-nums' }}>{totalObjectsDetected.toLocaleString()}</strong>
+                  <strong style={{ fontSize: 16, fontWeight: 800, color: '#10B981', fontVariantNumeric: 'tabular-nums' }}>
+                    {session.discovery.status === 'idle' ? '—' : totalObjectsDetected.toLocaleString()}
+                  </strong>
                 </div>
               </div>
 
@@ -1413,21 +1419,30 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
                   <div style={{ overflowY: 'auto', maxHeight: 460, padding: 8 }}>
                     {databases.length === 0 ? (
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 24px', gap: 12, textAlign: 'center' }}>
-                        <Database size={36} color="var(--dash-text-secondary)" />
-                        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--dash-text-primary)' }}>No discovery has been executed</div>
-                        <div style={{ fontSize: 12, color: 'var(--dash-text-secondary)', maxWidth: 440 }}>
-                          {(!sourceTested || !targetTested)
+                        <Database size={36} color={session.discovery.status === 'failed' ? '#EF4444' : 'var(--dash-text-secondary)'} />
+                        <div style={{ fontSize: 14, fontWeight: 700, color: session.discovery.status === 'failed' ? '#EF4444' : 'var(--dash-text-primary)' }}>
+                          {session.discovery.status === 'failed'
+                            ? 'Discovery Failed'
+                            : session.discovery.status === 'completed'
+                            ? 'Discovery completed. No migration-eligible objects were discovered.'
+                            : 'No discovery data available'}
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--dash-text-secondary)', maxWidth: 500, wordBreak: 'break-word' }}>
+                          {session.discovery.status === 'failed'
+                            ? (session.discovery.blockerReason || 'An unknown error occurred during discovery.')
+                            : session.discovery.status === 'completed'
+                            ? 'The engine scanned the source database but found no migration-eligible tables or objects.'
+                            : (!sourceTested || !targetTested)
                             ? 'Complete Source and Target connection verification before discovery.'
                             : 'Run Discovery to load the source catalog.'}
                         </div>
-                        {sourceTested && targetTested && (
+                        {sourceTested && targetTested && session.discovery.status !== 'running' && (
                           <button
                             type="button"
                             onClick={handleRunDiscovery}
-                            disabled={session.discovery.status === 'running'}
                             style={{ padding: '8px 20px', borderRadius: 8, background: 'var(--dash-accent)', border: 'none', color: '#FFF', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}
                           >
-                            <RefreshCw size={14} className={session.discovery.status === 'running' ? 'spin' : ''} /> Run Discovery
+                            <RefreshCw size={14} /> {session.discovery.status === 'failed' ? 'Retry Discovery' : 'Run Discovery'}
                           </button>
                         )}
                       </div>
