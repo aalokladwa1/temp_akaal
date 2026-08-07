@@ -30,6 +30,7 @@ import { notificationService } from '../../services/notificationService';
 import { ipcService } from '../../services/ipcService';
 
 export type ConfirmActionType =
+  | 'start'
   | 'pause'
   | 'resume'
   | 'stop_batch'
@@ -53,7 +54,7 @@ export interface MissionControlViewProps {
   onOpenGovernance?: (migrationId?: string, gateId?: string) => void;
 }
 
-export type MigrationRunStatus = 'running' | 'paused' | 'failed' | 'completed';
+export type MigrationRunStatus = 'created' | 'ready' | 'running' | 'paused' | 'failed' | 'completed';
 export type RuntimeConnectionState = 'CONNECTED' | 'LOADING' | 'RECONNECTING' | 'ERROR' | 'OFFLINE';
 
 const fmtRows = (n: number | null | undefined): string => {
@@ -76,7 +77,7 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
   const [snapshot, setSnapshot] = useState<any>(null);
 
   // Migration Live Run State (Bound for DTO presentation)
-  const [runStatus, setRunStatus] = useState<MigrationRunStatus>('running');
+  const [runStatus, setRunStatus] = useState<MigrationRunStatus>('ready');
   const [activeStage, setActiveStage] = useState<EngineStageId>('data_migration');
   const [showPlanDrawer, setShowPlanDrawer] = useState(false);
   const [showOperationsMenu, setShowOperationsMenu] = useState(false);
@@ -87,9 +88,9 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
   const [exportFormat, setExportFormat] = useState<'HTML' | 'MP4' | 'PDF'>('HTML');
 
   // Live Telemetry Bindings
-  const rowsProcessed = snapshot?.rows_transferred != null ? snapshot.rows_transferred : 780_450_000;
-  const totalRows = snapshot?.rows_total != null && snapshot.rows_total > 0 ? snapshot.rows_total : 1_240_500_000;
-  const progressPercent = snapshot?.progress_percent != null ? Math.min(100, Math.round(snapshot.progress_percent)) : (rowsProcessed != null ? Math.min(100, Math.round((rowsProcessed / totalRows) * 100)) : 0);
+  const rowsProcessed = snapshot?.rows_transferred != null ? snapshot.rows_transferred : null;
+  const totalRows = snapshot?.rows_total != null && snapshot.rows_total > 0 ? snapshot.rows_total : null;
+  const progressPercent = snapshot?.progress_percent != null ? Math.min(100, Math.round(snapshot.progress_percent)) : 0;
 
   // Mission Replay™ Mode State
   const [isReplayMode, setIsReplayMode] = useState(false);
@@ -180,7 +181,8 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
           setSnapshot(snap);
           if (snap.current_activity) {
             const act = String(snap.current_activity).toUpperCase();
-            if (act.includes('PAUSE')) setRunStatus('paused');
+            if (act.includes('CREATED') || act.includes('CONFIGURED') || snap.current_stage === 'ready') setRunStatus('ready');
+            else if (act.includes('PAUSE')) setRunStatus('paused');
             else if (act.includes('FAIL') || act.includes('ERROR')) setRunStatus('failed');
             else if (act.includes('COMPLETE')) setRunStatus('completed');
             else setRunStatus('running');
@@ -404,6 +406,18 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
           <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--dash-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginRight: 6 }}>
             Operations Console:
           </span>
+
+          {/* READY / CREATED STATE CONTROLS */}
+          {(runStatus === 'ready' || runStatus === 'created') && (
+            <>
+              <button type="button" onClick={() => setConfirmAction('start')} style={{ padding: '6px 16px', borderRadius: 6, background: '#10B981', color: '#FFF', fontSize: 12, fontWeight: 800, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Play size={14} /> START MIGRATION
+              </button>
+              <button type="button" onClick={() => setConfirmAction('terminate')} style={{ padding: '6px 14px', borderRadius: 6, background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', color: '#EF4444', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <XCircle size={13} /> Cancel Pipeline
+              </button>
+            </>
+          )}
 
           {/* RUNNING STATE CONTROLS */}
           {runStatus === 'running' && (

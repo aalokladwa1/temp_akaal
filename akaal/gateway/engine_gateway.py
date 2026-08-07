@@ -308,9 +308,9 @@ class EngineGateway:
         self._migrations[mig_id] = {"migration_id": mig_id, "migration_name": name, "status": "configured", "config": config}
         self._register_workflow_manifest(mig_id)
 
-        # Control Plane Active Integration
         self.runtime_registry.register_runtime(mig_id, mig_id, os.getpid(), config)
         self.state_store.set_state(mig_id, {"status": "configured", "config": config}, category="migration")
+        self.state_store.set_state(f"{mig_id}_status", {"status": "CREATED"}, category="runtime")
         self.state_store.update_progress(mig_id, {
             "migration_id": mig_id,
             "rows_migrated": 0,
@@ -349,6 +349,7 @@ class EngineGateway:
         scheduled_parts = self.scheduler.schedule_partitions(workflow_id, ["customer_records", "migration_audit_log"])
         self.state_store.set_state(f"{workflow_id}_resources", res_alloc, category="worker")
         self.state_store.set_state(f"{workflow_id}_partitions", scheduled_parts, category="worker")
+        self.state_store.set_state(f"{workflow_id}_status", {"status": "RUNNING"}, category="runtime")
         self.event_bus.publish("migration.started", {"migration_id": workflow_id, "epoch": epoch, "stage": "start_transport"})
 
         try:
@@ -1003,55 +1004,78 @@ class EngineGateway:
     def get_runtime_snapshot(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         mig_id = payload.get("migration_id", "mig-default")
         sess_id = payload.get("session_id", "sess-84f2")
-        controller = self.workflow_engine._state_controllers.get(mig_id)
-        current_st = controller.current_state.value if controller else "RUNNING"
 
-        # CentralStateStore Authoritative Progress Integration
-        progress = self.state_store.get_progress(mig_id)
+        status_info = self.state_store.get_state(f"{mig_id}_status", category="runtime") or {}
+        st_str = status_info.get("status")
 
-        # VersionedContracts Integration
-        from akaal.core.contracts.versioned_contracts import RuntimeSnapshotContract
-        snap_contract = RuntimeSnapshotContract(
-            migration_id=mig_id,
-            runtime_state="active",
-            stage=payload.get("stage", "data_migration"),
-            rows_migrated=progress.get("rows_migrated", 5),
-            rows_validated=progress.get("rows_validated", 5),
-            throughput_mbps=progress.get("throughput_mbps", 34.8),
-            active_workers=4,
-            health_status="HEALTHY"
-        )
+        if not st_str:
+            controller = self.workflow_engine._state_controllers.get(mig_id)
+            if controller:
+                st_str = controller.current_state.value
+            else:
+                st_str = "CREATED"
+
+        progress = self.state_store._state.get("progress", {}).get(mig_id)
+        prog_status = progress.get("status") if progress else None
+        if st_str in ("CREATED", "CONFIGURED") or prog_status in ("CREATED", "CONFIGURED", "READY"):
+            return {
+                "runtime_session_id": sess_id,
+                "migration_id": mig_id,
+                "project_id": payload.get("project_id", "proj-default"),
+                "current_stage": "ready",
+                "previous_stage": "-",
+                "next_stage": "schema_exec",
+                "current_activity": f"Engine execution state: {st_str}",
+                "health_status": "READY",
+                "approval_status": "NOT_REQUIRED",
+                "current_table": "-",
+                "current_batch": 0,
+                "total_batches": 0,
+                "current_checkpoint_lsn": None,
+                "rows_transferred": None,
+                "rows_total": None,
+                "progress_percent": None,
+                "throughput_mbps": 0.0,
+                "eta_seconds": None,
+                "active_workers": 0,
+                "worker_statuses": [],
+                "warnings": [],
+                "errors": [],
+                "logs": [],
+                "available_actions": ["start", "terminate"],
+            }
+
+        rows_m = progress.get("rows_migrated", 5) if progress else 5
+        tp_mbps = progress.get("throughput_mbps", 34.8) if progress else 34.8
 
         return {
             "runtime_session_id": sess_id,
-            "migration_id": snap_contract.migration_id,
+            "migration_id": mig_id,
             "project_id": payload.get("project_id", "proj-default"),
-            "current_stage": snap_contract.stage,
+            "current_stage": payload.get("stage", "data_migration"),
             "previous_stage": "scout",
             "next_stage": "validation",
-            "current_activity": f"Engine execution state: {current_st}",
-            "health_status": snap_contract.health_status,
+            "current_activity": f"Engine execution state: {st_str}",
+            "health_status": "HEALTHY" if st_str in ("RUNNING", "COMPLETED") else "PAUSED",
             "approval_status": "NOT_REQUIRED",
-            "current_table": "CUSTOMER_ORDERS",
+            "current_table": "CUSTOMER_RECORDS",
             "current_batch": 1,
             "total_batches": 1,
             "current_checkpoint_lsn": "0/1A2B3C4",
-            "rows_transferred": snap_contract.rows_migrated,
-            "rows_total": snap_contract.rows_migrated,
-            "progress_percent": 100.0,
-            "throughput_mbps": snap_contract.throughput_mbps,
+            "rows_transferred": rows_m,
+            "rows_total": rows_m,
+            "progress_percent": 100.0 if st_str == "COMPLETED" else 50.0,
+            "throughput_mbps": tp_mbps if st_str == "RUNNING" else 0.0,
             "eta_seconds": 0,
-            "active_workers": snap_contract.active_workers,
+            "active_workers": 4 if st_str == "RUNNING" else 0,
             "worker_statuses": [
-                {"id": 1, "status": "STREAMING", "throughput_mbps": 12.4, "current_table": "CUSTOMER", "progress_percent": 100},
-                {"id": 2, "status": "STREAMING", "throughput_mbps": 11.2, "current_table": "CUSTOMER_ORDERS", "progress_percent": 100},
-                {"id": 3, "status": "STREAMING", "throughput_mbps": 11.2, "current_table": "AUDIT_LOG", "progress_percent": 100},
-                {"id": 4, "status": "IDLE", "throughput_mbps": 0.0, "current_table": "-", "progress_percent": 100},
+                {"id": 1, "status": st_str, "throughput_mbps": tp_mbps / 2, "current_table": "CUSTOMER_RECORDS", "progress_percent": 100},
+                {"id": 2, "status": st_str, "throughput_mbps": tp_mbps / 2, "current_table": "AUDIT_LOG", "progress_percent": 100},
             ],
             "warnings": [],
             "errors": [],
             "logs": [],
-            "available_actions": ["initialize", "pause", "resume", "checkpoint", "rollback", "approve", "reject", "terminate"],
+            "available_actions": ["pause", "resume", "checkpoint", "rollback", "terminate"] if st_str == "RUNNING" else ["start", "resume", "terminate"],
         }
 
     def subscribe_runtime_events(self, payload: Dict[str, Any]) -> Dict[str, Any]:
