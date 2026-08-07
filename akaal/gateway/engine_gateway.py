@@ -200,18 +200,30 @@ class EngineGateway:
 
     def test_connection(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         sys_type_str = str(payload.get("system_type", "POSTGRESQL")).upper()
-        sys_type = SystemType.POSTGRESQL if "POSTGRES" in sys_type_str else (
-            SystemType.ORACLE if "ORACLE" in sys_type_str else SystemType.MYSQL
-        )
+        if "ORACLE" in sys_type_str:
+            sys_type = SystemType.ORACLE
+        elif "POSTGRES" in sys_type_str:
+            sys_type = SystemType.POSTGRESQL
+        elif "MYSQL" in sys_type_str:
+            sys_type = SystemType.MYSQL
+        elif "SQL SERVER" in sys_type_str or "MSSQL" in sys_type_str:
+            sys_type = SystemType.MSSQL
+        else:
+            sys_type = SystemType.POSTGRESQL
+
+        default_port = 1521 if sys_type == SystemType.ORACLE else (3306 if sys_type == SystemType.MYSQL else (1433 if sys_type == SystemType.MSSQL else 5432))
 
         cfg = ConnectionConfig(
             system_type=sys_type,
             host=payload.get("host", "localhost"),
-            port=int(payload.get("port", 5432 if sys_type == SystemType.POSTGRESQL else 1521)),
-            database_name=payload.get("database_name") or payload.get("service_name") or ("akaal_target" if sys_type == SystemType.POSTGRESQL else "FREE"),
-            credentials_ref=payload.get("username", "postgres"),
+            port=int(payload.get("port", default_port)),
+            database_name=payload.get("database_name") or payload.get("service_name") or "",
+            credentials_ref=payload.get("username", ""),
             read_only=True,
-            extra={"password": payload.get("password", "")},
+            extra={
+                "password": payload.get("password", ""),
+                "instance_name": payload.get("instance_name", ""),
+            },
         )
 
         adapter = create_adapter(cfg)
@@ -387,7 +399,16 @@ class EngineGateway:
 
     def run_preflight(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         src_sys = str(payload.get("source_engine", "ORACLE")).upper()
-        sys_type = SystemType.ORACLE if "ORACLE" in src_sys else SystemType.POSTGRESQL
+        if "ORACLE" in src_sys:
+            sys_type = SystemType.ORACLE
+        elif "POSTGRES" in src_sys:
+            sys_type = SystemType.POSTGRESQL
+        elif "MYSQL" in src_sys:
+            sys_type = SystemType.MYSQL
+        elif "SQL SERVER" in src_sys or "MSSQL" in src_sys:
+            sys_type = SystemType.MSSQL
+        else:
+            sys_type = SystemType.POSTGRESQL
 
         # Compatibility Layer Active Integration
         comp_caps = from_compat.get_version_capabilities(sys_type, "19c" if sys_type == SystemType.ORACLE else "16.1") if 'from_compat' in locals() else {}
@@ -400,14 +421,19 @@ class EngineGateway:
                 "tables": [{"name": "customer_records"}, {"name": "migration_audit_log"}]
             })
 
+        default_port = 1521 if sys_type == SystemType.ORACLE else (3306 if sys_type == SystemType.MYSQL else (1433 if sys_type == SystemType.MSSQL else 5432))
+
         cfg = ConnectionConfig(
             system_type=sys_type,
             host=payload.get("source_host", "localhost"),
-            port=int(payload.get("source_port", 1521 if sys_type == SystemType.ORACLE else 5432)),
-            database_name=payload.get("source_db", "FREE" if sys_type == SystemType.ORACLE else "akaal_target"),
-            credentials_ref=payload.get("source_user", "system"),
+            port=int(payload.get("source_port", default_port)),
+            database_name=payload.get("source_db") or payload.get("source_database") or payload.get("source_service") or "",
+            credentials_ref=payload.get("source_user", ""),
             read_only=True,
-            extra={"password": payload.get("source_pass", "")},
+            extra={
+                "password": payload.get("source_pass", ""),
+                "instance_name": payload.get("source_instance", ""),
+            },
         )
 
         req = DiscoveryRequest(connection_config=cfg)

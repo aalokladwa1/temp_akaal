@@ -12,6 +12,7 @@ from akaal.adapters.providers.generic_provider import GenericDiscoveryProvider
 from akaal.adapters.providers.postgres_provider import PostgresDiscoveryProvider
 from akaal.adapters.providers.mysql_provider import MySQLDiscoveryProvider
 from akaal.adapters.providers.oracle_provider import OracleDiscoveryProvider
+from akaal.adapters.providers.mssql_provider import MSSQLDiscoveryProvider
 
 
 class DiscoveryProviderRegistry:
@@ -28,6 +29,7 @@ class DiscoveryProviderRegistry:
         self.register(SystemType.POSTGRESQL, PostgresDiscoveryProvider, "1.0.0", {"cdc": True, "partitioning": True})
         self.register(SystemType.MYSQL, MySQLDiscoveryProvider, "1.0.0", {"cdc": True, "partitioning": True})
         self.register(SystemType.ORACLE, OracleDiscoveryProvider, "1.0.0", {"cdc": True, "partitioning": True, "lob_streaming": True})
+        self.register(SystemType.MSSQL, MSSQLDiscoveryProvider, "1.0.0", {"cdc": True, "partitioning": True})
 
     def register(
         self,

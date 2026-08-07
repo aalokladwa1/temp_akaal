@@ -241,6 +241,45 @@ const IndeterminateCheckbox: FC<IndeterminateCheckboxProps> = ({
   );
 };
 
+// ─── Engine-Aware Helpers ───────────────────────────────────────────────────
+
+const getEnginePort = (engine: DatabaseEngine): string => {
+  if (engine.includes('Oracle')) return '1521';
+  if (engine.includes('PostgreSQL')) return '5432';
+  if (engine.includes('MySQL')) return '3306';
+  if (engine.includes('SQL Server') || engine.includes('MSSQL')) return '1433';
+  return '5432';
+};
+
+const getEngineDbLabel = (engine: DatabaseEngine): string => {
+  if (engine.includes('Oracle')) return 'SID / Service Name';
+  return 'Database Name';
+};
+
+const getEngineDbPlaceholder = (engine: DatabaseEngine): string => {
+  if (engine.includes('Oracle')) return 'e.g. instance2_pdb or FREE';
+  if (engine.includes('PostgreSQL')) return 'e.g. pg_analytics or postgres';
+  if (engine.includes('MySQL')) return 'e.g. app_production';
+  if (engine.includes('SQL Server') || engine.includes('MSSQL')) return 'e.g. ERPDB';
+  return 'e.g. database_name';
+};
+
+const getEngineUserPlaceholder = (engine: DatabaseEngine): string => {
+  if (engine.includes('Oracle')) return 'e.g. o or system';
+  if (engine.includes('PostgreSQL')) return 'e.g. postgres';
+  if (engine.includes('MySQL')) return 'e.g. root or app_user';
+  if (engine.includes('SQL Server') || engine.includes('MSSQL')) return 'e.g. sa or domain\\username';
+  return 'e.g. username';
+};
+
+const isMssqlEngine = (engine: DatabaseEngine): boolean => {
+  return engine.includes('SQL Server') || engine.includes('MSSQL');
+};
+
+const isOracleEngine = (engine: DatabaseEngine): boolean => {
+  return engine.includes('Oracle');
+};
+
 // ─── Engine Discovery Tree Transformer ──────────────────────────────────────
 
 const buildDiscoveryFromEngine = (res: any): DatabaseDiscoveryDTO[] => {
@@ -281,26 +320,75 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
 
   // Step 2: Source Connection
   const [sourceEngine, setSourceEngine] = useState<DatabaseEngine>('Oracle 19c');
-  const [sourceHost, setSourceHost] = useState('localhost');
+  const [sourceHost, setSourceHost] = useState('');
   const [sourcePort, setSourcePort] = useState('1521');
-  const [sourceDbName, setSourceDbName] = useState('FREE');
-  const [sourceUser, setSourceUser] = useState('SYSTEM');
+  const [sourceDbName, setSourceDbName] = useState('');
+  const [sourceInstanceName, setSourceInstanceName] = useState('');
+  const [sourceUser, setSourceUser] = useState('');
   const [sourcePass, setSourcePass] = useState('');
-  const [sourceSsl, setSourceSsl] = useState(true);
-  const [oracleWallet, setOracleWallet] = useState('/etc/oracle/wallets/cwallet.sso');
+  const [sourceSsl, setSourceSsl] = useState(false);
+  const [oracleWallet, setOracleWallet] = useState('');
   const [sourceTested, setSourceTested] = useState(false);
   const [testingSource, setTestingSource] = useState(false);
 
   // Step 3: Target Connection
   const [targetEngine, setTargetEngine] = useState<DatabaseEngine>('PostgreSQL 16');
-  const [targetHost, setTargetHost] = useState('localhost');
+  const [targetHost, setTargetHost] = useState('');
   const [targetPort, setTargetPort] = useState('5432');
-  const [targetDbName, setTargetDbName] = useState('akaal_target');
-  const [targetUser, setTargetUser] = useState('postgres');
+  const [targetDbName, setTargetDbName] = useState('');
+  const [targetInstanceName, setTargetInstanceName] = useState('');
+  const [targetUser, setTargetUser] = useState('');
   const [targetPass, setTargetPass] = useState('');
-  const [targetSsl, setTargetSsl] = useState(true);
+  const [targetSsl, setTargetSsl] = useState(false);
   const [targetTested, setTargetTested] = useState(false);
   const [testingTarget, setTestingTarget] = useState(false);
+
+  // Engine Switch Handlers with Downstream Invalidation & Field Reset
+  const handleSourceEngineChange = (newEngine: DatabaseEngine) => {
+    if (newEngine === sourceEngine) return;
+    setSourceEngine(newEngine);
+    setSourcePort(getEnginePort(newEngine));
+    setSourceHost('');
+    setSourceDbName('');
+    setSourceInstanceName('');
+    setSourceUser('');
+    setSourcePass('');
+    setSourceTested(false);
+    setDatabases([]);
+    setSession((prev) => ({
+      ...prev,
+      sourceConnection: { tested: false },
+      discovery: { status: 'idle' },
+      advisor: { status: 'idle' },
+      executionPlan: { status: 'idle' },
+      approval: { status: 'idle' },
+      migrationManifest: null,
+      createdMigration: {},
+    }));
+  };
+
+  const handleTargetEngineChange = (newEngine: DatabaseEngine) => {
+    if (newEngine === targetEngine) return;
+    setTargetEngine(newEngine);
+    setTargetPort(getEnginePort(newEngine));
+    setTargetHost('');
+    setTargetDbName('');
+    setTargetInstanceName('');
+    setTargetUser('');
+    setTargetPass('');
+    setTargetTested(false);
+    setDatabases([]);
+    setSession((prev) => ({
+      ...prev,
+      targetConnection: { tested: false },
+      discovery: { status: 'idle' },
+      advisor: { status: 'idle' },
+      executionPlan: { status: 'idle' },
+      approval: { status: 'idle' },
+      migrationManifest: null,
+      createdMigration: {},
+    }));
+  };
 
   // Step 4: Discovery & Scope State (Default empty array until real engine discovery executes)
   const [databases, setDatabases] = useState<DatabaseDiscoveryDTO[]>([]);
@@ -440,8 +528,9 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
       const payload = {
         system_type: sourceEngine,
         host: sourceHost,
-        port: parseInt(sourcePort) || (sourceEngine.includes('Oracle') ? 1521 : 5432),
+        port: parseInt(sourcePort) || parseInt(getEnginePort(sourceEngine)),
         database_name: sourceDbName,
+        instance_name: sourceInstanceName,
         username: sourceUser,
         password: sourcePass,
       };
@@ -501,8 +590,9 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
       const payload = {
         system_type: targetEngine,
         host: targetHost,
-        port: parseInt(targetPort) || (targetEngine.includes('PostgreSQL') ? 5432 : 1521),
+        port: parseInt(targetPort) || parseInt(getEnginePort(targetEngine)),
         database_name: targetDbName,
+        instance_name: targetInstanceName,
         username: targetUser,
         password: targetPass,
       };
@@ -572,6 +662,7 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
         source_host: sourceHost,
         source_port: sourcePort,
         source_db: sourceDbName,
+        source_instance: sourceInstanceName,
         source_user: sourceUser,
         source_pass: sourcePass,
         target_engine: targetEngine,
@@ -1163,57 +1254,148 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                 <div>
                   <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Source Engine</label>
-                  <select value={sourceEngine} onChange={(e) => setSourceEngine(e.target.value as DatabaseEngine)} style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 13 }}>
+                  <select
+                    value={sourceEngine}
+                    onChange={(e) => handleSourceEngineChange(e.target.value as DatabaseEngine)}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 13 }}
+                  >
                     {SUPPORTED_ENGINES.map((eng) => (<option key={eng} value={eng}>{eng}</option>))}
                   </select>
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Saved Profiles</label>
                   <select style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 13 }}>
-                    <option value="prod_oracle_free">Production Oracle Instance (localhost:1521/FREE)</option>
+                    <option value="">Select a saved profile...</option>
+                    <option value="custom">New Custom Connection</option>
                   </select>
                 </div>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 14 }}>
+
+              <div style={{ display: 'grid', gridTemplateColumns: isMssqlEngine(sourceEngine) ? '2fr 1fr 1.5fr' : '2fr 1fr', gap: 14 }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Hostname / Endpoint</label>
-                  <input type="text" value={sourceHost} onChange={(e) => setSourceHost(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 13 }} />
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>
+                    {isMssqlEngine(sourceEngine) ? 'Server / Host' : 'Hostname / Endpoint'}
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. localhost or db.corp.internal"
+                    value={sourceHost}
+                    onChange={(e) => {
+                      setSourceHost(e.target.value);
+                      setSourceTested(false);
+                      setDatabases([]);
+                      setSession((prev) => ({ ...prev, discovery: { status: 'idle' } }));
+                    }}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 13 }}
+                  />
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Port</label>
-                  <input type="text" value={sourcePort} onChange={(e) => setSourcePort(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 13 }} />
+                  <input
+                    type="text"
+                    placeholder={getEnginePort(sourceEngine)}
+                    value={sourcePort}
+                    onChange={(e) => {
+                      setSourcePort(e.target.value);
+                      setSourceTested(false);
+                      setDatabases([]);
+                      setSession((prev) => ({ ...prev, discovery: { status: 'idle' } }));
+                    }}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 13 }}
+                  />
                 </div>
+                {isMssqlEngine(sourceEngine) && (
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Instance Name (Optional)</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. SQLEXPRESS or empty"
+                      value={sourceInstanceName}
+                      onChange={(e) => {
+                        setSourceInstanceName(e.target.value);
+                        setSourceTested(false);
+                        setDatabases([]);
+                        setSession((prev) => ({ ...prev, discovery: { status: 'idle' } }));
+                      }}
+                      style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 13 }}
+                    />
+                  </div>
+                )}
               </div>
+
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>SID / Service Name</label>
-                  <input type="text" value={sourceDbName} onChange={(e) => setSourceDbName(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 13 }} />
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>{getEngineDbLabel(sourceEngine)}</label>
+                  <input
+                    type="text"
+                    placeholder={getEngineDbPlaceholder(sourceEngine)}
+                    value={sourceDbName}
+                    onChange={(e) => {
+                      setSourceDbName(e.target.value);
+                      setSourceTested(false);
+                      setDatabases([]);
+                      setSession((prev) => ({ ...prev, discovery: { status: 'idle' } }));
+                    }}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 13 }}
+                  />
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Username</label>
-                  <input type="text" value={sourceUser} onChange={(e) => setSourceUser(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 13 }} />
+                  <input
+                    type="text"
+                    placeholder={getEngineUserPlaceholder(sourceEngine)}
+                    value={sourceUser}
+                    onChange={(e) => {
+                      setSourceUser(e.target.value);
+                      setSourceTested(false);
+                      setDatabases([]);
+                      setSession((prev) => ({ ...prev, discovery: { status: 'idle' } }));
+                    }}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 13 }}
+                  />
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Password</label>
-                  <input type="password" value={sourcePass} onChange={(e) => setSourcePass(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 13 }} />
+                  <input
+                    type="password"
+                    placeholder="••••••••"
+                    value={sourcePass}
+                    onChange={(e) => {
+                      setSourcePass(e.target.value);
+                      setSourceTested(false);
+                      setDatabases([]);
+                      setSession((prev) => ({ ...prev, discovery: { status: 'idle' } }));
+                    }}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 13 }}
+                  />
                 </div>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Oracle Wallet File (cwallet.sso)</label>
-                  <input type="text" value={oracleWallet} onChange={(e) => setOracleWallet(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 13 }} />
+
+              {isOracleEngine(sourceEngine) && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Oracle Wallet File (cwallet.sso)</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. /etc/oracle/wallets/cwallet.sso"
+                      value={oracleWallet}
+                      onChange={(e) => setOracleWallet(e.target.value)}
+                      style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 13 }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 16, paddingTop: 20 }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                      <input type="checkbox" checked={sourceSsl} onChange={(e) => setSourceSsl(e.target.checked)} /> SSL Encrypted Connection
+                    </label>
+                  </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 16, paddingTop: 20 }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-                    <input type="checkbox" checked={sourceSsl} onChange={(e) => setSourceSsl(e.target.checked)} /> SSL Encrypted Connection
-                  </label>
-                </div>
-              </div>
+              )}
+
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
                 <button type="button" onClick={handleTestSource} disabled={testingSource} style={{ padding: '9px 18px', borderRadius: 8, background: 'var(--dash-accent)', border: 'none', color: '#FFF', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
                   <Zap size={14} /> {testingSource ? 'Testing Connection...' : 'Test Source Connection (IPC)'}
                 </button>
-                {sourceTested && (<span style={{ fontSize: 12, color: '#10B981', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}><Check size={14} /> Source Connection Verified (12ms Latency)</span>)}
+                {sourceTested && (<span style={{ fontSize: 12, color: '#10B981', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}><Check size={14} /> Source Connection Verified</span>)}
               </div>
             </div>
           )}
@@ -1224,41 +1406,123 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                 <div>
                   <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Target Engine</label>
-                  <select value={targetEngine} onChange={(e) => setTargetEngine(e.target.value as DatabaseEngine)} style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 13 }}>
+                  <select
+                    value={targetEngine}
+                    onChange={(e) => handleTargetEngineChange(e.target.value as DatabaseEngine)}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 13 }}
+                  >
                     {SUPPORTED_ENGINES.map((eng) => (<option key={eng} value={eng}>{eng}</option>))}
                   </select>
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Saved Profiles</label>
                   <select style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 13 }}>
-                    <option value="prod_pg_target">PostgreSQL akaal_target Instance (localhost:5432)</option>
+                    <option value="">Select a saved profile...</option>
+                    <option value="custom">New Custom Connection</option>
                   </select>
                 </div>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 14 }}>
+
+              <div style={{ display: 'grid', gridTemplateColumns: isMssqlEngine(targetEngine) ? '2fr 1fr 1.5fr' : '2fr 1fr', gap: 14 }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Hostname / Endpoint</label>
-                  <input type="text" value={targetHost} onChange={(e) => setTargetHost(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 13 }} />
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>
+                    {isMssqlEngine(targetEngine) ? 'Server / Host' : 'Hostname / Endpoint'}
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. localhost or db.corp.internal"
+                    value={targetHost}
+                    onChange={(e) => {
+                      setTargetHost(e.target.value);
+                      setTargetTested(false);
+                      setDatabases([]);
+                      setSession((prev) => ({ ...prev, discovery: { status: 'idle' } }));
+                    }}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 13 }}
+                  />
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Port</label>
-                  <input type="text" value={targetPort} onChange={(e) => setTargetPort(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 13 }} />
+                  <input
+                    type="text"
+                    placeholder={getEnginePort(targetEngine)}
+                    value={targetPort}
+                    onChange={(e) => {
+                      setTargetPort(e.target.value);
+                      setTargetTested(false);
+                      setDatabases([]);
+                      setSession((prev) => ({ ...prev, discovery: { status: 'idle' } }));
+                    }}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 13 }}
+                  />
                 </div>
+                {isMssqlEngine(targetEngine) && (
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Instance Name (Optional)</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. SQLEXPRESS or empty"
+                      value={targetInstanceName}
+                      onChange={(e) => {
+                        setTargetInstanceName(e.target.value);
+                        setTargetTested(false);
+                        setDatabases([]);
+                        setSession((prev) => ({ ...prev, discovery: { status: 'idle' } }));
+                      }}
+                      style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 13 }}
+                    />
+                  </div>
+                )}
               </div>
+
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Database Name</label>
-                  <input type="text" value={targetDbName} onChange={(e) => setTargetDbName(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 13 }} />
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>{getEngineDbLabel(targetEngine)}</label>
+                  <input
+                    type="text"
+                    placeholder={getEngineDbPlaceholder(targetEngine)}
+                    value={targetDbName}
+                    onChange={(e) => {
+                      setTargetDbName(e.target.value);
+                      setTargetTested(false);
+                      setDatabases([]);
+                      setSession((prev) => ({ ...prev, discovery: { status: 'idle' } }));
+                    }}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 13 }}
+                  />
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Username</label>
-                  <input type="text" value={targetUser} onChange={(e) => setTargetUser(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 13 }} />
+                  <input
+                    type="text"
+                    placeholder={getEngineUserPlaceholder(targetEngine)}
+                    value={targetUser}
+                    onChange={(e) => {
+                      setTargetUser(e.target.value);
+                      setTargetTested(false);
+                      setDatabases([]);
+                      setSession((prev) => ({ ...prev, discovery: { status: 'idle' } }));
+                    }}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 13 }}
+                  />
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Password</label>
-                  <input type="password" value={targetPass} onChange={(e) => setTargetPass(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 13 }} />
+                  <input
+                    type="password"
+                    placeholder="••••••••"
+                    value={targetPass}
+                    onChange={(e) => {
+                      setTargetPass(e.target.value);
+                      setTargetTested(false);
+                      setDatabases([]);
+                      setSession((prev) => ({ ...prev, discovery: { status: 'idle' } }));
+                    }}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 13 }}
+                  />
                 </div>
               </div>
+
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                   <button type="button" onClick={handleTestTarget} disabled={testingTarget} style={{ padding: '9px 18px', borderRadius: 8, background: 'var(--dash-accent)', border: 'none', color: '#FFF', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -1268,7 +1532,7 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
                     <input type="checkbox" checked={targetSsl} onChange={(e) => setTargetSsl(e.target.checked)} /> SSL Encrypted Transport
                   </label>
                 </div>
-                {targetTested && (<span style={{ fontSize: 12, color: '#10B981', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}><Check size={14} /> Target Connection Verified (8ms Latency)</span>)}
+                {targetTested && (<span style={{ fontSize: 12, color: '#10B981', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}><Check size={14} /> Target Connection Verified</span>)}
               </div>
             </div>
           )}

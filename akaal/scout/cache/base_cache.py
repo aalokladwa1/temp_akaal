@@ -15,10 +15,11 @@ class BaseDiscoveryCache(ABC):
     """Abstract discovery cache interface."""
 
     def generate_cache_key(self, config: ConnectionConfig, adapter_version: str = "1.0.0", fingerprint_version: str = "1.0.0") -> str:
-        """Deterministic cache key formula: hash(engine:host:port:database:extra_schema:adapter_ver:fp_ver)."""
+        """Deterministic cache key formula: hash(engine:host:port:database:user:extra_schema:adapter_ver:fp_ver)."""
         schema_name = config.extra.get("schema", "default") if config.extra else "default"
         sys_type = config.system_type.value if hasattr(config.system_type, "value") else str(config.system_type)
-        raw_key = f"{sys_type}:{config.host}:{config.port}:{config.database_name}:{schema_name}:{adapter_version}:{fingerprint_version}"
+        user_ref = config.credentials_ref or "anonymous"
+        raw_key = f"{sys_type}:{config.host}:{config.port}:{config.database_name}:{user_ref}:{schema_name}:{adapter_version}:{fingerprint_version}"
         return hashlib.sha256(raw_key.encode("utf-8")).hexdigest()
 
     @abstractmethod
