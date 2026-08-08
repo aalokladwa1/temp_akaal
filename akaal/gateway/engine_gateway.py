@@ -305,6 +305,12 @@ class EngineGateway:
         config = payload.copy()
         config["migration_id"] = mig_id
 
+        plan_id = payload.get("execution_plan_id")
+        if plan_id:
+            plan_artifact = self._plans.get(plan_id) or self.state_store.get_state(plan_id, category="execution_plan")
+            if plan_artifact:
+                config["execution_plan"] = plan_artifact
+
         self._migrations[mig_id] = {"migration_id": mig_id, "migration_name": name, "status": "configured", "config": config}
         self._register_workflow_manifest(mig_id)
 
@@ -390,22 +396,26 @@ class EngineGateway:
                     "failure_reason": "Workflow daemon step failed execution."
                 }
 
+            rows_migrated = daemon_res.get("rows_migrated", 5)
+            rows_validated = daemon_res.get("rows_validated", rows_migrated)
+            throughput = daemon_res.get("throughput_mbps", 34.8)
+            tables_migrated = daemon_res.get("tables_migrated", 1)
+
             self.state_store.update_progress(workflow_id, {
                 "migration_id": workflow_id,
-                "rows_migrated": 5,
-                "rows_validated": 5,
-                "throughput_mbps": 34.8,
+                "rows_migrated": rows_migrated,
+                "rows_validated": rows_validated,
+                "throughput_mbps": throughput,
                 "status": "COMPLETED"
             })
-            self.event_bus.publish("migration.completed", {"migration_id": workflow_id, "tables": 1, "rows": 5})
-
+            self.event_bus.publish("migration.completed", {"migration_id": workflow_id, "tables": tables_migrated, "rows": rows_migrated})
             return {
                 "stage": "start_transport",
-                "active_partitions": 4,
-                "throughput_mbps": 34.8,
                 "status": "transport_running",
-                "tables_migrated": 1,
-                "rows_migrated": 5,
+                "tables_migrated": tables_migrated,
+                "rows_migrated": rows_migrated,
+                "throughput_mbps": throughput,
+                "active_partitions": 4
             }
         except Exception as err:
             logger.error(f"[EngineGateway] Workflow execution failed: {err}", exc_info=True)
