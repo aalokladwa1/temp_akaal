@@ -356,6 +356,25 @@ class EngineGateway:
                 "error_message": f"Cannot start transport: Migration '{workflow_id}' has not been registered."
             }
 
+        # Authoritative Governance Approval Gate Enforcement
+        app_status = self.state_store.get_state(f"{workflow_id}_approval", category="governance")
+        if app_status and isinstance(app_status, dict):
+            st = str(app_status.get("status", "")).lower()
+            if st == "pending":
+                return {
+                    "stage": "start_transport",
+                    "status": "failed",
+                    "error_code": "APPROVAL_REQUIRED",
+                    "error_message": f"Cannot start transport: Migration '{workflow_id}' requires governance approval before execution."
+                }
+            elif st in ("rejected", "changes_requested"):
+                return {
+                    "stage": "start_transport",
+                    "status": "failed",
+                    "error_code": "APPROVAL_REJECTED",
+                    "error_message": f"Cannot start transport: Migration '{workflow_id}' governance approval was rejected."
+                }
+
         if workflow_id not in self.workflow_engine._manifests:
             self._register_workflow_manifest(workflow_id)
 
@@ -1106,8 +1125,8 @@ class EngineGateway:
             "eta_seconds": 0,
             "active_workers": 4 if st_str == "RUNNING" else 0,
             "worker_statuses": [
-                {"id": 1, "status": st_str, "throughput_mbps": tp_mbps / 2, "current_table": "CUSTOMER_RECORDS", "progress_percent": 100},
-                {"id": 2, "status": st_str, "throughput_mbps": tp_mbps / 2, "current_table": "AUDIT_LOG", "progress_percent": 100},
+                {"id": 1, "status": st_str, "throughput_mbps": (tp_mbps / 2) if tp_mbps is not None else None, "current_table": "CUSTOMER_RECORDS", "progress_percent": 100},
+                {"id": 2, "status": st_str, "throughput_mbps": (tp_mbps / 2) if tp_mbps is not None else None, "current_table": "AUDIT_LOG", "progress_percent": 100},
             ],
             "warnings": [],
             "errors": [],

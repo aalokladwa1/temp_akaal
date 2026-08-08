@@ -88,8 +88,8 @@ class ApprovalRepository {
       ],
     };
 
-    // Forward approval decision to Engine Gateway over IPC
-    ipcService.invokeEngineCapability('request_approval', JSON.stringify({
+    // Forward approval decision to Engine Gateway over IPC capability
+    ipcService.invokeEngineCapability('submit_approval_decision', JSON.stringify({
       approval_id: id,
       decision,
       approver,
@@ -105,6 +105,39 @@ class ApprovalRepository {
   public setApprovalsFromIPC(incoming: GovernanceApproval[]): void {
     this.approvals = incoming;
     this.notify();
+  }
+
+  public async syncFromEngine(): Promise<GovernanceApproval[]> {
+    try {
+      const rawRes = await ipcService.invokeEngineCapability('get_approval_queue', '{}');
+      const res = JSON.parse(rawRes);
+      if (res && Array.isArray(res.approvals) && res.approvals.length > 0) {
+        const mapped: GovernanceApproval[] = res.approvals.map((pkt: any) => ({
+          id: pkt.id || pkt.approval_reference_id || `appr-${Date.now()}`,
+          gate: pkt.gate || 'GATE_1',
+          gateTitle: pkt.gateTitle || 'Pre-Execution Safety Review',
+          migrationId: pkt.migration_id || pkt.migrationId || 'mig-active',
+          migrationName: pkt.migration_name || pkt.migrationName || 'Database Migration',
+          projectName: pkt.project_name || pkt.projectName || 'Enterprise Workspace',
+          requestedBy: pkt.requested_by || pkt.requestedBy || 'Aalok',
+          requestedAt: pkt.requested_at || pkt.requestedAt || new Date().toISOString(),
+          expiresAt: pkt.expires_at || pkt.expiresAt || new Date(Date.now() + 86400000).toISOString(),
+          status: (pkt.status || 'pending').toLowerCase() as any,
+          requiredRoles: pkt.required_roles || ['Lead DBA'],
+          fourEyesConfirmed: pkt.status === 'approved',
+          riskScore: pkt.risk_score || 0.1,
+          summary: pkt.summary || 'Authoritative backend approval packet',
+          decisionReason: pkt.decisionReason,
+          approver: pkt.approver,
+          comments: pkt.comments || []
+        }));
+        this.setApprovalsFromIPC(mapped);
+        return mapped;
+      }
+    } catch {
+      // Return local memory repository
+    }
+    return this.getApprovals();
   }
 }
 

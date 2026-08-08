@@ -45,7 +45,7 @@ class RuntimeSnapshotContract(VersionedContract):
     stage: str = "data_migration"
     rows_migrated: int = 5
     rows_validated: int = 5
-    throughput_mbps: float = 34.8
+    throughput_mbps: Optional[float] = None
     active_workers: int = 4
     health_status: str = "HEALTHY"
 

@@ -66,7 +66,7 @@ class MigrationRuntimeDaemon:
             rows_migrated = 5
             rows_validated = 5
             tables_migrated = 1
-            throughput = 34.8
+            throughput = None
 
             if hasattr(result, "step_results"):
                 for s in result.step_results:

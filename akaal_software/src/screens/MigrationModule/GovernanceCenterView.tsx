@@ -84,8 +84,9 @@ export const GovernanceCenterView: FC<GovernanceCenterViewProps> = ({
 
   const [confirmReason, setConfirmReason] = useState('');
 
-  // Subscribe to approval repository updates
+  // Subscribe to approval repository updates & sync from Engine Gateway
   useEffect(() => {
+    approvalRepository.syncFromEngine();
     return approvalRepository.subscribe((updated) => {
       setApprovals(updated);
     });

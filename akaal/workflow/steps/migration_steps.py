@@ -243,7 +243,7 @@ class DataTransportStep(AbstractStep):
                 context_updates={
                     "rows_migrated": rows_written,
                     "tables_migrated": tables_migrated,
-                    "throughput_mbps": 34.8,
+                    "throughput_mbps": None,
                     "status": "COMPLETED"
                 }
             )
