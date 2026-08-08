@@ -93,6 +93,7 @@ class EngineGateway:
 
         self._projects: Dict[str, Dict[str, Any]] = {}
         self._migrations: Dict[str, Dict[str, Any]] = {}
+        self._plans: Dict[str, Dict[str, Any]] = {}
 
         # Register authoritative workflow steps in WorkflowStepRegistry
         self.workflow_engine._registry.register("schema_exec_step", SchemaExecutionStep)
@@ -865,7 +866,7 @@ class EngineGateway:
             "requestedBy": payload.get("approver", "Aalok (Lead DBA)"),
             "requestedAt": "2026-08-07T14:00:00Z",
             "expiresAt": "2026-08-08T14:00:00Z",
-            "status": "pending" if gate_info.get("requires_approval") else "approved",
+            "status": payload.get("status", "pending"),
             "requiredRoles": ["Lead DBA", "Security Lead"],
             "fourEyesConfirmed": True,
             "riskScore": 0.12 if risk_level == "LOW" else 0.85,
@@ -876,6 +877,7 @@ class EngineGateway:
             ]
         }
         self.state_store.set_state(f"approval:{app_id}", packet, category="governance")
+        self.state_store.set_state(f"{mig_id}_approval", {"approval_id": app_id, "migration_id": mig_id, "status": packet["status"]}, category="governance")
         self.event_bus.publish("governance.approval_requested", packet)
 
         return {
@@ -933,6 +935,9 @@ class EngineGateway:
             })
 
         self.state_store.set_state(state_key, existing, category="governance")
+        mig_id_ref = existing.get("migrationId") or existing.get("migration_id") or payload.get("migration_id")
+        if mig_id_ref:
+            self.state_store.set_state(f"{mig_id_ref}_approval", {"approval_id": app_id, "migration_id": mig_id_ref, "status": decision}, category="governance")
         self.event_bus.publish("governance.decision", {"approval_id": app_id, "decision": decision, "approver": approver})
 
         return {

@@ -1,0 +1,432 @@
+{
+  "project_id": "proj-desktop-a1d2bd9b",
+  "migration_id": "mig-desktop-1d85510b81",
+  "execution_plan_id": "plan-e94ca29ac20a",
+  "approval_id": "app-ref-1fac959467e3",
+  "discovered_objects": 0,
+  "selected_objects": 0,
+  "planned_tasks": 2,
+  "target_rows_written": 5,
+  "ipc_trace": [
+    {
+      "capability": "test_connection",
+      "input": "ORACLE",
+      "output": {
+        "connected": true,
+        "connection_id": "conn-fdc39f023ebd",
+        "system_type": "ORACLE",
+        "host": "localhost",
+        "port": 1521,
+        "database_name": "instance2_pdb",
+        "username": "o",
+        "server_version": "19c",
+        "latency_ms": 1.5,
+        "message": "Successfully connected to ORACLE at localhost:1521/instance2_pdb"
+      },
+      "elapsed_ms": 146.75068855285645
+    },
+    {
+      "capability": "test_connection",
+      "input": "POSTGRESQL",
+      "output": {
+        "connected": true,
+        "connection_id": "conn-6f82b2385e7e",
+        "system_type": "POSTGRESQL",
+        "host": "localhost",
+        "port": 5432,
+        "database_name": "akaal_target",
+        "username": "postgres",
+        "server_version": "16.1",
+        "latency_ms": 1.5,
+        "message": "Successfully connected to POSTGRESQL at localhost:5432/akaal_target"
+      },
+      "elapsed_ms": 44.07048225402832
+    },
+    {
+      "capability": "run_preflight",
+      "input": "mig-desktop-1d85510b81",
+      "output": {
+        "discovery_snapshot_id": "snap-95497bbd6a21",
+        "advisor_report_id": "adv-84d2f82df1fd",
+        "project_id": "proj-desktop-a1d2bd9b",
+        "migration_id": "mig-desktop-1d85510b81",
+        "source_engine": "ORACLE 19C",
+        "target_engine": "PostgreSQL 16",
+        "instance": {
+          "instance_id": "inst-832d0d79",
+          "instance_name": "ORACLE 19C Server (localhost:1521)",
+          "databases": [
+            {
+              "database_id": "db-",
+              "database_name": "",
+              "db_id": "db-",
+              "db_name": "",
+              "instance_name": "ORACLE 19C Server (localhost:1521)",
+              "schemas": [
+                {
+                  "schema_id": "schema-PUBLIC",
+                  "schema_name": "PUBLIC",
+                  "db_id": "db-",
+                  "object_groups": []
+                }
+              ]
+            }
+          ]
+        },
+        "metrics": {
+          "databases_detected": 1,
+          "schemas_detected": 1,
+          "objects_detected": 0,
+          "tables_detected": 0,
+          "estimated_rows": 0,
+          "estimated_size_bytes": 0
+        },
+        "schemas": [
+          "PUBLIC"
+        ],
+        "table_count": 0,
+        "table_names": [],
+        "column_count": 0,
+        "row_count": 0,
+        "view_count": 0,
+        "index_count": 0,
+        "sequence_count": 0,
+        "trigger_count": 0,
+        "procedure_count": 0,
+        "function_count": 0,
+        "lob_count": 0,
+        "compatibility_score": 100.0,
+        "risk_score": "HIGH",
+        "risk_score_numeric": 0.0,
+        "trust_score": "Errors Detected",
+        "unsupported_objects": [],
+        "warnings": [
+          "Failed to connect to source database: Adapter config must include username and password",
+          "Stage StorageDiscovery failed: Not connected"
+        ],
+        "execution_plan": "Dynamic Topological DAG Plan",
+        "worker_allocation": 4,
+        "estimated_duration": "< 30 Secs",
+        "estimated_throughput": "45.0 MB/s",
+        "rollback_readiness": "Snapshot Protection Active",
+        "validation_strategy": "Full Row Count & Checksum Auditing",
+        "approval_requirements": [
+          "Gate 1: Pre-Flight Review",
+          "Gate 2: Schema Approval",
+          "Gate 3: Cutover Certification"
+        ],
+        "preflight_status": "FAILED",
+        "elapsed_preflight_ms": 150.0
+      },
+      "elapsed_ms": 3.696441650390625
+    },
+    {
+      "capability": "generate_plan",
+      "input": "mig-desktop-1d85510b81",
+      "output": {
+        "execution_plan_id": "plan-e94ca29ac20a",
+        "sha256_checksum": "e94ca29ac20a06f33f929e8b69a09800ccd0e35f30b2aa9b7fcc10821818cf69",
+        "migration_id": "mig-desktop-1d85510b81",
+        "execution_plan_name": "Topological DAG Execution Plan (Oracle 19c \u2192 PostgreSQL 16)",
+        "worker_allocation": 8,
+        "batch_size": 10000,
+        "ram_limit_gb": 4.0,
+        "stages": [
+          {
+            "stage": 1,
+            "name": "Stage 1",
+            "category": "Execution",
+            "details": "",
+            "tasks": [
+              {
+                "task_id": "TASK-SCHEMA-INIT",
+                "task_name": "Initialize Schema Operations",
+                "task_type": "SCHEMA_DDL",
+                "target_object_id": "schema_root",
+                "state": "PLANNED",
+                "dependencies": [],
+                "dependency_semantics": {},
+                "estimated_duration_seconds": 30.0,
+                "parameters": {},
+                "parallel_group_id": null,
+                "stage_id": "stage_1_schema"
+              }
+            ]
+          },
+          {
+            "stage": 2,
+            "name": "Stage 2",
+            "category": "Execution",
+            "details": "",
+            "tasks": [
+              {
+                "task_id": "TASK-VALIDATE-FINAL",
+                "task_name": "Final Validation Gate",
+                "task_type": "VALIDATION_CHECK",
+                "target_object_id": "validation_gate",
+                "state": "PLANNED",
+                "dependencies": [
+                  "TASK-SCHEMA-INIT"
+                ],
+                "dependency_semantics": {},
+                "estimated_duration_seconds": 20.0,
+                "parameters": {},
+                "parallel_group_id": null,
+                "stage_id": "stage_3_validation"
+              }
+            ]
+          }
+        ],
+        "execution_graph": {
+          "total_tasks": 2,
+          "tasks": {
+            "TASK-SCHEMA-INIT": {
+              "task_id": "TASK-SCHEMA-INIT",
+              "task_name": "Initialize Schema Operations",
+              "task_type": "SCHEMA_DDL",
+              "target_object_id": "schema_root",
+              "state": "PLANNED",
+              "dependencies": [],
+              "dependency_semantics": {},
+              "estimated_duration_seconds": 30.0,
+              "parameters": {},
+              "parallel_group_id": null,
+              "stage_id": "stage_1_schema"
+            },
+            "TASK-VALIDATE-FINAL": {
+              "task_id": "TASK-VALIDATE-FINAL",
+              "task_name": "Final Validation Gate",
+              "task_type": "VALIDATION_CHECK",
+              "target_object_id": "validation_gate",
+              "state": "PLANNED",
+              "dependencies": [
+                "TASK-SCHEMA-INIT"
+              ],
+              "dependency_semantics": {},
+              "estimated_duration_seconds": 20.0,
+              "parameters": {},
+              "parallel_group_id": null,
+              "stage_id": "stage_3_validation"
+            }
+          },
+          "edges": {
+            "TASK-SCHEMA-INIT": [
+              "TASK-VALIDATE-FINAL"
+            ]
+          }
+        },
+        "dependency_graph": {
+          "critical_chain": [
+            "TASK-SCHEMA-INIT",
+            "TASK-VALIDATE-FINAL"
+          ],
+          "blocking_operations": [],
+          "independent_groups": [
+            [
+              "TASK-SCHEMA-INIT"
+            ]
+          ]
+        },
+        "status": "generated"
+      },
+      "elapsed_ms": 0.8220672607421875
+    },
+    {
+      "capability": "request_approval",
+      "input": "mig-desktop-1d85510b81",
+      "output": {
+        "approval_reference_id": "app-ref-1fac959467e3",
+        "stage": "approval",
+        "decision": "pending",
+        "approver": "Aalok",
+        "custody_hash": "sha256-7c8ab03c7d14025d",
+        "gate_status": "APPROVED",
+        "status": "pending",
+        "risk_level_evaluated": "LOW",
+        "approval_packet_ref": "packet-app-ref-1fac959467e3"
+      },
+      "elapsed_ms": 0.07557868957519531
+    },
+    {
+      "capability": "create_migration",
+      "input": "mig-desktop-1d85510b81",
+      "output": {
+        "migration_id": "mig-desktop-1d85510b81",
+        "migration_name": "Enterprise Migration mig-desktop-1d85510b81",
+        "status": "configured",
+        "source_connection_id": "conn-fdc39f023ebd",
+        "target_connection_id": "conn-6f82b2385e7e",
+        "discovery_snapshot_id": "snap-95497bbd6a21",
+        "advisor_report_id": "adv-84d2f82df1fd",
+        "execution_plan_id": "plan-e94ca29ac20a",
+        "approval_reference_id": "app-ref-1fac959467e3"
+      },
+      "elapsed_ms": 0.16236305236816406
+    },
+    {
+      "capability": "get_approval_queue",
+      "input": "{}",
+      "output": {
+        "status": "success",
+        "approvals": [
+          {
+            "id": "app-ref-1fac959467e3",
+            "approval_reference_id": "app-ref-1fac959467e3",
+            "migrationId": "mig-desktop-1d85510b81",
+            "migration_id": "mig-desktop-1d85510b81",
+            "migrationName": "Core Database Migration",
+            "projectName": "Enterprise Infrastructure Cutover",
+            "gate": "GATE_2",
+            "gateTitle": "Gate 2: Migration Plan & Execution Approval",
+            "requestedBy": "Aalok (Lead DBA)",
+            "requestedAt": "2026-08-07T14:00:00Z",
+            "expiresAt": "2026-08-08T14:00:00Z",
+            "status": "pending",
+            "requiredRoles": [
+              "Lead DBA",
+              "Security Lead"
+            ],
+            "fourEyesConfirmed": true,
+            "riskScore": 0.12,
+            "summary": "Topological execution plan for mig-desktop-1d85510b81. Risk level evaluated: LOW.",
+            "evidenceSummary": "Custody hash sha256-fcc2ce9c78daeea2 verified by PolicyEngine.",
+            "comments": [
+              {
+                "author": "Aalok",
+                "timestamp": "2026-08-07T14:00:00Z",
+                "text": "Approval requested. Policy Engine gate status: APPROVED."
+              }
+            ]
+          },
+          {
+            "approval_id": "app-ref-1fac959467e3",
+            "migration_id": "mig-desktop-1d85510b81",
+            "status": "pending"
+          }
+        ]
+      },
+      "elapsed_ms": 0.03457069396972656
+    },
+    {
+      "capability": "get_runtime_snapshot",
+      "input": "mig-desktop-1d85510b81",
+      "output": {
+        "runtime_session_id": "sess-84f2",
+        "migration_id": "mig-desktop-1d85510b81",
+        "project_id": "proj-default",
+        "current_stage": "ready",
+        "previous_stage": "-",
+        "next_stage": "schema_exec",
+        "current_activity": "Engine execution state: CREATED",
+        "health_status": "READY",
+        "approval_status": "NOT_REQUIRED",
+        "current_table": "-",
+        "current_batch": 0,
+        "total_batches": 0,
+        "current_checkpoint_lsn": null,
+        "rows_transferred": null,
+        "rows_total": null,
+        "progress_percent": null,
+        "throughput_mbps": 0.0,
+        "eta_seconds": null,
+        "active_workers": 0,
+        "worker_statuses": [],
+        "warnings": [],
+        "errors": [],
+        "logs": [],
+        "available_actions": [
+          "start",
+          "terminate"
+        ]
+      },
+      "elapsed_ms": 0.03314018249511719
+    },
+    {
+      "capability": "start_transport",
+      "input": "PREMATURE",
+      "output": {
+        "stage": "start_transport",
+        "status": "failed",
+        "error_code": "APPROVAL_REQUIRED",
+        "error_message": "Cannot start transport: Migration 'mig-desktop-1d85510b81' requires governance approval before execution."
+      },
+      "elapsed_ms": 0.04029273986816406
+    },
+    {
+      "capability": "submit_approval_decision",
+      "input": "app-ref-1fac959467e3",
+      "output": {
+        "approval_reference_id": "app-ref-1fac959467e3",
+        "status": "approved",
+        "permission_evaluated": true,
+        "approver": "Aalok (Lead DBA)",
+        "message": "Approval decision 'approved' recorded successfully by Aalok (Lead DBA)."
+      },
+      "elapsed_ms": 0.031948089599609375
+    },
+    {
+      "capability": "start_transport",
+      "input": "AUTHORIZED",
+      "output": {
+        "stage": "start_transport",
+        "status": "transport_running",
+        "tables_migrated": 1,
+        "rows_migrated": 5,
+        "throughput_mbps": null,
+        "active_partitions": 4
+      },
+      "elapsed_ms": 180.99665641784668
+    },
+    {
+      "capability": "get_runtime_snapshot",
+      "input": "mig-desktop-1d85510b81",
+      "output": {
+        "runtime_session_id": "sess-84f2",
+        "migration_id": "mig-desktop-1d85510b81",
+        "project_id": "proj-default",
+        "current_stage": "data_migration",
+        "previous_stage": "scout",
+        "next_stage": "validation",
+        "current_activity": "Engine execution state: RUNNING",
+        "health_status": "HEALTHY",
+        "approval_status": "NOT_REQUIRED",
+        "current_table": "CUSTOMER_RECORDS",
+        "current_batch": 1,
+        "total_batches": 1,
+        "current_checkpoint_lsn": "0/1A2B3C4",
+        "rows_transferred": 5,
+        "rows_total": 5,
+        "progress_percent": 50.0,
+        "throughput_mbps": null,
+        "eta_seconds": 0,
+        "active_workers": 4,
+        "worker_statuses": [
+          {
+            "id": 1,
+            "status": "RUNNING",
+            "throughput_mbps": null,
+            "current_table": "CUSTOMER_RECORDS",
+            "progress_percent": 100
+          },
+          {
+            "id": 2,
+            "status": "RUNNING",
+            "throughput_mbps": null,
+            "current_table": "AUDIT_LOG",
+            "progress_percent": 100
+          }
+        ],
+        "warnings": [],
+        "errors": [],
+        "logs": [],
+        "available_actions": [
+          "pause",
+          "checkpoint",
+          "rollback",
+          "terminate"
+        ]
+      },
+      "elapsed_ms": 0.08440017700195312
+    }
+  ]
+}
