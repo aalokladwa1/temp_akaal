@@ -15,7 +15,7 @@ tauri-build = { version = "2", default-features = false , features = [] }
 [dependencies]
 tauri = { version = "2", default-features = false, features = ["wry"] }
 tauri-plugin-opener = "2"
-serde = { version = "1", features = ["derive", "std"] }
+serde = { version = "1.0.217", features = ["derive", "std"] }
 serde_json = { version = "1", features = ["std"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 argon2 = "0.5"
