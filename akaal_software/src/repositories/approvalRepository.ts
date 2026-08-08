@@ -95,6 +95,7 @@ class ApprovalRepository {
       approver,
       reason,
       gate: item.gate,
+      migration_id: item.migrationId,
     })).catch(() => {});
 
     this.approvals[index] = updated;

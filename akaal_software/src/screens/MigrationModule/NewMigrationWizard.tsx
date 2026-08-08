@@ -101,7 +101,7 @@ export interface WizardIntegrationSession {
     raw?: any;
   };
   approval: {
-    status: 'idle' | 'requested' | 'approved' | 'rejected';
+    status: 'idle' | 'requested' | 'approved' | 'rejected' | 'pending';
     approvalReferenceId?: string;
     custodyHash?: string;
     gateStatus?: string;
@@ -700,8 +700,8 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
           trustScore: res.trust_score ?? '100% Ready',
           warnings: res.warnings || [],
           workerAllocation: res.worker_allocation || 8,
-          estimatedDuration: res.estimated_duration || '< 12 Mins',
-          estimatedThroughput: res.estimated_throughput || '45.0 MB/s',
+          estimatedDuration: res.estimated_duration,
+          estimatedThroughput: res.estimated_throughput,
           rollbackReadiness: res.rollback_readiness || 'Snapshot Protection Active',
           validationStrategy: res.validation_strategy || 'Full Row Count & Checksum Auditing',
           approvalRequirements: res.approval_requirements || ['Gate 1: Pre-Flight Review', 'Gate 2: Schema Approval', 'Gate 3: Cutover Certification'],
@@ -771,24 +771,6 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
   const handleLaunchMigration = async () => {
     const token = ++reqTokenRef.current;
     try {
-      let appRefId: string | undefined = undefined;
-      let custodyHash: string | undefined = undefined;
-      try {
-        const rawApp = await ipcService.invokeEngineCapability('request_approval', JSON.stringify({
-          migration_id: session.createdMigration?.migrationId || 'mig-draft',
-          discovery_snapshot_id: session.discovery?.snapshotId,
-          approver: businessOwner || 'Aalok',
-          risk_score: session.advisor.riskScore || 'LOW'
-        }));
-        const parsedApp = JSON.parse(rawApp);
-        appRefId = parsedApp.approval_reference_id || parsedApp.approval_id;
-        custodyHash = parsedApp.custody_hash;
-      } catch (e) {
-        console.warn('request_approval engine capability call note', e);
-      }
-
-      if (token !== reqTokenRef.current) return;
-
       const canonicalManifest = {
         manifest_schema_version: '3.0.0',
         engine_version: session.engineStatus.version,
@@ -799,8 +781,6 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
         discovery_snapshot_id: session.discovery.snapshotId,
         advisor_report_id: session.advisor.reportId,
         execution_plan_id: session.executionPlan.planId,
-        approval_reference_id: appRefId,
-        custody_hash: custodyHash,
         selected_scope: {
           databases: [sourceDbName],
           schemas: [sourceUser],
@@ -829,9 +809,40 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
       const finalMigId = parsedMig.migration_id;
       const finalMigName = parsedMig.migration_name || canonicalManifest.migration_name;
 
+      if (!finalMigId) {
+        throw new Error('create_migration failed to return a valid migration_id');
+      }
+
+      let appRefId: string | undefined = undefined;
+      let custodyHash: string | undefined = undefined;
+      let gateStatus: string | undefined = undefined;
+      let appStatus = 'pending';
+      try {
+        const rawApp = await ipcService.invokeEngineCapability('request_approval', JSON.stringify({
+          migration_id: finalMigId,
+          discovery_snapshot_id: session.discovery?.snapshotId,
+          approver: businessOwner || 'Aalok',
+          risk_score: session.advisor.riskScore || 'LOW'
+        }));
+        const parsedApp = JSON.parse(rawApp);
+        appRefId = parsedApp.approval_reference_id || parsedApp.approval_id;
+        custodyHash = parsedApp.custody_hash;
+        gateStatus = parsedApp.gate_status;
+        if (parsedApp.status) appStatus = parsedApp.status;
+      } catch (e) {
+        console.warn('request_approval engine capability call note', e);
+      }
+
+      if (token !== reqTokenRef.current) return;
+
       setSession((prev) => ({
         ...prev,
-        approval: { status: 'approved', approvalReferenceId: appRefId, custodyHash },
+        approval: {
+          status: appStatus as any,
+          approvalReferenceId: appRefId,
+          custodyHash,
+          gateStatus,
+        },
         migrationManifest: canonicalManifest,
         createdMigration: { migrationId: finalMigId, migrationName: finalMigName, raw: parsedMig },
       }));
@@ -2573,7 +2584,7 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
                 </div>
                 <div style={{ padding: 10, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
                   <div style={{ color: 'var(--dash-text-secondary)', fontSize: 10 }}>Est. Execution Time</div>
-                  <div style={{ fontWeight: 800, color: '#3B82F6', marginTop: 2 }}>~14 Minutes</div>
+                  <div style={{ fontWeight: 800, color: '#3B82F6', marginTop: 2 }}>{session.advisor.estimatedDuration || '—'}</div>
                 </div>
                 <div style={{ padding: 10, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
                   <div style={{ color: 'var(--dash-text-secondary)', fontSize: 10 }}>Worker Allocation</div>
@@ -2584,11 +2595,15 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, fontSize: 11 }}>
                 <div style={{ padding: 10, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ color: 'var(--dash-text-secondary)' }}>Governance Approval:</span>
-                  <span style={{ color: '#10B981', fontWeight: 800 }}>✓ GATE 2 PASSED</span>
+                  <span style={{ color: session.approval.gateStatus === 'PASSED' || session.approval.status === 'approved' ? '#10B981' : '#F59E0B', fontWeight: 800 }}>
+                    {session.approval.gateStatus ? `✓ ${session.approval.gateStatus}` : (session.approval.status ? session.approval.status.toUpperCase() : '—')}
+                  </span>
                 </div>
                 <div style={{ padding: 10, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ color: 'var(--dash-text-secondary)' }}>Predicted Risk Level:</span>
-                  <span style={{ color: '#10B981', fontWeight: 800 }}>0.12 (LOW RISK)</span>
+                  <span style={{ color: session.advisor.riskScore === 'LOW' ? '#10B981' : 'var(--dash-text-primary)', fontWeight: 800 }}>
+                    {session.advisor.riskScore || '—'}
+                  </span>
                 </div>
               </div>
             </div>

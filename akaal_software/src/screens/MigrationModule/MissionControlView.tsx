@@ -99,74 +99,7 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
   const [replaySpeed, setReplaySpeed] = useState<1 | 2 | 5 | 10>(1);
 
   // Upgrade 9: Rich Structured Activity Log Stream (Newest First)
-  const [activityFeed] = useState([
-    {
-      id: 'act-6',
-      timestamp: '14:32:05',
-      workerName: 'Worker #2',
-      database: 'HRDB',
-      schema: 'SYSTEM',
-      object: 'AUDIT_TRAIL',
-      severity: 'SUCCESS',
-      category: 'VALIDATION',
-      message: 'Column checksum reconciliation passed for 124 catalog objects',
-    },
-    {
-      id: 'act-5',
-      timestamp: '14:31:40',
-      workerName: 'Worker #4',
-      database: 'HRDB',
-      schema: 'HR',
-      object: 'CUSTOMER_RECORDS',
-      severity: 'INFO',
-      category: 'TRANSPORT',
-      message: 'CUSTOMER_RECORDS table chunk completed (500M rows in 12m 40s)',
-    },
-    {
-      id: 'act-4',
-      timestamp: '14:25:10',
-      workerName: 'Worker #1',
-      database: 'FINANCEDB',
-      schema: 'FIN',
-      object: 'GL_BALANCES',
-      severity: 'INFO',
-      category: 'TRANSPORT',
-      message: 'Parallel Worker #4 initiated partition stream chunk #18',
-    },
-    {
-      id: 'act-3',
-      timestamp: '14:20:00',
-      workerName: 'Supervisor',
-      database: 'SALESDB',
-      schema: 'SALES',
-      object: 'ALL_OBJECTS',
-      severity: 'CHECKPOINT',
-      category: 'CHECKPOINT',
-      message: 'Durable WAL Checkpoint sealed at LSN 0/4A8F910 (RPO: 0s)',
-    },
-    {
-      id: 'act-2',
-      timestamp: '14:18:20',
-      workerName: 'Governance',
-      database: 'SYSTEM',
-      schema: 'GATE',
-      object: 'GATE_2',
-      severity: 'SUCCESS',
-      category: 'CERTIFICATE',
-      message: 'Four-Eyes Executive Approval granted by Governance Security Gate',
-    },
-    {
-      id: 'act-1',
-      timestamp: '14:15:00',
-      workerName: 'ScoutAgent',
-      database: 'HRDB',
-      schema: 'HR',
-      object: 'CATALOG',
-      severity: 'INFO',
-      category: 'DDL',
-      message: 'Discovery catalog fenced: 3 Databases, 4 Schemas, 124 Objects cataloged',
-    },
-  ]);
+  const [activityFeed, setActivityFeed] = useState<any[]>([]);
 
   const fetchRuntimeSnapshot = async () => {
     try {
@@ -189,6 +122,9 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
           }
           if (snap.current_stage) {
             setActiveStage(snap.current_stage as any);
+          }
+          if (snap.logs && Array.isArray(snap.logs) && snap.logs.length > 0) {
+            setActivityFeed(snap.logs);
           }
           setConnectionState('CONNECTED');
         }
@@ -388,8 +324,8 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
             </div>
             <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 12 }}>
               <span>{migration.sourceEngine} ──► {migration.targetEngine}</span>
-              <span>• ETA: 14 Mins</span>
-              <span>• ID: MIG-2026-0806-001</span>
+              <span>• ETA: {snapshot?.eta_seconds != null ? `${snapshot.eta_seconds}s` : (migration.estimatedDuration || '—')}</span>
+              <span>• ID: {migration.id}</span>
               <span>• Owner: {migration.owner}</span>
             </div>
           </div>
@@ -602,23 +538,33 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }}>
                   <div style={{ padding: 10, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
                     <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Active Workers</div>
-                    <div style={{ fontSize: 16, fontWeight: 800, marginTop: 4, color: '#3B82F6' }}>8 Pool Workers</div>
+                    <div style={{ fontSize: 16, fontWeight: 800, marginTop: 4, color: '#3B82F6' }}>
+                      {snapshot?.active_workers != null ? `${snapshot.active_workers} Workers` : (runStatus === 'running' ? 'Active' : '0 Active Workers')}
+                    </div>
                   </div>
                   <div style={{ padding: 10, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
                     <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Streaming Speed</div>
-                    <div style={{ fontSize: 16, fontWeight: 800, marginTop: 4, color: '#10B981' }}>154.8 MB/s</div>
+                    <div style={{ fontSize: 16, fontWeight: 800, marginTop: 4, color: '#10B981' }}>
+                      {snapshot?.throughput_mbps != null && snapshot.throughput_mbps > 0 ? `${snapshot.throughput_mbps} MB/s` : '—'}
+                    </div>
                   </div>
                   <div style={{ padding: 10, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
                     <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Rows/sec Rate</div>
-                    <div style={{ fontSize: 16, fontWeight: 800, marginTop: 4, color: '#8B5CF6' }}>48,500/s</div>
+                    <div style={{ fontSize: 16, fontWeight: 800, marginTop: 4, color: '#8B5CF6' }}>
+                      {snapshot?.rows_per_sec != null ? `${snapshot.rows_per_sec}/s` : '—'}
+                    </div>
                   </div>
                   <div style={{ padding: 10, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
                     <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>WAN Bandwidth</div>
-                    <div style={{ fontSize: 16, fontWeight: 800, marginTop: 4, color: '#F59E0B' }}>1.2 Gbps</div>
+                    <div style={{ fontSize: 16, fontWeight: 800, marginTop: 4, color: '#F59E0B' }}>
+                      {snapshot?.bandwidth != null ? snapshot.bandwidth : '—'}
+                    </div>
                   </div>
                   <div style={{ padding: 10, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
                     <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>WAL Ring Buffer</div>
-                    <div style={{ fontSize: 16, fontWeight: 800, marginTop: 4, color: '#10B981' }}>100% OK</div>
+                    <div style={{ fontSize: 16, fontWeight: 800, marginTop: 4, color: '#10B981' }}>
+                      {snapshot?.ring_buffer != null ? snapshot.ring_buffer : '—'}
+                    </div>
                   </div>
                 </div>
               ) : (
@@ -637,32 +583,45 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
                 <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--dash-text-primary)' }}>Live Object Stream Progress</span>
               </div>
               <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--dash-accent)', fontVariantNumeric: 'tabular-nums' }}>
-                {progressPercent}% Complete ({fmtRows(rowsProcessed)} / {fmtRows(totalRows)} Rows)
+                {runStatus === 'created' || runStatus === 'ready' || snapshot?.progress_percent == null
+                  ? '— Complete (— Rows)'
+                  : `${progressPercent}% Complete (${fmtRows(rowsProcessed)} / ${fmtRows(totalRows)} Rows)`}
               </span>
             </div>
 
             {/* Smooth Progress Bar */}
             <div style={{ width: '100%', height: 10, borderRadius: 6, background: 'var(--dash-bg)', overflow: 'hidden', border: '1px solid var(--dash-border)' }}>
-              <div style={{ width: `${progressPercent}%`, height: '100%', background: 'linear-gradient(90deg, #3B82F6 0%, #10B981 100%)', transition: 'width 250ms ease-in-out', borderRadius: 6 }} />
+              <div style={{
+                width: `${runStatus === 'created' || runStatus === 'ready' || snapshot?.progress_percent == null ? 0 : progressPercent}%`,
+                height: '100%', background: 'linear-gradient(90deg, #3B82F6 0%, #10B981 100%)', transition: 'width 250ms ease-in-out', borderRadius: 6
+              }} />
             </div>
 
             {/* Active Object Telemetry Matrix */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, fontSize: 11, marginTop: 4 }}>
               <div style={{ padding: 8, background: 'var(--dash-bg)', borderRadius: 6, border: '1px solid var(--dash-border)' }}>
                 <div style={{ color: 'var(--dash-text-secondary)', fontSize: 10 }}>Current Target Object</div>
-                <div style={{ fontWeight: 700, color: 'var(--dash-text-primary)', marginTop: 2, fontFamily: 'var(--akaal-font-mono, monospace)' }}>CUSTOMER_RECORDS</div>
+                <div style={{ fontWeight: 700, color: 'var(--dash-text-primary)', marginTop: 2, fontFamily: 'var(--akaal-font-mono, monospace)' }}>
+                  {snapshot?.current_table || snapshot?.current_object || '—'}
+                </div>
               </div>
               <div style={{ padding: 8, background: 'var(--dash-bg)', borderRadius: 6, border: '1px solid var(--dash-border)' }}>
                 <div style={{ color: 'var(--dash-text-secondary)', fontSize: 10 }}>Indexes Built</div>
-                <div style={{ fontWeight: 700, color: '#10B981', marginTop: 2 }}>4 of 5 Indexes</div>
+                <div style={{ fontWeight: 700, color: '#10B981', marginTop: 2 }}>
+                  {snapshot?.indexes_built != null ? `${snapshot.indexes_built} of ${snapshot.indexes_total || '—'} Indexes` : '—'}
+                </div>
               </div>
               <div style={{ padding: 8, background: 'var(--dash-bg)', borderRadius: 6, border: '1px solid var(--dash-border)' }}>
                 <div style={{ color: 'var(--dash-text-secondary)', fontSize: 10 }}>Constraints Verified</div>
-                <div style={{ fontWeight: 700, color: '#10B981', marginTop: 2 }}>2 PK / 4 FK Verified</div>
+                <div style={{ fontWeight: 700, color: '#10B981', marginTop: 2 }}>
+                  {snapshot?.constraints_verified != null ? `${snapshot.constraints_verified} Verified` : '—'}
+                </div>
               </div>
               <div style={{ padding: 8, background: 'var(--dash-bg)', borderRadius: 6, border: '1px solid var(--dash-border)' }}>
                 <div style={{ color: 'var(--dash-text-secondary)', fontSize: 10 }}>Upstream Lock Status</div>
-                <div style={{ fontWeight: 700, color: '#3B82F6', marginTop: 2 }}>0 Lock Conflicts</div>
+                <div style={{ fontWeight: 700, color: '#3B82F6', marginTop: 2 }}>
+                  {snapshot?.lock_conflicts != null ? `${snapshot.lock_conflicts} Lock Conflicts` : '—'}
+                </div>
               </div>
             </div>
           </div>

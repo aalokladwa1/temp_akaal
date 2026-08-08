@@ -92,20 +92,7 @@ def run_live_desktop_e2e_challenge():
     new_plan_id = plan_res.get("execution_plan_id")
     print(f"[IPC 4] generate_plan: Plan ID={new_plan_id}, Checksum={plan_res.get('sha256_checksum')[:16]}..., Tasks={len(plan_res.get('stages', []))}")
 
-    # IPC Call 5: request_approval
-    app_payload = {
-        "migration_id": new_mig_id,
-        "discovery_snapshot_id": snap_id,
-        "gate": "GATE_1",
-        "requested_by": "Aalok (Lead DBA)"
-    }
-    t0 = time.time()
-    app_req_res = gateway.invoke("request_approval", app_payload)
-    ipc_trace.append({"capability": "request_approval", "input": app_payload["migration_id"], "output": app_req_res, "elapsed_ms": (time.time() - t0)*1000})
-    new_approval_id = app_req_res.get("approval_reference_id")
-    print(f"[IPC 5] request_approval: Approval ID={new_approval_id}, Status={app_req_res.get('status')}")
-
-    # IPC Call 6: create_migration
+    # IPC Call 5: create_migration
     create_payload = {
         "project_id": new_proj_id,
         "migration_id": new_mig_id,
@@ -115,12 +102,25 @@ def run_live_desktop_e2e_challenge():
         "discovery_snapshot_id": snap_id,
         "advisor_report_id": adv_id,
         "execution_plan_id": new_plan_id,
-        "approval_reference_id": new_approval_id
     }
     t0 = time.time()
     create_res = gateway.invoke("create_migration", create_payload)
     ipc_trace.append({"capability": "create_migration", "input": create_payload["migration_id"], "output": create_res, "elapsed_ms": (time.time() - t0)*1000})
-    print(f"[IPC 6] create_migration: Registered migration_id={create_res.get('migration_id')}, Status={create_res.get('status')}")
+    real_mig_id = create_res.get("migration_id", new_mig_id)
+    print(f"[IPC 5] create_migration: Registered real migration_id={real_mig_id}, Status={create_res.get('status')}")
+
+    # IPC Call 6: request_approval with REAL migration_id
+    app_payload = {
+        "migration_id": real_mig_id,
+        "discovery_snapshot_id": snap_id,
+        "gate": "GATE_1",
+        "requested_by": "Aalok (Lead DBA)"
+    }
+    t0 = time.time()
+    app_req_res = gateway.invoke("request_approval", app_payload)
+    ipc_trace.append({"capability": "request_approval", "input": app_payload["migration_id"], "output": app_req_res, "elapsed_ms": (time.time() - t0)*1000})
+    new_approval_id = app_req_res.get("approval_reference_id")
+    print(f"[IPC 6] request_approval: Approval ID={new_approval_id}, Status={app_req_res.get('status')}")
 
     # IPC Call 7: get_approval_queue
     t0 = time.time()

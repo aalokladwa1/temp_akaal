@@ -357,24 +357,38 @@ class EngineGateway:
                 "error_message": f"Cannot start transport: Migration '{workflow_id}' has not been registered."
             }
 
-        # Authoritative Governance Approval Gate Enforcement
+        # Authoritative Governance Approval Gate Enforcement (FAIL-CLOSED)
         app_status = self.state_store.get_state(f"{workflow_id}_approval", category="governance")
-        if app_status and isinstance(app_status, dict):
-            st = str(app_status.get("status", "")).lower()
-            if st == "pending":
-                return {
-                    "stage": "start_transport",
-                    "status": "failed",
-                    "error_code": "APPROVAL_REQUIRED",
-                    "error_message": f"Cannot start transport: Migration '{workflow_id}' requires governance approval before execution."
-                }
-            elif st in ("rejected", "changes_requested"):
-                return {
-                    "stage": "start_transport",
-                    "status": "failed",
-                    "error_code": "APPROVAL_REJECTED",
-                    "error_message": f"Cannot start transport: Migration '{workflow_id}' governance approval was rejected."
-                }
+        if not app_status or not isinstance(app_status, dict):
+            return {
+                "stage": "start_transport",
+                "status": "failed",
+                "error_code": "APPROVAL_REQUIRED",
+                "error_message": f"Cannot start transport: Migration '{workflow_id}' requires governance approval before execution."
+            }
+
+        st = str(app_status.get("status", "")).lower()
+        if st == "pending":
+            return {
+                "stage": "start_transport",
+                "status": "failed",
+                "error_code": "APPROVAL_REQUIRED",
+                "error_message": f"Cannot start transport: Migration '{workflow_id}' governance approval is pending."
+            }
+        elif st in ("rejected", "changes_requested"):
+            return {
+                "stage": "start_transport",
+                "status": "failed",
+                "error_code": "APPROVAL_REJECTED",
+                "error_message": f"Cannot start transport: Migration '{workflow_id}' governance approval was rejected."
+            }
+        elif st != "approved":
+            return {
+                "stage": "start_transport",
+                "status": "failed",
+                "error_code": "APPROVAL_REQUIRED",
+                "error_message": f"Cannot start transport: Migration '{workflow_id}' governance status is '{st}' (must be APPROVED)."
+            }
 
         if workflow_id not in self.workflow_engine._manifests:
             self._register_workflow_manifest(workflow_id)
@@ -416,10 +430,10 @@ class EngineGateway:
                     "failure_reason": "Workflow daemon step failed execution."
                 }
 
-            rows_migrated = daemon_res.get("rows_migrated", 5)
-            rows_validated = daemon_res.get("rows_validated", rows_migrated)
-            throughput = daemon_res.get("throughput_mbps", 34.8)
-            tables_migrated = daemon_res.get("tables_migrated", 1)
+            rows_migrated = daemon_res.get("rows_migrated")
+            rows_validated = daemon_res.get("rows_validated")
+            throughput = daemon_res.get("throughput_mbps")
+            tables_migrated = daemon_res.get("tables_migrated")
 
             self.state_store.update_progress(workflow_id, {
                 "migration_id": workflow_id,
@@ -1095,8 +1109,9 @@ class EngineGateway:
                 "available_actions": ["start", "terminate"],
             }
 
-        rows_m = progress.get("rows_migrated", 5) if progress else 5
-        tp_mbps = progress.get("throughput_mbps", 34.8) if progress else 34.8
+        rows_m = progress.get("rows_migrated") if progress else None
+        rows_t = progress.get("rows_total") if progress else None
+        tp_mbps = progress.get("throughput_mbps") if progress else None
 
         if st_str == "RUNNING":
             avail_actions = ["pause", "checkpoint", "rollback", "terminate"]
@@ -1109,6 +1124,13 @@ class EngineGateway:
         else:
             avail_actions = ["start", "terminate"]
 
+        if rows_m is not None and rows_t is not None and rows_t > 0:
+            prog_pct = (rows_m / rows_t) * 100.0
+        elif st_str == "COMPLETED":
+            prog_pct = 100.0
+        else:
+            prog_pct = None
+
         return {
             "runtime_session_id": sess_id,
             "migration_id": mig_id,
@@ -1117,22 +1139,19 @@ class EngineGateway:
             "previous_stage": "scout",
             "next_stage": "validation",
             "current_activity": f"Engine execution state: {st_str}",
-            "health_status": "HEALTHY" if st_str in ("RUNNING", "COMPLETED") else "PAUSED",
-            "approval_status": "NOT_REQUIRED",
-            "current_table": "CUSTOMER_RECORDS",
-            "current_batch": 1,
-            "total_batches": 1,
-            "current_checkpoint_lsn": "0/1A2B3C4",
+            "health_status": "HEALTHY" if st_str in ("RUNNING", "COMPLETED") else ("PAUSED" if st_str == "PAUSED" else "ERROR"),
+            "approval_status": "APPROVED" if self.state_store.get_state(f"{mig_id}_approval", category="governance") else "NOT_REQUIRED",
+            "current_table": progress.get("current_table") if progress else None,
+            "current_batch": progress.get("current_batch", 0) if progress else 0,
+            "total_batches": progress.get("total_batches", 0) if progress else 0,
+            "current_checkpoint_lsn": progress.get("checkpoint_lsn") if progress else None,
             "rows_transferred": rows_m,
-            "rows_total": rows_m,
-            "progress_percent": 100.0 if st_str == "COMPLETED" else 50.0,
-            "throughput_mbps": tp_mbps if st_str == "RUNNING" else 0.0,
-            "eta_seconds": 0,
-            "active_workers": 4 if st_str == "RUNNING" else 0,
-            "worker_statuses": [
-                {"id": 1, "status": st_str, "throughput_mbps": (tp_mbps / 2) if tp_mbps is not None else None, "current_table": "CUSTOMER_RECORDS", "progress_percent": 100},
-                {"id": 2, "status": st_str, "throughput_mbps": (tp_mbps / 2) if tp_mbps is not None else None, "current_table": "AUDIT_LOG", "progress_percent": 100},
-            ],
+            "rows_total": rows_t,
+            "progress_percent": prog_pct,
+            "throughput_mbps": tp_mbps if st_str == "RUNNING" else None,
+            "eta_seconds": progress.get("eta_seconds") if progress else None,
+            "active_workers": progress.get("active_workers", 4 if st_str == "RUNNING" else 0) if progress else (4 if st_str == "RUNNING" else 0),
+            "worker_statuses": progress.get("worker_statuses", []) if progress else [],
             "warnings": [],
             "errors": [],
             "logs": [],
