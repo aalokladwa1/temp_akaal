@@ -333,11 +333,27 @@ class EngineGateway:
         }
 
     def start_transport(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        workflow_id = payload.get("migration_id") or payload.get("workflow_id") or "mig-default"
+        workflow_id = payload.get("migration_id") or payload.get("workflow_id")
+        if not workflow_id:
+            return {
+                "stage": "start_transport",
+                "status": "failed",
+                "error_code": "MISSING_MIGRATION_ID",
+                "error_message": "Cannot start transport: migration_id is missing from payload."
+            }
+
+        if workflow_id not in self._migrations:
+            return {
+                "stage": "start_transport",
+                "status": "failed",
+                "error_code": "UNKNOWN_MIGRATION_ID",
+                "error_message": f"Cannot start transport: Migration '{workflow_id}' has not been registered."
+            }
+
         if workflow_id not in self.workflow_engine._manifests:
             self._register_workflow_manifest(workflow_id)
 
-        saved_config = self._migrations.get(workflow_id, {}).get("config", {})
+        saved_config = self._migrations[workflow_id].get("config", {})
         merged_payload = {**saved_config, **payload}
 
         # Runtime V3 Active Isolation & Resiliency Integrations
@@ -1048,6 +1064,17 @@ class EngineGateway:
         rows_m = progress.get("rows_migrated", 5) if progress else 5
         tp_mbps = progress.get("throughput_mbps", 34.8) if progress else 34.8
 
+        if st_str == "RUNNING":
+            avail_actions = ["pause", "checkpoint", "rollback", "terminate"]
+        elif st_str == "PAUSED":
+            avail_actions = ["resume", "checkpoint", "rollback", "terminate"]
+        elif st_str == "COMPLETED":
+            avail_actions = ["generate_certificate", "terminate"]
+        elif st_str in ("FAILED", "ERROR"):
+            avail_actions = ["retry", "recover", "rollback", "terminate"]
+        else:
+            avail_actions = ["start", "terminate"]
+
         return {
             "runtime_session_id": sess_id,
             "migration_id": mig_id,
@@ -1075,7 +1102,7 @@ class EngineGateway:
             "warnings": [],
             "errors": [],
             "logs": [],
-            "available_actions": ["pause", "resume", "checkpoint", "rollback", "terminate"] if st_str == "RUNNING" else ["start", "resume", "terminate"],
+            "available_actions": avail_actions,
         }
 
     def subscribe_runtime_events(self, payload: Dict[str, Any]) -> Dict[str, Any]:
