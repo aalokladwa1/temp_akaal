@@ -75,6 +75,7 @@ class PostgreSQLAdapter(BaseAdapter):
         if self.mock_mode:
             logger.info("[PostgreSQLAdapter] Mock mode: host=%s", config.host)
         self._psycopg2 = None
+        self._conn = None
         if not self.mock_mode:
             try:
                 import psycopg2
@@ -129,7 +130,7 @@ class PostgreSQLAdapter(BaseAdapter):
         logger.info("[PostgreSQLAdapter] Connected.")
 
     async def close(self) -> None:
-        if self._conn:
+        if getattr(self, "_conn", None):
             await self.close_connection(self._conn)
             self._conn = None
         self.is_connected = False

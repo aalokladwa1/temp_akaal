@@ -24,10 +24,11 @@ import {
   Wifi,
   WifiOff,
 } from 'lucide-react';
-import type { MigrationPipeline, EngineStageId } from '../../types/migration';
+import type { MigrationPipeline, EngineStageId, GovernanceApproval } from '../../types/migration';
 import { ENGINE_STAGE_METADATA } from '../../services/migrationService';
 import { notificationService } from '../../services/notificationService';
 import { ipcService } from '../../services/ipcService';
+import { approvalRepository } from '../../repositories/approvalRepository';
 
 export type ConfirmActionType =
   | 'start'
@@ -101,7 +102,13 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
   // Upgrade 9: Rich Structured Activity Log Stream (Newest First)
   const [activityFeed, setActivityFeed] = useState<any[]>([]);
 
+  // Request Storm Protection & Subscription Count Tracking (P0.10-V / Rectifications 13, 14, 16)
+  const isFetchingRef = useState({ active: false })[0];
+  const activeSubscriptionsCount = useState({ count: 0 })[0];
+
   const fetchRuntimeSnapshot = async () => {
+    if (isFetchingRef.active) return;
+    isFetchingRef.active = true;
     try {
       const raw = await ipcService.invokeEngineCapability(
         'get_runtime_snapshot',
@@ -131,23 +138,29 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
       }
     } catch (err) {
       setConnectionState('OFFLINE');
+    } finally {
+      isFetchingRef.active = false;
     }
   };
 
   useEffect(() => {
     let isMounted = true;
+    activeSubscriptionsCount.count += 1;
     fetchRuntimeSnapshot();
+
     const interval = setInterval(() => {
-      if (isMounted) {
+      if (isMounted && runStatus !== 'failed' && runStatus !== 'completed') {
         fetchRuntimeSnapshot();
         setSnapshotAgeMs((prev) => (prev > 1500 ? 120 : prev + 120));
       }
     }, 2000);
+
     return () => {
       isMounted = false;
+      activeSubscriptionsCount.count = Math.max(0, activeSubscriptionsCount.count - 1);
       clearInterval(interval);
     };
-  }, [migration.id]);
+  }, [migration.id, runStatus]);
 
   // Action Execution Handler called ONLY after operator confirms inside dialog
   const executeConfirmedAction = async (action: ConfirmActionType) => {
@@ -203,7 +216,38 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
 
     if (cap) {
       try {
-        await ipcService.invokeEngineCapability(cap, JSON.stringify(payloadObj));
+        const rawRes = await ipcService.invokeEngineCapability(cap, JSON.stringify(payloadObj));
+        let parsed: any = {};
+        try {
+          parsed = typeof rawRes === 'string' ? JSON.parse(rawRes) : rawRes;
+        } catch {
+          parsed = { status: 'success', raw: rawRes };
+        }
+        const resObj = parsed?.result ? (typeof parsed.result === 'string' ? JSON.parse(parsed.result) : parsed.result) : parsed;
+
+        if (resObj && (resObj.status === 'failed' || resObj.status === 'error' || resObj.error_code)) {
+          const errCode = resObj.error_code || 'OPERATION_FAILED';
+          const errMsg = resObj.error_message || resObj.message || resObj.failure_reason || `Operation ${action.toUpperCase()} rejected by engine.`;
+
+          if (errCode === 'APPROVAL_REQUIRED') {
+            notificationService.push(
+              'Governance Approval Required',
+              'warning',
+              `Cannot start transport for '${migration.id}': Governance sign-off (Gate 2/3) is pending or required.`
+            );
+          } else if (errCode === 'APPROVAL_REJECTED') {
+            notificationService.push(
+              'Governance Approval Rejected',
+              'error',
+              `Cannot start transport for '${migration.id}': Governance approval was rejected.`
+            );
+          } else {
+            notificationService.push(`Engine Rejected: ${action.toUpperCase()}`, 'error', errMsg);
+          }
+          await fetchRuntimeSnapshot();
+          return;
+        }
+
         notificationService.push(`Engine Acknowledged: ${action.toUpperCase()}`, 'success', `State updated by AKAAL runtime for ${migration.id}`);
         await fetchRuntimeSnapshot();
       } catch (err: any) {
@@ -221,22 +265,20 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
   // Stage metadata
   const stageMeta = ENGINE_STAGE_METADATA[activeStage] || ENGINE_STAGE_METADATA['data_migration'];
 
-  // Dynamic Execution Plan Nodes Presentation Binding
+  // Authoritative Execution Plan Nodes
   const dynamicExecutionPlanNodes = useMemo(() => {
+    if (snapshot?.stages && Array.isArray(snapshot.stages) && snapshot.stages.length > 0) {
+      return snapshot.stages;
+    }
     return [
-      { stage: 1, name: 'Discovery & Catalog Fencing', category: 'Catalog', details: `Source Engine: ${migration.sourceEngine} -> Target: ${migration.targetEngine}` },
-      { stage: 2, name: 'DAG Topological Dependency Sorting', category: 'Planner', details: '3 Databases, 4 Schemas, 124 Objects cataloged' },
-      { stage: 3, name: 'Target Schema Structure Deployment', category: 'DDL', details: `Deploy DDL definitions to target ${migration.targetEngine}` },
-      { stage: 4, name: 'Sequence Generator Sync Node', category: 'DDL', details: 'Initialize 6 database sequences' },
-      { stage: 5, name: 'Parallel Stream Data Transport', category: 'Data Transport', details: '68 Tables (8 Workers, 10,000 Batch Size)' },
-      { stage: 6, name: 'Target View DDL Creation', category: 'DDL', details: 'Deploy 18 SQL view definitions' },
-      { stage: 7, name: 'PL/SQL Transpilation & Deployment', category: 'Transpiler', details: 'Transpile 24 PL/SQL routines to PL/pgSQL' },
-      { stage: 8, name: 'Trigger Definition Deployment', category: 'DDL', details: 'Attach 12 database triggers' },
-      { stage: 9, name: 'CDC Continuous Replication Setup', category: 'Replication', details: 'Setup WAL Log Reader & streaming sync' },
-      { stage: 10, name: 'Reconciliation & Validation Node', category: 'Validation', details: 'Level: CHECKSUM (100% sampling rate)' },
-      { stage: 11, name: 'SHA-256 Digital Trust Seal', category: 'Certification', details: 'Generate cryptographic migration certificate' },
+      { stage: 1, name: 'Discovery & Catalog Fencing', category: 'Catalog', details: `${migration.sourceEngine} ──► ${migration.targetEngine}` },
+      { stage: 2, name: 'DAG Topological Dependency Sorting', category: 'Planner', details: `Source: ${migration.sourceEndpoint} | Target: ${migration.targetEndpoint}` },
+      { stage: 3, name: 'Target Schema Structure Deployment', category: 'DDL', details: `Deploy DDL definitions to ${migration.targetEngine}` },
+      { stage: 4, name: 'Parallel Stream Data Transport', category: 'Data Transport', details: `Topological transport pipeline (${migration.estimatedDuration || '—'})` },
+      { stage: 5, name: 'Reconciliation & Validation Node', category: 'Validation', details: 'Full Row Count & SHA-256 Checksum Auditing' },
+      { stage: 6, name: 'Digital Trust Certification', category: 'Certification', details: 'Generate cryptographic migration certificate' },
     ];
-  }, [migration]);
+  }, [migration, snapshot]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', minHeight: 0, background: 'var(--dash-bg)', overflow: 'hidden' }}>
@@ -251,10 +293,10 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
 
           <div style={{ width: 1, height: 10, background: 'var(--dash-border)' }} />
 
-          <span style={{ color: 'var(--dash-text-secondary)' }}>IPC: <span style={{ color: '#10B981' }}>HEALTHY (0.4ms)</span></span>
+          <span style={{ color: 'var(--dash-text-secondary)' }}>IPC: <span style={{ color: connectionState === 'CONNECTED' ? '#10B981' : '#F59E0B' }}>{connectionState === 'CONNECTED' ? 'ONLINE' : 'OFFLINE'}</span></span>
           <span style={{ color: 'var(--dash-text-secondary)' }}>Snapshot Age: <span style={{ color: 'var(--dash-text-primary)' }}>{snapshotAgeMs}ms</span></span>
-          <span style={{ color: 'var(--dash-text-secondary)' }}>Event Stream: <span style={{ color: '#10B981' }}>RECEIVING</span></span>
-          <span style={{ color: 'var(--dash-text-secondary)' }}>Supervisor: <span style={{ color: '#10B981' }}>HEALTHY (PID 89412)</span></span>
+          <span style={{ color: 'var(--dash-text-secondary)' }}>Event Stream: <span style={{ color: connectionState === 'CONNECTED' ? '#10B981' : 'var(--dash-text-secondary)' }}>{connectionState === 'CONNECTED' ? 'ACTIVE' : 'STANDBY'}</span></span>
+          <span style={{ color: 'var(--dash-text-secondary)' }}>Supervisor: <span style={{ color: runStatus === 'running' ? '#10B981' : 'var(--dash-text-secondary)' }}>{runStatus === 'running' ? 'EXECUTING DAEMON' : 'IDLE / STANDBY'}</span></span>
         </div>
 
         {/* Development Connection State Toggle for Verification */}
@@ -337,6 +379,34 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
         </button>
       </div>
 
+      {/* ── MIGRATION FAILURE BANNER ── */}
+      {(runStatus === 'failed' || snapshot?.health_status === 'ERROR' || snapshot?.status === 'FAILED') && (
+        <div style={{ margin: '16px 24px 0 24px', padding: '16px 20px', background: 'rgba(239,68,68,0.1)', border: '1px solid #EF4444', borderRadius: 8, color: '#EF4444' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 800, fontSize: 15 }}>
+            <AlertTriangle size={20} color="#EF4444" />
+            <span>MIGRATION FAILED</span>
+          </div>
+          <div style={{ marginTop: 8, fontSize: 13, display: 'grid', gridTemplateColumns: '120px 1fr', gap: 6, color: 'var(--dash-text-primary)' }}>
+            <span style={{ color: 'var(--dash-text-secondary)' }}>Stage:</span>
+            <strong>{snapshot?.failed_stage || snapshot?.current_stage || 'Schema Execution'}</strong>
+            {snapshot?.failed_object && (
+              <>
+                <span style={{ color: 'var(--dash-text-secondary)' }}>Object:</span>
+                <strong style={{ fontFamily: 'monospace' }}>{snapshot.failed_object}</strong>
+              </>
+            )}
+            {snapshot?.failed_schema && (
+              <>
+                <span style={{ color: 'var(--dash-text-secondary)' }}>Target Schema:</span>
+                <strong style={{ fontFamily: 'monospace' }}>{snapshot.failed_schema}</strong>
+              </>
+            )}
+            <span style={{ color: 'var(--dash-text-secondary)' }}>Reason:</span>
+            <span style={{ color: '#EF4444', fontWeight: 600 }}>{snapshot?.error_message || (snapshot?.errors && snapshot.errors[0]) || 'Database rejected target object or schema DDL.'}</span>
+          </div>
+        </div>
+      )}
+
       {/* ── ENTERPRISE OPERATIONS TOOLBAR (State-Aware Controls) ─────────── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 24px', background: 'var(--dash-bg)', borderBottom: '1px solid var(--dash-border)', flexShrink: 0, gap: 12, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -345,16 +415,45 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
           </span>
 
           {/* READY / CREATED STATE CONTROLS */}
-          {(runStatus === 'ready' || runStatus === 'created') && (
-            <>
-              <button type="button" onClick={() => setConfirmAction('start')} style={{ padding: '6px 16px', borderRadius: 6, background: '#10B981', color: '#FFF', fontSize: 12, fontWeight: 800, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Play size={14} /> START MIGRATION
-              </button>
-              <button type="button" onClick={() => setConfirmAction('terminate')} style={{ padding: '6px 14px', borderRadius: 6, background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', color: '#EF4444', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <XCircle size={13} /> Cancel Pipeline
-              </button>
-            </>
-          )}
+          {(runStatus === 'ready' || runStatus === 'created') && (() => {
+            const isGovernanceApproved = snapshot?.approval_status === 'APPROVED' || (migration.id && approvalRepository.getApprovals().some((a: GovernanceApproval) => a.migrationId === migration.id && a.status === 'approved'));
+            return (
+              <>
+                <button
+                  type="button"
+                  disabled={!isGovernanceApproved}
+                  onClick={() => {
+                    if (isGovernanceApproved) setConfirmAction('start');
+                  }}
+                  style={{
+                    padding: '6px 16px',
+                    borderRadius: 6,
+                    background: isGovernanceApproved ? '#10B981' : 'var(--dash-border)',
+                    color: isGovernanceApproved ? '#FFF' : 'var(--dash-text-secondary)',
+                    fontSize: 12,
+                    fontWeight: 800,
+                    border: 'none',
+                    cursor: isGovernanceApproved ? 'pointer' : 'not-allowed',
+                    opacity: isGovernanceApproved ? 1 : 0.6,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6
+                  }}
+                  title={isGovernanceApproved ? 'Start Transport Execution' : 'Governance Approval Required before starting transport.'}
+                >
+                  <Play size={14} /> START MIGRATION
+                </button>
+                {!isGovernanceApproved && (
+                  <span style={{ fontSize: 11, padding: '4px 10px', borderRadius: 6, background: 'rgba(245,158,11,0.15)', color: '#F59E0B', fontWeight: 700, border: '1px solid rgba(245,158,11,0.3)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <ShieldAlert size={13} /> Awaiting Governance Approval in Governance Centre
+                  </span>
+                )}
+                <button type="button" onClick={() => setConfirmAction('terminate')} style={{ padding: '6px 14px', borderRadius: 6, background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', color: '#EF4444', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <XCircle size={13} /> Cancel Pipeline
+                </button>
+              </>
+            );
+          })()}
 
           {/* RUNNING STATE CONTROLS */}
           {runStatus === 'running' && (
@@ -539,7 +638,7 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
                   <div style={{ padding: 10, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
                     <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Active Workers</div>
                     <div style={{ fontSize: 16, fontWeight: 800, marginTop: 4, color: '#3B82F6' }}>
-                      {snapshot?.active_workers != null ? `${snapshot.active_workers} Workers` : (runStatus === 'running' ? 'Active' : '0 Active Workers')}
+                      {snapshot?.active_workers != null ? `${snapshot.active_workers} Active Workers` : '0 Active Workers'}
                     </div>
                   </div>
                   <div style={{ padding: 10, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
@@ -703,42 +802,32 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <div style={{ padding: '6px 8px', background: 'var(--dash-bg)', borderRadius: 6, border: '1px solid var(--dash-border)', display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
                 <span style={{ color: 'var(--dash-text-secondary)' }}>Parallel Worker Threads</span>
-                <strong style={{ color: 'var(--dash-text-primary)' }}>8 Active Pool</strong>
+                <strong style={{ color: 'var(--dash-text-primary)' }}>{snapshot?.active_workers != null ? `${snapshot.active_workers} Active` : '0 Active Pool'}</strong>
               </div>
 
               <div style={{ padding: '6px 8px', background: 'var(--dash-bg)', borderRadius: 6, border: '1px solid var(--dash-border)', display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
                 <span style={{ color: 'var(--dash-text-secondary)' }}>CPU Usage</span>
-                <strong style={{ color: '#10B981' }}>42% (4 Cores)</strong>
+                <strong style={{ color: snapshot?.cpu_percent != null ? '#10B981' : 'var(--dash-text-secondary)' }}>{snapshot?.cpu_percent != null ? `${snapshot.cpu_percent}%` : '—'}</strong>
               </div>
 
               <div style={{ padding: '6px 8px', background: 'var(--dash-bg)', borderRadius: 6, border: '1px solid var(--dash-border)', display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
                 <span style={{ color: 'var(--dash-text-secondary)' }}>RAM Memory Quota</span>
-                <strong style={{ color: '#3B82F6' }}>2.4 GB / 4.0 GB</strong>
+                <strong style={{ color: snapshot?.ram_used_gb != null ? '#3B82F6' : 'var(--dash-text-secondary)' }}>{snapshot?.ram_used_gb != null ? `${snapshot.ram_used_gb} GB` : '—'}</strong>
               </div>
 
               <div style={{ padding: '6px 8px', background: 'var(--dash-bg)', borderRadius: 6, border: '1px solid var(--dash-border)', display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
                 <span style={{ color: 'var(--dash-text-secondary)' }}>Streaming Speed</span>
-                <strong style={{ color: '#10B981' }}>154.8 MB/s</strong>
+                <strong style={{ color: snapshot?.throughput_mbps != null ? '#10B981' : 'var(--dash-text-secondary)' }}>{snapshot?.throughput_mbps != null ? `${snapshot.throughput_mbps.toFixed(1)} MB/s` : '—'}</strong>
               </div>
 
               <div style={{ padding: '6px 8px', background: 'var(--dash-bg)', borderRadius: 6, border: '1px solid var(--dash-border)', display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
                 <span style={{ color: 'var(--dash-text-secondary)' }}>Rows/sec Throughput</span>
-                <strong style={{ color: '#8B5CF6' }}>48,500 rows/s</strong>
-              </div>
-
-              <div style={{ padding: '6px 8px', background: 'var(--dash-bg)', borderRadius: 6, border: '1px solid var(--dash-border)', display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
-                <span style={{ color: 'var(--dash-text-secondary)' }}>WAN Network Bandwidth</span>
-                <strong style={{ color: '#F59E0B' }}>1.2 Gbps</strong>
+                <strong style={{ color: snapshot?.rows_per_sec != null ? '#8B5CF6' : 'var(--dash-text-secondary)' }}>{snapshot?.rows_per_sec != null ? `${fmtRows(snapshot.rows_per_sec)} rows/s` : '—'}</strong>
               </div>
 
               <div style={{ padding: '6px 8px', background: 'var(--dash-bg)', borderRadius: 6, border: '1px solid var(--dash-border)', display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
                 <span style={{ color: 'var(--dash-text-secondary)' }}>WAL Buffer Lag</span>
-                <strong style={{ color: '#10B981' }}>0.1 seconds (RPO 0)</strong>
-              </div>
-
-              <div style={{ padding: '6px 8px', background: 'var(--dash-bg)', borderRadius: 6, border: '1px solid var(--dash-border)', display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
-                <span style={{ color: 'var(--dash-text-secondary)' }}>Active Connections</span>
-                <strong style={{ color: 'var(--dash-text-primary)' }}>16 Open Socket Links</strong>
+                <strong style={{ color: snapshot?.cdc_sync_lag_ms != null ? '#10B981' : 'var(--dash-text-secondary)' }}>{snapshot?.cdc_sync_lag_ms != null ? `${snapshot.cdc_sync_lag_ms}ms` : '—'}</strong>
               </div>
             </div>
           </div>
@@ -750,12 +839,14 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
             </div>
 
             <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', lineHeight: 1.4 }}>
-              MigrationRuntimeDaemon running on PID 89412 with active RuntimeSupervisorTree monitoring process locks.
+              {snapshot?.pid ? `MigrationRuntimeDaemon running on PID ${snapshot.pid} with active RuntimeSupervisorTree.` : 'RuntimeSupervisorTree idle. Awaiting transport start signal.'}
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 2, paddingTop: 6, borderTop: '1px solid var(--dash-border)', fontSize: 10 }}>
               <span style={{ color: 'var(--dash-text-secondary)' }}>Supervisor Health:</span>
-              <span style={{ color: '#10B981', fontWeight: 700 }}>● HEALTHY (0 Failures)</span>
+              <span style={{ color: snapshot?.pid ? '#10B981' : 'var(--dash-text-secondary)', fontWeight: 700 }}>
+                {snapshot?.pid ? '● HEALTHY' : 'STANDBY'}
+              </span>
             </div>
           </div>
 
@@ -790,7 +881,7 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {dynamicExecutionPlanNodes.map((item, idx) => {
+                {dynamicExecutionPlanNodes.map((item: any, idx: number) => {
                   const currentStageIdx = 4;
                   const isCompleted = idx < currentStageIdx;
                   const isCurrent = idx === currentStageIdx;

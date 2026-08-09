@@ -139,7 +139,7 @@ def run_live_desktop_e2e_challenge():
     premature_start = gateway.invoke("start_transport", {"migration_id": new_mig_id})
     ipc_trace.append({"capability": "start_transport", "input": "PREMATURE", "output": premature_start, "elapsed_ms": (time.time() - t0)*1000})
     print(f"[IPC 9] start_transport BEFORE APPROVAL: status={premature_start.get('status')}, error_code={premature_start.get('error_code')}")
-    assert premature_start.get("status") == "failed", "Premature start must fail!"
+    assert premature_start.get("status") == "error", "Premature start must return error status!"
     assert premature_start.get("error_code") == "APPROVAL_REQUIRED", "Must require approval!"
 
     # IPC Call 10: submit_approval_decision

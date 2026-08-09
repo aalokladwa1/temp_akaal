@@ -68,6 +68,27 @@ def handle_capability_request(req_dict: dict) -> dict:
         }
 
 
+import threading
+from concurrent.futures import ThreadPoolExecutor
+
+executor = ThreadPoolExecutor(max_workers=8, thread_name_prefix="akaal-ipc-worker")
+write_lock = threading.Lock()
+
+def send_ipc_frame(conn, payload_dict: dict):
+    """Atomically serializes and sends a length-prefixed JSON frame over the socket connection."""
+    resp_json_bytes = json.dumps(payload_dict).encode("utf-8")
+    resp_len_header = struct.pack("!I", len(resp_json_bytes))
+    with write_lock:
+        try:
+            conn.send_bytes(resp_len_header + resp_json_bytes)
+        except Exception as err:
+            logger.warning("Error sending IPC frame to desktop bridge: %s", err)
+
+def process_and_respond(conn, req_dict: dict):
+    """Executes capability request in background thread and sends correlated response frame."""
+    resp_dict = handle_capability_request(req_dict)
+    send_ipc_frame(conn, resp_dict)
+
 def start_ipc_server(endpoint: str = None):
     if endpoint is None:
         endpoint = r"\\.\pipe\akaal_engine" if sys.platform == "win32" else "/tmp/akaal_engine.sock"
@@ -110,12 +131,9 @@ def start_ipc_server(endpoint: str = None):
                     payload_str = req_bytes.decode("utf-8")
                     req_dict = json.loads(payload_str)
 
-                    resp_dict = handle_capability_request(req_dict)
-                    resp_json_bytes = json.dumps(resp_dict).encode("utf-8")
-                    resp_len_header = struct.pack("!I", len(resp_json_bytes))
+                    # Dispatch capability handling to ThreadPoolExecutor so IPC socket listener loop remains non-blocking
+                    executor.submit(process_and_respond, conn, req_dict)
 
-                    # Send 4-byte big-endian length header + JSON response payload
-                    conn.send_bytes(resp_len_header + resp_json_bytes)
                 except EOFError:
                     logger.info("Desktop client closed connection.")
                     break

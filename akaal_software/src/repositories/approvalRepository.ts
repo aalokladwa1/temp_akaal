@@ -65,42 +65,35 @@ class ApprovalRepository {
     return req;
   }
 
-  public processDecision(
+  public async processDecision(
     id: string,
     decision: 'approved' | 'rejected' | 'changes_requested',
     approver: string,
     reason: string
-  ): GovernanceApproval | null {
+  ): Promise<GovernanceApproval | null> {
     const index = this.approvals.findIndex((a) => a.id === id);
-    if (index === -1) return null;
+    const item = index !== -1 ? this.approvals[index] : null;
 
-    const item = this.approvals[index];
-    const updated: GovernanceApproval = {
-      ...item,
-      status: decision,
-      approver,
-      approvedAt: new Date().toISOString(),
-      decisionReason: reason,
-      fourEyesConfirmed: decision === 'approved',
-      comments: [
-        ...(item.comments || []),
-        { author: approver, timestamp: new Date().toISOString(), text: `Decision: ${decision.toUpperCase()} — ${reason}` },
-      ],
-    };
+    try {
+      // Forward approval decision to Engine Gateway over IPC capability
+      await ipcService.invokeEngineCapability('submit_approval_decision', JSON.stringify({
+        approval_id: id,
+        approval_reference_id: id,
+        decision,
+        approver,
+        reason,
+        gate: item?.gate,
+        migration_id: item?.migrationId,
+      }));
 
-    // Forward approval decision to Engine Gateway over IPC capability
-    ipcService.invokeEngineCapability('submit_approval_decision', JSON.stringify({
-      approval_id: id,
-      decision,
-      approver,
-      reason,
-      gate: item.gate,
-      migration_id: item.migrationId,
-    })).catch(() => {});
+      // Reconcile authoritatively from Engine Gateway CentralStateStore
+      await this.syncFromEngine();
+    } catch (err) {
+      console.warn('submit_approval_decision IPC sync note:', err);
+    }
 
-    this.approvals[index] = updated;
-    this.notify();
-    return updated;
+    const updated = this.approvals.find((a) => a.id === id || (item && a.migrationId === item.migrationId));
+    return updated || item;
   }
 
   public setApprovalsFromIPC(incoming: GovernanceApproval[]): void {
@@ -111,8 +104,10 @@ class ApprovalRepository {
   public async syncFromEngine(): Promise<GovernanceApproval[]> {
     try {
       const rawRes = await ipcService.invokeEngineCapability('get_approval_queue', '{}');
-      const res = JSON.parse(rawRes);
-      if (res && Array.isArray(res.approvals) && res.approvals.length > 0) {
+      const parsed = typeof rawRes === 'string' ? JSON.parse(rawRes) : rawRes;
+      const res = parsed?.result ? (typeof parsed.result === 'string' ? JSON.parse(parsed.result) : parsed.result) : parsed;
+
+      if (res && Array.isArray(res.approvals)) {
         const mapped: GovernanceApproval[] = res.approvals.map((pkt: any) => ({
           id: pkt.id || pkt.approval_reference_id || `appr-${Date.now()}`,
           gate: pkt.gate || 'GATE_1',
@@ -124,21 +119,22 @@ class ApprovalRepository {
           requestedAt: pkt.requested_at || pkt.requestedAt || new Date().toISOString(),
           expiresAt: pkt.expires_at || pkt.expiresAt || new Date(Date.now() + 86400000).toISOString(),
           status: (pkt.status || 'pending').toLowerCase() as any,
-          requiredRoles: pkt.required_roles || ['Lead DBA'],
+          requiredRoles: pkt.required_roles || pkt.requiredRoles || ['Lead DBA'],
           fourEyesConfirmed: pkt.status === 'approved',
-          riskScore: pkt.risk_score || 0.1,
+          riskScore: typeof pkt.riskScore === 'number' ? pkt.riskScore : (pkt.risk_score || 0.1),
           summary: pkt.summary || 'Authoritative backend approval packet',
           decisionReason: pkt.decisionReason,
           approver: pkt.approver,
           comments: pkt.comments || []
         }));
+
         this.setApprovalsFromIPC(mapped);
         return mapped;
       }
     } catch {
       // Return local memory repository
     }
-    return this.getApprovals();
+    return this.approvals;
   }
 }
 

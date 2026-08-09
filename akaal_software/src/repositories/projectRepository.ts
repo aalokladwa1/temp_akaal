@@ -59,6 +59,8 @@ class ProjectRepository {
 
     // Forward capability to Engine Bridge via IPC
     ipcService.invokeEngineCapability('create_project', JSON.stringify({
+      project_id: newProject.id,
+      migration_id: migrationId || newProject.id,
       project_name: name,
       source_engine: sourceEngine,
       target_engine: targetEngine,
@@ -99,12 +101,7 @@ class ProjectRepository {
       estimatedDuration: 'Draft Configuration',
     };
 
-    // Forward create_migration capability to Engine Bridge via IPC
-    ipcService.invokeEngineCapability('create_migration', JSON.stringify({
-      migration_name: draft.migName || 'Untitled Migration Draft',
-      source_engine: draft.sourceEngine,
-      target_engine: draft.targetEngine,
-    })).catch(() => {});
+
 
     this.projects = [draftProject, ...this.projects];
     this.notify();

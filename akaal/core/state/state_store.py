@@ -43,10 +43,10 @@ class CentralStateStore(IStateStore):
         with self._lock:
             return self._state["progress"].get(migration_id, {
                 "migration_id": migration_id,
-                "rows_migrated": 5,
-                "rows_validated": 5,
-                "percentage": 100.0,
-                "status": "COMPLETED"
+                "rows_migrated": 0,
+                "rows_validated": 0,
+                "percentage": 0.0,
+                "status": "CREATED"
             })
 
     def snapshot(self) -> Dict[str, Any]:

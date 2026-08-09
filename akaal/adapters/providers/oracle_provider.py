@@ -106,10 +106,14 @@ class OracleDiscoveryProvider(GenericDiscoveryProvider):
                                 "default": r[6],
                             })
 
+                        stats_src = "oracle_catalog" if t_row[1] is not None else "unavailable"
                         tables.append({
                             "table_name": t_name,
                             "schema_name": sch,
                             "row_count": num_rows,
+                            "num_rows": num_rows,
+                            "raw_num_rows": t_row[1],
+                            "statistics_source": stats_src,
                             "size_bytes": size_bytes,
                             "columns": cols,
                             "indexes": [],

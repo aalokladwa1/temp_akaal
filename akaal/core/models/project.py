@@ -59,7 +59,7 @@ class ConnectionConfig:
 
     @property
     def username(self) -> str:
-        return self.credentials_ref or self.extra.get("username", "")
+        return self.extra.get("username") or self.credentials_ref or ""
 
     @property
     def password(self) -> str:

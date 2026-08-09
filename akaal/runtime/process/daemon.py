@@ -24,18 +24,25 @@ class MigrationRuntimeDaemon:
         self.config = config or {}
         self.pid = os.getpid()
         self.engine = workflow_engine or WorkflowEngine()
-        from akaal.workflow.steps.migration_steps import SchemaExecutionStep, DataTransportStep, ValidationStep
+        from akaal.workflow.steps.migration_steps import PreStartValidationStep, SchemaExecutionStep, DataTransportStep, ValidationStep
+        self.engine._registry.register("pre_start_val_step", PreStartValidationStep)
         self.engine._registry.register("schema_exec_step", SchemaExecutionStep)
         self.engine._registry.register("data_transport_step", DataTransportStep)
         self.engine._registry.register("validation_step", ValidationStep)
         from akaal.workflow.models.metadata import WorkflowMetadata, StepDefinition, WorkflowManifest
         meta = WorkflowMetadata(workflow_id=migration_id, workflow_name=f"Workflow {migration_id}", version="1.0.0")
         steps = (
-            StepDefinition(step_id="schema_exec", step_type="schema_exec_step"),
+            StepDefinition(step_id="pre_start_validation", step_type="pre_start_val_step"),
+            StepDefinition(step_id="schema_exec", step_type="schema_exec_step", dependencies=("pre_start_validation",)),
             StepDefinition(step_id="data_transport", step_type="data_transport_step", dependencies=("schema_exec",)),
             StepDefinition(step_id="validation", step_type="validation_step", dependencies=("data_transport",)),
         )
-        graph = {"schema_exec": (), "data_transport": ("schema_exec",), "validation": ("data_transport",)}
+        graph = {
+            "pre_start_validation": (),
+            "schema_exec": ("pre_start_validation",),
+            "data_transport": ("schema_exec",),
+            "validation": ("data_transport",)
+        }
         manifest = WorkflowManifest(metadata=meta, step_definitions=steps, execution_graph=graph)
         self.engine.register_manifest(manifest)
 
@@ -63,10 +70,12 @@ class MigrationRuntimeDaemon:
             self.status = "COMPLETED" if is_ok else "FAILED"
             self.send_heartbeat()
 
-            rows_migrated = 5
-            rows_validated = 5
-            tables_migrated = 1
+            rows_migrated = 0
+            rows_validated = 0
+            tables_migrated = 0
             throughput = None
+            rows_per_sec = None
+            logs = []
 
             if hasattr(result, "step_results"):
                 for s in result.step_results:
@@ -79,6 +88,10 @@ class MigrationRuntimeDaemon:
                             tables_migrated = s.context_updates["tables_migrated"]
                         if "throughput_mbps" in s.context_updates:
                             throughput = s.context_updates["throughput_mbps"]
+                        if "rows_per_sec" in s.context_updates:
+                            rows_per_sec = s.context_updates["rows_per_sec"]
+                        if "logs" in s.context_updates and isinstance(s.context_updates["logs"], list):
+                            logs.extend(s.context_updates["logs"])
 
             return {
                 "status": "transport_running" if is_ok else "failed",
@@ -86,6 +99,8 @@ class MigrationRuntimeDaemon:
                 "rows_validated": rows_validated,
                 "tables_migrated": tables_migrated,
                 "throughput_mbps": throughput,
+                "rows_per_sec": rows_per_sec,
+                "logs": logs,
                 "trace": result
             }
         except Exception as exc:

@@ -15,15 +15,13 @@ class DowntimeEngine:
     def estimate_downtime(self, ctx: RiskContext) -> DowntimeEstimate:
         c_model = ctx.canonical_model
         objs = c_model.canonical_graph.get("nodes", [])
-
-        # Heuristic estimation: 0.5 mins per table + base 5 mins
         table_count = sum(1 for o in objs if o.get("object_type") == "CanonicalTable")
-        est_mins = round(5.0 + (table_count * 0.5), 2)
 
+        # Prior to transport execution with measured network/disk throughput, AKAAL does not fabricate duration estimates.
         return DowntimeEstimate(
-            estimated_downtime_minutes=est_mins,
-            confidence_score=95.0,
+            estimated_downtime_minutes=None,
+            confidence_score=0.0,
             cutover_strategy="OFFLINE_BULK",
             cdc_available=False,
-            evidence=[f"Estimated downtime for {table_count} tables based on default throughput."],
+            evidence=[f"Assessment pending baseline throughput measurement for {table_count} discovered objects."],
         )

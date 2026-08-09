@@ -6,10 +6,12 @@ mod tests {
     use crate::engine_bridge::error::BridgeError;
     use crate::engine_bridge::transport::{MockTransport, NullTransport};
 
+    use std::sync::Arc;
+
     #[test]
     fn test_null_transport_returns_not_implemented() {
         let config = BridgeConfig::default();
-        let mut bridge = EngineBridge::new(config, Box::new(NullTransport::new()));
+        let mut bridge = EngineBridge::new(config, Arc::new(NullTransport::new()));
 
         let result = bridge.invoke_capability("test_connection", "{}");
         assert!(matches!(result, Err(BridgeError::NotYetImplemented(_))));
@@ -21,7 +23,7 @@ mod tests {
         let mut mock = MockTransport::new();
         mock.mock_response = Some(r#"{"status":"OK","connected":true}"#.to_string());
 
-        let mut bridge = EngineBridge::new(config, Box::new(mock));
+        let mut bridge = EngineBridge::new(config, Arc::new(mock));
         let result = bridge.invoke_capability("test_connection", "{}");
 
         assert!(result.is_ok());
@@ -34,10 +36,31 @@ mod tests {
         let mut mock = MockTransport::new();
         mock.should_fail = true;
 
-        let mut bridge = EngineBridge::new(config, Box::new(mock));
+        let mut bridge = EngineBridge::new(config, Arc::new(mock));
         let result = bridge.invoke_capability("test_connection", "{}");
 
         assert!(matches!(result, Err(BridgeError::TransportFailure(_))));
+    }
+
+    #[test]
+    fn test_concurrent_ipc_invocations() {
+        let config = BridgeConfig::default();
+        let mut mock = MockTransport::new();
+        mock.mock_response = Some(r#"{"status":"OK","concurrent":true}"#.to_string());
+        let bridge = std::sync::Arc::new(std::sync::Mutex::new(EngineBridge::new(config, Arc::new(mock))));
+
+        let handles: Vec<_> = (0..5).map(|_| {
+            let b = bridge.clone();
+            std::thread::spawn(move || {
+                let transport = b.lock().unwrap().transport.clone();
+                transport.send_request("get_runtime_snapshot", "{}")
+            })
+        }).collect();
+
+        for h in handles {
+            let res = h.join().unwrap();
+            assert!(res.is_ok());
+        }
     }
 
     #[test]

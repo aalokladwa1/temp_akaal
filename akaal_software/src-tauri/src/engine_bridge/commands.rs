@@ -37,10 +37,34 @@ pub fn invoke_engine_capability_cmd(
     capability_id: String,
     payload: String,
 ) -> Result<String, String> {
-    let mut bridge = state.lock().map_err(|e| e.to_string())?;
-    bridge
-        .invoke_capability(&capability_id, &payload)
-        .map_err(|e| e.to_string())
+    let req_id = format!("req-{}", uuid::Uuid::new_v4());
+    let transport = {
+        let mut bridge = state.lock().map_err(|e| e.to_string())?;
+        crate::engine_bridge::logging::BridgeLogger::log_request_sent(&capability_id, &req_id);
+
+        if !bridge.registry.is_available(&capability_id) {
+            let err = format!("Capability '{}' is not registered", capability_id);
+            crate::engine_bridge::logging::BridgeLogger::log_response_received(&capability_id, &req_id, false);
+            return Err(err);
+        }
+
+        bridge.session_manager.begin_request().map_err(|e| e.to_string())?;
+        bridge.transport.clone()
+    };
+
+    // Execute IPC transport send_request outside of global state lock
+    let result = transport.send_request(&capability_id, &payload);
+
+    if let Ok(mut bridge) = state.lock() {
+        bridge.session_manager.end_request();
+    }
+
+    match &result {
+        Ok(_) => crate::engine_bridge::logging::BridgeLogger::log_response_received(&capability_id, &req_id, true),
+        Err(_) => crate::engine_bridge::logging::BridgeLogger::log_response_received(&capability_id, &req_id, false),
+    }
+
+    result.map_err(|e| e.to_string())
 }
 
 #[tauri::command]

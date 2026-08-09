@@ -39,18 +39,41 @@ impl EngineDaemonManager {
                 self.pid = Some(pid);
                 self.child_process = Some(child);
 
-                // Wait up to 1.5s for IPC listener socket readiness
+                // Wait up to 2.5s for IPC listener socket readiness
                 let endpoint = if cfg!(windows) {
                     r"\\.\pipe\akaal_engine"
                 } else {
                     "/tmp/akaal_engine.sock"
                 };
 
-                for _ in 0..15 {
+                let mut listener_ready = false;
+                for _ in 0..25 {
                     if std::fs::OpenOptions::new().read(true).write(true).open(endpoint).is_ok() {
+                        listener_ready = true;
                         break;
                     }
+                    if let Some(child_ref) = self.child_process.as_mut() {
+                        if let Ok(Some(exit_status)) = child_ref.try_wait() {
+                            BridgeLogger::log(
+                                "DaemonFailed",
+                                None,
+                                None,
+                                &format!("Engine daemon process PID {} exited early with status: {}", pid, exit_status),
+                                false,
+                            );
+                            break;
+                        }
+                    }
                     std::thread::sleep(std::time::Duration::from_millis(100));
+                }
+
+                if !listener_ready {
+                    self.state = BridgeStateEnum::Disconnected;
+                    BridgeLogger::log_connection_change("Starting", "Disconnected");
+                    return Err(BridgeError::EngineNotRunning(format!(
+                        "Engine daemon failed to open IPC endpoint '{}' within 2.5 seconds (PID {})",
+                        endpoint, pid
+                    )));
                 }
 
                 self.state = BridgeStateEnum::Connected;
@@ -60,26 +83,24 @@ impl EngineDaemonManager {
                     "DaemonStarted",
                     None,
                     None,
-                    &format!("Engine daemon process spawned successfully with PID {} (Command: {:?})", pid, exec_cmd),
+                    &format!("Engine daemon process spawned and IPC listener confirmed ready with PID {} (Command: {:?})", pid, exec_cmd),
                     true,
                 );
 
                 Ok(pid)
             }
-            Err(_e) => {
-                // If python command spawn fails or is simulated, fallback gracefully to active state PID
-                let fallback_pid = 4920;
-                self.pid = Some(fallback_pid);
-                self.state = BridgeStateEnum::Connected;
-                BridgeLogger::log_connection_change("Starting", "Connected");
+            Err(e) => {
+                self.pid = None;
+                self.state = BridgeStateEnum::Disconnected;
+                BridgeLogger::log_connection_change("Starting", "Disconnected");
                 BridgeLogger::log(
-                    "DaemonStarted",
+                    "DaemonSpawnError",
                     None,
                     None,
-                    &format!("Engine daemon registered with PID {}", fallback_pid),
-                    true,
+                    &format!("Failed to spawn engine daemon process: {}", e),
+                    false,
                 );
-                Ok(fallback_pid)
+                Err(BridgeError::EngineNotRunning(format!("Failed to spawn engine daemon executable: {}", e)))
             }
         }
     }

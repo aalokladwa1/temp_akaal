@@ -655,9 +655,12 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
       return;
     }
     const token = ++reqTokenRef.current;
+    const opId = `op-disc-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
     setSession((prev) => ({ ...prev, discovery: { status: 'running' } }));
+    setDatabases([]); // Clear prior discovery tree state atomically (Requirement 7)
     try {
       const payload = {
+        operation_id: opId,
         source_engine: sourceEngine,
         source_host: sourceHost,
         source_port: sourcePort,
@@ -680,12 +683,24 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
         }
       }
 
+      // Canonical count extraction (Requirement 1 & 3)
+      const totalObjs = res.summary?.total_objects ?? res.metrics?.objects_detected ?? res.table_count ?? 0;
+      const totalSchs = res.summary?.total_schemas ?? res.metrics?.schemas_detected ?? (res.schemas?.length || 1);
+      const totalDbs = res.summary?.total_databases ?? res.metrics?.databases_detected ?? discoveredDbs.length;
+
+      // Forensic logging (Requirement 9)
+      console.log(`[DISCOVERY UI INGEST] operation_id=${res.operation_id || opId} databases=${totalDbs} schemas=${totalSchs} objects=${totalObjs}`);
+
       setSession((prev) => ({
         ...prev,
         discovery: {
           status: 'completed',
+          operationId: res.operation_id || opId,
           snapshotId: res.discovery_snapshot_id,
           tableCount: res.table_count || 0,
+          totalObjects: totalObjs,
+          totalSchemas: totalSchs,
+          totalDatabases: totalDbs,
           columnCount: res.column_count || 0,
           rowCount: res.row_count || 0,
           schemas: res.schemas || [sourceUser.toUpperCase()],
@@ -695,13 +710,13 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
         advisor: {
           status: 'completed',
           reportId: res.advisor_report_id,
-          readinessScore: res.compatibility_score ?? 100,
-          riskScore: res.risk_score ?? 'LOW',
-          trustScore: res.trust_score ?? '100% Ready',
+          readinessScore: res.compatibility_score ?? null,
+          riskScore: res.risk_score || 'Assessment unavailable',
+          trustScore: res.trust_score || 'Assessment unavailable',
           warnings: res.warnings || [],
           workerAllocation: res.worker_allocation || 8,
-          estimatedDuration: res.estimated_duration,
-          estimatedThroughput: res.estimated_throughput,
+          estimatedDuration: res.estimated_duration || 'Not yet estimated',
+          estimatedThroughput: res.estimated_throughput || '—',
           rollbackReadiness: res.rollback_readiness || 'Snapshot Protection Active',
           validationStrategy: res.validation_strategy || 'Full Row Count & Checksum Auditing',
           approvalRequirements: res.approval_requirements || ['Gate 1: Pre-Flight Review', 'Gate 2: Schema Approval', 'Gate 3: Cutover Certification'],
@@ -712,7 +727,13 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
         migrationManifest: null,
         createdMigration: {},
       }));
-      notificationService.push('Discovery Complete', 'success', `Cataloged ${res.table_count || 0} tables from ${sourceEngine}.`);
+
+      // Notification consumes canonical total_objects (Requirement 12)
+      notificationService.push(
+        'Discovery Complete',
+        'success',
+        `Cataloged ${totalObjs.toLocaleString()} objects across ${totalSchs} schemas from ${sourceEngine}.`
+      );
     } catch (err: any) {
       if (token !== reqTokenRef.current) return;
       const errMsg = typeof err === 'string' ? err : (err?.message || String(err));
@@ -776,14 +797,51 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
         engine_version: session.engineStatus.version,
         migration_name: migName.trim() || `${sourceEngine} → ${targetEngine} Migration`,
         project_name: projectName,
-        source_connection_id: session.sourceConnection.connectionId,
-        target_connection_id: session.targetConnection.connectionId,
+        source_connection_id: session.sourceConnection.connectionId || 'conn-source-ora',
+        target_connection_id: session.targetConnection.connectionId || 'conn-target-pg',
+        source_engine: sourceEngine,
+        source_host: sourceHost,
+        source_port: parseInt(sourcePort),
+        source_db: sourceDbName,
+        source_instance: sourceInstanceName || sourceDbName,
+        source_user: sourceUser,
+        // source_pass is consumed by create_migration to populate the InProcessCredentialVault.
+        // It is immediately popped from config and never persisted in plaintext.
+        source_pass: sourcePass,
+        source_credential_ref: `cred-ref-source-${session.sourceConnection.connectionId || 'ora'}`,
+        target_engine: targetEngine,
+        target_host: targetHost,
+        target_port: parseInt(targetPort),
+        target_db: targetDbName,
+        target_user: targetUser,
+        // target_pass is consumed by create_migration to populate the InProcessCredentialVault.
+        // It is immediately popped from config and never persisted in plaintext.
+        target_pass: targetPass,
+        target_credential_ref: `cred-ref-target-${session.targetConnection.connectionId || 'pg'}`,
         discovery_snapshot_id: session.discovery.snapshotId,
         advisor_report_id: session.advisor.reportId,
         execution_plan_id: session.executionPlan.planId,
         selected_scope: {
           databases: [sourceDbName],
           schemas: [sourceUser],
+          objects: databases.flatMap((d) =>
+            d.schemas.flatMap((s) =>
+              s.object_groups.flatMap((g) =>
+                g.objects.filter((o) => o.selected).map((o) => ({
+                  object_id: o.object_id,
+                  object_name: o.object_name,
+                  object_type: o.object_type,
+                  schema: s.schema_name,
+                  database: d.db_id,
+                  estimated_rows: o.estimated_rows,
+                  target_schema: (targetDbName || 'public').toLowerCase().startsWith('pg_') ? `app_${(targetDbName || 'public').toLowerCase().slice(3)}` : (targetDbName || 'public').toLowerCase(),
+                  canonical_target_schema: (targetDbName || 'public').toLowerCase().startsWith('pg_') ? `app_${(targetDbName || 'public').toLowerCase().slice(3)}` : (targetDbName || 'public').toLowerCase(),
+                  target_object_name: o.object_name.toLowerCase(),
+                  conversion_action: o.object_type === 'Table' ? 'MIGRATE_DATA' : 'TRANSPILE_DDL',
+                }))
+              )
+            )
+          ),
         },
         tuning_rules: {
           parallelism: parseInt(parallelism),
@@ -861,16 +919,28 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
     onLaunch(created);
   };
 
-  // Step 4: Derived & Filtered Tree
-  const totalDatabasesDetected = databases.length;
-  const totalSchemasDetected = databases.reduce((sum, d) => sum + d.schemas.length, 0);
-  const totalObjectsDetected = databases.reduce(
-    (sum, d) => sum + d.schemas.reduce((ss, s) => ss + s.object_groups.reduce((gs, g) => gs + g.objects.length, 0), 0), 0
-  );
+  // Step 4: Derived & Filtered Tree (Memoized with Requirement 9 Forensic Render Reconciliation Log)
+  const { totalDatabasesDetected, totalSchemasDetected, totalObjectsDetected } = useMemo(() => {
+    const dbsCount = databases.length;
+    const schsCount = databases.reduce((sum, d) => sum + (d.schemas?.length || 0), 0);
+    const objsCount = databases.reduce(
+      (sum, d) => sum + (d.schemas?.reduce((ss, s) => ss + (s.object_groups?.reduce((gs, g) => gs + (g.objects?.length || 0), 0) || 0), 0) || 0), 0
+    );
+
+    if (databases.length > 0) {
+      console.log(`[DISCOVERY UI RENDER RECONCILIATION] rendered_database_nodes=${dbsCount} rendered_schema_nodes=${schsCount} rendered_leaf_objects=${objsCount}`);
+    }
+
+    return {
+      totalDatabasesDetected: dbsCount,
+      totalSchemasDetected: schsCount,
+      totalObjectsDetected: objsCount,
+    };
+  }, [databases]);
 
   const allObjectTypes = useMemo(() => {
     const types = new Set<string>();
-    databases.forEach((d) => d.schemas.forEach((s) => s.object_groups.forEach((g) => types.add(g.object_type))));
+    databases.forEach((d) => d.schemas?.forEach((s) => s.object_groups?.forEach((g) => types.add(g.object_type))));
     return Array.from(types).sort();
   }, [databases]);
 
@@ -2434,7 +2504,9 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
                   handleRunDiscovery();
                   setStep(4);
                 } else if (step === 5) {
-                  handleGeneratePlan();
+                  if (session.executionPlan.status !== 'completed') {
+                    handleGeneratePlan();
+                  }
                   setStep(6);
                 } else {
                   setStep((s) => (s + 1) as any);
@@ -2555,11 +2627,11 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
             <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div style={{ padding: 14, background: 'var(--dash-bg)', borderRadius: 10, border: '1px solid var(--dash-border)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, fontSize: 12 }}>
                 <div>
-                  <div style={{ color: 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>Migration Title</div>
+                  <div style={{ color: 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>Migration Title (Operator)</div>
                   <div style={{ fontWeight: 800, color: 'var(--dash-text-primary)', marginTop: 2 }}>{migName || 'Untitled Migration'}</div>
                 </div>
                 <div>
-                  <div style={{ color: 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>Migration ID</div>
+                  <div style={{ color: 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>Migration ID (Registered Engine)</div>
                   <div style={{ fontWeight: 800, color: '#3B82F6', marginTop: 2, fontFamily: 'var(--akaal-font-mono, monospace)' }}>
                     {session.createdMigration.migrationId || 'Pending Engine Assignment'}
                   </div>
@@ -2568,11 +2640,11 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
 
               <div style={{ padding: 14, background: 'var(--dash-bg)', borderRadius: 10, border: '1px solid var(--dash-border)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, fontSize: 12 }}>
                 <div>
-                  <div style={{ color: 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>Source Instance</div>
+                  <div style={{ color: 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>Source Instance (Configured)</div>
                   <div style={{ fontWeight: 700, color: 'var(--dash-text-primary)', marginTop: 2 }}>{sourceEngine} ({sourceHost}:{sourcePort}/{sourceDbName})</div>
                 </div>
                 <div>
-                  <div style={{ color: 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>Target Instance</div>
+                  <div style={{ color: 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>Target Instance (Configured)</div>
                   <div style={{ fontWeight: 700, color: 'var(--dash-text-primary)', marginTop: 2 }}>{targetEngine} ({targetHost}:{targetPort}/{targetDbName})</div>
                 </div>
               </div>
@@ -2583,24 +2655,24 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
                   <div style={{ fontWeight: 800, color: '#10B981', marginTop: 2 }}>{selectedDbCount} DBs · {selectedSchemaCount} Schemas · {selectedCount.toLocaleString()} Objs</div>
                 </div>
                 <div style={{ padding: 10, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
-                  <div style={{ color: 'var(--dash-text-secondary)', fontSize: 10 }}>Est. Execution Time</div>
+                  <div style={{ color: 'var(--dash-text-secondary)', fontSize: 10 }}>Est. Duration (Engine Prediction)</div>
                   <div style={{ fontWeight: 800, color: '#3B82F6', marginTop: 2 }}>{session.advisor.estimatedDuration || '—'}</div>
                 </div>
                 <div style={{ padding: 10, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
-                  <div style={{ color: 'var(--dash-text-secondary)', fontSize: 10 }}>Worker Allocation</div>
+                  <div style={{ color: 'var(--dash-text-secondary)', fontSize: 10 }}>Worker Allocation (Configured)</div>
                   <div style={{ fontWeight: 800, color: 'var(--dash-text-primary)', marginTop: 2 }}>{parallelism} Workers ({batchSize} Batch)</div>
                 </div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, fontSize: 11 }}>
                 <div style={{ padding: 10, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ color: 'var(--dash-text-secondary)' }}>Governance Approval:</span>
-                  <span style={{ color: session.approval.gateStatus === 'PASSED' || session.approval.status === 'approved' ? '#10B981' : '#F59E0B', fontWeight: 800 }}>
-                    {session.approval.gateStatus ? `✓ ${session.approval.gateStatus}` : (session.approval.status ? session.approval.status.toUpperCase() : '—')}
+                  <span style={{ color: 'var(--dash-text-secondary)' }}>Governance Policy Gate:</span>
+                  <span style={{ color: session.approval.status === 'approved' ? '#10B981' : '#F59E0B', fontWeight: 800 }}>
+                    {session.approval.status === 'approved' ? '✓ APPROVED' : '⚠ PENDING GOVERNANCE APPROVAL'}
                   </span>
                 </div>
                 <div style={{ padding: 10, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ color: 'var(--dash-text-secondary)' }}>Predicted Risk Level:</span>
+                  <span style={{ color: 'var(--dash-text-secondary)' }}>Predicted Risk (Engine):</span>
                   <span style={{ color: session.advisor.riskScore === 'LOW' ? '#10B981' : 'var(--dash-text-primary)', fontWeight: 800 }}>
                     {session.advisor.riskScore || '—'}
                   </span>

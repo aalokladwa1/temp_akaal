@@ -9,17 +9,19 @@ use crate::engine_bridge::session_manager::SessionManager;
 use crate::engine_bridge::transport::{EngineTransport, RealTransport};
 use uuid::Uuid;
 
+use std::sync::Arc;
+
 pub struct EngineBridge {
     pub config: BridgeConfig,
     pub session_manager: SessionManager,
     pub daemon_manager: EngineDaemonManager,
     pub registry: CapabilityRegistry,
     pub heartbeat_manager: HeartbeatManager,
-    pub transport: Box<dyn EngineTransport>,
+    pub transport: Arc<dyn EngineTransport>,
 }
 
 impl EngineBridge {
-    pub fn new(config: BridgeConfig, transport: Box<dyn EngineTransport>) -> Self {
+    pub fn new(config: BridgeConfig, transport: Arc<dyn EngineTransport>) -> Self {
         let max_req = config.max_concurrent_requests;
         let hb_interval = config.heartbeat_interval_secs;
         let max_missed = config.reconnect_attempts;
@@ -35,7 +37,7 @@ impl EngineBridge {
     }
 
     pub fn with_default_transport(config: BridgeConfig) -> Self {
-        Self::new(config, Box::new(RealTransport::new(None)))
+        Self::new(config, Arc::new(RealTransport::new(None)))
     }
 
     pub fn get_status(&self) -> BridgeStatusDTO {

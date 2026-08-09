@@ -1,8 +1,8 @@
 {
-  "project_id": "proj-desktop-84e0c69b",
-  "migration_id": "mig-desktop-26aea0a568",
+  "project_id": "proj-desktop-3d2beb8c",
+  "migration_id": "mig-desktop-e38da70047",
   "execution_plan_id": "plan-e94ca29ac20a",
-  "approval_id": "app-ref-b1fd757f5e03",
+  "approval_id": "app-ref-6ba19deb6f17",
   "discovered_objects": 0,
   "selected_objects": 0,
   "planned_tasks": 2,
@@ -23,7 +23,7 @@
         "latency_ms": 1.5,
         "message": "Successfully connected to ORACLE at localhost:1521/instance2_pdb"
       },
-      "elapsed_ms": 162.94503211975098
+      "elapsed_ms": 152.6165008544922
     },
     {
       "capability": "test_connection",
@@ -40,16 +40,16 @@
         "latency_ms": 1.5,
         "message": "Successfully connected to POSTGRESQL at localhost:5432/akaal_target"
       },
-      "elapsed_ms": 43.00832748413086
+      "elapsed_ms": 45.993804931640625
     },
     {
       "capability": "run_preflight",
-      "input": "mig-desktop-26aea0a568",
+      "input": "mig-desktop-e38da70047",
       "output": {
-        "discovery_snapshot_id": "snap-426220dad6f9",
-        "advisor_report_id": "adv-5b4ad77c7f32",
-        "project_id": "proj-desktop-84e0c69b",
-        "migration_id": "mig-desktop-26aea0a568",
+        "discovery_snapshot_id": "snap-565c29973116",
+        "advisor_report_id": "adv-89b3059eae7c",
+        "project_id": "proj-desktop-3d2beb8c",
+        "migration_id": "mig-desktop-e38da70047",
         "source_engine": "ORACLE 19C",
         "target_engine": "PostgreSQL 16",
         "instance": {
@@ -118,15 +118,15 @@
         "preflight_status": "FAILED",
         "elapsed_preflight_ms": 150.0
       },
-      "elapsed_ms": 3.539562225341797
+      "elapsed_ms": 3.050088882446289
     },
     {
       "capability": "generate_plan",
-      "input": "mig-desktop-26aea0a568",
+      "input": "mig-desktop-e38da70047",
       "output": {
         "execution_plan_id": "plan-e94ca29ac20a",
         "sha256_checksum": "e94ca29ac20a06f33f929e8b69a09800ccd0e35f30b2aa9b7fcc10821818cf69",
-        "migration_id": "mig-desktop-26aea0a568",
+        "migration_id": "mig-desktop-e38da70047",
         "execution_plan_name": "Topological DAG Execution Plan (Oracle 19c \u2192 PostgreSQL 16)",
         "worker_allocation": 8,
         "batch_size": 10000,
@@ -229,39 +229,39 @@
         },
         "status": "generated"
       },
-      "elapsed_ms": 0.8013248443603516
+      "elapsed_ms": 0.7586479187011719
     },
     {
       "capability": "create_migration",
-      "input": "mig-desktop-26aea0a568",
+      "input": "mig-desktop-e38da70047",
       "output": {
-        "migration_id": "mig-desktop-26aea0a568",
-        "migration_name": "Enterprise Migration mig-desktop-26aea0a568",
+        "migration_id": "mig-desktop-e38da70047",
+        "migration_name": "Enterprise Migration mig-desktop-e38da70047",
         "status": "configured",
         "source_connection_id": "conn-fdc39f023ebd",
         "target_connection_id": "conn-6f82b2385e7e",
-        "discovery_snapshot_id": "snap-426220dad6f9",
-        "advisor_report_id": "adv-5b4ad77c7f32",
+        "discovery_snapshot_id": "snap-565c29973116",
+        "advisor_report_id": "adv-89b3059eae7c",
         "execution_plan_id": "plan-e94ca29ac20a",
         "approval_reference_id": null
       },
-      "elapsed_ms": 0.19621849060058594
+      "elapsed_ms": 0.2014636993408203
     },
     {
       "capability": "request_approval",
-      "input": "mig-desktop-26aea0a568",
+      "input": "mig-desktop-e38da70047",
       "output": {
-        "approval_reference_id": "app-ref-b1fd757f5e03",
+        "approval_reference_id": "app-ref-6ba19deb6f17",
         "stage": "approval",
         "decision": "pending",
         "approver": "Aalok",
-        "custody_hash": "sha256-fd9aa10afedd5805",
+        "custody_hash": "sha256-69fce898178b62d1",
         "gate_status": "APPROVED",
         "status": "pending",
         "risk_level_evaluated": "LOW",
-        "approval_packet_ref": "packet-app-ref-b1fd757f5e03"
+        "approval_packet_ref": "packet-app-ref-6ba19deb6f17"
       },
-      "elapsed_ms": 0.06127357482910156
+      "elapsed_ms": 0.06222724914550781
     },
     {
       "capability": "get_approval_queue",
@@ -270,10 +270,10 @@
         "status": "success",
         "approvals": [
           {
-            "id": "app-ref-b1fd757f5e03",
-            "approval_reference_id": "app-ref-b1fd757f5e03",
-            "migrationId": "mig-desktop-26aea0a568",
-            "migration_id": "mig-desktop-26aea0a568",
+            "id": "app-ref-6ba19deb6f17",
+            "approval_reference_id": "app-ref-6ba19deb6f17",
+            "migrationId": "mig-desktop-e38da70047",
+            "migration_id": "mig-desktop-e38da70047",
             "migrationName": "Core Database Migration",
             "projectName": "Enterprise Infrastructure Cutover",
             "gate": "GATE_2",
@@ -281,27 +281,30 @@
             "requestedBy": "Aalok (Lead DBA)",
             "requestedAt": "2026-08-07T14:00:00Z",
             "expiresAt": "2026-08-08T14:00:00Z",
-            "status": "pending",
+            "status": "approved",
             "requiredRoles": [
               "Lead DBA",
               "Security Lead"
             ],
             "fourEyesConfirmed": true,
             "riskScore": 0.12,
-            "summary": "Topological execution plan for mig-desktop-26aea0a568. Risk level evaluated: LOW.",
-            "evidenceSummary": "Custody hash sha256-12e6f3fab262de4f verified by PolicyEngine.",
+            "summary": "Topological execution plan for mig-desktop-e38da70047. Risk level evaluated: LOW.",
+            "evidenceSummary": "Custody hash sha256-3c7ffb695d64764d verified by PolicyEngine.",
             "comments": [
               {
                 "author": "Aalok",
                 "timestamp": "2026-08-07T14:00:00Z",
                 "text": "Approval requested. Policy Engine gate status: APPROVED."
+              },
+              {
+                "author": "Aalok (Lead DBA)",
+                "timestamp": "2026-08-07T14:30:00Z",
+                "text": "Decision: APPROVED \u2014 Preflight risk score verified LOW. Execution plan sha256 validated."
               }
-            ]
-          },
-          {
-            "approval_id": "app-ref-b1fd757f5e03",
-            "migration_id": "mig-desktop-26aea0a568",
-            "status": "pending"
+            ],
+            "approver": "Aalok (Lead DBA)",
+            "approvedAt": "2026-08-07T14:30:00Z",
+            "decisionReason": "Preflight risk score verified LOW. Execution plan sha256 validated."
           }
         ]
       },
@@ -309,10 +312,10 @@
     },
     {
       "capability": "get_runtime_snapshot",
-      "input": "mig-desktop-26aea0a568",
+      "input": "mig-desktop-e38da70047",
       "output": {
         "runtime_session_id": "sess-84f2",
-        "migration_id": "mig-desktop-26aea0a568",
+        "migration_id": "mig-desktop-e38da70047",
         "project_id": "proj-default",
         "current_stage": "ready",
         "previous_stage": "-",
@@ -330,6 +333,7 @@
         "throughput_mbps": 0.0,
         "eta_seconds": null,
         "active_workers": 0,
+        "pid": 14008,
         "worker_statuses": [],
         "warnings": [],
         "errors": [],
@@ -339,30 +343,30 @@
           "terminate"
         ]
       },
-      "elapsed_ms": 0.03409385681152344
+      "elapsed_ms": 0.03600120544433594
     },
     {
       "capability": "start_transport",
       "input": "PREMATURE",
       "output": {
         "stage": "start_transport",
-        "status": "failed",
+        "status": "error",
         "error_code": "APPROVAL_REQUIRED",
-        "error_message": "Cannot start transport: Migration 'mig-desktop-26aea0a568' governance approval is pending."
+        "error_message": "Cannot start transport: Migration 'mig-desktop-e38da70047' governance approval is pending."
       },
-      "elapsed_ms": 0.028371810913085938
+      "elapsed_ms": 0.027894973754882812
     },
     {
       "capability": "submit_approval_decision",
-      "input": "app-ref-b1fd757f5e03",
+      "input": "app-ref-6ba19deb6f17",
       "output": {
-        "approval_reference_id": "app-ref-b1fd757f5e03",
+        "approval_reference_id": "app-ref-6ba19deb6f17",
         "status": "approved",
         "permission_evaluated": true,
         "approver": "Aalok (Lead DBA)",
         "message": "Approval decision 'approved' recorded successfully by Aalok (Lead DBA)."
       },
-      "elapsed_ms": 0.032901763916015625
+      "elapsed_ms": 0.03337860107421875
     },
     {
       "capability": "start_transport",
@@ -372,17 +376,17 @@
         "status": "transport_running",
         "tables_migrated": 1,
         "rows_migrated": 5,
-        "throughput_mbps": null,
+        "throughput_mbps": 0.0046,
         "active_partitions": 4
       },
-      "elapsed_ms": 198.0612277984619
+      "elapsed_ms": 185.835599899292
     },
     {
       "capability": "get_runtime_snapshot",
-      "input": "mig-desktop-26aea0a568",
+      "input": "mig-desktop-e38da70047",
       "output": {
         "runtime_session_id": "sess-84f2",
-        "migration_id": "mig-desktop-26aea0a568",
+        "migration_id": "mig-desktop-e38da70047",
         "project_id": "proj-default",
         "current_stage": "data_migration",
         "previous_stage": "scout",
@@ -395,11 +399,13 @@
         "total_batches": 0,
         "current_checkpoint_lsn": null,
         "rows_transferred": 5,
-        "rows_total": null,
-        "progress_percent": null,
-        "throughput_mbps": null,
+        "rows_total": 5,
+        "progress_percent": 100.0,
+        "throughput_mbps": 0.0046,
+        "rows_per_sec": 93.49,
         "eta_seconds": null,
-        "active_workers": 4,
+        "active_workers": 0,
+        "pid": 14008,
         "worker_statuses": [],
         "warnings": [],
         "errors": [],
@@ -411,7 +417,7 @@
           "terminate"
         ]
       },
-      "elapsed_ms": 0.11205673217773438
+      "elapsed_ms": 0.08463859558105469
     }
   ]
 }

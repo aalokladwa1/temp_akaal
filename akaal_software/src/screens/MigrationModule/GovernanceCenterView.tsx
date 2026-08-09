@@ -109,8 +109,8 @@ export const GovernanceCenterView: FC<GovernanceCenterViewProps> = ({
     const runtimeWaiting = pending.filter((a) => a.gate === 'GATE_3');
     const approvedToday = approvals.filter((a) => a.status === 'approved');
     const rejectedToday = approvals.filter((a) => a.status === 'rejected' || a.status === 'changes_requested');
-    const slaBreaches = approvals.filter((a) => (a.riskScore || 0) > 0.9 || a.migrationId === 'MIG-2026-0806-006');
-    const highRisk = approvals.filter((a) => (a.riskScore || 0) >= 0.7);
+    const slaBreaches = approvals.filter((a) => typeof a.riskScore === 'number' ? a.riskScore > 0.9 : a.riskScore === 'HIGH');
+    const highRisk = approvals.filter((a) => typeof a.riskScore === 'number' ? a.riskScore >= 0.7 : a.riskScore === 'HIGH');
 
     return {
       pending: pending.length,
@@ -118,7 +118,7 @@ export const GovernanceCenterView: FC<GovernanceCenterViewProps> = ({
       runtimeWaiting: runtimeWaiting.length,
       approvedToday: approvedToday.length,
       rejectedToday: rejectedToday.length,
-      avgTime: '~4.2 Mins',
+      avgTime: '—',
       slaBreaches: slaBreaches.length,
       highRisk: highRisk.length,
     };
@@ -137,7 +137,7 @@ export const GovernanceCenterView: FC<GovernanceCenterViewProps> = ({
       if (kpiFilter === 'runtime_waiting' && appr.gate !== 'GATE_3') return false;
       if (kpiFilter === 'approved_today' && appr.status !== 'approved') return false;
       if (kpiFilter === 'rejected_today' && (appr.status !== 'rejected' && appr.status !== 'changes_requested')) return false;
-      if (kpiFilter === 'sla_breaches' && (appr.riskScore || 0) < 0.9 && appr.migrationId !== 'MIG-2026-0806-006') return false;
+      if (kpiFilter === 'sla_breaches' && (typeof appr.riskScore === 'number' ? appr.riskScore < 0.9 : appr.riskScore !== 'HIGH')) return false;
       if (kpiFilter === 'high_risk' && (appr.riskScore || 0) < 0.7) return false;
 
       // Dropdown filters
@@ -183,16 +183,16 @@ export const GovernanceCenterView: FC<GovernanceCenterViewProps> = ({
   };
 
   // Process Decision Submit
-  const handleConfirmDecision = () => {
+  const handleConfirmDecision = async () => {
     if (!confirmModal) return;
     const { approvalId, actionType } = confirmModal;
     const reason = confirmReason.trim() || `Decision: ${actionType.toUpperCase()}`;
 
-    approvalRepository.processDecision(approvalId, actionType, 'Aalok', reason);
+    await approvalRepository.processDecision(approvalId, actionType, 'Aalok', reason);
     notificationService.push(
       `Gate Decision ${actionType.toUpperCase()}`,
       actionType === 'approved' ? 'success' : actionType === 'rejected' ? 'error' : 'warning',
-      `Signed and recorded for pipeline ${confirmModal.migrationId}.`
+      `Signed and recorded by Engine Policy for pipeline ${confirmModal.migrationId}.`
     );
 
     setConfirmModal(null);
@@ -512,8 +512,14 @@ export const GovernanceCenterView: FC<GovernanceCenterViewProps> = ({
               }}
             >
               <CheckCircle2 size={32} color="#10B981" style={{ marginBottom: 8 }} />
-              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--dash-text-primary)' }}>No Pending Approvals</div>
-              <div style={{ fontSize: 11, marginTop: 4 }}>All migration gates match your current filters.</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--dash-text-primary)' }}>
+                {activeMainTab === 'pending' ? 'No pending approvals' : 'No approval history'}
+              </div>
+              <div style={{ fontSize: 11, marginTop: 4 }}>
+                {activeMainTab === 'pending'
+                  ? 'There are currently no pending governance requests requiring operator sign-off.'
+                  : 'No approval decisions have been recorded yet.'}
+              </div>
             </div>
           ) : (
             filteredApprovals.map((appr) => {
@@ -559,7 +565,7 @@ export const GovernanceCenterView: FC<GovernanceCenterViewProps> = ({
                     )}
 
                     <span style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>
-                      18m ago
+                      {appr.requestedAt ? new Date(appr.requestedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
                     </span>
                   </div>
 
@@ -579,7 +585,7 @@ export const GovernanceCenterView: FC<GovernanceCenterViewProps> = ({
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 10, color: 'var(--dash-text-secondary)', paddingTop: 4, borderTop: '1px solid var(--dash-border)' }}>
                     <span>By: {appr.requestedBy}</span>
                     <span style={{ color: isHighRisk ? '#EF4444' : '#10B981', fontWeight: 700 }}>
-                      Risk: {appr.riskScore || 0.12} ({isHighRisk ? 'HIGH' : 'LOW'})
+                      Risk: {appr.riskScore != null ? (typeof appr.riskScore === 'number' ? appr.riskScore.toFixed(2) : appr.riskScore) : '—'} ({isHighRisk ? 'HIGH' : 'LOW'})
                     </span>
                   </div>
                 </div>

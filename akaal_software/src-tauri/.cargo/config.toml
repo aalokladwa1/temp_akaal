@@ -1,8 +1,14 @@
 [build]
 jobs = 1
-rustflags = ["-C", "debuginfo=0", "-C", "debug-assertions=off", "-C", "codegen-units=1"]
+
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "link-arg=/STACK:67108864"]
 
 [profile.dev]
-opt-level = 0
+codegen-units = 16
+
+[profile.dev.package."*"]
 debug = 0
-incremental = false
+
+[env]
+RUST_MIN_STACK = "134217728"
