@@ -3,11 +3,14 @@ AKAAL Unit Tests — EngineGateway Thinning & Async Start ACK (Step 4 Verificati
 ==================================================================================
 Tests EngineGateway non-blocking start_transport (<50ms ACK), AkaalSuperEngine delegation,
 fail-closed governance/fingerprint gates, S4-H10 atomic single-start claim under concurrency,
-S4-H11 legal state transition ordering, and S4-H12 single JSON IPC serialization contract.
+S4-H11 legal state transition ordering, S4-H12 single JSON IPC serialization contract,
+and independent SQLite durability proof on artifacts/state.db.
 """
 
+import os
 import time
 import json
+import sqlite3
 import threading
 import unittest
 from concurrent.futures import ThreadPoolExecutor
@@ -75,7 +78,7 @@ class TestEngineGatewayStep4(unittest.TestCase):
         self.gateway.state_store.set_state(f"{self.workflow_id}_approval", None, category="governance")
         self.gateway.state_store.set_state(f"{self.workflow_id}_status", None, category="runtime")
 
-    def test_01_approved_migration_start_returns_accepted_and_fast_ack(self):
+    def test_01_approved_valid_request_can_claim(self):
         fp = AkaalSuperEngine.compute_plan_fingerprint(self.sample_spec, self.dag)
         self.governance.approve_migration_with_fingerprint(self.workflow_id, fp)
 
@@ -89,18 +92,23 @@ class TestEngineGatewayStep4(unittest.TestCase):
         self.assertEqual(res.get("plan_fingerprint"), fp)
         self.assertLess(elapsed_ms, 50.0, f"start_transport ACK took {elapsed_ms:.2f}ms (must be < 50ms)")
 
-    def test_02_unapproved_migration_returns_approval_required(self):
+    def test_02_unapproved_request_leaves_no_execution_claim(self):
         res = self.gateway.start_transport({"migration_id": self.workflow_id})
         self.assertEqual(res.get("status"), "error")
         self.assertEqual(res.get("error_code"), "APPROVAL_REQUIRED")
+        # Verify no execution claim was left behind
+        claimed_state = self.gateway.state_store.get_state(f"{self.workflow_id}_status", default=None, category="runtime")
+        self.assertIsNone(claimed_state, "Unapproved request MUST leave no execution claim in state store")
 
     def test_03_missing_approved_fingerprint_fails_closed(self):
         self.gateway.state_store.set_state(f"{self.workflow_id}_approval", {"status": "approved"}, category="governance")
         res = self.gateway.start_transport({"migration_id": self.workflow_id})
         self.assertEqual(res.get("status"), "error")
         self.assertEqual(res.get("error_code"), "APPROVED_PLAN_FINGERPRINT_MISSING")
+        claimed_state = self.gateway.state_store.get_state(f"{self.workflow_id}_status", default=None, category="runtime")
+        self.assertIsNone(claimed_state, "Missing fingerprint request MUST leave no execution claim")
 
-    def test_04_changed_approved_plan_fails_with_fingerprint_mismatch(self):
+    def test_04_fingerprint_mismatch_leaves_no_execution_claim(self):
         fp = AkaalSuperEngine.compute_plan_fingerprint(self.sample_spec, self.dag)
         self.governance.approve_migration_with_fingerprint(self.workflow_id, fp)
 
@@ -109,8 +117,10 @@ class TestEngineGatewayStep4(unittest.TestCase):
 
         self.assertEqual(res.get("status"), "error")
         self.assertEqual(res.get("error_code"), "PLAN_FINGERPRINT_MISMATCH")
+        claimed_state = self.gateway.state_store.get_state(f"{self.workflow_id}_status", default=None, category="runtime")
+        self.assertIsNone(claimed_state, "Fingerprint mismatch MUST leave no execution claim")
 
-    def test_05_physical_contract_failure_propagated(self):
+    def test_05_physical_contract_failure_leaves_no_execution_claim(self):
         spec_no_physical = dict(self.sample_spec)
         del spec_no_physical["physical_spec"]
 
@@ -124,44 +134,15 @@ class TestEngineGatewayStep4(unittest.TestCase):
         res = self.gateway.start_transport({"migration_id": mig_id_no_phys, "is_synthetic_test": False})
         self.assertEqual(res.get("status"), "error")
         self.assertEqual(res.get("error_code"), "PHYSICAL_EXECUTION_CONTRACT_INVALID")
+        claimed_state = self.gateway.state_store.get_state(f"{mig_id_no_phys}_status", default=None, category="runtime")
+        self.assertIsNone(claimed_state, "Physical contract failure MUST leave no execution claim")
 
-    def test_06_idempotent_repeated_start_returns_existing_operation_ack(self):
-        fp = AkaalSuperEngine.compute_plan_fingerprint(self.sample_spec, self.dag)
-        self.governance.approve_migration_with_fingerprint(self.workflow_id, fp)
-
-        res1 = self.gateway.start_transport({"migration_id": self.workflow_id, "is_synthetic_test": True})
-        self.assertEqual(res1.get("status"), "accepted")
-        op_id_1 = res1.get("operation_id")
-
-        res2 = self.gateway.start_transport({"migration_id": self.workflow_id, "is_synthetic_test": True})
-        self.assertEqual(res2.get("status"), "accepted")
-        self.assertTrue(res2.get("already_running"))
-        self.assertEqual(res2.get("operation_id"), op_id_1)
-
-    def test_07_before_start_runtime_snapshot_honest_defaults(self):
-        snap = self.gateway.get_runtime_snapshot({"migration_id": self.workflow_id})
-        self.assertNotEqual(snap.get("current_stage"), "scout")
-        self.assertIn("start", snap.get("available_actions", []))
-
-    def test_08_secret_redaction_in_ipc_errors(self):
-        fp = AkaalSuperEngine.compute_plan_fingerprint(self.sample_spec, self.dag)
-        self.governance.approve_migration_with_fingerprint(self.workflow_id, fp)
-
-        res = self.gateway.start_transport({
-            "migration_id": self.workflow_id,
-            "password": "secret_source_pass",
-            "is_synthetic_test": True
-        })
-        err_msg = res.get("error_message", "")
-        self.assertNotIn("secret_source_pass", err_msg)
-
-    def test_09_concurrent_start_transport_launches_exactly_one_worker(self):
+    def test_06_five_concurrent_starts_launch_one_worker(self):
         # S4-H10: Concurrency barrier testing
         fp = AkaalSuperEngine.compute_plan_fingerprint(self.sample_spec, self.dag)
         self.governance.approve_migration_with_fingerprint(self.workflow_id, fp)
 
         barrier = threading.Barrier(5)
-        results = []
 
         def worker_task():
             barrier.wait()  # Synchronize 5 threads to call start_transport simultaneously
@@ -174,9 +155,6 @@ class TestEngineGatewayStep4(unittest.TestCase):
         winners = [r for r in results if not r.get("already_running")]
         losers = [r for r in results if r.get("already_running")]
 
-        if len(winners) != 1:
-            print("TEST_09 RESULTS DIAGNOSTIC:", results)
-
         self.assertEqual(len(winners), 1, f"Exactly ONE thread must win the atomic single-start claim. Results: {results}")
         self.assertEqual(len(losers), 4, "Remaining 4 competing threads must report already_running")
 
@@ -184,7 +162,38 @@ class TestEngineGatewayStep4(unittest.TestCase):
         op_ids = {r.get("operation_id") for r in results}
         self.assertEqual(len(op_ids), 1, "All 5 concurrent callers must receive the exact same operation_id")
 
-    def test_10_guarded_transition_prevents_stale_overwrites(self):
+    def test_07_independent_sqlite_durability_proof(self):
+        # PART E: Real Durability Proof via direct independent SQLite query on artifacts/state.db
+        mig_id_durability = "mig-durability-test-07"
+        durability_spec = dict(self.sample_spec)
+        durability_spec["migration_id"] = mig_id_durability
+        self.gateway._migrations[mig_id_durability] = {"config": durability_spec}
+        self.gateway._plans[mig_id_durability] = self.dag
+
+        fp = AkaalSuperEngine.compute_plan_fingerprint(durability_spec, self.dag)
+        self.governance.approve_migration_with_fingerprint(mig_id_durability, fp)
+
+        res = self.gateway.start_transport({"migration_id": mig_id_durability, "is_synthetic_test": True})
+        op_id = res.get("operation_id")
+
+        db_path = self.gateway.state_store.db_path
+        self.assertTrue(os.path.exists(db_path), f"SQLite database file must exist at {db_path}")
+
+        # Independent raw SQLite connection reading state.db without touching shared Python memory
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        cur = conn.execute("SELECT val_json FROM central_state WHERE category='runtime' AND state_key=?", (f"{mig_id_durability}_status",))
+        row = cur.fetchone()
+        conn.close()
+
+        self.assertIsNotNone(row, "Durable SQLite record must exist in central_state table")
+        durable_val = json.loads(row["val_json"])
+
+        self.assertEqual(durable_val.get("operation_id"), op_id)
+        self.assertEqual(durable_val.get("plan_fingerprint"), fp)
+        self.assertIn(durable_val.get("status"), ("START_REQUESTED", "STARTING", "RUNNING", "COMPLETED"))
+
+    def test_08_guarded_transition_prevents_stale_overwrites(self):
         # S4-H11: Transition guard test
         state_store = CentralStateStore()
         key = f"{self.workflow_id}_status"
@@ -193,9 +202,9 @@ class TestEngineGatewayStep4(unittest.TestCase):
         # Stale attempt to overwrite RUNNING back to STARTING must be REJECTED
         ok = state_store.guarded_transition_state(key, expected_current=["START_REQUESTED"], target_status="STARTING")
         self.assertFalse(ok)
-        self.assertEqual(state_store.get_state(key, category="runtime")["status"], "RUNNING")
+        self.assertEqual(state_store.get_state(key, default=None, category="runtime")["status"], "RUNNING")
 
-    def test_11_ipc_serialization_single_json_structure(self):
+    def test_09_ipc_serialization_remains_single_object(self):
         # S4-H12: Single JSON object serialization verification
         req = {
             "request_id": "req-12345",
@@ -213,21 +222,22 @@ class TestEngineGatewayStep4(unittest.TestCase):
         parsed = json.loads(frame_json)
         self.assertIsInstance(parsed["result"], dict)
 
-    def test_12_durable_state_authority_recovery(self):
-        # Durable state store singleton authority verification
+    def test_10_before_start_runtime_snapshot_honest_defaults(self):
+        snap = self.gateway.get_runtime_snapshot({"migration_id": self.workflow_id})
+        self.assertIsNone(snap.get("current_stage"))
+        self.assertIn("start", snap.get("available_actions", []))
+
+    def test_11_secret_redaction_in_ipc_errors(self):
         fp = AkaalSuperEngine.compute_plan_fingerprint(self.sample_spec, self.dag)
         self.governance.approve_migration_with_fingerprint(self.workflow_id, fp)
 
-        res = self.gateway.start_transport({"migration_id": self.workflow_id, "is_synthetic_test": True})
-        op_id = res.get("operation_id")
-
-        # Re-query CentralStateStore singleton instance
-        fresh_store = CentralStateStore()
-        status_rec = fresh_store.get_state(f"{self.workflow_id}_status", default=None, category="runtime")
-
-        self.assertIsNotNone(status_rec)
-        self.assertEqual(status_rec.get("operation_id"), op_id)
-        self.assertIn(status_rec.get("status"), ("STARTING", "RUNNING"))
+        res = self.gateway.start_transport({
+            "migration_id": self.workflow_id,
+            "password": "secret_source_pass",
+            "is_synthetic_test": True
+        })
+        err_msg = res.get("error_message", "")
+        self.assertNotIn("secret_source_pass", err_msg)
 
 
 if __name__ == "__main__":

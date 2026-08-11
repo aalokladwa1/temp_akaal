@@ -1378,8 +1378,9 @@ class EngineGateway:
     def start_transport(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         """
         Thin IPC start_transport endpoint delegating 100% of execution to AkaalSuperEngine.
-        Enforces synchronous fail-closed gate checks before returning a non-blocking ACK (<50ms).
+        Enforces synchronous fail-closed gate checks BEFORE durable atomic claim.
         """
+        # 1. Validate request parameters
         workflow_id = payload.get("migration_id") or payload.get("workflow_id")
         if not workflow_id:
             return {
@@ -1397,18 +1398,56 @@ class EngineGateway:
                 "error_message": f"Cannot start transport: Migration '{workflow_id}' has not been registered."
             }
 
+        # 2. Resolve current spec + DAG
         mig_meta = self._migrations.get(workflow_id, {})
         saved_config = mig_meta.get("config", {}) if isinstance(mig_meta, dict) else {}
         merged_spec = {**saved_config, **payload}
         dag_dict = self._plans.get(workflow_id)
 
-        # Step 4C: Operation ID Generation
+        # Lazy Import SuperEngine Errors
+        from akaal.engine.facade import (
+            ApprovalRequiredError,
+            PlanFingerprintMissingError,
+            PlanFingerprintMismatchError,
+            PhysicalExecutionContractError,
+            PhysicalValidationContractError,
+        )
+        super_engine = self.super_engine
+
+        # 3, 4, 5. Synchronous Validation & Fail-Closed Gate Checks BEFORE Atomic Claim
+        try:
+            # 3 & 4. Governance V6 Approval & Fingerprint Gate Verification
+            plan_fingerprint = super_engine.verify_governance_authorization(workflow_id, merged_spec, dag_dict)
+
+            # 5. Physical Execution Contracts Verification (H1 & H5)
+            is_synth = bool(payload.get("is_synthetic_test", False))
+            super_engine.validate_execution_contracts(merged_spec, is_physical=True, is_synthetic_test=is_synth)
+
+        except ApprovalRequiredError as ex:
+            return {"stage": "start_transport", "status": "error", "error_code": "APPROVAL_REQUIRED", "error_message": f"Cannot start transport: {str(ex)}"}
+        except PlanFingerprintMissingError as ex:
+            return {"stage": "start_transport", "status": "error", "error_code": "APPROVED_PLAN_FINGERPRINT_MISSING", "error_message": f"Cannot start transport: {str(ex)}"}
+        except PlanFingerprintMismatchError as ex:
+            return {"stage": "start_transport", "status": "error", "error_code": "PLAN_FINGERPRINT_MISMATCH", "error_message": f"Cannot start transport: {str(ex)}"}
+        except PhysicalExecutionContractError as ex:
+            return {"stage": "start_transport", "status": "error", "error_code": "PHYSICAL_EXECUTION_CONTRACT_INVALID", "error_message": f"Cannot start transport: {str(ex)}"}
+        except PhysicalValidationContractError as ex:
+            return {"stage": "start_transport", "status": "error", "error_code": "PHYSICAL_VALIDATION_CONTRACT_INVALID", "error_message": f"Cannot start transport: {str(ex)}"}
+        except Exception as ex:
+            safe_msg = str(ex)
+            for secret_key in ("password", "secret", "private_key", "access_token"):
+                if secret_key in payload:
+                    safe_msg = safe_msg.replace(str(payload[secret_key]), "***REDACTED***")
+            return {"stage": "start_transport", "status": "error", "error_code": "INTERNAL_EXECUTION_ERROR", "error_message": f"Cannot start transport: {safe_msg}"}
+
+        # 6. Generate operation_id AFTER validation passes
         op_id = payload.get("operation_id") or f"op-trans-{uuid.uuid4().hex[:12]}"
 
-        # S4-H10: Atomic Single-Start Claim FIRST (Fast ACK <5ms & Immediate Concurrency Protection)
+        # 7 & 8. Execute durable atomic claim with verified plan fingerprint claim binding
         claimed, claim_state = self.state_store.atomic_claim_start(
             f"{workflow_id}_status",
             operation_id=op_id,
+            plan_fingerprint=plan_fingerprint,
             metadata={
                 "migration_id": workflow_id,
                 "requested_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
@@ -1438,53 +1477,14 @@ class EngineGateway:
                 "command_accepted": True,
                 "migration_id": workflow_id,
                 "operation_id": claimed_op_id,
+                "plan_fingerprint": claim_state.get("plan_fingerprint", plan_fingerprint),
                 "runtime_status": curr_st or "START_REQUESTED",
                 "runtime_state": curr_st or "START_REQUESTED",
                 "message": f"Migration '{workflow_id}' is already active (State: {curr_st}).",
                 "already_running": True,
             }
 
-        # Lazy Import SuperEngine Errors
-        from akaal.engine.facade import (
-            ApprovalRequiredError,
-            PlanFingerprintMissingError,
-            PlanFingerprintMismatchError,
-            PhysicalExecutionContractError,
-            PhysicalValidationContractError,
-        )
-        super_engine = self.super_engine
-
-        # Step 4C Synchronous Validation & Fail-Closed Gate Checks (BEFORE ACK)
-        try:
-            # Governance V6 Approval & Fingerprint Gate Verification
-            plan_fingerprint = super_engine.verify_governance_authorization(workflow_id, merged_spec, dag_dict)
-
-            # Physical Execution Contracts Verification (H1 & H5)
-            is_synth = bool(payload.get("is_synthetic_test", False))
-            super_engine.validate_execution_contracts(merged_spec, is_physical=True, is_synthetic_test=is_synth)
-
-        except Exception as ex:
-            # Revert atomic claim if gate validation fails
-            self.state_store.set_state(f"{workflow_id}_status", None, category="runtime")
-
-            if isinstance(ex, ApprovalRequiredError):
-                return {"stage": "start_transport", "status": "error", "error_code": "APPROVAL_REQUIRED", "error_message": f"Cannot start transport: {str(ex)}"}
-            elif isinstance(ex, PlanFingerprintMissingError):
-                return {"stage": "start_transport", "status": "error", "error_code": "APPROVED_PLAN_FINGERPRINT_MISSING", "error_message": f"Cannot start transport: {str(ex)}"}
-            elif isinstance(ex, PlanFingerprintMismatchError):
-                return {"stage": "start_transport", "status": "error", "error_code": "PLAN_FINGERPRINT_MISMATCH", "error_message": f"Cannot start transport: {str(ex)}"}
-            elif isinstance(ex, PhysicalExecutionContractError):
-                return {"stage": "start_transport", "status": "error", "error_code": "PHYSICAL_EXECUTION_CONTRACT_INVALID", "error_message": f"Cannot start transport: {str(ex)}"}
-            elif isinstance(ex, PhysicalValidationContractError):
-                return {"stage": "start_transport", "status": "error", "error_code": "PHYSICAL_VALIDATION_CONTRACT_INVALID", "error_message": f"Cannot start transport: {str(ex)}"}
-            else:
-                safe_msg = str(ex)
-                for secret_key in ("password", "secret", "private_key", "access_token"):
-                    if secret_key in payload:
-                        safe_msg = safe_msg.replace(str(payload[secret_key]), "***REDACTED***")
-                return {"stage": "start_transport", "status": "error", "error_code": "INTERNAL_EXECUTION_ERROR", "error_message": f"Cannot start transport: {safe_msg}"}
-
-        # S4-H11: Transition from START_REQUESTED to STARTING
+        # Transition from START_REQUESTED to STARTING
         self.state_store.guarded_transition_state(
             f"{workflow_id}_status",
             expected_current=["START_REQUESTED"],
@@ -1494,7 +1494,7 @@ class EngineGateway:
 
         self.event_bus.publish("migration.started", {"migration_id": workflow_id, "operation_id": op_id, "stage": "start_transport"})
 
-        # Step 4D: Background Execution Handoff
+        # 9. Spawn execution boundary background thread
         def _bg_execute():
             try:
                 logger.info(f"[EngineGateway BG] Handoff migration '{workflow_id}' to AkaalSuperEngine...")
@@ -1502,7 +1502,7 @@ class EngineGateway:
                     f"{workflow_id}_status",
                     expected_current=["START_REQUESTED", "STARTING"],
                     target_status="RUNNING",
-                    update_data={"operation_id": op_id}
+                    update_data={"operation_id": op_id, "plan_fingerprint": plan_fingerprint}
                 )
                 res = super_engine.execute_migration(
                     workflow_id=workflow_id,
@@ -1511,12 +1511,13 @@ class EngineGateway:
                     is_physical=True,
                     is_synthetic_test=is_synth,
                 )
-                self.state_store.set_state(f"{workflow_id}_status", {"status": "COMPLETED", "operation_id": op_id}, category="runtime")
+                self.state_store.set_state(f"{workflow_id}_status", {"status": "COMPLETED", "operation_id": op_id, "plan_fingerprint": plan_fingerprint}, category="runtime")
             except Exception as bg_ex:
                 logger.error(f"[EngineGateway BG] Background execution failed for '{workflow_id}': {bg_ex}")
                 self.state_store.set_state(f"{workflow_id}_status", {
                     "status": "FAILED",
                     "operation_id": op_id,
+                    "plan_fingerprint": plan_fingerprint,
                     "error_code": "BACKGROUND_EXECUTION_FAILED",
                     "error_message": str(bg_ex),
                     "failed_stage": "super_engine_execution"
@@ -1526,21 +1527,7 @@ class EngineGateway:
         import threading
         threading.Thread(target=_bg_execute, daemon=True).start()
 
-        # Step 4C Synchronous ACK (< 50ms)
-        return {
-            "status": "accepted",
-            "request_accepted": True,
-            "command_accepted": True,
-            "migration_id": workflow_id,
-            "operation_id": op_id,
-            "plan_fingerprint": plan_fingerprint,
-            "migration_status": "STARTING",
-            "runtime_status": "STARTING",
-            "runtime_state": "STARTING",
-            "message": "Migration startup request accepted. AkaalSuperEngine background handoff complete."
-        }
-
-        # Step 4C Synchronous ACK (< 50ms)
+        # 10. Return ACCEPTED ACK
         return {
             "status": "accepted",
             "request_accepted": True,
@@ -1723,7 +1710,7 @@ class EngineGateway:
                 "runtime_session_id": sess_id,
                 "migration_id": mig_id,
                 "project_id": payload.get("project_id", "proj-default"),
-                "current_stage": "ready",
+                "current_stage": None,
                 "previous_stage": "-",
                 "next_stage": "schema_exec",
                 "current_activity": f"Engine execution state: {st_str}",
