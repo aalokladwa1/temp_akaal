@@ -72,6 +72,9 @@ class AkaalSuperEngine:
         "ephemeral_tokens",
         "last_heartbeat",
         "elapsed_seconds",
+        "is_synthetic_test",
+        "async_preflight",
+        "operation_id",
     }
 
     def __init__(self, lifecycle_manager: Optional[Any] = None):

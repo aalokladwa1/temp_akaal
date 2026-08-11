@@ -462,176 +462,7 @@ class EngineGateway:
             "approval_reference_id": payload.get("approval_reference_id"),
         }
 
-    def start_transport(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        workflow_id = payload.get("migration_id") or payload.get("workflow_id")
-        if not workflow_id:
-            return {
-                "stage": "start_transport",
-                "status": "failed",
-                "error_code": "MISSING_MIGRATION_ID",
-                "error_message": "Cannot start transport: migration_id is missing from payload."
-            }
 
-        if workflow_id not in self._migrations:
-            return {
-                "stage": "start_transport",
-                "status": "failed",
-                "error_code": "UNKNOWN_MIGRATION_ID",
-                "error_message": f"Cannot start transport: Migration '{workflow_id}' has not been registered."
-            }
-
-        # Authoritative Governance Approval Gate Enforcement (FAIL-CLOSED)
-        app_status = self.state_store.get_state(f"{workflow_id}_approval", category="governance")
-        if not app_status or not isinstance(app_status, dict):
-            return {
-                "stage": "start_transport",
-                "status": "error",
-                "error_code": "APPROVAL_REQUIRED",
-                "error_message": f"Cannot start transport: Migration '{workflow_id}' requires governance approval before execution."
-            }
-
-        st = str(app_status.get("status", "")).lower()
-        if st == "pending":
-            return {
-                "stage": "start_transport",
-                "status": "error",
-                "error_code": "APPROVAL_REQUIRED",
-                "error_message": f"Cannot start transport: Migration '{workflow_id}' governance approval is pending."
-            }
-        elif st in ("rejected", "changes_requested"):
-            return {
-                "stage": "start_transport",
-                "status": "error",
-                "error_code": "APPROVAL_REJECTED",
-                "error_message": f"Cannot start transport: Migration '{workflow_id}' governance approval was rejected."
-            }
-        elif st != "approved":
-            return {
-                "stage": "start_transport",
-                "status": "error",
-                "error_code": "APPROVAL_REQUIRED",
-                "error_message": f"Cannot start transport: Migration '{workflow_id}' governance status is '{st}' (must be APPROVED)."
-            }
-
-        # Server-side Terminal FAILED State Protection: Reject ordinary start_transport for FAILED migrations
-        status_info = self.state_store.get_state(f"{workflow_id}_status", category="runtime") or {}
-        curr_status = str(status_info.get("status", "")).upper()
-        if curr_status in ("FAILED", "ERROR"):
-            logger.warning(f"[EngineGateway] Terminal FAILED state protection: start_transport rejected for '{workflow_id}' in status '{curr_status}'.")
-            return {
-                "stage": "start_transport",
-                "status": "failed",
-                "runtime_status": "FAILED",
-                "error_code": "TERMINAL_STATE_REJECTED",
-                "error_message": f"Migration '{workflow_id}' is in terminal FAILED state. Ordinary Start Migration is rejected. Please initiate an explicit retry/recovery workflow.",
-                "failure_reason": "Ordinary start operation rejected for terminal FAILED state."
-            }
-
-        if workflow_id not in self.workflow_engine._manifests:
-            self._register_workflow_manifest(workflow_id)
-
-        mig_meta = self._migrations.get(workflow_id, {})
-        saved_config = mig_meta.get("config", {}) if isinstance(mig_meta, dict) else {}
-        merged_payload = {**saved_config, **payload}
-
-        # Runtime V3 Active Isolation & Resiliency Integrations
-        epoch = self.recovery_coordinator.issue_epoch(workflow_id)
-        daemon_info = self.supervisor_tree.spawn_runtime_daemon(workflow_id, epoch, merged_payload)
-
-        self.runtime_registry.register_runtime(workflow_id, workflow_id, daemon_info["pid"], merged_payload)
-        res_alloc = self.resource_manager.allocate_resources(workflow_id, requested_workers=4)
-        sel_objs = merged_payload.get("selected_scope", {}).get("objects", [])
-        table_names = [
-            (o.get("object_name") or o.get("name") or str(o)) if isinstance(o, dict) else str(o)
-            for o in sel_objs
-            if not isinstance(o, dict) or str(o.get("object_type", "Table")).upper() in ("TABLE", "CANONICALTABLE")
-        ]
-        if not table_names:
-            table_names = ["migration_objects"]
-        scheduled_parts = self.scheduler.schedule_partitions(workflow_id, table_names)
-        self.state_store.set_state(f"{workflow_id}_resources", res_alloc, category="worker")
-        self.state_store.set_state(f"{workflow_id}_partitions", scheduled_parts, category="worker")
-        self.state_store.set_state(f"{workflow_id}_resources", res_alloc, category="worker")
-        self.state_store.set_state(f"{workflow_id}_partitions", scheduled_parts, category="worker")
-        self.state_store.set_state(f"{workflow_id}_status", {"status": "STARTING"}, category="runtime")
-        self.event_bus.publish("migration.started", {"migration_id": workflow_id, "epoch": epoch, "stage": "start_transport"})
-
-        def _async_run_daemon():
-            try:
-                daemon_runner = daemon_info["daemon"]
-                daemon_res = daemon_runner.execute_migration()
-
-                if daemon_res.get("status") == "failed":
-                    err_msg = daemon_res.get("error", "Daemon execution failed")
-                    failed_stg = daemon_res.get("failed_stage", "pre_start_validation")
-                    failed_obj = daemon_res.get("failed_object", "connection_ping")
-                    failed_sch = daemon_res.get("failed_schema", "target_schema")
-                    err_code = daemon_res.get("error_code", "STEP_EXECUTION_FAILED")
-
-                    self.state_store.set_state(f"{workflow_id}_status", {
-                        "status": "FAILED",
-                        "health_status": "ERROR",
-                        "failed_stage": failed_stg,
-                        "failed_object": failed_obj,
-                        "failed_schema": failed_sch,
-                        "error_code": err_code,
-                        "error_message": err_msg
-                    }, category="runtime")
-
-                    self.state_store.update_progress(workflow_id, {
-                        "migration_id": workflow_id,
-                        "rows_migrated": 0,
-                        "rows_validated": 0,
-                        "throughput_mbps": 0.0,
-                        "status": "FAILED",
-                        "health_status": "ERROR",
-                        "failed_stage": failed_stg,
-                        "failed_object": failed_obj,
-                        "failed_schema": failed_sch,
-                        "error_code": err_code,
-                        "error_message": err_msg
-                    })
-                    self.event_bus.publish("migration.failed", {"migration_id": workflow_id, "errors": [err_msg]})
-                else:
-                    rows_migrated = daemon_res.get("rows_migrated", 0)
-                    rows_validated = daemon_res.get("rows_validated", 0)
-                    throughput = daemon_res.get("throughput_mbps", 0.0)
-                    rows_per_sec = daemon_res.get("rows_per_sec", 0.0)
-                    tables_migrated = daemon_res.get("tables_migrated", 0)
-                    logs = daemon_res.get("logs", [])
-
-                    self.state_store.set_state(f"{workflow_id}_status", {"status": "COMPLETED"}, category="runtime")
-                    self.state_store.update_progress(workflow_id, {
-                        "migration_id": workflow_id,
-                        "rows_migrated": rows_migrated,
-                        "rows_validated": rows_validated,
-                        "rows_total": rows_migrated if rows_migrated is not None else 0,
-                        "throughput_mbps": throughput,
-                        "rows_per_sec": rows_per_sec,
-                        "active_workers": 0,
-                        "logs": logs,
-                        "status": "COMPLETED"
-                    })
-                    self.event_bus.publish("migration.completed", {"migration_id": workflow_id, "tables": tables_migrated, "rows": rows_migrated})
-            except Exception as d_err:
-                logger.error(f"[RuntimeDaemon] Background execution error: {d_err}")
-                self.state_store.set_state(f"{workflow_id}_status", {"status": "FAILED", "error_message": str(d_err)}, category="runtime")
-                self.event_bus.publish("migration.failed", {"migration_id": workflow_id, "errors": [str(d_err)]})
-
-        # Launch runtime daemon asynchronously in background thread so start_transport ACKs immediately
-        import threading
-        threading.Thread(target=_async_run_daemon, daemon=True).start()
-
-        return {
-            "status": "accepted",
-            "request_accepted": True,
-            "command_accepted": True,
-            "migration_id": workflow_id,
-            "migration_status": "STARTING",
-            "runtime_status": "STARTING",
-            "runtime_state": "STARTING",
-            "message": "Migration startup request accepted. Runtime daemon scheduled asynchronously."
-        }
 
     def start_preflight(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         """Launches an asynchronous background preflight operation and returns immediately."""
@@ -1544,186 +1375,182 @@ class EngineGateway:
         }
 
     def start_transport(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        """Delegate data transport execution directly to canonical AkaalMigrationEngine."""
-        mig_id = payload.get("migration_id") or payload.get("workflow_id") or "mig-active"
-        from akaal.engine.api import AkaalMigrationEngine
-        from akaal.engine.spec import ConnectionAuthorityDTO, TuningPolicy
+        """
+        Thin IPC start_transport endpoint delegating 100% of execution to AkaalSuperEngine.
+        Enforces synchronous fail-closed gate checks before returning a non-blocking ACK (<50ms).
+        """
+        workflow_id = payload.get("migration_id") or payload.get("workflow_id")
+        if not workflow_id:
+            return {
+                "stage": "start_transport",
+                "status": "failed",
+                "error_code": "MISSING_MIGRATION_ID",
+                "error_message": "Cannot start transport: migration_id is missing from payload."
+            }
 
-        saved_mig = self._migrations.get(mig_id, {})
-        saved_cfg = saved_mig.get("config", {}) if isinstance(saved_mig, dict) else {}
+        if workflow_id not in self._migrations:
+            return {
+                "stage": "start_transport",
+                "status": "failed",
+                "error_code": "UNKNOWN_MIGRATION_ID",
+                "error_message": f"Cannot start transport: Migration '{workflow_id}' has not been registered."
+            }
 
-        src_auth_dict = saved_cfg.get("source_authority") or {}
-        tgt_auth_dict = saved_cfg.get("target_authority") or {}
+        mig_meta = self._migrations.get(workflow_id, {})
+        saved_config = mig_meta.get("config", {}) if isinstance(mig_meta, dict) else {}
+        merged_spec = {**saved_config, **payload}
+        dag_dict = self._plans.get(workflow_id)
 
-        src_engine = payload.get("source_engine") or src_auth_dict.get("engine") or saved_cfg.get("source_engine") or "ORACLE"
-        src_host = payload.get("source_host") or src_auth_dict.get("host") or saved_cfg.get("source_host") or "localhost"
-        src_port = int(payload.get("source_port") or src_auth_dict.get("port") or saved_cfg.get("source_port") or 1521)
-        src_db = payload.get("source_db") or src_auth_dict.get("database") or saved_cfg.get("source_db") or "instance2_pdb"
-        src_user = payload.get("source_user") or src_auth_dict.get("username") or saved_cfg.get("source_user") or "SYSTEM"
-        src_ref = payload.get("source_credential_ref") or src_auth_dict.get("credential_ref") or saved_cfg.get("source_credential_ref") or f"cred-ref-source-{src_user}"
-        src_priv = payload.get("privilege_mode") or src_auth_dict.get("privilege_mode") or saved_cfg.get("privilege_mode") or "NORMAL"
+        # Step 4C: Operation ID Generation
+        op_id = payload.get("operation_id") or f"op-trans-{uuid.uuid4().hex[:12]}"
 
-        tgt_engine = payload.get("target_engine") or tgt_auth_dict.get("engine") or saved_cfg.get("target_engine") or "POSTGRESQL"
-        tgt_host = payload.get("target_host") or tgt_auth_dict.get("host") or saved_cfg.get("target_host") or "127.0.0.1"
-        tgt_port = int(payload.get("target_port") or tgt_auth_dict.get("port") or saved_cfg.get("target_port") or 5432)
-        tgt_db = payload.get("target_db") or tgt_auth_dict.get("database") or saved_cfg.get("target_db") or "postgres"
-        tgt_user = payload.get("target_user") or tgt_auth_dict.get("username") or saved_cfg.get("target_user") or "postgres"
-        tgt_ref = payload.get("target_credential_ref") or tgt_auth_dict.get("credential_ref") or saved_cfg.get("target_credential_ref") or f"cred-ref-target-{tgt_user}"
+        # Step 4J: Idempotent Double-Start Protection
+        current_status_info = self.state_store.get_state(f"{workflow_id}_status", default=None, category="runtime") or {}
+        curr_status = str(current_status_info.get("status", "")).upper()
 
-        # Secret Resolution
-        src_pass = payload.get("source_pass") or payload.get("source_password") or payload.get("password") or saved_cfg.get("source_pass") or ""
-        if not src_pass:
-            for ref in [f"cred-ref-{mig_id}-src", src_ref, f"cred-ref-source-{src_user}"]:
-                try:
-                    c_sec = credential_vault.get_credentials(ref, fail_closed=False)
-                    if c_sec and c_sec.get("password"):
-                        src_pass = c_sec.get("password")
-                        break
-                except Exception:
-                    pass
+        if curr_status in ("START_REQUESTED", "STARTING", "RUNNING"):
+            logger.info(f"[EngineGateway] Idempotent start_transport repeat call for '{workflow_id}' in status '{curr_status}'. Returning existing operation ACK.")
+            return {
+                "status": "accepted",
+                "request_accepted": True,
+                "command_accepted": True,
+                "migration_id": workflow_id,
+                "operation_id": current_status_info.get("operation_id", op_id),
+                "runtime_status": curr_status,
+                "runtime_state": curr_status,
+                "message": f"Migration '{workflow_id}' is already {curr_status}.",
+                "already_running": True,
+            }
 
-        tgt_pass = payload.get("target_pass") or payload.get("target_password") or payload.get("password") or saved_cfg.get("target_pass") or ""
-        if not tgt_pass:
-            for ref in [f"cred-ref-{mig_id}-tgt", tgt_ref, f"cred-ref-target-{tgt_user}"]:
-                try:
-                    c_sec = credential_vault.get_credentials(ref, fail_closed=False)
-                    if c_sec and c_sec.get("password"):
-                        tgt_pass = c_sec.get("password")
-                        break
-                except Exception:
-                    pass
+        if curr_status in ("FAILED", "ERROR"):
+            logger.warning(f"[EngineGateway] Terminal FAILED state protection: start_transport rejected for '{workflow_id}' in status '{curr_status}'.")
+            return {
+                "stage": "start_transport",
+                "status": "failed",
+                "runtime_status": "FAILED",
+                "error_code": "TERMINAL_STATE_REJECTED",
+                "error_message": f"Migration '{workflow_id}' is in terminal FAILED state. Ordinary Start Migration is rejected. Please initiate an explicit retry/recovery workflow.",
+                "failure_reason": "Ordinary start operation rejected for terminal FAILED state."
+            }
 
-        src_auth = ConnectionAuthorityDTO.create(
-            role="SOURCE",
-            engine=src_engine,
-            host=src_host,
-            port=src_port,
-            database=src_db,
-            username=src_user,
-            credential_ref=src_ref,
-            privilege_mode=src_priv,
+        # Lazy Import SuperEngine and Errors
+        from akaal.engine.facade import (
+            AkaalSuperEngine,
+            ApprovalRequiredError,
+            PlanFingerprintMissingError,
+            PlanFingerprintMismatchError,
+            PhysicalExecutionContractError,
+            PhysicalValidationContractError,
         )
-        tgt_auth = ConnectionAuthorityDTO.create(
-            role="TARGET",
-            engine=tgt_engine,
-            host=tgt_host,
-            port=tgt_port,
-            database=tgt_db,
-            username=tgt_user,
-            credential_ref=tgt_ref,
-        )
+        super_engine = AkaalSuperEngine()
 
-        sel_scope = payload.get("selected_scope") or saved_cfg.get("selected_scope") or {"tables": [{"object_name": "BIG_TABLE_1"}]}
+        # Step 4C Synchronous Validation & Fail-Closed Gate Checks (BEFORE ACK)
+        try:
+            # Governance V6 Approval & Fingerprint Gate Verification
+            plan_fingerprint = super_engine.verify_governance_authorization(workflow_id, merged_spec, dag_dict)
 
-        # Read DAG Execution Plan Tuning Constraints
-        exec_plan = saved_cfg.get("execution_plan") or {}
-        plan_workers = int(payload.get("parallelism") or payload.get("worker_allocation") or exec_plan.get("worker_allocation") or saved_cfg.get("parallelism") or 8)
-        plan_batch = int(payload.get("batch_size") or exec_plan.get("batch_size") or saved_cfg.get("batch_size") or 10000)
+            # Physical Execution Contracts Verification (H1 & H5)
+            is_synth = bool(payload.get("is_synthetic_test", False))
+            super_engine.validate_execution_contracts(merged_spec, is_physical=True, is_synthetic_test=is_synth)
 
-        engine = AkaalMigrationEngine()
-        spec = engine.register_specification(
-            migration_id=mig_id,
-            migration_name=f"Migration-{mig_id}",
-            project_name="Enterprise-Project",
-            source_auth=src_auth,
-            target_auth=tgt_auth,
-            selected_scope=sel_scope,
-            tuning_policy=TuningPolicy(
-                parallelism=plan_workers,
-                batch_size=plan_batch,
-                page_size=min(plan_batch, 5000),
-                adaptive_concurrency=True
-            ),
-        )
+        except ApprovalRequiredError as ex:
+            return {
+                "stage": "start_transport",
+                "status": "error",
+                "error_code": "APPROVAL_REQUIRED",
+                "error_message": f"Cannot start transport: {str(ex)}"
+            }
+        except PlanFingerprintMissingError as ex:
+            return {
+                "stage": "start_transport",
+                "status": "error",
+                "error_code": "APPROVED_PLAN_FINGERPRINT_MISSING",
+                "error_message": f"Cannot start transport: {str(ex)}"
+            }
+        except PlanFingerprintMismatchError as ex:
+            return {
+                "stage": "start_transport",
+                "status": "error",
+                "error_code": "PLAN_FINGERPRINT_MISMATCH",
+                "error_message": f"Cannot start transport: {str(ex)}"
+            }
+        except PhysicalExecutionContractError as ex:
+            return {
+                "stage": "start_transport",
+                "status": "error",
+                "error_code": "PHYSICAL_EXECUTION_CONTRACT_INVALID",
+                "error_message": f"Cannot start transport: {str(ex)}"
+            }
+        except PhysicalValidationContractError as ex:
+            return {
+                "stage": "start_transport",
+                "status": "error",
+                "error_code": "PHYSICAL_VALIDATION_CONTRACT_INVALID",
+                "error_message": f"Cannot start transport: {str(ex)}"
+            }
+        except Exception as ex:
+            # Step 4I: Redact passwords/secrets from generic error message
+            safe_msg = str(ex)
+            for secret_key in ("password", "secret", "private_key", "access_token"):
+                if secret_key in payload:
+                    safe_msg = safe_msg.replace(str(payload[secret_key]), "***REDACTED***")
+            return {
+                "stage": "start_transport",
+                "status": "error",
+                "error_code": "INTERNAL_EXECUTION_ERROR",
+                "error_message": f"Cannot start transport: {safe_msg}"
+            }
 
-        scope_items = sel_scope.get("selected_objects") or sel_scope.get("tables") or sel_scope.get("objects") or []
-        total_objs = len(scope_items) or 1
-        
-        estimated_total_rows = 0
-        for item in scope_items:
-            if isinstance(item, dict):
-                estimated_total_rows += int(item.get("num_rows") or item.get("row_count") or item.get("estimated_rows") or 1000)
-            else:
-                estimated_total_rows += 1000
+        # Durable State Preparation (STARTING)
+        self.state_store.set_state(f"{workflow_id}_status", {
+            "status": "STARTING",
+            "operation_id": op_id,
+            "migration_id": workflow_id,
+            "plan_fingerprint": plan_fingerprint,
+            "requested_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "last_error": None
+        }, category="runtime")
 
-        if estimated_total_rows <= 0:
-            estimated_total_rows = total_objs * 1000
+        self.event_bus.publish("migration.started", {"migration_id": workflow_id, "operation_id": op_id, "stage": "start_transport"})
 
-        # Dynamic Adaptive Calculations via AKAAL Adaptive Engines
-        autoscale_dec = self.adaptive_parallelism_engine.autoscale_workers(
-            telemetry={"cpu_percent": 30.0, "memory_utilization_pct": 35.0},
-            current_workers=plan_workers,
-            max_worker_cap=32
-        )
-        rec_workers = autoscale_dec.recommended_workers
-
-        batch_dec = self.adaptive_batch_optimizer.optimize(
-            metrics={"cpu_percent": 30.0, "memory_utilization_percent": 35.0, "latency_ms": 5.0, "queue_depth": 100},
-            current_config={"batch_size": plan_batch}
-        )
-        opt_batch = (batch_dec.get("batch_size") if batch_dec else plan_batch) or plan_batch
-
-        dyn_tp_mbps = round((rec_workers * opt_batch * 0.0022), 2)
-        dyn_rows_sec = int(rec_workers * opt_batch * 0.32)
-
-        self.state_store.set_state(f"{mig_id}_status", {"status": "RUNNING"}, category="runtime")
-        self.state_store.update_progress(mig_id, {
-            "migration_id": mig_id,
-            "rows_migrated": 0,
-            "rows_total": estimated_total_rows,
-            "throughput_mbps": dyn_tp_mbps,
-            "rows_per_sec": dyn_rows_sec,
-            "completed_tables": 0,
-            "total_tables": total_objs,
-            "active_workers": rec_workers,
-            "current_table": f"Adaptive Pipeline (Workers: {rec_workers}, Batch: {opt_batch})...",
-            "status": "RUNNING"
-        })
-        self.event_bus.publish("migration.started", {"migration_id": mig_id})
-
-        def _async_transport_runner():
+        # Step 4D: Background Execution Handoff
+        def _bg_execute():
             try:
-                res = engine.start_migration(
-                    spec=spec,
-                    source_pass=src_pass,
-                    target_pass=tgt_pass,
+                logger.info(f"[EngineGateway BG] Handoff migration '{workflow_id}' to AkaalSuperEngine...")
+                res = super_engine.execute_migration(
+                    workflow_id=workflow_id,
+                    spec_dict=merged_spec,
+                    dag_dict=dag_dict,
+                    is_physical=True,
+                    is_synthetic_test=is_synth,
                 )
-                rows_tot = res.get("total_rows", 0)
-                tp_val = res.get("throughput_rows_sec", 0.0)
-
-                self._migration_results[mig_id] = res
-                self.state_store.set_state(f"{mig_id}_status", {"status": "COMPLETED"}, category="runtime")
-                self.state_store.update_progress(mig_id, {
-                    "migration_id": mig_id,
-                    "rows_migrated": rows_tot,
-                    "rows_total": rows_tot,
-                    "throughput_mbps": tp_val,
-                    "status": "COMPLETED"
-                })
-                self.event_bus.publish("migration.completed", {"migration_id": mig_id, "result": res})
-            except Exception as exc:
-                logger.error(f"[EngineGateway] start_transport background task failed for '{mig_id}': {exc}", exc_info=True)
-                self.state_store.set_state(f"{mig_id}_status", {
+                self.state_store.set_state(f"{workflow_id}_status", {"status": "RUNNING", "operation_id": op_id}, category="runtime")
+            except Exception as bg_ex:
+                logger.error(f"[EngineGateway BG] Background execution failed for '{workflow_id}': {bg_ex}")
+                self.state_store.set_state(f"{workflow_id}_status", {
                     "status": "FAILED",
-                    "error_message": str(exc),
-                    "error_code": "STEP_EXECUTION_FAILED"
+                    "operation_id": op_id,
+                    "error_code": "BACKGROUND_EXECUTION_FAILED",
+                    "error_message": str(bg_ex),
+                    "failed_stage": "super_engine_execution"
                 }, category="runtime")
-                self.state_store.update_progress(mig_id, {
-                    "migration_id": mig_id,
-                    "status": "FAILED",
-                    "error_message": str(exc)
-                })
-                self.event_bus.publish("migration.failed", {"migration_id": mig_id, "error": str(exc)})
+                self.event_bus.publish("migration.failed", {"migration_id": workflow_id, "errors": [str(bg_ex)]})
 
         import threading
-        t_thread = threading.Thread(target=_async_transport_runner, daemon=True)
-        t_thread.start()
+        threading.Thread(target=_bg_execute, daemon=True).start()
 
+        # Step 4C Synchronous ACK (< 50ms)
         return {
-            "status": "success",
-            "migration_id": mig_id,
-            "stage": "transport_started",
-            "message": f"Migration transport execution launched in background worker pool for '{mig_id}'."
+            "status": "accepted",
+            "request_accepted": True,
+            "command_accepted": True,
+            "migration_id": workflow_id,
+            "operation_id": op_id,
+            "plan_fingerprint": plan_fingerprint,
+            "migration_status": "STARTING",
+            "runtime_status": "STARTING",
+            "runtime_state": "STARTING",
+            "message": "Migration startup request accepted. AkaalSuperEngine background handoff complete."
         }
 
     def get_migration_result(self, payload: Dict[str, Any]) -> Dict[str, Any]:
