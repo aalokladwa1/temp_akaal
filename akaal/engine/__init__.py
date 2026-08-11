@@ -7,6 +7,15 @@ physical validation, and audit certification.
 """
 
 from akaal.engine.api import AkaalMigrationEngine
+from akaal.engine.facade import (
+    AkaalSuperEngine,
+    SuperEngineError,
+    ApprovalRequiredError,
+    PlanFingerprintMissingError,
+    PlanFingerprintMismatchError,
+    PhysicalExecutionContractError,
+    PhysicalValidationContractError,
+)
 from akaal.engine.spec import (
     MigrationSpecification,
     ExecutionPlan,
@@ -23,6 +32,13 @@ from akaal.engine.spec import (
 )
 
 __all__ = [
+    "AkaalSuperEngine",
+    "SuperEngineError",
+    "ApprovalRequiredError",
+    "PlanFingerprintMissingError",
+    "PlanFingerprintMismatchError",
+    "PhysicalExecutionContractError",
+    "PhysicalValidationContractError",
     "AkaalMigrationEngine",
     "MigrationSpecification",
     "ExecutionPlan",
