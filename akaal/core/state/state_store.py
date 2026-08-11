@@ -10,20 +10,29 @@ from akaal.core.interfaces.enterprise_interfaces import IStateStore
 
 
 class CentralStateStore(IStateStore):
-    """Centralized Thread-Safe State Store."""
+    """Centralized Thread-Safe Singleton State Store."""
 
-    def __init__(self) -> None:
-        self._state: Dict[str, Dict[str, Any]] = {
-            "runtime": {},
-            "worker": {},
-            "migration": {},
-            "progress": {},
-            "metrics": {},
-            "heartbeats": {},
-            "checkpoint": {},
-            "wal": {},
-        }
-        self._lock = threading.Lock()
+    _instance: Optional["CentralStateStore"] = None
+    _init_lock = threading.Lock()
+
+    def __new__(cls) -> "CentralStateStore":
+        if cls._instance is None:
+            with cls._init_lock:
+                if cls._instance is None:
+                    cls._instance = super(CentralStateStore, cls).__new__(cls)
+                    cls._instance._state = {
+                        "runtime": {},
+                        "worker": {},
+                        "migration": {},
+                        "governance": {},
+                        "progress": {},
+                        "metrics": {},
+                        "heartbeats": {},
+                        "checkpoint": {},
+                        "wal": {},
+                    }
+                    cls._instance._lock = threading.Lock()
+        return cls._instance
 
     def set_state(self, key: str, value: Any, category: str = "runtime") -> None:
         with self._lock:

@@ -188,3 +188,39 @@ class EnterpriseGovernancePlatformV6:
             timestamp=datetime.datetime.now(datetime.timezone.utc).isoformat(),
             block_hash=block.hash,
         )
+
+    def approve_migration_with_fingerprint(
+        self,
+        workflow_id: str,
+        plan_fingerprint: str,
+        approved_by: str = "GovernanceBoard",
+        notes: str = "Enterprise Governance Approved",
+    ) -> Dict[str, Any]:
+        """
+        Authoritative Enterprise Governance Approval path persisting approved_plan_fingerprint.
+        Persists state to CentralStateStore under governance category.
+        """
+        from akaal.core.state.state_store import CentralStateStore
+        state_store = CentralStateStore()
+
+        approval_record = {
+            "status": "approved",
+            "approved_plan_fingerprint": plan_fingerprint,
+            "approved_by": approved_by,
+            "notes": notes,
+            "approved_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        }
+
+        state_store.set_state(f"{workflow_id}_approval", approval_record, category="governance")
+        
+        # Append to Governance Immutable Ledger
+        self.ledger.append_decision({
+            "target_platform": "GovernancePlatformV6",
+            "operation_type": "MIGRATION_APPROVAL",
+            "outcome": "APPROVED",
+            "rationale": notes,
+            "workflow_id": workflow_id,
+            "plan_fingerprint": plan_fingerprint,
+        })
+
+        return approval_record

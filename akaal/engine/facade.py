@@ -57,10 +57,14 @@ class AkaalSuperEngine:
     Enforces immutable plan SHA-256 fingerprinting and fail-closed physical execution gates.
     """
 
+    # Secret MATERIAL ONLY (S3-H9: Stable non-secret connection identity MUST be preserved)
     EXCLUDED_FINGERPRINT_KEYS = {
         "password",
-        "credentials_ref",
         "secret",
+        "access_token",
+        "private_key",
+        "raw_credential",
+        "secret_key",
         "created_at",
         "started_at",
         "updated_at",
@@ -79,7 +83,7 @@ class AkaalSuperEngine:
     @classmethod
     def canonicalize_for_fingerprint(cls, obj: Any) -> Any:
         """
-        Recursively strips volatile fields and sorts object keys for deterministic fingerprinting.
+        Recursively strips secret material while preserving stable connection identity and spec values.
         """
         if isinstance(obj, dict):
             clean_dict = {}
@@ -96,6 +100,7 @@ class AkaalSuperEngine:
     @classmethod
     def compute_plan_fingerprint(cls, spec_dict: Dict[str, Any], dag_dict: Optional[Dict[str, Any]] = None) -> str:
         """
+        Single Authoritative Fingerprint Generator for AKAAL execution artifacts.
         Calculates deterministic SHA-256 fingerprint over migration spec and execution DAG.
         """
         canonical_payload = {
@@ -105,24 +110,25 @@ class AkaalSuperEngine:
         json_bytes = json.dumps(canonical_payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
         return hashlib.sha256(json_bytes).hexdigest()
 
-    def record_governance_approval(self, workflow_id: str, spec_dict: Dict[str, Any], dag_dict: Optional[Dict[str, Any]] = None, approved_by: str = "system") -> str:
+    def _record_test_governance_approval(self, workflow_id: str, spec_dict: Dict[str, Any], dag_dict: Optional[Dict[str, Any]] = None, approved_by: str = "system") -> str:
         """
-        Calculates fingerprint and records governance approval in CentralStateStore.
+        TEST-ONLY helper for recording governance approval state with plan fingerprint.
+        Production governance approval authority resides strictly in EnterpriseGovernancePlatformV6.
         """
         fingerprint = self.compute_plan_fingerprint(spec_dict, dag_dict)
         approval_payload = {
             "status": "approved",
             "approved_plan_fingerprint": fingerprint,
             "approved_by": approved_by,
-            "approved_at": self.state_store.get_state(f"{workflow_id}_status", category="runtime") or {},
         }
         self.state_store.set_state(f"{workflow_id}_approval", approval_payload, category="governance")
-        logger.info(f"[SUPER ENGINE] Recorded governance approval for '{workflow_id}' with fingerprint={fingerprint}")
+        logger.info(f"[SUPER ENGINE TEST HELPER] Recorded test approval for '{workflow_id}' with fingerprint={fingerprint}")
         return fingerprint
 
     def verify_governance_authorization(self, workflow_id: str, spec_dict: Dict[str, Any], dag_dict: Optional[Dict[str, Any]] = None) -> str:
         """
         Fail-closed verification asserting approval status is APPROVED and fingerprints match exactly.
+        Reads governance approval records produced by EnterpriseGovernancePlatformV6 / CentralStateStore.
         """
         app_status = self.state_store.get_state(f"{workflow_id}_approval", default=None, category="governance")
         if not app_status or not isinstance(app_status, dict):
@@ -132,9 +138,10 @@ class AkaalSuperEngine:
         if status_str != "approved":
             raise ApprovalRequiredError(f"Cannot execute migration '{workflow_id}': Governance status is '{status_str}' (must be APPROVED).")
 
+        # S3-H8: Legacy approval records without approved_plan_fingerprint must FAIL CLOSED
         approved_fingerprint = app_status.get("approved_plan_fingerprint")
         if not approved_fingerprint:
-            raise PlanFingerprintMissingError(f"Cannot execute migration '{workflow_id}': Approved plan fingerprint missing from governance record.")
+            raise PlanFingerprintMissingError(f"Cannot execute migration '{workflow_id}': Legacy or incomplete governance record missing 'approved_plan_fingerprint'.")
 
         current_fingerprint = self.compute_plan_fingerprint(spec_dict, dag_dict)
         if current_fingerprint != approved_fingerprint:
@@ -175,7 +182,7 @@ class AkaalSuperEngine:
     ) -> Dict[str, Any]:
         """
         Authoritative migration execution pipeline:
-        1. Verify governance approval & immutable plan fingerprint.
+        1. Verify governance approval & immutable plan fingerprint (S3-H7 & S3-H8).
         2. Validate physical execution contracts (H1 & H5).
         3. Delegate execution through CompositionRoot platforms.
         """
