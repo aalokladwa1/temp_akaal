@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, type FC } from 'react';
+import { useState, useEffect, useRef, type FC } from 'react';
 import {
   Table,
   Zap,
@@ -20,12 +20,12 @@ import {
   Terminal,
   XCircle,
   AlertTriangle,
-  RefreshCw,
   Wifi,
   WifiOff,
+  Clock,
 } from 'lucide-react';
-import type { MigrationPipeline, EngineStageId, GovernanceApproval } from '../../types/migration';
-import { ENGINE_STAGE_METADATA } from '../../services/migrationService';
+import type { MigrationPipeline, GovernanceApproval } from '../../types/migration';
+import type { RuntimeSnapshotDTO } from '../../types/bridge';
 import { notificationService } from '../../services/notificationService';
 import { ipcService } from '../../services/ipcService';
 import { approvalRepository } from '../../repositories/approvalRepository';
@@ -55,8 +55,65 @@ export interface MissionControlViewProps {
   onOpenGovernance?: (migrationId?: string, gateId?: string) => void;
 }
 
-export type MigrationRunStatus = 'created' | 'ready' | 'running' | 'paused' | 'failed' | 'completed';
-export type RuntimeConnectionState = 'CONNECTED' | 'LOADING' | 'RECONNECTING' | 'ERROR' | 'OFFLINE';
+export type MissionControlState =
+  | 'AWAITING_APPROVAL'
+  | 'READY_TO_START'
+  | 'START_REQUESTED'
+  | 'STARTING'
+  | 'RUNNING'
+  | 'PAUSED'
+  | 'VALIDATING'
+  | 'CERTIFYING'
+  | 'COMPLETED'
+  | 'FAILED';
+
+export type StageVisualState =
+  | 'NOT_STARTED'
+  | 'ACTIVE_INDETERMINATE'
+  | 'ACTIVE_DETERMINATE'
+  | 'PAUSED'
+  | 'COMPLETED'
+  | 'FAILED';
+
+export interface CanonicalStageDef {
+  id: string;
+  name: string;
+  category: string;
+  details: string;
+}
+
+const CANONICAL_STAGES: CanonicalStageDef[] = [
+  {
+    id: 'schema_exec',
+    name: 'Target Schema DDL Execution',
+    category: 'DDL',
+    details: 'Apply target schema DDL, tables, and constraints',
+  },
+  {
+    id: 'transport',
+    name: 'Parallel Stream Data Transport',
+    category: 'Data Transport',
+    details: 'Bulk transport parallel streaming partitions',
+  },
+  {
+    id: 'validation',
+    name: 'Physical Checksum Validation',
+    category: 'Validation',
+    details: 'SHA-256 row checksum & Merkle root auditing',
+  },
+  {
+    id: 'certification',
+    name: 'Digital Trust Certification',
+    category: 'Certification',
+    details: 'Generate cryptographic migration certificate',
+  },
+  {
+    id: 'completed',
+    name: 'Pipeline Execution Completed',
+    category: 'Completion',
+    details: 'Migration execution finished & verified',
+  },
+];
 
 const fmtRows = (n: number | null | undefined): string => {
   if (n == null || n < 0) return '—';
@@ -70,28 +127,22 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
   migration,
   onBack,
   onOpenWizard: _onOpenWizard,
-  onOpenGovernance,
+  onOpenGovernance: _onOpenGovernance,
 }) => {
-  // Runtime Connection & Health State
-  const [connectionState, setConnectionState] = useState<RuntimeConnectionState>('CONNECTED');
+  // Runtime Connection & Telemetry State
+  const [connectionState, setConnectionState] = useState<'CONNECTED' | 'LOADING' | 'RECONNECTING' | 'OFFLINE'>('CONNECTED');
   const [snapshotAgeMs, setSnapshotAgeMs] = useState(120);
-  const [snapshot, setSnapshot] = useState<any>(null);
+  const [snapshot, setSnapshot] = useState<RuntimeSnapshotDTO | null>(null);
 
-  // Migration Live Run State (Bound for DTO presentation)
-  const [runStatus, setRunStatus] = useState<MigrationRunStatus>('ready');
-  const [activeStage, setActiveStage] = useState<EngineStageId>('scout');
+  // Authoritative State Machine Driven by Snapshot
+  const [controlState, setControlState] = useState<MissionControlState>('READY_TO_START');
   const [showPlanDrawer, setShowPlanDrawer] = useState(false);
   const [showOperationsMenu, setShowOperationsMenu] = useState(false);
 
   // Operational Confirmation Modal State
   const [confirmAction, setConfirmAction] = useState<ConfirmActionType | null>(null);
-  const [selectedCheckpoint, setSelectedCheckpoint] = useState('chkpt-04a8f910-lsn');
-  const [exportFormat, setExportFormat] = useState<'HTML' | 'MP4' | 'PDF'>('HTML');
-
-  // Live Telemetry Bindings
-  const rowsProcessed = snapshot?.rows_transferred != null ? snapshot.rows_transferred : null;
-  const totalRows = snapshot?.rows_total != null && snapshot.rows_total > 0 ? snapshot.rows_total : null;
-  const progressPercent = snapshot?.progress_percent != null ? Math.min(100, Math.round(snapshot.progress_percent)) : 0;
+  const [_selectedCheckpoint] = useState('chkpt-04a8f910-lsn');
+  const [_exportFormat] = useState<'HTML' | 'MP4' | 'PDF'>('HTML');
 
   // Mission Replay™ Mode State
   const [isReplayMode, setIsReplayMode] = useState(false);
@@ -99,20 +150,23 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
   const [replayTimeSec, setReplayTimeSec] = useState(0);
   const [replaySpeed, setReplaySpeed] = useState<1 | 2 | 5 | 10>(1);
 
-  // Upgrade 9: Rich Structured Activity Log Stream (Newest First)
+  // Activity Log Stream
   const [activityFeed, setActivityFeed] = useState<any[]>([]);
 
-  // Request Storm Protection & Subscription Count Tracking
+  // Polling Protection & Request Counter
   const isFetchingRef = useRef(false);
-  const activeSubscriptionsCount = useRef(0);
-
+  const lastSnapshotTs = useRef<number>(0);
   const [migrationResult, setMigrationResult] = useState<any>(null);
 
-  const safeJsonParse = (str: any) => {
-    if (!str) return null;
-    if (typeof str !== 'string') return str;
+  const safeParseObj = (raw: any): any => {
+    if (!raw) return null;
+    if (typeof raw === 'object') return raw;
     try {
-      return JSON.parse(str);
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object' && parsed.result) {
+        return typeof parsed.result === 'string' ? JSON.parse(parsed.result) : parsed.result;
+      }
+      return parsed;
     } catch {
       return null;
     }
@@ -125,48 +179,59 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
         JSON.stringify({ migration_id: migration.id })
       );
       if (raw) {
-        const res = safeJsonParse(raw);
+        const res = safeParseObj(raw);
         if (res) setMigrationResult(res);
       }
     } catch (err) {
-      console.warn('Failed to fetch migration result:', err);
+      console.warn('[MissionControl] Failed to fetch migration result:', err);
     }
   };
 
   const fetchRuntimeSnapshot = async () => {
     if (isFetchingRef.current) return;
     isFetchingRef.current = true;
+    const reqTs = Date.now();
+
     try {
       const raw = await ipcService.invokeEngineCapability(
         'get_runtime_snapshot',
         JSON.stringify({ migration_id: migration.id })
       );
-      if (raw) {
-        const res = safeJsonParse(raw);
-        const snap = res?.result ? safeJsonParse(res.result) : res;
+
+      if (raw && reqTs >= lastSnapshotTs.current) {
+        lastSnapshotTs.current = reqTs;
+        const snap: RuntimeSnapshotDTO = safeParseObj(raw);
+
         if (snap) {
           setSnapshot(snap);
-          if (snap.status || snap.current_activity) {
-            const st = String(snap.status || '').toUpperCase();
-            const act = String(snap.current_activity || '').toUpperCase();
-            const stg = String(snap.current_stage || '').toLowerCase();
 
-            if (st === 'COMPLETED' || act.includes('COMPLETE') || stg === 'completed') {
-              setRunStatus((prev) => (prev !== 'completed' ? 'completed' : prev));
-              fetchMigrationResult();
-            } else if (st === 'RUNNING' || act.includes('RUNNING') || act.includes('STARTING') || stg === 'transport') {
-              setRunStatus((prev) => (prev !== 'running' ? 'running' : prev));
-            } else if (st === 'PAUSED' || act.includes('PAUSE')) {
-              setRunStatus((prev) => (prev !== 'paused' ? 'paused' : prev));
-            } else if (st === 'FAILED' || st === 'ERROR' || act.includes('FAIL') || act.includes('ERROR')) {
-              setRunStatus((prev) => (prev !== 'failed' ? 'failed' : prev));
-            } else if (st === 'CREATED' || st === 'CONFIGURED' || act.includes('CREATED') || act.includes('CONFIGURED') || stg === 'ready') {
-              setRunStatus((prev) => (prev !== 'ready' ? 'ready' : prev));
-            }
+          // Update Authoritative Control State
+          const st = String(snap.runtime_status || snap.status || snap.runtime_state || '').toUpperCase();
+          const act = String(snap.current_activity || '').toUpperCase();
+          const stg = String(snap.current_stage || '').toLowerCase();
+
+          if (st === 'COMPLETED' || act.includes('COMPLETE') || stg === 'completed') {
+            setControlState('COMPLETED');
+            fetchMigrationResult();
+          } else if (st === 'FAILED' || st === 'ERROR' || act.includes('FAIL') || act.includes('ERROR')) {
+            setControlState('FAILED');
+          } else if (st === 'PAUSED' || act.includes('PAUSE')) {
+            setControlState('PAUSED');
+          } else if (stg === 'validation' || stg === 'validator') {
+            setControlState('VALIDATING');
+          } else if (stg === 'certification') {
+            setControlState('CERTIFYING');
+          } else if (st === 'RUNNING' || act.includes('RUNNING') || stg === 'transport' || stg === 'schema_exec') {
+            setControlState('RUNNING');
+          } else if (st === 'STARTING' || st === 'START_REQUESTED' || act.includes('START')) {
+            setControlState('STARTING');
+          } else {
+            // Check Governance Approval status
+            const isApproved = snap.approval_status === 'APPROVED' ||
+              (migration.id && approvalRepository.getApprovals().some((a: GovernanceApproval) => a.migrationId === migration.id && a.status === 'approved'));
+            setControlState(isApproved ? 'READY_TO_START' : 'AWAITING_APPROVAL');
           }
-          if (snap.current_stage) {
-            setActiveStage((prev) => (prev !== snap.current_stage ? snap.current_stage as any : prev));
-          }
+
           if (snap.logs && Array.isArray(snap.logs) && snap.logs.length > 0) {
             setActivityFeed(snap.logs.slice(-50));
           }
@@ -174,7 +239,8 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
         }
       }
     } catch (err) {
-      console.warn('Failed to fetch runtime snapshot:', err);
+      console.warn('[MissionControl] Failed to fetch runtime snapshot:', err);
+      setConnectionState('OFFLINE');
     } finally {
       isFetchingRef.current = false;
     }
@@ -182,7 +248,6 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
 
   useEffect(() => {
     let isMounted = true;
-    activeSubscriptionsCount.current += 1;
     fetchRuntimeSnapshot();
 
     const interval = setInterval(() => {
@@ -194,40 +259,42 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
 
     return () => {
       isMounted = false;
-      activeSubscriptionsCount.current = Math.max(0, activeSubscriptionsCount.current - 1);
       clearInterval(interval);
     };
   }, [migration.id]);
 
-  // Action Execution Handler called ONLY after operator confirms inside dialog
+  // Action Execution Handler for Modal Dialogs
   const executeConfirmedAction = async (action: ConfirmActionType) => {
     setConfirmAction(null);
     let cap = '';
     const payloadObj: any = { migration_id: migration.id };
 
     switch (action) {
+      case 'start':
+        cap = 'start_transport';
+        setControlState('START_REQUESTED');
+        break;
       case 'pause':
         cap = 'pause_migration';
-        setRunStatus('paused');
+        setControlState('PAUSED');
         break;
       case 'resume':
         cap = 'resume_migration';
-        setRunStatus('running');
+        setControlState('RUNNING');
         break;
       case 'stop_batch':
         cap = 'pause_migration';
         payloadObj.mode = 'stop_after_batch';
-        setRunStatus('paused');
+        setControlState('PAUSED');
         break;
       case 'terminate':
         cap = 'terminate_migration';
-        setRunStatus('failed');
+        setControlState('FAILED');
         break;
-      case 'start':
       case 'restart':
       case 'retry':
         cap = 'start_transport';
-        setRunStatus('running');
+        setControlState('START_REQUESTED');
         break;
       case 'recover':
         cap = 'execute_healing';
@@ -237,7 +304,7 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
         break;
       case 'rollback':
         cap = 'rollback_migration';
-        payloadObj.checkpoint = selectedCheckpoint;
+        payloadObj.checkpoint = _selectedCheckpoint;
         break;
       case 'download_cert':
         cap = 'generate_certificate';
@@ -249,7 +316,7 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
         notificationService.push('Mission Replay™ Active', 'info', 'Replaying recorded engine events & telemetry stream.');
         return;
       case 'export_replay':
-        notificationService.push('Replay Manifest Exported', 'success', `Exported Mission Replay as ${exportFormat} file.`);
+        notificationService.push('Replay Manifest Exported', 'success', `Exported Mission Replay as ${_exportFormat} file.`);
         return;
       default:
         notificationService.push(`Action ${action.toUpperCase()}`, 'info', 'Action acknowledged.');
@@ -259,13 +326,7 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
     if (cap) {
       try {
         const rawRes = await ipcService.invokeEngineCapability(cap, JSON.stringify(payloadObj));
-        let parsed: any = {};
-        try {
-          parsed = typeof rawRes === 'string' ? JSON.parse(rawRes) : rawRes;
-        } catch {
-          parsed = { status: 'success', raw: rawRes };
-        }
-        const resObj = parsed?.result ? (typeof parsed.result === 'string' ? JSON.parse(parsed.result) : parsed.result) : parsed;
+        const resObj = safeParseObj(rawRes);
 
         if (resObj && (resObj.status === 'failed' || resObj.status === 'error' || resObj.error_code)) {
           const errCode = resObj.error_code || 'OPERATION_FAILED';
@@ -275,13 +336,7 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
             notificationService.push(
               'Governance Approval Required',
               'warning',
-              `Cannot start transport for '${migration.id}': Governance sign-off (Gate 2/3) is pending or required.`
-            );
-          } else if (errCode === 'APPROVAL_REJECTED') {
-            notificationService.push(
-              'Governance Approval Rejected',
-              'error',
-              `Cannot start transport for '${migration.id}': Governance approval was rejected.`
+              `Cannot start transport for '${migration.id}': Governance sign-off is required.`
             );
           } else {
             notificationService.push(`Engine Rejected: ${action.toUpperCase()}`, 'error', errMsg);
@@ -290,11 +345,15 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
           return;
         }
 
-        notificationService.push(`Engine Acknowledged: ${action.toUpperCase()}`, 'success', `State updated by AKAAL runtime for ${migration.id}`);
+        if (action === 'start') {
+          notificationService.push('Migration Startup Accepted', 'success', `Start Migration request accepted by AKAAL SuperEngine.`);
+        } else {
+          notificationService.push(`Engine Acknowledged: ${action.toUpperCase()}`, 'success', `State updated by AKAAL runtime for ${migration.id}`);
+        }
         await fetchRuntimeSnapshot();
       } catch (err: any) {
         const errStr = typeof err === 'string' ? err : err?.message || String(err);
-        notificationService.push(`Operation Failed`, 'error', errStr);
+        notificationService.push('Operation Failed', 'error', errStr);
       }
     }
   };
@@ -304,28 +363,82 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
     setReplayPlaying(false);
   };
 
-  // Stage metadata
-  const stageMeta = ENGINE_STAGE_METADATA[activeStage] || ENGINE_STAGE_METADATA['scout'];
-
-  // Authoritative Execution Plan Nodes
-  const dynamicExecutionPlanNodes = useMemo(() => {
-    if (snapshot?.stages && Array.isArray(snapshot.stages) && snapshot.stages.length > 0) {
-      return snapshot.stages;
+  // Derive Stage Visual State for Each Stage Truthfully
+  const getStageVisualState = (stageId: string, idx: number): StageVisualState => {
+    if (controlState === 'FAILED' && snapshot?.failed_stage === stageId) {
+      return 'FAILED';
     }
-    return [
-      { stage: 1, name: 'Discovery & Catalog Fencing', category: 'Catalog', details: `${migration.sourceEngine} ──► ${migration.targetEngine}` },
-      { stage: 2, name: 'DAG Topological Dependency Sorting', category: 'Planner', details: `Source: ${migration.sourceEndpoint} | Target: ${migration.targetEndpoint}` },
-      { stage: 3, name: 'Target Schema Structure Deployment', category: 'DDL', details: `Deploy DDL definitions to ${migration.targetEngine}` },
-      { stage: 4, name: 'Parallel Stream Data Transport', category: 'Data Transport', details: `Topological transport pipeline (${migration.estimatedDuration || '—'})` },
-      { stage: 5, name: 'Reconciliation & Validation Node', category: 'Validation', details: 'Full Row Count & SHA-256 Checksum Auditing' },
-      { stage: 6, name: 'Digital Trust Certification', category: 'Certification', details: 'Generate cryptographic migration certificate' },
-    ];
-  }, [migration, snapshot]);
+    if (controlState === 'PAUSED') {
+      const activeStg = String(snapshot?.current_stage || '').toLowerCase();
+      if (activeStg === stageId || (stageId === 'transport' && activeStg === 'data_migration')) {
+        return 'PAUSED';
+      }
+    }
+    if (controlState === 'COMPLETED') {
+      return 'COMPLETED';
+    }
+    if (controlState === 'AWAITING_APPROVAL' || controlState === 'READY_TO_START' || controlState === 'START_REQUESTED') {
+      return 'NOT_STARTED';
+    }
+
+    const currentBackendStage = String(snapshot?.current_stage || '').toLowerCase();
+    const stageOrderMap: Record<string, number> = {
+      schema_exec: 0,
+      schema: 0,
+      transport: 1,
+      data_migration: 1,
+      validation: 2,
+      validator: 2,
+      certification: 3,
+      completed: 4,
+    };
+
+    const currentIdx = stageOrderMap[currentBackendStage] ?? -1;
+
+    if (currentIdx === -1) {
+      return idx === 0 && controlState === 'STARTING' ? 'ACTIVE_INDETERMINATE' : 'NOT_STARTED';
+    }
+
+    if (idx < currentIdx) return 'COMPLETED';
+    if (idx === currentIdx) {
+      if (stageId === 'transport' && snapshot?.progress_percent != null) {
+        return 'ACTIVE_DETERMINATE';
+      }
+      return 'ACTIVE_INDETERMINATE';
+    }
+    return 'NOT_STARTED';
+  };
+
+  // Live Telemetry Values
+  const rowsProcessed = snapshot?.rows_transferred != null ? snapshot.rows_transferred : null;
+  const totalRows = snapshot?.rows_total != null && snapshot.rows_total > 0 ? snapshot.rows_total : null;
+  const progressPercent = snapshot?.progress_percent != null ? Math.min(100, Math.round(snapshot.progress_percent)) : 0;
+  const isGovernanceApproved = snapshot?.approval_status === 'APPROVED' || (migration.id && approvalRepository.getApprovals().some((a: GovernanceApproval) => a.migrationId === migration.id && a.status === 'approved'));
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', minHeight: 0, background: 'var(--dash-bg)', overflow: 'hidden' }}>
 
-      {/* ── PART 5 & 6: RUNTIME STATUS & DESKTOP-ENGINE CONNECTION HEALTH RIBBON ─ */}
+      {/* Inline Keyframes for Live Shimmer & Pulse Animations */}
+      <style>{`
+        @keyframes akaalShimmer {
+          0% { background-position: -200% 0; }
+          100% { background-position: 200% 0; }
+        }
+        @keyframes akaalPulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.6; transform: scale(0.97); }
+        }
+        .akaal-shimmer-bar {
+          background: linear-gradient(90deg, #2563EB 0%, #60A5FA 50%, #2563EB 100%);
+          background-size: 200% 100%;
+          animation: akaalShimmer 1.8s infinite linear;
+        }
+        .akaal-pulse-icon {
+          animation: akaalPulse 1.5s infinite ease-in-out;
+        }
+      `}</style>
+
+      {/* ── CONNECTION & HEALTH RIBBON ────────────────────────────────────────── */}
       <div style={{ padding: '4px 24px', background: connectionState === 'RECONNECTING' ? 'rgba(245,158,11,0.18)' : 'var(--dash-surface)', borderBottom: '1px solid var(--dash-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 10, fontWeight: 700, flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: connectionState === 'CONNECTED' ? '#10B981' : connectionState === 'RECONNECTING' ? '#F59E0B' : '#EF4444' }}>
@@ -337,21 +450,19 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
 
           <span style={{ color: 'var(--dash-text-secondary)' }}>IPC: <span style={{ color: connectionState === 'CONNECTED' ? '#10B981' : '#F59E0B' }}>{connectionState === 'CONNECTED' ? 'ONLINE' : 'OFFLINE'}</span></span>
           <span style={{ color: 'var(--dash-text-secondary)' }}>Snapshot Age: <span style={{ color: 'var(--dash-text-primary)' }}>{snapshotAgeMs}ms</span></span>
-          <span style={{ color: 'var(--dash-text-secondary)' }}>Event Stream: <span style={{ color: connectionState === 'CONNECTED' ? '#10B981' : 'var(--dash-text-secondary)' }}>{connectionState === 'CONNECTED' ? 'ACTIVE' : 'STANDBY'}</span></span>
-          <span style={{ color: 'var(--dash-text-secondary)' }}>Supervisor: <span style={{ color: runStatus === 'running' ? '#10B981' : 'var(--dash-text-secondary)' }}>{runStatus === 'running' ? 'EXECUTING DAEMON' : 'IDLE / STANDBY'}</span></span>
+          <span style={{ color: 'var(--dash-text-secondary)' }}>State: <span style={{ color: '#10B981', fontWeight: 800 }}>{controlState}</span></span>
+          <span style={{ color: 'var(--dash-text-secondary)' }}>Supervisor: <span style={{ color: controlState === 'RUNNING' || controlState === 'STARTING' ? '#10B981' : 'var(--dash-text-secondary)' }}>{controlState === 'RUNNING' || controlState === 'STARTING' ? 'EXECUTING DAEMON' : 'IDLE / STANDBY'}</span></span>
         </div>
 
-        {/* Development Connection State Toggle for Verification */}
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          <span style={{ color: 'var(--dash-text-tertiary)', fontSize: 9 }}>Simulate Health:</span>
-          <button type="button" onClick={() => setConnectionState(connectionState === 'CONNECTED' ? 'LOADING' : connectionState === 'LOADING' ? 'RECONNECTING' : 'CONNECTED')}
-            style={{ padding: '1px 6px', borderRadius: 3, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-secondary)', fontSize: 9, cursor: 'pointer' }}>
-            Toggle State ({connectionState})
-          </button>
+          <span style={{ color: 'var(--dash-text-tertiary)', fontSize: 9 }}>Connection Status:</span>
+          <span style={{ padding: '1px 6px', borderRadius: 3, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: '#10B981', fontSize: 9, fontWeight: 700 }}>
+            {connectionState}
+          </span>
         </div>
       </div>
 
-      {/* ── MISSION REPLAY™ HEADER BANNER (Shows only in Replay Mode) ─────── */}
+      {/* ── MISSION REPLAY™ HEADER BANNER ───────────────────────────────────── */}
       {isReplayMode && (
         <div style={{ padding: '8px 24px', background: 'rgba(37,99,235,0.15)', borderBottom: '1px solid var(--dash-accent)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -402,13 +513,18 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
               <h2 style={{ fontSize: 18, fontWeight: 800, margin: 0, color: 'var(--dash-text-primary)', whiteSpace: 'nowrap' }}>
                 {migration.name}
               </h2>
-              <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: runStatus === 'running' ? 'rgba(16,185,129,0.15)' : runStatus === 'paused' ? 'rgba(245,158,11,0.15)' : runStatus === 'failed' ? 'rgba(239,68,68,0.15)' : 'rgba(37,99,235,0.15)', color: runStatus === 'running' ? '#10B981' : runStatus === 'paused' ? '#F59E0B' : runStatus === 'failed' ? '#EF4444' : '#3B82F6', fontWeight: 700, textTransform: 'uppercase' }}>
-                ● {runStatus}
+              <span style={{
+                fontSize: 11, padding: '2px 8px', borderRadius: 4,
+                background: controlState === 'RUNNING' || controlState === 'STARTING' ? 'rgba(16,185,129,0.15)' : controlState === 'PAUSED' ? 'rgba(245,158,11,0.15)' : controlState === 'FAILED' ? 'rgba(239,68,68,0.15)' : 'rgba(37,99,235,0.15)',
+                color: controlState === 'RUNNING' || controlState === 'STARTING' ? '#10B981' : controlState === 'PAUSED' ? '#F59E0B' : controlState === 'FAILED' ? '#EF4444' : '#3B82F6',
+                fontWeight: 700, textTransform: 'uppercase'
+              }}>
+                ● {controlState}
               </span>
             </div>
             <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 12 }}>
               <span>{migration.sourceEngine} ──► {migration.targetEngine}</span>
-              <span>• ETA: {snapshot?.eta_seconds != null ? `${snapshot.eta_seconds}s` : (migration.estimatedDuration || '—')}</span>
+              <span>• ETA: {snapshot?.eta_seconds != null ? `${snapshot.eta_seconds}s` : '—'}</span>
               <span>• ID: {migration.id}</span>
               <span>• Owner: {migration.owner}</span>
             </div>
@@ -421,84 +537,75 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
         </button>
       </div>
 
-      {/* ── MIGRATION FAILURE BANNER ── */}
-      {(runStatus === 'failed' || snapshot?.health_status === 'ERROR' || snapshot?.status === 'FAILED') && (
+      {/* ── MIGRATION FAILURE BANNER ────────────────────────────────────────── */}
+      {controlState === 'FAILED' && (
         <div style={{ margin: '16px 24px 0 24px', padding: '16px 20px', background: 'rgba(239,68,68,0.1)', border: '1px solid #EF4444', borderRadius: 8, color: '#EF4444' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 800, fontSize: 15 }}>
             <AlertTriangle size={20} color="#EF4444" />
-            <span>MIGRATION FAILED</span>
+            <span>MIGRATION EXECUTION FAILED</span>
           </div>
           <div style={{ marginTop: 8, fontSize: 13, display: 'grid', gridTemplateColumns: '120px 1fr', gap: 6, color: 'var(--dash-text-primary)' }}>
             <span style={{ color: 'var(--dash-text-secondary)' }}>Stage:</span>
-            <strong>{snapshot?.failed_stage || snapshot?.current_stage || 'Schema Execution'}</strong>
+            <strong>{snapshot?.failed_stage || snapshot?.current_stage || 'Transport / Validation'}</strong>
             {snapshot?.failed_object && (
               <>
                 <span style={{ color: 'var(--dash-text-secondary)' }}>Object:</span>
                 <strong style={{ fontFamily: 'monospace' }}>{snapshot.failed_object}</strong>
               </>
             )}
-            {snapshot?.failed_schema && (
-              <>
-                <span style={{ color: 'var(--dash-text-secondary)' }}>Target Schema:</span>
-                <strong style={{ fontFamily: 'monospace' }}>{snapshot.failed_schema}</strong>
-              </>
-            )}
             <span style={{ color: 'var(--dash-text-secondary)' }}>Reason:</span>
-            <span style={{ color: '#EF4444', fontWeight: 600 }}>{snapshot?.error_message || (snapshot?.errors && snapshot.errors[0]) || 'Database rejected target object or schema DDL.'}</span>
+            <span style={{ color: '#EF4444', fontWeight: 600 }}>{snapshot?.error_message || (snapshot?.errors && snapshot.errors[0]) || 'Database rejected operation or transport failed.'}</span>
           </div>
         </div>
       )}
 
-      {/* ── ENTERPRISE OPERATIONS TOOLBAR (State-Aware Controls) ─────────── */}
+      {/* ── ENTERPRISE OPERATIONS TOOLBAR ─────────────────────────────────── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 24px', background: 'var(--dash-bg)', borderBottom: '1px solid var(--dash-border)', flexShrink: 0, gap: 12, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--dash-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginRight: 6 }}>
             Operations Console:
           </span>
 
-          {/* READY / CREATED STATE CONTROLS */}
-          {(runStatus === 'ready' || runStatus === 'created') && (() => {
-            const isGovernanceApproved = snapshot?.approval_status === 'APPROVED' || (migration.id && approvalRepository.getApprovals().some((a: GovernanceApproval) => a.migrationId === migration.id && a.status === 'approved'));
-            return (
-              <>
-                <button
-                  type="button"
-                  disabled={!isGovernanceApproved}
-                  onClick={() => {
-                    if (isGovernanceApproved) setConfirmAction('start');
-                  }}
-                  style={{
-                    padding: '6px 16px',
-                    borderRadius: 6,
-                    background: isGovernanceApproved ? '#10B981' : 'var(--dash-border)',
-                    color: isGovernanceApproved ? '#FFF' : 'var(--dash-text-secondary)',
-                    fontSize: 12,
-                    fontWeight: 800,
-                    border: 'none',
-                    cursor: isGovernanceApproved ? 'pointer' : 'not-allowed',
-                    opacity: isGovernanceApproved ? 1 : 0.6,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6
-                  }}
-                  title={isGovernanceApproved ? 'Start Transport Execution' : 'Governance Approval Required before starting transport.'}
-                >
-                  <Play size={14} /> START MIGRATION
-                </button>
-                {!isGovernanceApproved && (
-                  <span style={{ fontSize: 11, padding: '4px 10px', borderRadius: 6, background: 'rgba(245,158,11,0.15)', color: '#F59E0B', fontWeight: 700, border: '1px solid rgba(245,158,11,0.3)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                    <ShieldAlert size={13} /> Awaiting Governance Approval in Governance Centre
-                  </span>
-                )}
-                <button type="button" onClick={() => setConfirmAction('terminate')} style={{ padding: '6px 14px', borderRadius: 6, background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', color: '#EF4444', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <XCircle size={13} /> Cancel Pipeline
-                </button>
-              </>
-            );
-          })()}
+          {/* READY / AWAITING APPROVAL CONTROLS */}
+          {(controlState === 'READY_TO_START' || controlState === 'AWAITING_APPROVAL') && (
+            <>
+              <button
+                type="button"
+                disabled={!isGovernanceApproved}
+                onClick={() => {
+                  if (isGovernanceApproved) setConfirmAction('start');
+                }}
+                style={{
+                  padding: '6px 16px',
+                  borderRadius: 6,
+                  background: isGovernanceApproved ? '#10B981' : 'var(--dash-border)',
+                  color: isGovernanceApproved ? '#FFF' : 'var(--dash-text-secondary)',
+                  fontSize: 12,
+                  fontWeight: 800,
+                  border: 'none',
+                  cursor: isGovernanceApproved ? 'pointer' : 'not-allowed',
+                  opacity: isGovernanceApproved ? 1 : 0.6,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6
+                }}
+                title={isGovernanceApproved ? 'Start Transport Execution' : 'Governance Approval Required before starting transport.'}
+              >
+                <Play size={14} /> START MIGRATION
+              </button>
+              {!isGovernanceApproved && (
+                <span style={{ fontSize: 11, padding: '4px 10px', borderRadius: 6, background: 'rgba(245,158,11,0.15)', color: '#F59E0B', fontWeight: 700, border: '1px solid rgba(245,158,11,0.3)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <ShieldAlert size={13} /> Awaiting Governance Approval in Governance Centre
+                </span>
+              )}
+              <button type="button" onClick={() => setConfirmAction('terminate')} style={{ padding: '6px 14px', borderRadius: 6, background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', color: '#EF4444', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <XCircle size={13} /> Cancel Pipeline
+              </button>
+            </>
+          )}
 
-          {/* RUNNING STATE CONTROLS */}
-          {runStatus === 'running' && (
+          {/* RUNNING / STARTING / VALIDATING CONTROLS */}
+          {(controlState === 'RUNNING' || controlState === 'STARTING' || controlState === 'VALIDATING' || controlState === 'CERTIFYING') && (
             <>
               <button type="button" onClick={() => setConfirmAction('pause')} style={{ padding: '6px 14px', borderRadius: 6, background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)', color: '#F59E0B', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
                 <Pause size={13} /> Pause Migration
@@ -513,7 +620,7 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
           )}
 
           {/* PAUSED STATE CONTROLS */}
-          {runStatus === 'paused' && (
+          {controlState === 'PAUSED' && (
             <>
               <button type="button" onClick={() => setConfirmAction('resume')} style={{ padding: '6px 14px', borderRadius: 6, background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.3)', color: '#10B981', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
                 <Play size={13} /> Resume Migration
@@ -528,7 +635,7 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
           )}
 
           {/* FAILED STATE CONTROLS */}
-          {runStatus === 'failed' && (
+          {controlState === 'FAILED' && (
             <>
               <button type="button" onClick={() => setConfirmAction('retry')} style={{ padding: '6px 14px', borderRadius: 6, background: 'rgba(37,99,235,0.15)', border: '1px solid var(--dash-accent)', color: 'var(--dash-accent)', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
                 <RotateCcw size={13} /> Retry Failed Step
@@ -542,8 +649,8 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
             </>
           )}
 
-          {/* COMPLETED STATE CONTROLS (Mission Replay™ & Exports) */}
-          {runStatus === 'completed' && (
+          {/* COMPLETED STATE CONTROLS */}
+          {controlState === 'COMPLETED' && (
             <>
               <button type="button" onClick={() => setConfirmAction('mission_replay')} style={{ padding: '6px 14px', borderRadius: 6, background: 'rgba(37,99,235,0.15)', border: '1px solid var(--dash-accent)', color: 'var(--dash-accent)', fontSize: 11, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
                 <PlayCircle size={14} color="#3B82F6" /> Mission Replay™
@@ -553,9 +660,6 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
               </button>
               <button type="button" onClick={() => setConfirmAction('download_cert')} style={{ padding: '6px 14px', borderRadius: 6, background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.3)', color: '#10B981', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
                 <ShieldCheck size={13} /> Download Trust Certificate
-              </button>
-              <button type="button" onClick={() => setConfirmAction('run_again')} style={{ padding: '6px 14px', borderRadius: 6, background: 'var(--dash-surface)', border: '1px solid var(--dash-border)', color: 'var(--dash-text-primary)', fontSize: 11, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <RefreshCw size={13} /> Run Again
               </button>
             </>
           )}
@@ -583,11 +687,11 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
       {/* ── MAIN CONTENT WORKSPACE ────────────────────────────────────────── */}
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden', padding: 20, gap: 16, width: '100%' }}>
 
-        {/* LEFT COLUMN: CURRENT EXECUTION STAGE (Observer Mode) ─────────────── */}
+        {/* LEFT COLUMN: CANONICAL EXECUTION TIMELINE & STAGE PROGRESS ──────── */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0, overflowY: 'auto' }}>
 
           {/* POST-MIGRATION AUDIT SUMMARY CARD */}
-          {runStatus === 'completed' && (
+          {controlState === 'COMPLETED' && (
             <div
               style={{
                 padding: '20px',
@@ -621,13 +725,13 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
                   <div style={{ padding: 12, background: 'var(--dash-surface)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
                     <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>SOURCE PHYSICAL ROWS</div>
                     <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--dash-text-primary)', marginTop: 4 }}>
-                      {(migrationResult.validation?.source_rows ?? migrationResult.row_summary?.rows_read ?? snapshot?.rows_migrated ?? 0).toLocaleString()}
+                      {(migrationResult.validation?.source_rows ?? migrationResult.row_summary?.rows_read ?? snapshot?.rows_migrated ?? snapshot?.rows_transferred ?? 0).toLocaleString()}
                     </div>
                   </div>
                   <div style={{ padding: 12, background: 'var(--dash-surface)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
                     <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>TARGET PHYSICAL ROWS</div>
                     <div style={{ fontSize: 16, fontWeight: 800, color: '#10B981', marginTop: 4 }}>
-                      {(migrationResult.validation?.target_rows ?? migrationResult.row_summary?.rows_written ?? snapshot?.rows_migrated ?? 0).toLocaleString()}
+                      {(migrationResult.validation?.target_rows ?? migrationResult.row_summary?.rows_written ?? snapshot?.rows_migrated ?? snapshot?.rows_transferred ?? 0).toLocaleString()}
                     </div>
                   </div>
                   <div style={{ padding: 12, background: 'var(--dash-surface)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
@@ -639,7 +743,7 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
                   <div style={{ padding: 12, background: 'var(--dash-surface)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
                     <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>ELAPSED TIME</div>
                     <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--dash-text-primary)', marginTop: 4 }}>
-                      {migrationResult.duration_sec != null ? `${migrationResult.duration_sec}s` : (migrationResult.elapsed_seconds != null ? `${migrationResult.elapsed_seconds}s` : (snapshot?.elapsed_seconds != null ? `${snapshot.elapsed_seconds}s` : '0.0s'))}
+                      {migrationResult.duration_sec != null ? `${migrationResult.duration_sec}s` : (snapshot?.elapsed_seconds != null ? `${snapshot.elapsed_seconds}s` : '0.0s')}
                     </div>
                   </div>
                 </div>
@@ -647,137 +751,99 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
             </div>
           )}
 
-          {/* MISSION CONTROL DOES NOT PERFORM APPROVALS — ONLY DETECTS AND OPENS GOVERNANCE CENTRE */}
-          {runStatus === 'paused' && (
-            <div
-              style={{
-                padding: '14px 20px',
-                borderRadius: 10,
-                background: 'rgba(245, 158, 11, 0.12)',
-                border: '1px solid rgba(245, 158, 11, 0.4)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: 16,
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <ShieldAlert size={22} color="#F59E0B" />
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#F59E0B', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                    ⚡ WAITING FOR ENTERPRISE APPROVAL (GATE 3)
-                  </div>
-                  <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)', marginTop: 2 }}>
-                    Runtime paused at Cutover Gate. Waiting for Migration Director & Operations Lead sign-off.
-                  </div>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => onOpenGovernance && onOpenGovernance(migration.id, 'GATE_3')}
-                style={{
-                  padding: '8px 16px',
-                  borderRadius: 6,
-                  background: '#F59E0B',
-                  color: '#000',
-                  fontWeight: 700,
-                  fontSize: 12,
-                  border: 'none',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                Open Governance Centre →
-              </button>
-            </div>
-          )}
-
-          {/* PART 2 & PART 4: ENTERPRISE SKELETON LOADING STATE WHEN HYDRATING */}
-          {connectionState === 'LOADING' ? (
-            <div style={{ border: '1px solid var(--dash-border)', borderRadius: 12, background: 'var(--dash-surface)', padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--dash-bg)', animation: 'pulse 1.5s infinite' }} />
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <div style={{ width: 140, height: 12, background: 'var(--dash-bg)', borderRadius: 4, animation: 'pulse 1.5s infinite' }} />
-                  <div style={{ width: 220, height: 18, background: 'var(--dash-bg)', borderRadius: 4, animation: 'pulse 1.5s infinite' }} />
-                </div>
-              </div>
-              <div style={{ padding: 16, background: 'var(--dash-bg)', borderRadius: 8, textAlign: 'center', fontSize: 13, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>
-                <RefreshCw size={18} className="spin" style={{ marginBottom: 6, display: 'block', margin: '0 auto 6px auto', color: '#3B82F6' }} />
-                Waiting for Runtime Snapshot from AKAAL Engine...
-              </div>
-            </div>
-          ) : (
-            /* PART 7 & 8: UPGRADED CURRENT STAGE CARD WITH ANIMATIONS */
-            <div style={{ border: '1px solid var(--dash-border)', borderRadius: 12, background: 'var(--dash-surface)', padding: 20, display: 'flex', flexDirection: 'column', gap: 16, transition: 'all 200ms ease-out' }}>
-
-              {/* Stage Header (Read-Only Observer Mode) */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--dash-border)', paddingBottom: 14 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <div style={{ width: 38, height: 38, borderRadius: 10, background: 'rgba(37,99,235,0.15)', border: '1px solid var(--dash-accent)', color: 'var(--dash-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 12px rgba(37,99,235,0.25)' }}>
-                    <Activity size={20} />
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--dash-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Current Execution Stage</div>
-                    <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--dash-text-primary)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 8 }}>
-                      {stageMeta.label}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Read-Only Observer Badge */}
-                <span style={{ fontSize: 11, padding: '4px 12px', borderRadius: 20, background: 'rgba(16,185,129,0.12)', color: '#10B981', fontWeight: 700, border: '1px solid rgba(16,185,129,0.3)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10B981', boxShadow: '0 0 6px #10B981' }} /> ENGINE ACTIVE STAGE (READ-ONLY)
+          {/* CANONICAL STAGE TIMELINE & LIVE PROGRESS CARDS */}
+          <div style={{ border: '1px solid var(--dash-border)', borderRadius: 12, background: 'var(--dash-surface)', padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--dash-border)', paddingBottom: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <Activity size={18} color="#3B82F6" />
+                <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--dash-text-primary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Canonical Execution Stage Sequence
                 </span>
               </div>
-
-              {/* Stage Specific Telemetry Grid */}
-              {activeStage === 'data_migration' ? (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }}>
-                  <div style={{ padding: 10, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
-                    <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Active Workers</div>
-                    <div style={{ fontSize: 16, fontWeight: 800, marginTop: 4, color: '#3B82F6' }}>
-                      {snapshot?.active_workers != null ? `${snapshot.active_workers} Active Workers` : '0 Active Workers'}
-                    </div>
-                  </div>
-                  <div style={{ padding: 10, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
-                    <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Streaming Speed</div>
-                    <div style={{ fontSize: 16, fontWeight: 800, marginTop: 4, color: '#10B981' }}>
-                      {snapshot?.throughput_mbps != null && snapshot.throughput_mbps > 0 ? `${snapshot.throughput_mbps} MB/s` : '—'}
-                    </div>
-                  </div>
-                  <div style={{ padding: 10, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
-                    <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>Rows/sec Rate</div>
-                    <div style={{ fontSize: 16, fontWeight: 800, marginTop: 4, color: '#8B5CF6' }}>
-                      {snapshot?.rows_per_sec != null ? `${snapshot.rows_per_sec}/s` : '—'}
-                    </div>
-                  </div>
-                  <div style={{ padding: 10, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
-                    <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>WAN Bandwidth</div>
-                    <div style={{ fontSize: 16, fontWeight: 800, marginTop: 4, color: '#F59E0B' }}>
-                      {snapshot?.bandwidth != null ? snapshot.bandwidth : '—'}
-                    </div>
-                  </div>
-                  <div style={{ padding: 10, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)' }}>
-                    <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', fontWeight: 600 }}>WAL Ring Buffer</div>
-                    <div style={{ fontSize: 16, fontWeight: 800, marginTop: 4, color: '#10B981' }}>
-                      {snapshot?.ring_buffer != null ? snapshot.ring_buffer : '—'}
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div style={{ padding: 12, background: 'var(--dash-bg)', borderRadius: 8, fontSize: 12, color: 'var(--dash-text-secondary)' }}>
-                  {stageMeta.description}
-                </div>
-              )}
+              <span style={{ fontSize: 10, padding: '3px 8px', borderRadius: 4, background: 'rgba(37,99,235,0.12)', color: 'var(--dash-accent)', fontWeight: 700 }}>
+                AUTHORITATIVE BACKEND WORKFLOW
+              </span>
             </div>
-          )}
 
-          {/* ── LIVE OBJECT STREAM PROGRESS CARD ────────────────────────────── */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {CANONICAL_STAGES.map((stg, idx) => {
+                const visState = getStageVisualState(stg.id, idx);
+
+                const getStatusColor = () => {
+                  switch (visState) {
+                    case 'COMPLETED': return '#10B981';
+                    case 'ACTIVE_INDETERMINATE':
+                    case 'ACTIVE_DETERMINATE': return '#3B82F6';
+                    case 'PAUSED': return '#F59E0B';
+                    case 'FAILED': return '#EF4444';
+                    default: return 'var(--dash-text-secondary)';
+                  }
+                };
+
+                const color = getStatusColor();
+
+                return (
+                  <div
+                    key={stg.id}
+                    style={{
+                      padding: 14,
+                      borderRadius: 10,
+                      background: (visState === 'ACTIVE_INDETERMINATE' || visState === 'ACTIVE_DETERMINATE') ? 'rgba(37,99,235,0.08)' : visState === 'COMPLETED' ? 'rgba(16,185,129,0.05)' : visState === 'FAILED' ? 'rgba(239,68,68,0.08)' : 'var(--dash-bg)',
+                      border: `1px solid ${color}44`,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 8,
+                      transition: 'all 200ms ease-out',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        {visState === 'COMPLETED' ? (
+                          <CheckCircle2 size={18} color="#10B981" />
+                        ) : visState === 'FAILED' ? (
+                          <XCircle size={18} color="#EF4444" />
+                        ) : (visState === 'ACTIVE_INDETERMINATE' || visState === 'ACTIVE_DETERMINATE') ? (
+                          <Activity size={18} color="#3B82F6" className="akaal-pulse-icon" />
+                        ) : visState === 'PAUSED' ? (
+                          <Pause size={18} color="#F59E0B" />
+                        ) : (
+                          <Clock size={18} color="var(--dash-text-tertiary)" />
+                        )}
+                        <div>
+                          <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--dash-text-primary)' }}>{stg.name}</div>
+                          <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', marginTop: 2 }}>{stg.details}</div>
+                        </div>
+                      </div>
+
+                      <span style={{ fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 4, background: `${color}22`, color: color, textTransform: 'uppercase' }}>
+                        {visState === 'ACTIVE_INDETERMINATE' && '● RUNNING (INDETERMINATE)'}
+                        {visState === 'ACTIVE_DETERMINATE' && `● EXECUTING (${progressPercent}%)`}
+                        {visState === 'COMPLETED' && '✓ VERIFIED'}
+                        {visState === 'PAUSED' && '⏸ PAUSED'}
+                        {visState === 'FAILED' && '✕ FAILED'}
+                        {visState === 'NOT_STARTED' && 'PENDING'}
+                      </span>
+                    </div>
+
+                    {/* LIVE ANIMATED PROGRESS BAR */}
+                    {visState === 'ACTIVE_INDETERMINATE' && (
+                      <div style={{ width: '100%', height: 6, borderRadius: 4, background: 'var(--dash-border)', overflow: 'hidden', marginTop: 4 }}>
+                        <div className="akaal-shimmer-bar" style={{ width: '100%', height: '100%', borderRadius: 4 }} />
+                      </div>
+                    )}
+
+                    {visState === 'ACTIVE_DETERMINATE' && (
+                      <div style={{ width: '100%', height: 6, borderRadius: 4, background: 'var(--dash-border)', overflow: 'hidden', marginTop: 4 }}>
+                        <div style={{ width: `${progressPercent}%`, height: '100%', background: '#3B82F6', transition: 'width 250ms ease-in-out', borderRadius: 4 }} />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* ── LIVE DATA TRANSPORT TELEMETRY CARD ───────────────────────────── */}
           <div style={{ border: '1px solid var(--dash-border)', borderRadius: 12, background: 'var(--dash-surface)', padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -785,7 +851,7 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
                 <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--dash-text-primary)' }}>Live Object Stream Progress</span>
               </div>
               <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--dash-accent)', fontVariantNumeric: 'tabular-nums' }}>
-                {runStatus === 'created' || runStatus === 'ready' || snapshot?.progress_percent == null
+                {controlState === 'AWAITING_APPROVAL' || controlState === 'READY_TO_START' || snapshot?.progress_percent == null
                   ? '— Complete (— Rows)'
                   : `${progressPercent}% Complete (${fmtRows(rowsProcessed)} / ${fmtRows(totalRows)} Rows)`}
               </span>
@@ -794,7 +860,7 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
             {/* Smooth Progress Bar */}
             <div style={{ width: '100%', height: 10, borderRadius: 6, background: 'var(--dash-bg)', overflow: 'hidden', border: '1px solid var(--dash-border)' }}>
               <div style={{
-                width: `${runStatus === 'created' || runStatus === 'ready' || snapshot?.progress_percent == null ? 0 : progressPercent}%`,
+                width: `${controlState === 'AWAITING_APPROVAL' || controlState === 'READY_TO_START' || snapshot?.progress_percent == null ? 0 : progressPercent}%`,
                 height: '100%', background: 'var(--dash-accent, #3B82F6)', transition: 'width 250ms ease-in-out', borderRadius: 6
               }} />
             </div>
@@ -810,7 +876,7 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
               <div style={{ padding: 8, background: 'var(--dash-bg)', borderRadius: 6, border: '1px solid var(--dash-border)' }}>
                 <div style={{ color: 'var(--dash-text-secondary)', fontSize: 10 }}>Indexes Built</div>
                 <div style={{ fontWeight: 700, color: '#10B981', marginTop: 2 }}>
-                  {snapshot?.indexes_built != null ? `${snapshot.indexes_built} of ${snapshot.indexes_total || '—'} Indexes` : '—'}
+                  {snapshot?.indexes_built != null ? `${snapshot.indexes_built} of ${snapshot.indexes_total || '—'}` : '—'}
                 </div>
               </div>
               <div style={{ padding: 8, background: 'var(--dash-bg)', borderRadius: 6, border: '1px solid var(--dash-border)' }}>
@@ -820,46 +886,42 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
                 </div>
               </div>
               <div style={{ padding: 8, background: 'var(--dash-bg)', borderRadius: 6, border: '1px solid var(--dash-border)' }}>
-                <div style={{ color: 'var(--dash-text-secondary)', fontSize: 10 }}>Upstream Lock Status</div>
+                <div style={{ color: 'var(--dash-text-secondary)', fontSize: 10 }}>Active Lock Conflicts</div>
                 <div style={{ fontWeight: 700, color: '#3B82F6', marginTop: 2 }}>
-                  {snapshot?.lock_conflicts != null ? `${snapshot.lock_conflicts} Conflicts (Clean Read)` : '0 Conflicts (Clean Read)'}
+                  {snapshot?.lock_conflicts != null ? `${snapshot.lock_conflicts} Conflicts` : '0 Conflicts'}
                 </div>
               </div>
             </div>
           </div>
 
-          {/* PART 9: UPGRADED LIVE ACTIVITY FEED (Structured Readability) ───── */}
+          {/* LIVE ACTIVITY FEED */}
           <div style={{ border: '1px solid var(--dash-border)', borderRadius: 12, background: 'var(--dash-surface)', padding: 18, display: 'flex', flexDirection: 'column', gap: 12, flex: 1, minHeight: 220 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--dash-border)', paddingBottom: 10 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Terminal size={15} color="#3B82F6" />
-                <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--dash-text-primary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Live Human-Readable Activity Stream</span>
+                <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--dash-text-primary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Live Authoritative Event Stream</span>
               </div>
               <span style={{ fontSize: 10, color: '#10B981', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}>
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10B981' }} /> LIVE EVENT BUS
               </span>
             </div>
 
-            {/* PART 3: PROPER EMPTY STATE IF NO EVENTS */}
             {activityFeed.length === 0 ? (
               <div style={{ padding: 24, textAlign: 'center', color: 'var(--dash-text-secondary)', fontSize: 12 }}>
-                Waiting for runtime events from EnterpriseEventBus...
+                Waiting for runtime event telemetry from EnterpriseEventBus...
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6, overflowY: 'auto', maxHeight: 260, paddingRight: 4 }}>
-                {activityFeed.map((item) => {
+                {activityFeed.map((item, idx) => {
                   const iconColor = item.severity === 'SUCCESS' ? '#10B981' : item.severity === 'WARNING' ? '#F59E0B' : item.severity === 'ERROR' ? '#EF4444' : '#3B82F6';
                   return (
-                    <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: 'var(--dash-bg)', borderRadius: 6, border: '1px solid var(--dash-border)', fontSize: 11, transition: 'all 150ms ease' }}>
-                      <span style={{ fontFamily: 'var(--akaal-font-mono, monospace)', fontSize: 10, color: 'var(--dash-text-secondary)', flexShrink: 0 }}>[{item.timestamp}]</span>
+                    <div key={item.id || idx} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: 'var(--dash-bg)', borderRadius: 6, border: '1px solid var(--dash-border)', fontSize: 11 }}>
+                      <span style={{ fontFamily: 'var(--akaal-font-mono, monospace)', fontSize: 10, color: 'var(--dash-text-secondary)', flexShrink: 0 }}>[{item.timestamp || '00:00:00'}]</span>
                       <span style={{ padding: '1px 6px', borderRadius: 4, background: `${iconColor}18`, color: iconColor, fontWeight: 800, fontSize: 9, textTransform: 'uppercase', flexShrink: 0 }}>
-                        {item.category}
-                      </span>
-                      <span style={{ color: 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 600, flexShrink: 0 }}>
-                        {item.workerName} · {item.database}.{item.schema}.{item.object}:
+                        {item.category || 'EVENT'}
                       </span>
                       <span style={{ color: 'var(--dash-text-primary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {item.message}
+                        {item.message || String(item)}
                       </span>
                       <CheckCircle2 size={12} color={iconColor} />
                     </div>
@@ -871,25 +933,25 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
 
         </div>
 
-        {/* PART 10: COMPACT RUNTIME OVERVIEW PANEL (High Density) ───────────── */}
+        {/* RIGHT COLUMN: COMPACT RUNTIME OVERVIEW PANEL ─────────────────────── */}
         <div style={{ width: 310, display: 'flex', flexDirection: 'column', gap: 14, flexShrink: 0 }}>
 
-          {/* PART 11: MISSION REPLAY™ COLLAPSED SUMMARY CARD */}
+          {/* MISSION REPLAY™ SUMMARY CARD */}
           <div style={{ border: '1px solid var(--dash-border)', borderRadius: 12, background: 'var(--dash-surface)', padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 800, color: 'var(--dash-text-primary)' }}>
                 <PlayCircle size={14} color="#3B82F6" /> Mission Replay™
               </div>
               <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 4, background: 'rgba(37,99,235,0.12)', color: '#3B82F6', fontWeight: 800 }}>
-                {runStatus === 'completed' ? 'AVAILABLE' : 'STANDBY'}
+                {controlState === 'COMPLETED' ? 'AVAILABLE' : 'STANDBY'}
               </span>
             </div>
             <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', lineHeight: 1.4 }}>
-              {runStatus === 'completed'
-                ? `Replay recorded historical events & telemetry timeline (${snapshot?.duration_sec || 120}s duration, ${activityFeed.length} events).`
+              {controlState === 'COMPLETED'
+                ? `Replay recorded historical events & telemetry timeline (${snapshot?.duration_sec || snapshot?.elapsed_seconds || 0}s duration).`
                 : 'Replay becomes available after migration completion.'}
             </div>
-            {runStatus === 'completed' && (
+            {controlState === 'COMPLETED' && (
               <button type="button" onClick={() => setConfirmAction('mission_replay')} style={{ padding: '6px 12px', borderRadius: 6, background: 'rgba(37,99,235,0.15)', border: '1px solid var(--dash-accent)', color: 'var(--dash-accent)', fontSize: 11, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%' }}>
                 <Play size={12} /> Open Mission Replay™
               </button>
@@ -930,7 +992,7 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
 
               <div style={{ padding: '6px 8px', background: 'var(--dash-bg)', borderRadius: 6, border: '1px solid var(--dash-border)', display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
                 <span style={{ color: 'var(--dash-text-secondary)' }}>WAL Buffer Lag</span>
-                <strong style={{ color: '#10B981' }}>{snapshot?.wal_buffer_lag || snapshot?.wal_lag || (snapshot?.cdc_sync_lag_ms != null ? `${snapshot.cdc_sync_lag_ms}ms` : '12ms WAL Lag')}</strong>
+                <strong style={{ color: '#10B981' }}>{snapshot?.wal_buffer_lag || snapshot?.wal_lag || (snapshot?.cdc_sync_lag_ms != null ? `${snapshot.cdc_sync_lag_ms}ms` : '—')}</strong>
               </div>
             </div>
           </div>
@@ -957,7 +1019,7 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
 
       </div>
 
-      {/* ── DYNAMIC EXECUTION PLAN DRAWER ─────────────────────────────────── */}
+      {/* ── EXECUTION PLAN DRAWER ─────────────────────────────────────────── */}
       {showPlanDrawer && (
         <div onClick={() => setShowPlanDrawer(false)}
           style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', zIndex: 9999, display: 'flex', justifyContent: 'flex-end' }}>
@@ -965,8 +1027,8 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
             style={{ width: 520, height: '100%', background: 'var(--dash-surface)', borderLeft: '1px solid var(--dash-border)', padding: 24, display: 'flex', flexDirection: 'column', gap: 18, overflowY: 'auto' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--dash-border)', paddingBottom: 14 }}>
               <div>
-                <h3 style={{ fontSize: 16, fontWeight: 800, margin: 0, color: 'var(--dash-text-primary)' }}>Dynamic Migration Execution Plan</h3>
-                <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)', marginTop: 2 }}>Generated for current migration pipeline</div>
+                <h3 style={{ fontSize: 16, fontWeight: 800, margin: 0, color: 'var(--dash-text-primary)' }}>Canonical Execution Plan</h3>
+                <div style={{ fontSize: 11, color: 'var(--dash-text-secondary)', marginTop: 2 }}>Generated for migration pipeline {migration.id}</div>
               </div>
               <button onClick={() => setShowPlanDrawer(false)} style={{ background: 'none', border: 'none', color: 'var(--dash-text-secondary)', cursor: 'pointer', padding: 4 }}>
                 <X size={20} />
@@ -974,88 +1036,37 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
             </div>
 
             <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--dash-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Generated DAG Execution Stages ({dynamicExecutionPlanNodes.length} Pipeline Stages)
+              Canonical DAG Execution Stages ({CANONICAL_STAGES.length} Pipeline Stages)
             </div>
 
-            {/* PART 3: PROPER EMPTY STATE IF NO PLAN */}
-            {dynamicExecutionPlanNodes.length === 0 ? (
-              <div style={{ padding: 24, textAlign: 'center', color: 'var(--dash-text-secondary)', fontSize: 12 }}>
-                No execution plan generated yet. Generate a migration plan to visualize the workflow.
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {dynamicExecutionPlanNodes.map((item: any, idx: number) => {
-                  const stageMap: Record<string, number> = {
-                    scout: 0,
-                    preflight: 0,
-                    schema: 1,
-                    schema_exec: 1,
-                    data_migration: 2,
-                    transport: 2,
-                    validation: 3,
-                    completed: 4,
-                  };
-                  const currentStageIdx = stageMap[String(activeStage || '').toLowerCase()] ?? (runStatus === 'completed' ? 4 : 2);
-                  const isCompleted = idx < currentStageIdx;
-                  const isCurrent = idx === currentStageIdx;
-                  const isFailed = runStatus === 'failed' && isCurrent;
-                  const isPaused = runStatus === 'paused' && isCurrent;
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {CANONICAL_STAGES.map((stg, idx) => {
+                const visState = getStageVisualState(stg.id, idx);
+                const color = visState === 'COMPLETED' ? '#10B981' : (visState === 'ACTIVE_INDETERMINATE' || visState === 'ACTIVE_DETERMINATE') ? '#3B82F6' : visState === 'FAILED' ? '#EF4444' : 'var(--dash-text-secondary)';
 
-                  const bg = isFailed
-                    ? 'rgba(239,68,68,0.12)'
-                    : isPaused
-                      ? 'rgba(245,158,11,0.12)'
-                      : isCompleted
-                        ? 'rgba(16,185,129,0.12)'
-                        : isCurrent
-                          ? 'rgba(37,99,235,0.15)'
-                          : 'var(--dash-bg)';
-
-                  const color = isFailed
-                    ? '#EF4444'
-                    : isPaused
-                      ? '#F59E0B'
-                      : isCompleted
-                        ? '#10B981'
-                        : isCurrent
-                          ? '#3B82F6'
-                          : 'var(--dash-text-secondary)';
-
-                  const badgeText = isFailed ? 'FAILED' : isPaused ? 'PAUSED' : isCompleted ? 'VERIFIED' : isCurrent ? 'EXECUTING' : 'PENDING';
-                  const badgeIcon = isFailed ? '✕' : isPaused ? '⏸' : isCompleted ? '✓' : isCurrent ? '▶' : item.stage;
-
-                  return (
-                    <div key={item.stage} style={{ display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'space-between', padding: 10, background: bg, borderRadius: 8, border: `1px solid ${color}33`, transition: 'all 150ms ease' }}>
-                      <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                        <span style={{ width: 22, height: 22, borderRadius: '50%', background: color, color: '#FFF', fontSize: 10, fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                          {badgeIcon}
-                        </span>
-                        <div>
-                          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--dash-text-primary)' }}>{item.name}</div>
-                          <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', marginTop: 2 }}>{item.details}</div>
-                        </div>
-                      </div>
-                      <span style={{ fontSize: 9, fontWeight: 800, padding: '2px 7px', borderRadius: 4, background: `${color}22`, color: color, textTransform: 'uppercase' }}>
-                        {badgeText}
+                return (
+                  <div key={stg.id} style={{ display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'space-between', padding: 10, background: 'var(--dash-bg)', borderRadius: 8, border: `1px solid ${color}33` }}>
+                    <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                      <span style={{ width: 22, height: 22, borderRadius: '50%', background: color, color: '#FFF', fontSize: 10, fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        {idx + 1}
                       </span>
+                      <div>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--dash-text-primary)' }}>{stg.name}</div>
+                        <div style={{ fontSize: 10, color: 'var(--dash-text-secondary)', marginTop: 2 }}>{stg.details}</div>
+                      </div>
                     </div>
-                  );
-                })}
-              </div>
-            )}
-
-            <div style={{ borderTop: '1px solid var(--dash-border)', paddingTop: 14, display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12 }}>
-              <div style={{ fontWeight: 700, color: 'var(--dash-text-primary)' }}>Runtime Engine Architecture</div>
-              <div>• <strong>Daemon:</strong> MigrationRuntimeDaemon (Isolated Process)</div>
-              <div>• <strong>Supervisor:</strong> RuntimeSupervisorTree (Auto-Healing)</div>
-              <div>• <strong>WAL Buffer:</strong> DurableWALRingBuffer (10k Records, CRC32)</div>
-              <div>• <strong>Mailbox:</strong> DurableCommandMailbox (SQLite Epoch Fencing)</div>
+                    <span style={{ fontSize: 9, fontWeight: 800, padding: '2px 7px', borderRadius: 4, background: `${color}22`, color: color, textTransform: 'uppercase' }}>
+                      {visState}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
       )}
 
-      {/* ── ENTERPRISE OPERATIONAL SAFETY CONFIRMATION DIALOG ──────────────────── */}
+      {/* ── OPERATIONAL SAFETY CONFIRMATION DIALOG ──────────────────────────── */}
       {confirmAction && (
         <div
           onClick={() => setConfirmAction(null)}
@@ -1083,7 +1094,6 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
               display: 'flex',
               flexDirection: 'column',
               overflow: 'hidden',
-              transition: 'all 200ms ease-out',
             }}
           >
             {/* Modal Header */}
@@ -1130,106 +1140,18 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
             {/* Modal Body */}
             <div style={{ padding: 22, display: 'flex', flexDirection: 'column', gap: 14 }}>
               <p style={{ fontSize: 13, color: 'var(--dash-text-primary)', margin: 0, lineHeight: 1.5 }}>
-                {confirmAction === 'start' && 'This action will begin real data movement between the configured source and target databases using the AKAAL execution engine. Physical DDL, schema objects, and table data will be written.'}
-                {confirmAction === 'pause' && 'This will pause the migration after the current safe execution point. Current progress, checkpoints, and runtime state will be preserved.'}
-                {confirmAction === 'resume' && 'The migration will resume from the latest checkpoint and continue execution.'}
-                {confirmAction === 'stop_batch' && 'The engine will finish the current batch, commit any completed work, and stop safely. No in-flight data will be lost.'}
-                {confirmAction === 'terminate' && 'This action immediately terminates the migration runtime. Uncommitted work may be discarded. Recovery may require restarting from the latest checkpoint. This action should only be used during emergencies.'}
-                {confirmAction === 'restart' && 'The runtime process will be restarted. Recovery Coordinator will restore execution using the latest checkpoint.'}
-                {confirmAction === 'recover' && 'Recovery Coordinator will replay the WAL and restore the runtime from the latest recoverable checkpoint.'}
-                {confirmAction === 'checkpoint' && 'A manual recovery checkpoint will be created. This checkpoint can later be used for rollback or recovery.'}
-                {confirmAction === 'rollback' && 'Select the checkpoint to restore. Displaying available cryptographic LSN checkpoint snapshots below.'}
-                {confirmAction === 'retry' && 'Retry only the failed workflow step. Previously completed stages remain untouched.'}
-                {confirmAction === 'maintenance' && 'The runtime will enter maintenance mode. New operations will be blocked until maintenance mode is disabled.'}
-                {confirmAction === 'run_again' && 'A new migration execution will be created using the same migration configuration. The previous migration remains unchanged.'}
-                {confirmAction === 'clone' && 'A new migration configuration will be created using the current migration as its template.'}
-                {confirmAction === 'mission_replay' && 'Mission Replay will load the recorded runtime events and telemetry for this completed migration. This does not execute the migration again.'}
-                {confirmAction === 'export_replay' && 'Choose the export format for offline timeline report generation.'}
-                {confirmAction === 'download_cert' && 'The SHA-256 Trust Certificate and migration verification report will be downloaded.'}
+                {confirmAction === 'start' && 'This action will begin real data movement between the configured source and target databases using the AKAAL execution engine.'}
+                {confirmAction === 'pause' && 'This will pause the migration after the current safe execution point.'}
+                {confirmAction === 'resume' && 'The migration will resume execution from the latest checkpoint.'}
+                {confirmAction === 'terminate' && 'This action immediately terminates the migration runtime.'}
               </p>
 
-              {/* Special Metadata Matrix for Start Action */}
               {confirmAction === 'start' && (
                 <div style={{ border: '1px solid var(--dash-border)', borderRadius: 8, padding: 12, background: 'var(--dash-bg)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 11 }}>
                   <div><span style={{ color: 'var(--dash-text-secondary)' }}>Migration ID:</span> <strong style={{ color: 'var(--dash-text-primary)', fontFamily: 'var(--akaal-font-mono, monospace)' }}>{migration.id}</strong></div>
                   <div><span style={{ color: 'var(--dash-text-secondary)' }}>Pipeline Name:</span> <strong style={{ color: 'var(--dash-text-primary)' }}>{migration.name}</strong></div>
-                  <div><span style={{ color: 'var(--dash-text-secondary)' }}>Source Engine:</span> <strong style={{ color: 'var(--dash-text-primary)' }}>{migration.sourceEngine}</strong></div>
-                  <div><span style={{ color: 'var(--dash-text-secondary)' }}>Target Engine:</span> <strong style={{ color: 'var(--dash-text-primary)' }}>{migration.targetEngine}</strong></div>
                 </div>
               )}
-
-              {/* Special Controls for Rollback Checkpoint Selection */}
-              {confirmAction === 'rollback' && (
-                <div style={{ border: '1px solid var(--dash-border)', borderRadius: 8, padding: 12, background: 'var(--dash-bg)', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--dash-text-secondary)', textTransform: 'uppercase' }}>Select Checkpoint to Restore</div>
-                  {[
-                    { id: 'chkpt-04a8f910-lsn', time: '2026-08-06 14:20:00', rows: '650,000,000', stage: 'Data Transport' },
-                    { id: 'chkpt-01b2c3d4-ddl', time: '2026-08-06 14:18:20', rows: '0', stage: 'Schema DDL' },
-                  ].map((chk) => (
-                    <label key={chk.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 8, borderRadius: 6, background: selectedCheckpoint === chk.id ? 'rgba(37,99,235,0.12)' : 'var(--dash-surface)', border: selectedCheckpoint === chk.id ? '1px solid var(--dash-accent)' : '1px solid var(--dash-border)', cursor: 'pointer', fontSize: 11 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <input type="radio" name="chkpt" checked={selectedCheckpoint === chk.id} onChange={() => setSelectedCheckpoint(chk.id)} />
-                        <div>
-                          <strong style={{ color: 'var(--dash-text-primary)', fontFamily: 'var(--akaal-font-mono, monospace)' }}>{chk.id}</strong>
-                          <div style={{ color: 'var(--dash-text-secondary)', fontSize: 10 }}>Stage: {chk.stage} · {chk.rows} Rows</div>
-                        </div>
-                      </div>
-                      <span style={{ color: 'var(--dash-text-secondary)', fontSize: 10 }}>{chk.time}</span>
-                    </label>
-                  ))}
-                </div>
-              )}
-
-              {/* Special Controls for Export Replay Format */}
-              {confirmAction === 'export_replay' && (
-                <div style={{ border: '1px solid var(--dash-border)', borderRadius: 8, padding: 12, background: 'var(--dash-bg)', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--dash-text-secondary)', textTransform: 'uppercase' }}>Choose Export Format</div>
-                  {[
-                    { id: 'HTML', label: 'Interactive HTML Manifest', desc: 'Self-contained offline interactive timeline' },
-                    { id: 'MP4', label: 'MP4 Video Recording', desc: 'Rendered video recording of Mission Control playback' },
-                    { id: 'PDF', label: 'PDF Timeline Report', desc: 'Executive printable audit report document' },
-                  ].map((fmt) => (
-                    <label key={fmt.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 8, borderRadius: 6, background: exportFormat === fmt.id ? 'rgba(37,99,235,0.12)' : 'var(--dash-surface)', border: exportFormat === fmt.id ? '1px solid var(--dash-accent)' : '1px solid var(--dash-border)', cursor: 'pointer', fontSize: 11 }}>
-                      <input type="radio" name="expfmt" checked={exportFormat === fmt.id} onChange={() => setExportFormat(fmt.id as any)} />
-                      <div>
-                        <strong style={{ color: 'var(--dash-text-primary)' }}>{fmt.label}</strong>
-                        <div style={{ color: 'var(--dash-text-secondary)', fontSize: 10 }}>{fmt.desc}</div>
-                      </div>
-                    </label>
-                  ))}
-                </div>
-              )}
-
-              {/* Enterprise Operational Safety Impact Matrix */}
-              <div style={{ padding: 12, background: 'var(--dash-bg)', borderRadius: 8, border: '1px solid var(--dash-border)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, fontSize: 11 }}>
-                <div>
-                  <div style={{ color: 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>Runtime Impact</div>
-                  <div style={{ fontWeight: 600, color: 'var(--dash-text-primary)', marginTop: 2 }}>
-                    {confirmAction === 'start' && 'Spawns MigrationRuntimeDaemon & launches transport pipeline'}
-                    {confirmAction === 'pause' && 'Holds stream workers & checkpoints WAL'}
-                    {confirmAction === 'resume' && 'Re-activates 8 parallel socket threads'}
-                    {confirmAction === 'stop_batch' && 'Commits current batch before halt'}
-                    {confirmAction === 'terminate' && 'Immediate process termination (Emergency)'}
-                    {confirmAction === 'restart' && 'Recycles daemon process & mailbox'}
-                    {confirmAction === 'recover' && 'Replays WAL & resets supervisor locks'}
-                    {confirmAction === 'checkpoint' && 'Flushes LSN write-ahead buffer'}
-                    {confirmAction === 'rollback' && 'Truncates target data & reverts DDL'}
-                    {confirmAction === 'retry' && 'Re-executes active stage under supervisor'}
-                    {confirmAction === 'maintenance' && 'Isolates IPC command mailbox queue'}
-                    {confirmAction === 'run_again' && 'Creates new execution session ID'}
-                    {confirmAction === 'clone' && 'Duplicates pipeline workspace template'}
-                    {confirmAction === 'mission_replay' && 'Loads recorded event telemetry'}
-                    {confirmAction === 'export_replay' && 'Generates offline timeline file'}
-                    {confirmAction === 'download_cert' && 'Generates signed SHA-256 certificate'}
-                  </div>
-                </div>
-                <div>
-                  <div style={{ color: 'var(--dash-text-secondary)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>Reversibility & Recovery</div>
-                  <div style={{ fontWeight: 600, color: confirmAction === 'terminate' || confirmAction === 'rollback' ? '#EF4444' : '#10B981', marginTop: 2 }}>
-                    {confirmAction === 'terminate' ? 'Irreversible (Requires Rollback)' : confirmAction === 'rollback' ? 'Reverts Target Changes' : '✓ Reversible / Safe Operation'}
-                  </div>
-                </div>
-              </div>
             </div>
 
             {/* Modal Actions */}
@@ -1246,26 +1168,11 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
                 onClick={() => executeConfirmedAction(confirmAction!)}
                 style={{
                   padding: '9px 20px', borderRadius: 8,
-                  background: confirmAction === 'terminate' || confirmAction === 'rollback' ? '#EF4444' : confirmAction === 'pause' || confirmAction === 'maintenance' ? '#F59E0B' : confirmAction === 'start' || confirmAction === 'resume' || confirmAction === 'download_cert' ? '#10B981' : 'var(--dash-accent)',
+                  background: confirmAction === 'terminate' || confirmAction === 'rollback' ? '#EF4444' : confirmAction === 'pause' ? '#F59E0B' : '#10B981',
                   color: '#FFF', border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6
                 }}
               >
-                {confirmAction === 'start' && 'Start Migration'}
-                {confirmAction === 'pause' && 'Pause Migration'}
-                {confirmAction === 'resume' && 'Resume Migration'}
-                {confirmAction === 'stop_batch' && 'Stop After Current Batch'}
-                {confirmAction === 'terminate' && 'Terminate Runtime'}
-                {confirmAction === 'restart' && 'Restart Runtime'}
-                {confirmAction === 'recover' && 'Recover Runtime'}
-                {confirmAction === 'checkpoint' && 'Create Checkpoint'}
-                {confirmAction === 'rollback' && 'Rollback'}
-                {confirmAction === 'retry' && 'Retry Step'}
-                {confirmAction === 'maintenance' && 'Enable Maintenance Mode'}
-                {confirmAction === 'run_again' && 'Run Again'}
-                {confirmAction === 'clone' && 'Clone Migration'}
-                {confirmAction === 'mission_replay' && 'Open Replay'}
-                {confirmAction === 'export_replay' && 'Export'}
-                {confirmAction === 'download_cert' && 'Download'}
+                {confirmAction === 'start' ? 'Start Migration' : 'Confirm Action'}
               </button>
             </div>
           </div>
