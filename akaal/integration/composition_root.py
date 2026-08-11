@@ -586,7 +586,7 @@ class EnterpriseLifecycleManager:
 
     def _transition_to(self, target_state: RuntimeLifecycleState) -> None:
         """Helper to log explicit state transitions."""
-        logger.info("Lifecycle Transition: %s ➔ %s", self.current_state.value, target_state.value)
+        logger.info("Lifecycle Transition: %s -> %s", self.current_state.value, target_state.value)
         self.current_state = target_state
 
     def get_startup_diagnostics(self) -> Dict[str, Any]:

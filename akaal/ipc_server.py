@@ -50,12 +50,11 @@ def handle_capability_request(req_dict: dict) -> dict:
     logger.info("IPC Capability Request received: %s (Req ID: %s)", capability, req_id)
 
     try:
-        # Delegate 100% of execution to EngineGateway Facade
         result = engine_gateway.invoke(capability, payload)
         return {
             "request_id": req_id,
             "status": "success",
-            "result": json.dumps(result),
+            "result": result,
             "error": None,
         }
     except Exception as e:
