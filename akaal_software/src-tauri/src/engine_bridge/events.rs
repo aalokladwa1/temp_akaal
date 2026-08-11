@@ -14,7 +14,7 @@ impl EventRouter {
     pub const CHANNEL_CAPABILITY: &'static str = "akaal://engine/capability";
 
     pub fn emit_event<S: Serialize + Clone>(
-        app_handle: Option<&tauri::AppHandle>,
+        app_handle: Option<&tauri::AppHandle<tauri::Wry>>,
         channel: &str,
         payload: S,
     ) -> Result<(), String> {

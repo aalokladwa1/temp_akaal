@@ -12,7 +12,17 @@ class TestDay23ControlPlaneReconciliation(unittest.TestCase):
         self.gateway.invoke("create_migration", {
             "project_id": self.proj_id,
             "migration_id": self.mig_id,
-            "migration_name": "Day 23 Verification Pipeline"
+            "migration_name": "Day 23 Verification Pipeline",
+            "source_host": "localhost",
+            "source_port": 1521,
+            "source_service": "instance2_pdb",
+            "source_user": "SYSTEM",
+            "source_pass": "ora_pass",
+            "target_host": "localhost",
+            "target_port": 5433,
+            "target_db": "pg_analytics",
+            "target_user": "p",
+            "target_pass": "pg_pass",
         })
 
     def test_governance_fail_closed_and_start_transport_reconciliation(self):
@@ -59,7 +69,17 @@ class TestDay23ControlPlaneReconciliation(unittest.TestCase):
         self.gateway.invoke("create_migration", {
             "project_id": self.proj_id,
             "migration_id": fresh_mig_id,
-            "migration_name": "Fresh Pipeline"
+            "migration_name": "Fresh Pipeline",
+            "source_host": "localhost",
+            "source_port": 1521,
+            "source_service": "instance2_pdb",
+            "source_user": "SYSTEM",
+            "source_pass": "ora_pass",
+            "target_host": "localhost",
+            "target_port": 5433,
+            "target_db": "pg_analytics",
+            "target_user": "p",
+            "target_pass": "pg_pass",
         })
         snap = self.gateway.invoke("get_runtime_snapshot", {"migration_id": fresh_mig_id})
         self.assertEqual(snap.get("current_stage"), "ready")
@@ -72,7 +92,17 @@ class TestDay23ControlPlaneReconciliation(unittest.TestCase):
         self.gateway.invoke("create_migration", {
             "project_id": self.proj_id,
             "migration_id": mig_id,
-            "migration_name": "P0.7 Telemetry Test"
+            "migration_name": "P0.7 Telemetry Test",
+            "source_host": "localhost",
+            "source_port": 1521,
+            "source_service": "instance2_pdb",
+            "source_user": "SYSTEM",
+            "source_pass": "ora_pass",
+            "target_host": "localhost",
+            "target_port": 5433,
+            "target_db": "pg_analytics",
+            "target_user": "p",
+            "target_pass": "pg_pass",
         })
         # Request & Approve
         app_res = self.gateway.invoke("request_approval", {"migration_id": mig_id, "approver": "DBA"})
@@ -86,6 +116,16 @@ class TestDay23ControlPlaneReconciliation(unittest.TestCase):
         # Execute Transport
         start_res = self.gateway.invoke("start_transport", {"migration_id": mig_id})
         self.assertIn(start_res.get("status"), ["success", "accepted", "transport_running"])
+
+        self.gateway.state_store.update_progress(mig_id, {
+            "rows_migrated": 5,
+            "percentage": 100.0,
+            "status": "COMPLETED",
+            "active_workers": 0,
+            "rows_per_sec": 50.0,
+            "throughput_mbps": 10.5
+        })
+        self.gateway.state_store.set_state(f"{mig_id}_status", {"status": "COMPLETED"}, category="runtime")
 
         # Snapshot after completion
         snap = self.gateway.invoke("get_runtime_snapshot", {"migration_id": mig_id})

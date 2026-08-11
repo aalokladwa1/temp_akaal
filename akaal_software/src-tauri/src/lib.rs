@@ -80,18 +80,18 @@ fn greet(name: &str) -> String {
 }
 
 #[tauri::command]
-fn exit_app(app_handle: tauri::AppHandle) {
+fn exit_app(app_handle: tauri::AppHandle<tauri::Wry>) {
     app_handle.exit(0);
 }
 
 #[tauri::command]
-fn bootstrap_app_cmd(app_handle: tauri::AppHandle) -> BootstrapStatus {
+fn bootstrap_app_cmd(app_handle: tauri::AppHandle<tauri::Wry>) -> BootstrapStatus {
     execute_startup_bootstrap(&app_handle)
 }
 
 #[tauri::command]
 fn create_bootstrap_admin_cmd(
-    app_handle: tauri::AppHandle,
+    app_handle: tauri::AppHandle<tauri::Wry>,
     payload: BootstrapAdminPayload,
 ) -> Result<WorkspaceConfig, String> {
     let record = save_admin_credentials(
@@ -124,7 +124,7 @@ fn create_bootstrap_admin_cmd(
 
 #[tauri::command]
 fn authenticate_user_cmd(
-    app_handle: tauri::AppHandle,
+    app_handle: tauri::AppHandle<tauri::Wry>,
     credentials: AuthCredentials,
 ) -> Result<AuthResponse, String> {
     let username_clean = credentials.username.trim().to_lowercase();
@@ -198,7 +198,7 @@ fn validate_session_cmd(session_id: String) -> Result<UserSession, String> {
 
 #[tauri::command]
 fn logout_session_cmd(
-    app_handle: tauri::AppHandle,
+    app_handle: tauri::AppHandle<tauri::Wry>,
     session_id: String,
 ) -> Result<(), String> {
     let audit = AuditEngine::global();
@@ -222,7 +222,7 @@ fn lock_session_cmd(session_id: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn unlock_session_cmd(app_handle: tauri::AppHandle, session_id: String, password: String) -> Result<UserSession, String> {
+fn unlock_session_cmd(app_handle: tauri::AppHandle<tauri::Wry>, session_id: String, password: String) -> Result<UserSession, String> {
     let session = SessionStore::global()
         .get_session(&session_id)
         .ok_or_else(|| "Session not found.".to_string())?;
@@ -250,7 +250,7 @@ fn unlock_session_cmd(app_handle: tauri::AppHandle, session_id: String, password
 }
 
 #[tauri::command]
-fn get_last_known_user_cmd(app_handle: tauri::AppHandle) -> Option<UserDisplayInfo> {
+fn get_last_known_user_cmd(app_handle: tauri::AppHandle<tauri::Wry>) -> Option<UserDisplayInfo> {
     if let Ok(Some(admin)) = load_admin_credentials(&app_handle) {
         let initials = admin
             .display_name

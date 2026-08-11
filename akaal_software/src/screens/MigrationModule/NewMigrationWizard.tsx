@@ -51,8 +51,14 @@ export interface WizardIntegrationSession {
   sourceConnection: {
     tested: boolean;
     connectionId?: string;
-    serverVersion?: string;
+    engine?: DatabaseEngine;
+    host?: string;
+    port?: number;
     databaseName?: string;
+    instanceName?: string;
+    username?: string;
+    password?: string;
+    serverVersion?: string;
     latencyMs?: number;
     message?: string;
     raw?: any;
@@ -60,8 +66,14 @@ export interface WizardIntegrationSession {
   targetConnection: {
     tested: boolean;
     connectionId?: string;
-    serverVersion?: string;
+    engine?: DatabaseEngine;
+    host?: string;
+    port?: number;
     databaseName?: string;
+    instanceName?: string;
+    username?: string;
+    password?: string;
+    serverVersion?: string;
     latencyMs?: number;
     message?: string;
     raw?: any;
@@ -290,6 +302,15 @@ const buildDiscoveryFromEngine = (res: any): DatabaseDiscoveryDTO[] => {
   if (res.catalog_hierarchy && Array.isArray(res.catalog_hierarchy) && res.catalog_hierarchy.length > 0) {
     return res.catalog_hierarchy;
   }
+  if (res.databases && Array.isArray(res.databases) && res.databases.length > 0) {
+    return res.databases;
+  }
+  if (res.result?.instance?.databases && Array.isArray(res.result.instance.databases)) {
+    return res.result.instance.databases;
+  }
+  if (res.result?.catalog_hierarchy && Array.isArray(res.result.catalog_hierarchy)) {
+    return res.result.catalog_hierarchy;
+  }
   return [];
 };
 
@@ -326,7 +347,7 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
   const [sourceInstanceName, setSourceInstanceName] = useState('');
   const [sourceUser, setSourceUser] = useState('');
   const [sourcePass, setSourcePass] = useState('');
-  const [sourceSsl, setSourceSsl] = useState(false);
+  const [sourcePrivilege, setSourcePrivilege] = useState<'NORMAL' | 'SYSDBA' | 'SYSOPER'>('NORMAL');
   const [oracleWallet, setOracleWallet] = useState('');
   const [sourceTested, setSourceTested] = useState(false);
   const [testingSource, setTestingSource] = useState(false);
@@ -342,6 +363,7 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
   const [targetSsl, setTargetSsl] = useState(false);
   const [targetTested, setTargetTested] = useState(false);
   const [testingTarget, setTestingTarget] = useState(false);
+  const [isLaunchingMig, setIsLaunchingMig] = useState(false);
 
   // Engine Switch Handlers with Downstream Invalidation & Field Reset
   const handleSourceEngineChange = (newEngine: DatabaseEngine) => {
@@ -533,22 +555,46 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
         instance_name: sourceInstanceName,
         username: sourceUser,
         password: sourcePass,
+        privilege_mode: isOracleEngine(sourceEngine) ? sourcePrivilege : 'NORMAL',
+        oracle_privilege: isOracleEngine(sourceEngine) ? sourcePrivilege : 'NORMAL',
       };
       const resRaw = await ipcService.invokeEngineCapability('test_connection', JSON.stringify(payload));
-      const res = JSON.parse(resRaw);
+      
+      let res: any;
+      try {
+        res = typeof resRaw === 'string' ? JSON.parse(resRaw) : resRaw;
+        if (typeof res === 'string') {
+          res = JSON.parse(res);
+        }
+      } catch (parseErr) {
+        res = { connected: false, message: `Failed to parse connection response DTO: ${String(parseErr)}` };
+      }
+
+      // Safe Diagnostic Logging (TRD Security Mandate: NEVER log passwords or secrets)
+      console.log(
+        `[DIAGNOSTIC SOURCE TEST_CONNECTION] engine=${sourceEngine} host=${sourceHost} port=${sourcePort} db=${sourceDbName} user=${sourceUser} transport_success=true connection_success=${Boolean(res?.connected || res?.result?.connected)} status=${res?.status || res?.connected} message=${res?.message}`
+      );
 
       if (token !== reqTokenRef.current) return;
 
       setTestingSource(false);
-      if (res.connected) {
+      const isConnected = Boolean(res?.connected || res?.result?.connected);
+
+      if (isConnected) {
         setSourceTested(true);
         setSession((prev) => ({
           ...prev,
           sourceConnection: {
             tested: true,
-            connectionId: `conn-src-${sourceEngine.toLowerCase()}-${sourceHost}`,
-            serverVersion: res.server_version || 'Live Engine Verified',
+            connectionId: res.connection_id || `conn-src-${sourceEngine.toLowerCase()}-${sourceHost}`,
+            engine: sourceEngine,
+            host: sourceHost,
+            port: parseInt(sourcePort) || 1521,
             databaseName: res.database_name || sourceDbName,
+            instanceName: sourceInstanceName || sourceDbName,
+            username: sourceUser,
+            password: sourcePass,
+            serverVersion: res.server_version || 'Live Engine Verified',
             latencyMs: res.latency_ms || 1.5,
             message: res.message,
             raw: res,
@@ -570,15 +616,16 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
         setSourceTested(false);
         setSession((prev) => ({
           ...prev,
-          sourceConnection: { tested: false, message: res.message },
+          sourceConnection: { tested: false, message: res?.message || 'Connection test failed' },
         }));
-        notificationService.push('Source Connection Failed', 'error', res.message || 'Connection test failed.');
+        notificationService.push('Source Connection Failed', 'error', res?.message || 'Connection test failed.');
       }
     } catch (err: any) {
       if (token !== reqTokenRef.current) return;
       setTestingSource(false);
       setSourceTested(false);
       const errMsg = typeof err === 'string' ? err : (err?.message || String(err));
+      console.error(`[DIAGNOSTIC SOURCE TEST_CONNECTION ERROR] transport_success=false err=${errMsg}`);
       notificationService.push('Connection Error', 'error', errMsg);
     }
   };
@@ -597,20 +644,42 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
         password: targetPass,
       };
       const resRaw = await ipcService.invokeEngineCapability('test_connection', JSON.stringify(payload));
-      const res = JSON.parse(resRaw);
+      
+      let res: any;
+      try {
+        res = typeof resRaw === 'string' ? JSON.parse(resRaw) : resRaw;
+        if (typeof res === 'string') {
+          res = JSON.parse(res);
+        }
+      } catch (parseErr) {
+        res = { connected: false, message: `Failed to parse connection response DTO: ${String(parseErr)}` };
+      }
+
+      // Safe Diagnostic Logging (TRD Security Mandate: NEVER log passwords or secrets)
+      console.log(
+        `[DIAGNOSTIC TARGET TEST_CONNECTION] engine=${targetEngine} host=${targetHost} port=${targetPort} db=${targetDbName} user=${targetUser} transport_success=true connection_success=${Boolean(res?.connected || res?.result?.connected)} status=${res?.status || res?.connected} message=${res?.message}`
+      );
 
       if (token !== reqTokenRef.current) return;
 
       setTestingTarget(false);
-      if (res.connected) {
+      const isConnected = Boolean(res?.connected || res?.result?.connected);
+
+      if (isConnected) {
         setTargetTested(true);
         setSession((prev) => ({
           ...prev,
           targetConnection: {
             tested: true,
-            connectionId: res.connection_id,
-            serverVersion: res.server_version || 'Live Target Verified',
+            connectionId: res.connection_id || `conn-tgt-${targetEngine.toLowerCase()}-${targetHost}`,
+            engine: targetEngine,
+            host: targetHost,
+            port: parseInt(targetPort) || 5433,
             databaseName: res.database_name || targetDbName,
+            instanceName: targetInstanceName,
+            username: targetUser,
+            password: targetPass,
+            serverVersion: res.server_version || 'Live Target Verified',
             latencyMs: res.latency_ms || 1.2,
             message: res.message,
             raw: res,
@@ -632,18 +701,21 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
         setTargetTested(false);
         setSession((prev) => ({
           ...prev,
-          targetConnection: { tested: false, message: res.message },
+          targetConnection: { tested: false, message: res?.message || 'Connection test failed' },
         }));
-        notificationService.push('Target Connection Failed', 'error', res.message || 'Connection test failed.');
+        notificationService.push('Target Connection Failed', 'error', res?.message || 'Connection test failed.');
       }
     } catch (err: any) {
       if (token !== reqTokenRef.current) return;
       setTestingTarget(false);
       setTargetTested(false);
       const errMsg = typeof err === 'string' ? err : (err?.message || String(err));
+      console.error(`[DIAGNOSTIC TARGET TEST_CONNECTION ERROR] transport_success=false err=${errMsg}`);
       notificationService.push('Connection Error', 'error', errMsg);
     }
   };
+
+  const activePreflightOpIdRef = useRef<string | null>(null);
 
   const handleRunDiscovery = async () => {
     if (!sourceTested || !targetTested) {
@@ -656,84 +728,132 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
     }
     const token = ++reqTokenRef.current;
     const opId = `op-disc-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    activePreflightOpIdRef.current = opId;
     setSession((prev) => ({ ...prev, discovery: { status: 'running' } }));
-    setDatabases([]); // Clear prior discovery tree state atomically (Requirement 7)
+    setDatabases([]); // Clear prior discovery tree state atomically
+
     try {
       const payload = {
         operation_id: opId,
-        source_engine: sourceEngine,
-        source_host: sourceHost,
-        source_port: sourcePort,
-        source_db: sourceDbName,
-        source_instance: sourceInstanceName,
-        source_user: sourceUser,
-        source_pass: sourcePass,
-        target_engine: targetEngine,
+        source_engine: sourceEngine || session.sourceConnection.engine,
+        source_host: sourceHost || session.sourceConnection.host,
+        source_port: sourcePort || String(session.sourceConnection.port || '1521'),
+        source_db: sourceDbName || session.sourceConnection.databaseName,
+        source_instance: sourceInstanceName || session.sourceConnection.instanceName || sourceDbName,
+        source_user: sourceUser || session.sourceConnection.username,
+        source_pass: sourcePass || session.sourceConnection.password,
+        source_privilege_mode: isOracleEngine(sourceEngine) ? sourcePrivilege : 'NORMAL',
+        privilege_mode: isOracleEngine(sourceEngine) ? sourcePrivilege : 'NORMAL',
+        target_engine: targetEngine || session.targetConnection.engine,
+        target_host: targetHost || session.targetConnection.host,
+        target_port: targetPort || String(session.targetConnection.port || '5433'),
+        target_db: targetDbName || session.targetConnection.databaseName,
+        target_user: targetUser || session.targetConnection.username,
+        target_pass: targetPass || session.targetConnection.password,
       };
-      const rawRes = await ipcService.invokeEngineCapability('run_preflight', JSON.stringify(payload));
-      const res = JSON.parse(rawRes);
-      if (token !== reqTokenRef.current) return;
 
-      const discoveredDbs = buildDiscoveryFromEngine(res);
-      setDatabases(discoveredDbs);
-      if (discoveredDbs.length > 0) {
-        setExpandedDatabases(new Set([discoveredDbs[0]?.db_id]));
-        if (discoveredDbs[0]?.schemas?.[0]?.schema_id) {
-          setExpandedSchemas(new Set([discoveredDbs[0]?.schemas[0]?.schema_id]));
+      // Launch async preflight operation over IPC (returns immediate ACK)
+      const ackRaw = await ipcService.invokeEngineCapability('start_preflight', JSON.stringify(payload));
+      const ack = JSON.parse(ackRaw);
+
+      if (token !== reqTokenRef.current || activePreflightOpIdRef.current !== opId) return;
+
+      const effectiveOpId = ack.operation_id || opId;
+
+      // Poll get_preflight_operation for live engine progress until COMPLETED or FAILED
+      const pollInterval = setInterval(async () => {
+        if (reqTokenRef.current !== token || activePreflightOpIdRef.current !== effectiveOpId) {
+          clearInterval(pollInterval);
+          return;
         }
-      }
 
-      // Canonical count extraction (Requirement 1 & 3)
-      const totalObjs = res.summary?.total_objects ?? res.metrics?.objects_detected ?? res.table_count ?? 0;
-      const totalSchs = res.summary?.total_schemas ?? res.metrics?.schemas_detected ?? (res.schemas?.length || 1);
-      const totalDbs = res.summary?.total_databases ?? res.metrics?.databases_detected ?? discoveredDbs.length;
+        try {
+          const pollRaw = await ipcService.invokeEngineCapability(
+            'get_preflight_operation',
+            JSON.stringify({ operation_id: effectiveOpId })
+          );
+          const opState = JSON.parse(pollRaw);
 
-      // Forensic logging (Requirement 9)
-      console.log(`[DISCOVERY UI INGEST] operation_id=${res.operation_id || opId} databases=${totalDbs} schemas=${totalSchs} objects=${totalObjs}`);
+          if (reqTokenRef.current !== token || activePreflightOpIdRef.current !== effectiveOpId) {
+            clearInterval(pollInterval);
+            return;
+          }
 
-      setSession((prev) => ({
-        ...prev,
-        discovery: {
-          status: 'completed',
-          operationId: res.operation_id || opId,
-          snapshotId: res.discovery_snapshot_id,
-          tableCount: res.table_count || 0,
-          totalObjects: totalObjs,
-          totalSchemas: totalSchs,
-          totalDatabases: totalDbs,
-          columnCount: res.column_count || 0,
-          rowCount: res.row_count || 0,
-          schemas: res.schemas || [sourceUser.toUpperCase()],
-          tableNames: res.table_names || [],
-          raw: res,
-        },
-        advisor: {
-          status: 'completed',
-          reportId: res.advisor_report_id,
-          readinessScore: res.compatibility_score ?? null,
-          riskScore: res.risk_score || 'Assessment unavailable',
-          trustScore: res.trust_score || 'Assessment unavailable',
-          warnings: res.warnings || [],
-          workerAllocation: res.worker_allocation || 8,
-          estimatedDuration: res.estimated_duration || 'Not yet estimated',
-          estimatedThroughput: res.estimated_throughput || '—',
-          rollbackReadiness: res.rollback_readiness || 'Snapshot Protection Active',
-          validationStrategy: res.validation_strategy || 'Full Row Count & Checksum Auditing',
-          approvalRequirements: res.approval_requirements || ['Gate 1: Pre-Flight Review', 'Gate 2: Schema Approval', 'Gate 3: Cutover Certification'],
-          raw: res,
-        },
-        executionPlan: { status: 'idle' },
-        approval: { status: 'idle' },
-        migrationManifest: null,
-        createdMigration: {},
-      }));
+          if (opState.status === 'COMPLETED' && opState.result) {
+            clearInterval(pollInterval);
+            const res = opState.result;
 
-      // Notification consumes canonical total_objects (Requirement 12)
-      notificationService.push(
-        'Discovery Complete',
-        'success',
-        `Cataloged ${totalObjs.toLocaleString()} objects across ${totalSchs} schemas from ${sourceEngine}.`
-      );
+            const discoveredDbs = buildDiscoveryFromEngine(res);
+            setDatabases(discoveredDbs);
+            if (discoveredDbs.length > 0) {
+              setExpandedDatabases(new Set([discoveredDbs[0]?.db_id]));
+              if (discoveredDbs[0]?.schemas?.[0]?.schema_id) {
+                setExpandedSchemas(new Set([discoveredDbs[0]?.schemas[0]?.schema_id]));
+              }
+            }
+
+            // Canonical count extraction (Requirement 4)
+            const selectableObjs = res.summary?.selectable_object_count ?? res.summary?.total_objects ?? res.metrics?.objects_detected ?? res.table_count ?? 0;
+            const totalSchs = res.summary?.schema_count ?? res.summary?.total_schemas ?? (res.schemas?.length || 1);
+            const totalDbs = res.summary?.database_count ?? res.summary?.total_databases ?? discoveredDbs.length;
+
+            console.log(`[DISCOVERY UI INGEST] operation_id=${effectiveOpId} databases=${totalDbs} schemas=${totalSchs} selectable_objects=${selectableObjs}`);
+
+            setSession((prev) => ({
+              ...prev,
+              discovery: {
+                status: 'completed',
+                operationId: effectiveOpId,
+                snapshotId: res.discovery_snapshot_id,
+                tableCount: res.table_count || res.summary?.table_count || 0,
+                totalObjects: selectableObjs,
+                totalSchemas: totalSchs,
+                totalDatabases: totalDbs,
+                columnCount: res.column_count || res.summary?.column_count || 0,
+                rowCount: res.row_count || 0,
+                schemas: res.schemas || [sourceUser.toUpperCase()],
+                tableNames: res.table_names || [],
+                raw: res,
+              },
+              advisor: {
+                status: 'completed',
+                reportId: res.advisor_report_id,
+                readinessScore: res.compatibility_score ?? null,
+                riskScore: res.risk_score || 'Assessment unavailable',
+                trustScore: res.trust_score || 'Assessment unavailable',
+                warnings: res.warnings || [],
+                workerAllocation: res.worker_allocation || 8,
+                estimatedDuration: res.estimated_duration || 'Not yet estimated',
+                estimatedThroughput: res.estimated_throughput || '—',
+                rollbackReadiness: res.rollback_readiness || 'Snapshot Protection Active',
+                validationStrategy: res.validation_strategy || 'Full Row Count Reconciliation',
+                approvalRequirements: res.approval_requirements || ['Gate 1: Pre-Flight Review', 'Gate 2: Schema Approval', 'Gate 3: Cutover Certification'],
+                raw: res,
+              },
+              executionPlan: { status: 'idle' },
+              approval: { status: 'idle' },
+              migrationManifest: null,
+              createdMigration: {},
+            }));
+
+            notificationService.push(
+              'Discovery Complete',
+              'success',
+              `Cataloged ${selectableObjs.toLocaleString()} selectable objects across ${totalSchs} schemas from ${sourceEngine}.`
+            );
+          } else if (opState.status === 'FAILED') {
+            clearInterval(pollInterval);
+            const errMsg = opState.message || opState.failure?.message || 'Preflight discovery operation failed.';
+            setSession((prev) => ({
+              ...prev,
+              discovery: { status: 'failed', blockerReason: errMsg },
+            }));
+            notificationService.push('Discovery Failed', 'error', errMsg);
+          }
+        } catch (pollErr: any) {
+          console.warn('Preflight operation polling note:', pollErr);
+        }
+      }, 400);
     } catch (err: any) {
       if (token !== reqTokenRef.current) return;
       const errMsg = typeof err === 'string' ? err : (err?.message || String(err));
@@ -790,40 +910,57 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
   };
 
   const handleLaunchMigration = async () => {
+    if (isLaunchingMig) return;
+    setIsLaunchingMig(true);
     const token = ++reqTokenRef.current;
     try {
+      const effSourceEngine = sourceEngine || session.sourceConnection.engine || 'Oracle 19c';
+      const effSourceHost = sourceHost || session.sourceConnection.host || '';
+      const effSourcePort = parseInt(sourcePort) || session.sourceConnection.port || 1521;
+      const effSourceDb = sourceDbName || session.sourceConnection.databaseName || '';
+      const effSourceInstance = sourceInstanceName || session.sourceConnection.instanceName || effSourceDb;
+      const effSourceUser = sourceUser || session.sourceConnection.username || '';
+      const effSourcePass = sourcePass || session.sourceConnection.password || '';
+
+      const effTargetEngine = targetEngine || session.targetConnection.engine || 'PostgreSQL 16';
+      const effTargetHost = targetHost || session.targetConnection.host || '';
+      const effTargetPort = parseInt(targetPort) || session.targetConnection.port || 5433;
+      const effTargetDb = targetDbName || session.targetConnection.databaseName || '';
+      const effTargetUser = targetUser || session.targetConnection.username || '';
+      const effTargetPass = targetPass || session.targetConnection.password || '';
+
       const canonicalManifest = {
         manifest_schema_version: '3.0.0',
         engine_version: session.engineStatus.version,
-        migration_name: migName.trim() || `${sourceEngine} → ${targetEngine} Migration`,
+        migration_name: migName.trim() || `${effSourceEngine} → ${effTargetEngine} Migration`,
         project_name: projectName,
         source_connection_id: session.sourceConnection.connectionId || 'conn-source-ora',
         target_connection_id: session.targetConnection.connectionId || 'conn-target-pg',
-        source_engine: sourceEngine,
-        source_host: sourceHost,
-        source_port: parseInt(sourcePort),
-        source_db: sourceDbName,
-        source_instance: sourceInstanceName || sourceDbName,
-        source_user: sourceUser,
+        source_engine: effSourceEngine,
+        source_host: effSourceHost,
+        source_port: effSourcePort,
+        source_db: effSourceDb,
+        source_instance: effSourceInstance,
+        source_user: effSourceUser,
         // source_pass is consumed by create_migration to populate the InProcessCredentialVault.
         // It is immediately popped from config and never persisted in plaintext.
-        source_pass: sourcePass,
+        source_pass: effSourcePass,
         source_credential_ref: `cred-ref-source-${session.sourceConnection.connectionId || 'ora'}`,
-        target_engine: targetEngine,
-        target_host: targetHost,
-        target_port: parseInt(targetPort),
-        target_db: targetDbName,
-        target_user: targetUser,
+        target_engine: effTargetEngine,
+        target_host: effTargetHost,
+        target_port: effTargetPort,
+        target_db: effTargetDb,
+        target_user: effTargetUser,
         // target_pass is consumed by create_migration to populate the InProcessCredentialVault.
         // It is immediately popped from config and never persisted in plaintext.
-        target_pass: targetPass,
+        target_pass: effTargetPass,
         target_credential_ref: `cred-ref-target-${session.targetConnection.connectionId || 'pg'}`,
         discovery_snapshot_id: session.discovery.snapshotId,
         advisor_report_id: session.advisor.reportId,
         execution_plan_id: session.executionPlan.planId,
         selected_scope: {
-          databases: [sourceDbName],
-          schemas: [sourceUser],
+          databases: [effSourceDb],
+          schemas: [effSourceUser],
           objects: databases.flatMap((d) =>
             d.schemas.flatMap((s) =>
               s.object_groups.flatMap((g) =>
@@ -834,8 +971,8 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
                   schema: s.schema_name,
                   database: d.db_id,
                   estimated_rows: o.estimated_rows,
-                  target_schema: (targetDbName || 'public').toLowerCase().startsWith('pg_') ? `app_${(targetDbName || 'public').toLowerCase().slice(3)}` : (targetDbName || 'public').toLowerCase(),
-                  canonical_target_schema: (targetDbName || 'public').toLowerCase().startsWith('pg_') ? `app_${(targetDbName || 'public').toLowerCase().slice(3)}` : (targetDbName || 'public').toLowerCase(),
+                  target_schema: (effTargetDb || 'public').toLowerCase().startsWith('pg_') ? `app_${(effTargetDb || 'public').toLowerCase().slice(3)}` : (effTargetDb || 'public').toLowerCase(),
+                  canonical_target_schema: (effTargetDb || 'public').toLowerCase().startsWith('pg_') ? `app_${(effTargetDb || 'public').toLowerCase().slice(3)}` : (effTargetDb || 'public').toLowerCase(),
                   target_object_name: o.object_name.toLowerCase(),
                   conversion_action: o.object_type === 'Table' ? 'MIGRATE_DATA' : 'TRANSPILE_DDL',
                 }))
@@ -862,14 +999,21 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
 
       const rawMig = await ipcService.invokeEngineCapability('create_migration', JSON.stringify(canonicalManifest));
       const parsedMig = JSON.parse(rawMig);
-      if (token !== reqTokenRef.current) return;
+      if (token !== reqTokenRef.current) {
+        setIsLaunchingMig(false);
+        return;
+      }
+
+      if (parsedMig.success === false || parsedMig.status === 'error' || !parsedMig.migration_id) {
+        const errCode = parsedMig.error_code || 'MIGRATION_CONFIGURATION_INCOMPLETE';
+        const errMsg = parsedMig.error_message || parsedMig.message || 'create_migration failed due to incomplete configuration.';
+        notificationService.push(`Initialization Error (${errCode})`, 'error', errMsg);
+        setIsLaunchingMig(false);
+        return;
+      }
 
       const finalMigId = parsedMig.migration_id;
       const finalMigName = parsedMig.migration_name || canonicalManifest.migration_name;
-
-      if (!finalMigId) {
-        throw new Error('create_migration failed to return a valid migration_id');
-      }
 
       let appRefId: string | undefined = undefined;
       let custodyHash: string | undefined = undefined;
@@ -906,7 +1050,9 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
       }));
 
       setShowLaunchConfirmModal(true);
+      setIsLaunchingMig(false);
     } catch (err: any) {
+      setIsLaunchingMig(false);
       if (token !== reqTokenRef.current) return;
       const errMsg = typeof err === 'string' ? err : (err?.message || String(err));
       notificationService.push('Migration Creation Failed', 'error', errMsg);
@@ -1335,7 +1481,7 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
           {/* ── STEP 2: SOURCE CONNECTION ────────────────────────────────── */}
           {step === 2 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isOracleEngine(sourceEngine) ? '1fr 1fr 1fr' : '1fr 1fr', gap: 14 }}>
                 <div>
                   <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Source Engine</label>
                   <select
@@ -1346,6 +1492,25 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
                     {SUPPORTED_ENGINES.map((eng) => (<option key={eng} value={eng}>{eng}</option>))}
                   </select>
                 </div>
+                {isOracleEngine(sourceEngine) && (
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6, color: '#3B82F6' }}>Connection Mode</label>
+                    <select
+                      value={sourcePrivilege === 'SYSDBA' ? 'SYSDBA' : 'NORMAL'}
+                      onChange={(e) => {
+                        const val = e.target.value === 'SYSDBA' ? 'SYSDBA' : 'NORMAL';
+                        setSourcePrivilege(val);
+                        setSourceTested(false);
+                        setDatabases([]);
+                        setSession((prev) => ({ ...prev, discovery: { status: 'idle' } }));
+                      }}
+                      style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid #3B82F6', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 13, fontWeight: 600 }}
+                    >
+                      <option value="NORMAL">Normal User</option>
+                      <option value="SYSDBA">SYSDBA</option>
+                    </select>
+                  </div>
+                )}
                 <div>
                   <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Saved Profiles</label>
                   <select style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 13 }}>
@@ -1456,7 +1621,7 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
               </div>
 
               {isOracleEngine(sourceEngine) && (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                   <div>
                     <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Oracle Wallet File (cwallet.sso)</label>
                     <input
@@ -1466,11 +1631,6 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
                       onChange={(e) => setOracleWallet(e.target.value)}
                       style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 13 }}
                     />
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 16, paddingTop: 20 }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-                      <input type="checkbox" checked={sourceSsl} onChange={(e) => setSourceSsl(e.target.checked)} /> SSL Encrypted Connection
-                    </label>
                   </div>
                 </div>
               )}
@@ -2522,9 +2682,9 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
                 style={{ padding: '9px 18px', borderRadius: 8, background: 'var(--dash-bg)', border: '1px solid var(--dash-border)', color: 'var(--dash-text-primary)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
                 Save Draft
               </button>
-              <button type="button" className={styles.resumeBtn} onClick={handleLaunchMigration}
-                style={{ padding: '9px 24px', borderRadius: 8, background: '#10B981', color: '#FFF', border: 'none', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-                Initialize Migration & Launch Dashboard
+              <button type="button" className={styles.resumeBtn} onClick={handleLaunchMigration} disabled={isLaunchingMig}
+                style={{ padding: '9px 24px', borderRadius: 8, background: isLaunchingMig ? '#059669' : '#10B981', opacity: isLaunchingMig ? 0.7 : 1, color: '#FFF', border: 'none', fontSize: 13, fontWeight: 700, cursor: isLaunchingMig ? 'wait' : 'pointer' }}>
+                {isLaunchingMig ? 'Initializing Migration...' : 'Initialize Migration & Launch Dashboard'}
               </button>
             </>
           )}

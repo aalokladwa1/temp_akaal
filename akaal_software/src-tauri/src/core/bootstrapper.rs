@@ -20,7 +20,7 @@ pub struct BootstrapStatus {
 
 static CACHED_BOOTSTRAP: OnceLock<BootstrapStatus> = OnceLock::new();
 
-pub fn execute_startup_bootstrap(app_handle: &tauri::AppHandle) -> BootstrapStatus {
+pub fn execute_startup_bootstrap(app_handle: &tauri::AppHandle<tauri::Wry>) -> BootstrapStatus {
     if let Some(status) = CACHED_BOOTSTRAP.get() {
         return status.clone();
     }

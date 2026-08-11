@@ -17,7 +17,7 @@ def measure_bounded_source_read_benchmark(
     start_time = time.monotonic()
     
     try:
-        tbl = sample_table_name or "CUSTOMER_RECORDS"
+        tbl = sample_table_name or "MIGRATION_WORKLOAD"
         
         # When physical connection is not active during un-connected preflight, return unmeasured DTO
         if not getattr(connection_config, "host", None):

@@ -1,7 +1,7 @@
 use crate::workspace_config::{get_config_file_path, WorkspaceConfig};
 use std::fs;
 
-pub fn load_workspace_config(app_handle: &tauri::AppHandle) -> Result<WorkspaceConfig, String> {
+pub fn load_workspace_config(app_handle: &tauri::AppHandle<tauri::Wry>) -> Result<WorkspaceConfig, String> {
     let config_path = get_config_file_path(app_handle)?;
     if !config_path.exists() {
         return Ok(WorkspaceConfig::default());

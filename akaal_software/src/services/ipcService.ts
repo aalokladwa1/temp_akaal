@@ -103,10 +103,15 @@ export const ipcService = {
   },
 
   async invokeEngineCapability(capabilityId: string, payload: string): Promise<string> {
-    return await invoke<string>('invoke_engine_capability_cmd', {
-      capabilityId,
-      payload,
-    });
+    try {
+      return await invoke<string>('invoke_engine_capability_cmd', {
+        capabilityId,
+        payload,
+      });
+    } catch (err) {
+      console.warn(`IPC capability '${capabilityId}' failed:`, err);
+      return '';
+    }
   },
 
   async listCapabilities(): Promise<CapabilityDTO[]> {

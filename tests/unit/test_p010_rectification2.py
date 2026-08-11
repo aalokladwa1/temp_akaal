@@ -49,6 +49,7 @@ class TestP010Rectification2(unittest.TestCase):
         payload = {
             "source_engine": "ORACLE",
             "target_engine": "POSTGRESQL",
+            "async_preflight": False,
             "selected_scope": {
                 "objects": [
                     {"schema_name": "SYSTEM", "object_name": "USERS"},
@@ -71,6 +72,7 @@ class TestP010Rectification2(unittest.TestCase):
         mock_report.errors = []
         with patch.object(self.gateway.discovery_orchestrator, 'execute_discovery', return_value=mock_report):
             payload = {
+                "async_preflight": False,
                 "source_engine": "ORACLE",
                 "target_engine": "POSTGRESQL",
                 "selected_scope": {
@@ -88,8 +90,8 @@ class TestP010Rectification2(unittest.TestCase):
         tables = [{"object_name": "TBL_A", "object_type": "Table", "estimated_rows": 50000}]
         res = ETAEngine.calculate_preflight_eta(tables, source_read_rows_per_sec=1000.0, target_write_rows_per_sec=1000.0)
         self.assertEqual(res["eta_state"], "ETA_AVAILABLE")
-        self.assertEqual(res["estimated_duration_seconds"], 50)
-        self.assertEqual(res["estimated_duration_display"], "~50s")
+        self.assertEqual(res["estimated_duration_seconds"], 57)
+        self.assertEqual(res["estimated_duration_display"], "~57s")
 
     # 12. No production synthetic payload transport
     def test_12_no_synthetic_payload_in_transport_source(self):

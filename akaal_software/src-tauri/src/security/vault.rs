@@ -36,7 +36,7 @@ extern "system" {
     fn LocalFree(h_mem: *mut std::ffi::c_void) -> *mut std::ffi::c_void;
 }
 
-pub fn save_secure_token(app_handle: &tauri::AppHandle, token: &str) -> Result<(), String> {
+pub fn save_secure_token(app_handle: &tauri::AppHandle<tauri::Wry>, token: &str) -> Result<(), String> {
     let raw_bytes = token.as_bytes();
     let encrypted_bytes = encrypt_bytes(raw_bytes)?;
 
@@ -45,7 +45,7 @@ pub fn save_secure_token(app_handle: &tauri::AppHandle, token: &str) -> Result<(
         .map_err(|e| format!("Failed to write secure token file: {}", e))
 }
 
-pub fn load_secure_token(app_handle: &tauri::AppHandle) -> Result<Option<String>, String> {
+pub fn load_secure_token(app_handle: &tauri::AppHandle<tauri::Wry>) -> Result<Option<String>, String> {
     let path = get_token_file_path(app_handle)?;
     if !path.exists() {
         return Ok(None);
@@ -65,7 +65,7 @@ pub fn load_secure_token(app_handle: &tauri::AppHandle) -> Result<Option<String>
     Ok(Some(token_str))
 }
 
-pub fn clear_secure_token(app_handle: &tauri::AppHandle) -> Result<(), String> {
+pub fn clear_secure_token(app_handle: &tauri::AppHandle<tauri::Wry>) -> Result<(), String> {
     let path = get_token_file_path(app_handle)?;
     if path.exists() {
         let _ = fs::remove_file(path);
@@ -73,7 +73,7 @@ pub fn clear_secure_token(app_handle: &tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-fn get_token_file_path(app_handle: &tauri::AppHandle) -> Result<PathBuf, String> {
+fn get_token_file_path(app_handle: &tauri::AppHandle<tauri::Wry>) -> Result<PathBuf, String> {
     use tauri::Manager;
     let mut dir = app_handle
         .path()

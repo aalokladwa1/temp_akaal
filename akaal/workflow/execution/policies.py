@@ -19,6 +19,26 @@ class IRetryPolicy(Protocol):
         ...
 
 
+def _is_deterministic_error(exception: Exception) -> bool:
+    """Returns True if exception is a non-retryable programming or configuration error."""
+    if isinstance(exception, (AttributeError, TypeError, KeyError, NameError, ValueError)):
+        return True
+    msg = str(exception)
+    non_retryable_markers = [
+        "StepStatus",
+        "CREDENTIAL_RESOLUTION_FAILED",
+        "MIGRATION_CONFIGURATION_INCOMPLETE",
+        "MIGRATION_AUTHORITY_INTEGRITY_VIOLATION",
+        "SOURCE_CONNECTION_AUTHORITY_MISMATCH",
+        "TARGET_CONNECTION_AUTHORITY_MISMATCH",
+        "RESERVED_PREFIX",
+        "TERMINAL_STATE_REJECTED",
+        "APPROVAL_REQUIRED",
+        "APPROVAL_REJECTED",
+    ]
+    return any(marker in msg for marker in non_retryable_markers)
+
+
 class ExponentialRetryPolicy:
     """Exponential backoff retry policy with jitter multiplier."""
 
@@ -28,6 +48,8 @@ class ExponentialRetryPolicy:
         self.backoff_factor = backoff_factor
 
     def should_retry(self, attempt: int, max_retries: int, exception: Exception) -> bool:
+        if _is_deterministic_error(exception):
+            return False
         return attempt < max_retries
 
     def get_delay_seconds(self, attempt: int) -> float:
@@ -42,6 +64,8 @@ class FixedRetryPolicy:
         self.delay_seconds = delay_seconds
 
     def should_retry(self, attempt: int, max_retries: int, exception: Exception) -> bool:
+        if _is_deterministic_error(exception):
+            return False
         return attempt < max_retries
 
     def get_delay_seconds(self, attempt: int) -> float:

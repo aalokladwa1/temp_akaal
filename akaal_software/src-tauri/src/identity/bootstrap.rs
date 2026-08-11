@@ -15,14 +15,14 @@ pub struct AdminCredentialRecord {
     pub created_at: String,
 }
 
-pub fn get_identity_file_path(app_handle: &tauri::AppHandle) -> Result<PathBuf, String> {
+pub fn get_identity_file_path(app_handle: &tauri::AppHandle<tauri::Wry>) -> Result<PathBuf, String> {
     let mut path = get_config_dir(app_handle)?;
     path.push("identity.json");
     Ok(path)
 }
 
 pub fn save_admin_credentials(
-    app_handle: &tauri::AppHandle,
+    app_handle: &tauri::AppHandle<tauri::Wry>,
     username: &str,
     display_name: &str,
     plain_password: &str,
@@ -61,7 +61,7 @@ pub fn save_admin_credentials(
 }
 
 pub fn load_admin_credentials(
-    app_handle: &tauri::AppHandle,
+    app_handle: &tauri::AppHandle<tauri::Wry>,
 ) -> Result<Option<AdminCredentialRecord>, String> {
     let path = get_identity_file_path(app_handle)?;
     if !path.exists() {
@@ -78,7 +78,7 @@ pub fn load_admin_credentials(
 }
 
 pub fn verify_admin_password(
-    app_handle: &tauri::AppHandle,
+    app_handle: &tauri::AppHandle<tauri::Wry>,
     username: &str,
     plain_password: &str,
 ) -> Result<Option<AdminCredentialRecord>, String> {

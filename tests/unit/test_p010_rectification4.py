@@ -221,7 +221,7 @@ class TestP010Rectification4(unittest.TestCase):
         """Condition 19: Missing runtime target authority fails closed."""
         with self.assertRaises(ValueError) as ctx:
             _extract_target_config({"require_strict_authority": True, "target_port": 5432})
-        self.assertIn("TARGET_CONNECTION_AUTHORITY_MISMATCH", str(ctx.exception))
+        self.assertTrue("MIGRATION_CONFIGURATION_INCOMPLETE" in str(ctx.exception) or "TARGET_CONNECTION_AUTHORITY_MISMATCH" in str(ctx.exception))
 
     def test_20_no_localhost_5432_production_fallback(self):
         """Condition 20: No silent fallback to localhost:5432 in production path."""
@@ -292,10 +292,12 @@ class TestP010Rectification4(unittest.TestCase):
             "migration_name": "Ack Test",
             "source_host": "localhost",
             "source_port": 1521,
-            "source_db": "FREE",
+            "source_db": "instance2_pdb",
+            "source_user": "SYSTEM",
             "target_host": "localhost",
             "target_port": 5433,
-            "target_db": "akaal_target"
+            "target_db": "pg_analytics",
+            "target_user": "p"
         })
         self.gateway.state_store.set_state(f"{mig['migration_id']}_approval", {"status": "approved"}, category="governance")
         ack = self.gateway.start_transport({"migration_id": mig["migration_id"]})

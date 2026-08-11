@@ -116,30 +116,84 @@ class OracleAdapter(BaseAdapter):
             if type_code == oracledb.DB_TYPE_BLOB:
                 return cursor.var(oracledb.DB_TYPE_LONG_RAW, arraysize=cursor.arraysize)
 
+        priv_str = str(
+            getattr(self.config, "privilege_mode", None) or 
+            getattr(self.config, "oracle_privilege", None) or 
+            (self.config.extra.get("privilege_mode") if hasattr(self.config, "extra") and isinstance(self.config.extra, dict) else None) or 
+            (self.config.extra.get("oracle_privilege") if hasattr(self.config, "extra") and isinstance(self.config.extra, dict) else None) or 
+            "NORMAL"
+        ).strip().upper()
+
+        auth_mode = oracledb.DEFAULT_AUTH
+        if priv_str == "SYSDBA":
+            auth_mode = getattr(oracledb, "SYSDBA", getattr(oracledb, "AUTH_MODE_SYSDBA", 2))
+            logger.info("[OracleAdapter] Connecting with privileged mode: SYSDBA")
+        elif priv_str == "SYSOPER":
+            auth_mode = getattr(oracledb, "SYSOPER", getattr(oracledb, "AUTH_MODE_SYSOPER", 4))
+            logger.info("[OracleAdapter] Connecting with privileged mode: SYSOPER")
+        else:
+            logger.info("[OracleAdapter] Connecting with standard mode: NORMAL")
+
         if host and port and database:
             dsn = f"{host}:{port}/{database}"
             def _sync_connect():
-                conn = oracledb.connect(
-                    user=user,
-                    password=password,
-                    dsn=dsn,
-                    mode=oracledb.DEFAULT_AUTH,
-                )
-                conn.outputtypehandler = _output_type_handler
-                return conn
+                try:
+                    conn = oracledb.connect(
+                        user=user,
+                        password=password,
+                        dsn=dsn,
+                        mode=auth_mode,
+                    )
+                    conn.outputtypehandler = _output_type_handler
+                    return conn
+                except Exception as thin_err:
+                    if oracledb.is_thin_mode():
+                        try:
+                            oracledb.init_oracle_client()
+                            conn = oracledb.connect(
+                                user=user,
+                                password=password,
+                                dsn=dsn,
+                                mode=auth_mode,
+                            )
+                            conn.outputtypehandler = _output_type_handler
+                            logger.info("[OracleAdapter] Connected successfully via Thick mode client.")
+                            return conn
+                        except Exception:
+                            pass
+                    raise thin_err
         else:
             if not wallet_path or not tns_entry:
                 raise RuntimeError("Oracle host/port/database or wallet path/TNS entry not set")
             dsn = tns_entry
             def _sync_connect():
-                conn = oracledb.connect(
-                    user=user,
-                    password=password,
-                    dsn=dsn,
-                    config_dir=wallet_path,
-                    mode=oracledb.DEFAULT_AUTH,
-                )
-                conn.outputtypehandler = _output_type_handler
+                try:
+                    conn = oracledb.connect(
+                        user=user,
+                        password=password,
+                        dsn=dsn,
+                        config_dir=wallet_path,
+                        mode=auth_mode,
+                    )
+                    conn.outputtypehandler = _output_type_handler
+                    return conn
+                except Exception as thin_err:
+                    if oracledb.is_thin_mode():
+                        try:
+                            oracledb.init_oracle_client()
+                            conn = oracledb.connect(
+                                user=user,
+                                password=password,
+                                dsn=dsn,
+                                config_dir=wallet_path,
+                                mode=auth_mode,
+                            )
+                            conn.outputtypehandler = _output_type_handler
+                            logger.info("[OracleAdapter] Connected successfully via Thick mode client.")
+                            return conn
+                        except Exception:
+                            pass
+                    raise thin_err
                 return conn
         return await asyncio.to_thread(_sync_connect)
 

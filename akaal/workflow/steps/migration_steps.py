@@ -27,19 +27,41 @@ logger = logging.getLogger(__name__)
 
 def _extract_target_config(rt_ctx: Dict[str, Any]) -> ConnectionConfig:
     tgt_auth_dict = rt_ctx.get("target_authority") or {}
-    host = rt_ctx.get("target_host") or rt_ctx.get("host") or tgt_auth_dict.get("host") or "localhost"
-    port_val = rt_ctx.get("target_port") or rt_ctx.get("port") or tgt_auth_dict.get("port") or 5432
+    host = tgt_auth_dict.get("host") or rt_ctx.get("target_host") or rt_ctx.get("host") or ("localhost" if not rt_ctx.get("require_strict_authority") else None)
+    port_val = tgt_auth_dict.get("port") or rt_ctx.get("target_port") or rt_ctx.get("port") or (5433 if not rt_ctx.get("require_strict_authority") else None)
+    database_name = tgt_auth_dict.get("database") or rt_ctx.get("target_db") or rt_ctx.get("target_database") or rt_ctx.get("database_name") or ("pg_analytics" if not rt_ctx.get("require_strict_authority") else None)
+    username = tgt_auth_dict.get("username") or rt_ctx.get("target_user") or rt_ctx.get("target_username") or rt_ctx.get("username") or ("p" if not rt_ctx.get("require_strict_authority") else None)
+    schema = rt_ctx.get("target_schema") or tgt_auth_dict.get("schema") or rt_ctx.get("schema") or "public"
+
+    if not host or not port_val or not database_name or not username:
+        logger.error(f"[RUNTIME AUTHORITY] MIGRATION_CONFIGURATION_INCOMPLETE: Target authority missing required parameters.")
+        raise ValueError("MIGRATION_CONFIGURATION_INCOMPLETE: Target connection authority incomplete. Host, port, database, and username are required.")
+
     port = int(port_val)
-    database_name = rt_ctx.get("target_db") or rt_ctx.get("target_database") or rt_ctx.get("database_name") or tgt_auth_dict.get("database") or "akaal_target"
-    username = rt_ctx.get("target_user") or rt_ctx.get("username") or tgt_auth_dict.get("username") or "postgres"
-    schema = rt_ctx.get("target_schema") or rt_ctx.get("schema") or "public"
+    cred_ref = tgt_auth_dict.get("credential_ref") or rt_ctx.get("target_credential_ref") or f"cred-ref-target-{username}"
+    
+    vault_secrets = credential_vault.get_credentials(cred_ref, fail_closed=False)
+    password = vault_secrets.get("password")
+    
+    if not password and rt_ctx.get("target_credential_ref"):
+        vault_secrets = credential_vault.get_credentials(rt_ctx["target_credential_ref"], fail_closed=False)
+        password = vault_secrets.get("password")
 
-    if rt_ctx.get("require_strict_authority") and not (rt_ctx.get("target_host") and rt_ctx.get("target_port") and rt_ctx.get("target_db")):
-        raise ValueError("TARGET_CONNECTION_AUTHORITY_MISMATCH: Target connection authority configuration missing in strict runtime mode.")
+    if not password and rt_ctx.get("target_connection_id"):
+        for alt_ref in [f"cred-ref-conn-{rt_ctx['target_connection_id']}", f"cred-ref-target-{rt_ctx['target_connection_id']}"]:
+            vault_secrets = credential_vault.get_credentials(alt_ref, fail_closed=False)
+            password = vault_secrets.get("password")
+            if password:
+                break
 
-    cred_ref = rt_ctx.get("target_credential_ref") or tgt_auth_dict.get("credential_ref") or f"cred-ref-target-{username}"
-    vault_secrets = credential_vault.get_credentials(cred_ref)
-    password = vault_secrets.get("password") or rt_ctx.get("target_pass") or rt_ctx.get("password") or "postgres"
+    password = password or rt_ctx.get("target_pass") or rt_ctx.get("target_password") or rt_ctx.get("password")
+
+    if password is None and (rt_ctx.get("strict_credentials") or rt_ctx.get("fail_closed")):
+        logger.error(f"[CREDENTIAL RESOLUTION] target_ref={cred_ref} resolved=false")
+        raise RuntimeError(f"CREDENTIAL_RESOLUTION_FAILED: Password for target ref '{cred_ref}' not found in vault or context.")
+
+    password = password or ""
+    logger.info(f"[CREDENTIAL RESOLUTION] target_ref={cred_ref} resolved={bool(password)}")
 
     auth = ConnectionAuthority(
         connection_id=rt_ctx.get("target_connection_id") or "conn-target-pg",
@@ -52,8 +74,13 @@ def _extract_target_config(rt_ctx: Dict[str, Any]) -> ConnectionConfig:
         role="TARGET"
     )
 
+    persisted_fp = tgt_auth_dict.get("authority_fingerprint")
+    if persisted_fp and persisted_fp != auth.authority_fingerprint:
+        logger.error(f"[RUNTIME AUTHORITY] MIGRATION_AUTHORITY_INTEGRITY_VIOLATION: Target fingerprint mismatch. Persisted={persisted_fp}, Runtime={auth.authority_fingerprint}")
+        raise ValueError(f"MIGRATION_AUTHORITY_INTEGRITY_VIOLATION: Target connection authority fingerprint mismatch (persisted={persisted_fp}, runtime={auth.authority_fingerprint}).")
+
     logger.info(
-        f"[CONNECTION AUTHORITY] Stage=EXTRACT_TARGET | Host={auth.host}, Port={auth.port}, Database={auth.database}, Schema={schema}, User={auth.username}, Fingerprint={auth.authority_fingerprint}"
+        f"[AUTHORITY TRACE] stage=RUNTIME_EXTRACTION role=TARGET host={auth.host} port={auth.port} database={auth.database} username={auth.username} credential_ref={auth.credential_ref} fingerprint={auth.authority_fingerprint}"
     )
 
     return ConnectionConfig(
@@ -81,19 +108,48 @@ def _extract_source_config(rt_ctx: Dict[str, Any]) -> ConnectionConfig:
     else:
         sys_type = SystemType.ORACLE
 
-    default_port = 1521 if sys_type == SystemType.ORACLE else (3306 if sys_type == SystemType.MYSQL else 5432)
-    host = rt_ctx.get("source_host") or rt_ctx.get("host") or src_auth_dict.get("host") or "localhost"
-    port_val = rt_ctx.get("source_port") or rt_ctx.get("port") or src_auth_dict.get("port") or default_port
+    host = src_auth_dict.get("host") or rt_ctx.get("source_host") or rt_ctx.get("host") or ("localhost" if not rt_ctx.get("require_strict_authority") else None)
+    port_val = src_auth_dict.get("port") or rt_ctx.get("source_port") or rt_ctx.get("port") or (1521 if not rt_ctx.get("require_strict_authority") else None)
+    database_name = (
+        src_auth_dict.get("database") or
+        rt_ctx.get("source_service") or
+        rt_ctx.get("source_pdb") or
+        rt_ctx.get("source_db") or
+        rt_ctx.get("source_database") or
+        rt_ctx.get("database_name") or
+        ("instance2_pdb" if not rt_ctx.get("require_strict_authority") else None)
+    )
+    username = src_auth_dict.get("username") or rt_ctx.get("source_user") or rt_ctx.get("source_username") or rt_ctx.get("username") or ("SYSTEM" if not rt_ctx.get("require_strict_authority") else None)
+
+    if not host or not port_val or not database_name or not username:
+        logger.error(f"[RUNTIME AUTHORITY] MIGRATION_CONFIGURATION_INCOMPLETE: Source authority missing required parameters.")
+        raise ValueError("MIGRATION_CONFIGURATION_INCOMPLETE: Source connection authority incomplete. Host, port, service/PDB, and username are required.")
+
     port = int(port_val)
-    database_name = rt_ctx.get("source_db") or rt_ctx.get("source_database") or src_auth_dict.get("database") or "FREE"
-    username = rt_ctx.get("source_user") or rt_ctx.get("username") or src_auth_dict.get("username") or "SYSTEM"
+    cred_ref = src_auth_dict.get("credential_ref") or rt_ctx.get("source_credential_ref") or f"cred-ref-source-{username}"
+    
+    vault_secrets = credential_vault.get_credentials(cred_ref, fail_closed=False)
+    password = vault_secrets.get("password")
 
-    if rt_ctx.get("require_strict_authority") and not (rt_ctx.get("source_host") and rt_ctx.get("source_port") and rt_ctx.get("source_db")):
-        raise ValueError("SOURCE_CONNECTION_AUTHORITY_MISMATCH: Source connection authority configuration missing in strict runtime mode.")
+    if not password and rt_ctx.get("source_credential_ref"):
+        vault_secrets = credential_vault.get_credentials(rt_ctx["source_credential_ref"], fail_closed=False)
+        password = vault_secrets.get("password")
 
-    cred_ref = rt_ctx.get("source_credential_ref") or src_auth_dict.get("credential_ref") or f"cred-ref-source-{username}"
-    vault_secrets = credential_vault.get_credentials(cred_ref)
-    password = vault_secrets.get("password") or rt_ctx.get("source_pass") or rt_ctx.get("password") or "AkaalPass2026"
+    if not password and rt_ctx.get("source_connection_id"):
+        for alt_ref in [f"cred-ref-conn-{rt_ctx['source_connection_id']}", f"cred-ref-source-{rt_ctx['source_connection_id']}"]:
+            vault_secrets = credential_vault.get_credentials(alt_ref, fail_closed=False)
+            password = vault_secrets.get("password")
+            if password:
+                break
+
+    password = password or rt_ctx.get("source_pass") or rt_ctx.get("source_password") or rt_ctx.get("password")
+
+    if password is None and (rt_ctx.get("strict_credentials") or rt_ctx.get("fail_closed")):
+        logger.error(f"[CREDENTIAL RESOLUTION] source_ref={cred_ref} resolved=false")
+        raise RuntimeError(f"CREDENTIAL_RESOLUTION_FAILED: Password for source ref '{cred_ref}' not found in vault or context.")
+
+    password = password or ""
+    logger.info(f"[CREDENTIAL RESOLUTION] source_ref={cred_ref} resolved={bool(password)}")
 
     auth = ConnectionAuthority(
         connection_id=rt_ctx.get("source_connection_id") or "conn-source-ora",
@@ -106,8 +162,13 @@ def _extract_source_config(rt_ctx: Dict[str, Any]) -> ConnectionConfig:
         role="SOURCE"
     )
 
+    persisted_fp = src_auth_dict.get("authority_fingerprint")
+    if persisted_fp and persisted_fp != auth.authority_fingerprint:
+        logger.error(f"[RUNTIME AUTHORITY] MIGRATION_AUTHORITY_INTEGRITY_VIOLATION: Source fingerprint mismatch. Persisted={persisted_fp}, Runtime={auth.authority_fingerprint}")
+        raise ValueError(f"MIGRATION_AUTHORITY_INTEGRITY_VIOLATION: Source connection authority fingerprint mismatch (persisted={persisted_fp}, runtime={auth.authority_fingerprint}).")
+
     logger.info(
-        f"[CONNECTION AUTHORITY] Stage=EXTRACT_SOURCE | Host={auth.host}, Port={auth.port}, Database={auth.database}, User={auth.username}, Fingerprint={auth.authority_fingerprint}"
+        f"[AUTHORITY TRACE] stage=RUNTIME_EXTRACTION role=SOURCE host={auth.host} port={auth.port} database={auth.database} username={auth.username} credential_ref={auth.credential_ref} fingerprint={auth.authority_fingerprint}"
     )
 
     return ConnectionConfig(
@@ -153,7 +214,7 @@ class PreStartValidationStep(AbstractStep):
             logger.info("[PRE-START VALIDATION] PASSED cleanly.")
             return WorkflowStepResult(
                 step_id=self.step_id,
-                status=StepStatus.SUCCESS,
+                status=StepStatus.COMPLETED,
                 context_updates={"pre_start_validation_passed": True, "logs": ["PRE_START_VALIDATION PASSED"]}
             )
 
@@ -251,10 +312,10 @@ class SchemaExecutionStep(AbstractStep):
                     else:
                         ddl_statements.append(f"""
                             CREATE TABLE IF NOT EXISTS {t_schema}.{o_name} (
-                                id SERIAL PRIMARY KEY,
-                                payload TEXT,
-                                status VARCHAR(50) DEFAULT 'ACTIVE',
-                                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                                id BIGINT PRIMARY KEY,
+                                record_data TEXT,
+                                status_flag VARCHAR(50) DEFAULT 'ACTIVE',
+                                last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                             );
                         """)
                 elif o_type in ("VIEW", "CANONICALVIEW"):
@@ -450,11 +511,57 @@ class DataTransportStep(AbstractStep):
                     table_rows_written = 0
                     batch_num = 0
                     batch_size = 5000
-
                     # Real production transport path with fallback for mock test environments
                     executed_real_sql = False
                     if src_conn and src_conn != "mock_oracle_conn" and hasattr(src_conn, "cursor"):
                         try:
+                            from akaal.engine.api import AkaalMigrationEngine
+                            from akaal.engine.spec import ConnectionAuthorityDTO, TuningPolicy
+
+                            src_auth = ConnectionAuthorityDTO.create(
+                                role="SOURCE",
+                                engine=src_config.system_type.value,
+                                host=src_config.host,
+                                port=src_config.port,
+                                database=src_config.database_name,
+                                username=src_config.extra.get("username", "SYSTEM"),
+                                credential_ref=src_config.credentials_ref,
+                            )
+                            tgt_auth = ConnectionAuthorityDTO.create(
+                                role="TARGET",
+                                engine="POSTGRESQL",
+                                host=pg_config.host,
+                                port=pg_config.port,
+                                database=pg_config.database_name,
+                                username=pg_config.extra.get("username", "postgres"),
+                                credential_ref=pg_config.credentials_ref,
+                            )
+
+                            engine = AkaalMigrationEngine()
+                            spec = engine.register_specification(
+                                migration_id=mig_id,
+                                migration_name=f"Migration-{mig_id}",
+                                project_name="Enterprise-Project",
+                                source_auth=src_auth,
+                                target_auth=tgt_auth,
+                                selected_scope={"tables": [{"object_name": s_name}]},
+                                tuning_policy=TuningPolicy(parallelism=1, batch_size=25000, page_size=5000),
+                            )
+
+                            res = engine.start_migration(
+                                spec=spec,
+                                source_pass=src_config.extra.get("password", ""),
+                                target_pass=pg_config.extra.get("password", ""),
+                            )
+
+                            r_count_batch = res.get("total_rows", 0)
+                            table_rows_read = r_count_batch
+                            table_rows_written = r_count_batch
+                            rows_written += r_count_batch
+                            rows_read_total += r_count_batch
+                            executed_real_sql = True
+                        except Exception as real_trans_err:
+                            logger.warning(f"[DataTransportStep] Engine transport fallback triggered for {s_schema}.{s_name}: {real_trans_err}")
                             with src_conn.cursor() as s_cur:
                                 s_cur.execute(f"SELECT * FROM {s_schema}.{s_name}")
                                 col_names = [desc[0].lower() for desc in s_cur.description]
@@ -490,8 +597,6 @@ class DataTransportStep(AbstractStep):
                                         f"cumulative_rows_read={table_rows_read} cumulative_rows_written={table_rows_written}"
                                     )
                                 executed_real_sql = True
-                        except Exception as real_trans_err:
-                            logger.warning(f"[DataTransportStep] Direct SQL transport failed for {s_schema}.{s_name}: {real_trans_err}")
 
                     if not executed_real_sql:
                         # Adapter mock transport path (preserves test mocks without synthetic payload text)

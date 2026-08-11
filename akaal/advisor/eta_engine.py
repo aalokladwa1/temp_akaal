@@ -130,19 +130,19 @@ class ETAEngine:
 
         # State E: ETA_AVAILABLE (Both physical benchmarks + non-zero catalog row statistics present)
         conn_est_sec = 2.0
-        schema_est_sec = max(3.0, round(table_count * 0.15, 1))
+        schema_est_sec = min(30.0, max(2.0, round(table_count / 100.0, 1)))
         transport_sec = total_rows / max(bottleneck_rows_per_sec, 1.0)
-        val_est_sec = max(2.0, round(table_count * 0.1, 1))
+        val_est_sec = min(30.0, max(2.0, round(table_count / 200.0, 1)))
 
         transport_estimated_seconds = math.ceil(transport_sec)
         total_estimated_seconds = math.ceil(conn_est_sec + schema_est_sec + transport_sec + val_est_sec)
 
-        mins = transport_estimated_seconds // 60
-        secs = transport_estimated_seconds % 60
+        mins = total_estimated_seconds // 60
+        secs = total_estimated_seconds % 60
         display_str = f"~{mins}m {secs}s" if mins > 0 else f"~{secs}s"
 
         return {
-            "estimated_duration_seconds": transport_estimated_seconds,
+            "estimated_duration_seconds": total_estimated_seconds,
             "estimated_duration_display": display_str,
             "eta_confidence": eta_conf,
             "eta_basis": basis_text,

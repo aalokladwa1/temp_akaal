@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
-use tauri::Manager;
+use tauri::{Manager, Wry};
+
+pub type AppHandle = tauri::AppHandle<Wry>;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -23,9 +25,9 @@ impl Default for WorkspaceConfig {
     fn default() -> Self {
         Self {
             schema_version: 1,
-            workspace_name: "Workspace".to_string(),
-            workspace_path: String::new(),
-            theme: "light".to_string(),
+            workspace_name: "Default Workspace".to_string(),
+            workspace_path: "~/akaal-workspace".to_string(),
+            theme: "dark".to_string(),
             onboarding_completed: false,
             owner_display_name: None,
             admin_username: None,
@@ -36,7 +38,7 @@ impl Default for WorkspaceConfig {
     }
 }
 
-pub fn get_config_dir(app_handle: &tauri::AppHandle) -> Result<PathBuf, String> {
+pub fn get_config_dir(app_handle: &AppHandle) -> Result<PathBuf, String> {
     let dir = app_handle
         .path()
         .app_config_dir()
@@ -47,20 +49,20 @@ pub fn get_config_dir(app_handle: &tauri::AppHandle) -> Result<PathBuf, String> 
     Ok(dir)
 }
 
-pub fn get_config_file_path(app_handle: &tauri::AppHandle) -> Result<PathBuf, String> {
+pub fn get_config_file_path(app_handle: &AppHandle) -> Result<PathBuf, String> {
     let mut path = get_config_dir(app_handle)?;
     path.push("workspace.json");
     Ok(path)
 }
 
-pub fn get_backup_file_path(app_handle: &tauri::AppHandle) -> Result<PathBuf, String> {
+pub fn get_backup_file_path(app_handle: &AppHandle) -> Result<PathBuf, String> {
     let mut path = get_config_dir(app_handle)?;
     path.push("workspace.json.bak");
     Ok(path)
 }
 
 #[tauri::command]
-pub fn load_workspace_config_cmd(app_handle: tauri::AppHandle) -> Result<WorkspaceConfig, String> {
+pub fn load_workspace_config_cmd(app_handle: AppHandle) -> Result<WorkspaceConfig, String> {
     let config_path = get_config_file_path(&app_handle)?;
 
     if !config_path.exists() {
@@ -91,7 +93,7 @@ pub fn load_workspace_config_cmd(app_handle: tauri::AppHandle) -> Result<Workspa
 
 #[tauri::command]
 pub fn save_workspace_config_cmd(
-    app_handle: tauri::AppHandle,
+    app_handle: AppHandle,
     mut config: WorkspaceConfig,
 ) -> Result<WorkspaceConfig, String> {
     // 1. Validate inputs

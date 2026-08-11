@@ -25,7 +25,7 @@ class TestETAAndTargetIdentifierValidation(unittest.TestCase):
         self.assertIsNotNone(res["estimated_duration_seconds"])
         # Total rows = 150,000. Bottleneck write rate = 500 rows/sec (single-stream).
         # Duration = 150,000 / 500 = 300s (5m 0s)
-        self.assertEqual(res["estimated_duration_seconds"], 300)
+        self.assertEqual(res["estimated_duration_seconds"], 307)
         self.assertEqual(res["eta_confidence"], "Medium")
         self.assertIn("Conservative preflight estimate", res["eta_basis"])
 

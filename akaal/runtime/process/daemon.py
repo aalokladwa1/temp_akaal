@@ -106,7 +106,37 @@ class MigrationRuntimeDaemon:
         except Exception as exc:
             self.status = "FAILED"
             logger.error(f"[RuntimeDaemon-PID:{self.pid}] Migration execution error: {exc}", exc_info=True)
-            return {"status": "failed", "error": str(exc)}
+            err_str = str(exc)
+            err_code = "STEP_EXECUTION_FAILED"
+            remediation = "Verify database connectivity, user credentials, schema permissions, and network routes."
+            category = "DATABASE"
+            
+            if "CREDENTIAL_RESOLUTION_FAILED" in err_str:
+                err_code = "CREDENTIAL_RESOLUTION_FAILED"
+                remediation = "Re-enter user passwords in wizard connection configuration."
+                category = "CREDENTIAL"
+            elif "AUTHORITY_MISMATCH" in err_str:
+                err_code = "AUTHORITY_MISMATCH"
+                remediation = "Verify target database port, host, and database name settings."
+                category = "AUTHORITY"
+            elif "StepStatus" in err_str:
+                err_code = "PROGRAMMING_ERROR"
+                remediation = "Update WorkflowEngine step status enum contract."
+                category = "PROGRAMMING"
+
+            return {
+                "status": "failed",
+                "migration_id": self.migration_id,
+                "error": err_str,
+                "error_code": err_code,
+                "error_category": category,
+                "failed_stage": "pre_start_validation",
+                "failed_object": "connection_ping",
+                "failed_schema": "target_schema",
+                "safe_message": f"Migration failed during execution: {err_str}",
+                "remediation": remediation,
+                "retryable": False
+            }
 
     def shutdown(self) -> None:
         self.is_alive = False

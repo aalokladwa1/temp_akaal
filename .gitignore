@@ -9,6 +9,8 @@ htmlcov/
 
 # Local databases and workspaces
 *.db
+*.db-shm
+*.db-wal
 validation_workspace/
 akaal_workspace/
 smoke_test_workspace/

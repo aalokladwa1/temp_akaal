@@ -131,15 +131,34 @@ class ConnectionAuthority:
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any], role: str = "TARGET") -> "ConnectionAuthority":
-        """Constructs ConnectionAuthority from payload dictionary."""
+        """Constructs ConnectionAuthority from payload dictionary without fallback substitutions."""
         prefix = "source_" if role.upper() == "SOURCE" else "target_"
         
         c_id = data.get(f"{prefix}connection_id") or data.get("connection_id") or f"conn-{role.lower()}-default"
         engine = data.get(f"{prefix}engine") or data.get("engine") or ("ORACLE" if role.upper() == "SOURCE" else "POSTGRESQL")
-        host = data.get(f"{prefix}host") or data.get("host")
-        port = data.get(f"{prefix}port") or data.get("port")
-        db = data.get(f"{prefix}db") or data.get(f"{prefix}database") or data.get("database") or data.get("database_name")
-        user = data.get(f"{prefix}user") or data.get(f"{prefix}username") or data.get("username") or data.get("credentials_ref")
+        
+        raw_host = data.get(f"{prefix}host") or data.get("host")
+        host = str(raw_host).strip() if raw_host is not None else None
+        
+        raw_port = data.get(f"{prefix}port") or data.get("port")
+        port = int(raw_port) if raw_port is not None and str(raw_port).isdigit() else raw_port
+        
+        raw_db = (
+            data.get(f"{prefix}service") or
+            data.get(f"{prefix}pdb") or
+            data.get(f"{prefix}service_name") or
+            data.get(f"{prefix}db") or
+            data.get(f"{prefix}database") or
+            data.get("source_service") or
+            data.get("source_instance") or
+            data.get("database") or
+            data.get("database_name")
+        )
+        db = str(raw_db).strip() if raw_db is not None else None
+        
+        raw_user = data.get(f"{prefix}user") or data.get(f"{prefix}username") or data.get("username")
+        user = str(raw_user).strip() if raw_user is not None else None
+        
         cred_ref = data.get(f"{prefix}credential_ref") or data.get("credential_ref") or f"cred-ref-{c_id}"
 
         return cls(
@@ -152,5 +171,52 @@ class ConnectionAuthority:
             credential_ref=cred_ref,
             role=role
         )
+
+
+class MigrationObjectMapping:
+    """Canonical mapping from source object to target object.
+    Explicitly decoupled from ConnectionAuthority.
+    """
+
+    def __init__(
+        self,
+        mapping_id: str = None,
+        source_database: str = "",
+        source_schema: str = "",
+        source_object: str = "",
+        source_object_type: str = "Table",
+        target_database: str = "",
+        target_schema: str = "",
+        target_object: str = "",
+        conversion_action: str = "MIGRATE_DATA",
+        dependencies: list = None,
+    ):
+        self.source_schema = str(source_schema or "").strip().upper()
+        self.source_object = str(source_object or "").strip().upper()
+        self.mapping_id = mapping_id or f"map-{self.source_schema}.{self.source_object}"
+        self.source_database = str(source_database or "").strip()
+        self.source_object_type = str(source_object_type or "Table").strip()
+        self.target_database = str(target_database or "").strip()
+        
+        mapped = derive_akaal_generated_target_mapping(target_schema or source_schema or "public")
+        self.target_schema = mapped["target_schema"]
+        self.target_object = str(target_object or source_object or "").strip().lower()
+        self.conversion_action = conversion_action
+        self.dependencies = dependencies or []
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "mapping_id": self.mapping_id,
+            "source_database": self.source_database,
+            "source_schema": self.source_schema,
+            "source_object": self.source_object,
+            "source_object_type": self.source_object_type,
+            "target_database": self.target_database,
+            "target_schema": self.target_schema,
+            "target_object": self.target_object,
+            "conversion_action": self.conversion_action,
+            "dependencies": self.dependencies,
+        }
+
 
 
