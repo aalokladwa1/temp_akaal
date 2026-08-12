@@ -1964,7 +1964,7 @@ class EngineGateway:
             "ram_used_gb": 3.42 if st_str in ("RUNNING", "COMPLETED") else 1.15,
             "wal_buffer_lag": "12ms WAL Lag" if st_str in ("RUNNING", "COMPLETED") else "0ms",
             "wal_lag": "12ms" if st_str in ("RUNNING", "COMPLETED") else "0ms",
-            "eta_seconds": progress.get("eta_seconds") if progress else None,
+            "eta_seconds": (round((rows_t - rows_m) / max(progress.get("rows_per_sec", 1), 1), 1) if (rows_t and rows_m and progress and progress.get("rows_per_sec") and st_str == "RUNNING" and rows_t > rows_m) else None),
             "active_workers": progress.get("active_workers", 4) if (progress and st_str == "RUNNING") else (4 if st_str == "RUNNING" else 0),
             "pid": pid_val,
             "failed_stage": failed_stage if is_failed else None,

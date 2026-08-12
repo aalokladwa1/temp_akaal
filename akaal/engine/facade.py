@@ -258,15 +258,24 @@ class AkaalSuperEngine:
 
             # Stage 2: Parallel Stream Data Transport
             self.state_store.set_state(f"{workflow_id}_status", {"status": "RUNNING", "current_stage": "transport"}, category="runtime")
+            t_transport_start = time.monotonic()
             rows_accum = 0
+            bytes_accum = 0
+
             for idx, obj in enumerate(target_objs):
                 tbl_name = obj.get("object_name") or obj.get("name") or f"TABLE_{idx+1}"
                 tbl_rows = int(obj.get("rows") or obj.get("row_count") or obj.get("source_rows") or 10000)
                 chunk_size = max(1, tbl_rows // 3)
+                avg_row_bytes = int(obj.get("avg_row_len") or obj.get("row_size") or 128)
                 
                 for step in range(3):
                     chunk_rows = chunk_size if step < 2 else (tbl_rows - 2 * chunk_size)
                     rows_accum += chunk_rows
+                    bytes_accum += (chunk_rows * avg_row_bytes)
+
+                    elapsed = max(time.monotonic() - t_transport_start, 0.001)
+                    curr_rps = int(rows_accum / elapsed)
+                    curr_mbps = round((bytes_accum / (1024 * 1024)) / elapsed, 2)
                     
                     self.state_store.update_progress(workflow_id, {
                         "migration_id": workflow_id,
@@ -276,8 +285,8 @@ class AkaalSuperEngine:
                         "total_tables": tot_tbls,
                         "rows_migrated": rows_accum,
                         "rows_total": tot_rows,
-                        "throughput_mbps": 48.5,
-                        "rows_per_sec": 12500,
+                        "throughput_mbps": curr_mbps,
+                        "rows_per_sec": curr_rps,
                         "current_table": f"{obj.get('schema_name', 'SYSTEM')}.{tbl_name}",
                         "checkpoint_lsn": f"chkpt-{workflow_id}-tbl{idx+1}-blk{step+1}"
                     })
@@ -289,7 +298,7 @@ class AkaalSuperEngine:
                             "severity": "INFO",
                             "workerName": f"worker-{(idx % 4) + 1}",
                             "object": tbl_name,
-                            "message": f"Transferred batch on {tbl_name} ({rows_accum}/{tot_rows} rows)"
+                            "message": f"Transferred batch on {tbl_name} ({rows_accum}/{tot_rows} rows at {curr_rps} rows/s, {curr_mbps} MB/s)"
                         }
                     })
                     time.sleep(0.2)
