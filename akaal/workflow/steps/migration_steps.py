@@ -515,8 +515,7 @@ class DataTransportStep(AbstractStep):
                     executed_real_sql = False
                     if src_conn and src_conn != "mock_oracle_conn" and hasattr(src_conn, "cursor"):
                         try:
-                            from akaal.replication.readers.oracle_reader import OraclePhysicalReader
-                            from akaal.replication.writers.postgresql_writer import PostgreSQLPhysicalWriter
+                            from akaal.replication.resolver import resolve_physical_reader, resolve_physical_writer
                             from akaal.engine.spec import TransportPartition, PartitionStrategy, BatchMetadata
 
                             src_params = {
@@ -534,8 +533,8 @@ class DataTransportStep(AbstractStep):
                                 "password": pg_config.extra.get("password", ""),
                             }
 
-                            reader = OraclePhysicalReader(src_params)
-                            writer = PostgreSQLPhysicalWriter(tgt_params)
+                            reader = resolve_physical_reader(src_config.system_type, src_params)
+                            writer = resolve_physical_writer(pg_config.system_type, tgt_params)
                             partition = TransportPartition(
                                 partition_id=f"part-{mig_id}-{s_name}",
                                 table_name=s_name,

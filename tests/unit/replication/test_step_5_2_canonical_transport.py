@@ -1,17 +1,17 @@
 """
 AKAAL Forensic Verification Tests — Step 5.2 Canonical Transport Reachability
 =============================================================================
-Verifies that DataTransportStep routes transport execution through canonical
-replication reader/writer abstractions, and asserts that legacy akaal.engine.api,
-legacy writer.py (TEXT column DDL), legacy reader.py, and legacy checkpoint.py (checkpoints.db)
-are 100% UNREACHABLE from canonical WF-011 execution.
+Verifies that DataTransportStep routes transport execution through the database-agnostic
+physical transport resolver (resolve_physical_reader and resolve_physical_writer), and
+asserts that legacy akaal.engine.api, legacy writer.py (TEXT column DDL), legacy reader.py,
+and legacy checkpoint.py (checkpoints.db) are 100% UNREACHABLE from canonical WF-011 execution.
 """
 
-import os
 import unittest
 from unittest.mock import MagicMock, patch
 
 from akaal.workflow.steps.migration_steps import DataTransportStep
+from akaal.replication.resolver import resolve_physical_reader, resolve_physical_writer
 from akaal.replication.readers.oracle_reader import OraclePhysicalReader
 from akaal.replication.writers.postgresql_writer import PostgreSQLPhysicalWriter
 
@@ -28,20 +28,33 @@ class TestStep52CanonicalTransportReachability(unittest.TestCase):
             "CRITICAL DEFECT: DataTransportStep still contains legacy import 'from akaal.engine.api import AkaalMigrationEngine'"
         )
 
-    def test_canonical_transport_imports_replication_readers_and_writers(self):
-        """Assert that DataTransportStep imports canonical OraclePhysicalReader and PostgreSQLPhysicalWriter."""
+    def test_canonical_transport_uses_generic_transport_resolver(self):
+        """Assert that DataTransportStep imports resolve_physical_reader and resolve_physical_writer."""
         import inspect
         source_code = inspect.getsource(DataTransportStep.execute)
         self.assertIn(
-            "from akaal.replication.readers.oracle_reader import OraclePhysicalReader",
+            "from akaal.replication.resolver import resolve_physical_reader, resolve_physical_writer",
             source_code,
-            "DataTransportStep must import canonical OraclePhysicalReader"
+            "DataTransportStep must use generic physical transport resolver"
         )
-        self.assertIn(
-            "from akaal.replication.writers.postgresql_writer import PostgreSQLPhysicalWriter",
-            source_code,
-            "DataTransportStep must import canonical PostgreSQLPhysicalWriter"
-        )
+
+    @patch("psycopg2.connect")
+    def test_resolver_oracle_to_postgresql(self, mock_pg_conn):
+        """Assert generic resolver returns OraclePhysicalReader for ORACLE and PostgreSQLPhysicalWriter for POSTGRESQL."""
+        reader = resolve_physical_reader("ORACLE", {"username": "SYSTEM", "password": "p", "database": "FREE"})
+        writer = resolve_physical_writer("POSTGRESQL", {"username": "postgres", "password": "p", "database": "db"})
+        self.assertIsInstance(reader, OraclePhysicalReader)
+        self.assertIsInstance(writer, PostgreSQLPhysicalWriter)
+
+    def test_resolver_unsupported_engine_pair_raises_clean_error(self):
+        """Assert generic resolver raises UNSUPPORTED_CAPABILITY when reader or writer capability is missing."""
+        with self.assertRaises(ValueError) as cm_reader:
+            resolve_physical_reader("UNSUPPORTED_SOURCE", {})
+        self.assertIn("UNSUPPORTED_CAPABILITY", str(cm_reader.exception))
+
+        with self.assertRaises(ValueError) as cm_writer:
+            resolve_physical_writer("UNSUPPORTED_TARGET", {})
+        self.assertIn("UNSUPPORTED_CAPABILITY", str(cm_writer.exception))
 
     @patch("akaal.engine.api.AkaalMigrationEngine")
     @patch("akaal.engine.writer.PostgreSQLTargetWriter")
