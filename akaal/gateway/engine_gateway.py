@@ -323,13 +323,15 @@ class EngineGateway:
     def create_project(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         proj_id = payload.get("project_id") or f"proj-{os.urandom(4).hex()}"
         name = payload.get("project_name", "Enterprise Migration Workspace")
-        self._projects[proj_id] = {"project_id": proj_id, "project_name": name, "status": "created"}
-        return {
+        proj_data = {
             "project_id": proj_id,
             "project_name": name,
             "status": "created",
             "created_at": "2026-08-04T16:00:00Z",
         }
+        self._projects[proj_id] = proj_data
+        self.state_store.set_state(proj_id, proj_data, category="project")
+        return proj_data
 
     def create_migration(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         from akaal.migration.target_identifier import validate_operator_configured_identifier, derive_akaal_generated_target_mapping, ConnectionAuthority
@@ -1268,6 +1270,8 @@ class EngineGateway:
         self._plans[plan_id] = plan_payload
         self._plans[mig_id_plan] = plan_payload
         self.state_store.set_state(plan_id, plan_payload, category="execution_plan")
+        if mig_id_plan:
+            self.state_store.set_state(mig_id_plan, plan_payload, category="execution_plan")
         return plan_payload
 
     def request_approval(self, payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -1311,9 +1315,14 @@ class EngineGateway:
             ]
         }
 
-        mig_meta = self._migrations.get(mig_id, {})
+        mig_meta = self._migrations.get(mig_id) or self.state_store.get_state(mig_id, category="migration") or {}
         saved_config = mig_meta.get("config", {}) if isinstance(mig_meta, dict) else {}
-        dag_dict = self._plans.get(mig_id) or self._plans.get(f"plan-{mig_id}")
+        dag_dict = (
+            self._plans.get(mig_id)
+            or self._plans.get(f"plan-{mig_id}")
+            or self.state_store.get_state(mig_id, category="execution_plan")
+            or self.state_store.get_state(f"plan-{mig_id}", category="execution_plan")
+        )
         plan_fingerprint = self.super_engine.compute_plan_fingerprint(saved_config, dag_dict)
 
         self.state_store.set_state(f"approval:{app_id}", packet, category="governance")
@@ -1391,9 +1400,14 @@ class EngineGateway:
         self.state_store.set_state(state_key, existing, category="governance")
         mig_id_ref = existing.get("migrationId") or existing.get("migration_id") or payload.get("migration_id")
         if mig_id_ref:
-            mig_meta = self._migrations.get(mig_id_ref, {})
+            mig_meta = self._migrations.get(mig_id_ref) or self.state_store.get_state(mig_id_ref, category="migration") or {}
             saved_config = mig_meta.get("config", {}) if isinstance(mig_meta, dict) else {}
-            dag_dict = self._plans.get(mig_id_ref) or self._plans.get(f"plan-{mig_id_ref}")
+            dag_dict = (
+                self._plans.get(mig_id_ref)
+                or self._plans.get(f"plan-{mig_id_ref}")
+                or self.state_store.get_state(mig_id_ref, category="execution_plan")
+                or self.state_store.get_state(f"plan-{mig_id_ref}", category="execution_plan")
+            )
             plan_fingerprint = self.super_engine.compute_plan_fingerprint(saved_config, dag_dict)
             
             app_payload = {

@@ -76,7 +76,14 @@ class CentralStateStore(IStateStore):
 
             try:
                 conn = self._get_connection()
-                val_json = json.dumps(value) if value is not None else "null"
+                def _json_default(obj: Any) -> Any:
+                    if hasattr(obj, "to_dict") and callable(obj.to_dict):
+                        return obj.to_dict()
+                    if hasattr(obj, "__dict__"):
+                        return {k: v for k, v in obj.__dict__.items() if not k.startswith("_")}
+                    return str(obj)
+
+                val_json = json.dumps(value, default=_json_default) if value is not None else "null"
                 with conn:
                     conn.execute("""
                     INSERT INTO central_state (category, state_key, val_json, updated_at)
@@ -85,8 +92,8 @@ class CentralStateStore(IStateStore):
                         val_json=excluded.val_json,
                         updated_at=DATETIME('now')
                     """, (category, key, val_json))
-            except Exception:
-                pass
+            except Exception as err:
+                logger.warning(f"[CentralStateStore] Persistence error for key '{key}' in category '{category}': {err}")
 
     def get_state(self, key: str, default: Any = None, category: str = "runtime") -> Any:
         with self._lock:
