@@ -1,13 +1,15 @@
 [build]
 jobs = 1
 
-[target.x86_64-pc-windows-msvc]
-rustflags = ["-C", "link-arg=/STACK:67108864"]
-
 [profile.dev]
-codegen-units = 16
+opt-level = 0
+debug = 0
+strip = "debuginfo"
+codegen-units = 1
+incremental = false
 
 [profile.dev.package."*"]
+opt-level = 0
 debug = 0
 
 [env]

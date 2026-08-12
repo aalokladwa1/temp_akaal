@@ -108,9 +108,10 @@ export const ipcService = {
         capabilityId,
         payload,
       });
-    } catch (err) {
-      console.warn(`IPC capability '${capabilityId}' failed:`, err);
-      return '';
+    } catch (err: any) {
+      const errMsg = typeof err === 'string' ? err : (err?.message || String(err));
+      console.warn(`IPC capability '${capabilityId}' failed:`, errMsg);
+      throw new Error(errMsg);
     }
   },
 

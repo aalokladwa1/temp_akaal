@@ -91,7 +91,7 @@ struct EngineResponsePacket {
     #[allow(dead_code)]
     request_id: Option<String>,
     status: String,
-    result: Option<String>,
+    result: Option<serde_json::Value>,
     error: Option<String>,
 }
 
@@ -329,7 +329,11 @@ impl EngineTransport for RealTransport {
         })?;
 
         if response.status == "success" {
-            Ok(response.result.unwrap_or_else(|| r#"{"status":"success"}"#.to_string()))
+            match response.result {
+                Some(serde_json::Value::String(s)) => Ok(s),
+                Some(val) => Ok(val.to_string()),
+                None => Ok(r#"{"status":"success"}"#.to_string()),
+            }
         } else {
             let err_msg = response.error.unwrap_or_else(|| "Unknown engine error".to_string());
             Err(BridgeError::TransportFailure(format!("Engine error for capability '{}': {}", capability, err_msg)))

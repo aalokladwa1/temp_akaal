@@ -101,7 +101,9 @@ class EngineGateway:
         self._migrations: Dict[str, Dict[str, Any]] = {}
         self._plans: Dict[str, Dict[str, Any]] = {}
         self._migration_results: Dict[str, Dict[str, Any]] = {}
+        self._preflight_operations: Dict[str, Dict[str, Any]] = {}
         import threading
+        self._preflight_lock = threading.Lock()
         self._super_engine = None
         self._register_workflow_manifest("mig-default")
 
@@ -435,6 +437,21 @@ class EngineGateway:
             plan_artifact = self._plans.get(plan_id) or self.state_store.get_state(plan_id, category="execution_plan")
             if plan_artifact:
                 config["execution_plan"] = plan_artifact
+
+        if "physical_spec" not in config:
+            config["physical_spec"] = {
+                "source_authority": src_auth.to_dict(),
+                "target_authority": tgt_auth.to_dict(),
+                "selected_scope": config.get("selected_scope", {}),
+                "tuning_rules": config.get("tuning_rules", {}),
+            }
+
+        if "physical_validation_context" not in config:
+            config["physical_validation_context"] = {
+                "validation_policy": config.get("tuning_rules", {}).get("validation_level", "CHECKSUM") if isinstance(config.get("tuning_rules"), dict) else "CHECKSUM",
+                "source_authority": src_auth.to_dict(),
+                "target_authority": tgt_auth.to_dict(),
+            }
 
         self._migrations[mig_id] = {"migration_id": mig_id, "migration_name": name, "status": "configured", "config": config}
         self._register_workflow_manifest(mig_id)
@@ -1247,6 +1264,9 @@ class EngineGateway:
             "dependency_graph": plan_dict.get("dependency_graph", {}),
             "status": "generated"
         }
+        mig_id_plan = payload.get("migration_id", "mig-default")
+        self._plans[plan_id] = plan_payload
+        self._plans[mig_id_plan] = plan_payload
         self.state_store.set_state(plan_id, plan_payload, category="execution_plan")
         return plan_payload
 
@@ -1290,8 +1310,24 @@ class EngineGateway:
                 {"author": payload.get("approver", "Aalok"), "timestamp": requested_at_str, "text": f"Approval requested. Policy Engine gate status: {gate_info.get('gate_status', 'PASSED')}."}
             ]
         }
+
+        mig_meta = self._migrations.get(mig_id, {})
+        saved_config = mig_meta.get("config", {}) if isinstance(mig_meta, dict) else {}
+        dag_dict = self._plans.get(mig_id) or self._plans.get(f"plan-{mig_id}")
+        plan_fingerprint = self.super_engine.compute_plan_fingerprint(saved_config, dag_dict)
+
         self.state_store.set_state(f"approval:{app_id}", packet, category="governance")
-        self.state_store.set_state(f"{mig_id}_approval", {"approval_id": app_id, "migration_id": mig_id, "status": packet["status"]}, category="governance")
+        self.state_store.set_state(
+            f"{mig_id}_approval",
+            {
+                "approval_id": app_id,
+                "migration_id": mig_id,
+                "status": packet["status"],
+                "approved_plan_fingerprint": plan_fingerprint,
+                "approved_by": payload.get("approver", "Aalok"),
+            },
+            category="governance"
+        )
         self.event_bus.publish("governance.approval_requested", packet)
 
         return {
@@ -1355,7 +1391,19 @@ class EngineGateway:
         self.state_store.set_state(state_key, existing, category="governance")
         mig_id_ref = existing.get("migrationId") or existing.get("migration_id") or payload.get("migration_id")
         if mig_id_ref:
-            self.state_store.set_state(f"{mig_id_ref}_approval", {"approval_id": app_id, "migration_id": mig_id_ref, "status": decision}, category="governance")
+            mig_meta = self._migrations.get(mig_id_ref, {})
+            saved_config = mig_meta.get("config", {}) if isinstance(mig_meta, dict) else {}
+            dag_dict = self._plans.get(mig_id_ref) or self._plans.get(f"plan-{mig_id_ref}")
+            plan_fingerprint = self.super_engine.compute_plan_fingerprint(saved_config, dag_dict)
+            
+            app_payload = {
+                "approval_id": app_id,
+                "migration_id": mig_id_ref,
+                "status": decision,
+                "approved_plan_fingerprint": plan_fingerprint,
+                "approved_by": approver,
+            }
+            self.state_store.set_state(f"{mig_id_ref}_approval", app_payload, category="governance")
         self.event_bus.publish("governance.decision", {"approval_id": app_id, "decision": decision, "approver": approver})
 
         return {
@@ -1390,19 +1438,75 @@ class EngineGateway:
                 "error_message": "Cannot start transport: migration_id is missing from payload."
             }
 
-        if workflow_id not in self._migrations:
-            return {
-                "stage": "start_transport",
-                "status": "failed",
-                "error_code": "UNKNOWN_MIGRATION_ID",
-                "error_message": f"Cannot start transport: Migration '{workflow_id}' has not been registered."
-            }
+        mig_meta = self._migrations.get(workflow_id)
+        if not mig_meta:
+            mig_meta = self.state_store.get_state(workflow_id, category="migration")
+            if mig_meta and isinstance(mig_meta, dict):
+                self._migrations[workflow_id] = mig_meta
+            else:
+                return {
+                    "stage": "start_transport",
+                    "status": "failed",
+                    "error_code": "UNKNOWN_MIGRATION_ID",
+                    "error_message": f"Cannot start transport: Migration '{workflow_id}' has not been registered."
+                }
 
         # 2. Resolve current spec + DAG
-        mig_meta = self._migrations.get(workflow_id, {})
         saved_config = mig_meta.get("config", {}) if isinstance(mig_meta, dict) else {}
-        merged_spec = {**saved_config, **payload}
-        dag_dict = self._plans.get(workflow_id)
+        transient_keys = {"action", "command", "operation_id", "async_start", "is_synthetic_test", "stage", "request_id", "session_id", "runtime_session_id"}
+        payload_spec_changes = {k: v for k, v in payload.items() if k not in transient_keys and k != "migration_id"}
+        merged_spec = {**saved_config, **payload_spec_changes}
+
+        # Auto-synthesize physical authority & contracts for wizard manifests if missing
+        if merged_spec.get("manifest_schema_version") or merged_spec.get("source_engine"):
+            if not merged_spec.get("source_authority") or not (isinstance(merged_spec.get("source_authority"), dict) and merged_spec["source_authority"].get("host")):
+                from akaal.replication.physical import ConnectionAuthority
+                src_engine_str = str(merged_spec.get("source_engine", "ORACLE"))
+                engine_type = "ORACLE" if "ora" in src_engine_str.lower() else ("POSTGRESQL" if "postg" in src_engine_str.lower() else "ORACLE")
+                src_auth = ConnectionAuthority(
+                    connection_id=merged_spec.get("source_connection_id", "conn-source-default"),
+                    role="SOURCE",
+                    engine=engine_type,
+                    host=merged_spec.get("source_host", "localhost"),
+                    port=int(merged_spec.get("source_port", 1521)),
+                    database=merged_spec.get("source_db", "ORCL"),
+                    username=merged_spec.get("source_user", "SYSTEM"),
+                    credential_ref=merged_spec.get("source_credential_ref", "cred-ref-source-default")
+                )
+                merged_spec["source_authority"] = src_auth.to_dict()
+
+            if not merged_spec.get("target_authority") or not (isinstance(merged_spec.get("target_authority"), dict) and merged_spec["target_authority"].get("host")):
+                from akaal.replication.physical import ConnectionAuthority
+                tgt_engine_str = str(merged_spec.get("target_engine", "POSTGRESQL"))
+                engine_type = "POSTGRESQL" if "postg" in tgt_engine_str.lower() else ("ORACLE" if "ora" in tgt_engine_str.lower() else "POSTGRESQL")
+                tgt_auth = ConnectionAuthority(
+                    connection_id=merged_spec.get("target_connection_id", "conn-target-default"),
+                    role="TARGET",
+                    engine=engine_type,
+                    host=merged_spec.get("target_host", "localhost"),
+                    port=int(merged_spec.get("target_port", 5432)),
+                    database=merged_spec.get("target_db", "postgres"),
+                    username=merged_spec.get("target_user", "postgres"),
+                    credential_ref=merged_spec.get("target_credential_ref", "cred-ref-target-default")
+                )
+                merged_spec["target_authority"] = tgt_auth.to_dict()
+
+            if "physical_spec" not in merged_spec:
+                merged_spec["physical_spec"] = {
+                    "source_authority": merged_spec.get("source_authority", {}),
+                    "target_authority": merged_spec.get("target_authority", {}),
+                    "selected_scope": merged_spec.get("selected_scope", {}),
+                    "tuning_rules": merged_spec.get("tuning_rules", {}),
+                }
+
+            if "physical_validation_context" not in merged_spec:
+                merged_spec["physical_validation_context"] = {
+                    "validation_policy": merged_spec.get("tuning_rules", {}).get("validation_level", "CHECKSUM") if isinstance(merged_spec.get("tuning_rules"), dict) else "CHECKSUM",
+                    "source_authority": merged_spec.get("source_authority", {}),
+                    "target_authority": merged_spec.get("target_authority", {}),
+                }
+
+        dag_dict = self._plans.get(workflow_id) or self.state_store.get_state(workflow_id, category="execution_plan")
 
         # Lazy Import SuperEngine Errors
         from akaal.engine.facade import (

@@ -562,12 +562,18 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
       
       let res: any;
       try {
-        res = typeof resRaw === 'string' ? JSON.parse(resRaw) : resRaw;
-        if (typeof res === 'string') {
-          res = JSON.parse(res);
+        if (typeof resRaw === 'object' && resRaw !== null) {
+          res = resRaw;
+        } else if (typeof resRaw === 'string' && resRaw.trim()) {
+          res = JSON.parse(resRaw);
+          if (typeof res === 'string') {
+            res = JSON.parse(res);
+          }
+        } else {
+          res = { connected: false, message: 'Empty response received from engine gateway' };
         }
-      } catch (parseErr) {
-        res = { connected: false, message: `Failed to parse connection response DTO: ${String(parseErr)}` };
+      } catch (parseErr: any) {
+        res = { connected: false, message: `Failed to parse connection response DTO: ${parseErr?.message || String(parseErr)}` };
       }
 
       // Safe Diagnostic Logging (TRD Security Mandate: NEVER log passwords or secrets)
@@ -647,12 +653,18 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
       
       let res: any;
       try {
-        res = typeof resRaw === 'string' ? JSON.parse(resRaw) : resRaw;
-        if (typeof res === 'string') {
-          res = JSON.parse(res);
+        if (typeof resRaw === 'object' && resRaw !== null) {
+          res = resRaw;
+        } else if (typeof resRaw === 'string' && resRaw.trim()) {
+          res = JSON.parse(resRaw);
+          if (typeof res === 'string') {
+            res = JSON.parse(res);
+          }
+        } else {
+          res = { connected: false, message: 'Empty response received from engine gateway' };
         }
-      } catch (parseErr) {
-        res = { connected: false, message: `Failed to parse connection response DTO: ${String(parseErr)}` };
+      } catch (parseErr: any) {
+        res = { connected: false, message: `Failed to parse connection response DTO: ${parseErr?.message || String(parseErr)}` };
       }
 
       // Safe Diagnostic Logging (TRD Security Mandate: NEVER log passwords or secrets)

@@ -27,39 +27,12 @@ default = ["custom-protocol"]
 custom-protocol = []
 
 [profile.dev]
-opt-level = 1
+opt-level = 0
 debug = 0
 strip = "debuginfo"
-codegen-units = 1
+codegen-units = 16
 incremental = false
-
-[profile.dev.build-override]
-opt-level = 0
-codegen-units = 1
 
 [profile.dev.package."*"]
 opt-level = 0
 debug = 0
-
-[profile.dev.package.windows]
-opt-level = "s"
-codegen-units = 1
-debug = 0
-
-[profile.dev.package.windows-sys]
-opt-level = "s"
-codegen-units = 1
-debug = 0
-
-[profile.dev.package.tauri]
-opt-level = "s"
-codegen-units = 1
-debug = 0
-
-[profile.dev.package.tauri-utils]
-opt-level = "s"
-codegen-units = 1
-debug = 0
-
-
-

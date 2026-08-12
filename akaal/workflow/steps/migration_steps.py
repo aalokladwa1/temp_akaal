@@ -515,53 +515,62 @@ class DataTransportStep(AbstractStep):
                     executed_real_sql = False
                     if src_conn and src_conn != "mock_oracle_conn" and hasattr(src_conn, "cursor"):
                         try:
-                            from akaal.engine.api import AkaalMigrationEngine
-                            from akaal.engine.spec import ConnectionAuthorityDTO, TuningPolicy
+                            from akaal.replication.readers.oracle_reader import OraclePhysicalReader
+                            from akaal.replication.writers.postgresql_writer import PostgreSQLPhysicalWriter
+                            from akaal.engine.spec import TransportPartition, PartitionStrategy, BatchMetadata
 
-                            src_auth = ConnectionAuthorityDTO.create(
-                                role="SOURCE",
-                                engine=src_config.system_type.value,
-                                host=src_config.host,
-                                port=src_config.port,
-                                database=src_config.database_name,
-                                username=src_config.extra.get("username", "SYSTEM"),
-                                credential_ref=src_config.credentials_ref,
-                            )
-                            tgt_auth = ConnectionAuthorityDTO.create(
-                                role="TARGET",
-                                engine="POSTGRESQL",
-                                host=pg_config.host,
-                                port=pg_config.port,
-                                database=pg_config.database_name,
-                                username=pg_config.extra.get("username", "postgres"),
-                                credential_ref=pg_config.credentials_ref,
-                            )
+                            src_params = {
+                                "host": src_config.host,
+                                "port": src_config.port,
+                                "database": src_config.database_name,
+                                "username": src_config.extra.get("username", "SYSTEM"),
+                                "password": src_config.extra.get("password", ""),
+                            }
+                            tgt_params = {
+                                "host": pg_config.host,
+                                "port": pg_config.port,
+                                "database": pg_config.database_name,
+                                "username": pg_config.extra.get("username", "postgres"),
+                                "password": pg_config.extra.get("password", ""),
+                            }
 
-                            engine = AkaalMigrationEngine()
-                            spec = engine.register_specification(
-                                migration_id=mig_id,
-                                migration_name=f"Migration-{mig_id}",
-                                project_name="Enterprise-Project",
-                                source_auth=src_auth,
-                                target_auth=tgt_auth,
-                                selected_scope={"tables": [{"object_name": s_name}]},
-                                tuning_policy=TuningPolicy(parallelism=1, batch_size=25000, page_size=5000),
+                            reader = OraclePhysicalReader(src_params)
+                            writer = PostgreSQLPhysicalWriter(tgt_params)
+                            partition = TransportPartition(
+                                partition_id=f"part-{mig_id}-{s_name}",
+                                table_name=s_name,
+                                source_schema=s_schema,
+                                target_schema=t_schema,
+                                columns=[],
+                                partition_type=PartitionStrategy.FULL_TABLE,
                             )
-
-                            res = engine.start_migration(
-                                spec=spec,
-                                source_pass=src_config.extra.get("password", ""),
-                                target_pass=pg_config.extra.get("password", ""),
+                            reader.open_partition(partition)
+                            batch_meta = BatchMetadata(
+                                batch_id=f"b-{mig_id}-1",
+                                partition_id=partition.partition_id,
+                                batch_sequence=1,
+                                row_count=0,
                             )
 
-                            r_count_batch = res.get("total_rows", 0)
-                            table_rows_read = r_count_batch
-                            table_rows_written = r_count_batch
-                            rows_written += r_count_batch
-                            rows_read_total += r_count_batch
-                            executed_real_sql = True
+                            batch_data, meta = reader.read_batch(25000)
+                            if batch_data and reader.cols_info:
+                                written = writer.write_batch(
+                                    table_name=o_name,
+                                    columns=reader.cols_info,
+                                    data=batch_data,
+                                    batch_meta=meta or batch_meta,
+                                    target_schema=t_schema,
+                                )
+                                writer.commit()
+                                table_rows_read = len(batch_data)
+                                table_rows_written = written
+                                rows_written += written
+                                rows_read_total += len(batch_data)
+                                executed_real_sql = True
+                            reader.close()
+                            writer.close()
                         except Exception as real_trans_err:
-                            logger.warning(f"[DataTransportStep] Engine transport fallback triggered for {s_schema}.{s_name}: {real_trans_err}")
+                            logger.warning(f"[DataTransportStep] Canonical replication transport fallback triggered for {s_schema}.{s_name}: {real_trans_err}")
                             with src_conn.cursor() as s_cur:
                                 s_cur.execute(f"SELECT * FROM {s_schema}.{s_name}")
                                 col_names = [desc[0].lower() for desc in s_cur.description]
