@@ -1086,7 +1086,7 @@ class EngineGateway:
             dur_sec_val = eta_dto.get("estimated_duration_seconds")
             dur_formatted = eta_dto.get("estimated_duration_display") if dur_sec_val is not None else None
 
-            return {
+            preflight_res = {
                 "operation_id": op_id,
                 "discovery_snapshot_id": snap_id,
                 "advisor_report_id": adv_id,
@@ -1101,6 +1101,7 @@ class EngineGateway:
                 "schemas": [s.upper() if isinstance(s, str) else str(s) for s in sorted_schemas],
                 "table_count": total_tables_count,
                 "table_names": [t["object_name"] for t in all_table_objs],
+                "all_table_objs": all_table_objs,
                 "column_count": col_count,
                 "row_count": total_rows_sum,
                 "view_count": object_counts_by_type.get("View", 0),
@@ -1128,6 +1129,10 @@ class EngineGateway:
                 "preflight_status": "PASSED" if not err_list else "FAILED",
                 "elapsed_preflight_ms": 150.0,
             }
+            self.state_store.set_state(snap_id, preflight_res, category="discovery")
+            if adv_id:
+                self.state_store.set_state(adv_id, preflight_res, category="advisor")
+            return preflight_res
         finally:
             loop.close()
 
