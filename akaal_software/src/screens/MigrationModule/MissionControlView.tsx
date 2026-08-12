@@ -212,9 +212,14 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
 
           if (st === 'COMPLETED' || act.includes('COMPLETE') || stg === 'completed') {
             setControlState('COMPLETED');
+            isTerminalRef.current = true;
             fetchMigrationResult();
           } else if (st === 'FAILED' || st === 'ERROR' || act.includes('FAIL') || act.includes('ERROR')) {
             setControlState('FAILED');
+            isTerminalRef.current = true;
+          } else if (st === 'TERMINATED') {
+            setControlState('FAILED');
+            isTerminalRef.current = true;
           } else if (st === 'PAUSED' || act.includes('PAUSE')) {
             setControlState('PAUSED');
           } else if (stg === 'validation' || stg === 'validator') {
@@ -246,12 +251,15 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
     }
   };
 
+  const isTerminalRef = useRef<boolean>(false);
+
   useEffect(() => {
     let isMounted = true;
+    isTerminalRef.current = false;
     fetchRuntimeSnapshot();
 
     const interval = setInterval(() => {
-      if (isMounted) {
+      if (isMounted && !isTerminalRef.current) {
         fetchRuntimeSnapshot();
         setSnapshotAgeMs((prev) => (prev > 1500 ? 120 : prev + 120));
       }
