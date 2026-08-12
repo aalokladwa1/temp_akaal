@@ -79,9 +79,11 @@ class AkaalSuperEngine:
 
     def __init__(self, lifecycle_manager: Optional[Any] = None):
         from akaal.integration.composition_root import EnterpriseLifecycleManager
+        from akaal.events.bus import EnterpriseEventBus
         self.lifecycle_manager = lifecycle_manager or EnterpriseLifecycleManager()
         self.context: Any = self.lifecycle_manager.bootstrap()
         self.state_store = CentralStateStore()
+        self.event_bus = getattr(self.context, "event_bus", None) or EnterpriseEventBus()
 
     @classmethod
     def canonicalize_for_fingerprint(cls, obj: Any) -> Any:
@@ -202,18 +204,37 @@ class AkaalSuperEngine:
         wf = self.context.workflow_engine
         logger.info(f"[SUPER ENGINE] Delegating migration '{workflow_id}' (fingerprint={fingerprint}) to WorkflowEngine...")
 
-        # Derive target tables and row counts from spec or plan
-        target_objs = (spec_dict.get("selected_scope", {}).get("objects") if isinstance(spec_dict.get("selected_scope"), dict) else None) or [
-            {"object_name": "CUSTOMERS", "object_type": "TABLE", "schema_name": "SYSTEM", "target_schema": "public", "rows": 15000},
-            {"object_name": "ORDERS", "object_type": "TABLE", "schema_name": "SYSTEM", "target_schema": "public", "rows": 25000},
-            {"object_name": "LINE_ITEMS", "object_type": "TABLE", "schema_name": "SYSTEM", "target_schema": "public", "rows": 60000},
-            {"object_name": "PRODUCTS", "object_type": "TABLE", "schema_name": "SYSTEM", "target_schema": "public", "rows": 5000},
-            {"object_name": "INVENTORY", "object_type": "TABLE", "schema_name": "SYSTEM", "target_schema": "public", "rows": 12000},
-        ]
+        # Derive target tables and row counts strictly from user-configured migration spec or plan
+        target_objs = []
+        if isinstance(spec_dict, dict):
+            scope = spec_dict.get("selected_scope")
+            if isinstance(scope, dict) and scope.get("objects") and isinstance(scope["objects"], list):
+                target_objs = [o for o in scope["objects"] if isinstance(o, dict)]
+            elif spec_dict.get("objects") and isinstance(spec_dict["objects"], list):
+                target_objs = [o for o in spec_dict["objects"] if isinstance(o, dict)]
+
+        if not target_objs and isinstance(dag_dict, dict):
+            graph = dag_dict.get("execution_graph") or dag_dict.get("stages") or []
+            if isinstance(graph, list):
+                for item in graph:
+                    if isinstance(item, dict) and (item.get("object_name") or item.get("name")):
+                        target_objs.append(item)
+
+        # Fall back to persisted user migration configuration in CentralStateStore if spec_dict is minimal
+        if not target_objs:
+            stored_spec = self.state_store.get_state(workflow_id, category="migration")
+            if isinstance(stored_spec, dict):
+                scope = stored_spec.get("selected_scope")
+                if isinstance(scope, dict) and scope.get("objects") and isinstance(scope["objects"], list):
+                    target_objs = [o for o in scope["objects"] if isinstance(o, dict)]
+                elif stored_spec.get("objects") and isinstance(stored_spec["objects"], list):
+                    target_objs = [o for o in stored_spec["objects"] if isinstance(o, dict)]
+
         tot_tbls = len(target_objs)
-        tot_rows = sum(obj.get("rows", 10000) for obj in target_objs)
+        tot_rows = sum((int(obj.get("rows") or obj.get("row_count") or obj.get("source_rows") or 0)) for obj in target_objs)
 
         # Initialize progress state in CentralStateStore
+        first_tbl_name = (target_objs[0].get("object_name") or target_objs[0].get("name")) if target_objs else "-"
         self.state_store.update_progress(workflow_id, {
             "migration_id": workflow_id,
             "status": "RUNNING",
@@ -224,7 +245,7 @@ class AkaalSuperEngine:
             "rows_total": tot_rows,
             "throughput_mbps": 0.0,
             "rows_per_sec": 0,
-            "current_table": target_objs[0]["object_name"],
+            "current_table": first_tbl_name,
             "checkpoint_lsn": "lsn-00001-init"
         })
 
@@ -232,15 +253,15 @@ class AkaalSuperEngine:
             import time
             # Stage 1: Target Schema DDL Execution
             self.state_store.set_state(f"{workflow_id}_status", {"status": "RUNNING", "current_stage": "schema_exec"}, category="runtime")
-            self.context.event_bus.publish("migration.stage", {"migration_id": workflow_id, "stage": "schema_exec", "message": "Executing target schema DDL & constraints..."})
+            self.event_bus.publish("migration.stage", {"migration_id": workflow_id, "stage": "schema_exec", "message": "Executing target schema DDL & constraints..."})
             time.sleep(0.5)
 
             # Stage 2: Parallel Stream Data Transport
             self.state_store.set_state(f"{workflow_id}_status", {"status": "RUNNING", "current_stage": "transport"}, category="runtime")
             rows_accum = 0
             for idx, obj in enumerate(target_objs):
-                tbl_name = obj.get("object_name", f"TABLE_{idx+1}")
-                tbl_rows = obj.get("rows", 10000)
+                tbl_name = obj.get("object_name") or obj.get("name") or f"TABLE_{idx+1}"
+                tbl_rows = int(obj.get("rows") or obj.get("row_count") or obj.get("source_rows") or 10000)
                 chunk_size = max(1, tbl_rows // 3)
                 
                 for step in range(3):
@@ -260,7 +281,7 @@ class AkaalSuperEngine:
                         "current_table": f"{obj.get('schema_name', 'SYSTEM')}.{tbl_name}",
                         "checkpoint_lsn": f"chkpt-{workflow_id}-tbl{idx+1}-blk{step+1}"
                     })
-                    self.context.event_bus.publish("migration.batch", {
+                    self.event_bus.publish("migration.batch", {
                         "migration_id": workflow_id,
                         "topic": f"data_transport.{tbl_name}",
                         "payload": {
@@ -286,12 +307,12 @@ class AkaalSuperEngine:
                 "throughput_mbps": 0.0,
                 "current_table": "MERKLE_ROOT_VERIFICATION"
             })
-            self.context.event_bus.publish("migration.stage", {"migration_id": workflow_id, "stage": "validation", "message": "SHA-256 Merkle tree physical checksum validation passed."})
+            self.event_bus.publish("migration.stage", {"migration_id": workflow_id, "stage": "validation", "message": "SHA-256 Merkle tree physical checksum validation passed."})
             time.sleep(0.3)
 
             # Stage 4: Digital Trust Certification
             self.state_store.set_state(f"{workflow_id}_status", {"status": "RUNNING", "current_stage": "certification"}, category="runtime")
-            self.context.event_bus.publish("migration.stage", {"migration_id": workflow_id, "stage": "certification", "message": "Digital trust certificate generated & sealed."})
+            self.event_bus.publish("migration.stage", {"migration_id": workflow_id, "stage": "certification", "message": "Digital trust certificate generated & sealed."})
             time.sleep(0.2)
         else:
             # Physical Execution Path
