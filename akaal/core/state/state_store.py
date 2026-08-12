@@ -69,31 +69,36 @@ class CentralStateStore(IStateStore):
             """)
 
     def set_state(self, key: str, value: Any, category: str = "runtime") -> None:
+        import dataclasses
+        import enum
+
+        def _json_default(obj: Any) -> Any:
+            if hasattr(obj, "to_dict") and callable(obj.to_dict):
+                return obj.to_dict()
+            if dataclasses.is_dataclass(obj):
+                return dataclasses.asdict(obj)
+            if isinstance(obj, enum.Enum):
+                return obj.value
+            if hasattr(obj, "__dict__"):
+                return {k: v for k, v in obj.__dict__.items() if not k.startswith("_")}
+            raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable for CentralStateStore")
+
+        val_json = json.dumps(value, default=_json_default) if value is not None else "null"
+
         with self._lock:
+            conn = self._get_connection()
+            with conn:
+                conn.execute("""
+                INSERT INTO central_state (category, state_key, val_json, updated_at)
+                VALUES (?, ?, ?, DATETIME('now'))
+                ON CONFLICT(category, state_key) DO UPDATE SET
+                    val_json=excluded.val_json,
+                    updated_at=DATETIME('now')
+                """, (category, key, val_json))
+
             if category not in self._state:
                 self._state[category] = {}
             self._state[category][key] = value
-
-            try:
-                conn = self._get_connection()
-                def _json_default(obj: Any) -> Any:
-                    if hasattr(obj, "to_dict") and callable(obj.to_dict):
-                        return obj.to_dict()
-                    if hasattr(obj, "__dict__"):
-                        return {k: v for k, v in obj.__dict__.items() if not k.startswith("_")}
-                    return str(obj)
-
-                val_json = json.dumps(value, default=_json_default) if value is not None else "null"
-                with conn:
-                    conn.execute("""
-                    INSERT INTO central_state (category, state_key, val_json, updated_at)
-                    VALUES (?, ?, ?, DATETIME('now'))
-                    ON CONFLICT(category, state_key) DO UPDATE SET
-                        val_json=excluded.val_json,
-                        updated_at=DATETIME('now')
-                    """, (category, key, val_json))
-            except Exception as err:
-                logger.warning(f"[CentralStateStore] Persistence error for key '{key}' in category '{category}': {err}")
 
     def get_state(self, key: str, default: Any = None, category: str = "runtime") -> Any:
         with self._lock:

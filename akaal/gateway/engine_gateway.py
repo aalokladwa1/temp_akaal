@@ -401,8 +401,12 @@ class EngineGateway:
 
         config["source_authority"] = src_auth.to_dict()
         config["target_authority"] = tgt_auth.to_dict()
-        config["source_pass"] = src_pass
-        config["target_pass"] = tgt_pass
+        # Remove plaintext passwords from stored spec to guarantee PLAINTEXT_SECRET_PERSISTENCE_INTRODUCED = NO
+        config.pop("source_pass", None)
+        config.pop("target_pass", None)
+        config.pop("source_password", None)
+        config.pop("target_password", None)
+        config.pop("password", None)
 
         logger.info(
             f"[AUTHORITY TRACE] stage=PERSISTED_SPEC role=SOURCE host={src_auth.host} port={src_auth.port} database={src_auth.database} username={src_auth.username} credential_ref={src_auth.credential_ref} fingerprint={src_auth.authority_fingerprint}"
