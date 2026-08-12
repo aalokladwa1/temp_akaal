@@ -648,6 +648,8 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
         instance_name: targetInstanceName,
         username: targetUser,
         password: targetPass,
+        ssl: targetSsl,
+        ssl_mode: targetSsl ? 'require' : 'disable',
       };
       const resRaw = await ipcService.invokeEngineCapability('test_connection', JSON.stringify(payload));
       
@@ -1005,6 +1007,12 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
           business_owner: businessOwner,
           environment,
           priority,
+          migration_scope: migScope,
+          execution_strategy: strategy,
+          description: description,
+          source_privilege: sourcePrivilege,
+          target_ssl: targetSsl,
+          target_ssl_mode: targetSsl ? 'require' : 'disable',
           created_at: new Date().toISOString(),
         },
       };
@@ -1506,7 +1514,7 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
                 </div>
                 {isOracleEngine(sourceEngine) && (
                   <div>
-                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6, color: '#3B82F6' }}>Connection Mode</label>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Connection Mode</label>
                     <select
                       value={sourcePrivilege === 'SYSDBA' ? 'SYSDBA' : 'NORMAL'}
                       onChange={(e) => {
@@ -1516,7 +1524,7 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
                         setDatabases([]);
                         setSession((prev) => ({ ...prev, discovery: { status: 'idle' } }));
                       }}
-                      style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid #3B82F6', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 13, fontWeight: 600 }}
+                      style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text-primary)', fontSize: 13 }}
                     >
                       <option value="NORMAL">Normal User</option>
                       <option value="SYSDBA">SYSDBA</option>
