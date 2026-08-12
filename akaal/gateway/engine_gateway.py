@@ -1686,7 +1686,9 @@ class EngineGateway:
             self.workflow_engine.pause(mig_id)
         except Exception:
             pass
-        self.state_store.set_state(f"{mig_id}_status", {"status": "PAUSED", "mode": mode}, category="runtime")
+        if hasattr(self.super_engine, "cancel_execution"):
+            self.super_engine.cancel_execution(mig_id)
+        self.state_store.set_state(f"{mig_id}_status", {"status": "PAUSED"}, category="runtime")
         self.event_bus.publish("migration.paused", {"migration_id": mig_id, "mode": mode})
         return {
             "migration_id": mig_id,
@@ -1715,6 +1717,8 @@ class EngineGateway:
             self.workflow_engine.cancel(mig_id)
         except Exception:
             pass
+        if hasattr(self.super_engine, "cancel_execution"):
+            self.super_engine.cancel_execution(mig_id)
         self.runtime_registry.unregister_runtime(mig_id)
         self.state_store.set_state(f"{mig_id}_status", {"status": "TERMINATED"}, category="runtime")
         self.event_bus.publish("migration.terminated", {"migration_id": mig_id})

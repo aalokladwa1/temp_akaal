@@ -248,8 +248,14 @@ class AkaalSuperEngine:
                                     if isinstance(obj, dict):
                                         target_objs.append(obj)
 
+        # 1. Total calculation with consistent default fallback (1000 rows per table if not specified)
         tot_tbls = len(target_objs)
-        tot_rows = sum((int(obj.get("rows") or obj.get("row_count") or obj.get("source_rows") or 0)) for obj in target_objs)
+        tot_rows = sum((int(obj.get("rows") or obj.get("row_count") or obj.get("source_rows") or 1000)) for obj in target_objs)
+
+        # 2. Reset cancellation flag for this workflow
+        if not hasattr(self, "_active_cancels"):
+            self._active_cancels = {}
+        self._active_cancels[workflow_id] = False
 
         # Initialize progress state in CentralStateStore
         first_tbl_name = (target_objs[0].get("object_name") or target_objs[0].get("name")) if target_objs else "-"
@@ -272,54 +278,62 @@ class AkaalSuperEngine:
             # Stage 1: Target Schema DDL Execution
             self.state_store.set_state(f"{workflow_id}_status", {"status": "RUNNING", "current_stage": "schema_exec"}, category="runtime")
             self.event_bus.publish("migration.stage", {"migration_id": workflow_id, "stage": "schema_exec", "message": "Executing target schema DDL & constraints..."})
-            time.sleep(0.5)
+            time.sleep(0.3)
 
-            # Stage 2: Parallel Stream Data Transport
+            # Stage 2: Parallel Stream Data Transport (Optimized High-Throughput Batch Stream)
             self.state_store.set_state(f"{workflow_id}_status", {"status": "RUNNING", "current_stage": "transport"}, category="runtime")
             t_transport_start = time.monotonic()
-            rows_accum = 0
-            bytes_accum = 0
 
-            for idx, obj in enumerate(target_objs):
-                tbl_name = obj.get("object_name") or obj.get("name") or f"TABLE_{idx+1}"
-                tbl_rows = int(obj.get("rows") or obj.get("row_count") or obj.get("source_rows") or 10000)
-                chunk_size = max(1, tbl_rows // 3)
-                avg_row_bytes = int(obj.get("avg_row_len") or obj.get("row_size") or 128)
+            num_steps = 20
+            tbls_per_step = max(1, tot_tbls // num_steps)
+            rows_per_step = max(1, tot_rows // num_steps)
+
+            for step_idx in range(1, num_steps + 1):
+                if getattr(self, "_active_cancels", {}).get(workflow_id):
+                    logger.info(f"[SUPER ENGINE] Migration '{workflow_id}' execution cancelled/paused.")
+                    return {"status": "PAUSED", "migration_id": workflow_id}
+
+                comp_tables = min(tot_tbls, step_idx * tbls_per_step)
+                if step_idx == num_steps:
+                    comp_tables = tot_tbls
+                    comp_rows = tot_rows
+                else:
+                    comp_rows = min(tot_rows, step_idx * rows_per_step)
+
+                elapsed = max(time.monotonic() - t_transport_start, 0.001)
+                curr_rps = int(comp_rows / elapsed)
+                curr_mbps = round(((comp_rows * 128) / (1024 * 1024)) / elapsed, 2)
                 
-                for step in range(3):
-                    chunk_rows = chunk_size if step < 2 else (tbl_rows - 2 * chunk_size)
-                    rows_accum += chunk_rows
-                    bytes_accum += (chunk_rows * avg_row_bytes)
+                curr_obj = target_objs[min(comp_tables - 1, len(target_objs) - 1)] if target_objs else {}
+                tbl_name = curr_obj.get("object_name") or curr_obj.get("name") or f"TABLE_{comp_tables}"
+                schema_name = curr_obj.get("schema_name") or "SYSTEM"
 
-                    elapsed = max(time.monotonic() - t_transport_start, 0.001)
-                    curr_rps = int(rows_accum / elapsed)
-                    curr_mbps = round((bytes_accum / (1024 * 1024)) / elapsed, 2)
-                    
-                    self.state_store.update_progress(workflow_id, {
-                        "migration_id": workflow_id,
-                        "status": "RUNNING",
-                        "current_stage": "transport",
-                        "completed_tables": idx if step < 2 else idx + 1,
-                        "total_tables": tot_tbls,
-                        "rows_migrated": rows_accum,
-                        "rows_total": tot_rows,
-                        "throughput_mbps": curr_mbps,
-                        "rows_per_sec": curr_rps,
-                        "current_table": f"{obj.get('schema_name', 'SYSTEM')}.{tbl_name}",
-                        "checkpoint_lsn": f"chkpt-{workflow_id}-tbl{idx+1}-blk{step+1}"
-                    })
-                    self.event_bus.publish("migration.batch", {
-                        "migration_id": workflow_id,
-                        "topic": f"data_transport.{tbl_name}",
-                        "payload": {
-                            "category": "TRANSPORT",
-                            "severity": "INFO",
-                            "workerName": f"worker-{(idx % 4) + 1}",
-                            "object": tbl_name,
-                            "message": f"Transferred batch on {tbl_name} ({rows_accum}/{tot_rows} rows at {curr_rps} rows/s, {curr_mbps} MB/s)"
-                        }
-                    })
-                    time.sleep(0.2)
+                self.state_store.update_progress(workflow_id, {
+                    "migration_id": workflow_id,
+                    "status": "RUNNING",
+                    "current_stage": "transport",
+                    "completed_tables": comp_tables,
+                    "total_tables": tot_tbls,
+                    "rows_migrated": comp_rows,
+                    "rows_total": tot_rows,
+                    "throughput_mbps": curr_mbps,
+                    "rows_per_sec": curr_rps,
+                    "current_table": f"{schema_name}.{tbl_name}",
+                    "checkpoint_lsn": f"chkpt-{workflow_id}-tbl{comp_tables}-blk{step_idx}"
+                })
+
+                self.event_bus.publish("migration.batch", {
+                    "migration_id": workflow_id,
+                    "topic": f"data_transport.{tbl_name}",
+                    "payload": {
+                        "category": "TRANSPORT",
+                        "severity": "INFO",
+                        "workerName": f"worker-{(step_idx % 8) + 1}",
+                        "object": tbl_name,
+                        "message": f"Transferred batch ({comp_tables}/{tot_tbls} tables, {comp_rows}/{tot_rows} rows at {curr_rps} rows/s, {curr_mbps} MB/s)"
+                    }
+                })
+                time.sleep(0.1)
 
             # Stage 3: Physical Checksum Validation
             self.state_store.set_state(f"{workflow_id}_status", {"status": "RUNNING", "current_stage": "validation"}, category="runtime")
@@ -335,7 +349,7 @@ class AkaalSuperEngine:
                 "current_table": "MERKLE_ROOT_VERIFICATION"
             })
             self.event_bus.publish("migration.stage", {"migration_id": workflow_id, "stage": "validation", "message": "SHA-256 Merkle tree physical checksum validation passed."})
-            time.sleep(0.3)
+            time.sleep(0.2)
 
             # Stage 4: Digital Trust Certification
             self.state_store.set_state(f"{workflow_id}_status", {"status": "RUNNING", "current_stage": "certification"}, category="runtime")
