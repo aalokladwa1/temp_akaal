@@ -230,6 +230,18 @@ class AkaalSuperEngine:
                 elif stored_spec.get("objects") and isinstance(stored_spec["objects"], list):
                     target_objs = [o for o in stored_spec["objects"] if isinstance(o, dict)]
 
+        # Fall back to preflight discovery snapshot if scope was not explicitly passed in payload
+        if not target_objs:
+            snap_id = spec_dict.get("discovery_snapshot_id") if isinstance(spec_dict, dict) else None
+            disc_snap = self.state_store.get_state(snap_id) if snap_id else None
+            if isinstance(disc_snap, dict) and disc_snap.get("catalog_hierarchy"):
+                for db in disc_snap["catalog_hierarchy"]:
+                    for sch in db.get("schemas", []):
+                        for grp in sch.get("object_groups", []):
+                            for obj in grp.get("objects", []):
+                                if isinstance(obj, dict):
+                                    target_objs.append(obj)
+
         tot_tbls = len(target_objs)
         tot_rows = sum((int(obj.get("rows") or obj.get("row_count") or obj.get("source_rows") or 0)) for obj in target_objs)
 

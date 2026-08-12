@@ -978,7 +978,7 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
           objects: databases.flatMap((d) =>
             d.schemas.flatMap((s) =>
               s.object_groups.flatMap((g) =>
-                g.objects.filter((o) => o.selected).map((o) => ({
+                g.objects.filter((o) => o.selected !== false).map((o) => ({
                   object_id: o.object_id,
                   object_name: o.object_name,
                   object_type: o.object_type,
