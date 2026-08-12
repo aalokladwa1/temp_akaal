@@ -214,6 +214,7 @@ class PreStartValidationStep(AbstractStep):
             logger.info("[PRE-START VALIDATION] PASSED cleanly.")
             return WorkflowStepResult(
                 step_id=self.step_id,
+                success=True,
                 status=StepStatus.COMPLETED,
                 context_updates={"pre_start_validation_passed": True, "logs": ["PRE_START_VALIDATION PASSED"]}
             )
