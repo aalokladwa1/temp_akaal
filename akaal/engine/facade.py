@@ -248,9 +248,20 @@ class AkaalSuperEngine:
                                     if isinstance(obj, dict):
                                         target_objs.append(obj)
 
-        # 1. Total calculation with consistent default fallback (1000 rows per table if not specified)
+        # 1. Total calculation with dynamic row resolution from selected scope (checks estimated_rows, rows, row_count, source_rows)
         tot_tbls = len(target_objs)
-        tot_rows = sum((int(obj.get("rows") or obj.get("row_count") or obj.get("source_rows") or 1000)) for obj in target_objs)
+        tot_rows = sum(
+            int(
+                obj.get("estimated_rows")
+                or obj.get("rows")
+                or obj.get("row_count")
+                or obj.get("source_rows")
+                or 0
+            )
+            for obj in target_objs
+        )
+        if tot_rows == 0 and tot_tbls > 0:
+            tot_rows = tot_tbls * 1000
 
         # 2. Reset cancellation flag for this workflow
         if not hasattr(self, "_active_cancels"):
@@ -372,7 +383,7 @@ class AkaalSuperEngine:
         else:
             # Physical Execution Path
             logger.info("[STAGE 1/5] Pre-Start Authority Validation — Executing live physical connectivity check...")
-            from akaal.workflow.steps.migration_steps import PreStartValidationStep, SchemaExecutionStep, DataTransportStep, ChecksumValidationStep
+            from akaal.workflow.steps.migration_steps import PreStartValidationStep, SchemaExecutionStep, DataTransportStep, ValidationStep
             from akaal.workflow.models.context import WorkflowContext
             from akaal.workflow.models.sub_contexts import ExecutionContext, RuntimeContext, UserContext
 
@@ -406,7 +417,7 @@ class AkaalSuperEngine:
 
             # Validation Step
             logger.info("[STAGE 4/5] Physical Checksum Validation — Reconciling Oracle vs PostgreSQL row counts...")
-            val_step = ChecksumValidationStep()
+            val_step = ValidationStep()
             val_res = val_step.execute(wf_ctx)
             if not val_res.success:
                 raise RuntimeError(f"Physical checksum validation failed: {val_res.errors}")
