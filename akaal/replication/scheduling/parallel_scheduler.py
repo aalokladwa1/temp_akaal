@@ -17,8 +17,7 @@ from akaal.engine.spec import (
     MigrationState,
     BatchMetadata,
 )
-from akaal.replication.readers.oracle_reader import OraclePhysicalReader
-from akaal.replication.writers.postgresql_writer import PostgreSQLPhysicalWriter
+from akaal.replication.resolver import resolve_physical_reader, resolve_physical_writer
 from akaal.replication.checkpointing.checkpoint_store import CheckpointStore
 from akaal.core.state.state_store import CentralStateStore
 
@@ -60,8 +59,10 @@ def worker_process_partition_task_canonical(
         "status": "RUNNING"
     })
 
-    reader = OraclePhysicalReader(source_params)
-    writer = PostgreSQLPhysicalWriter(target_params)
+    src_sys = source_params.get("system_type", "ORACLE")
+    tgt_sys = target_params.get("system_type", "POSTGRESQL")
+    reader = resolve_physical_reader(src_sys, source_params)
+    writer = resolve_physical_writer(tgt_sys, target_params)
 
     start_t = time.time()
     total_written = 0
