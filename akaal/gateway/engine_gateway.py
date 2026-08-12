@@ -1622,6 +1622,28 @@ class EngineGateway:
         self.event_bus.publish("migration.started", {"migration_id": workflow_id, "operation_id": op_id, "stage": "start_transport"})
 
         # 9. Spawn execution boundary background thread
+        src_auth_dict = merged_spec.get("source_authority") or merged_spec.get("physical_spec", {}).get("source_authority") or {}
+        tgt_auth_dict = merged_spec.get("target_authority") or merged_spec.get("physical_spec", {}).get("target_authority") or {}
+
+        src_params_built = {
+            "engine": src_auth_dict.get("engine") or merged_spec.get("source_engine") or "ORACLE",
+            "host": src_auth_dict.get("host") or merged_spec.get("source_host") or "localhost",
+            "port": int(src_auth_dict.get("port") or merged_spec.get("source_port") or 1521),
+            "database": src_auth_dict.get("database") or merged_spec.get("source_db") or "instance2_pdb",
+            "username": src_auth_dict.get("username") or merged_spec.get("source_user") or "o",
+            "password": merged_spec.get("source_pass") or merged_spec.get("password") or "",
+            "privilege_mode": merged_spec.get("source_privilege") or "NORMAL",
+        }
+        tgt_params_built = {
+            "engine": tgt_auth_dict.get("engine") or merged_spec.get("target_engine") or "POSTGRESQL",
+            "host": tgt_auth_dict.get("host") or merged_spec.get("target_host") or "localhost",
+            "port": int(tgt_auth_dict.get("port") or merged_spec.get("target_port") or 5433),
+            "database": tgt_auth_dict.get("database") or merged_spec.get("target_db") or "pg_analytics",
+            "username": tgt_auth_dict.get("username") or merged_spec.get("target_user") or "p",
+            "password": merged_spec.get("target_pass") or merged_spec.get("password") or "",
+            "ssl_mode": merged_spec.get("target_ssl_mode") or "disable",
+        }
+
         def _bg_execute():
             try:
                 logger.info(f"[EngineGateway BG] Handoff migration '{workflow_id}' to AkaalSuperEngine...")
@@ -1635,6 +1657,8 @@ class EngineGateway:
                     workflow_id=workflow_id,
                     spec_dict=merged_spec,
                     dag_dict=dag_dict,
+                    source_params=src_params_built,
+                    target_params=tgt_params_built,
                     is_physical=True,
                     is_synthetic_test=is_synth,
                 )
