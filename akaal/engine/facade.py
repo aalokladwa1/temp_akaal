@@ -260,8 +260,6 @@ class AkaalSuperEngine:
             )
             for obj in target_objs
         )
-        if tot_rows == 0 and tot_tbls > 0:
-            tot_rows = tot_tbls * 1000
 
         # 2. Reset cancellation flag for this workflow
         if not hasattr(self, "_active_cancels"):
