@@ -656,7 +656,7 @@ export const Dashboard: FC<DashboardProps> = ({ config, onSignOut, onNavigate })
               )}
             </section>
           </main>
-        ) : activeNav === 'monitoring' ? (
+        ) : activeNav.toLowerCase() === 'monitoring' ? (
           <MonitoringModule />
         ) : (
           <main className={styles.content} id="module-content">
