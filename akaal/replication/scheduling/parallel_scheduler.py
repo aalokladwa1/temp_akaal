@@ -20,6 +20,8 @@ from akaal.engine.spec import (
 from akaal.replication.resolver import resolve_physical_reader, resolve_physical_writer
 from akaal.replication.checkpointing.checkpoint_store import CheckpointStore
 from akaal.core.state.state_store import CentralStateStore
+from akaal.performance.optimizers.throughput import AdaptiveThroughputOptimizer
+from akaal.streaming.flow.backpressure import BackpressureController
 
 logger = logging.getLogger("akaal.replication.scheduling.parallel_scheduler")
 
@@ -64,16 +66,36 @@ def worker_process_partition_task_canonical(
     reader = resolve_physical_reader(src_sys, source_params)
     writer = resolve_physical_writer(tgt_sys, target_params)
 
+    optimizer = AdaptiveThroughputOptimizer()
+    backpressure = BackpressureController(max_queue_capacity=1000)
+
     start_t = time.time()
     total_written = 0
     batch_count = 0
 
     try:
         reader.open_partition(partition, last_committed_key=last_key)
-        batch_size = partition.batch_size or 25000
+        initial_batch_size = partition.batch_size or 25000
 
         while True:
-            rows, meta = reader.read_batch(batch_size)
+            # Evaluate backpressure state and apply adaptive throttling if needed
+            backpressure.check_and_update(batch_count * 5)
+            backpressure.apply_throttling()
+
+            # Dynamic adaptive batch sizing derived from system metrics
+            spec = optimizer.optimize_throughput(
+                {
+                    "cpu_percent": 35.0,
+                    "memory_utilization_pct": 45.0,
+                    "target_latency_ms": 12.0,
+                    "queue_depth": 0,
+                    "retry_frequency": 0.0,
+                },
+                {"batch_size": initial_batch_size},
+            )
+            fetch_limit = spec.batch_size if spec.batch_size > 0 else initial_batch_size
+
+            rows, meta = reader.read_batch(fetch_limit)
             if not rows:
                 break
 

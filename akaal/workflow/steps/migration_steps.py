@@ -518,8 +518,11 @@ class DataTransportStep(AbstractStep):
                         try:
                             from akaal.replication.resolver import resolve_physical_reader, resolve_physical_writer
                             from akaal.engine.spec import TransportPartition, PartitionStrategy, BatchMetadata
+                            from akaal.replication.partitioning.range_partitioner import RangePartitioner
+                            from akaal.replication.scheduling.parallel_scheduler import ParallelReplicationScheduler
 
                             src_params = {
+                                "system_type": getattr(src_config, "system_type", "ORACLE"),
                                 "host": src_config.host,
                                 "port": src_config.port,
                                 "database": src_config.database_name,
@@ -527,6 +530,7 @@ class DataTransportStep(AbstractStep):
                                 "password": src_config.extra.get("password", ""),
                             }
                             tgt_params = {
+                                "system_type": getattr(pg_config, "system_type", "POSTGRESQL"),
                                 "host": pg_config.host,
                                 "port": pg_config.port,
                                 "database": pg_config.database_name,
@@ -534,41 +538,31 @@ class DataTransportStep(AbstractStep):
                                 "password": pg_config.extra.get("password", ""),
                             }
 
-                            reader = resolve_physical_reader(src_config.system_type, src_params)
-                            writer = resolve_physical_writer(pg_config.system_type, tgt_params)
-                            partition = TransportPartition(
-                                partition_id=f"part-{mig_id}-{s_name}",
+                            range_partitioner = RangePartitioner()
+                            partitions = range_partitioner.generate_partitions_for_table(
                                 table_name=s_name,
-                                source_schema=s_schema,
+                                schema_name=s_schema,
                                 target_schema=t_schema,
-                                columns=[],
-                                partition_type=PartitionStrategy.SINGLE_STREAM,
-                            )
-                            reader.open_partition(partition)
-                            batch_meta = BatchMetadata(
-                                batch_id=f"b-{mig_id}-1",
-                                partition_id=partition.partition_id,
-                                batch_sequence=1,
-                                row_count=0,
+                                total_rows=1000,
+                                pk_columns=[],
+                                strategy=PartitionStrategy.SINGLE_STREAM,
                             )
 
-                            batch_data, meta = reader.read_batch(25000)
-                            if batch_data and reader.cols_info:
-                                written = writer.write_batch(
-                                    table_name=o_name,
-                                    columns=reader.cols_info,
-                                    data=batch_data,
-                                    batch_meta=meta or batch_meta,
-                                    target_schema=t_schema,
+                            if partitions:
+                                scheduler = ParallelReplicationScheduler(max_workers=1)
+                                sched_res = scheduler.execute_partitions(
+                                    partitions=partitions,
+                                    source_params=src_params,
+                                    target_params=tgt_params,
+                                    migration_id=mig_id,
                                 )
-                                writer.commit()
-                                table_rows_read = len(batch_data)
-                                table_rows_written = written
-                                rows_written += written
-                                rows_read_total += len(batch_data)
-                                executed_real_sql = True
-                            reader.close()
-                            writer.close()
+                                written = sched_res.get("total_rows", 0)
+                                if sched_res.get("status") == "COMPLETED":
+                                    table_rows_read = written
+                                    table_rows_written = written
+                                    rows_written += written
+                                    rows_read_total += written
+                                    executed_real_sql = True
                         except Exception as real_trans_err:
                             logger.warning(f"[DataTransportStep] Canonical replication transport fallback triggered for {s_schema}.{s_name}: {real_trans_err}")
                             if src_conn and src_conn != "mock_oracle_conn" and hasattr(src_conn, "cursor"):
