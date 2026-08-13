@@ -81,9 +81,9 @@ class PostgreSQLPhysicalWriter(IPhysicalWriter):
                 return
             except Exception as e:
                 if attempt == 4:
-                    if self.params.get("allow_mock_fallback", True):
+                    if self.params.get("allow_mock_fallback", False) or self.params.get("mock_mode", False):
                         from unittest.mock import MagicMock
-                        logger.warning(f"[PostgreSQLPhysicalWriter] Connection fallback triggered for {host}:{port}/{dbname}: {e}")
+                        logger.warning(f"[PostgreSQLPhysicalWriter] Explicit test mock fallback triggered for {host}:{port}/{dbname}: {e}")
                         self.conn = MagicMock()
                         self.cursor = self.conn.cursor.return_value
                         return
