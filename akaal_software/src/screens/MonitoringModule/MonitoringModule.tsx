@@ -13,9 +13,9 @@ type TabType = 'overview' | 'performance' | 'workers' | 'tables' | 'reliability'
 
 export const MonitoringModule: React.FC = () => {
   const [selectedMigId, setSelectedMigId] = useState<string>('mig-default');
-  const availableMigrations = [
+  const [availableMigrations, setAvailableMigrations] = useState<Array<{ id: string; label: string; status: string }>>([
     { id: 'mig-default', label: 'Oracle Production → PostgreSQL Analytics', status: 'RUNNING' },
-  ];
+  ]);
   const [snapshot, setSnapshot] = useState<CanonicalMonitoringSnapshotDTO | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -23,6 +23,22 @@ export const MonitoringModule: React.FC = () => {
 
   const activeMigRef = useRef<string>(selectedMigId);
   activeMigRef.current = selectedMigId;
+
+  // Load available migrations from backend
+  useEffect(() => {
+    async function loadMigrations() {
+      try {
+        const resStr = await ipcService.invokeEngineCapability('get_all_migrations', '{}');
+        const data = typeof resStr === 'string' ? JSON.parse(resStr) : resStr;
+        if (data && Array.isArray(data.migrations) && data.migrations.length > 0) {
+          setAvailableMigrations(data.migrations);
+        }
+      } catch (e) {
+        // Fall back to default
+      }
+    }
+    loadMigrations();
+  }, []);
 
   const fetchSnapshot = useCallback(async (migId: string) => {
     try {

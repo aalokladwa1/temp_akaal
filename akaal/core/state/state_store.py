@@ -137,6 +137,24 @@ class CentralStateStore(IStateStore):
             "status": "CREATED"
         }
 
+    def list_all_progress(self) -> List[Dict[str, Any]]:
+        with self._lock:
+            results = []
+            try:
+                conn = self._get_connection()
+                cur = conn.execute("SELECT state_key, val_json FROM central_state WHERE category='progress'")
+                for row in cur.fetchall():
+                    if row["val_json"] and row["val_json"] != "null":
+                        try:
+                            val = json.loads(row["val_json"])
+                            if isinstance(val, dict):
+                                results.append(val)
+                        except Exception:
+                            pass
+            except Exception:
+                pass
+            return results
+
     def atomic_claim_start(self, key: str, operation_id: str, plan_fingerprint: str, metadata: Optional[Dict[str, Any]] = None) -> Tuple[bool, Dict[str, Any]]:
         """
         S4-H10: Cross-Process SQLite Atomic Start Claim.

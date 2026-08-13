@@ -2155,6 +2155,24 @@ class EngineGateway:
             },
         }
 
+    def get_all_migrations(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Returns all registered and persisted migration jobs from CentralStateStore.
+        """
+        progress_list = self.state_store.list_all_progress()
+        migs = []
+        for p in progress_list:
+            m_id = p.get("migration_id")
+            if m_id:
+                migs.append({
+                    "id": m_id,
+                    "label": p.get("label") or f"{m_id} ({p.get('source_type', 'Oracle')} → {p.get('target_type', 'PostgreSQL')})",
+                    "status": p.get("status", "CREATED"),
+                })
+        if not migs:
+            migs = [{"id": "mig-default", "label": "Oracle Production → PostgreSQL Analytics", "status": "RUNNING"}]
+        return {"migrations": migs}
+
     def subscribe_runtime_events(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         topic = payload.get("topic_pattern", "migration.*")
         replayed = self.event_bus.replay_events(topic, from_sequence_id=0)
