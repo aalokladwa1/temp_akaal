@@ -195,7 +195,7 @@ export const MonitoringModule: React.FC = () => {
         <div className={styles.bannerMeta}>
           <div>
             <div className={styles.bannerTitle}>{snapshot.migration_id}</div>
-            <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>
+            <div style={{ fontSize: 12, color: 'var(--dash-text-secondary, #9CA3AF)', marginTop: 4 }}>
               Stage: <strong>{runtime.current_stage || 'N/A'}</strong> | Session: <span className={styles.mono}>{runtime.session_id || 'sess-84f2'}</span>
             </div>
           </div>

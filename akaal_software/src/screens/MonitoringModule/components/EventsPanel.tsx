@@ -16,11 +16,11 @@ export const EventsPanel: React.FC<EventsPanelProps> = ({ snapshot }) => {
           <div style={{ color: '#ef4444', fontWeight: 700, fontSize: 14, marginBottom: 4 }}>
             Execution Failure Recorded: {errors.failed_stage || 'Transport'}
           </div>
-          <div style={{ color: '#f8fafc', fontSize: 13, fontFamily: 'monospace' }}>
+          <div style={{ color: 'var(--dash-text-primary, #F8FAFC)', fontSize: 13, fontFamily: 'monospace' }}>
             {errors.error_message}
           </div>
           {errors.failed_object && (
-            <div style={{ color: '#94a3b8', fontSize: 12, marginTop: 6 }}>
+            <div style={{ color: 'var(--dash-text-secondary, #9CA3AF)', fontSize: 12, marginTop: 6 }}>
               Failed Object: {errors.failed_schema ? `${errors.failed_schema}.${errors.failed_object}` : errors.failed_object}
             </div>
           )}

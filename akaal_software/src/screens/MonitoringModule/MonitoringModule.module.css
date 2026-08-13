@@ -7,9 +7,9 @@
   width: 100%;
   padding: 24px 32px;
   box-sizing: border-box;
-  background: var(--bg-primary, #0b0f19);
-  color: var(--text-primary, #f1f5f9);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background: var(--dash-bg, var(--akaal-color-bg-canvas, #12151E));
+  color: var(--dash-text-primary, #F3F4F6);
+  font-family: var(--akaal-font-sans, 'Inter', system-ui, -apple-system, sans-serif);
   overflow-y: auto;
 }
 
@@ -33,12 +33,12 @@
   font-weight: 700;
   letter-spacing: -0.02em;
   margin: 0;
-  color: var(--text-primary, #f8fafc);
+  color: var(--dash-text-primary, #F8FAFC);
 }
 
 .subtitle {
   font-size: 13px;
-  color: var(--text-secondary, #94a3b8);
+  color: var(--dash-text-secondary, #94A3BA);
   margin: 0;
 }
 
@@ -46,48 +46,48 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  background: var(--bg-card, rgba(30, 41, 59, 0.7));
-  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  background: var(--dash-card-bg, var(--dash-surface, #1E2330));
+  border: 1px solid var(--dash-card-border, var(--dash-border, rgba(255, 255, 255, 0.08)));
   padding: 8px 14px;
   border-radius: 10px;
-  backdrop-filter: blur(12px);
 }
 
 .selectorLabel {
   font-size: 12px;
   font-weight: 600;
-  color: var(--text-secondary, #94a3b8);
+  color: var(--dash-text-secondary, #9CA3AF);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
 .selectInput {
-  background: transparent;
-  border: none;
-  color: var(--text-primary, #f8fafc);
+  background: var(--dash-input-bg, #171B26);
+  border: 1px solid var(--dash-border, rgba(255, 255, 255, 0.08));
+  color: var(--dash-text-primary, #F3F4F6);
   font-size: 13px;
   font-weight: 600;
   outline: none;
   cursor: pointer;
-  padding-right: 8px;
+  padding: 4px 8px;
+  border-radius: 6px;
 }
 
 .selectInput option {
-  background: #0f172a;
-  color: #f8fafc;
+  background: var(--dash-surface, #1E2330);
+  color: var(--dash-text-primary, #F3F4F6);
 }
 
 /* ── Banner Card ────────────────────────────────────────────── */
 .bannerCard {
-  background: var(--bg-card, rgba(30, 41, 59, 0.6));
-  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+  background: var(--dash-card-bg, var(--dash-surface, #1E2330));
+  border: 1px solid var(--dash-card-border, var(--dash-border, rgba(255, 255, 255, 0.08)));
+  box-shadow: var(--dash-card-shadow, 0 1px 3px rgba(0, 0, 0, 0.1));
   border-radius: 14px;
   padding: 18px 24px;
   margin-bottom: 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  backdrop-filter: blur(10px);
 }
 
 .bannerMeta {
@@ -99,7 +99,7 @@
 .bannerTitle {
   font-size: 18px;
   font-weight: 700;
-  color: #f8fafc;
+  color: var(--dash-text-primary, #F8FAFC);
 }
 
 .bannerBadges {
@@ -118,38 +118,38 @@
 }
 
 .badgeRunning {
-  background: rgba(16, 185, 129, 0.15);
-  color: #10b981;
+  background: var(--dash-tag-running-bg, rgba(16, 185, 129, 0.15));
+  color: var(--dash-tag-running-text, #10B981);
   border: 1px solid rgba(16, 185, 129, 0.3);
 }
 
 .badgePaused {
-  background: rgba(245, 158, 11, 0.15);
-  color: #f59e0b;
+  background: var(--dash-tag-paused-bg, rgba(245, 158, 11, 0.15));
+  color: var(--dash-tag-paused-text, #F59E0B);
   border: 1px solid rgba(245, 158, 11, 0.3);
 }
 
 .badgeCompleted {
-  background: rgba(59, 130, 246, 0.15);
-  color: #3b82f6;
-  border: 1px solid rgba(59, 130, 246, 0.3);
+  background: var(--dash-tag-completed-bg, rgba(99, 102, 241, 0.15));
+  color: var(--dash-tag-completed-text, #818CF8);
+  border: 1px solid rgba(99, 102, 241, 0.3);
 }
 
 .badgeFailed {
-  background: rgba(239, 68, 68, 0.15);
-  color: #ef4444;
+  background: var(--dash-tag-failed-bg, rgba(239, 68, 68, 0.15));
+  color: var(--dash-tag-failed-text, #EF4444);
   border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
 .badgeModeLive {
   background: rgba(99, 102, 241, 0.15);
-  color: #818cf8;
+  color: var(--dash-text-accent, #3B82F6);
   border: 1px solid rgba(99, 102, 241, 0.3);
 }
 
 .badgeModeHist {
   background: rgba(148, 163, 184, 0.15);
-  color: #cbd5e1;
+  color: var(--dash-text-secondary, #9CA3AF);
   border: 1px solid rgba(148, 163, 184, 0.3);
 }
 
@@ -169,20 +169,20 @@
 .statVal {
   font-size: 14px;
   font-weight: 700;
-  font-family: 'JetBrains Mono', monospace;
-  color: #f8fafc;
+  font-family: var(--akaal-font-mono, 'JetBrains Mono', monospace);
+  color: var(--dash-text-primary, #F8FAFC);
 }
 
 .statLbl {
   font-size: 11px;
-  color: #94a3b8;
+  color: var(--dash-text-secondary, #9CA3AF);
 }
 
 /* ── Navigation Tabs ────────────────────────────────────────── */
 .tabsRow {
   display: flex;
   gap: 8px;
-  border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  border-bottom: 1px solid var(--dash-border, rgba(255, 255, 255, 0.1));
   margin-bottom: 24px;
   padding-bottom: 2px;
 }
@@ -190,7 +190,7 @@
 .tabBtn {
   background: transparent;
   border: none;
-  color: var(--text-secondary, #94a3b8);
+  color: var(--dash-text-secondary, #9CA3AF);
   font-size: 13px;
   font-weight: 600;
   padding: 8px 16px;
@@ -201,14 +201,14 @@
 }
 
 .tabBtn:hover {
-  color: #f8fafc;
-  background: rgba(255, 255, 255, 0.03);
+  color: var(--dash-text-primary, #F8FAFC);
+  background: var(--dash-surface-hover, rgba(255, 255, 255, 0.03));
 }
 
 .tabBtnActive {
-  color: #38bdf8;
+  color: var(--dash-text-accent, #3B82F6);
   font-weight: 700;
-  background: rgba(56, 189, 248, 0.08);
+  background: rgba(59, 130, 246, 0.08);
 }
 
 .tabBtnActive::after {
@@ -218,7 +218,7 @@
   left: 0;
   right: 0;
   height: 2px;
-  background: #38bdf8;
+  background: var(--dash-text-accent, #3B82F6);
   border-radius: 2px;
 }
 
@@ -231,8 +231,9 @@
 }
 
 .card {
-  background: var(--bg-card, rgba(30, 41, 59, 0.5));
-  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+  background: var(--dash-card-bg, var(--dash-surface, #1E2330));
+  border: 1px solid var(--dash-card-border, var(--dash-border, rgba(255, 255, 255, 0.08)));
+  box-shadow: var(--dash-card-shadow, 0 1px 3px rgba(0, 0, 0, 0.06));
   border-radius: 12px;
   padding: 16px 20px;
   display: flex;
@@ -243,7 +244,7 @@
 .cardTitle {
   font-size: 12px;
   font-weight: 600;
-  color: #94a3b8;
+  color: var(--dash-text-secondary, #9CA3AF);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -251,19 +252,20 @@
 .cardValue {
   font-size: 22px;
   font-weight: 700;
-  font-family: 'JetBrains Mono', monospace;
-  color: #f8fafc;
+  font-family: var(--akaal-font-mono, 'JetBrains Mono', monospace);
+  color: var(--dash-text-primary, #F8FAFC);
 }
 
 .cardSub {
   font-size: 11px;
-  color: #64748b;
+  color: var(--dash-text-tertiary, #6B7280);
 }
 
 /* ── Tables & Data Grids ────────────────────────────────────── */
 .tableContainer {
-  background: var(--bg-card, rgba(30, 41, 59, 0.5));
-  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+  background: var(--dash-card-bg, var(--dash-surface, #1E2330));
+  border: 1px solid var(--dash-card-border, var(--dash-border, rgba(255, 255, 255, 0.08)));
+  box-shadow: var(--dash-card-shadow, 0 1px 3px rgba(0, 0, 0, 0.06));
   border-radius: 12px;
   overflow: hidden;
 }
@@ -276,33 +278,33 @@
 }
 
 .dataTable th {
-  background: rgba(15, 23, 42, 0.8);
-  color: #94a3b8;
+  background: var(--dash-input-bg, #171B26);
+  color: var(--dash-text-secondary, #9CA3AF);
   font-weight: 600;
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   padding: 12px 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid var(--dash-border, rgba(255, 255, 255, 0.08));
 }
 
 .dataTable td {
   padding: 12px 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-  color: #e2e8f0;
+  border-bottom: 1px solid var(--dash-border, rgba(255, 255, 255, 0.04));
+  color: var(--dash-text-primary, #F3F4F6);
 }
 
 .dataTable tr:hover td {
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--dash-surface-hover, rgba(255, 255, 255, 0.02));
 }
 
 .mono {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--akaal-font-mono, 'JetBrains Mono', monospace);
 }
 
 /* ── Progress Bar ────────────────────────────────────────────── */
 .progressTrack {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--dash-input-bg, rgba(255, 255, 255, 0.08));
   border-radius: 999px;
   height: 8px;
   width: 100%;
@@ -310,7 +312,7 @@
 }
 
 .progressFill {
-  background: linear-gradient(90deg, #38bdf8, #818cf8);
+  background: linear-gradient(90deg, #2563EB, #3B82F6);
   height: 100%;
   border-radius: 999px;
   transition: width 0.3s ease;
@@ -330,8 +332,8 @@
 .spinner {
   width: 32px;
   height: 32px;
-  border: 3px solid rgba(56, 189, 248, 0.2);
-  border-top-color: #38bdf8;
+  border: 3px solid rgba(37, 99, 235, 0.2);
+  border-top-color: #2563EB;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -343,11 +345,11 @@
 .emptyTitle {
   font-size: 16px;
   font-weight: 700;
-  color: #f8fafc;
+  color: var(--dash-text-primary, #F8FAFC);
 }
 
 .emptySub {
   font-size: 13px;
-  color: #94a3b8;
+  color: var(--dash-text-secondary, #9CA3AF);
   max-width: 400px;
 }
