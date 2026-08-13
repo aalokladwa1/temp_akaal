@@ -2091,7 +2091,7 @@ class EngineGateway:
             },
             "checkpoints": {
                 "current_checkpoint_id": base_snap.get("current_checkpoint_lsn"),
-                "last_committed_key": progress.get("last_committed_key"),
+                "last_committed_key": _sanitize(progress.get("last_committed_key")),
                 "last_checkpoint_time": progress.get("last_checkpoint_time"),
             },
             "retries": {
