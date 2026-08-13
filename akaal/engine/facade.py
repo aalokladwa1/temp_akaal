@@ -393,11 +393,13 @@ class AkaalSuperEngine:
             )
 
             # Pre-start check
+            self.state_store.update_progress(workflow_id, {"status": "RUNNING", "current_stage": "schema_exec"})
             p_step = PreStartValidationStep()
             p_res = p_step.execute(wf_ctx)
             logger.info("[STAGE 1/5] Pre-Start Authority Validation — PASSED.")
 
             # Schema Execution
+            self.state_store.update_progress(workflow_id, {"status": "RUNNING", "current_stage": "schema_exec"})
             logger.info(f"[STAGE 2/5] Target Schema DDL Execution — Applying DDL for {tot_tbls:,} tables...")
             s_step = SchemaExecutionStep()
             s_res = s_step.execute(wf_ctx)
@@ -406,6 +408,7 @@ class AkaalSuperEngine:
             logger.info("[STAGE 2/5] Target Schema DDL Execution — PASSED.")
 
             # Data Transport Step
+            self.state_store.update_progress(workflow_id, {"status": "RUNNING", "current_stage": "transport"})
             logger.info(f"[STAGE 3/5] Parallel Stream Data Transport — Streaming physical rows from Oracle to PostgreSQL...")
             dt_step = DataTransportStep()
             res = dt_step.execute(wf_ctx)
@@ -414,12 +417,16 @@ class AkaalSuperEngine:
             logger.info(f"[STAGE 3/5] Parallel Stream Data Transport — PASSED ({res.context_updates.get('rows_migrated', 0):,} rows written).")
 
             # Validation Step
+            self.state_store.update_progress(workflow_id, {"status": "RUNNING", "current_stage": "validation"})
             logger.info("[STAGE 4/5] Physical Checksum Validation — Reconciling Oracle vs PostgreSQL row counts...")
             val_step = ValidationStep()
             val_res = val_step.execute(wf_ctx)
             if not val_res.success:
                 raise RuntimeError(f"Physical checksum validation failed: {val_res.errors}")
             logger.info("[STAGE 4/5] Physical Checksum Validation — PASSED.")
+            
+            # Certification Step
+            self.state_store.update_progress(workflow_id, {"status": "RUNNING", "current_stage": "certification"})
             logger.info("[STAGE 5/5] Digital Trust Certification — Sealed SHA-256 custody digest certificate.")
 
         # Stage 5: Completion
