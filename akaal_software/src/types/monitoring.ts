@@ -1,5 +1,6 @@
 /**
- * AKAAL P1.3 Canonical Live Monitoring DTO Interface Contract
+ * AKAAL P1.3 / P1.3.2 Canonical Monitoring DTO Interface Contract
+ * Supports both LIVE execution and HISTORICAL run retrieval across daemon restarts.
  */
 
 export interface MonitoringRuntimeDTO {
@@ -10,6 +11,9 @@ export interface MonitoringRuntimeDTO {
   health_status: string;
   approval_status: string;
   pid: number | null;
+  started_at?: string | null;
+  completed_at?: string | null;
+  duration_seconds?: number | null;
   available_actions: string[];
 }
 
@@ -29,6 +33,10 @@ export interface MonitoringThroughputDTO {
   throughput_mbps: number | null;
   bandwidth_formatted: string | null;
   eta_seconds: number | null;
+  average_rows_per_sec?: number | null;
+  peak_rows_per_sec?: number | null;
+  average_throughput_mbps?: number | null;
+  peak_throughput_mbps?: number | null;
 }
 
 export interface MonitoringWorkerStatusDTO {
@@ -122,6 +130,7 @@ export interface MonitoringErrorsDTO {
 export interface CanonicalMonitoringSnapshotDTO {
   schema_version: string;
   migration_id: string;
+  monitoring_mode: "LIVE" | "HISTORICAL";
   captured_at: string;
   runtime: MonitoringRuntimeDTO;
   progress: MonitoringProgressDTO;

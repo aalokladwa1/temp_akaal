@@ -1847,8 +1847,8 @@ class EngineGateway:
         sess_id = payload.get("session_id", "sess-84f2")
 
         status_info = self.state_store.get_state(f"{mig_id}_status", category="runtime") or {}
-        progress = self.state_store._state.get("progress", {}).get(mig_id)
-        st_str = status_info.get("status") or (progress.get("status") if progress else None)
+        progress = self.state_store.get_progress(mig_id)
+        st_str = status_info.get("status") or (progress.get("status") if isinstance(progress, dict) else None)
 
         if not st_str:
             controller = self.workflow_engine._state_controllers.get(mig_id)
@@ -1857,8 +1857,7 @@ class EngineGateway:
             else:
                 st_str = "CREATED"
 
-        progress = self.state_store._state.get("progress", {}).get(mig_id)
-        prog_status = progress.get("status") if progress else None
+        prog_status = progress.get("status") if isinstance(progress, dict) else None
         runtime_info = self.runtime_registry.get_runtime(mig_id)
         pid_val = runtime_info.get("pid") if runtime_info else None
 
@@ -2015,47 +2014,58 @@ class EngineGateway:
             "error_message": err_msg if is_failed else None,
             "worker_statuses": progress.get("worker_statuses", []) if progress else [],
             "warnings": [],
-            "errors": [err_msg] if (is_failed and err_msg) else [],
-            "logs": combined_logs[-50:],
             "available_actions": avail_actions,
         }
 
     def get_monitoring_snapshot(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         """
-        P1.3 Canonical Live Monitoring Telemetry Snapshot API.
+        P1.3 / P1.3.2 Canonical Live & Historical Monitoring Telemetry Snapshot API.
         Assembles truthful runtime metrics across all 12 metric domains into a versioned DTO.
+        Supports both LIVE execution and HISTORICAL run retrieval across daemon restarts.
         """
         mig_id = payload.get("migration_id", "mig-default")
         snapshot_time = datetime.datetime.now(datetime.timezone.utc).isoformat()
         
         base_snap = self.get_runtime_snapshot(payload)
-        progress = self.state_store._state.get("progress", {}).get(mig_id) or {}
+        progress = self.state_store.get_progress(mig_id) or {}
+        st_str = base_snap.get("status", "CREATED")
         
         from akaal.metrics.registry import MetricsRegistry
         raw_metrics = MetricsRegistry().snapshot()
         
+        mode = "HISTORICAL" if st_str in ("COMPLETED", "FAILED", "TERMINATED") else "LIVE"
+
         # Security redaction filter
         def _sanitize(val):
             if isinstance(val, str) and any(sec in val.lower() for sec in ("password=", "pwd=", "secret=", "token=")):
                 return "[REDACTED]"
             return val
 
+        # Live vs Historical field semantics
+        active_w = 0 if mode == "HISTORICAL" else base_snap.get("active_workers", 0)
+        curr_tbl = (base_snap.get("current_table") if st_str != "COMPLETED" else None)
+        eta_val = base_snap.get("eta_seconds") if st_str == "RUNNING" else None
+
         return {
             "schema_version": "1.0",
             "migration_id": mig_id,
+            "monitoring_mode": mode,
             "captured_at": snapshot_time,
             "runtime": {
                 "session_id": base_snap.get("runtime_session_id"),
                 "project_id": base_snap.get("project_id"),
-                "status": base_snap.get("status"),
+                "status": st_str,
                 "current_stage": base_snap.get("current_stage"),
                 "health_status": base_snap.get("health_status"),
                 "approval_status": base_snap.get("approval_status"),
-                "pid": base_snap.get("pid"),
+                "pid": base_snap.get("pid") if mode == "LIVE" else None,
+                "started_at": progress.get("started_at"),
+                "completed_at": progress.get("completed_at"),
+                "duration_seconds": progress.get("duration_seconds"),
                 "available_actions": base_snap.get("available_actions", []),
             },
             "progress": {
-                "current_table": base_snap.get("current_table"),
+                "current_table": curr_tbl,
                 "current_batch": base_snap.get("current_batch"),
                 "total_batches": base_snap.get("total_batches"),
                 "rows_transferred": base_snap.get("rows_transferred"),
@@ -2068,12 +2078,16 @@ class EngineGateway:
                 "rows_per_sec": base_snap.get("rows_per_sec"),
                 "throughput_mbps": base_snap.get("throughput_mbps"),
                 "bandwidth_formatted": base_snap.get("bandwidth"),
-                "eta_seconds": base_snap.get("eta_seconds"),
+                "eta_seconds": eta_val,
+                "average_rows_per_sec": progress.get("average_rows_per_sec") or base_snap.get("rows_per_sec"),
+                "peak_rows_per_sec": progress.get("peak_rows_per_sec") or base_snap.get("rows_per_sec"),
+                "average_throughput_mbps": progress.get("average_throughput_mbps") or base_snap.get("throughput_mbps"),
+                "peak_throughput_mbps": progress.get("peak_throughput_mbps") or base_snap.get("throughput_mbps"),
             },
             "workers": {
                 "configured_workers": progress.get("configured_workers", 4),
-                "active_workers": base_snap.get("active_workers", 0),
-                "idle_workers": progress.get("idle_workers", 0),
+                "active_workers": active_w,
+                "idle_workers": progress.get("idle_workers", 0) if mode == "LIVE" else 0,
                 "failed_workers": progress.get("failed_workers", 0),
                 "worker_statuses": base_snap.get("worker_statuses", []),
             },
@@ -2085,9 +2099,9 @@ class EngineGateway:
             },
             "connections": {
                 "source_pool_size": progress.get("source_pool_size", 10),
-                "source_pool_in_use": progress.get("source_pool_in_use", 2),
+                "source_pool_in_use": progress.get("source_pool_in_use", 0) if mode == "HISTORICAL" else progress.get("source_pool_in_use", 2),
                 "target_pool_size": progress.get("target_pool_size", 10),
-                "target_pool_in_use": progress.get("target_pool_in_use", 2),
+                "target_pool_in_use": progress.get("target_pool_in_use", 0) if mode == "HISTORICAL" else progress.get("target_pool_in_use", 2),
             },
             "checkpoints": {
                 "current_checkpoint_id": base_snap.get("current_checkpoint_lsn"),
@@ -2101,19 +2115,19 @@ class EngineGateway:
                 "last_retry_reason": progress.get("last_retry_reason"),
             },
             "backpressure": {
-                "queue_depth": progress.get("queue_depth", 0),
+                "queue_depth": 0 if mode == "HISTORICAL" else progress.get("queue_depth", 0),
                 "queue_capacity": progress.get("queue_capacity", 1000),
-                "backpressure_state": progress.get("backpressure_state", "NORMAL"),
-                "throttle_delay_sec": progress.get("throttle_delay_sec", 0.0),
+                "backpressure_state": "NORMAL" if mode == "HISTORICAL" else progress.get("backpressure_state", "NORMAL"),
+                "throttle_delay_sec": 0.0 if mode == "HISTORICAL" else progress.get("throttle_delay_sec", 0.0),
             },
             "resources": {
-                "cpu_percent": base_snap.get("cpu_percent"),
-                "ram_used_gb": base_snap.get("ram_used_gb"),
+                "cpu_percent": base_snap.get("cpu_percent") if mode == "LIVE" else None,
+                "ram_used_gb": base_snap.get("ram_used_gb") if mode == "LIVE" else None,
                 "wal_lag": base_snap.get("wal_lag"),
             },
             "partitions": {
                 "partitions_total": progress.get("partitions_total", 0),
-                "partitions_active": progress.get("partitions_active", 0),
+                "partitions_active": 0 if mode == "HISTORICAL" else progress.get("partitions_active", 0),
                 "partitions_completed": progress.get("partitions_completed", 0),
             },
             "lob": {
