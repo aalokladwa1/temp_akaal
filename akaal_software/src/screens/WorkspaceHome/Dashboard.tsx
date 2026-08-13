@@ -15,6 +15,9 @@ import { EmptyState } from '../../components/EmptyState/EmptyState';
 import { notificationService, type AppNotification } from '../../services/notificationService';
 import { MigrationModule } from '../MigrationModule';
 import { MonitoringModule } from '../MonitoringModule';
+import { ReportsModule } from '../ReportsModule/ReportsModule';
+import { AdministrationModule } from '../AdministrationModule/AdministrationModule';
+import { SettingsModule } from '../SettingsModule/SettingsModule';
 import styles from './Dashboard.module.css';
 
 // ── Types ────────────────────────────────────────────────────
@@ -658,6 +661,12 @@ export const Dashboard: FC<DashboardProps> = ({ config, onSignOut, onNavigate })
           </main>
         ) : activeNav.toLowerCase() === 'monitoring' ? (
           <MonitoringModule />
+        ) : activeNav.toLowerCase() === 'reports' ? (
+          <ReportsModule />
+        ) : activeNav.toLowerCase() === 'administration' ? (
+          <AdministrationModule />
+        ) : activeNav.toLowerCase() === 'settings' ? (
+          <SettingsModule />
         ) : (
           <main className={styles.content} id="module-content">
             <h2 style={{ fontSize: 20, fontWeight: 700, margin: '0 0 8px 0' }}>
