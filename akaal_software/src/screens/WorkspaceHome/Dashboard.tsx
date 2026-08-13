@@ -14,6 +14,7 @@ import { useMigrationProjects } from '../../hooks/useMigrationProjects';
 import { EmptyState } from '../../components/EmptyState/EmptyState';
 import { notificationService, type AppNotification } from '../../services/notificationService';
 import { MigrationModule } from '../MigrationModule';
+import { MonitoringModule } from '../MonitoringModule';
 import styles from './Dashboard.module.css';
 
 // ── Types ────────────────────────────────────────────────────
@@ -655,6 +656,8 @@ export const Dashboard: FC<DashboardProps> = ({ config, onSignOut, onNavigate })
               )}
             </section>
           </main>
+        ) : activeNav === 'monitoring' ? (
+          <MonitoringModule />
         ) : (
           <main className={styles.content} id="module-content">
             <h2 style={{ fontSize: 20, fontWeight: 700, margin: '0 0 8px 0' }}>
