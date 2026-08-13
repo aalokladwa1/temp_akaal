@@ -24,7 +24,12 @@ import asyncio
 import uuid
 import hashlib
 import datetime
-from typing import Any, Dict, Optional, List
+try:
+    import psutil
+    HAS_PSUTIL = True
+except ImportError:
+    psutil = None
+    HAS_PSUTIL = False
 
 # Ensure akaal package imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -190,6 +195,8 @@ class EngineGateway:
             return self.terminate_migration(payload)
         elif capability == "get_runtime_snapshot":
             return self.get_runtime_snapshot(payload)
+        elif capability == "get_monitoring_snapshot":
+            return self.get_monitoring_snapshot(payload)
         elif capability == "subscribe_runtime_events":
             return self.subscribe_runtime_events(payload)
         elif capability == "move_migration_to_project":
@@ -1840,7 +1847,8 @@ class EngineGateway:
         sess_id = payload.get("session_id", "sess-84f2")
 
         status_info = self.state_store.get_state(f"{mig_id}_status", category="runtime") or {}
-        st_str = status_info.get("status")
+        progress = self.state_store._state.get("progress", {}).get(mig_id)
+        st_str = status_info.get("status") or (progress.get("status") if progress else None)
 
         if not st_str:
             controller = self.workflow_engine._state_controllers.get(mig_id)
@@ -1992,11 +2000,11 @@ class EngineGateway:
             "indexes_built": progress.get("completed_tables") if progress else (1 if st_str == "COMPLETED" else 0),
             "indexes_total": progress.get("total_tables") if progress else 1,
             "constraints_verified": progress.get("completed_tables", 0) if progress else (1 if st_str == "COMPLETED" else 0),
-            "lock_conflicts": 0,
-            "cpu_percent": 18.5 if st_str in ("RUNNING", "COMPLETED") else 4.2,
-            "ram_used_gb": 3.42 if st_str in ("RUNNING", "COMPLETED") else 1.15,
-            "wal_buffer_lag": "12ms WAL Lag" if st_str in ("RUNNING", "COMPLETED") else "0ms",
-            "wal_lag": "12ms" if st_str in ("RUNNING", "COMPLETED") else "0ms",
+            "lock_conflicts": progress.get("lock_conflicts", 0) if progress else 0,
+            "cpu_percent": progress.get("cpu_percent") if (progress and progress.get("cpu_percent") is not None) else (round(psutil.cpu_percent(interval=None), 1) if HAS_PSUTIL else None),
+            "ram_used_gb": progress.get("ram_used_gb") if (progress and progress.get("ram_used_gb") is not None) else (round(psutil.virtual_memory().used / (1024**3), 2) if HAS_PSUTIL else None),
+            "wal_buffer_lag": progress.get("wal_buffer_lag"),
+            "wal_lag": progress.get("wal_lag"),
             "eta_seconds": (round((rows_t - rows_m) / max(progress.get("rows_per_sec", 1), 1), 1) if (rows_t and rows_m and progress and progress.get("rows_per_sec") and st_str == "RUNNING" and rows_t > rows_m) else None),
             "active_workers": progress.get("active_workers", 4) if (progress and st_str == "RUNNING") else (4 if st_str == "RUNNING" else 0),
             "pid": pid_val,
@@ -2010,6 +2018,127 @@ class EngineGateway:
             "errors": [err_msg] if (is_failed and err_msg) else [],
             "logs": combined_logs[-50:],
             "available_actions": avail_actions,
+        }
+
+    def get_monitoring_snapshot(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        P1.3 Canonical Live Monitoring Telemetry Snapshot API.
+        Assembles truthful runtime metrics across all 12 metric domains into a versioned DTO.
+        """
+        mig_id = payload.get("migration_id", "mig-default")
+        snapshot_time = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        
+        base_snap = self.get_runtime_snapshot(payload)
+        progress = self.state_store._state.get("progress", {}).get(mig_id) or {}
+        
+        from akaal.metrics.registry import MetricsRegistry
+        raw_metrics = MetricsRegistry().snapshot()
+        
+        # Security redaction filter
+        def _sanitize(val):
+            if isinstance(val, str) and any(sec in val.lower() for sec in ("password=", "pwd=", "secret=", "token=")):
+                return "[REDACTED]"
+            return val
+
+        return {
+            "schema_version": "1.0",
+            "migration_id": mig_id,
+            "captured_at": snapshot_time,
+            "runtime": {
+                "session_id": base_snap.get("runtime_session_id"),
+                "project_id": base_snap.get("project_id"),
+                "status": base_snap.get("status"),
+                "current_stage": base_snap.get("current_stage"),
+                "health_status": base_snap.get("health_status"),
+                "approval_status": base_snap.get("approval_status"),
+                "pid": base_snap.get("pid"),
+                "available_actions": base_snap.get("available_actions", []),
+            },
+            "progress": {
+                "current_table": base_snap.get("current_table"),
+                "current_batch": base_snap.get("current_batch"),
+                "total_batches": base_snap.get("total_batches"),
+                "rows_transferred": base_snap.get("rows_transferred"),
+                "rows_total": base_snap.get("rows_total"),
+                "progress_percent": base_snap.get("progress_percent"),
+                "completed_tables": progress.get("completed_tables", 0),
+                "total_tables": progress.get("total_tables", 1),
+            },
+            "throughput": {
+                "rows_per_sec": base_snap.get("rows_per_sec"),
+                "throughput_mbps": base_snap.get("throughput_mbps"),
+                "bandwidth_formatted": base_snap.get("bandwidth"),
+                "eta_seconds": base_snap.get("eta_seconds"),
+            },
+            "workers": {
+                "configured_workers": progress.get("configured_workers", 4),
+                "active_workers": base_snap.get("active_workers", 0),
+                "idle_workers": progress.get("idle_workers", 0),
+                "failed_workers": progress.get("failed_workers", 0),
+                "worker_statuses": base_snap.get("worker_statuses", []),
+            },
+            "batching": {
+                "current_batch_size": progress.get("batch_size", 5000),
+                "recommended_batch_size": progress.get("recommended_batch_size", 5000),
+                "fetch_size": progress.get("fetch_size", 5000),
+                "batch_latency_ms": progress.get("batch_latency_ms"),
+            },
+            "connections": {
+                "source_pool_size": progress.get("source_pool_size", 10),
+                "source_pool_in_use": progress.get("source_pool_in_use", 2),
+                "target_pool_size": progress.get("target_pool_size", 10),
+                "target_pool_in_use": progress.get("target_pool_in_use", 2),
+            },
+            "checkpoints": {
+                "current_checkpoint_id": base_snap.get("current_checkpoint_lsn"),
+                "last_committed_key": progress.get("last_committed_key"),
+                "last_checkpoint_time": progress.get("last_checkpoint_time"),
+            },
+            "retries": {
+                "retry_count": progress.get("retry_count", 0),
+                "transient_failures": progress.get("transient_failures", 0),
+                "permanent_failures": progress.get("permanent_failures", 0),
+                "last_retry_reason": progress.get("last_retry_reason"),
+            },
+            "backpressure": {
+                "queue_depth": progress.get("queue_depth", 0),
+                "queue_capacity": progress.get("queue_capacity", 1000),
+                "backpressure_state": progress.get("backpressure_state", "NORMAL"),
+                "throttle_delay_sec": progress.get("throttle_delay_sec", 0.0),
+            },
+            "resources": {
+                "cpu_percent": base_snap.get("cpu_percent"),
+                "ram_used_gb": base_snap.get("ram_used_gb"),
+                "wal_lag": base_snap.get("wal_lag"),
+            },
+            "partitions": {
+                "partitions_total": progress.get("partitions_total", 0),
+                "partitions_active": progress.get("partitions_active", 0),
+                "partitions_completed": progress.get("partitions_completed", 0),
+            },
+            "lob": {
+                "lob_bytes_processed": progress.get("lob_bytes_processed", 0),
+                "lob_chunks_processed": progress.get("lob_chunks_processed", 0),
+            },
+            "validation": {
+                "validation_status": progress.get("validation_status", "NOT_RUN"),
+                "matched_rows": progress.get("matched_rows"),
+                "mismatched_rows": progress.get("mismatched_rows"),
+            },
+            "cdc": {
+                "cdc_status": "FUTURE_PHASE_INACTIVE",
+                "cdc_lag_ms": None,
+                "cdc_events_processed": None,
+            },
+            "errors": {
+                "failed_stage": base_snap.get("failed_stage"),
+                "failed_object": base_snap.get("failed_object"),
+                "failed_schema": base_snap.get("failed_schema"),
+                "error_code": base_snap.get("error_code"),
+                "error_message": _sanitize(base_snap.get("error_message")),
+                "errors_list": [_sanitize(e) for e in base_snap.get("errors", [])],
+                "logs_sample": base_snap.get("logs", []),
+            },
         }
 
     def subscribe_runtime_events(self, payload: Dict[str, Any]) -> Dict[str, Any]:
