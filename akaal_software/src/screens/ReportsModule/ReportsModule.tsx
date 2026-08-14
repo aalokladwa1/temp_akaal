@@ -145,7 +145,6 @@ export const ReportsModule: React.FC = () => {
 
   const handleVerifyIntegrity = () => {
     if (!selectedReport || !selectedReport.certification) return;
-    // Invoke backend verify_integrity rule
     const isValid = selectedReport.certification.certification_fingerprint.length === 64;
     setIntegrityStatus(isValid ? 'INTEGRITY_VERIFIED' : 'INTEGRITY_FAILED');
   };
@@ -183,19 +182,21 @@ export const ReportsModule: React.FC = () => {
     return (
       <div className={styles.container} id="reports-detail-root">
         {/* Top Header */}
-        <div className={styles.dossierHeader}>
-          <div className="flex items-center gap-4">
-            <button className={styles.backButton} onClick={() => { setSelectedReport(null); setIntegrityStatus(null); }}>
-              ← Back to Reports
-            </button>
-            <div>
+        <div className={styles.headerRow}>
+          <div className={styles.titleArea}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '4px' }}>
+              <button className={styles.backButton} onClick={() => { setSelectedReport(null); setIntegrityStatus(null); }}>
+                ← Back to Reports
+              </button>
               <h1 className={styles.title}>{selectedReport.report_type.replace(/_/g, ' ')} DOSSIER</h1>
-              <p className={styles.subtitle}>Report ID: <span className={styles.mono}>{selectedReport.report_id}</span> | Job: {selectedReport.job_id}</p>
             </div>
+            <p className={styles.subtitle}>
+              Report ID: <span className={styles.reportIdTag}>{selectedReport.report_id}</span> | Job: {selectedReport.job_id} | Run: {selectedReport.run_id}
+            </p>
           </div>
           <div className={styles.routeBadge}>
             <span>{selectedReport.source_info.engine || 'Source'}</span>
-            <span>→</span>
+            <span className={styles.arrowIcon}>→</span>
             <span>{selectedReport.target_info.engine || 'Target'}</span>
           </div>
         </div>
@@ -204,7 +205,7 @@ export const ReportsModule: React.FC = () => {
         <div className={`${styles.heroBanner} ${getHeroClass(cert?.outcome)}`}>
           <div className={styles.heroTitle}>
             <span>CERTIFICATION OUTCOME:</span>
-            <span className={`${styles.badge} ${getCertBadgeClass(cert?.outcome)}`} style={{ fontSize: '1rem', padding: '0.35rem 0.85rem' }}>
+            <span className={`${styles.badge} ${getCertBadgeClass(cert?.outcome)}`} style={{ fontSize: '12px', padding: '5px 12px' }}>
               {cert?.outcome || 'INDETERMINATE'}
             </span>
           </div>
@@ -216,13 +217,13 @@ export const ReportsModule: React.FC = () => {
           </div>
         </div>
 
-        {/* Export & Actions Bar */}
-        <div className="flex justify-between items-center">
-          <div className={styles.tabsBar}>
+        {/* Action Bar & Tabs */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div className={styles.tabsRow}>
             {(['overview', 'validation', 'reconciliation', 'schema', 'evidence', 'governance'] as const).map((tab) => (
               <button
                 key={tab}
-                className={`${styles.tabButton} ${activeTab === tab ? styles.tabButtonActive : ''}`}
+                className={`${styles.tabBtn} ${activeTab === tab ? styles.tabBtnActive : ''}`}
                 onClick={() => setActiveTab(tab)}
               >
                 {tab.toUpperCase()}
@@ -230,18 +231,18 @@ export const ReportsModule: React.FC = () => {
             ))}
           </div>
           <div className={styles.exportDropdown}>
-            <button className={styles.backButton} onClick={() => setExportOpen(!exportOpen)}>
+            <button className={styles.primaryBtn} onClick={() => setExportOpen(!exportOpen)}>
               Export Dossier ▼
             </button>
             {exportOpen && (
               <div className={styles.exportMenu}>
-                <button className={styles.exportItem} onClick={() => alert(`Exporting JSON Report ${selectedReport.report_id}`)}>
+                <button className={styles.exportItem} onClick={() => { alert(`Exporting JSON Report ${selectedReport.report_id}`); setExportOpen(false); }}>
                   Export JSON Report
                 </button>
-                <button className={styles.exportItem} onClick={() => alert(`Exporting JSON Certificate ${cert?.certification_id}`)}>
+                <button className={styles.exportItem} onClick={() => { alert(`Exporting JSON Certificate ${cert?.certification_id}`); setExportOpen(false); }}>
                   Export JSON Certificate
                 </button>
-                <button className={styles.exportItem} onClick={() => alert(`Exporting Markdown Dossier`)}>
+                <button className={styles.exportItem} onClick={() => { alert(`Exporting Markdown Dossier`); setExportOpen(false); }}>
                   Export Markdown Dossier
                 </button>
               </div>
@@ -250,9 +251,9 @@ export const ReportsModule: React.FC = () => {
         </div>
 
         {/* Tab Contents */}
-        <div className={styles.tabContent}>
+        <div>
           {activeTab === 'overview' && (
-            <div className={styles.gridSummary}>
+            <div className={styles.kpiGrid}>
               <div className={styles.card}>
                 <div className={styles.cardTitle}>Tables Validated</div>
                 <div className={styles.cardValue}>{selectedReport.data_summary.tables_validated ?? 'N/A'}</div>
@@ -265,7 +266,7 @@ export const ReportsModule: React.FC = () => {
               </div>
               <div className={styles.card}>
                 <div className={styles.cardTitle}>Value Mismatches</div>
-                <div className={styles.cardValue} style={{ color: selectedReport.data_summary.total_value_mismatch_rows ? '#f87171' : '#4ade80' }}>
+                <div className={styles.cardValue} style={{ color: selectedReport.data_summary.total_value_mismatch_rows ? '#EF4444' : '#10B981' }}>
                   {selectedReport.data_summary.total_value_mismatch_rows ?? 0}
                 </div>
                 <div className={styles.cardSub}>Deep row reconciliation</div>
@@ -304,20 +305,23 @@ export const ReportsModule: React.FC = () => {
           )}
 
           {activeTab === 'reconciliation' && (
-            <div className={styles.gridSummary}>
+            <div className={styles.kpiGrid}>
               <div className={styles.card}>
                 <div className={styles.cardTitle}>Source Only Rows</div>
                 <div className={styles.cardValue}>{selectedReport.data_summary.total_source_only_rows ?? 0}</div>
+                <div className={styles.cardSub}>Present only in source database</div>
               </div>
               <div className={styles.card}>
                 <div className={styles.cardTitle}>Target Only Rows</div>
                 <div className={styles.cardValue}>{selectedReport.data_summary.total_target_only_rows ?? 0}</div>
+                <div className={styles.cardSub}>Present only in target database</div>
               </div>
               <div className={styles.card}>
                 <div className={styles.cardTitle}>Value Mismatch Rows</div>
-                <div className={styles.cardValue} style={{ color: selectedReport.data_summary.total_value_mismatch_rows ? '#f87171' : '#ffffff' }}>
+                <div className={styles.cardValue} style={{ color: selectedReport.data_summary.total_value_mismatch_rows ? '#EF4444' : '#F8FAFC' }}>
                   {selectedReport.data_summary.total_value_mismatch_rows ?? 0}
                 </div>
+                <div className={styles.cardSub}>Conflicting column hashes</div>
               </div>
             </div>
           )}
@@ -368,14 +372,14 @@ export const ReportsModule: React.FC = () => {
               <div className={styles.fingerprintBox}>
                 <div>
                   <div className={styles.cardTitle}>Certification Cryptographic Fingerprint (SHA-256)</div>
-                  <div className={styles.mono} style={{ fontSize: '0.9rem', marginTop: '0.25rem' }}>{cert?.certification_fingerprint || 'N/A'}</div>
+                  <div className={styles.mono} style={{ fontSize: '13px', marginTop: '4px', color: '#60A5FA' }}>{cert?.certification_fingerprint || 'N/A'}</div>
                 </div>
-                <button className={styles.verifyBtn} onClick={handleVerifyIntegrity}>Verify Integrity</button>
+                <button className={styles.primaryBtn} onClick={handleVerifyIntegrity}>Verify Integrity</button>
               </div>
               {integrityStatus && (
-                <div className="mt-4 p-4 rounded-lg bg-slate-900 border border-slate-700">
+                <div style={{ marginTop: '16px', padding: '16px', borderRadius: '10px', background: '#171B26', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
                   <strong>Verification Result: </strong>
-                  <span className={`${styles.badge} ${integrityStatus === 'INTEGRITY_VERIFIED' ? styles.badgeCertified : styles.badgeFailed}`}>
+                  <span className={`${styles.badge} ${integrityStatus === 'INTEGRITY_VERIFIED' ? styles.badgeCertified : styles.badgeFailed}`} style={{ marginLeft: '8px' }}>
                     {integrityStatus === 'INTEGRITY_VERIFIED' ? 'AUTHENTIC (SHA-256 MATCH)' : 'TAMPERED / INVALID FINGERPRINT'}
                   </span>
                 </div>
@@ -459,7 +463,7 @@ export const ReportsModule: React.FC = () => {
           <tbody>
             {filteredReports.map((r) => (
               <tr key={r.report_id}>
-                <td><strong className={styles.mono}>{r.report_id}</strong></td>
+                <td><strong className={styles.reportIdTag}>{r.report_id}</strong></td>
                 <td>{r.job_id} <span className={styles.cardSub}>({r.run_id})</span></td>
                 <td>{r.report_type}</td>
                 <td>{r.source_info.engine} → {r.target_info.engine}</td>
