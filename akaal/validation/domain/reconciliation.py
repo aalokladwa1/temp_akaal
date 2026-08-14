@@ -131,6 +131,15 @@ class CanonicalReconciliationEngine:
         self.mode = mode
         self.validator = PhysicalChecksumValidator()
 
+    @staticmethod
+    def _canonical_key_sort_bytes(key: Tuple[Any, ...]) -> bytes:
+        """Injective canonical byte representation for composite key sorting."""
+        buf = bytearray()
+        for elem in key:
+            elem_bytes = CanonicalValueSerializer.serialize_value(elem)
+            buf.extend(f"{len(elem_bytes)}:".encode("utf-8") + elem_bytes)
+        return bytes(buf)
+
     def reconcile_tables(
         self,
         table_name: str,
@@ -148,36 +157,201 @@ class CanonicalReconciliationEngine:
         s_count = len(source_rows)
         t_count = len(target_rows)
 
-        # Step 1: Merkle root check
-        checksum_res = self.validator.validate_table_checksums(
-            source_rows,
-            target_rows,
-            columns,
-            pk_columns=pk_columns,
-            source_dialect=source_dialect,
-            target_dialect=target_dialect,
-        )
+        try:
+            # Step 1: Check PK Identity Strategy & Uniqueness BEFORE claiming Merkle match
+            if not pk_columns:
+                logger.warning(f"[RECONCILIATION] Table '{table_name}' has no PK/Unique key identity. Classification is INDETERMINATE.")
+                summary = TableReconciliationSummary(
+                    table_name=table_name,
+                    source_rows=s_count,
+                    target_rows=t_count,
+                    matched_count=0,
+                    source_only_count=0,
+                    target_only_count=0,
+                    value_mismatch_count=0,
+                    unsupported_count=0,
+                    indeterminate_count=s_count,
+                    error_count=0,
+                    mismatched_chunks_count=1 if s_count > 0 or t_count > 0 else 0,
+                    status="INDETERMINATE",
+                )
+                return summary, []
 
-        if checksum_res["status"] == "PASSED":
+            col_indices = {col.lower(): idx for idx, col in enumerate(columns)}
+            pk_indices = [col_indices[pk.lower()] for pk in pk_columns if pk.lower() in col_indices]
+
+            if not pk_indices:
+                summary = TableReconciliationSummary(
+                    table_name=table_name,
+                    source_rows=s_count,
+                    target_rows=t_count,
+                    matched_count=0,
+                    source_only_count=0,
+                    target_only_count=0,
+                    value_mismatch_count=0,
+                    unsupported_count=0,
+                    indeterminate_count=s_count,
+                    error_count=0,
+                    mismatched_chunks_count=1,
+                    status="INDETERMINATE",
+                )
+                return summary, []
+
+            # Map source rows by PK key
+            source_map: Dict[Tuple[Any, ...], Tuple[Any, ...]] = {}
+            for r in source_rows:
+                pk_key = tuple(r[i] for i in pk_indices)
+                if any(k_val is None for k_val in pk_key) or pk_key in source_map:
+                    # Key contains NULL or is non-unique -> fallback to INDETERMINATE
+                    summary = TableReconciliationSummary(
+                        table_name=table_name,
+                        source_rows=s_count,
+                        target_rows=t_count,
+                        matched_count=0,
+                        source_only_count=0,
+                        target_only_count=0,
+                        value_mismatch_count=0,
+                        unsupported_count=0,
+                        indeterminate_count=s_count,
+                        error_count=0,
+                        mismatched_chunks_count=1,
+                        status="INDETERMINATE",
+                    )
+                    return summary, []
+                source_map[pk_key] = r
+
+            # Map target rows by PK key
+            target_map: Dict[Tuple[Any, ...], Tuple[Any, ...]] = {}
+            for r in target_rows:
+                pk_key = tuple(r[i] for i in pk_indices)
+                if any(k_val is None for k_val in pk_key) or pk_key in target_map:
+                    # Key contains NULL or is non-unique -> fallback to INDETERMINATE
+                    summary = TableReconciliationSummary(
+                        table_name=table_name,
+                        source_rows=s_count,
+                        target_rows=t_count,
+                        matched_count=0,
+                        source_only_count=0,
+                        target_only_count=0,
+                        value_mismatch_count=0,
+                        unsupported_count=0,
+                        indeterminate_count=s_count,
+                        error_count=0,
+                        mismatched_chunks_count=1,
+                        status="INDETERMINATE",
+                    )
+                    return summary, []
+                target_map[pk_key] = r
+
+            # Step 2: Merkle root check
+            checksum_res = self.validator.validate_table_checksums(
+                source_rows,
+                target_rows,
+                columns,
+                pk_columns=pk_columns,
+                source_dialect=source_dialect,
+                target_dialect=target_dialect,
+            )
+
+            if checksum_res["status"] == "PASSED":
+                summary = TableReconciliationSummary(
+                    table_name=table_name,
+                    source_rows=s_count,
+                    target_rows=t_count,
+                    matched_count=s_count,
+                    source_only_count=0,
+                    target_only_count=0,
+                    value_mismatch_count=0,
+                    unsupported_count=0,
+                    indeterminate_count=0,
+                    error_count=0,
+                    mismatched_chunks_count=0,
+                    status="MATCHED",
+                )
+                return summary, []
+
+            # Step 3: Deep Row & Column Reconciliation
+            all_keys = set(source_map.keys()).union(set(target_map.keys()))
+
+            matched_cnt = 0
+            src_only_cnt = 0
+            tgt_only_cnt = 0
+            val_mismatch_cnt = 0
+            records: List[RowReconciliationRecord] = []
+
+            for key in sorted(all_keys, key=self._canonical_key_sort_bytes):
+                key_dict = {pk_col: val for pk_col, val in zip(pk_columns, key)}
+                in_src = key in source_map
+                in_tgt = key in target_map
+
+                if in_src and not in_tgt:
+                    src_only_cnt += 1
+                    records.append(RowReconciliationRecord(row_identity=key_dict, classification=RowClassification.SOURCE_ONLY))
+                elif in_tgt and not in_src:
+                    tgt_only_cnt += 1
+                    records.append(RowReconciliationRecord(row_identity=key_dict, classification=RowClassification.TARGET_ONLY))
+                else:
+                    s_row = source_map[key]
+                    t_row = target_map[key]
+
+                    # Compare column by column
+                    col_diffs: List[ColumnDifference] = []
+                    row_mismatch = False
+
+                    for col_name, s_val, t_val in zip(columns, s_row, t_row):
+                        ctype = column_types.get(col_name) if column_types else None
+                        s_col_bytes = CanonicalValueSerializer.serialize_value(s_val, canonical_type=ctype, dialect=source_dialect)
+                        t_col_bytes = CanonicalValueSerializer.serialize_value(t_val, canonical_type=ctype, dialect=target_dialect)
+
+                        s_col_hash = hashlib.sha256(s_col_bytes).hexdigest()
+                        t_col_hash = hashlib.sha256(t_col_bytes).hexdigest()
+                        col_match = (s_col_hash == t_col_hash)
+
+                        if not col_match:
+                            row_mismatch = True
+
+                        col_diffs.append(ColumnDifference(
+                            column_name=col_name,
+                            source_hash=s_col_hash,
+                            target_hash=t_col_hash,
+                            is_match=col_match,
+                        ))
+
+                    if row_mismatch:
+                        val_mismatch_cnt += 1
+                        s_row_h = self.validator.hash_row(s_row, columns, dialect=source_dialect)
+                        t_row_h = self.validator.hash_row(t_row, columns, dialect=target_dialect)
+                        records.append(RowReconciliationRecord(
+                            row_identity=key_dict,
+                            classification=RowClassification.VALUE_MISMATCH,
+                            column_differences=col_diffs,
+                            source_row_hash=s_row_h,
+                            target_row_hash=t_row_h,
+                        ))
+                    else:
+                        matched_cnt += 1
+
+            status = "MISMATCH" if (src_only_cnt > 0 or tgt_only_cnt > 0 or val_mismatch_cnt > 0) else "MATCHED"
+
             summary = TableReconciliationSummary(
                 table_name=table_name,
                 source_rows=s_count,
                 target_rows=t_count,
-                matched_count=s_count,
-                source_only_count=0,
-                target_only_count=0,
-                value_mismatch_count=0,
+                matched_count=matched_cnt,
+                source_only_count=src_only_cnt,
+                target_only_count=tgt_only_cnt,
+                value_mismatch_count=val_mismatch_cnt,
                 unsupported_count=0,
                 indeterminate_count=0,
                 error_count=0,
-                mismatched_chunks_count=0,
-                status="MATCHED",
+                mismatched_chunks_count=1 if status == "MISMATCH" else 0,
+                status=status,
             )
-            return summary, []
 
-        # Step 2: Row Identity Strategy
-        if not pk_columns:
-            logger.warning(f"[RECONCILIATION] Table '{table_name}' has no PK/Unique key identity. Classification is INDETERMINATE.")
+            return summary, records
+
+        except Exception as exc:
+            logger.error(f"[RECONCILIATION ERROR] Failed reconciliation on table '{table_name}': {exc}", exc_info=True)
             summary = TableReconciliationSummary(
                 table_name=table_name,
                 source_rows=s_count,
@@ -187,107 +361,12 @@ class CanonicalReconciliationEngine:
                 target_only_count=0,
                 value_mismatch_count=0,
                 unsupported_count=0,
-                indeterminate_count=s_count,
-                error_count=0,
+                indeterminate_count=0,
+                error_count=s_count if (s_count > 0 or t_count > 0) else 1,
                 mismatched_chunks_count=1,
-                status="INDETERMINATE",
+                status="ERROR",
             )
             return summary, []
-
-        # Find PK indices
-        col_indices = {col.lower(): idx for idx, col in enumerate(columns)}
-        pk_indices = [col_indices[pk.lower()] for pk in pk_columns if pk.lower() in col_indices]
-
-        # Map source rows by PK key
-        source_map: Dict[Tuple[Any, ...], Tuple[Any, ...]] = {}
-        for r in source_rows:
-            pk_key = tuple(r[i] for i in pk_indices)
-            source_map[pk_key] = r
-
-        # Map target rows by PK key
-        target_map: Dict[Tuple[Any, ...], Tuple[Any, ...]] = {}
-        for r in target_rows:
-            pk_key = tuple(r[i] for i in pk_indices)
-            target_map[pk_key] = r
-
-        all_keys = set(source_map.keys()).union(set(target_map.keys()))
-
-        matched_cnt = 0
-        src_only_cnt = 0
-        tgt_only_cnt = 0
-        val_mismatch_cnt = 0
-        records: List[RowReconciliationRecord] = []
-
-        for key in sorted(all_keys, key=lambda k: str(k)):
-            key_dict = {pk_col: val for pk_col, val in zip(pk_columns, key)}
-            in_src = key in source_map
-            in_tgt = key in target_map
-
-            if in_src and not in_tgt:
-                src_only_cnt += 1
-                records.append(RowReconciliationRecord(row_identity=key_dict, classification=RowClassification.SOURCE_ONLY))
-            elif in_tgt and not in_src:
-                tgt_only_cnt += 1
-                records.append(RowReconciliationRecord(row_identity=key_dict, classification=RowClassification.TARGET_ONLY))
-            else:
-                s_row = source_map[key]
-                t_row = target_map[key]
-
-                # Compare column by column
-                col_diffs: List[ColumnDifference] = []
-                row_mismatch = False
-
-                for col_name, s_val, t_val in zip(columns, s_row, t_row):
-                    ctype = column_types.get(col_name) if column_types else None
-                    s_col_bytes = CanonicalValueSerializer.serialize_value(s_val, canonical_type=ctype, dialect=source_dialect)
-                    t_col_bytes = CanonicalValueSerializer.serialize_value(t_val, canonical_type=ctype, dialect=target_dialect)
-
-                    s_col_hash = hashlib.sha256(s_col_bytes).hexdigest()
-                    t_col_hash = hashlib.sha256(t_col_bytes).hexdigest()
-                    col_match = (s_col_hash == t_col_hash)
-
-                    if not col_match:
-                        row_mismatch = True
-
-                    col_diffs.append(ColumnDifference(
-                        column_name=col_name,
-                        source_hash=s_col_hash,
-                        target_hash=t_col_hash,
-                        is_match=col_match,
-                    ))
-
-                if row_mismatch:
-                    val_mismatch_cnt += 1
-                    s_row_h = self.validator.hash_row(s_row, columns, dialect=source_dialect)
-                    t_row_h = self.validator.hash_row(t_row, columns, dialect=target_dialect)
-                    records.append(RowReconciliationRecord(
-                        row_identity=key_dict,
-                        classification=RowClassification.VALUE_MISMATCH,
-                        column_differences=col_diffs,
-                        source_row_hash=s_row_h,
-                        target_row_hash=t_row_h,
-                    ))
-                else:
-                    matched_cnt += 1
-
-        status = "MISMATCH" if (src_only_cnt > 0 or tgt_only_cnt > 0 or val_mismatch_cnt > 0) else "MATCHED"
-
-        summary = TableReconciliationSummary(
-            table_name=table_name,
-            source_rows=s_count,
-            target_rows=t_count,
-            matched_count=matched_cnt,
-            source_only_count=src_only_cnt,
-            target_only_count=tgt_only_cnt,
-            value_mismatch_count=val_mismatch_cnt,
-            unsupported_count=0,
-            indeterminate_count=0,
-            error_count=0,
-            mismatched_chunks_count=1 if status == "MISMATCH" else 0,
-            status=status,
-        )
-
-        return summary, records
 
     def aggregate_database_evidence(
         self,
