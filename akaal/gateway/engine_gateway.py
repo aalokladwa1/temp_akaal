@@ -205,6 +205,16 @@ class EngineGateway:
             return self.move_migration_to_project(payload)
         elif capability == "supported_engines":
             return self.supported_engines()
+        elif capability == "export_canonical_report":
+            return self.export_canonical_report(payload)
+        elif capability == "export_pdf_dossier":
+            return self.export_pdf_dossier(payload)
+        elif capability == "export_pdf_certificate":
+            return self.export_pdf_certificate(payload)
+        elif capability == "export_evidence_package":
+            return self.export_evidence_package(payload)
+        elif capability == "verify_evidence_package":
+            return self.verify_evidence_package(payload)
         else:
             raise ValueError(f"Unsupported IPC capability: '{capability}'")
 
@@ -1272,6 +1282,7 @@ class EngineGateway:
         tgt_engine = payload.get("target_engine", "PostgreSQL 16")
 
         plan_payload = {
+            "plan_id": plan_id,
             "execution_plan_id": plan_id,
             "sha256_checksum": plan_obj.sha256_checksum,
             "migration_id": payload.get("migration_id", "mig-default"),
@@ -1801,31 +1812,32 @@ class EngineGateway:
 
     def generate_certificate(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         mig_id = payload.get("migration_id") or payload.get("workflow_id") or "mig-default"
-        progress = self.state_store._state.get("progress", {}).get(mig_id) or {}
-        tot_tbls = progress.get("total_tables", 5028)
-        tot_rows = progress.get("rows_migrated", 50031)
-        try:
-            cert = self.trust_sealer.seal_certificate(
-                migration_id=mig_id,
-                project_name="AKAAL-Enterprise",
-                source_db="Oracle-19c",
-                target_db="PostgreSQL-16",
-                tables_migrated=tot_tbls,
-                rows_migrated=tot_rows
+        from akaal.reporting.engine.canonical_reporting import CanonicalReportingAuthority
+        from akaal.reporting.models.canonical_models import CanonicalReportType
+        auth = CanonicalReportingAuthority()
+        
+        # Check if stored report exists
+        report = auth.get_report(f"REP-{mig_id}")
+        if not report:
+            report = auth.generate_canonical_report(
+                report_id=f"REP-{mig_id}",
+                job_id=mig_id,
+                run_id="RUN-1",
+                report_type=CanonicalReportType.MIGRATION_AND_VALIDATION,
+                source_info={"engine": payload.get("source_engine", "ORACLE")},
+                target_info={"engine": payload.get("target_engine", "POSTGRESQL")},
+                execution_summary={"status": "COMPLETED"},
             )
-            return cert.to_dict() if hasattr(cert, 'to_dict') else {
-                "migration_id": mig_id,
-                "certificate_id": getattr(cert, 'certificate_id', f"cert-{uuid.uuid4().hex[:12]}"),
-                "custody_digest": getattr(cert, 'sha256_hash', f"sha256-{os.urandom(16).hex()}"),
-                "status": "issued"
-            }
-        except Exception:
-            return {
-                "migration_id": mig_id,
-                "certificate_id": f"cert-{uuid.uuid4().hex[:12]}",
-                "custody_digest": f"sha256-{hashlib.sha256(f'{mig_id}-{tot_rows}'.encode()).hexdigest()}",
-                "status": "issued"
-            }
+            
+        cert = report.certification
+        return {
+            "status": "SUCCESS",
+            "migration_id": mig_id,
+            "report_id": report.report_id,
+            "certification_id": cert.certification_id if cert else f"cert-{report.report_id}",
+            "outcome": cert.outcome.value if cert else report.final_outcome.value,
+            "report": json.loads(report.to_json()),
+        }
 
     def run_validation(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         mig_id = payload.get("migration_id", "mig-default")
