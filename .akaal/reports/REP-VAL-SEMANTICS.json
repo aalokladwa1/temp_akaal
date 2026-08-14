@@ -1,7 +1,7 @@
 {
   "certification": {
-    "certification_fingerprint": "f260394281e10cf585856aa632063ac16e9346b06add2e0a4bb852c5a9df034a",
-    "certification_id": "cert-REP-EXP-JSON",
+    "certification_fingerprint": "903375b356a70fe16770cb5467be81af818122e447185b92637fe7f156a51b16",
+    "certification_id": "cert-REP-VAL-SEMANTICS",
     "claims": [
       {
         "claim_type": "GOVERNANCE_APPROVAL_COMPLETE",
@@ -10,27 +10,27 @@
       }
     ],
     "evidence_manifest": [],
-    "job_id": "JOB-1",
+    "job_id": "JOB-VAL-ONLY",
     "outcome": "CERTIFIED",
     "run_id": "RUN-1"
   },
-  "created_at": "2026-08-14T15:36:00.871016+00:00",
+  "created_at": "2026-08-14T15:36:00.762615+00:00",
   "data_summary": {},
   "errors": [],
   "evidence_fingerprints": [],
   "execution_summary": {
-    "status": "COMPLETED"
+    "status": "VALIDATED"
   },
   "final_outcome": "PASSED",
   "governance_summary": {
     "approval_required": false,
     "approval_state": "APPROVED"
   },
-  "job_id": "JOB-1",
+  "job_id": "JOB-VAL-ONLY",
   "manual_review_items": [],
-  "report_fingerprint": "e07c2c7c0cd097fb804292eb217130229f38ca273178e6ff5af592dc5c47bd28",
-  "report_id": "REP-EXP-JSON",
-  "report_type": "MIGRATION",
+  "report_fingerprint": "2beec3375036eb9968a9198bd11ddeaf1b5b4fa079584c58fa07d92c5e4986bd",
+  "report_id": "REP-VAL-SEMANTICS",
+  "report_type": "VALIDATION_ONLY",
   "report_version": "AKAAL-CANONICAL-V1",
   "run_id": "RUN-1",
   "schema_summary": {
@@ -39,10 +39,10 @@
     "risk_score": 0.0
   },
   "source_info": {
-    "engine": "oracle"
+    "engine": "MySQL"
   },
   "target_info": {
-    "engine": "postgresql"
+    "engine": "MSSQL"
   },
   "validation_summary": {},
   "warnings": []

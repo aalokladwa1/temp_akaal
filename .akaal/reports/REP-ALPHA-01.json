@@ -1,7 +1,7 @@
 {
   "certification": {
-    "certification_fingerprint": "b85949a5b60250340c0272b28f780bd4e3fe4a2b876ab533628da620cc515fe5",
-    "certification_id": "cert-REP-P212-TEST",
+    "certification_fingerprint": "3627df072f6bb96171db995abf21cdfb450fd14c623daff79d4ef1d7da32096c",
+    "certification_id": "cert-REP-ALPHA-01",
     "claims": [
       {
         "claim_type": "GOVERNANCE_APPROVAL_COMPLETE",
@@ -25,40 +25,39 @@
       },
       {
         "claim_type": "ROW_COUNT_VERIFIED",
-        "description": "Row count verified across 12 tables",
+        "description": "Row count verified across 10 tables",
         "status": "PASSED"
       },
       {
         "claim_type": "ROW_RECONCILIATION_VERIFIED",
-        "description": "Deep row reconciliation evaluated 500000 rows",
+        "description": "Deep row reconciliation evaluated 100000 rows",
         "status": "PASSED"
       }
     ],
     "evidence_manifest": [
       {
-        "fingerprint": "abc123def4567890abc123def4567890abc123def4567890abc123def4567890",
+        "fingerprint": "1111222233334444555566667777888899990000aaaabbbbccccddddeeeeffff",
         "status": "MATCHED",
         "type": "RECONCILIATION_EVIDENCE"
       }
     ],
-    "job_id": "JOB-ORACLE-PG",
+    "job_id": "JOB-ALPHA",
     "outcome": "CERTIFIED",
-    "run_id": "RUN-100"
+    "run_id": "RUN-1"
   },
-  "created_at": "2026-08-14T15:36:00.865724+00:00",
+  "created_at": "2026-08-14T15:36:00.791720+00:00",
   "data_summary": {
-    "tables_validated": 12,
-    "total_rows_evaluated": 500000,
+    "tables_validated": 10,
+    "total_rows_evaluated": 100000,
     "total_source_only_rows": 0,
     "total_target_only_rows": 0,
     "total_value_mismatch_rows": 0
   },
   "errors": [],
   "evidence_fingerprints": [
-    "abc123def4567890abc123def4567890abc123def4567890abc123def4567890"
+    "1111222233334444555566667777888899990000aaaabbbbccccddddeeeeffff"
   ],
   "execution_summary": {
-    "duration_seconds": 32.5,
     "status": "COMPLETED"
   },
   "final_outcome": "PASSED",
@@ -66,24 +65,24 @@
     "approval_required": true,
     "approval_state": "APPROVED"
   },
-  "job_id": "JOB-ORACLE-PG",
+  "job_id": "JOB-ALPHA",
   "manual_review_items": [],
-  "report_fingerprint": "feabc7923b8ac6a6b489105eb8f8f4d17f661d0b9e94afd55f049b18f44ed99a",
-  "report_id": "REP-P212-TEST",
+  "report_fingerprint": "358af7d216d7b77a56c079c3467927665aa1136c1cd135b195c297220e9ac5cb",
+  "report_id": "REP-ALPHA-01",
   "report_type": "MIGRATION_AND_VALIDATION",
   "report_version": "AKAAL-CANONICAL-V1",
-  "run_id": "RUN-100",
+  "run_id": "RUN-1",
   "schema_summary": {
     "blocking_findings_count": 0,
     "overall_compatibility": "COMPATIBLE",
     "risk_score": 0.0
   },
   "source_info": {
-    "engine": "Oracle 19c Enterprise",
+    "engine": "Oracle 19c",
     "password": "[REDACTED_SECRET]"
   },
   "target_info": {
-    "engine": "PostgreSQL 16.2",
+    "engine": "PostgreSQL 16",
     "token": "[REDACTED_SECRET]"
   },
   "validation_summary": {
@@ -92,7 +91,7 @@
     "serialization_version": "AKAAL-CANONICAL-V1",
     "tables_failed": 0,
     "tables_indeterminate": 0,
-    "tables_matched": 12,
+    "tables_matched": 10,
     "tables_mismatched": 0
   },
   "warnings": []

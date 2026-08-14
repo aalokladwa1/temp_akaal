@@ -115,14 +115,10 @@ class MinimalPDFBuilder:
             out.write(b"\nendobj\n")
             return objects_count
 
-        # Obj 1: Catalog
         catalog_id = write_obj(b"<< /Type /Catalog /Pages 2 0 R >>")
-        
-        # Obj 3 & 4: Fonts (F1 Helvetica, F2 Courier)
         font1_id = write_obj(b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>")
         font2_id = write_obj(b"<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>")
 
-        # Obj 2: Pages container
         page_ids = []
         for i in range(len(self.pages)):
             page_ids.append(objects_count + i + 1 + len(self.pages))
@@ -130,7 +126,6 @@ class MinimalPDFBuilder:
         page_refs = " ".join(f"{pid} 0 R" for pid in page_ids)
         pages_id = write_obj(f"<< /Type /Pages /Kids [{page_refs}] /Count {len(self.pages)} >>".encode("ascii"))
 
-        # Create Stream Objects & Page Objects
         stream_ids = []
         for page_cmds in self.pages:
             content_str = "\n".join(page_cmds)
@@ -145,7 +140,6 @@ class MinimalPDFBuilder:
             ).encode("ascii")
             write_obj(page_obj)
 
-        # Cross-reference table
         xref_start = out.tell()
         out.write(b"xref\n")
         out.write(f"0 {objects_count + 1}\n".encode("ascii"))
@@ -153,7 +147,6 @@ class MinimalPDFBuilder:
         for i in range(1, objects_count + 1):
             out.write(f"{offsets[i]:010d} 00000 n \n".encode("ascii"))
 
-        # Trailer
         out.write(f"trailer\n<< /Size {objects_count + 1} /Root 1 0 R >>\n".encode("ascii"))
         out.write(b"startxref\n")
         out.write(f"{xref_start}\n".encode("ascii"))
@@ -330,7 +323,6 @@ class CanonicalReportExportService:
         }
         manifest_str = json.dumps(manifest_data, indent=2)
 
-        # Artifact map
         artifacts = {
             "report/canonical-report.json": report_json_str.encode("utf-8"),
             "report/migration-evidence-dossier.pdf": pdf_dossier_bytes,
@@ -339,7 +331,6 @@ class CanonicalReportExportService:
             "evidence/manifest.json": manifest_str.encode("utf-8"),
         }
 
-        # Compute checksums.sha256
         checksum_lines = []
         for path, data in artifacts.items():
             h = hashlib.sha256(data).hexdigest()
@@ -347,7 +338,6 @@ class CanonicalReportExportService:
         checksums_bytes = "\n".join(checksum_lines).encode("utf-8")
         artifacts["integrity/checksums.sha256"] = checksums_bytes
 
-        # Build ZIP archive
         zip_buffer = io.BytesIO()
         with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
             for path, data in artifacts.items():
@@ -357,8 +347,14 @@ class CanonicalReportExportService:
 
     def verify_evidence_package(self, zip_data_or_path: Union[bytes, str]) -> Dict[str, Any]:
         """
-        Inspect evidence ZIP package, verify SHA-256 hashes against checksums.sha256,
-        and validate manifest integrity. Returns status: VALID, INVALID, INCOMPLETE, UNSUPPORTED_VERSION, ERROR.
+        Hostile inspection of evidence ZIP package:
+        - Rejects path traversal (../, absolute paths, backslashes).
+        - Rejects duplicate zip member names.
+        - Rejects unmanifested/unchecksummed extra zip artifacts.
+        - Rejects cross-job/run evidence substitution attempts.
+        - Rejects certification outcome tampering.
+        - Verifies SHA-256 checksums against checksums.sha256.
+        Returns status: VALID, INVALID, INCOMPLETE, UNSUPPORTED_VERSION, ERROR.
         """
         try:
             if isinstance(zip_data_or_path, str):
@@ -371,32 +367,84 @@ class CanonicalReportExportService:
 
             zip_buffer = io.BytesIO(zip_bytes)
             with zipfile.ZipFile(zip_buffer, "r") as zip_file:
-                file_list = zip_file.namelist()
+                infolist = zip_file.infolist()
+                file_list = [item.filename for item in infolist]
 
+                # Check 1: Duplicate Member Names
+                if len(file_list) != len(set(file_list)):
+                    return {"status": "INVALID", "reason": "Duplicate member entry detected in zip package"}
+
+                # Check 2: Path Traversal & Dangerous Path Injection
+                for fname in file_list:
+                    if ".." in fname or fname.startswith("/") or fname.startswith("\\") or ":" in fname or "\\" in fname:
+                        return {"status": "INVALID", "reason": f"Path traversal attempt detected in zip member '{fname}'"}
+
+                # Check 3: Essential Infrastructure Artifacts Presence
                 if "evidence/manifest.json" not in file_list or "integrity/checksums.sha256" not in file_list:
                     return {"status": "INCOMPLETE", "reason": "Missing manifest.json or checksums.sha256"}
 
+                # Check 4: Manifest Integrity & Version
                 manifest_bytes = zip_file.read("evidence/manifest.json")
-                manifest = json.loads(manifest_bytes.decode("utf-8"))
+                try:
+                    manifest = json.loads(manifest_bytes.decode("utf-8"))
+                except Exception:
+                    return {"status": "INVALID", "reason": "Malformed manifest.json payload"}
 
                 if manifest.get("package_version") != "AKAAL-EVIDENCE-V1":
                     return {"status": "UNSUPPORTED_VERSION", "reason": f"Unsupported version {manifest.get('package_version')}"}
 
+                # Check 5: Parse Checksums
                 checksums_text = zip_file.read("integrity/checksums.sha256").decode("utf-8")
                 checksum_map = {}
-                for line in checksums_text.strip().split("\n"):
+                checksum_lines = checksums_text.strip().split("\n")
+                for line in checksum_lines:
                     if not line.strip():
                         continue
                     parts = line.strip().split(maxsplit=1)
                     if len(parts) == 2:
-                        checksum_map[parts[1].strip()] = parts[0].strip()
+                        path_entry = parts[1].strip()
+                        if path_entry in checksum_map:
+                            return {"status": "INVALID", "reason": f"Duplicate checksum entry for '{path_entry}'"}
+                        checksum_map[path_entry] = parts[0].strip()
 
+                # Check 6: Unmanifested / Extra ZIP Member Firewall
+                allowed_unmanifested = {"integrity/checksums.sha256"}
+                for fname in file_list:
+                    if fname not in checksum_map and fname not in allowed_unmanifested:
+                        return {"status": "INVALID", "reason": f"Unmanifested extra artifact detected in zip: '{fname}'"}
+
+                # Check 7: Verify SHA-256 Bytes Matching
                 for path, expected_hash in checksum_map.items():
                     if path not in file_list:
-                        return {"status": "INCOMPLETE", "reason": f"Missing artifact {path}"}
+                        return {"status": "INCOMPLETE", "reason": f"Missing artifact '{path}' declared in checksums.sha256"}
                     actual_hash = hashlib.sha256(zip_file.read(path)).hexdigest()
                     if actual_hash != expected_hash:
-                        return {"status": "INVALID", "reason": f"Hash mismatch for {path}"}
+                        return {"status": "INVALID", "reason": f"SHA-256 hash mismatch for artifact '{path}'"}
+
+                # Check 8: Deep Job/Run Evidence Binding & Certification Outcome Firewall
+                if "report/canonical-report.json" in file_list:
+                    try:
+                        report_data = json.loads(zip_file.read("report/canonical-report.json").decode("utf-8"))
+                        if report_data.get("report_id") != manifest.get("report_id"):
+                            return {"status": "INVALID", "reason": "Report ID mismatch between manifest and canonical report"}
+                        if report_data.get("job_id") != manifest.get("job_id"):
+                            return {"status": "INVALID", "reason": "Job ID mismatch between manifest and canonical report"}
+                        if report_data.get("run_id") != manifest.get("run_id"):
+                            return {"status": "INVALID", "reason": "Run ID mismatch between manifest and canonical report"}
+                    except Exception:
+                        return {"status": "INVALID", "reason": "Corrupt canonical-report.json artifact"}
+
+                if "certification/certification.json" in file_list:
+                    try:
+                        cert_data = json.loads(zip_file.read("certification/certification.json").decode("utf-8"))
+                        if cert_data.get("job_id") != manifest.get("job_id"):
+                            return {"status": "INVALID", "reason": "Job ID mismatch between manifest and certification artifact"}
+                        if cert_data.get("run_id") != manifest.get("run_id"):
+                            return {"status": "INVALID", "reason": "Run ID mismatch between manifest and certification artifact"}
+                        if cert_data.get("outcome") != manifest.get("certification_outcome"):
+                            return {"status": "INVALID", "reason": "Certification outcome mismatch between manifest and certification artifact"}
+                    except Exception:
+                        return {"status": "INVALID", "reason": "Corrupt certification.json artifact"}
 
                 return {
                     "status": "VALID",
@@ -414,15 +462,19 @@ class CanonicalReportExportService:
         Safely write export artifact to target filepath using atomic temporary file write and replace.
         Prevents corrupt states and path traversal attacks.
         """
-        target_dir = os.path.dirname(os.path.abspath(target_filepath))
+        # Path Traversal Guard for target_filepath
+        clean_path = os.path.normpath(target_filepath)
+        if ".." in target_filepath:
+            return False
+
+        target_dir = os.path.dirname(os.path.abspath(clean_path))
         os.makedirs(target_dir, exist_ok=True)
 
-        # Atomic temp write
         fd, tmp_path = tempfile.mkstemp(dir=target_dir, prefix=".akaal_exp_tmp_")
         try:
             with os.fdopen(fd, "wb" if isinstance(content, bytes) else "w") as f:
                 f.write(content)
-            os.replace(tmp_path, target_filepath)
+            os.replace(tmp_path, clean_path)
             return True
         except Exception:
             if os.path.exists(tmp_path):
