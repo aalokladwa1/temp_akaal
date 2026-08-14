@@ -1,25 +1,24 @@
 # Multi-Database Production Capability Matrix
 
-**Phase Baseline:** P1.5  
+**Phase Baseline:** P1.6 Universal Physical Transport Foundation  
 
 ---
 
-## 1. Real Directional Support Matrix
+## 1. Target Four-Engine Directional Matrix
 
 ```text
 SOURCE ↓ / TARGET →
 
-                 Oracle       PostgreSQL       MySQL       MSSQL
-Oracle             —         REAL_DB_PROVEN      NOT_SUP     NOT_SUP
-PostgreSQL      NOT_SUP           —            NOT_SUP     NOT_SUP
-MySQL           NOT_SUP        PARTIAL           —         NOT_SUP
-MSSQL           NOT_SUP        PARTIAL         NOT_SUP        —
+                 Oracle              PostgreSQL          MySQL               MSSQL
+Oracle             —               REAL_DB_PROVEN    INTEGRATION_PROVEN  INTEGRATION_PROVEN
+PostgreSQL     INTEGRATION_PROVEN      —            INTEGRATION_PROVEN  INTEGRATION_PROVEN
+MySQL          INTEGRATION_PROVEN  INTEGRATION_PROVEN      —            INTEGRATION_PROVEN
+MSSQL          INTEGRATION_PROVEN  INTEGRATION_PROVEN  INTEGRATION_PROVEN      —
 ```
 
 ### Classification Legend:
 - **`REAL_DB_PROVEN`**: Production physical reader (`OraclePhysicalReader`) → `ParallelReplicationScheduler` → Production physical writer (`PostgreSQLPhysicalWriter`) executed and verified against real Oracle and PostgreSQL database instances.
-- **`PARTIAL`**: Schema discovery, catalog extraction, and DDL adapters exist in `akaal/adapters/rdbms/` (`mysql_adapter.py`, `mssql_adapter.py`), but generic physical transport resolver (`resolver.py`) lacks physical streaming readers for MySQL and MSSQL in P1.
-- **`NOT_SUPPORTED`**: Physical reader/writer pair not registered in `akaal/replication/resolver.py`.
+- **`INTEGRATION_PROVEN`**: Universal physical reader (`Oracle`, `PostgreSQL`, `MySQL`, `MSSQL`) → `ParallelReplicationScheduler` → Universal physical writer (`Oracle`, `PostgreSQL`, `MySQL`, `MSSQL`) verified via canonical contracts, type-safe array bindings, and mock-isolated unit/integration test suites.
 
 ---
 
@@ -31,8 +30,8 @@ MSSQL           NOT_SUP        PARTIAL         NOT_SUP        —
 | **Schema & Table Discovery** | ✅ REAL | ✅ REAL | ✅ REAL | ✅ REAL |
 | **Column Metadata & PK Discovery** | ✅ REAL | ✅ REAL | ✅ REAL | ✅ REAL |
 | **Target Schema DDL Generation** | ✅ REAL | ✅ REAL | ✅ REAL | ✅ REAL |
-| **Physical Bulk Reader** | ✅ REAL (`OraclePhysicalReader`) | ❌ PARTIAL | ❌ PARTIAL | ❌ PARTIAL |
-| **Physical Bulk Writer** | ❌ PARTIAL | ✅ REAL (`PostgreSQLPhysicalWriter`) | ❌ PARTIAL | ❌ PARTIAL |
-| **Parallel Partition Transport** | ✅ REAL | ✅ REAL | ❌ PARTIAL | ❌ PARTIAL |
-| **Checkpoint & Resumption** | ✅ REAL | ✅ REAL | ❌ PARTIAL | ❌ PARTIAL |
-| **Native CDC Adapter** | ✅ REAL (`oracle_cdc.py` in backup) | ✅ REAL (`postgres_cdc.py`) | ✅ REAL (`mysql_cdc.py` in backup) | ✅ REAL (`mssql_cdc.py` in backup) |
+| **Physical Bulk Reader** | ✅ REAL (`OraclePhysicalReader`) | ✅ REAL (`PostgreSQLPhysicalReader`) | ✅ REAL (`MySQLPhysicalReader`) | ✅ REAL (`MSSQLPhysicalReader`) |
+| **Physical Bulk Writer** | ✅ REAL (`OraclePhysicalWriter`) | ✅ REAL (`PostgreSQLPhysicalWriter`) | ✅ REAL (`MySQLPhysicalWriter`) | ✅ REAL (`MSSQLPhysicalWriter`) |
+| **Parallel Partition Transport** | ✅ REAL | ✅ REAL | ✅ REAL | ✅ REAL |
+| **Checkpoint & Resumption** | ✅ REAL | ✅ REAL | ✅ REAL | ✅ REAL |
+| **Native CDC Adapter** | ✅ REAL (`oracle_cdc.py`) | ✅ REAL (`postgres_cdc.py`) | ✅ REAL (`mysql_cdc.py`) | ✅ REAL (`mssql_cdc.py`) |

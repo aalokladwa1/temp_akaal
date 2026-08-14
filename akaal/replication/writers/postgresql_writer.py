@@ -13,38 +13,9 @@ import psycopg2
 import psycopg2.extras
 
 from akaal.engine.spec import BatchMetadata
+from akaal.replication.contracts import IPhysicalWriter, ConnectorCapability
 
 logger = logging.getLogger("akaal.replication.writers.postgresql_writer")
-
-
-class IPhysicalWriter(ABC):
-    """Abstract interface for canonical database target writing."""
-
-    @abstractmethod
-    def write_batch(
-        self,
-        table_name: str,
-        columns: List[str],
-        data: List[Tuple],
-        batch_meta: BatchMetadata,
-        pk_columns: Optional[List[str]] = None,
-        target_schema: str = "public",
-        page_size: int = 5000,
-        allow_merge: bool = True,
-    ) -> int:
-        pass
-
-    @abstractmethod
-    def commit(self) -> None:
-        pass
-
-    @abstractmethod
-    def rollback(self) -> None:
-        pass
-
-    @abstractmethod
-    def close(self) -> None:
-        pass
 
 
 class PostgreSQLPhysicalWriter(IPhysicalWriter):

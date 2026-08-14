@@ -1,27 +1,44 @@
 """
-AKAAL Replication Engine — Database-Agnostic Physical Transport Resolver
-==========================================================================
-Resolves database-specific physical readers and writers for any supported system type.
-Enables generic multi-engine and bidirectional transport without hardcoding vendor
-types inside WorkflowEngine or DataTransportStep.
+AKAAL Replication Engine — Universal Database-Agnostic Transport Resolver
+===========================================================================
+Resolves canonical physical readers and physical writers for all supported
+RDBMS system types (Oracle, PostgreSQL, MySQL, MSSQL).
 """
 
 import logging
 from typing import Dict, Any, Type, Optional
 
-from akaal.replication.readers.oracle_reader import IPhysicalReader, OraclePhysicalReader
-from akaal.replication.writers.postgresql_writer import IPhysicalWriter, PostgreSQLPhysicalWriter
+from akaal.replication.contracts import IPhysicalReader, IPhysicalWriter
+from akaal.replication.readers.oracle_reader import OraclePhysicalReader
+from akaal.replication.readers.postgresql_reader import PostgreSQLPhysicalReader
+from akaal.replication.readers.mysql_reader import MySQLPhysicalReader
+from akaal.replication.readers.mssql_reader import MSSQLPhysicalReader
+
+from akaal.replication.writers.oracle_writer import OraclePhysicalWriter
+from akaal.replication.writers.postgresql_writer import PostgreSQLPhysicalWriter
+from akaal.replication.writers.mysql_writer import MySQLPhysicalWriter
+from akaal.replication.writers.mssql_writer import MSSQLPhysicalWriter
 
 logger = logging.getLogger("akaal.replication.resolver")
 
 _READER_REGISTRY: Dict[str, Type[IPhysicalReader]] = {
     "ORACLE": OraclePhysicalReader,
     "ORACLE_DB": OraclePhysicalReader,
+    "POSTGRESQL": PostgreSQLPhysicalReader,
+    "POSTGRES": PostgreSQLPhysicalReader,
+    "MYSQL": MySQLPhysicalReader,
+    "MSSQL": MSSQLPhysicalReader,
+    "SQLSERVER": MSSQLPhysicalReader,
 }
 
 _WRITER_REGISTRY: Dict[str, Type[IPhysicalWriter]] = {
+    "ORACLE": OraclePhysicalWriter,
+    "ORACLE_DB": OraclePhysicalWriter,
     "POSTGRESQL": PostgreSQLPhysicalWriter,
     "POSTGRES": PostgreSQLPhysicalWriter,
+    "MYSQL": MySQLPhysicalWriter,
+    "MSSQL": MSSQLPhysicalWriter,
+    "SQLSERVER": MSSQLPhysicalWriter,
 }
 
 

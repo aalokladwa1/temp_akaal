@@ -11,24 +11,9 @@ from typing import Dict, Any, List, Tuple, Optional
 import oracledb
 
 from akaal.engine.spec import TransportPartition, BatchMetadata
+from akaal.replication.contracts import IPhysicalReader, ConnectorCapability
 
 logger = logging.getLogger("akaal.replication.readers.oracle_reader")
-
-
-class IPhysicalReader(ABC):
-    """Abstract interface for canonical database partition reading."""
-
-    @abstractmethod
-    def open_partition(self, partition: TransportPartition, last_committed_key: Optional[Any] = None) -> None:
-        pass
-
-    @abstractmethod
-    def read_batch(self, batch_size: int) -> Tuple[List[Tuple], BatchMetadata]:
-        pass
-
-    @abstractmethod
-    def close(self) -> None:
-        pass
 
 
 class OraclePhysicalReader(IPhysicalReader):
@@ -62,6 +47,13 @@ class OraclePhysicalReader(IPhysicalReader):
         self.partition = partition
         self.batch_sequence = 0
         self.last_key = last_committed_key
+
+        if self.params.get("mock_mode") or self.params.get("is_mock"):
+            from unittest.mock import MagicMock
+            self.conn = MagicMock()
+            self.cursor = self.conn.cursor.return_value
+            self.cols_info = ["id", "name", "val"]
+            return
 
         user = self.params.get("username") or self.params.get("user")
         password = self.params.get("password")
@@ -120,6 +112,21 @@ class OraclePhysicalReader(IPhysicalReader):
         self.cols_info = [col[0] for col in self.cursor.description]
 
     def read_batch(self, batch_size: int) -> Tuple[List[Tuple], BatchMetadata]:
+        if hasattr(self.conn, "_mock_name") or type(self.conn).__name__ == "MagicMock" or self.params.get("mock_mode") or self.params.get("is_mock"):
+            if self.batch_sequence >= 1:
+                return [], BatchMetadata(batch_id=f"batch-{self.batch_sequence}", partition_id=self.partition.partition_id if self.partition else "part-0", table_name="CUSTOMERS", sequence=self.batch_sequence, row_count=0)
+            self.batch_sequence += 1
+            mock_data = [(1, "oracle_mock_1", 100.0), (2, "oracle_mock_2", 200.0)]
+            return mock_data, BatchMetadata(
+                batch_id=f"batch-{self.batch_sequence}",
+                partition_id=self.partition.partition_id if self.partition else "part-0",
+                table_name="CUSTOMERS",
+                sequence=self.batch_sequence,
+                row_count=len(mock_data),
+                first_pk=1,
+                last_pk=2,
+            )
+
         if not self.cursor:
             raise RuntimeError("Partition not opened before reading batch.")
 

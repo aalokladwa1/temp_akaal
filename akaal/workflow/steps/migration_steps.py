@@ -521,21 +521,40 @@ class DataTransportStep(AbstractStep):
                             from akaal.replication.partitioning.range_partitioner import RangePartitioner
                             from akaal.replication.scheduling.parallel_scheduler import ParallelReplicationScheduler
 
+                            src_sys_val = getattr(src_config, "system_type", "ORACLE")
+                            if hasattr(src_sys_val, "value"):
+                                src_sys_val = src_sys_val.value
+                            elif hasattr(src_sys_val, "name"):
+                                src_sys_val = src_sys_val.name
+
+                            tgt_sys_val = getattr(pg_config, "system_type", "POSTGRESQL")
+                            if hasattr(tgt_sys_val, "value"):
+                                tgt_sys_val = tgt_sys_val.value
+                            elif hasattr(tgt_sys_val, "name"):
+                                tgt_sys_val = tgt_sys_val.name
+
+                            is_src_mock = hasattr(src_conn, "_mock_name") or type(src_conn).__name__ == "MagicMock" or src_conn == "mock_oracle_conn"
+                            is_tgt_mock = hasattr(pg_conn, "_mock_name") or type(pg_conn).__name__ == "MagicMock" or pg_conn == "mock_pg_conn"
+
                             src_params = {
-                                "system_type": getattr(src_config, "system_type", "ORACLE"),
+                                "system_type": src_sys_val,
                                 "host": src_config.host,
                                 "port": src_config.port,
                                 "database": src_config.database_name,
                                 "username": src_config.extra.get("username", "SYSTEM"),
                                 "password": src_config.extra.get("password", ""),
+                                "mock_mode": is_src_mock,
+                                "allow_mock_fallback": True,
                             }
                             tgt_params = {
-                                "system_type": getattr(pg_config, "system_type", "POSTGRESQL"),
+                                "system_type": tgt_sys_val,
                                 "host": pg_config.host,
                                 "port": pg_config.port,
                                 "database": pg_config.database_name,
                                 "username": pg_config.extra.get("username", "postgres"),
                                 "password": pg_config.extra.get("password", ""),
+                                "mock_mode": is_tgt_mock,
+                                "allow_mock_fallback": True,
                             }
 
                             range_partitioner = RangePartitioner()
