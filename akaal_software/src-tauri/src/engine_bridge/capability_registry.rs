@@ -46,8 +46,9 @@ impl CapabilityRegistry {
             ("terminate_migration", "Terminate Migration", "Execution", "Cancel and clean up active migration pipeline"),
             ("run_validation", "Run Validation", "Verification", "Phase 4: Perform column-level checksum & referential integrity audit"),
             ("execute_healing", "Execute Self-Healing", "Recovery", "Phase 5: Trigger healer decision matrix for FK/type conflicts"),
-            ("generate_certificate", "Generate Trust Certificate", "Certification", "Phase 5: Issue cryptographic proof seal (SHA-256)"),
             ("get_runtime_snapshot", "Get Runtime Snapshot", "Runtime", "Query live execution state, telemetry, and active worker statuses"),
+            ("get_monitoring_snapshot", "Get Monitoring Snapshot", "Runtime", "Query canonical monitoring snapshot DTO"),
+            ("get_all_migrations", "Get All Migrations", "Pipeline", "Query all registered and historical migration jobs"),
             ("subscribe_runtime_events", "Subscribe Runtime Events", "Runtime", "Subscribe to real-time engine event stream channel"),
         ];
 

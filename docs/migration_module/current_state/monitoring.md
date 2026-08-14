@@ -7,13 +7,25 @@
 
 ## 1. Architectural Overview
 
-The **Monitoring Module** is the canonical **Observation & Telemetry Center** of AKAAL. It is strictly decoupled from command execution and displays 6 domain tab panels:
-1. **Overview Panel:** KPI summaries, health status, and domain breakdown.
-2. **Performance Panel:** Rows/sec, MB/s throughput, average & peak metrics, RAM/CPU resources.
-3. **Workers Panel:** Configured vs active workers, partition assignments, rows processed per worker.
-4. **Tables & Partitions Panel:** Table completion list, batch sizes, latency, LOB byte totals.
-5. **Reliability & Checkpoints Panel:** Checkpoint ID, last committed primary key (redacted), retry counts.
-6. **Events & Logs Panel:** Event activity log stream and sanitized error tracebacks.
+The **Monitoring Module** is the canonical **Observation & Telemetry Center** of AKAAL. It is strictly decoupled from command execution.
+
+### Information Architecture (P1.5D Landing Explorer):
+```text
+Monitoring (Sidebar Click)
+   ↓
+Monitoring Home / Migration Run Explorer (<MonitoringHome />)
+   ↓ (Select Migration)
+Existing Detailed Monitor (<MonitoringModule />)
+   [Overview | Performance | Workers | Tables & Partitions | Reliability | Events]
+```
+
+1. **Monitoring Home Landing Experience:** Displays portfolio summary KPI cards (Total, Live, Paused, Completed, Failed, Terminated), status filters, engine pair display (`Source → Target`), search, and `LIVE` tag indicators for active runs.
+2. **Overview Panel:** KPI summaries, health status, and domain breakdown.
+3. **Performance Panel:** Rows/sec, MB/s throughput, average & peak metrics, RAM/CPU resources.
+4. **Workers Panel:** Configured vs active workers, partition assignments, rows processed per worker.
+5. **Tables & Partitions Panel:** Table completion list, batch sizes, latency, LOB byte totals.
+6. **Reliability & Checkpoints Panel:** Checkpoint ID, last committed primary key (redacted), retry counts.
+7. **Events & Logs Panel:** Event activity log stream and sanitized error tracebacks.
 
 ---
 

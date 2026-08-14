@@ -7,40 +7,56 @@ import { WorkersPanel } from './components/WorkersPanel';
 import { TablesPanel } from './components/TablesPanel';
 import { ReliabilityPanel } from './components/ReliabilityPanel';
 import { EventsPanel } from './components/EventsPanel';
+import { MonitoringHome, type MigrationRunSummary } from './components/MonitoringHome';
 import styles from './MonitoringModule.module.css';
 
 type TabType = 'overview' | 'performance' | 'workers' | 'tables' | 'reliability' | 'events';
+type ViewModeType = 'HOME' | 'DETAILS';
 
 export const MonitoringModule: React.FC = () => {
+  const [viewMode, setViewMode] = useState<ViewModeType>('HOME');
   const [selectedMigId, setSelectedMigId] = useState<string>('mig-default');
-  const [availableMigrations, setAvailableMigrations] = useState<Array<{ id: string; label: string; status: string }>>([
-    { id: 'mig-default', label: 'Oracle Production → PostgreSQL Analytics', status: 'RUNNING' },
-  ]);
+  const [availableMigrations, setAvailableMigrations] = useState<Array<{ id: string; label: string; status: string }>>([]);
+  const [migrationSummaries, setMigrationSummaries] = useState<MigrationRunSummary[]>([]);
+  const [listLoading, setListLoading] = useState<boolean>(true);
+  const [listError, setListError] = useState<string | null>(null);
+
   const [snapshot, setSnapshot] = useState<CanonicalMonitoringSnapshotDTO | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('overview');
 
   const activeMigRef = useRef<string>(selectedMigId);
   activeMigRef.current = selectedMigId;
 
-  // Load available migrations from backend
-  useEffect(() => {
-    async function loadMigrations() {
-      try {
-        const resStr = await ipcService.invokeEngineCapability('get_all_migrations', '{}');
-        const data = typeof resStr === 'string' ? JSON.parse(resStr) : resStr;
-        if (data && Array.isArray(data.migrations) && data.migrations.length > 0) {
-          setAvailableMigrations(data.migrations);
-        }
-      } catch (e) {
-        // Fall back to default
+  // Load available migrations from canonical backend
+  const loadMigrations = useCallback(async () => {
+    setListLoading(true);
+    setListError(null);
+    try {
+      const resStr = await ipcService.invokeEngineCapability('get_all_migrations', '{}');
+      const data = typeof resStr === 'string' ? JSON.parse(resStr) : resStr;
+      if (data && Array.isArray(data.migrations)) {
+        setAvailableMigrations(data.migrations);
+        setMigrationSummaries(data.migrations);
+      } else {
+        setAvailableMigrations([]);
+        setMigrationSummaries([]);
       }
+    } catch (e: any) {
+      console.warn('[MonitoringModule] Engine IPC unavailable for list:', e);
+      setListError(e?.message || String(e));
+    } finally {
+      setListLoading(false);
     }
-    loadMigrations();
   }, []);
 
+  useEffect(() => {
+    loadMigrations();
+  }, [loadMigrations]);
+
   const fetchSnapshot = useCallback(async (migId: string) => {
+    setLoading(true);
     try {
       const resStr = await ipcService.invokeEngineCapability('get_monitoring_snapshot', JSON.stringify({ migration_id: migId }));
       if (activeMigRef.current !== migId) return; // Stale response protection
@@ -119,20 +135,38 @@ export const MonitoringModule: React.FC = () => {
     }
   }, []);
 
-  // Effect: Initial fetch + bounded polling loop
+  const handleSelectMigration = (migId: string) => {
+    setSelectedMigId(migId);
+    setViewMode('DETAILS');
+    fetchSnapshot(migId);
+  };
+
   useEffect(() => {
-    setLoading(true);
+    if (viewMode !== 'DETAILS' || !selectedMigId) return;
+
     fetchSnapshot(selectedMigId);
 
     const interval = setInterval(() => {
-      // Only poll if snapshot is in LIVE mode (or snapshot not loaded yet)
-      if (!snapshot || snapshot.monitoring_mode === 'LIVE' || snapshot.runtime.status === 'RUNNING') {
+      if (snapshot?.monitoring_mode === 'LIVE' && snapshot?.runtime.status === 'RUNNING') {
         fetchSnapshot(selectedMigId);
       }
     }, 2000);
 
     return () => clearInterval(interval);
-  }, [selectedMigId, fetchSnapshot, snapshot?.monitoring_mode, snapshot?.runtime.status]);
+  }, [selectedMigId, fetchSnapshot, snapshot?.monitoring_mode, snapshot?.runtime.status, viewMode]);
+
+  // Render Monitoring Home landing screen when viewMode === 'HOME'
+  if (viewMode === 'HOME') {
+    return (
+      <MonitoringHome
+        migrations={migrationSummaries}
+        loading={listLoading}
+        error={listError}
+        onSelectMigration={handleSelectMigration}
+        onRetryLoad={loadMigrations}
+      />
+    );
+  }
 
   if (loading && !snapshot) {
     return (
@@ -167,6 +201,20 @@ export const MonitoringModule: React.FC = () => {
 
   return (
     <div className={styles.container} id="monitoring-module-root">
+      {/* ── Return Navigation to Monitoring Home ────────────────── */}
+      <div style={{ marginBottom: 12 }}>
+        <button
+          className={styles.tabBtn}
+          style={{ cursor: 'pointer', padding: '6px 12px', background: 'var(--dash-input-bg, #171B26)', borderRadius: 6 }}
+          onClick={() => {
+            setViewMode('HOME');
+            loadMigrations();
+          }}
+        >
+          ← Back to Monitoring Home
+        </button>
+      </div>
+
       {/* ── Top Bar & Selector ─────────────────────────────────────── */}
       <div className={styles.headerRow}>
         <div className={styles.titleArea}>
@@ -179,7 +227,7 @@ export const MonitoringModule: React.FC = () => {
           <select
             className={styles.selectInput}
             value={selectedMigId}
-            onChange={(e) => setSelectedMigId(e.target.value)}
+            onChange={(e) => handleSelectMigration(e.target.value)}
           >
             {availableMigrations.map((m) => (
               <option key={m.id} value={m.id}>

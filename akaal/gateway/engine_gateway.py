@@ -2159,18 +2159,46 @@ class EngineGateway:
         """
         Returns all registered and persisted migration jobs from CentralStateStore.
         """
+        def _sanitize(val):
+            if isinstance(val, str) and any(sec in val.lower() for sec in ("password=", "pwd=", "secret=", "token=")):
+                return "[REDACTED]"
+            return val
+
         progress_list = self.state_store.list_all_progress()
         migs = []
         for p in progress_list:
             m_id = p.get("migration_id")
             if m_id:
+                st = str(p.get("status", "CREATED")).upper()
+                tot_r = p.get("rows_total") or p.get("total_rows") or 0
+                mig_r = p.get("rows_migrated") or p.get("rows_transferred") or 0
+                pct = p.get("progress_percent")
+                if pct is None and tot_r > 0:
+                    pct = round((mig_r / tot_r) * 100, 1)
+
                 migs.append({
                     "id": m_id,
-                    "label": p.get("label") or f"{m_id} ({p.get('source_type', 'Oracle')} → {p.get('target_type', 'PostgreSQL')})",
-                    "status": p.get("status", "CREATED"),
+                    "label": p.get("label") or f"{p.get('source_type', 'Oracle')} → {p.get('target_type', 'PostgreSQL')}",
+                    "status": st,
+                    "project_id": p.get("project_id"),
+                    "project_name": p.get("project_name"),
+                    "name": p.get("name") or p.get("migration_name") or m_id,
+                    "source_engine": p.get("source_type") or p.get("source_engine") or "Oracle",
+                    "target_engine": p.get("target_type") or p.get("target_engine") or "PostgreSQL",
+                    "monitoring_mode": "HISTORICAL" if st in ("COMPLETED", "FAILED", "TERMINATED") else "LIVE",
+                    "rows_transferred": mig_r,
+                    "rows_total": tot_r,
+                    "progress_percent": pct,
+                    "rows_per_sec": p.get("rows_per_sec"),
+                    "throughput_mbps": p.get("throughput_mbps"),
+                    "active_workers": p.get("active_workers"),
+                    "current_stage": p.get("current_stage"),
+                    "started_at": p.get("started_at"),
+                    "completed_at": p.get("completed_at"),
+                    "duration_seconds": p.get("duration_seconds"),
+                    "failed_stage": p.get("failed_stage"),
+                    "error_message": _sanitize(p.get("error_message")),
                 })
-        if not migs:
-            migs = [{"id": "mig-default", "label": "Oracle Production → PostgreSQL Analytics", "status": "RUNNING"}]
         return {"migrations": migs}
 
     def subscribe_runtime_events(self, payload: Dict[str, Any]) -> Dict[str, Any]:
