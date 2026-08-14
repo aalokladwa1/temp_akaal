@@ -26,11 +26,11 @@
 .titleArea {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
 .title {
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 700;
   letter-spacing: -0.02em;
   margin: 0;
@@ -44,38 +44,70 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .reportIdTag {
   font-family: var(--akaal-font-mono, 'JetBrains Mono', monospace);
   font-weight: 700;
-  color: #60A5FA;
-  background: rgba(96, 165, 250, 0.15);
-  border: 1px solid rgba(96, 165, 250, 0.3);
-  padding: 2px 8px;
-  border-radius: 5px;
+  color: var(--dash-text-accent, #2563EB);
+  background: rgba(37, 99, 235, 0.1);
+  border: 1px solid rgba(37, 99, 235, 0.25);
+  padding: 3px 8px;
+  border-radius: 6px;
   font-size: 12px;
+  white-space: nowrap;
+  display: inline-block;
 }
 
-.backButton {
-  background: var(--dash-input-bg, #171B26);
-  border: 1px solid var(--dash-border, rgba(255, 255, 255, 0.1));
-  color: #60A5FA;
+/* ── Primary Blue Pill Button (Matches Monitoring Module Back & Inspect Telemetry Buttons) ── */
+.primaryBtn {
+  background: #2563EB;
+  color: #FFFFFF !important;
+  border: none;
   font-size: 13px;
   font-weight: 600;
-  padding: 8px 16px;
-  border-radius: 8px;
+  padding: 8px 18px;
+  border-radius: 10px;
   cursor: pointer;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3);
+  transition: background 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  transition: all 0.15s ease;
+  white-space: nowrap;
 }
 
-.backButton:hover {
-  background: rgba(96, 165, 250, 0.12);
-  border-color: rgba(96, 165, 250, 0.3);
-  color: #93C5FD;
+.primaryBtn:hover {
+  background: #1D4ED8;
+  box-shadow: 0 4px 10px rgba(29, 78, 216, 0.4);
+  transform: translateY(-1px);
+}
+
+.primaryBtn:active {
+  transform: translateY(0);
+}
+
+.smallActionBtn {
+  background: #2563EB;
+  color: #FFFFFF !important;
+  border: none;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  box-shadow: 0 2px 5px rgba(37, 99, 235, 0.25);
+  transition: background 0.15s ease, transform 0.1s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.smallActionBtn:hover {
+  background: #1D4ED8;
+  transform: translateY(-1px);
 }
 
 .routeBadge {
@@ -83,16 +115,17 @@
   align-items: center;
   gap: 10px;
   padding: 8px 16px;
-  background: var(--dash-input-bg, #171B26);
-  border: 1px solid var(--dash-border, rgba(255, 255, 255, 0.08));
+  background: var(--dash-card-bg, var(--dash-surface, #1E2330));
+  border: 1px solid var(--dash-card-border, var(--dash-border, rgba(255, 255, 255, 0.08)));
   border-radius: 10px;
   font-size: 13px;
   font-weight: 600;
   color: var(--dash-text-primary, #F8FAFC);
+  white-space: nowrap;
 }
 
 .arrowIcon {
-  color: #60A5FA;
+  color: #3B82F6;
   font-weight: 700;
 }
 
@@ -334,6 +367,7 @@
   padding: 12px 16px;
   border-bottom: 1px solid var(--dash-border, rgba(255, 255, 255, 0.04));
   color: var(--dash-text-primary, #F3F4F6);
+  vertical-align: middle;
 }
 
 .dataTable tr:hover td {
@@ -344,35 +378,29 @@
   font-family: var(--akaal-font-mono, 'JetBrains Mono', monospace);
 }
 
+/* ── Evidence Fingerprint & Verification Result Box ─────── */
 .fingerprintBox {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: var(--dash-input-bg, #171B26);
-  border: 1px solid rgba(59, 130, 246, 0.3);
-  border-radius: 10px;
-  padding: 16px 20px;
+  background: var(--dash-card-bg, var(--dash-surface, #1E2330));
+  border: 1px solid var(--dash-card-border, rgba(255, 255, 255, 0.08));
+  border-radius: 12px;
+  padding: 18px 20px;
   margin-top: 16px;
+  box-shadow: var(--dash-card-shadow, 0 1px 3px rgba(0, 0, 0, 0.06));
 }
 
-.primaryBtn {
-  background: #2563EB;
-  color: #ffffff;
-  border: none;
-  font-size: 13px;
-  font-weight: 600;
-  padding: 8px 18px;
-  border-radius: 10px;
-  cursor: pointer;
-  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3);
-  transition: background 0.15s ease, transform 0.1s ease;
-  display: inline-flex;
+.verificationResultBox {
+  margin-top: 16px;
+  padding: 16px 20px;
+  border-radius: 12px;
+  background: var(--dash-card-bg, var(--dash-surface, #1E2330));
+  border: 1px solid var(--dash-card-border, rgba(255, 255, 255, 0.08));
+  color: var(--dash-text-primary, #F8FAFC);
+  display: flex;
   align-items: center;
-  gap: 6px;
-}
-
-.primaryBtn:hover {
-  background: #1D4ED8;
+  gap: 12px;
 }
 
 .exportDropdown {
@@ -409,5 +437,5 @@
 
 .exportItem:hover {
   background: var(--dash-surface-hover, rgba(255, 255, 255, 0.05));
-  color: #60A5FA;
+  color: #3B82F6;
 }

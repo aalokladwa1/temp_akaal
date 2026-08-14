@@ -184,15 +184,17 @@ export const ReportsModule: React.FC = () => {
         {/* Top Header */}
         <div className={styles.headerRow}>
           <div className={styles.titleArea}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '4px' }}>
-              <button className={styles.backButton} onClick={() => { setSelectedReport(null); setIntegrityStatus(null); }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '4px' }}>
+              <button className={styles.primaryBtn} onClick={() => { setSelectedReport(null); setIntegrityStatus(null); }}>
                 ← Back to Reports
               </button>
               <h1 className={styles.title}>{selectedReport.report_type.replace(/_/g, ' ')} DOSSIER</h1>
             </div>
-            <p className={styles.subtitle}>
-              Report ID: <span className={styles.reportIdTag}>{selectedReport.report_id}</span> | Job: {selectedReport.job_id} | Run: {selectedReport.run_id}
-            </p>
+            <div className={styles.subtitle}>
+              <span>Report ID:</span>
+              <span className={styles.reportIdTag}>{selectedReport.report_id}</span>
+              <span>| Job: {selectedReport.job_id} | Run: {selectedReport.run_id}</span>
+            </div>
           </div>
           <div className={styles.routeBadge}>
             <span>{selectedReport.source_info.engine || 'Source'}</span>
@@ -372,14 +374,14 @@ export const ReportsModule: React.FC = () => {
               <div className={styles.fingerprintBox}>
                 <div>
                   <div className={styles.cardTitle}>Certification Cryptographic Fingerprint (SHA-256)</div>
-                  <div className={styles.mono} style={{ fontSize: '13px', marginTop: '4px', color: '#60A5FA' }}>{cert?.certification_fingerprint || 'N/A'}</div>
+                  <div className={styles.mono} style={{ fontSize: '13px', marginTop: '4px', color: '#3B82F6', fontWeight: 600 }}>{cert?.certification_fingerprint || 'N/A'}</div>
                 </div>
                 <button className={styles.primaryBtn} onClick={handleVerifyIntegrity}>Verify Integrity</button>
               </div>
               {integrityStatus && (
-                <div style={{ marginTop: '16px', padding: '16px', borderRadius: '10px', background: '#171B26', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
-                  <strong>Verification Result: </strong>
-                  <span className={`${styles.badge} ${integrityStatus === 'INTEGRITY_VERIFIED' ? styles.badgeCertified : styles.badgeFailed}`} style={{ marginLeft: '8px' }}>
+                <div className={styles.verificationResultBox}>
+                  <strong style={{ fontSize: '14px' }}>Verification Result:</strong>
+                  <span className={`${styles.badge} ${integrityStatus === 'INTEGRITY_VERIFIED' ? styles.badgeCertified : styles.badgeFailed}`}>
                     {integrityStatus === 'INTEGRITY_VERIFIED' ? 'AUTHENTIC (SHA-256 MATCH)' : 'TAMPERED / INVALID FINGERPRINT'}
                   </span>
                 </div>
@@ -471,8 +473,8 @@ export const ReportsModule: React.FC = () => {
                 <td><span className={`${styles.badge} ${r.final_outcome === 'PASSED' ? styles.badgeCertified : styles.badgeFailed}`}>{r.final_outcome}</span></td>
                 <td><span className={`${styles.badge} ${getCertBadgeClass(r.certification?.outcome)}`}>{r.certification?.outcome || 'INDETERMINATE'}</span></td>
                 <td>
-                  <button className={styles.backButton} onClick={() => setSelectedReport(r)}>
-                    View Dossier
+                  <button className={styles.smallActionBtn} onClick={() => setSelectedReport(r)}>
+                    View Dossier →
                   </button>
                 </td>
               </tr>
