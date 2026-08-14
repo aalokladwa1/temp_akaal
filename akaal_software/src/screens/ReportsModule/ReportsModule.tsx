@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import styles from './ReportsModule.module.css';
+import { ipcService } from '../../services/ipcService';
 
 export interface CertificationClaim {
   claim_type: string;
@@ -70,6 +71,173 @@ const sanitizeValue = (val: any): any => {
     return clean;
   }
   return val;
+};
+
+// ── CRC-32 Computation for Zip Generation ─────────────────────────────────
+const crc32Table = (() => {
+  const table = new Uint32Array(256);
+  for (let i = 0; i < 256; i++) {
+    let c = i;
+    for (let k = 0; k < 8; k++) {
+      c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
+    }
+    table[i] = c;
+  }
+  return table;
+})();
+
+const computeCrc32 = (bytes: Uint8Array): number => {
+  let crc = 0xffffffff;
+  for (let i = 0; i < bytes.length; i++) {
+    crc = (crc >>> 8) ^ crc32Table[(crc ^ bytes[i]) & 0xff];
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+};
+
+// ── Valid Binary ZIP Archive Generator ─────────────────────────────────────
+const createZipArchive = (files: Record<string, Uint8Array>): Uint8Array => {
+  const parts: Uint8Array[] = [];
+  const centralRecords: Uint8Array[] = [];
+  let offset = 0;
+
+  const enc = new TextEncoder();
+
+  for (const [filename, fileBytes] of Object.entries(files)) {
+    const fnBytes = enc.encode(filename);
+    const crc = computeCrc32(fileBytes);
+    const size = fileBytes.length;
+
+    // Local file header (30 bytes + filename)
+    const header = new Uint8Array(30 + fnBytes.length);
+    const view = new DataView(header.buffer);
+    view.setUint32(0, 0x04034b50, true); // Signature
+    view.setUint16(4, 20, true);         // Version needed
+    view.setUint16(6, 0, true);          // Flags
+    view.setUint16(8, 0, true);          // Compression (STORED = 0)
+    view.setUint16(10, 0, true);         // Mod time
+    view.setUint16(12, 0, true);         // Mod date
+    view.setUint32(14, crc, true);       // CRC-32
+    view.setUint32(18, size, true);      // Compressed size
+    view.setUint32(22, size, true);      // Uncompressed size
+    view.setUint16(26, fnBytes.length, true);
+    view.setUint16(28, 0, true);         // Extra field length
+    header.set(fnBytes, 30);
+
+    parts.push(header);
+    parts.push(fileBytes);
+
+    // Central Directory Record (46 bytes + filename)
+    const cd = new Uint8Array(46 + fnBytes.length);
+    const cdView = new DataView(cd.buffer);
+    cdView.setUint32(0, 0x02014b50, true); // Signature
+    cdView.setUint16(4, 20, true);         // Version made by
+    cdView.setUint16(6, 20, true);         // Version needed
+    cdView.setUint16(8, 0, true);          // Flags
+    cdView.setUint16(10, 0, true);         // Compression
+    cdView.setUint16(12, 0, true);         // Mod time
+    cdView.setUint16(14, 0, true);         // Mod date
+    cdView.setUint32(16, crc, true);       // CRC-32
+    cdView.setUint32(20, size, true);      // Compressed size
+    cdView.setUint32(24, size, true);      // Uncompressed size
+    cdView.setUint16(28, fnBytes.length, true);
+    cdView.setUint16(30, 0, true);
+    cdView.setUint16(32, 0, true);
+    cdView.setUint16(34, 0, true);
+    cdView.setUint16(36, 0, true);         // Internal attributes
+    cdView.setUint32(38, 0, true);         // External attributes
+    cdView.setUint32(42, offset, true);     // Relative offset of local header
+    cd.set(fnBytes, 46);
+
+    centralRecords.push(cd);
+    offset += header.length + fileBytes.length;
+  }
+
+  const cdOffset = offset;
+  let cdSize = 0;
+  for (const cd of centralRecords) {
+    parts.push(cd);
+    cdSize += cd.length;
+  }
+
+  // End of Central Directory (22 bytes)
+  const eocd = new Uint8Array(22);
+  const eocdView = new DataView(eocd.buffer);
+  eocdView.setUint32(0, 0x06054b50, true);
+  eocdView.setUint16(4, 0, true);
+  eocdView.setUint16(6, 0, true);
+  eocdView.setUint16(8, Object.keys(files).length, true);
+  eocdView.setUint16(10, Object.keys(files).length, true);
+  eocdView.setUint32(12, cdSize, true);
+  eocdView.setUint32(16, cdOffset, true);
+  eocdView.setUint16(20, 0, true);
+
+  parts.push(eocd);
+
+  // Concatenate parts
+  const totalLen = parts.reduce((acc, p) => acc + p.length, 0);
+  const result = new Uint8Array(totalLen);
+  let pos = 0;
+  for (const p of parts) {
+    result.set(p, pos);
+    pos += p.length;
+  }
+  return result;
+};
+
+// ── Valid Binary PDF Stream Generator ──────────────────────────────────────
+const generateValidPdfBytes = (title: string, lines: string[]): Uint8Array => {
+  const escapePdf = (t: string) => t.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+  
+  const contentCmds: string[] = [];
+  contentCmds.push(`BT /F1 18 Tf 50 740 Td (${escapePdf(title)}) Tj ET`);
+  
+  let y = 700;
+  for (const line of lines) {
+    if (y < 60) break;
+    contentCmds.push(`BT /F1 10 Tf 50 ${y} Td (${escapePdf(line)}) Tj ET`);
+    y -= 16;
+  }
+
+  const streamText = contentCmds.join('\n');
+  const streamBytes = new TextEncoder().encode(streamText);
+
+  const objects: string[] = [];
+  objects.push('1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj');
+  objects.push('2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj');
+  objects.push('3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>\nendobj');
+  objects.push(`4 0 obj\n<< /Length ${streamBytes.length} >>\nstream\n${streamText}\nendstream\nendobj`);
+  objects.push('5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj');
+
+  const header = '%PDF-1.7\n%\xE2\xE3\xCF\xD3\n';
+  const headerBytes = new TextEncoder().encode(header);
+
+  const bodyParts: Uint8Array[] = [headerBytes];
+  const offsets: number[] = [];
+  let currOffset = headerBytes.length;
+
+  for (let i = 0; i < objects.length; i++) {
+    offsets.push(currOffset);
+    const objBytes = new TextEncoder().encode(objects[i] + '\n');
+    bodyParts.push(objBytes);
+    currOffset += objBytes.length;
+  }
+
+  const xrefStart = currOffset;
+  let xrefStr = `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  for (let i = 0; i < offsets.length; i++) {
+    xrefStr += `${String(offsets[i]).padStart(10, '0')} 00000 n \n`;
+  }
+  xrefStr += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefStart}\n%%EOF\n`;
+  bodyParts.push(new TextEncoder().encode(xrefStr));
+
+  const totalLen = bodyParts.reduce((acc, p) => acc + p.length, 0);
+  const pdfBuffer = new Uint8Array(totalLen);
+  let pos = 0;
+  for (const p of bodyParts) {
+    pdfBuffer.set(p, pos);
+    pos += p.length;
+  }
+  return pdfBuffer;
 };
 
 // Sample canonical report datasets representing backend truth for P2.12 demonstration
@@ -223,37 +391,116 @@ export const ReportsModule: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
-  const handleExport = (format: 'JSON_REPORT' | 'JSON_CERT' | 'PDF_DOSSIER' | 'PDF_CERT' | 'ZIP_PACKAGE') => {
+  const handleExport = async (format: 'JSON_REPORT' | 'JSON_CERT' | 'PDF_DOSSIER' | 'PDF_CERT' | 'ZIP_PACKAGE') => {
     if (!selectedReport) return;
     setExportState('Preparing export...');
     setExportOpen(false);
 
-    setTimeout(() => {
-      try {
-        const report = sanitizeValue(selectedReport);
-        const cert = report.certification;
+    try {
+      const report = sanitizeValue(selectedReport);
+      const cert = report.certification;
 
-        if (format === 'JSON_REPORT') {
-          downloadFile(`${report.report_id}.json`, JSON.stringify(report, null, 2), 'application/json');
-        } else if (format === 'JSON_CERT') {
-          if (cert) downloadFile(`${cert.certification_id}.json`, JSON.stringify(cert, null, 2), 'application/json');
-        } else if (format === 'PDF_DOSSIER') {
-          const pdfHeader = `%PDF-1.7\n%AKAAL-DOSSIER-${report.report_id}\nReport ID: ${report.report_id}\nCertification Outcome: ${cert?.outcome || report.final_outcome}\n`;
-          downloadFile(`AKAAL-DOSSIER-${report.report_id}.pdf`, pdfHeader, 'application/pdf');
-        } else if (format === 'PDF_CERT') {
-          const pdfHeader = `%PDF-1.7\n%AKAAL-CERTIFICATE-${cert?.certification_id || report.report_id}\nCertification Outcome: ${cert?.outcome || report.final_outcome}\nFingerprint: ${cert?.certification_fingerprint || 'N/A'}\n`;
-          downloadFile(`AKAAL-CERTIFICATE-${report.report_id}.pdf`, pdfHeader, 'application/pdf');
-        } else if (format === 'ZIP_PACKAGE') {
-          const zipManifest = `AKAAL EVIDENCE PACKAGE\nReport ID: ${report.report_id}\nSHA-256 Checksums Included\n`;
-          downloadFile(`AKAAL-EVIDENCE-${report.report_id}.zip`, zipManifest, 'application/zip');
+      // Attempt Tauri backend IPC call first
+      try {
+        let capId = '';
+        if (format === 'JSON_REPORT') capId = 'export_canonical_report';
+        else if (format === 'PDF_DOSSIER') capId = 'export_pdf_dossier';
+        else if (format === 'PDF_CERT') capId = 'export_pdf_certificate';
+        else if (format === 'ZIP_PACKAGE') capId = 'export_evidence_package';
+
+        if (capId) {
+          const resRaw = await ipcService.invokeEngineCapability(capId, JSON.stringify({ report_id: report.report_id }));
+          const res = typeof resRaw === 'string' ? JSON.parse(resRaw) : resRaw;
+          if (res && res.status === 'SUCCESS') {
+            if (res.payload_b64) {
+              const binStr = atob(res.payload_b64);
+              const bytes = new Uint8Array(binStr.length);
+              for (let i = 0; i < binStr.length; i++) bytes[i] = binStr.charCodeAt(i);
+              const mime = format.includes('PDF') ? 'application/pdf' : 'application/zip';
+              const ext = format.includes('PDF') ? 'pdf' : 'zip';
+              downloadFile(`AKAAL-${format}-${report.report_id}.${ext}`, bytes, mime);
+              setExportState('Export complete');
+              setTimeout(() => setExportState(null), 3500);
+              return;
+            } else if (res.payload) {
+              downloadFile(`${report.report_id}.json`, res.payload, 'application/json');
+              setExportState('Export complete');
+              setTimeout(() => setExportState(null), 3500);
+              return;
+            }
+          }
         }
-        setExportState('Export complete');
-      } catch (err) {
-        setExportState('Export failed');
-      } finally {
-        setTimeout(() => setExportState(null), 3000);
+      } catch (ipcErr) {
+        // Fallback to high-fidelity frontend binary generators if IPC is unavailable
       }
-    }, 400);
+
+      // High-Fidelity Frontend Binary Generation Fallback
+      if (format === 'JSON_REPORT') {
+        downloadFile(`${report.report_id}.json`, JSON.stringify(report, null, 2), 'application/json');
+      } else if (format === 'JSON_CERT') {
+        if (cert) downloadFile(`${cert.certification_id}.json`, JSON.stringify(cert, null, 2), 'application/json');
+      } else if (format === 'PDF_DOSSIER') {
+        const lines = [
+          `Report ID: ${report.report_id}`,
+          `Job ID: ${report.job_id} | Run ID: ${report.run_id}`,
+          `Report Type: ${report.report_type}`,
+          `Source -> Target: ${report.source_info.engine} -> ${report.target_info.engine}`,
+          `Generated At: ${report.created_at}`,
+          `Certification Outcome: ${cert?.outcome || report.final_outcome}`,
+          `Tables Validated: ${report.data_summary.tables_validated ?? 'Unavailable'}`,
+          `Total Rows Evaluated: ${report.data_summary.total_rows_evaluated ?? 'Unavailable'}`,
+          `Value Mismatches: ${report.data_summary.total_value_mismatch_rows ?? 'Unavailable'}`,
+          `Schema Risk Score: ${report.schema_summary.risk_score ?? 'Unavailable'} / 100`,
+          `Report Fingerprint: ${report.report_fingerprint}`,
+          `Note: SHA-256 fingerprint proves evidence integrity. It is not an X.509 digital signature.`,
+        ];
+        const pdfBytes = generateValidPdfBytes(`AKAAL ENTERPRISE DOSSIER ${report.report_id}`, lines);
+        downloadFile(`AKAAL-DOSSIER-${report.report_id}.pdf`, pdfBytes, 'application/pdf');
+      } else if (format === 'PDF_CERT') {
+        const lines = [
+          `Certification ID: ${cert?.certification_id || report.report_id}`,
+          `Job ID: ${report.job_id} | Run ID: ${report.run_id}`,
+          `Certification Outcome: ${cert?.outcome || report.final_outcome}`,
+          `SHA-256 Fingerprint: ${cert?.certification_fingerprint || report.report_fingerprint}`,
+          `Note: SHA-256 fingerprint proves evidence integrity. It is not an X.509 digital signature.`,
+        ];
+        const pdfBytes = generateValidPdfBytes(`AKAAL MIGRATION CERTIFICATE`, lines);
+        downloadFile(`AKAAL-CERTIFICATE-${report.report_id}.pdf`, pdfBytes, 'application/pdf');
+      } else if (format === 'ZIP_PACKAGE') {
+        const enc = new TextEncoder();
+        const repJsonBytes = enc.encode(JSON.stringify(report, null, 2));
+        const certJsonBytes = cert ? enc.encode(JSON.stringify(cert, null, 2)) : enc.encode('{}');
+        const pdfDossierBytes = generateValidPdfBytes(`AKAAL DOSSIER ${report.report_id}`, [`Report ID: ${report.report_id}`, `Outcome: ${cert?.outcome || report.final_outcome}`]);
+        const pdfCertBytes = generateValidPdfBytes(`AKAAL CERTIFICATE`, [`Certification ID: ${cert?.certification_id || report.report_id}`]);
+        
+        const manifestObj = {
+          package_version: 'AKAAL-EVIDENCE-V1',
+          report_id: report.report_id,
+          job_id: report.job_id,
+          run_id: report.run_id,
+          certification_outcome: cert?.outcome || report.final_outcome,
+          created_at: new Date().toISOString(),
+        };
+        const manifestBytes = enc.encode(JSON.stringify(manifestObj, null, 2));
+
+        const zipFiles: Record<string, Uint8Array> = {
+          'report/canonical-report.json': repJsonBytes,
+          'report/migration-evidence-dossier.pdf': pdfDossierBytes,
+          'certification/certification.json': certJsonBytes,
+          'certification/certification.pdf': pdfCertBytes,
+          'evidence/manifest.json': manifestBytes,
+        };
+
+        const zipBytes = createZipArchive(zipFiles);
+        downloadFile(`AKAAL-EVIDENCE-${report.report_id}.zip`, zipBytes, 'application/zip');
+      }
+      setExportState('Export complete');
+    } catch (err: any) {
+      console.error('Export error:', err);
+      setExportState('Export failed');
+    } finally {
+      setTimeout(() => setExportState(null), 3500);
+    }
   };
 
   if (selectedReport) {
@@ -313,7 +560,7 @@ export const ReportsModule: React.FC = () => {
 
         {/* Export Notification State Banner */}
         {exportState && (
-          <div style={{ padding: '10px 16px', background: '#1E2330', border: '1px solid #3B82F6', borderRadius: '8px', fontSize: '13px', color: '#60A5FA' }}>
+          <div className={styles.exportNotificationBar}>
             <strong>Export Status:</strong> {exportState}
           </div>
         )}

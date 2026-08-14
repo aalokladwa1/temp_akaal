@@ -39,7 +39,7 @@
 
 .subtitle {
   font-size: 13px;
-  color: var(--dash-text-secondary, #94A3BA);
+  color: var(--dash-text-secondary, #475569);
   margin: 0;
   display: flex;
   align-items: center;
@@ -211,8 +211,23 @@
 
 .heroExplanation {
   font-size: 13px;
-  color: var(--dash-text-secondary, #94A3BA);
+  color: var(--dash-text-secondary, #475569);
   line-height: 1.5;
+}
+
+/* ── High Contrast Export Notification Bar ────────────────────────── */
+.exportNotificationBar {
+  padding: 12px 18px;
+  background: rgba(37, 99, 235, 0.08);
+  border: 1px solid rgba(37, 99, 235, 0.3);
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #2563EB;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.1);
 }
 
 /* ── Badges ─────────────────────────────────────────────── */
@@ -229,25 +244,25 @@
 
 .badgeCertified {
   background: rgba(16, 185, 129, 0.15);
-  color: #10B981;
+  color: #059669;
   border: 1px solid rgba(16, 185, 129, 0.3);
 }
 
 .badgeWarning {
   background: rgba(245, 158, 11, 0.15);
-  color: #F59E0B;
+  color: #D97706;
   border: 1px solid rgba(245, 158, 11, 0.3);
 }
 
 .badgeFailed {
   background: rgba(239, 68, 68, 0.15);
-  color: #EF4444;
+  color: #DC2626;
   border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
 .badgeIndeterminate {
   background: rgba(148, 163, 184, 0.15);
-  color: #94A3BA;
+  color: #64748B;
   border: 1px solid rgba(148, 163, 184, 0.3);
 }
 
@@ -262,7 +277,7 @@
 .tabBtn {
   background: transparent;
   border: none;
-  color: var(--dash-text-secondary, #9CA3AF);
+  color: var(--dash-text-secondary, #475569);
   font-size: 13px;
   font-weight: 600;
   padding: 8px 16px;
@@ -273,14 +288,14 @@
 }
 
 .tabBtn:hover {
-  color: var(--dash-text-primary, #F8FAFC);
-  background: var(--dash-surface-hover, rgba(255, 255, 255, 0.03));
+  color: var(--dash-text-primary, #0F172A);
+  background: var(--dash-surface-hover, rgba(0, 0, 0, 0.03));
 }
 
 .tabBtnActive {
-  color: var(--dash-text-accent, #3B82F6);
+  color: var(--dash-text-accent, #2563EB);
   font-weight: 700;
-  background: rgba(59, 130, 246, 0.08);
+  background: rgba(37, 99, 235, 0.08);
 }
 
 .tabBtnActive::after {
@@ -290,7 +305,7 @@
   left: 0;
   right: 0;
   height: 2px;
-  background: var(--dash-text-accent, #3B82F6);
+  background: var(--dash-text-accent, #2563EB);
   border-radius: 2px;
 }
 
@@ -315,8 +330,8 @@
 
 .cardTitle {
   font-size: 12px;
-  font-weight: 600;
-  color: var(--dash-text-secondary, #9CA3AF);
+  font-weight: 700;
+  color: var(--dash-text-secondary, #475569);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -325,12 +340,12 @@
   font-size: 24px;
   font-weight: 700;
   font-family: var(--akaal-font-mono, 'JetBrains Mono', monospace);
-  color: var(--dash-text-primary, #F8FAFC);
+  color: var(--dash-text-primary, #0F172A);
 }
 
 .cardSub {
   font-size: 12px;
-  color: var(--dash-text-tertiary, #94A3BA);
+  color: var(--dash-text-secondary, #64748B);
   line-height: 1.4;
   white-space: normal;
   word-break: break-word;
@@ -354,8 +369,8 @@
 
 .dataTable th {
   background: var(--dash-input-bg, #171B26);
-  color: var(--dash-text-secondary, #9CA3AF);
-  font-weight: 600;
+  color: var(--dash-text-secondary, #475569);
+  font-weight: 700;
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -366,12 +381,12 @@
 .dataTable td {
   padding: 12px 16px;
   border-bottom: 1px solid var(--dash-border, rgba(255, 255, 255, 0.04));
-  color: var(--dash-text-primary, #F3F4F6);
+  color: var(--dash-text-primary, #0F172A);
   vertical-align: middle;
 }
 
 .dataTable tr:hover td {
-  background: var(--dash-surface-hover, rgba(255, 255, 255, 0.02));
+  background: var(--dash-surface-hover, rgba(0, 0, 0, 0.02));
 }
 
 .mono {
@@ -397,7 +412,7 @@
   border-radius: 12px;
   background: var(--dash-card-bg, var(--dash-surface, #1E2330));
   border: 1px solid var(--dash-card-border, rgba(255, 255, 255, 0.08));
-  color: var(--dash-text-primary, #F8FAFC);
+  color: var(--dash-text-primary, #0F172A);
   display: flex;
   align-items: center;
   gap: 12px;
@@ -413,11 +428,11 @@
   right: 0;
   top: 100%;
   margin-top: 6px;
-  background: var(--dash-surface, #1E2330);
-  border: 1px solid var(--dash-border, rgba(255, 255, 255, 0.1));
+  background: var(--dash-surface, #FFFFFF);
+  border: 1px solid var(--dash-border, rgba(0, 0, 0, 0.12));
   border-radius: 10px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
-  min-width: 190px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  min-width: 220px;
   z-index: 100;
   overflow: hidden;
 }
@@ -425,17 +440,17 @@
 .exportItem {
   display: block;
   width: 100%;
-  padding: 10px 14px;
+  padding: 10px 16px;
   text-align: left;
   background: transparent;
   border: none;
-  color: var(--dash-text-primary, #F3F4F6);
+  color: var(--dash-text-primary, #0F172A);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
 }
 
 .exportItem:hover {
-  background: var(--dash-surface-hover, rgba(255, 255, 255, 0.05));
-  color: #3B82F6;
+  background: var(--dash-surface-hover, rgba(37, 99, 235, 0.08));
+  color: #2563EB;
 }
