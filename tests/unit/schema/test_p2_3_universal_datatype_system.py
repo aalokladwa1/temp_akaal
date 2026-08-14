@@ -48,8 +48,12 @@ class TestP23UniversalDatatypeSystem(unittest.TestCase):
         self.assertTrue(c_rv.extra.get("mssql_rowversion"))
 
     def test_04_mysql_tinyint1_boolean_handling(self):
-        """Verify MySQL TINYINT(1) normalizes to BOOLEAN."""
-        c_bool = CanonicalTypeRegistry.normalize_source_type("MYSQL", "TINYINT(1)")
+        """Verify MySQL TINYINT(1) normalizes to INTEGER by default, and BOOLEAN with explicit flag."""
+        c_int = CanonicalTypeRegistry.normalize_source_type("MYSQL", "TINYINT(1)")
+        self.assertEqual(c_int.category, CanonicalTypeCategory.INTEGER)
+        self.assertEqual(c_int.bits, 8)
+
+        c_bool = CanonicalTypeRegistry.normalize_source_type("MYSQL", "TINYINT(1)", extra_metadata={"is_boolean": True})
         self.assertEqual(c_bool.category, CanonicalTypeCategory.BOOLEAN)
 
     def test_05_all_12_cross_engine_directions(self):
