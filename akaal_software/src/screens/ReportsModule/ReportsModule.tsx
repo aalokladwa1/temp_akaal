@@ -212,7 +212,9 @@ export const ReportsModule: React.FC = () => {
   };
 
   const downloadFile = (filename: string, content: string | Uint8Array, mimeType: string) => {
-    const blob = content instanceof Uint8Array ? new Blob([content], { type: mimeType }) : new Blob([content], { type: mimeType });
+    const blob = content instanceof Uint8Array 
+      ? new Blob([content as unknown as BlobPart], { type: mimeType }) 
+      : new Blob([content], { type: mimeType });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
