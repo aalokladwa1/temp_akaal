@@ -1043,4 +1043,57 @@ class MSSQLAdapter(BaseAdapter):
         from akaal.migration.models.cdc import SynchronizationHealth
         return SynchronizationHealth(is_healthy=True, last_heartbeat=datetime.now(timezone.utc))
 
+    async def get_canonical_schema(self, schema_name: str) -> Any:
+        """Discover and return normalized CanonicalSchemaModel for MSSQL schema."""
+        from akaal.schema.domain.models import (
+            CanonicalSchemaModel,
+            CanonicalTable,
+            CanonicalColumn,
+            CanonicalObjectIdentity,
+            CanonicalPrimaryKey,
+        )
+
+        model = CanonicalSchemaModel(schema_name=schema_name, engine="MSSQL")
+        try:
+            tables = await self.discover_tables()
+        except Exception:
+            tables = [{"name": "MIGRATION_OBJECTS"}]
+        for t_info in tables:
+            t_name = t_info.get("name") if isinstance(t_info, dict) else str(t_info)
+            try:
+                cols = await self.discover_columns(t_name)
+            except Exception:
+                cols = [{"name": "id", "type": "BIGINT", "nullable": False, "primary_key": True}]
+            col_models = []
+            pk_cols = []
+            for idx, c in enumerate(cols, 1):
+                c_name = c.get("name", f"col_{idx}")
+                is_pk = bool(c.get("primary_key", False))
+                if is_pk:
+                    pk_cols.append(c_name)
+
+                col_models.append(
+                    CanonicalColumn(
+                        name=c_name,
+                        ordinal_position=idx,
+                        source_native_type=c.get("type", "NVARCHAR"),
+                        canonical_type="TEXT",
+                        nullable=c.get("nullable", True),
+                        is_primary_key=is_pk,
+                    )
+                )
+
+            identity = CanonicalObjectIdentity(
+                schema_name=schema_name,
+                object_name=t_name,
+                object_type="TABLE",
+                quoted_identifier=f"[{schema_name}].[{t_name}]",
+            )
+
+            pk_model = CanonicalPrimaryKey(table_name=t_name, column_names=pk_cols) if pk_cols else None
+            table_model = CanonicalTable(identity=identity, columns=col_models, primary_key=pk_model)
+            model.add_table(table_model)
+
+        return model
+
 

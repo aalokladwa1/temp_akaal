@@ -293,6 +293,8 @@ class SchemaExecutionStep(AbstractStep):
                     schemas_seen.add(t_schema)
 
                 if o_type in ("TABLE", "CANONICALTABLE"):
+                    from akaal.schema.domain.models import CanonicalTable, CanonicalColumn, CanonicalObjectIdentity, CanonicalPrimaryKey
+
                     # Discover real source columns if possible
                     cols = obj.get("columns") or []
                     if not cols and src_adapter.is_connected:
@@ -302,12 +304,37 @@ class SchemaExecutionStep(AbstractStep):
                             logger.warning(f"[SchemaExecutionStep] Could not discover columns for {s_name}: {col_err}")
 
                     if cols:
+                        col_models = []
+                        pk_cols = []
+                        for idx, c in enumerate(cols, 1):
+                            c_name = c["name"].lower() if isinstance(c, dict) and "name" in c else f"col_{idx}"
+                            c_src_type = c.get("type", "TEXT") if isinstance(c, dict) else "TEXT"
+                            c_null = c.get("nullable", True) if isinstance(c, dict) else True
+                            is_pk = bool(c.get("primary_key", False)) if isinstance(c, dict) else False
+                            if is_pk:
+                                pk_cols.append(c_name)
+
+                            col_models.append(
+                                CanonicalColumn(
+                                    name=c_name,
+                                    ordinal_position=idx,
+                                    source_native_type=c_src_type,
+                                    canonical_type="TEXT",
+                                    nullable=c_null,
+                                    is_primary_key=is_pk,
+                                )
+                            )
+
+                        identity = CanonicalObjectIdentity(schema_name=t_schema, object_name=o_name, object_type="TABLE")
+                        pk_model = CanonicalPrimaryKey(table_name=o_name, column_names=pk_cols) if pk_cols else None
+                        canonical_table = CanonicalTable(identity=identity, columns=col_models, primary_key=pk_model)
+
+                        # Generate target DDL from normalized canonical table model (P2.3 compatibility boundary)
                         col_defs = []
-                        for c in cols:
-                            c_name = c["name"].lower()
-                            c_pg_type = _map_source_type_to_postgres(c.get("type", "TEXT"))
-                            null_clause = "" if c.get("nullable", True) else " NOT NULL"
-                            col_defs.append(f"    {c_name} {c_pg_type}{null_clause}")
+                        for c_mod in canonical_table.columns:
+                            c_pg_type = _map_source_type_to_postgres(c_mod.source_native_type)
+                            null_clause = "" if c_mod.nullable else " NOT NULL"
+                            col_defs.append(f"    {c_mod.name} {c_pg_type}{null_clause}")
                         col_sql = ",\n".join(col_defs)
                         ddl_statements.append(f"CREATE TABLE IF NOT EXISTS {t_schema}.{o_name} (\n{col_sql}\n);")
                     else:

@@ -38,6 +38,26 @@ from akaal.schema.domain.identifiers import (
 )
 from akaal.schema.domain.changes import BaseSchemaChange, DDLStatement, ValidationResult, AddTable, DropTable, AddColumn, DropColumn
 from akaal.schema.domain.journal import OperationRecord, JournalChecksum
+from akaal.schema.domain.models import (
+    CanonicalObjectIdentity,
+    CanonicalColumn,
+    CanonicalPrimaryKey,
+    CanonicalForeignKey,
+    CanonicalUniqueConstraint,
+    CanonicalCheckConstraint,
+    CanonicalDefault,
+    CanonicalIndex,
+    CanonicalSequence,
+    CanonicalIdentity,
+    CanonicalPartition,
+    CanonicalView,
+    CanonicalMaterializedView,
+    CanonicalProcedure,
+    CanonicalFunction,
+    CanonicalTrigger,
+    CanonicalTable,
+    CanonicalSchemaModel,
+)
 
 __all__ = [
     "SchemaEvolutionError",
