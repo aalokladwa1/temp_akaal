@@ -174,6 +174,8 @@ class SchemaDriftReport:
 class CanonicalSchemaComparator:
     """Universal Canonical Schema Comparison Authority."""
 
+    HEURISTIC_RENAME_AUTOMATICALLY_ACCEPTED = False
+
     @classmethod
     def compare_schemas(
         cls, source_model: CanonicalSchemaModel, target_model: CanonicalSchemaModel
@@ -288,10 +290,10 @@ class CanonicalSchemaComparator:
             sc = src_cols[cname]
             tc = tgt_cols[cname]
 
-            # Datatype comparison using CanonicalTypeRegistry
             sc_type = sc.canonical_type_model or CanonicalTypeRegistry.normalize_source_type(source_engine, sc.source_native_type)
             tc_type = tc.canonical_type_model or CanonicalTypeRegistry.normalize_source_type(target_engine, tc.source_native_type)
 
+            # Category comparison
             if sc_type.category != tc_type.category:
                 diffs.append(
                     SchemaDifference(
@@ -309,6 +311,43 @@ class CanonicalSchemaComparator:
                         recommended_action="REVIEW_TYPE_CONVERSION",
                     )
                 )
+
+            # Length / Precision / Scale Directional Asymmetry Check
+            if sc_type.length and tc_type.length:
+                if sc_type.length > tc_type.length:  # Narrowing (Narrower target)
+                    diffs.append(
+                        SchemaDifference(
+                            difference_id=f"diff-col-len-narrow-{s_name}.{t_name}.{cname}",
+                            object_type="COLUMN",
+                            schema_name=s_name,
+                            object_name=t_name,
+                            category=DifferenceCategory.MODIFIED,
+                            property_name="length",
+                            source_value=sc_type.length,
+                            target_value=tc_type.length,
+                            severity=RiskSeverity.HIGH,
+                            compatibility=CompatibilityClassification.POTENTIALLY_LOSSY,
+                            explanation=f"Column '{cname}' length narrowing ({sc_type.length} -> {tc_type.length}) may truncate data",
+                            recommended_action="REVIEW_TYPE_CONVERSION",
+                        )
+                    )
+                elif sc_type.length < tc_type.length:  # Widening (Wider target)
+                    diffs.append(
+                        SchemaDifference(
+                            difference_id=f"diff-col-len-wide-{s_name}.{t_name}.{cname}",
+                            object_type="COLUMN",
+                            schema_name=s_name,
+                            object_name=t_name,
+                            category=DifferenceCategory.MODIFIED,
+                            property_name="length",
+                            source_value=sc_type.length,
+                            target_value=tc_type.length,
+                            severity=RiskSeverity.LOW,
+                            compatibility=CompatibilityClassification.COMPATIBLE_WITH_CONVERSION,
+                            explanation=f"Column '{cname}' length widening ({sc_type.length} -> {tc_type.length}) is safe",
+                            recommended_action="NO_ACTION",
+                        )
+                    )
 
             # Nullability mismatch
             if sc.nullable != tc.nullable:
@@ -328,6 +367,31 @@ class CanonicalSchemaComparator:
                         recommended_action="ALTER_TARGET_OBJECT",
                     )
                 )
+
+        # Foreign Key Actions and Composite Ordering Comparison
+        src_fks = {fk.name or f"fk_{idx}": fk for idx, fk in enumerate(src_t.foreign_keys)}
+        tgt_fks = {fk.name or f"fk_{idx}": fk for idx, fk in enumerate(tgt_t.foreign_keys)}
+
+        for fk_name, sfk in src_fks.items():
+            if fk_name in tgt_fks:
+                tfk = tgt_fks[fk_name]
+                if sfk.on_delete != tfk.on_delete:
+                    diffs.append(
+                        SchemaDifference(
+                            difference_id=f"diff-fk-action-{s_name}.{t_name}.{fk_name}",
+                            object_type="FOREIGN_KEY",
+                            schema_name=s_name,
+                            object_name=t_name,
+                            category=DifferenceCategory.CONSTRAINT_CHANGED,
+                            property_name="on_delete",
+                            source_value=sfk.on_delete,
+                            target_value=tfk.on_delete,
+                            severity=RiskSeverity.MEDIUM,
+                            compatibility=CompatibilityClassification.COMPATIBLE_WITH_CONVERSION,
+                            explanation=f"Foreign Key '{fk_name}' ON DELETE mismatch ({sfk.on_delete} vs {tfk.on_delete})",
+                            recommended_action="ALTER_TARGET_OBJECT",
+                        )
+                    )
 
         return diffs
 
@@ -402,6 +466,9 @@ class CanonicalRiskScorer:
             elif diff.category == DifferenceCategory.TYPE_CHANGED:
                 weight = 25
                 cat_name = "DATATYPE"
+            elif diff.category == DifferenceCategory.MODIFIED:
+                weight = 20 if diff.severity == RiskSeverity.HIGH else 5
+                cat_name = "DATATYPE"
             elif diff.category == DifferenceCategory.MANUAL_REVIEW_REQUIRED:
                 weight = 30
                 cat_name = "PROGRAMMABLE"
@@ -409,11 +476,13 @@ class CanonicalRiskScorer:
                 weight = 40
                 cat_name = "STRUCTURAL"
 
-            if diff.severity == RiskSeverity.BLOCKING:
+            if diff.severity == RiskSeverity.BLOCKING or diff.compatibility == CompatibilityClassification.BLOCKING:
                 blocking_count += 1
                 worst_compat = CompatibilityClassification.BLOCKING
             elif diff.compatibility == CompatibilityClassification.MANUAL_REVIEW_REQUIRED and worst_compat != CompatibilityClassification.BLOCKING:
                 worst_compat = CompatibilityClassification.MANUAL_REVIEW_REQUIRED
+            elif diff.compatibility == CompatibilityClassification.POTENTIALLY_LOSSY and worst_compat not in (CompatibilityClassification.BLOCKING, CompatibilityClassification.MANUAL_REVIEW_REQUIRED):
+                worst_compat = CompatibilityClassification.POTENTIALLY_LOSSY
 
             breakdown[cat_name] = breakdown.get(cat_name, 0) + weight
             total_score_weight += weight
