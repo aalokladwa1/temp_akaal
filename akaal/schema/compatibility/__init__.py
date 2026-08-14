@@ -6,6 +6,19 @@ from akaal.schema.compatibility.comparator import SchemaComparator, SchemaDiff
 from akaal.schema.compatibility.risk import RiskClassifier, RiskEvaluation
 from akaal.schema.compatibility.report import CompatibilityReport, MigrationAdvisory, CompatibilityReportBuilder
 from akaal.schema.compatibility.analyzer import CompatibilityAnalyzer
+from akaal.schema.compatibility.comparison_engine import (
+    CanonicalSchemaComparator,
+    CanonicalRiskScorer,
+    CanonicalDriftAnalyzer,
+    SchemaDifference,
+    RiskAssessment,
+    RiskFinding,
+    SchemaDriftReport,
+    DifferenceCategory,
+    CompatibilityClassification,
+    RiskSeverity,
+    DriftClassification,
+)
 
 __all__ = [
     "SchemaComparator",
@@ -16,4 +29,15 @@ __all__ = [
     "MigrationAdvisory",
     "CompatibilityReportBuilder",
     "CompatibilityAnalyzer",
+    "CanonicalSchemaComparator",
+    "CanonicalRiskScorer",
+    "CanonicalDriftAnalyzer",
+    "SchemaDifference",
+    "RiskAssessment",
+    "RiskFinding",
+    "SchemaDriftReport",
+    "DifferenceCategory",
+    "CompatibilityClassification",
+    "RiskSeverity",
+    "DriftClassification",
 ]
