@@ -333,16 +333,13 @@ class SchemaExecutionStep(AbstractStep):
                         pk_model = CanonicalPrimaryKey(table_name=o_name, column_names=pk_cols) if pk_cols else None
                         canonical_table = CanonicalTable(identity=identity, columns=col_models, primary_key=pk_model)
 
-                        # Generate target DDL from CanonicalTypeRegistry emission
-                        col_defs = []
-                        for c_mod in canonical_table.columns:
-                            c_type_mod = c_mod.canonical_type_model or CanonicalTypeRegistry.normalize_source_type(src_config.system_type.name, c_mod.source_native_type)
-                            emission = CanonicalTypeRegistry.emit_target_type(pg_config.system_type.name, c_type_mod)
-                            c_pg_type = emission.target_native_type
-                            null_clause = "" if c_mod.nullable else " NOT NULL"
-                            col_defs.append(f"    {c_mod.name} {c_pg_type}{null_clause}")
-                        col_sql = ",\n".join(col_defs)
-                        ddl_statements.append(f"CREATE TABLE IF NOT EXISTS {t_schema}.{o_name} (\n{col_sql}\n);")
+                        # Generate target DDL via UniversalDDLAuthority
+                        from akaal.schema.domain.ddl_emitter import UniversalDDLAuthority
+                        artifacts = UniversalDDLAuthority.emit_table_ddl(
+                            canonical_table, pg_config.system_type.name, src_config.system_type.name
+                        )
+                        for art in artifacts:
+                            ddl_statements.append(art.sql)
                     else:
                         ddl_statements.append(f"""
                             CREATE TABLE IF NOT EXISTS {t_schema}.{o_name} (

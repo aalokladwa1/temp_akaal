@@ -65,6 +65,11 @@ from akaal.schema.domain.types import (
     TargetTypeEmission,
 )
 from akaal.schema.domain.type_registry import CanonicalTypeRegistry
+from akaal.schema.domain.ddl_emitter import (
+    StructuredDDLArtifact,
+    BaseTargetDDLEmitter,
+    UniversalDDLAuthority,
+)
 
 __all__ = [
     "SchemaEvolutionError",
