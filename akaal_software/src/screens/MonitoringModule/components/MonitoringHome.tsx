@@ -152,7 +152,11 @@ export const MonitoringHome: React.FC<MonitoringHomeProps> = ({
       <div className={styles.kpiGrid} style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', marginBottom: 24 }}>
         <div
           className={styles.card}
-          style={{ cursor: 'pointer', border: activeFilter === 'ALL' ? '1px solid var(--dash-accent, #2563eb)' : undefined }}
+          style={{
+            cursor: 'pointer',
+            border: 'none',
+            background: activeFilter === 'ALL' ? 'rgba(37, 99, 235, 0.15)' : undefined,
+          }}
           onClick={() => setActiveFilter('ALL')}
         >
           <div className={styles.cardTitle}>Total Migrations</div>
@@ -162,7 +166,11 @@ export const MonitoringHome: React.FC<MonitoringHomeProps> = ({
 
         <div
           className={styles.card}
-          style={{ cursor: 'pointer', border: activeFilter === 'LIVE' ? '1px solid #10b981' : undefined }}
+          style={{
+            cursor: 'pointer',
+            border: 'none',
+            background: activeFilter === 'LIVE' ? 'rgba(16, 185, 129, 0.15)' : undefined,
+          }}
           onClick={() => setActiveFilter('LIVE')}
         >
           <div className={styles.cardTitle} style={{ color: '#10b981' }}>Live / Running</div>
@@ -172,7 +180,11 @@ export const MonitoringHome: React.FC<MonitoringHomeProps> = ({
 
         <div
           className={styles.card}
-          style={{ cursor: 'pointer', border: activeFilter === 'PAUSED' ? '1px solid #f59e0b' : undefined }}
+          style={{
+            cursor: 'pointer',
+            border: 'none',
+            background: activeFilter === 'PAUSED' ? 'rgba(245, 158, 11, 0.15)' : undefined,
+          }}
           onClick={() => setActiveFilter('PAUSED')}
         >
           <div className={styles.cardTitle} style={{ color: '#f59e0b' }}>Paused</div>
@@ -182,7 +194,11 @@ export const MonitoringHome: React.FC<MonitoringHomeProps> = ({
 
         <div
           className={styles.card}
-          style={{ cursor: 'pointer', border: activeFilter === 'COMPLETED' ? '1px solid #3b82f6' : undefined }}
+          style={{
+            cursor: 'pointer',
+            border: 'none',
+            background: activeFilter === 'COMPLETED' ? 'rgba(59, 130, 246, 0.15)' : undefined,
+          }}
           onClick={() => setActiveFilter('COMPLETED')}
         >
           <div className={styles.cardTitle} style={{ color: '#3b82f6' }}>Completed</div>
@@ -192,7 +208,11 @@ export const MonitoringHome: React.FC<MonitoringHomeProps> = ({
 
         <div
           className={styles.card}
-          style={{ cursor: 'pointer', border: activeFilter === 'FAILED' ? '1px solid #ef4444' : undefined }}
+          style={{
+            cursor: 'pointer',
+            border: 'none',
+            background: activeFilter === 'FAILED' ? 'rgba(239, 68, 68, 0.15)' : undefined,
+          }}
           onClick={() => setActiveFilter('FAILED')}
         >
           <div className={styles.cardTitle} style={{ color: '#ef4444' }}>Failed</div>
@@ -202,7 +222,11 @@ export const MonitoringHome: React.FC<MonitoringHomeProps> = ({
 
         <div
           className={styles.card}
-          style={{ cursor: 'pointer', border: activeFilter === 'TERMINATED' ? '1px solid #94a3b8' : undefined }}
+          style={{
+            cursor: 'pointer',
+            border: 'none',
+            background: activeFilter === 'TERMINATED' ? 'rgba(148, 163, 184, 0.20)' : undefined,
+          }}
           onClick={() => setActiveFilter('TERMINATED')}
         >
           <div className={styles.cardTitle}>Terminated</div>
@@ -239,7 +263,7 @@ export const MonitoringHome: React.FC<MonitoringHomeProps> = ({
 
       {/* ── Unified Migration Run List ─────────────────────────────── */}
       {filteredMigrations.length === 0 ? (
-        <div className={styles.tableContainer} style={{ padding: 48, textAlign: 'center' }}>
+        <div className={styles.tableContainer} style={{ padding: 48, textAlign: 'center', border: 'none' }}>
           <div className={styles.emptyTitle}>No migrations available for monitoring</div>
           <div className={styles.emptySub} style={{ margin: '8px auto 0' }}>
             {migrations.length === 0
@@ -263,8 +287,8 @@ export const MonitoringHome: React.FC<MonitoringHomeProps> = ({
                 style={{
                   marginBottom: 0,
                   cursor: 'pointer',
-                  transition: 'transform 0.12s ease, border-color 0.12s ease',
-                  border: isLive ? '1px solid rgba(16, 185, 129, 0.4)' : undefined,
+                  border: 'none',
+                  transition: 'transform 0.12s ease, background 0.12s ease',
                 }}
                 onClick={() => onSelectMigration(m.id)}
               >

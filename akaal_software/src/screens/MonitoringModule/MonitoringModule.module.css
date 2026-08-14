@@ -80,8 +80,8 @@
 /* ── Banner Card ────────────────────────────────────────────── */
 .bannerCard {
   background: var(--dash-card-bg, var(--dash-surface, #1E2330));
-  border: 1px solid var(--dash-card-border, var(--dash-border, rgba(255, 255, 255, 0.08)));
-  box-shadow: var(--dash-card-shadow, 0 1px 3px rgba(0, 0, 0, 0.1));
+  border: none;
+  box-shadow: var(--dash-card-shadow, 0 1px 3px rgba(0, 0, 0, 0.06));
   border-radius: 14px;
   padding: 18px 24px;
   margin-bottom: 24px;
@@ -232,13 +232,14 @@
 
 .card {
   background: var(--dash-card-bg, var(--dash-surface, #1E2330));
-  border: 1px solid var(--dash-card-border, var(--dash-border, rgba(255, 255, 255, 0.08)));
+  border: none;
   box-shadow: var(--dash-card-shadow, 0 1px 3px rgba(0, 0, 0, 0.06));
   border-radius: 12px;
   padding: 16px 20px;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  transition: background 0.15s ease, transform 0.15s ease;
 }
 
 .cardTitle {
