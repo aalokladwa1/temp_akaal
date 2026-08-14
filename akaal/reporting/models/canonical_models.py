@@ -1,6 +1,6 @@
 """
-AKAAL P2.10 — Canonical Reporting, Certification & Governance Evidence Models
-=============================================================================
+AKAAL P2.10 / P2.10.1 — Canonical Reporting, Certification & Governance Evidence Models
+========================================================================================
 Immutable domain models for Canonical Reports, Certification Artifacts, Evidence Manifests,
 Certification Claims, and Tamper-Evident Fingerprints.
 """
@@ -71,19 +71,21 @@ class CertificationArtifact:
     """Tamper-evident Enterprise Certification Artifact."""
     certification_id: str
     report_id: str
-    outcome: CertificationOutcome
-    claims: List[CertificationClaim]
-    evidence_manifest: List[EvidenceManifestItem]
-    issued_at: str
+    job_id: str = ""
+    run_id: str = ""
+    outcome: CertificationOutcome = CertificationOutcome.NOT_CERTIFIED
+    claims: List[CertificationClaim] = field(default_factory=list)
+    evidence_manifest: List[EvidenceManifestItem] = field(default_factory=list)
+    issued_at: str = ""
     issuer: str = "AKAAL Enterprise Governance Authority v1.0"
     certification_fingerprint: str = ""
 
     def compute_fingerprint(self) -> str:
-        """Computes deterministic SHA-256 fingerprint over logical evidence payload."""
+        """Computes deterministic SHA-256 fingerprint over logical evidence payload and job/run binding."""
         claims_data = [f"{c.claim_type.value}:{c.status}:{c.evidence_fingerprint}" for c in sorted(self.claims, key=lambda x: x.claim_type.value)]
         manifest_data = [f"{m.evidence_type}:{m.fingerprint}:{m.status}" for m in sorted(self.evidence_manifest, key=lambda x: x.evidence_type)]
 
-        raw_payload = f"{self.certification_id}:{self.report_id}:{self.outcome.value}:{','.join(claims_data)}:{','.join(manifest_data)}:{SERIALIZATION_VERSION}"
+        raw_payload = f"{self.certification_id}:{self.report_id}:{self.job_id}:{self.run_id}:{self.outcome.value}:{','.join(claims_data)}:{','.join(manifest_data)}:{SERIALIZATION_VERSION}"
         return hashlib.sha256(raw_payload.encode("utf-8")).hexdigest()
 
     def verify_integrity(self) -> bool:
@@ -149,6 +151,8 @@ class CanonicalReport:
         if self.certification:
             d["certification"] = {
                 "certification_id": self.certification.certification_id,
+                "job_id": self.certification.job_id,
+                "run_id": self.certification.run_id,
                 "outcome": self.certification.outcome.value,
                 "certification_fingerprint": self.certification.certification_fingerprint,
                 "claims": [{"claim_type": c.claim_type.value, "status": c.status, "description": c.description} for c in self.certification.claims],

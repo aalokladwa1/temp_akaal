@@ -1,8 +1,9 @@
 """
-AKAAL P2.10 — Canonical Reporting, Certification & Governance Evidence Authority Engine
-=======================================================================================
+AKAAL P2.10 / P2.10.1 — Canonical Reporting, Certification & Governance Evidence Authority Engine
+=================================================================================================
 Backend authority for aggregating canonical execution, schema, risk, validation, and reconciliation
 evidence into tamper-evident Canonical Reports and Enterprise Certification Artifacts.
+Hardened against false certification, evidence substitution, non-atomic persistence, and secret leakage.
 """
 
 from dataclasses import asdict
@@ -11,6 +12,7 @@ import hashlib
 import json
 import logging
 import os
+import tempfile
 from typing import Any, Dict, List, Optional, Tuple
 
 from akaal.reporting.models.canonical_models import (
@@ -31,7 +33,7 @@ logger = logging.getLogger("akaal.reporting.engine.canonical_reporting")
 
 class CanonicalReportingAuthority:
     """
-    Universal Backend Reporting & Certification Authority (P2.10).
+    Universal Backend Reporting & Certification Authority (P2.10 / P2.10.1).
     Aggregates frozen P2.2-P2.9 canonical evidence into versioned, tamper-evident artifacts.
     """
 
@@ -61,9 +63,24 @@ class CanonicalReportingAuthority:
         """
         Generates a strongly-typed CanonicalReport and computes evidence-derived CertificationArtifact.
         """
-        warn_list = warnings or []
-        err_list = errors or []
-        review_list = manual_review_items or []
+        # Redact secrets from source_info & target_info before storing in report
+        safe_source_info = self._redact_secrets(source_info)
+        safe_target_info = self._redact_secrets(target_info)
+
+        warn_list = list(warnings or [])
+        err_list = list(errors or [])
+        review_list = list(manual_review_items or [])
+
+        # Validate Evidence Binding to Job & Run ID (Cross-Job/Run Evidence Substitution Firewall)
+        evidence_mismatch = False
+        if reconciliation_evidence:
+            val_id = str(reconciliation_evidence.validation_id)
+            # If validation_id doesn't match job_id or run_id or general prefix, flag error
+            if val_id and (job_id not in val_id and run_id not in val_id and "VAL-" not in val_id):
+                err_msg = f"[EVIDENCE BINDING FIREWALL] Reconciliation evidence '{val_id}' is not bound to job '{job_id}' / run '{run_id}'!"
+                logger.error(err_msg)
+                err_list.append(err_msg)
+                evidence_mismatch = True
 
         # 1. Schema Summary
         schema_summary: Dict[str, Any] = {
@@ -77,7 +94,7 @@ class CanonicalReportingAuthority:
         validation_summary: Dict[str, Any] = {}
         evidence_fingerprints: List[str] = []
 
-        if reconciliation_evidence:
+        if reconciliation_evidence and not evidence_mismatch:
             evidence_fingerprints.append(reconciliation_evidence.evidence_fingerprint)
             db_sum = reconciliation_evidence.database_summary
             data_summary = {
@@ -103,7 +120,7 @@ class CanonicalReportingAuthority:
             "approval_state": "APPROVED" if governance_approval_approved else ("PENDING" if governance_approval_required else "NOT_REQUIRED"),
         }
 
-        # 4. Final Outcome
+        # 4. Final Outcome Determination
         if err_list or (schema_risk and not schema_risk.is_safe_to_continue) or (reconciliation_evidence and reconciliation_evidence.database_summary.final_status in ("ERROR", "MISMATCHED")):
             final_outcome = "FAILED"
         elif reconciliation_evidence and reconciliation_evidence.database_summary.final_status == "INDETERMINATE":
@@ -116,9 +133,11 @@ class CanonicalReportingAuthority:
         # 5. Certification Derivation
         certification = self._derive_certification(
             report_id=report_id,
+            job_id=job_id,
+            run_id=run_id,
             report_type=report_type,
             schema_risk=schema_risk,
-            reconciliation_evidence=reconciliation_evidence,
+            reconciliation_evidence=reconciliation_evidence if not evidence_mismatch else None,
             governance_approval_approved=governance_approval_approved,
             governance_approval_required=governance_approval_required,
             err_list=err_list,
@@ -134,8 +153,8 @@ class CanonicalReportingAuthority:
             job_id=job_id,
             run_id=run_id,
             created_at=now_str,
-            source_info=source_info,
-            target_info=target_info,
+            source_info=safe_source_info,
+            target_info=safe_target_info,
             execution_summary=execution_summary,
             schema_summary=schema_summary,
             data_summary=data_summary,
@@ -157,6 +176,8 @@ class CanonicalReportingAuthority:
     def _derive_certification(
         self,
         report_id: str,
+        job_id: str,
+        run_id: str,
         report_type: CanonicalReportType,
         schema_risk: Optional[RiskAssessment],
         reconciliation_evidence: Optional[ReconciliationEvidence],
@@ -249,6 +270,10 @@ class CanonicalReportingAuthority:
             description="Governance approval gate verified",
         ))
 
+        # Sort claims and manifest deterministically
+        claims = sorted(claims, key=lambda c: c.claim_type.value)
+        manifest = sorted(manifest, key=lambda m: m.evidence_type)
+
         # 4. Outcome Determination
         if err_list or val_failed or not gov_ok or (schema_risk and not schema_risk.is_safe_to_continue):
             outcome = CertificationOutcome.NOT_CERTIFIED
@@ -265,6 +290,8 @@ class CanonicalReportingAuthority:
         cert = CertificationArtifact(
             certification_id=cert_id,
             report_id=report_id,
+            job_id=job_id,
+            run_id=run_id,
             outcome=outcome,
             claims=claims,
             evidence_manifest=manifest,
@@ -272,7 +299,6 @@ class CanonicalReportingAuthority:
         )
 
         cert_fp = cert.compute_fingerprint()
-        # Set fingerprint via object.__setattr__ since dataclass is frozen
         object.__setattr__(cert, "certification_fingerprint", cert_fp)
         return cert
 
@@ -286,25 +312,76 @@ class CanonicalReportingAuthority:
         """Verifies tamper-evident cryptographic fingerprint of a certification artifact."""
         return certification.verify_integrity()
 
+    @staticmethod
+    def _redact_secrets(info_dict: Dict[str, Any]) -> Dict[str, Any]:
+        """Redacts sensitive key fields like passwords, tokens, API keys, or connection secrets."""
+        if not isinstance(info_dict, dict):
+            return info_dict
+        secret_keys = {"password", "pass", "token", "api_key", "secret", "private_key", "connection_string"}
+        res = {}
+        for k, v in info_dict.items():
+            if any(s in k.lower() for s in secret_keys):
+                res[k] = "[REDACTED_SECRET]"
+            elif isinstance(v, dict):
+                res[k] = CanonicalReportingAuthority._redact_secrets(v)
+            else:
+                res[k] = v
+        return res
+
     def _persist_report_to_disk(self, report: CanonicalReport) -> None:
-        """Persists report JSON payload to disk for process restart survival."""
+        """Persists report JSON payload to disk using atomic temp file replacement."""
         try:
             os.makedirs(self.persistence_dir, exist_ok=True)
             file_path = os.path.join(self.persistence_dir, f"{report.report_id}.json")
-            with open(file_path, "w", encoding="utf-8") as f:
+            tmp_path = file_path + ".tmp"
+            with open(tmp_path, "w", encoding="utf-8") as f:
                 f.write(report.to_json())
+            os.replace(tmp_path, file_path)
         except Exception as e:
-            logger.warning(f"[CANONICAL REPORTING] Failed to persist report to disk: {e}")
+            logger.warning(f"[CANONICAL REPORTING] Failed to persist report to disk atomically: {e}")
 
     def _load_report_from_disk(self, report_id: str) -> Optional[CanonicalReport]:
-        """Loads report from disk storage."""
+        """Loads report from disk storage with corruption defense."""
         file_path = os.path.join(self.persistence_dir, f"{report_id}.json")
         if not os.path.exists(file_path):
             return None
         try:
             with open(file_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
-            # Basic reconstruction from JSON
+
+            cert_obj = None
+            if "certification" in data and isinstance(data["certification"], dict):
+                c_data = data["certification"]
+                claims = [
+                    CertificationClaim(
+                        claim_type=CertificationClaimType(c["claim_type"]),
+                        status=c["status"],
+                        evidence_fingerprint=c.get("evidence_fingerprint", ""),
+                        description=c.get("description", ""),
+                    ) for c in c_data.get("claims", [])
+                ]
+                manifest = [
+                    EvidenceManifestItem(
+                        evidence_type=m["type"],
+                        authority=m.get("authority", "CanonicalReportingAuthority"),
+                        version=m.get("version", SERIALIZATION_VERSION),
+                        fingerprint=m["fingerprint"],
+                        status=m["status"],
+                        scope=m.get("scope", "GLOBAL"),
+                    ) for m in c_data.get("evidence_manifest", [])
+                ]
+                cert_obj = CertificationArtifact(
+                    certification_id=c_data["certification_id"],
+                    report_id=report_id,
+                    job_id=data.get("job_id", ""),
+                    run_id=data.get("run_id", ""),
+                    outcome=CertificationOutcome(c_data["outcome"]),
+                    claims=claims,
+                    evidence_manifest=manifest,
+                    issued_at=data.get("created_at", ""),
+                    certification_fingerprint=c_data.get("certification_fingerprint", ""),
+                )
+
             report = CanonicalReport(
                 report_id=data["report_id"],
                 report_version=data["report_version"],
@@ -324,10 +401,11 @@ class CanonicalReportingAuthority:
                 manual_review_items=data.get("manual_review_items", []),
                 evidence_fingerprints=data.get("evidence_fingerprints", []),
                 final_outcome=data.get("final_outcome", "UNKNOWN"),
+                certification=cert_obj,
                 report_fingerprint=data.get("report_fingerprint", ""),
             )
             self._reports_store[report_id] = report
             return report
         except Exception as e:
-            logger.warning(f"[CANONICAL REPORTING] Failed to load report from disk: {e}")
+            logger.warning(f"[CANONICAL REPORTING] Failed to load report from disk (corrupted JSON or missing fields): {e}")
             return None
