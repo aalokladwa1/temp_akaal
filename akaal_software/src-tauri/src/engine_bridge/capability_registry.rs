@@ -50,6 +50,11 @@ impl CapabilityRegistry {
             ("get_monitoring_snapshot", "Get Monitoring Snapshot", "Runtime", "Query canonical monitoring snapshot DTO"),
             ("get_all_migrations", "Get All Migrations", "Pipeline", "Query all registered and historical migration jobs"),
             ("subscribe_runtime_events", "Subscribe Runtime Events", "Runtime", "Subscribe to real-time engine event stream channel"),
+            ("export_canonical_report", "Export Canonical Report", "Reporting", "Export canonical report JSON payload"),
+            ("export_pdf_dossier", "Export PDF Evidence Dossier", "Reporting", "Generate enterprise PDF migration evidence dossier"),
+            ("export_pdf_certificate", "Export PDF Certificate", "Reporting", "Generate concise 1-2 page PDF certificate"),
+            ("export_evidence_package", "Export Portable Evidence Package", "Reporting", "Export zip evidence archive containing dossier, certificate & sha256 checksums"),
+            ("verify_evidence_package", "Verify Evidence Package", "Reporting", "Audit and verify evidence zip archive SHA-256 hashes"),
         ];
 
         for (id, name, cat, desc) in default_list {

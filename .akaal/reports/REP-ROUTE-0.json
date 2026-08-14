@@ -1,7 +1,7 @@
 {
   "certification": {
-    "certification_fingerprint": "2b05ccf98dc6f5205aad0f83102443f27170056f9c7c3653c4eb59bb2e6ff34d",
-    "certification_id": "cert-REP-FAILED-INSPECT",
+    "certification_fingerprint": "9ca136d84be3c349b8509e8d65010fea51c5ddbcc02b064a0cd6ba130c8395f0",
+    "certification_id": "cert-REP-ROUTE-0",
     "claims": [
       {
         "claim_type": "GOVERNANCE_APPROVAL_COMPLETE",
@@ -10,28 +10,26 @@
       }
     ],
     "evidence_manifest": [],
-    "job_id": "JOB-FAIL",
-    "outcome": "NOT_CERTIFIED",
+    "job_id": "JOB-Oracle-PostgreSQL",
+    "outcome": "CERTIFIED",
     "run_id": "RUN-1"
   },
-  "created_at": "2026-08-14T15:24:56.318559+00:00",
+  "created_at": "2026-08-14T15:24:56.215101+00:00",
   "data_summary": {},
-  "errors": [
-    "Connection timeout to target PostgreSQL"
-  ],
+  "errors": [],
   "evidence_fingerprints": [],
   "execution_summary": {
-    "status": "FAILED"
+    "status": "COMPLETED"
   },
-  "final_outcome": "FAILED",
+  "final_outcome": "PASSED",
   "governance_summary": {
     "approval_required": false,
     "approval_state": "APPROVED"
   },
-  "job_id": "JOB-FAIL",
+  "job_id": "JOB-Oracle-PostgreSQL",
   "manual_review_items": [],
-  "report_fingerprint": "f784e358790e7a9c1a8e18f354edcab23d6eda5c56642e682d66b2dea21cf9c6",
-  "report_id": "REP-FAILED-INSPECT",
+  "report_fingerprint": "e39faf1b8e519149fb8bf7b5df0511f5174ee1fc88d48599d20899191b1b55e1",
+  "report_id": "REP-ROUTE-0",
   "report_type": "MIGRATION",
   "report_version": "AKAAL-CANONICAL-V1",
   "run_id": "RUN-1",
@@ -41,10 +39,10 @@
     "risk_score": 0.0
   },
   "source_info": {
-    "engine": "oracle"
+    "engine": "Oracle"
   },
   "target_info": {
-    "engine": "postgresql"
+    "engine": "PostgreSQL"
   },
   "validation_summary": {},
   "warnings": []

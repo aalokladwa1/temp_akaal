@@ -2218,3 +2218,72 @@ class EngineGateway:
             "target_project_id": payload.get("target_project_id"),
             "status": "reparented",
         }
+
+    # ── P2.12 Canonical Report Export & Evidence Delivery Capabilities ──────────
+    def export_canonical_report(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        from akaal.reporting.engine.canonical_reporting import CanonicalReportingAuthority
+        from akaal.reporting.engine.export_service import CanonicalReportExportService
+        report_id = payload.get("report_id")
+        authority = CanonicalReportingAuthority()
+        report = authority.get_report(report_id)
+        if not report:
+            return {"status": "ERROR", "reason": f"Report '{report_id}' not found"}
+        exporter = CanonicalReportExportService(authority)
+        json_str = exporter.export_json_report(report)
+        return {"status": "SUCCESS", "report_id": report_id, "format": "JSON", "payload": json_str}
+
+    def export_pdf_dossier(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        import base64
+        from akaal.reporting.engine.canonical_reporting import CanonicalReportingAuthority
+        from akaal.reporting.engine.export_service import CanonicalReportExportService
+        report_id = payload.get("report_id")
+        authority = CanonicalReportingAuthority()
+        report = authority.get_report(report_id)
+        if not report:
+            return {"status": "ERROR", "reason": f"Report '{report_id}' not found"}
+        exporter = CanonicalReportExportService(authority)
+        pdf_bytes = exporter.export_pdf_dossier(report)
+        pdf_b64 = base64.b64encode(pdf_bytes).decode("ascii")
+        return {"status": "SUCCESS", "report_id": report_id, "format": "PDF", "payload_b64": pdf_b64}
+
+    def export_pdf_certificate(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        import base64
+        from akaal.reporting.engine.canonical_reporting import CanonicalReportingAuthority
+        from akaal.reporting.engine.export_service import CanonicalReportExportService
+        report_id = payload.get("report_id")
+        authority = CanonicalReportingAuthority()
+        report = authority.get_report(report_id)
+        if not report or not report.certification:
+            return {"status": "ERROR", "reason": f"Report or certification artifact for '{report_id}' not found"}
+        exporter = CanonicalReportExportService(authority)
+        pdf_bytes = exporter.export_pdf_certificate(report.certification, report=report)
+        pdf_b64 = base64.b64encode(pdf_bytes).decode("ascii")
+        return {"status": "SUCCESS", "report_id": report_id, "certification_id": report.certification.certification_id, "format": "PDF", "payload_b64": pdf_b64}
+
+    def export_evidence_package(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        import base64
+        from akaal.reporting.engine.canonical_reporting import CanonicalReportingAuthority
+        from akaal.reporting.engine.export_service import CanonicalReportExportService
+        report_id = payload.get("report_id")
+        authority = CanonicalReportingAuthority()
+        report = authority.get_report(report_id)
+        if not report:
+            return {"status": "ERROR", "reason": f"Report '{report_id}' not found"}
+        exporter = CanonicalReportExportService(authority)
+        zip_bytes = exporter.export_evidence_package(report)
+        zip_b64 = base64.b64encode(zip_bytes).decode("ascii")
+        filename = f"AKAAL-EVIDENCE-{report_id}.zip"
+        return {"status": "SUCCESS", "report_id": report_id, "filename": filename, "format": "ZIP", "payload_b64": zip_b64}
+
+    def verify_evidence_package(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        import base64
+        from akaal.reporting.engine.export_service import CanonicalReportExportService
+        exporter = CanonicalReportExportService()
+        zip_b64 = payload.get("payload_b64")
+        filepath = payload.get("filepath")
+        if zip_b64:
+            zip_bytes = base64.b64decode(zip_b64)
+            return exporter.verify_evidence_package(zip_bytes)
+        elif filepath:
+            return exporter.verify_evidence_package(filepath)
+        return {"status": "ERROR", "reason": "No zip payload_b64 or filepath provided"}
