@@ -1,0 +1,49 @@
+{
+  "certification": {
+    "certification_fingerprint": "cb8c1ddbb7d44062124be2f34abcb1e0754742977bb965b17cb66233e3509ed4",
+    "certification_id": "cert-REP-UI-VAL-01",
+    "claims": [
+      {
+        "claim_type": "GOVERNANCE_APPROVAL_COMPLETE",
+        "description": "Governance approval gate verified",
+        "status": "PASSED"
+      }
+    ],
+    "evidence_manifest": [],
+    "job_id": "JOB-VAL",
+    "outcome": "CERTIFIED",
+    "run_id": "RUN-1"
+  },
+  "created_at": "2026-08-14T14:28:24.840819+00:00",
+  "data_summary": {},
+  "errors": [],
+  "evidence_fingerprints": [],
+  "execution_summary": {
+    "status": "VALIDATED"
+  },
+  "final_outcome": "PASSED",
+  "governance_summary": {
+    "approval_required": false,
+    "approval_state": "APPROVED"
+  },
+  "job_id": "JOB-VAL",
+  "manual_review_items": [],
+  "report_fingerprint": "30fbd6f781d82fe3765da1e191642d185213349181932cc4f2101509b594fe21",
+  "report_id": "REP-UI-VAL-01",
+  "report_type": "VALIDATION_ONLY",
+  "report_version": "AKAAL-CANONICAL-V1",
+  "run_id": "RUN-1",
+  "schema_summary": {
+    "blocking_findings_count": 0,
+    "overall_compatibility": "COMPATIBLE",
+    "risk_score": 0.0
+  },
+  "source_info": {
+    "engine": "mysql"
+  },
+  "target_info": {
+    "engine": "mssql"
+  },
+  "validation_summary": {},
+  "warnings": []
+}
