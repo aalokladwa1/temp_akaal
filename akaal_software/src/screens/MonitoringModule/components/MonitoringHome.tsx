@@ -367,8 +367,7 @@ export const MonitoringHome: React.FC<MonitoringHomeProps> = ({
                   )}
 
                   <button
-                    className={styles.tabBtnActive}
-                    style={{ padding: '8px 16px', borderRadius: 8, fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}
+                    className={styles.primaryBtn}
                     onClick={(e) => {
                       e.stopPropagation();
                       onSelectMigration(m.id);

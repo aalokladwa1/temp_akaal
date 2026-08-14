@@ -204,8 +204,7 @@ export const MonitoringModule: React.FC = () => {
       {/* ── Return Navigation to Monitoring Home ────────────────── */}
       <div style={{ marginBottom: 12 }}>
         <button
-          className={styles.tabBtn}
-          style={{ cursor: 'pointer', padding: '6px 12px', background: 'var(--dash-input-bg, #171B26)', borderRadius: 6 }}
+          className={styles.primaryBtn}
           onClick={() => {
             setViewMode('HOME');
             loadMigrations();
