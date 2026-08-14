@@ -53,6 +53,11 @@ class TestP15DMonitoringHome(unittest.TestCase):
         self.assertIn("mig-test-comp-102", ids)
         self.assertIn("mig-test-fail-103", ids)
 
+    def test_05_invoke_capability_routing_for_get_all_migrations(self):
+        """Verify EngineGateway.invoke('get_all_migrations') dispatches without error."""
+        res = self.gateway.invoke("get_all_migrations", {})
+        self.assertIn("migrations", res)
+
     def test_02_migration_run_metadata_and_live_mode_classification(self):
         """Verify live vs historical classification and metadata fields."""
         self.state_store.update_progress("mig-live-eval", {

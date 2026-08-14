@@ -197,6 +197,8 @@ class EngineGateway:
             return self.get_runtime_snapshot(payload)
         elif capability == "get_monitoring_snapshot":
             return self.get_monitoring_snapshot(payload)
+        elif capability in ("get_all_migrations", "list_migrations"):
+            return self.get_all_migrations(payload)
         elif capability == "subscribe_runtime_events":
             return self.subscribe_runtime_events(payload)
         elif capability == "move_migration_to_project":
