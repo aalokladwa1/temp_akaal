@@ -1,9 +1,10 @@
 """
 AKAAL Schema Engine — Universal Programmable Database Object Conversion Engine
 =============================================================================
-Provides database-agnostic conversion, AST normalization, built-in function translation,
-and risk classification for Views, Materialized Views, Stored Procedures, Functions,
-Triggers, and Packages across Oracle, PostgreSQL, MySQL, MSSQL, and plugin target engines.
+Provides database-agnostic conversion, AST normalization, lexical-safe built-in function
+translation, manual-review execution firewalls, and risk classification for Views,
+Materialized Views, Stored Procedures, Functions, Triggers, and Packages across
+Oracle, PostgreSQL, MySQL, MSSQL, and plugin target engines.
 """
 
 from abc import ABC, abstractmethod
@@ -42,10 +43,13 @@ class StructuredProgrammableArtifact:
     safety: ConversionSafety = ConversionSafety.EXACT
     warnings: List[str] = field(default_factory=list)
     dependencies: List[str] = field(default_factory=list)
+    is_auto_executable: bool = True
     source_fingerprint: str = ""
     conversion_fingerprint: str = ""
 
     def __post_init__(self):
+        if self.conversion_status in ("MANUAL_REVIEW_REQUIRED", "UNSUPPORTED"):
+            self.is_auto_executable = False
         if not self.source_fingerprint and self.raw_source_definition:
             self.source_fingerprint = hashlib.sha256(self.raw_source_definition.strip().encode("utf-8")).hexdigest()
         if not self.conversion_fingerprint and self.target_sql:
@@ -63,34 +67,59 @@ class StructuredProgrammableArtifact:
             "safety": self.safety.value,
             "warnings": self.warnings,
             "dependencies": sorted(self.dependencies),
+            "is_auto_executable": self.is_auto_executable,
             "source_fingerprint": self.source_fingerprint,
             "conversion_fingerprint": self.conversion_fingerprint,
         }
 
 
 class SQLRulebook:
-    """Central database-agnostic expression translation rulebook."""
+    """Lexical-safe database-agnostic expression translation rulebook."""
+
+    @classmethod
+    def mask_literals_and_comments(cls, sql_text: str) -> Tuple[str, Dict[str, str]]:
+        """Mask string literals and comments to prevent false keyword replacements."""
+        placeholders = {}
+
+        def replancer(match):
+            key = f"__AKAAL_MASK_{len(placeholders)}__"
+            placeholders[key] = match.group(0)
+            return key
+
+        # Pattern matches single-quoted strings, double-quoted strings, and single/multi-line comments
+        pattern = r"('(?:''|[^'])*'|\"(?:\"\"|[^\"])*\"|--.*?$|/\*.*?\*/)"
+        masked_sql = re.sub(pattern, replancer, sql_text, flags=re.DOTALL | re.MULTILINE)
+        return masked_sql, placeholders
+
+    @classmethod
+    def unmask_literals_and_comments(cls, masked_sql: str, placeholders: Dict[str, str]) -> str:
+        """Restore masked string literals and comments."""
+        res = masked_sql
+        for key, val in placeholders.items():
+            res = res.replace(key, val)
+        return res
 
     @classmethod
     def translate_expressions(cls, sql_text: str, source_engine: str, target_engine: str) -> Tuple[str, List[str]]:
-        """Translate built-in SQL functions and expressions across database engines."""
+        """Lexically safe translation of built-in SQL functions and expressions across database engines."""
         src = source_engine.upper()
         tgt = target_engine.upper()
-        res = sql_text
         warnings = []
 
-        # 1. Null handling functions (NVL / ISNULL -> COALESCE)
+        # Step 1: Mask literals and comments
+        masked_sql, placeholders = cls.mask_literals_and_comments(sql_text)
+        res = masked_sql
+
+        # Step 2: Apply rulebook replacements on unmasked code only
         if src in ("ORACLE", "MSSQL") and tgt in ("POSTGRESQL", "POSTGRES", "MYSQL"):
             res = re.sub(r"\bNVL\s*\(", "COALESCE(", res, flags=re.IGNORECASE)
             res = re.sub(r"\bISNULL\s*\(", "COALESCE(", res, flags=re.IGNORECASE)
 
-        # 2. Date / Time functions (SYSDATE / GETDATE() -> CURRENT_TIMESTAMP)
         if src == "ORACLE" and "SYSDATE" in res.upper():
             res = re.sub(r"\bSYSDATE\b", "CURRENT_TIMESTAMP", res, flags=re.IGNORECASE)
         elif src in ("MSSQL", "SQLSERVER") and "GETDATE()" in res.upper():
             res = re.sub(r"\bGETDATE\s*\(\s*\)", "CURRENT_TIMESTAMP", res, flags=re.IGNORECASE)
 
-        # 3. Trigger pseudo-tables (:NEW / :OLD -> NEW / OLD or inserted / deleted)
         if tgt in ("POSTGRESQL", "POSTGRES", "MYSQL"):
             res = re.sub(r":NEW\b", "NEW", res, flags=re.IGNORECASE)
             res = re.sub(r":OLD\b", "OLD", res, flags=re.IGNORECASE)
@@ -98,15 +127,21 @@ class SQLRulebook:
             res = re.sub(r":NEW\b|\bNEW\b", "inserted", res, flags=re.IGNORECASE)
             res = re.sub(r":OLD\b|\bOLD\b", "deleted", res, flags=re.IGNORECASE)
 
-        # 4. Check for dynamic SQL
-        if any(kw in res.upper() for kw in ("EXECUTE IMMEDIATE", "SP_EXECUTESQL", "PREPARE")):
+        # Step 3: Unmask literals and comments
+        final_sql = cls.unmask_literals_and_comments(res, placeholders)
+
+        # Step 4: Check for dynamic SQL, transactions, or MSSQL set-oriented triggers
+        upper_text = sql_text.upper()
+        if any(kw in upper_text for kw in ("EXECUTE IMMEDIATE", "SP_EXECUTESQL", "PREPARE")):
             warnings.append("Dynamic SQL detected in programmable body; manual verification required")
 
-        # 5. Check for autonomous transactions or explicit commits
-        if "PRAGMA AUTONOMOUS_TRANSACTION" in res.upper() or "COMMIT" in res.upper():
+        if "PRAGMA AUTONOMOUS_TRANSACTION" in upper_text or "COMMIT" in upper_text:
             warnings.append("Autonomous transaction or explicit COMMIT detected in programmable body")
 
-        return res, warnings
+        if src in ("MSSQL", "SQLSERVER") and any(kw in upper_text for kw in ("INSERTED", "DELETED")):
+            warnings.append("MSSQL INSERTED/DELETED pseudo-tables are set-oriented; verify multi-row update handling")
+
+        return final_sql, warnings
 
 
 class BaseProgrammableEmitter(ABC):
@@ -245,6 +280,9 @@ class PostgreSQLProgrammableEmitter(BaseProgrammableEmitter):
         event = trig.events[0].upper() if trig.events else "INSERT"
         trig_sql = f'{fn_sql}\nCREATE TRIGGER "{trig.name}" {timing} {event} ON "{trig.schema_name}"."{trig.table_name}"\nFOR EACH ROW EXECUTE FUNCTION "{trig.schema_name}"."{fn_name}"();'
 
+        has_manual = any("INSERTED/DELETED" in w for w in warnings)
+        status = "MANUAL_REVIEW_REQUIRED" if has_manual else ("AUTOMATIC_WITH_WARNINGS" if warnings else "AUTOMATIC")
+
         return StructuredProgrammableArtifact(
             object_type="TRIGGER",
             object_name=trig.name,
@@ -253,8 +291,8 @@ class PostgreSQLProgrammableEmitter(BaseProgrammableEmitter):
             target_engine="POSTGRESQL",
             raw_source_definition=raw_body,
             target_sql=trig_sql,
-            conversion_status="AUTOMATIC" if not warnings else "AUTOMATIC_WITH_WARNINGS",
-            safety=ConversionSafety.SAFE,
+            conversion_status=status,
+            safety=ConversionSafety.SAFE if not has_manual else ConversionSafety.POTENTIALLY_LOSSY,
             warnings=warnings,
             dependencies=[trig.table_name],
         )

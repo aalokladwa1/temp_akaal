@@ -358,17 +358,19 @@ class SchemaExecutionStep(AbstractStep):
                 elif o_type in ("VIEW", "CANONICALVIEW"):
                     from akaal.schema.domain.models import CanonicalView
                     from akaal.schema.domain.programmable_engine import CanonicalProgrammableAuthority
-                    c_view = CanonicalView(name=o_name, schema_name=t_schema, definition=f"SELECT * FROM {t_schema}.{o_name}_src")
+                    c_view = CanonicalView(name=o_name, schema_name=t_schema, source_definition=f"SELECT * FROM {t_schema}.{o_name}_src")
                     p_art = CanonicalProgrammableAuthority.convert_view(c_view, pg_config.system_type.name, src_config.system_type.name)
-                    ddl_statements.append(p_art.target_sql)
+                    if p_art.is_auto_executable:
+                        ddl_statements.append(p_art.target_sql)
                 elif o_type in ("SEQUENCE", "CANONICALSEQUENCE"):
                     ddl_statements.append(f'CREATE SEQUENCE IF NOT EXISTS "{t_schema}"."{o_name}";')
                 elif o_type in ("PROCEDURE", "FUNCTION", "PACKAGE"):
                     from akaal.schema.domain.models import CanonicalProcedure
                     from akaal.schema.domain.programmable_engine import CanonicalProgrammableAuthority
-                    c_proc = CanonicalProcedure(name=o_name, schema_name=t_schema, body=f"/* Transpiled body for {o_name} */")
+                    c_proc = CanonicalProcedure(name=o_name, schema_name=t_schema, source_definition=f"/* Transpiled body for {o_name} */")
                     p_art = CanonicalProgrammableAuthority.convert_procedure(c_proc, pg_config.system_type.name, src_config.system_type.name)
-                    ddl_statements.append(p_art.target_sql)
+                    if p_art.is_auto_executable:
+                        ddl_statements.append(p_art.target_sql)
 
             conn = pg_adapter.get_connection()
             # Bounded DDL Transaction Grouping & Target Capacity Safety (P0.10-O / Rectification 1 & 10)
