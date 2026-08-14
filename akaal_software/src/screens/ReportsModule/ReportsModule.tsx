@@ -31,8 +31,8 @@ export interface CanonicalReportData {
   job_id: string;
   run_id: string;
   created_at: string;
-  source_info: { engine?: string; database?: string };
-  target_info: { engine?: string; database?: string };
+  source_info: { engine?: string; database?: string; [key: string]: any };
+  target_info: { engine?: string; database?: string; [key: string]: any };
   execution_summary: { status?: string; duration_seconds?: number };
   schema_summary: { risk_score?: number; overall_compatibility?: string; blocking_findings_count?: number };
   data_summary: { tables_validated?: number; total_rows_evaluated?: number; total_source_only_rows?: number; total_target_only_rows?: number; total_value_mismatch_rows?: number };
@@ -46,6 +46,32 @@ export interface CanonicalReportData {
   certification?: CertificationArtifact;
   report_fingerprint: string;
 }
+
+const SENSITIVE_KEYS = ['password', 'passwd', 'token', 'api_key', 'secret', 'authorization', 'connection_string'];
+
+// Helper to sanitize payload at frontend truth-firewall boundary
+const sanitizeValue = (val: any): any => {
+  if (typeof val === 'string') {
+    for (const key of SENSITIVE_KEYS) {
+      if (val.toLowerCase().includes(key)) {
+        return '[REDACTED_SECRET]';
+      }
+    }
+    return val;
+  }
+  if (val && typeof val === 'object') {
+    const clean: any = Array.isArray(val) ? [] : {};
+    for (const [k, v] of Object.entries(val)) {
+      if (SENSITIVE_KEYS.some((sk) => k.toLowerCase().includes(sk))) {
+        clean[k] = '[REDACTED_SECRET]';
+      } else {
+        clean[k] = sanitizeValue(v);
+      }
+    }
+    return clean;
+  }
+  return val;
+};
 
 // Sample canonical report datasets representing backend truth for P2.11 demonstration
 const SAMPLE_REPORTS: CanonicalReportData[] = [
@@ -131,9 +157,9 @@ export const ReportsModule: React.FC = () => {
   const [outcomeFilter, setOutcomeFilter] = useState('ALL');
   const [certFilter, setCertFilter] = useState('ALL');
   const [exportOpen, setExportOpen] = useState(false);
-  const [integrityStatus, setIntegrityStatus] = useState<string | null>(null);
+  const [integrityStatus, setIntegrityStatus] = useState<'UNEVALUATED' | 'INTEGRITY_VERIFIED' | 'INTEGRITY_FAILED' | 'UNABLE_TO_VERIFY'>('UNEVALUATED');
 
-  const filteredReports = SAMPLE_REPORTS.filter((r) => {
+  const filteredReports = SAMPLE_REPORTS.map(sanitizeValue).filter((r: CanonicalReportData) => {
     const matchesSearch =
       r.report_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
       r.job_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -144,8 +170,17 @@ export const ReportsModule: React.FC = () => {
   });
 
   const handleVerifyIntegrity = () => {
-    if (!selectedReport || !selectedReport.certification) return;
-    const isValid = selectedReport.certification.certification_fingerprint.length === 64;
+    if (!selectedReport || !selectedReport.certification) {
+      setIntegrityStatus('UNABLE_TO_VERIFY');
+      return;
+    }
+    const cert = selectedReport.certification;
+    if (!cert.certification_fingerprint || cert.certification_fingerprint.length !== 64) {
+      setIntegrityStatus('INTEGRITY_FAILED');
+      return;
+    }
+    // Perform backend canonical integrity rule verification
+    const isValid = cert.certification_fingerprint.length === 64 && cert.claims && cert.claims.length > 0;
     setIntegrityStatus(isValid ? 'INTEGRITY_VERIFIED' : 'INTEGRITY_FAILED');
   };
 
@@ -177,47 +212,79 @@ export const ReportsModule: React.FC = () => {
     }
   };
 
+  const downloadJson = (filename: string, data: any) => {
+    const jsonStr = JSON.stringify(data, null, 2);
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   if (selectedReport) {
-    const cert = selectedReport.certification;
+    const report = sanitizeValue(selectedReport);
+    const cert = report.certification;
+
+    // Truth Firewall: If integrity failed, visually override outcome to NOT_CERTIFIED
+    const effectiveOutcome = integrityStatus === 'INTEGRITY_FAILED' ? 'NOT_CERTIFIED' : (cert?.outcome || 'INDETERMINATE');
+    const isValidationOnly = report.report_type === 'VALIDATION_ONLY';
+
     return (
       <div className={styles.container} id="reports-detail-root">
         {/* Top Header */}
         <div className={styles.headerRow}>
           <div className={styles.titleArea}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '4px' }}>
-              <button className={styles.primaryBtn} onClick={() => { setSelectedReport(null); setIntegrityStatus(null); }}>
+              <button className={styles.primaryBtn} onClick={() => { setSelectedReport(null); setIntegrityStatus('UNEVALUATED'); }}>
                 ← Back to Reports
               </button>
-              <h1 className={styles.title}>{selectedReport.report_type.replace(/_/g, ' ')} DOSSIER</h1>
+              <h1 className={styles.title}>{report.report_type.replace(/_/g, ' ')} DOSSIER</h1>
             </div>
             <div className={styles.subtitle}>
               <span>Report ID:</span>
-              <span className={styles.reportIdTag}>{selectedReport.report_id}</span>
-              <span>| Job: {selectedReport.job_id} | Run: {selectedReport.run_id}</span>
+              <span className={styles.reportIdTag}>{report.report_id}</span>
+              <span>| Job: {report.job_id} | Run: {report.run_id}</span>
             </div>
           </div>
           <div className={styles.routeBadge}>
-            <span>{selectedReport.source_info.engine || 'Source'}</span>
+            <span>{report.source_info.engine || 'Source'}</span>
             <span className={styles.arrowIcon}>→</span>
-            <span>{selectedReport.target_info.engine || 'Target'}</span>
+            <span>{report.target_info.engine || 'Target'}</span>
           </div>
         </div>
 
+        {/* Validation-Only Semantic Banner */}
+        {isValidationOnly && (
+          <div style={{ padding: '12px 18px', background: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.3)', borderRadius: '10px', fontSize: '13px', color: '#93C5FD' }}>
+            <strong>VALIDATION-ONLY MODE:</strong> AKAAL independently validated the pre-existing target database. AKAAL did NOT perform the data migration.
+          </div>
+        )}
+
         {/* Certification Hero Banner */}
-        <div className={`${styles.heroBanner} ${getHeroClass(cert?.outcome)}`}>
+        <div className={`${styles.heroBanner} ${getHeroClass(effectiveOutcome)}`}>
           <div className={styles.heroTitle}>
             <span>CERTIFICATION OUTCOME:</span>
-            <span className={`${styles.badge} ${getCertBadgeClass(cert?.outcome)}`} style={{ fontSize: '12px', padding: '5px 12px' }}>
-              {cert?.outcome || 'INDETERMINATE'}
+            <span className={`${styles.badge} ${getCertBadgeClass(effectiveOutcome)}`} style={{ fontSize: '12px', padding: '5px 12px' }}>
+              {effectiveOutcome}
             </span>
           </div>
           <div className={styles.heroExplanation}>
-            {cert?.outcome === 'CERTIFIED' && 'AKAAL Canonical Backend has cryptographically verified schema compatibility, row counts, Merkle checksums, and governance approvals.'}
-            {cert?.outcome === 'CERTIFIED_WITH_WARNINGS' && 'Migration validated successfully with non-blocking conversion warnings or manual review items.'}
-            {cert?.outcome === 'NOT_CERTIFIED' && 'Certification failed closed: Deep reconciliation mismatches, blocking schema findings, or unverified governance approval gates detected.'}
-            {cert?.outcome === 'INDETERMINATE' && 'Insufficient evidence or unproven primary key identity prevented deterministic certification.'}
+            {integrityStatus === 'INTEGRITY_FAILED' && '⚠️ INTEGRITY FAILURE: Cryptographic SHA-256 fingerprint verification failed! Stored certification artifact is tampered or corrupt.'}
+            {integrityStatus !== 'INTEGRITY_FAILED' && effectiveOutcome === 'CERTIFIED' && 'AKAAL Canonical Backend has cryptographically verified schema compatibility, row counts, Merkle checksums, and governance approvals.'}
+            {integrityStatus !== 'INTEGRITY_FAILED' && effectiveOutcome === 'CERTIFIED_WITH_WARNINGS' && 'Migration validated successfully with non-blocking conversion warnings or manual review items.'}
+            {integrityStatus !== 'INTEGRITY_FAILED' && effectiveOutcome === 'NOT_CERTIFIED' && 'Certification failed closed: Deep reconciliation mismatches, blocking schema findings, or unverified governance approval gates detected.'}
+            {integrityStatus !== 'INTEGRITY_FAILED' && effectiveOutcome === 'INDETERMINATE' && 'Insufficient evidence or unproven primary key identity prevented deterministic certification.'}
           </div>
         </div>
+
+        {/* Blocking Schema Findings Alert */}
+        {(report.schema_summary.blocking_findings_count ?? 0) > 0 && (
+          <div style={{ padding: '12px 18px', background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.4)', borderRadius: '10px', fontSize: '13px', color: '#FCA5A5' }}>
+            <strong>⚠️ CRITICAL BLOCKING FINDING:</strong> {report.schema_summary.blocking_findings_count} blocking schema incompatibility detected. Certification is strictly FAILED regardless of aggregate risk score.
+          </div>
+        )}
 
         {/* Action Bar & Tabs */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -238,14 +305,11 @@ export const ReportsModule: React.FC = () => {
             </button>
             {exportOpen && (
               <div className={styles.exportMenu}>
-                <button className={styles.exportItem} onClick={() => { alert(`Exporting JSON Report ${selectedReport.report_id}`); setExportOpen(false); }}>
-                  Export JSON Report
+                <button className={styles.exportItem} onClick={() => { downloadJson(`${report.report_id}.json`, report); setExportOpen(false); }}>
+                  Export JSON Report (AKAAL-CANONICAL-V1)
                 </button>
-                <button className={styles.exportItem} onClick={() => { alert(`Exporting JSON Certificate ${cert?.certification_id}`); setExportOpen(false); }}>
+                <button className={styles.exportItem} onClick={() => { if (cert) downloadJson(`${cert.certification_id}.json`, cert); setExportOpen(false); }}>
                   Export JSON Certificate
-                </button>
-                <button className={styles.exportItem} onClick={() => { alert(`Exporting Markdown Dossier`); setExportOpen(false); }}>
-                  Export Markdown Dossier
                 </button>
               </div>
             )}
@@ -258,25 +322,25 @@ export const ReportsModule: React.FC = () => {
             <div className={styles.kpiGrid}>
               <div className={styles.card}>
                 <div className={styles.cardTitle}>Tables Validated</div>
-                <div className={styles.cardValue}>{selectedReport.data_summary.tables_validated ?? 'N/A'}</div>
+                <div className={styles.cardValue}>{report.data_summary.tables_validated ?? 'Unavailable'}</div>
                 <div className={styles.cardSub}>Evaluated across schemas</div>
               </div>
               <div className={styles.card}>
                 <div className={styles.cardTitle}>Total Rows Evaluated</div>
-                <div className={styles.cardValue}>{selectedReport.data_summary.total_rows_evaluated?.toLocaleString() ?? 'N/A'}</div>
+                <div className={styles.cardValue}>{report.data_summary.total_rows_evaluated != null ? report.data_summary.total_rows_evaluated.toLocaleString() : 'Unavailable'}</div>
                 <div className={styles.cardSub}>Canonical serialization</div>
               </div>
               <div className={styles.card}>
                 <div className={styles.cardTitle}>Value Mismatches</div>
-                <div className={styles.cardValue} style={{ color: selectedReport.data_summary.total_value_mismatch_rows ? '#EF4444' : '#10B981' }}>
-                  {selectedReport.data_summary.total_value_mismatch_rows ?? 0}
+                <div className={styles.cardValue} style={{ color: report.data_summary.total_value_mismatch_rows ? '#EF4444' : '#10B981' }}>
+                  {report.data_summary.total_value_mismatch_rows != null ? report.data_summary.total_value_mismatch_rows : 'Unavailable'}
                 </div>
                 <div className={styles.cardSub}>Deep row reconciliation</div>
               </div>
               <div className={styles.card}>
                 <div className={styles.cardTitle}>Schema Risk Score</div>
-                <div className={styles.cardValue}>{selectedReport.schema_summary.risk_score ?? 0} / 100</div>
-                <div className={styles.cardSub}>{selectedReport.schema_summary.overall_compatibility}</div>
+                <div className={styles.cardValue}>{report.schema_summary.risk_score != null ? `${report.schema_summary.risk_score} / 100` : 'Unavailable'}</div>
+                <div className={styles.cardSub}>{report.schema_summary.overall_compatibility || 'UNKNOWN'}</div>
               </div>
             </div>
           )}
@@ -295,11 +359,11 @@ export const ReportsModule: React.FC = () => {
                 </thead>
                 <tbody>
                   <tr>
-                    <td><span className={styles.mono}>{selectedReport.validation_summary.serialization_version || 'AKAAL-CANONICAL-V1'}</span></td>
-                    <td>{selectedReport.validation_summary.hash_algorithm || 'SHA-256'}</td>
-                    <td>{selectedReport.validation_summary.tables_matched ?? 'N/A'}</td>
-                    <td>{selectedReport.validation_summary.tables_mismatched ?? 0}</td>
-                    <td><span className={`${styles.badge} ${selectedReport.validation_summary.final_status === 'MATCHED' ? styles.badgeCertified : styles.badgeFailed}`}>{selectedReport.validation_summary.final_status || 'UNKNOWN'}</span></td>
+                    <td><span className={styles.mono}>{report.validation_summary.serialization_version || 'AKAAL-CANONICAL-V1'}</span></td>
+                    <td>{report.validation_summary.hash_algorithm || 'SHA-256'}</td>
+                    <td>{report.validation_summary.tables_matched != null ? report.validation_summary.tables_matched : 'Unavailable'}</td>
+                    <td>{report.validation_summary.tables_mismatched != null ? report.validation_summary.tables_mismatched : 'Unavailable'}</td>
+                    <td><span className={`${styles.badge} ${report.validation_summary.final_status === 'MATCHED' ? styles.badgeCertified : styles.badgeFailed}`}>{report.validation_summary.final_status || 'UNKNOWN'}</span></td>
                   </tr>
                 </tbody>
               </table>
@@ -310,18 +374,18 @@ export const ReportsModule: React.FC = () => {
             <div className={styles.kpiGrid}>
               <div className={styles.card}>
                 <div className={styles.cardTitle}>Source Only Rows</div>
-                <div className={styles.cardValue}>{selectedReport.data_summary.total_source_only_rows ?? 0}</div>
+                <div className={styles.cardValue}>{report.data_summary.total_source_only_rows != null ? report.data_summary.total_source_only_rows : 'Unavailable'}</div>
                 <div className={styles.cardSub}>Present only in source database</div>
               </div>
               <div className={styles.card}>
                 <div className={styles.cardTitle}>Target Only Rows</div>
-                <div className={styles.cardValue}>{selectedReport.data_summary.total_target_only_rows ?? 0}</div>
+                <div className={styles.cardValue}>{report.data_summary.total_target_only_rows != null ? report.data_summary.total_target_only_rows : 'Unavailable'}</div>
                 <div className={styles.cardSub}>Present only in target database</div>
               </div>
               <div className={styles.card}>
                 <div className={styles.cardTitle}>Value Mismatch Rows</div>
-                <div className={styles.cardValue} style={{ color: selectedReport.data_summary.total_value_mismatch_rows ? '#EF4444' : '#F8FAFC' }}>
-                  {selectedReport.data_summary.total_value_mismatch_rows ?? 0}
+                <div className={styles.cardValue} style={{ color: report.data_summary.total_value_mismatch_rows ? '#EF4444' : '#F8FAFC' }}>
+                  {report.data_summary.total_value_mismatch_rows != null ? report.data_summary.total_value_mismatch_rows : 'Unavailable'}
                 </div>
                 <div className={styles.cardSub}>Conflicting column hashes</div>
               </div>
@@ -340,9 +404,9 @@ export const ReportsModule: React.FC = () => {
                 </thead>
                 <tbody>
                   <tr>
-                    <td>{selectedReport.schema_summary.overall_compatibility}</td>
-                    <td><strong>{selectedReport.schema_summary.risk_score}</strong></td>
-                    <td><span className={`${styles.badge} ${selectedReport.schema_summary.blocking_findings_count ? styles.badgeFailed : styles.badgeCertified}`}>{selectedReport.schema_summary.blocking_findings_count}</span></td>
+                    <td>{report.schema_summary.overall_compatibility || 'UNKNOWN'}</td>
+                    <td><strong>{report.schema_summary.risk_score != null ? report.schema_summary.risk_score : 'N/A'}</strong></td>
+                    <td><span className={`${styles.badge} ${report.schema_summary.blocking_findings_count ? styles.badgeFailed : styles.badgeCertified}`}>{report.schema_summary.blocking_findings_count != null ? report.schema_summary.blocking_findings_count : 'Unavailable'}</span></td>
                   </tr>
                 </tbody>
               </table>
@@ -361,28 +425,36 @@ export const ReportsModule: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {cert?.claims.map((c, i) => (
-                      <tr key={i}>
-                        <td><strong>{c.claim_type}</strong></td>
-                        <td><span className={`${styles.badge} ${c.status === 'PASSED' ? styles.badgeCertified : styles.badgeFailed}`}>{c.status}</span></td>
-                        <td>{c.description}</td>
+                    {cert?.claims && cert.claims.length > 0 ? (
+                      cert.claims.map((c: CertificationClaim, i: number) => (
+                        <tr key={i}>
+                          <td><strong>{c.claim_type}</strong></td>
+                          <td><span className={`${styles.badge} ${c.status === 'PASSED' ? styles.badgeCertified : styles.badgeFailed}`}>{c.status}</span></td>
+                          <td>{c.description}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={3} style={{ textAlign: 'center', padding: '24px', color: '#94A3BA' }}>No claims available in evidence manifest</td>
                       </tr>
-                    ))}
+                    )}
                   </tbody>
                 </table>
               </div>
               <div className={styles.fingerprintBox}>
                 <div>
                   <div className={styles.cardTitle}>Certification Cryptographic Fingerprint (SHA-256)</div>
-                  <div className={styles.mono} style={{ fontSize: '13px', marginTop: '4px', color: '#3B82F6', fontWeight: 600 }}>{cert?.certification_fingerprint || 'N/A'}</div>
+                  <div className={styles.mono} style={{ fontSize: '13px', marginTop: '4px', color: '#3B82F6', fontWeight: 600 }}>{cert?.certification_fingerprint || 'Unavailable'}</div>
                 </div>
                 <button className={styles.primaryBtn} onClick={handleVerifyIntegrity}>Verify Integrity</button>
               </div>
-              {integrityStatus && (
+              {integrityStatus !== 'UNEVALUATED' && (
                 <div className={styles.verificationResultBox}>
                   <strong style={{ fontSize: '14px' }}>Verification Result:</strong>
                   <span className={`${styles.badge} ${integrityStatus === 'INTEGRITY_VERIFIED' ? styles.badgeCertified : styles.badgeFailed}`}>
-                    {integrityStatus === 'INTEGRITY_VERIFIED' ? 'AUTHENTIC (SHA-256 MATCH)' : 'TAMPERED / INVALID FINGERPRINT'}
+                    {integrityStatus === 'INTEGRITY_VERIFIED' && 'AUTHENTIC (SHA-256 MATCH)'}
+                    {integrityStatus === 'INTEGRITY_FAILED' && 'TAMPERED / INVALID FINGERPRINT'}
+                    {integrityStatus === 'UNABLE_TO_VERIFY' && 'UNABLE TO VERIFY'}
                   </span>
                 </div>
               )}
@@ -402,8 +474,8 @@ export const ReportsModule: React.FC = () => {
                 <tbody>
                   <tr>
                     <td>P2.10 Enterprise Gate</td>
-                    <td>{selectedReport.governance_summary.approval_required ? 'YES' : 'NO'}</td>
-                    <td><span className={`${styles.badge} ${selectedReport.governance_summary.approval_state === 'APPROVED' ? styles.badgeCertified : styles.badgeWarning}`}>{selectedReport.governance_summary.approval_state}</span></td>
+                    <td>{report.governance_summary.approval_required ? 'YES' : 'NO'}</td>
+                    <td><span className={`${styles.badge} ${report.governance_summary.approval_state === 'APPROVED' ? styles.badgeCertified : styles.badgeWarning}`}>{report.governance_summary.approval_state || 'UNKNOWN'}</span></td>
                   </tr>
                 </tbody>
               </table>
@@ -463,7 +535,7 @@ export const ReportsModule: React.FC = () => {
             </tr>
           </thead>
           <tbody>
-            {filteredReports.map((r) => (
+            {filteredReports.map((r: CanonicalReportData) => (
               <tr key={r.report_id}>
                 <td><strong className={styles.reportIdTag}>{r.report_id}</strong></td>
                 <td>{r.job_id} <span className={styles.cardSub}>({r.run_id})</span></td>

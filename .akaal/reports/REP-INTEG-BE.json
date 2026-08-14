@@ -1,0 +1,49 @@
+{
+  "certification": {
+    "certification_fingerprint": "8490386f0e97fe6859368409da26434f4a97044009068e5c1272cc325fbee23b",
+    "certification_id": "cert-REP-INTEG-BE",
+    "claims": [
+      {
+        "claim_type": "GOVERNANCE_APPROVAL_COMPLETE",
+        "description": "Governance approval gate verified",
+        "status": "PASSED"
+      }
+    ],
+    "evidence_manifest": [],
+    "job_id": "JOB-1",
+    "outcome": "CERTIFIED",
+    "run_id": "RUN-1"
+  },
+  "created_at": "2026-08-14T15:07:22.783868+00:00",
+  "data_summary": {},
+  "errors": [],
+  "evidence_fingerprints": [],
+  "execution_summary": {
+    "status": "COMPLETED"
+  },
+  "final_outcome": "PASSED",
+  "governance_summary": {
+    "approval_required": false,
+    "approval_state": "APPROVED"
+  },
+  "job_id": "JOB-1",
+  "manual_review_items": [],
+  "report_fingerprint": "f158a8ab493d56fdb74770088583864cb1b5dd669b45c987778d3d510ee06fa3",
+  "report_id": "REP-INTEG-BE",
+  "report_type": "MIGRATION",
+  "report_version": "AKAAL-CANONICAL-V1",
+  "run_id": "RUN-1",
+  "schema_summary": {
+    "blocking_findings_count": 0,
+    "overall_compatibility": "COMPATIBLE",
+    "risk_score": 0.0
+  },
+  "source_info": {
+    "engine": "oracle"
+  },
+  "target_info": {
+    "engine": "postgresql"
+  },
+  "validation_summary": {},
+  "warnings": []
+}

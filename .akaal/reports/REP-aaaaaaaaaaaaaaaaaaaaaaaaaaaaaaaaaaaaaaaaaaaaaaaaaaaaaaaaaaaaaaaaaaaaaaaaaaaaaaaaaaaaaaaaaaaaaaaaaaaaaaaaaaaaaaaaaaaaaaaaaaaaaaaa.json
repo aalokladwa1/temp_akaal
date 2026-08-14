@@ -1,0 +1,49 @@
+{
+  "certification": {
+    "certification_fingerprint": "4534eac207731c65b70c93b9ca6b3313355d47c197d2eb97d89d01658db9d9ab",
+    "certification_id": "cert-REP-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "claims": [
+      {
+        "claim_type": "GOVERNANCE_APPROVAL_COMPLETE",
+        "description": "Governance approval gate verified",
+        "status": "PASSED"
+      }
+    ],
+    "evidence_manifest": [],
+    "job_id": "JOB-LONG",
+    "outcome": "CERTIFIED",
+    "run_id": "RUN-LONG"
+  },
+  "created_at": "2026-08-14T15:07:22.793096+00:00",
+  "data_summary": {},
+  "errors": [],
+  "evidence_fingerprints": [],
+  "execution_summary": {
+    "status": "COMPLETED"
+  },
+  "final_outcome": "PASSED",
+  "governance_summary": {
+    "approval_required": false,
+    "approval_state": "APPROVED"
+  },
+  "job_id": "JOB-LONG",
+  "manual_review_items": [],
+  "report_fingerprint": "9d0feb821e2bb277de6bcea8917d3d7a0118f83e859153d738cee46c4a092ad5",
+  "report_id": "REP-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "report_type": "MIGRATION",
+  "report_version": "AKAAL-CANONICAL-V1",
+  "run_id": "RUN-LONG",
+  "schema_summary": {
+    "blocking_findings_count": 0,
+    "overall_compatibility": "COMPATIBLE",
+    "risk_score": 0.0
+  },
+  "source_info": {
+    "engine": "oracle"
+  },
+  "target_info": {
+    "engine": "postgresql"
+  },
+  "validation_summary": {},
+  "warnings": []
+}

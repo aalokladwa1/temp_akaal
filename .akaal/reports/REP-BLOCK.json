@@ -1,0 +1,60 @@
+{
+  "certification": {
+    "certification_fingerprint": "1ead5d98f569ea6787d985ba8bae952376476b46232f505017e9d0edd9876344",
+    "certification_id": "cert-REP-BLOCK",
+    "claims": [
+      {
+        "claim_type": "GOVERNANCE_APPROVAL_COMPLETE",
+        "description": "Governance approval gate verified",
+        "status": "PASSED"
+      },
+      {
+        "claim_type": "SCHEMA_COMPATIBILITY_VERIFIED",
+        "description": "Schema compatibility verified with risk score 15",
+        "status": "FAILED"
+      }
+    ],
+    "evidence_manifest": [
+      {
+        "fingerprint": "risk-15",
+        "status": "BLOCKING",
+        "type": "SCHEMA_RISK"
+      }
+    ],
+    "job_id": "JOB-BLOCK",
+    "outcome": "NOT_CERTIFIED",
+    "run_id": "RUN-1"
+  },
+  "created_at": "2026-08-14T15:07:22.782128+00:00",
+  "data_summary": {},
+  "errors": [],
+  "evidence_fingerprints": [],
+  "execution_summary": {
+    "status": "BLOCKED"
+  },
+  "final_outcome": "FAILED",
+  "governance_summary": {
+    "approval_required": false,
+    "approval_state": "APPROVED"
+  },
+  "job_id": "JOB-BLOCK",
+  "manual_review_items": [],
+  "report_fingerprint": "95f26e55fb3bf04cb0c8b73e59d475bfba01b89f43ad145799f52eaf647be1be",
+  "report_id": "REP-BLOCK",
+  "report_type": "SCHEMA_ASSESSMENT",
+  "report_version": "AKAAL-CANONICAL-V1",
+  "run_id": "RUN-1",
+  "schema_summary": {
+    "blocking_findings_count": 1,
+    "overall_compatibility": "BLOCKING",
+    "risk_score": 15
+  },
+  "source_info": {
+    "engine": "oracle"
+  },
+  "target_info": {
+    "engine": "postgresql"
+  },
+  "validation_summary": {},
+  "warnings": []
+}
