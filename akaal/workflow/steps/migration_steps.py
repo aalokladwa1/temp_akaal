@@ -333,12 +333,18 @@ class SchemaExecutionStep(AbstractStep):
                         pk_model = CanonicalPrimaryKey(table_name=o_name, column_names=pk_cols) if pk_cols else None
                         canonical_table = CanonicalTable(identity=identity, columns=col_models, primary_key=pk_model)
 
-                        # Generate target DDL via UniversalDDLAuthority
+                        # Generate target DDL via UniversalDDLAuthority and order via CanonicalDependencyPlanner
                         from akaal.schema.domain.ddl_emitter import UniversalDDLAuthority
-                        artifacts = UniversalDDLAuthority.emit_table_ddl(
+                        from akaal.schema.graph.planner import CanonicalDependencyPlanner
+
+                        raw_artifacts = UniversalDDLAuthority.emit_table_ddl(
                             canonical_table, pg_config.system_type.name, src_config.system_type.name
                         )
-                        for art in artifacts:
+                        plan = CanonicalDependencyPlanner.plan_ddl_execution(raw_artifacts)
+                        for grp in plan.execution_groups:
+                            for art in grp.artifacts:
+                                ddl_statements.append(art.sql)
+                        for art in plan.deferred_artifacts:
                             ddl_statements.append(art.sql)
                     else:
                         ddl_statements.append(f"""
