@@ -314,12 +314,16 @@ class SchemaExecutionStep(AbstractStep):
                             if is_pk:
                                 pk_cols.append(c_name)
 
+                            from akaal.schema.domain.type_registry import CanonicalTypeRegistry
+                            c_type_mod = CanonicalTypeRegistry.normalize_source_type(src_config.system_type.name, c_src_type)
+
                             col_models.append(
                                 CanonicalColumn(
                                     name=c_name,
                                     ordinal_position=idx,
                                     source_native_type=c_src_type,
-                                    canonical_type="TEXT",
+                                    canonical_type=c_type_mod.to_canonical_string(),
+                                    canonical_type_model=c_type_mod,
                                     nullable=c_null,
                                     is_primary_key=is_pk,
                                 )
@@ -329,10 +333,12 @@ class SchemaExecutionStep(AbstractStep):
                         pk_model = CanonicalPrimaryKey(table_name=o_name, column_names=pk_cols) if pk_cols else None
                         canonical_table = CanonicalTable(identity=identity, columns=col_models, primary_key=pk_model)
 
-                        # Generate target DDL from normalized canonical table model (P2.3 compatibility boundary)
+                        # Generate target DDL from CanonicalTypeRegistry emission
                         col_defs = []
                         for c_mod in canonical_table.columns:
-                            c_pg_type = _map_source_type_to_postgres(c_mod.source_native_type)
+                            c_type_mod = c_mod.canonical_type_model or CanonicalTypeRegistry.normalize_source_type(src_config.system_type.name, c_mod.source_native_type)
+                            emission = CanonicalTypeRegistry.emit_target_type(pg_config.system_type.name, c_type_mod)
+                            c_pg_type = emission.target_native_type
                             null_clause = "" if c_mod.nullable else " NOT NULL"
                             col_defs.append(f"    {c_mod.name} {c_pg_type}{null_clause}")
                         col_sql = ",\n".join(col_defs)

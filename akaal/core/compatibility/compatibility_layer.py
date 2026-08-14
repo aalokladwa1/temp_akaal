@@ -43,23 +43,11 @@ class CompatibilityLayer:
 
     @staticmethod
     def map_datatype(source_type: SystemType, target_type: SystemType, column_type: str) -> str:
-        col = column_type.upper()
-        if source_type == SystemType.ORACLE and target_type == SystemType.POSTGRESQL:
-            if "NUMBER" in col:
-                if "(" in col:
-                    return "NUMERIC" + col[col.find("("):]
-                return "NUMERIC"
-            elif "VARCHAR2" in col or "NVARCHAR2" in col:
-                return col.replace("VARCHAR2", "VARCHAR").replace("NVARCHAR2", "VARCHAR")
-            elif "CLOB" in col or "NCLOB" in col:
-                return "TEXT"
-            elif "BLOB" in col or "RAW" in col:
-                return "BYTEA"
-            elif "DATE" in col or "TIMESTAMP" in col:
-                return "TIMESTAMP"
-            else:
-                return "VARCHAR(255)"
-        return "VARCHAR(255)"
+        from akaal.schema.domain.type_registry import CanonicalTypeRegistry
+        src_name = getattr(source_type, "name", str(source_type))
+        tgt_name = getattr(target_type, "name", str(target_type))
+        emission = CanonicalTypeRegistry.convert_type(src_name, tgt_name, column_type)
+        return emission.target_native_type
 
     @staticmethod
     def format_quote_identifier(system_type: SystemType, identifier: str) -> str:

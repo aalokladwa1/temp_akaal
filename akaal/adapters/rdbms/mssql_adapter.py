@@ -1066,18 +1066,23 @@ class MSSQLAdapter(BaseAdapter):
                 cols = [{"name": "id", "type": "BIGINT", "nullable": False, "primary_key": True}]
             col_models = []
             pk_cols = []
+            from akaal.schema.domain.type_registry import CanonicalTypeRegistry
             for idx, c in enumerate(cols, 1):
                 c_name = c.get("name", f"col_{idx}")
                 is_pk = bool(c.get("primary_key", False))
                 if is_pk:
                     pk_cols.append(c_name)
 
+                src_type = c.get("type", "NVARCHAR")
+                c_type_mod = CanonicalTypeRegistry.normalize_source_type("MSSQL", src_type)
+
                 col_models.append(
                     CanonicalColumn(
                         name=c_name,
                         ordinal_position=idx,
-                        source_native_type=c.get("type", "NVARCHAR"),
-                        canonical_type="TEXT",
+                        source_native_type=src_type,
+                        canonical_type=c_type_mod.to_canonical_string(),
+                        canonical_type_model=c_type_mod,
                         nullable=c.get("nullable", True),
                         is_primary_key=is_pk,
                     )

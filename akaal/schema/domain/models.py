@@ -47,7 +47,8 @@ class CanonicalColumn:
     name: str
     ordinal_position: int
     source_native_type: str
-    canonical_type: str = "TEXT"  # Hook for P2.3 Universal Type System
+    canonical_type: str = "TEXT"
+    canonical_type_model: Optional[Any] = None  # Holds CanonicalType instance
     length: Optional[int] = None
     precision: Optional[int] = None
     scale: Optional[int] = None
@@ -66,6 +67,7 @@ class CanonicalColumn:
             "ordinal_position": self.ordinal_position,
             "source_native_type": self.source_native_type,
             "canonical_type": self.canonical_type,
+            "canonical_type_model": self.canonical_type_model.to_dict() if hasattr(self.canonical_type_model, "to_dict") else None,
             "length": self.length,
             "precision": self.precision,
             "scale": self.scale,

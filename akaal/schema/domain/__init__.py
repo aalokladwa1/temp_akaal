@@ -58,6 +58,13 @@ from akaal.schema.domain.models import (
     CanonicalTable,
     CanonicalSchemaModel,
 )
+from akaal.schema.domain.types import (
+    CanonicalTypeCategory,
+    ConversionSafety,
+    CanonicalType,
+    TargetTypeEmission,
+)
+from akaal.schema.domain.type_registry import CanonicalTypeRegistry
 
 __all__ = [
     "SchemaEvolutionError",
