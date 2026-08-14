@@ -70,6 +70,11 @@ from akaal.schema.domain.ddl_emitter import (
     BaseTargetDDLEmitter,
     UniversalDDLAuthority,
 )
+from akaal.schema.domain.programmable_engine import (
+    StructuredProgrammableArtifact,
+    BaseProgrammableEmitter,
+    CanonicalProgrammableAuthority,
+)
 
 __all__ = [
     "SchemaEvolutionError",
