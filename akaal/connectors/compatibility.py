@@ -12,6 +12,8 @@ import logging
 from akaal.connectors.taxonomy import (
     ConnectorFamily,
     SemanticCompatibility,
+    SupportState,
+    ImplementationState,
 )
 from akaal.connectors.manifest import UniversalCapabilityManifest
 
@@ -62,25 +64,25 @@ class SemanticCompatibilityMatrix:
         required_mappings: List[str] = []
         risk_items: List[str] = []
 
-        # 1. Check Role Feasibility
-        if not source_manifest.is_source_capable():
+        # 1. Check Role Feasibility & Implementation / Support States
+        if not source_manifest.is_source_capable() or source_manifest.support_state == SupportState.UNSUPPORTED or source_manifest.implementation_state == ImplementationState.STUB or not source_manifest.supports_bulk_read:
             return {
                 "compatibility": SemanticCompatibility.UNSUPPORTED.value,
                 "is_viable": False,
-                "reason": f"Source connector '{source_manifest.connector_id}' does not support SOURCE role.",
-                "limitations": [f"Source role unsupported for '{source_manifest.connector_id}'"],
+                "reason": f"Source connector '{source_manifest.connector_id}' is unsupported, stub, or lacks physical read capability.",
+                "limitations": [f"Source role unsupported or stub for '{source_manifest.connector_id}'"],
                 "required_mappings": [],
-                "risk_items": ["UNSUPPORTED_ROLE"],
+                "risk_items": ["UNSUPPORTED_SOURCE_CONNECTOR"],
             }
 
-        if not target_manifest.is_target_capable():
+        if not target_manifest.is_target_capable() or target_manifest.support_state == SupportState.UNSUPPORTED or target_manifest.implementation_state == ImplementationState.STUB or not target_manifest.supports_bulk_write:
             return {
                 "compatibility": SemanticCompatibility.UNSUPPORTED.value,
                 "is_viable": False,
-                "reason": f"Target connector '{target_manifest.connector_id}' does not support TARGET role.",
-                "limitations": [f"Target role unsupported for '{target_manifest.connector_id}'"],
+                "reason": f"Target connector '{target_manifest.connector_id}' is unsupported, stub, or lacks physical write capability.",
+                "limitations": [f"Target role unsupported or stub for '{target_manifest.connector_id}'"],
                 "required_mappings": [],
-                "risk_items": ["UNSUPPORTED_ROLE"],
+                "risk_items": ["UNSUPPORTED_TARGET_CONNECTOR"],
             }
 
         # 2. Same-Family Homogeneous vs Heterogeneous Relational

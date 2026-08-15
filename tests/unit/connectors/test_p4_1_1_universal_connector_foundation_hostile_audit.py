@@ -564,6 +564,17 @@ class TestP411UniversalConnectorHostileAudit(unittest.TestCase):
         self.assertEqual(res["compatibility"], SemanticCompatibility.SUPPORTED_WITH_LIMITATIONS.value)
 
     # -------------------------------------------------------------------------
+    # Group K: Target / Source Role Enforcement
+    # -------------------------------------------------------------------------
+    def test_K01_target_only_cannot_act_as_source(self):
+        """K01: Target-only manifest fails compatibility when used as source."""
+        m_target = UniversalCapabilityManifest("snow", ConnectorFamily.CLOUD_DATA_WAREHOUSE, "Snowflake", "SNOWFLAKE", role=ConnectorRole.TARGET, implementation_state=ImplementationState.IMPLEMENTED, support_state=SupportState.SUPPORTED, supports_bulk_read=True)
+        m_dest = UniversalCapabilityManifest("pg", ConnectorFamily.RELATIONAL_DATABASE, "PostgreSQL", "POSTGRESQL", role=ConnectorRole.TARGET, implementation_state=ImplementationState.IMPLEMENTED, support_state=SupportState.SUPPORTED, supports_bulk_write=True)
+        res = SemanticCompatibilityMatrix.evaluate_compatibility(m_target, m_dest)
+        self.assertFalse(res["is_viable"])
+        self.assertEqual(res["compatibility"], "UNSUPPORTED")
+
+    # -------------------------------------------------------------------------
     # Group AD: Original 19 Connector Truth Audit
     # -------------------------------------------------------------------------
     def test_AD01_all_19_baseline_systems_verified(self):
@@ -577,17 +588,18 @@ class TestP411UniversalConnectorHostileAudit(unittest.TestCase):
             ("ibm_db2", ConnectorFamily.RELATIONAL_DATABASE, ImplementationState.IMPLEMENTED, SupportState.SUPPORTED),
             ("sqlite", ConnectorFamily.RELATIONAL_DATABASE, ImplementationState.IMPLEMENTED, SupportState.SUPPORTED),
             ("snowflake", ConnectorFamily.CLOUD_DATA_WAREHOUSE, ImplementationState.IMPLEMENTED, SupportState.SUPPORTED),
-            ("bigquery", ConnectorFamily.CLOUD_DATA_WAREHOUSE, ImplementationState.IMPLEMENTED, SupportState.SUPPORTED),
-            ("redshift", ConnectorFamily.CLOUD_DATA_WAREHOUSE, ImplementationState.IMPLEMENTED, SupportState.SUPPORTED),
-            ("hdfs", ConnectorFamily.DISTRIBUTED_FILESYSTEM, ImplementationState.PARTIAL, SupportState.PARTIAL),
-            ("mongodb", ConnectorFamily.DOCUMENT_DATABASE, ImplementationState.IMPLEMENTED, SupportState.SUPPORTED),
-            ("cassandra", ConnectorFamily.WIDE_COLUMN_DATABASE, ImplementationState.PARTIAL, SupportState.PARTIAL),
-            ("neo4j", ConnectorFamily.GRAPH_DATABASE, ImplementationState.PARTIAL, SupportState.PARTIAL),
-            ("redis", ConnectorFamily.KEY_VALUE_STORE, ImplementationState.PARTIAL, SupportState.PARTIAL),
-            ("elasticsearch", ConnectorFamily.SEARCH_ENGINE, ImplementationState.PARTIAL, SupportState.PARTIAL),
-            ("s3", ConnectorFamily.OBJECT_STORAGE, ImplementationState.PARTIAL, SupportState.PARTIAL),
-            ("gcs", ConnectorFamily.OBJECT_STORAGE, ImplementationState.PARTIAL, SupportState.PARTIAL),
-            ("azure_blob", ConnectorFamily.OBJECT_STORAGE, ImplementationState.PARTIAL, SupportState.PARTIAL),
+            ("bigquery", ConnectorFamily.CLOUD_DATA_WAREHOUSE, ImplementationState.STUB, SupportState.UNSUPPORTED),
+            ("redshift", ConnectorFamily.CLOUD_DATA_WAREHOUSE, ImplementationState.STUB, SupportState.UNSUPPORTED),
+            ("databricks", ConnectorFamily.LAKEHOUSE_ANALYTICS, ImplementationState.IMPLEMENTED, SupportState.SUPPORTED),
+            ("hdfs", ConnectorFamily.DISTRIBUTED_FILESYSTEM, ImplementationState.STUB, SupportState.UNSUPPORTED),
+            ("mongodb", ConnectorFamily.DOCUMENT_DATABASE, ImplementationState.STUB, SupportState.UNSUPPORTED),
+            ("cassandra", ConnectorFamily.WIDE_COLUMN_DATABASE, ImplementationState.STUB, SupportState.UNSUPPORTED),
+            ("neo4j", ConnectorFamily.GRAPH_DATABASE, ImplementationState.STUB, SupportState.UNSUPPORTED),
+            ("redis", ConnectorFamily.KEY_VALUE_STORE, ImplementationState.STUB, SupportState.UNSUPPORTED),
+            ("elasticsearch", ConnectorFamily.SEARCH_ENGINE, ImplementationState.STUB, SupportState.UNSUPPORTED),
+            ("s3", ConnectorFamily.OBJECT_STORAGE, ImplementationState.STUB, SupportState.UNSUPPORTED),
+            ("gcs", ConnectorFamily.OBJECT_STORAGE, ImplementationState.STUB, SupportState.UNSUPPORTED),
+            ("azure_blob", ConnectorFamily.OBJECT_STORAGE, ImplementationState.STUB, SupportState.UNSUPPORTED),
         ]
 
         for cid, expected_family, expected_impl, expected_support in baseline_19:

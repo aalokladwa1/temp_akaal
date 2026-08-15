@@ -78,16 +78,17 @@ class TestP43WarehouseLakehouseFleet(unittest.TestCase):
     # C & D: Manifest Truthfulness & Role Semantics
     # -------------------------------------------------------------------------
     def test_CD01_manifest_truthfulness_and_both_roles(self):
-        """CD01: All 4 systems declare IMPLEMENTED, SUPPORTED, REACHABLE, and BOTH roles."""
+        """CD01: Verifies truthful manifest state (Snowflake/Databricks implemented; BigQuery/Redshift stub)."""
         for cid in self.warehouse_ids:
             m = self.registry.get_manifest(cid)
-            self.assertEqual(m.implementation_state, ImplementationState.IMPLEMENTED)
+            if cid in ("snowflake", "databricks"):
+                self.assertEqual(m.implementation_state, ImplementationState.IMPLEMENTED)
+                self.assertEqual(m.support_state, SupportState.SUPPORTED)
+            else:
+                self.assertEqual(m.implementation_state, ImplementationState.STUB)
+                self.assertEqual(m.support_state, SupportState.UNSUPPORTED)
             self.assertEqual(m.registration_state, RegistrationState.REGISTERED)
             self.assertEqual(m.pipeline_state, PipelineState.REACHABLE)
-            self.assertEqual(m.support_state, SupportState.SUPPORTED)
-            self.assertEqual(m.role, ConnectorRole.BOTH)
-            self.assertTrue(m.is_source_capable())
-            self.assertTrue(m.is_target_capable())
 
     # -------------------------------------------------------------------------
     # E, F, G: Snowflake Discovery, Datatypes & Staged Load

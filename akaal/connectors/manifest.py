@@ -109,6 +109,19 @@ class UniversalCapabilityManifest:
         self.pipeline_state = pipeline_state
         self.support_state = support_state
         self.proof_state = proof_state
+
+        # Enforce Zero-Fake Manifest Invariants
+        if self.implementation_state in (ImplementationState.STUB, ImplementationState.ABSENT):
+            self.support_state = SupportState.UNSUPPORTED
+            self.proof_state = ProofState.UNPROVEN
+            self.supports_bulk_read = False
+            self.supports_bulk_write = False
+            self.supports_cdc_capture = False
+            self.supports_continuous_sync = False
+            self.supports_cutover = False
+            self.supports_failback = False
+            self.supports_schema_discovery = False
+
         self.registered_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
 
     def get_capability_status(self, capability_name: Optional[str]) -> CapabilitySupportStatus:
