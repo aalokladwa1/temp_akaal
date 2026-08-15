@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { CdcMonitoringSnapshotDTO } from '../../../types/monitoring';
 import { ipcService } from '../../../services/ipcService';
+import { Lock, Check, X, CheckCircle2, AlertTriangle, ArrowRight, ArrowLeftRight, RefreshCw, Pause, Play } from 'lucide-react';
 import styles from '../MonitoringModule.module.css';
 
 interface CdcPanelProps {
@@ -98,18 +99,21 @@ export const CdcPanel: React.FC<CdcPanelProps> = ({ cdcSnapshot, migrationId, on
     <div style={{ marginTop: 16 }}>
       {/* ── Action Notifications ───────────────────────────────────────── */}
       {isHistorical && (
-        <div style={{ padding: '10px 16px', background: 'var(--dash-input-bg)', border: '1px solid var(--dash-border)', borderRadius: 10, marginBottom: 16, fontSize: 13 }}>
-          🔒 <strong>HISTORICAL MODE</strong> — Viewing read-only CDC evidence for completed/historical session. Operational actions disabled.
+        <div style={{ padding: '10px 16px', background: 'var(--dash-input-bg)', border: '1px solid var(--dash-border)', borderRadius: 10, marginBottom: 16, fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Lock size={15} />
+          <span><strong>HISTORICAL MODE</strong> — Viewing read-only CDC evidence for completed/historical session. Operational actions disabled.</span>
         </div>
       )}
       {actionMsg && (
-        <div style={{ padding: '10px 16px', background: 'var(--dash-notif-success-bg, rgba(16,185,129,0.1))', border: '1px solid var(--dash-notif-success-border, rgba(16,185,129,0.3))', borderRadius: 10, marginBottom: 16, color: 'var(--dash-tag-running-text, #10B981)', fontSize: 13 }}>
-          ✓ {actionMsg}
+        <div style={{ padding: '10px 16px', background: 'var(--dash-notif-success-bg, rgba(16,185,129,0.1))', border: '1px solid var(--dash-notif-success-border, rgba(16,185,129,0.3))', borderRadius: 10, marginBottom: 16, color: 'var(--dash-tag-running-text, #10B981)', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <CheckCircle2 size={15} />
+          <span>{actionMsg}</span>
         </div>
       )}
       {actionError && (
-        <div style={{ padding: '10px 16px', background: 'var(--dash-notif-error-bg, rgba(239,68,68,0.1))', border: '1px solid var(--dash-notif-error-border, rgba(239,68,68,0.3))', borderRadius: 10, marginBottom: 16, color: 'var(--dash-tag-failed-text, #EF4444)', fontSize: 13 }}>
-          ⚠️ {actionError}
+        <div style={{ padding: '10px 16px', background: 'var(--dash-notif-error-bg, rgba(239,68,68,0.1))', border: '1px solid var(--dash-notif-error-border, rgba(239,68,68,0.3))', borderRadius: 10, marginBottom: 16, color: 'var(--dash-tag-failed-text, #EF4444)', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <AlertTriangle size={15} />
+          <span>{actionError}</span>
         </div>
       )}
 
@@ -137,13 +141,13 @@ export const CdcPanel: React.FC<CdcPanelProps> = ({ cdcSnapshot, migrationId, on
         {!isHistorical && (
           <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
             <button className={styles.primaryBtn} onClick={handlePauseCDC} disabled={cdcSnapshot.status === 'PAUSED'}>
-              Pause CDC
+              <Pause size={14} /> Pause CDC
             </button>
             <button className={styles.primaryBtn} onClick={handleResumeCDC} disabled={cdcSnapshot.status === 'HEALTHY'}>
-              Resume CDC
+              <Play size={14} /> Resume CDC
             </button>
             <button className={styles.primaryBtn} style={{ background: 'var(--dash-input-bg, #374151)', color: 'var(--dash-text-primary, #fff)', boxShadow: 'none' }} onClick={onRefresh}>
-              Refresh Snapshot
+              <RefreshCw size={14} /> Refresh Snapshot
             </button>
           </div>
         )}
@@ -212,7 +216,7 @@ export const CdcPanel: React.FC<CdcPanelProps> = ({ cdcSnapshot, migrationId, on
             <div className={`${styles.pipelineStageState} ${styles.successText}`}>{pipeline.source_capture.state}</div>
             <div className={styles.pipelineStageSub}>{pipeline.source_capture.rate_events_per_sec || 0} evt/s</div>
           </div>
-          <div className={styles.pipelineArrow}>→</div>
+          <ArrowRight size={16} className={styles.pipelineArrow} />
 
           {/* Stage 2: Durable Buffer */}
           <div className={styles.pipelineStageCard}>
@@ -220,7 +224,7 @@ export const CdcPanel: React.FC<CdcPanelProps> = ({ cdcSnapshot, migrationId, on
             <div className={`${styles.pipelineStageState} ${pipeline.durable_buffer.state === 'NORMAL' ? styles.successText : styles.warningText}`}>{pipeline.durable_buffer.state}</div>
             <div className={styles.pipelineStageSub}>{pipeline.durable_buffer.depth_events || 0} queued</div>
           </div>
-          <div className={styles.pipelineArrow}>→</div>
+          <ArrowRight size={16} className={styles.pipelineArrow} />
 
           {/* Stage 3: Ordering DAG */}
           <div className={styles.pipelineStageCard}>
@@ -228,7 +232,7 @@ export const CdcPanel: React.FC<CdcPanelProps> = ({ cdcSnapshot, migrationId, on
             <div className={`${styles.pipelineStageState} ${pipeline.ordering_dag.state === 'HEALTHY' ? styles.successText : styles.errorText}`}>{pipeline.ordering_dag.state}</div>
             <div className={styles.pipelineStageSub}>{pipeline.ordering_dag.blocked_tx_count || 0} blocked</div>
           </div>
-          <div className={styles.pipelineArrow}>→</div>
+          <ArrowRight size={16} className={styles.pipelineArrow} />
 
           {/* Stage 4: Partition Router */}
           <div className={styles.pipelineStageCard}>
@@ -236,7 +240,7 @@ export const CdcPanel: React.FC<CdcPanelProps> = ({ cdcSnapshot, migrationId, on
             <div className={`${styles.pipelineStageState} ${styles.successText}`}>{pipeline.partition_router.state}</div>
             <div className={styles.pipelineStageSub}>{pipeline.partition_router.active_partitions || 1} partitions</div>
           </div>
-          <div className={styles.pipelineArrow}>→</div>
+          <ArrowRight size={16} className={styles.pipelineArrow} />
 
           {/* Stage 5: Target Apply */}
           <div className={styles.pipelineStageCard}>
@@ -284,20 +288,20 @@ export const CdcPanel: React.FC<CdcPanelProps> = ({ cdcSnapshot, migrationId, on
               Cutover Readiness Checklist
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13 }}>
-              <div className={cutover_checklist.backlog_drained ? styles.successText : styles.errorText}>
-                {cutover_checklist.backlog_drained ? '✓' : '✗'} Backlog Drained
+              <div className={`${cutover_checklist.backlog_drained ? styles.successText : styles.errorText}`} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                {cutover_checklist.backlog_drained ? <Check size={14} /> : <X size={14} />} Backlog Drained
               </div>
-              <div className={cutover_checklist.ordering_dependencies_resolved ? styles.successText : styles.errorText}>
-                {cutover_checklist.ordering_dependencies_resolved ? '✓' : '✗'} Ordering Dependencies Resolved
+              <div className={`${cutover_checklist.ordering_dependencies_resolved ? styles.successText : styles.errorText}`} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                {cutover_checklist.ordering_dependencies_resolved ? <Check size={14} /> : <X size={14} />} Ordering Dependencies Resolved
               </div>
-              <div className={cutover_checklist.schema_barriers_clear ? styles.successText : styles.errorText}>
-                {cutover_checklist.schema_barriers_clear ? '✓' : '✗'} Schema Barriers Clear
+              <div className={`${cutover_checklist.schema_barriers_clear ? styles.successText : styles.errorText}`} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                {cutover_checklist.schema_barriers_clear ? <Check size={14} /> : <X size={14} />} Schema Barriers Clear
               </div>
-              <div className={cutover_checklist.conflicts_resolved ? styles.successText : styles.errorText}>
-                {cutover_checklist.conflicts_resolved ? '✓' : '✗'} Multi-Master Conflicts Resolved
+              <div className={`${cutover_checklist.conflicts_resolved ? styles.successText : styles.errorText}`} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                {cutover_checklist.conflicts_resolved ? <Check size={14} /> : <X size={14} />} Multi-Master Conflicts Resolved
               </div>
-              <div className={cutover_checklist.quarantines_clear ? styles.successText : styles.errorText}>
-                {cutover_checklist.quarantines_clear ? '✓' : '✗'} Entity Quarantines Released
+              <div className={`${cutover_checklist.quarantines_clear ? styles.successText : styles.errorText}`} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                {cutover_checklist.quarantines_clear ? <Check size={14} /> : <X size={14} />} Entity Quarantines Released
               </div>
               <div style={{ borderTop: '1px solid var(--dash-border)', paddingTop: 10, marginTop: 6, fontWeight: 700 }} className={cutover_checklist.cutover_ready ? styles.successText : styles.errorText}>
                 STATUS: {cutover_checklist.cutover_ready ? 'CUTOVER READY' : 'CUTOVER BLOCKED'}
@@ -444,8 +448,10 @@ export const CdcPanel: React.FC<CdcPanelProps> = ({ cdcSnapshot, migrationId, on
           {cdcSnapshot.session_mode === 'BIDIRECTIONAL' && (
             <div className={styles.topologyBox}>
               <div className={styles.topologyTitle}>BIDIRECTIONAL REPLICATION TOPOLOGY</div>
-              <div className={styles.topologyNodes}>
-                NODE A ({conflicts_and_topology.source_a_database_id}) &lt;=================&gt; NODE B ({conflicts_and_topology.source_b_database_id})
+              <div className={styles.topologyNodes} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                <span>NODE A ({conflicts_and_topology.source_a_database_id})</span>
+                <ArrowLeftRight size={18} />
+                <span>NODE B ({conflicts_and_topology.source_b_database_id})</span>
               </div>
               <div className={styles.topologySub}>
                 Designated Primary: <strong>{conflicts_and_topology.designated_primary}</strong> | Echo Suppressed A→B: {conflicts_and_topology.echo_events_suppressed_a_to_b} | B→A: {conflicts_and_topology.echo_events_suppressed_b_to_a}
@@ -458,8 +464,9 @@ export const CdcPanel: React.FC<CdcPanelProps> = ({ cdcSnapshot, migrationId, on
           </div>
 
           {(conflicts_and_topology.conflicts_list || []).length === 0 ? (
-            <div className={styles.successText} style={{ fontSize: 13, padding: 14, background: 'var(--dash-notif-success-bg)', border: '1px solid var(--dash-notif-success-border)', borderRadius: 10 }}>
-              ✓ Zero multi-master conflicts detected. Topology operating safely.
+            <div className={styles.successText} style={{ fontSize: 13, padding: 14, background: 'var(--dash-notif-success-bg)', border: '1px solid var(--dash-notif-success-border)', borderRadius: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <CheckCircle2 size={16} />
+              <span>Zero multi-master conflicts detected. Topology operating safely.</span>
             </div>
           ) : (
             <table className={styles.table}>
