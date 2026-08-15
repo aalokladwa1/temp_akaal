@@ -97,6 +97,7 @@ class CDCEvent:
         commit_timestamp: Optional[str] = None,
         captured_timestamp: Optional[str] = None,
         schema_version_id: Optional[str] = None,
+        details: Optional[Dict[str, Any]] = None,
     ) -> None:
         self.identity = identity
         self.source_engine = source_engine.upper()
@@ -112,6 +113,7 @@ class CDCEvent:
         self.commit_timestamp = commit_timestamp or datetime.datetime.now(datetime.timezone.utc).isoformat()
         self.captured_timestamp = captured_timestamp or datetime.datetime.now(datetime.timezone.utc).isoformat()
         self.schema_version_id = schema_version_id
+        self.details = details or {}
 
     @classmethod
     def _sanitize_dict_recursive(cls, data: Any) -> Any:

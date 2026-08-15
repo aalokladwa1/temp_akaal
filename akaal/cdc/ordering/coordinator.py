@@ -128,13 +128,16 @@ class CDCTransactionOrderingCoordinator:
     def is_fully_drained(self) -> bool:
         """
         Evaluates whether ordering coordinator and parallel pipeline are fully drained.
-        Blocks cutover if unresolved graph nodes, blocked transactions, or active barriers exist.
+        Blocks cutover if unresolved graph nodes, blocked transactions, active barriers, or unresolved conflicts exist.
         """
         summary = self.causality_graph.get_graph_summary()
         if summary["blocked_count"] > 0:
             return False
         if not self.parallel_engine.is_fully_drained():
             return False
+        if hasattr(self, "topology_manager") and self.topology_manager is not None:
+            if not self.topology_manager.is_cutover_eligible():
+                return False
         return True
 
     def pause(self) -> None:

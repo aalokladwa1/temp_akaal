@@ -2828,3 +2828,116 @@ class EngineGateway:
         )
         return {"cdc_session_id": cdc_session_id, "status": "RECOVERED", "telemetry": coord.get_telemetry()}
 
+    def _get_cdc_bidirectional_topology_manager(
+        self,
+        migration_id: str,
+        job_id: str,
+        run_id: str,
+        cdc_session_id: str,
+        source_a_database_id: str,
+        source_b_database_id: str,
+        topology_id: Optional[str] = None,
+        designated_primary: Optional[str] = None,
+    ):
+        if not hasattr(self, "_cdc_topology_managers"):
+            self._cdc_topology_managers = {}
+
+        top_id = topology_id or f"top-{source_a_database_id}-{source_b_database_id}"
+        if top_id not in self._cdc_topology_managers:
+            from akaal.cdc.domain.events import CDCEventIdentity
+            from akaal.cdc.multi_master.topology import CDCBirectionalTopologyManager
+            identity = CDCEventIdentity(migration_id, job_id, run_id, cdc_session_id)
+            mgr = CDCBirectionalTopologyManager(
+                identity=identity,
+                source_a_database_id=source_a_database_id,
+                source_b_database_id=source_b_database_id,
+                topology_id=top_id,
+                state_store=self.state_store,
+                designated_primary_database_id=designated_primary,
+            )
+            self._cdc_topology_managers[top_id] = mgr
+        return self._cdc_topology_managers[top_id]
+
+    def create_cdc_bidirectional_topology(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        mgr = self._get_cdc_bidirectional_topology_manager(
+            migration_id=payload.get("migration_id", "mig-def"),
+            job_id=payload.get("job_id", "job-def"),
+            run_id=payload.get("run_id", "run-def"),
+            cdc_session_id=payload.get("cdc_session_id", "sess-def"),
+            source_a_database_id=payload["source_a_database_id"],
+            source_b_database_id=payload["source_b_database_id"],
+            topology_id=payload.get("topology_id"),
+            designated_primary=payload.get("designated_primary_database_id"),
+        )
+        return {"topology_id": mgr.topology_id, "status": "CREATED", "telemetry": mgr.get_telemetry()}
+
+    def get_cdc_bidirectional_status(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        top_id = payload["topology_id"]
+        if hasattr(self, "_cdc_topology_managers") and top_id in self._cdc_topology_managers:
+            return self._cdc_topology_managers[top_id].get_telemetry()
+        return {"topology_id": top_id, "status": "NOT_FOUND"}
+
+    def pause_cdc_bidirectional_topology(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        top_id = payload["topology_id"]
+        epoch = payload.get("fencing_epoch", 1)
+        if hasattr(self, "_cdc_topology_managers") and top_id in self._cdc_topology_managers:
+            top = self._cdc_topology_managers[top_id].pause_topology(epoch)
+            return {"topology_id": top_id, "status": "PAUSED", "state": top.state.value}
+        return {"topology_id": top_id, "status": "NOT_FOUND"}
+
+    def resume_cdc_bidirectional_topology(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        top_id = payload["topology_id"]
+        epoch = payload.get("fencing_epoch", 1)
+        if hasattr(self, "_cdc_topology_managers") and top_id in self._cdc_topology_managers:
+            top = self._cdc_topology_managers[top_id].resume_topology(epoch)
+            return {"topology_id": top_id, "status": "RESUMED", "state": top.state.value}
+        return {"topology_id": top_id, "status": "NOT_FOUND"}
+
+    def get_cdc_conflicts(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        top_id = payload["topology_id"]
+        if hasattr(self, "_cdc_topology_managers") and top_id in self._cdc_topology_managers:
+            mgr = self._cdc_topology_managers[top_id]
+            unresolved = mgr.conflict_detector.get_unresolved_conflicts()
+            return {"topology_id": top_id, "unresolved_conflict_count": len(unresolved), "conflicts": [c.to_dict() for c in unresolved]}
+        return {"topology_id": top_id, "unresolved_conflict_count": 0, "conflicts": []}
+
+    def get_cdc_conflict_detail(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        top_id = payload["topology_id"]
+        conflict_id = payload["conflict_id"]
+        if hasattr(self, "_cdc_topology_managers") and top_id in self._cdc_topology_managers:
+            mgr = self._cdc_topology_managers[top_id]
+            conf = mgr.conflict_detector.get_conflict(conflict_id)
+            if conf:
+                return {"topology_id": top_id, "conflict": conf.to_dict()}
+        return {"topology_id": top_id, "conflict_id": conflict_id, "status": "NOT_FOUND"}
+
+    def resolve_cdc_conflict(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        top_id = payload["topology_id"]
+        conflict_id = payload["conflict_id"]
+        policy_str = payload["policy"]
+        epoch = payload.get("fencing_epoch", 1)
+        manual_winner = payload.get("manual_winner")
+        reason = payload.get("reason")
+
+        if hasattr(self, "_cdc_topology_managers") and top_id in self._cdc_topology_managers:
+            from akaal.cdc.multi_master.domain import CDCConflictResolutionPolicy
+            mgr = self._cdc_topology_managers[top_id]
+            pol = CDCConflictResolutionPolicy(policy_str)
+            dec = mgr.conflict_resolver.resolve_conflict(
+                identity=mgr.identity,
+                conflict_id=conflict_id,
+                policy=pol,
+                fencing_epoch=epoch,
+                manual_winner=manual_winner,
+                reason=reason,
+            )
+            return {"topology_id": top_id, "conflict_id": conflict_id, "status": "RESOLVED", "decision": dec.to_dict()}
+        return {"topology_id": top_id, "conflict_id": conflict_id, "status": "NOT_FOUND"}
+
+    def recover_cdc_bidirectional_topology(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        top_id = payload["topology_id"]
+        if hasattr(self, "_cdc_topology_managers") and top_id in self._cdc_topology_managers:
+            mgr = self._cdc_topology_managers[top_id]
+            return {"topology_id": top_id, "status": "RECOVERED", "telemetry": mgr.get_telemetry()}
+        return {"topology_id": top_id, "status": "NOT_FOUND"}
+
