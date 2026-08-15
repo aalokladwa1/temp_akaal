@@ -2730,3 +2730,101 @@ class EngineGateway:
         eng = self._get_cdc_parallel_engine(migration_id, payload.get("job_id", "j"), payload.get("run_id", "r"), cdc_session_id)
         return {"cdc_session_id": cdc_session_id, "status": "RECOVERED", "telemetry": eng.get_telemetry()}
 
+    def _get_cdc_ordering_coordinator(
+        self,
+        migration_id: str,
+        job_id: str,
+        run_id: str,
+        cdc_session_id: str,
+        fk_relationships: Optional[Dict[str, str]] = None,
+    ) -> Any:
+        if not hasattr(self, "_cdc_ordering_coordinators"):
+            self._cdc_ordering_coordinators = {}
+        if cdc_session_id not in self._cdc_ordering_coordinators:
+            from akaal.cdc.domain.events import CDCEventIdentity
+            from akaal.cdc.ordering.coordinator import CDCTransactionOrderingCoordinator
+            identity = CDCEventIdentity(migration_id, job_id, run_id, cdc_session_id)
+            coord = CDCTransactionOrderingCoordinator(
+                identity=identity,
+                state_store=self.state_store,
+                fk_relationships=fk_relationships,
+            )
+            self._cdc_ordering_coordinators[cdc_session_id] = coord
+        return self._cdc_ordering_coordinators[cdc_session_id]
+
+    def get_cdc_ordering_status(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        cdc_session_id = payload["cdc_session_id"]
+        if hasattr(self, "_cdc_ordering_coordinators") and cdc_session_id in self._cdc_ordering_coordinators:
+            return self._cdc_ordering_coordinators[cdc_session_id].get_telemetry()
+        return {"cdc_session_id": cdc_session_id, "status": "NOT_INITIALIZED"}
+
+    def get_cdc_causality_graph_summary(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        cdc_session_id = payload["cdc_session_id"]
+        coord = self._get_cdc_ordering_coordinator(
+            migration_id=payload.get("migration_id", "mig-def"),
+            job_id=payload.get("job_id", "job-def"),
+            run_id=payload.get("run_id", "run-def"),
+            cdc_session_id=cdc_session_id,
+        )
+        return coord.causality_graph.get_graph_summary()
+
+    def get_cdc_blocked_transactions(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        cdc_session_id = payload["cdc_session_id"]
+        coord = self._get_cdc_ordering_coordinator(
+            migration_id=payload.get("migration_id", "mig-def"),
+            job_id=payload.get("job_id", "job-def"),
+            run_id=payload.get("run_id", "run-def"),
+            cdc_session_id=cdc_session_id,
+        )
+        summary = coord.causality_graph.get_graph_summary()
+        blocked_txs = [
+            tx_id for tx_id in coord.causality_graph.nodes
+            if not coord.causality_graph.is_transaction_ready(tx_id)
+        ]
+        return {"cdc_session_id": cdc_session_id, "blocked_transaction_count": len(blocked_txs), "blocked_transaction_ids": blocked_txs}
+
+    def get_cdc_transaction_dependencies(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        cdc_session_id = payload["cdc_session_id"]
+        tx_id = payload["tx_id"]
+        coord = self._get_cdc_ordering_coordinator(
+            migration_id=payload.get("migration_id", "mig-def"),
+            job_id=payload.get("job_id", "job-def"),
+            run_id=payload.get("run_id", "run-def"),
+            cdc_session_id=cdc_session_id,
+        )
+        blockers = coord.causality_graph.get_blocker_tx_ids(tx_id)
+        return {"cdc_session_id": cdc_session_id, "tx_id": tx_id, "blocker_tx_ids": blockers, "is_ready": len(blockers) == 0}
+
+    def evaluate_cdc_replay_eligibility(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        cdc_session_id = payload["cdc_session_id"]
+        coord = self._get_cdc_ordering_coordinator(
+            migration_id=payload.get("migration_id", "mig-def"),
+            job_id=payload.get("job_id", "job-def"),
+            run_id=payload.get("run_id", "run-def"),
+            cdc_session_id=cdc_session_id,
+        )
+        summary = coord.causality_graph.get_graph_summary()
+        return {"cdc_session_id": cdc_session_id, "summary": summary}
+
+    def pause_cdc_ordering(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        cdc_session_id = payload["cdc_session_id"]
+        if hasattr(self, "_cdc_ordering_coordinators") and cdc_session_id in self._cdc_ordering_coordinators:
+            self._cdc_ordering_coordinators[cdc_session_id].pause()
+        return {"cdc_session_id": cdc_session_id, "status": "PAUSED"}
+
+    def resume_cdc_ordering(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        cdc_session_id = payload["cdc_session_id"]
+        if hasattr(self, "_cdc_ordering_coordinators") and cdc_session_id in self._cdc_ordering_coordinators:
+            self._cdc_ordering_coordinators[cdc_session_id].resume()
+        return {"cdc_session_id": cdc_session_id, "status": "RESUMED"}
+
+    def recover_cdc_ordering_session(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        cdc_session_id = payload["cdc_session_id"]
+        coord = self._get_cdc_ordering_coordinator(
+            migration_id=payload.get("migration_id", "mig-def"),
+            job_id=payload.get("job_id", "job-def"),
+            run_id=payload.get("run_id", "run-def"),
+            cdc_session_id=cdc_session_id,
+        )
+        return {"cdc_session_id": cdc_session_id, "status": "RECOVERED", "telemetry": coord.get_telemetry()}
+

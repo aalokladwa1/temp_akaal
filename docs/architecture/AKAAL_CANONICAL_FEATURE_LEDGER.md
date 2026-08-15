@@ -875,13 +875,14 @@ LAST_VERIFIED_COMMIT: 9399c1e7652c7279fecf821458a9b99b4d98aa3d
 | **CDC Buffer & Target Apply** | `EngineGateway` / `CDCApplyCoordinator` | `FULLY_WIRED` | P7D CDC Target Apply Engine |
 | **CDC Continuous Sync & Cutover** | `EngineGateway` / `CDCContinuousSyncCoordinator` | `FULLY_WIRED` | P7D Cutover Control & Failback Manager |
 | **CDC Live Schema Evolution** | `EngineGateway` / `CDCSchemaEvolutionCoordinator` | `FULLY_WIRED` | P7D Schema Evolution & Transition Manager |
+| **CDC Replay Ordering & Causality** | `EngineGateway` / `CDCTransactionOrderingCoordinator` | `FULLY_WIRED` | P7D CDC Causality & Replay Engine |
 
 ---
 
 ## 6. Summary Statistics & Ledger Health
 
-- **Total Features Ledgered**: 38 canonical P1/P2/P3.1/P3.2/P3.3/P3.4/P3.5 features
-- **Fully Integrated P1/P2/P3.1/P3.2/P3.3/P3.4/P3.5 Features**: 38 (100%)
+- **Total Features Ledgered**: 40 canonical P1/P2/P3.1-P3.7 features
+- **Fully Integrated P1/P2/P3.1-P3.7 Features**: 40 (100%)
 - **Partially Integrated Features**: 0 (0%)
 - **Orphaned Capabilities**: 0
 - **Duplicate Production Authorities**: 0
