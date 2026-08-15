@@ -254,6 +254,40 @@ class DatabricksAdapter(BaseAdapter, IWarehouseCapability):
 
         return await asyncio.to_thread(_run)
 
+    async def unload_to_stage(
+        self,
+        source_table: str,
+        stage_uri: str,
+        file_format: str = "PARQUET",
+        options: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        self._ensure_connected()
+        sql = f"INSERT OVERWRITE DIRECTORY '{stage_uri}' USING {file_format} SELECT * FROM `{self.catalog}`.`{self.schema}`.`{source_table}`"
+
+        def _run():
+            with self._client.cursor() as cur:
+                cur.execute(sql)
+                return {
+                    "success": True,
+                    "source_table": source_table,
+                    "stage_uri": stage_uri,
+                    "file_format": file_format,
+                }
+
+        return await asyncio.to_thread(_run)
+
+    async def get_table_version(self, table_name: str) -> int:
+        self._ensure_connected()
+        sql = f"DESCRIBE HISTORY `{self.catalog}`.`{self.schema}`.`{table_name}` LIMIT 1"
+
+        def _run():
+            with self._client.cursor() as cur:
+                cur.execute(sql)
+                row = cur.fetchone()
+                return int(row[0]) if row and len(row) > 0 and isinstance(row[0], (int, str)) and str(row[0]).isdigit() else 0
+
+        return await asyncio.to_thread(_run)
+
     # -------------------------------------------------------------------------
     # Transactions
     # -------------------------------------------------------------------------

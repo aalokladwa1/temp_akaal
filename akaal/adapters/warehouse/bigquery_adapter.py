@@ -248,6 +248,36 @@ class BigQueryAdapter(BaseAdapter, IWarehouseCapability):
 
         return await asyncio.to_thread(_run)
 
+    async def unload_to_stage(
+        self,
+        source_table: str,
+        stage_uri: str,
+        file_format: str = "PARQUET",
+        options: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        self._ensure_connected()
+        from google.cloud import bigquery
+        t_ref = f"{self.project_id}.{self.dataset_id}.{source_table}"
+        job_config = bigquery.ExtractJobConfig()
+        if file_format.upper() == "PARQUET":
+            job_config.destination_format = bigquery.DestinationFormat.PARQUET
+        elif file_format.upper() == "CSV":
+            job_config.destination_format = bigquery.DestinationFormat.CSV
+        elif file_format.upper() in ("JSON", "NEWLINE_DELIMITED_JSON"):
+            job_config.destination_format = bigquery.DestinationFormat.NEWLINE_DELIMITED_JSON
+
+        def _run():
+            extract_job = self._client.extract_table(t_ref, stage_uri, job_config=job_config)
+            extract_job.result()
+            return {
+                "success": True,
+                "source_table": source_table,
+                "stage_uri": stage_uri,
+                "file_format": file_format,
+            }
+
+        return await asyncio.to_thread(_run)
+
     # -------------------------------------------------------------------------
     # Transactions
     # -------------------------------------------------------------------------

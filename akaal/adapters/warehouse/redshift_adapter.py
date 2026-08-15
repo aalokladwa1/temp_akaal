@@ -304,6 +304,30 @@ class RedshiftAdapter(BaseAdapter, IWarehouseCapability):
 
         return await asyncio.to_thread(_run)
 
+    async def unload_to_stage(
+        self,
+        source_table: str,
+        stage_uri: str,
+        file_format: str = "PARQUET",
+        options: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        self._ensure_connected()
+        if not self.iam_role:
+            raise RuntimeError("Redshift unload_to_stage requires iam_role configured in adapter extra options")
+        sql = f"UNLOAD ('SELECT * FROM \"{self.schema}\".\"{source_table}\"') TO '{stage_uri}' IAM_ROLE '{self.iam_role}' FORMAT AS PARQUET"
+
+        def _run():
+            with self._client.cursor() as cur:
+                cur.execute(sql)
+                return {
+                    "success": True,
+                    "source_table": source_table,
+                    "stage_uri": stage_uri,
+                    "file_format": file_format,
+                }
+
+        return await asyncio.to_thread(_run)
+
     # -------------------------------------------------------------------------
     # Transactions
     # -------------------------------------------------------------------------
