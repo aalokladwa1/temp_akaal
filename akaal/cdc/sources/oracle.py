@@ -100,13 +100,24 @@ class OracleRedoMiner(ICDCSourceAdapter):
                     pass  # If LogMiner session already running or requires ADD_LOGFILE, proceed to query contents
 
                 cur.execute(
-                    "SELECT SCN, XID, SEG_OWNER, TABLE_NAME, OPERATION, SQL_REDO FROM V$LOGMNR_CONTENTS WHERE ROWNUM <= :1",
+                    "SELECT SCN, XID, SEG_OWNER, TABLE_NAME, OPERATION, SQL_REDO, CSF FROM V$LOGMNR_CONTENTS WHERE ROWNUM <= :1",
                     (batch_size,)
                 )
                 rows = cur.fetchall()
                 records = []
+                accumulated_sql = ""
+
                 for row in rows:
-                    scn, xid, owner, tbl, op, sql_redo = row[0], row[1], row[2], row[3], row[4], row[5]
+                    scn, xid, owner, tbl, op, sql_redo, csf = row[0], row[1], row[2], row[3], row[4], row[5], (row[6] if len(row) > 6 else 0)
+                    accumulated_sql += str(sql_redo or "")
+
+                    # CSF == 1 indicates continuation row; wait for final fragment (CSF == 0)
+                    if csf == 1:
+                        continue
+
+                    full_sql = accumulated_sql
+                    accumulated_sql = ""
+
                     records.append({
                         "tx_id": f"ora-tx-{xid or scn}",
                         "table_schema": owner or "HR",
@@ -115,7 +126,7 @@ class OracleRedoMiner(ICDCSourceAdapter):
                         "scn": scn,
                         "boundary": "COMMIT",
                         "before_image": None,
-                        "after_image": {"sql_redo": sql_redo},
+                        "after_image": {"sql_redo": full_sql},
                     })
                 return records
         except Exception as err:
