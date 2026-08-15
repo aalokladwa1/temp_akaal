@@ -3,6 +3,8 @@ AKAAL Universal Capability Manifest (P4.1).
 ============================================
 Defines machine-readable, versioned, authoritative connector capability manifests.
 Guarantees fail-closed evaluation: UNKNOWN != SUPPORTED.
+Maintains multi-dimensional separation of Implementation, Registration, Pipeline,
+Proof, and Support states.
 """
 
 from typing import Dict, Any, List, Optional, Set
@@ -13,6 +15,11 @@ from akaal.connectors.taxonomy import (
     ConnectorRole,
     AuthenticationMechanism,
     ProofLevel,
+    ProofState,
+    ImplementationState,
+    RegistrationState,
+    PipelineState,
+    SupportState,
     CapabilitySupportStatus,
 )
 
@@ -54,15 +61,20 @@ class UniversalCapabilityManifest:
         feature_flags: Optional[Dict[str, Any]] = None,
         capabilities_map: Optional[Dict[str, CapabilitySupportStatus]] = None,
         proof_level: ProofLevel = ProofLevel.STATIC_INSPECTION_ONLY,
+        implementation_state: ImplementationState = ImplementationState.PARTIAL,
+        registration_state: RegistrationState = RegistrationState.REGISTERED,
+        pipeline_state: PipelineState = PipelineState.REACHABLE,
+        support_state: SupportState = SupportState.PARTIAL,
+        proof_state: ProofState = ProofState.UNIT_PROVEN,
     ) -> None:
-        self.connector_id = connector_id
+        self.connector_id = str(connector_id).strip().lower()
         self.family = family
         self.vendor_name = vendor_name
         self.system_type = system_type.upper()
         self.connector_version = connector_version
         self.manifest_version = manifest_version
         self.role = role
-        self.supported_auth_mechanisms = supported_auth_mechanisms or [AuthenticationMechanism.USERNAME_PASSWORD]
+        self.supported_auth_mechanisms = list(supported_auth_mechanisms or [AuthenticationMechanism.USERNAME_PASSWORD])
         self.supports_tls = supports_tls
         self.supports_schema_discovery = supports_schema_discovery
         self.supports_bulk_read = supports_bulk_read
@@ -77,22 +89,30 @@ class UniversalCapabilityManifest:
         self.supports_failback = supports_failback
         self.supports_lobs = supports_lobs
         self.supports_checkpoint_resume = supports_checkpoint_resume
-        self.supported_formats = supported_formats or []
-        self.supported_isolation_levels = supported_isolation_levels or ["READ_COMMITTED"]
-        self.known_restrictions = known_restrictions or []
-        self.required_privileges = required_privileges or []
-        self.feature_flags = feature_flags or {}
-        self.capabilities_map = capabilities_map or {}
+        self.supported_formats = list(supported_formats or [])
+        self.supported_isolation_levels = list(supported_isolation_levels or ["READ_COMMITTED"])
+        self.known_restrictions = list(known_restrictions or [])
+        self.required_privileges = list(required_privileges or [])
+        self.feature_flags = dict(feature_flags or {})
+        self.capabilities_map = dict(capabilities_map or {})
         self.proof_level = proof_level
+        self.implementation_state = implementation_state
+        self.registration_state = registration_state
+        self.pipeline_state = pipeline_state
+        self.support_state = support_state
+        self.proof_state = proof_state
         self.registered_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
 
-    def get_capability_status(self, capability_name: str) -> CapabilitySupportStatus:
+    def get_capability_status(self, capability_name: Optional[str]) -> CapabilitySupportStatus:
         """
         Evaluates capability support status.
-        FAILS CLOSED: If capability is unknown or unspecified, returns UNKNOWN_NOT_PROVEN / UNSUPPORTED.
+        FAILS CLOSED: If capability is unknown, empty, or unspecified, returns UNKNOWN_NOT_PROVEN / UNSUPPORTED.
         UNKNOWN is NEVER interpreted as SUPPORTED.
         """
-        cap_key = capability_name.lower().strip()
+        if not capability_name:
+            return CapabilitySupportStatus.UNKNOWN_NOT_PROVEN
+
+        cap_key = str(capability_name).lower().strip()
         if cap_key in self.capabilities_map:
             return self.capabilities_map[cap_key]
 
@@ -129,7 +149,7 @@ class UniversalCapabilityManifest:
         return self.role in (ConnectorRole.TARGET, ConnectorRole.BOTH)
 
     def to_dict(self) -> Dict[str, Any]:
-        """Machine-readable serializable representation."""
+        """Machine-readable serializable representation with defensive copies."""
         return {
             "connector_id": self.connector_id,
             "family": self.family.value if hasattr(self.family, "value") else str(self.family),
@@ -155,15 +175,20 @@ class UniversalCapabilityManifest:
             "supports_failback": self.supports_failback,
             "supports_lobs": self.supports_lobs,
             "supports_checkpoint_resume": self.supports_checkpoint_resume,
-            "supported_formats": self.supported_formats,
-            "supported_isolation_levels": self.supported_isolation_levels,
-            "known_restrictions": self.known_restrictions,
-            "required_privileges": self.required_privileges,
-            "feature_flags": self.feature_flags,
+            "supported_formats": list(self.supported_formats),
+            "supported_isolation_levels": list(self.supported_isolation_levels),
+            "known_restrictions": list(self.known_restrictions),
+            "required_privileges": list(self.required_privileges),
+            "feature_flags": dict(self.feature_flags),
             "capabilities_map": {
                 k: v.value if hasattr(v, "value") else str(v) for k, v in self.capabilities_map.items()
             },
             "proof_level": self.proof_level.value if hasattr(self.proof_level, "value") else str(self.proof_level),
+            "implementation_state": self.implementation_state.value if hasattr(self.implementation_state, "value") else str(self.implementation_state),
+            "registration_state": self.registration_state.value if hasattr(self.registration_state, "value") else str(self.registration_state),
+            "pipeline_state": self.pipeline_state.value if hasattr(self.pipeline_state, "value") else str(self.pipeline_state),
+            "support_state": self.support_state.value if hasattr(self.support_state, "value") else str(self.support_state),
+            "proof_state": self.proof_state.value if hasattr(self.proof_state, "value") else str(self.proof_state),
             "registered_at": self.registered_at,
         }
 
@@ -186,6 +211,36 @@ class UniversalCapabilityManifest:
             proof = ProofLevel(proof_str)
         except ValueError:
             proof = ProofLevel.STATIC_INSPECTION_ONLY
+
+        impl_str = data.get("implementation_state", ImplementationState.PARTIAL.value)
+        try:
+            impl = ImplementationState(impl_str)
+        except ValueError:
+            impl = ImplementationState.PARTIAL
+
+        reg_str = data.get("registration_state", RegistrationState.REGISTERED.value)
+        try:
+            reg = RegistrationState(reg_str)
+        except ValueError:
+            reg = RegistrationState.REGISTERED
+
+        pipe_str = data.get("pipeline_state", PipelineState.REACHABLE.value)
+        try:
+            pipe = PipelineState(pipe_str)
+        except ValueError:
+            pipe = PipelineState.REACHABLE
+
+        sup_str = data.get("support_state", SupportState.PARTIAL.value)
+        try:
+            sup = SupportState(sup_str)
+        except ValueError:
+            sup = SupportState.PARTIAL
+
+        proof_state_str = data.get("proof_state", ProofState.UNIT_PROVEN.value)
+        try:
+            p_state = ProofState(proof_state_str)
+        except ValueError:
+            p_state = ProofState.UNIT_PROVEN
 
         auth_list = []
         for a_str in data.get("supported_auth_mechanisms", []):
@@ -231,4 +286,9 @@ class UniversalCapabilityManifest:
             feature_flags=data.get("feature_flags", {}),
             capabilities_map=cap_map,
             proof_level=proof,
+            implementation_state=impl,
+            registration_state=reg,
+            pipeline_state=pipe,
+            support_state=sup,
+            proof_state=p_state,
         )

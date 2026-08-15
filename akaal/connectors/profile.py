@@ -3,15 +3,36 @@ AKAAL Canonical Connection Profile & Credentials Sanitization Model (P4.1).
 =============================================================================
 Defines reusable connection profiles with strict credential safety:
 - Plaintext secrets are NEVER persisted, logged, or serialized into telemetry/DTOs.
-- Supports TLS, SSH Bastion tunneling, cloud IAM references, and pool options.
+- Recursive sanitization for arbitrary nested configuration payloads.
+- String representations (__repr__, __str__) strictly omit secrets.
 """
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 import datetime
-import hashlib
 import uuid
 
 from akaal.connectors.taxonomy import ConnectorFamily, AuthenticationMechanism
+
+SENSITIVE_KEY_SUBSTRINGS = (
+    "pass", "pwd", "secret", "token", "key", "auth", "cert",
+    "private", "credential", "wallet", "api_key", "bearer", "signature",
+)
+
+
+def recursive_sanitize(obj: Any) -> Any:
+    """Recursively redacts sensitive keys from dictionaries, lists, and primitives."""
+    if isinstance(obj, dict):
+        sanitized = {}
+        for k, v in obj.items():
+            k_lower = str(k).lower()
+            if any(sub in k_lower for sub in SENSITIVE_KEY_SUBSTRINGS):
+                sanitized[k] = "[REDACTED]"
+            else:
+                sanitized[k] = recursive_sanitize(v)
+        return sanitized
+    elif isinstance(obj, (list, tuple, set)):
+        return [recursive_sanitize(item) for item in obj]
+    return obj
 
 
 class ConnectionProfile:
@@ -53,7 +74,7 @@ class ConnectionProfile:
     ) -> None:
         self.connection_id = connection_id or f"conn-{uuid.uuid4().hex[:8]}"
         self.display_name = display_name
-        self.connector_id = connector_id
+        self.connector_id = str(connector_id).strip().lower()
         self.family = family
         self.environment = environment.upper()
         self.host = host
@@ -64,7 +85,7 @@ class ConnectionProfile:
         self.cloud_provider = cloud_provider
         self.auth_mechanism = auth_mechanism
         self.credentials_ref = credentials_ref or f"vault-ref-{self.connection_id}"
-        self._raw_credentials = raw_credentials or {}
+        self._raw_credentials = dict(raw_credentials or {})
         self.tls_enabled = tls_enabled
         self.tls_ca_cert_ref = tls_ca_cert_ref
         self.tls_client_cert_ref = tls_client_cert_ref
@@ -76,9 +97,9 @@ class ConnectionProfile:
         self.ssh_key_ref = ssh_key_ref
         self.connection_timeout_sec = connection_timeout_sec
         self.read_timeout_sec = read_timeout_sec
-        self.pool_options = pool_options or {"min_size": 1, "max_size": 10, "timeout": 30}
-        self.driver_options = driver_options or {}
-        self.health_metadata = health_metadata or {}
+        self.pool_options = dict(pool_options or {"min_size": 1, "max_size": 10, "timeout": 30})
+        self.driver_options = dict(driver_options or {})
+        self.health_metadata = dict(health_metadata or {})
         self.created_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
 
     def get_effective_secret(self, key: str = "password") -> Optional[str]:
@@ -115,15 +136,25 @@ class ConnectionProfile:
             "ssh_bastion_user": self.ssh_bastion_user,
             "connection_timeout_sec": self.connection_timeout_sec,
             "read_timeout_sec": self.read_timeout_sec,
-            "pool_options": self.pool_options,
-            "driver_options": {k: v for k, v in self.driver_options.items() if "pass" not in k.lower() and "secret" not in k.lower() and "key" not in k.lower()},
-            "health_metadata": self.health_metadata,
+            "pool_options": recursive_sanitize(self.pool_options),
+            "driver_options": recursive_sanitize(self.driver_options),
+            "health_metadata": recursive_sanitize(self.health_metadata),
             "created_at": self.created_at,
         }
 
     def to_dict(self) -> Dict[str, Any]:
         """Synonym for sanitized dictionary."""
         return self.to_sanitized_dict()
+
+    def __repr__(self) -> str:
+        return (
+            f"ConnectionProfile(id={self.connection_id}, connector={self.connector_id}, "
+            f"family={self.family.value}, host={self.host}:{self.port}, db={self.database_name}, "
+            f"auth_ref={self.credentials_ref})"
+        )
+
+    def __str__(self) -> str:
+        return self.__repr__()
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "ConnectionProfile":

@@ -20,7 +20,7 @@ logger = logging.getLogger("akaal.connectors.registry")
 class UniversalConnectorRegistry:
     """
     Central Authoritative Registry for all Universal Connectors (P4.1).
-    Thread-safe and deterministic.
+    Thread-safe, deterministic, and fail-closed.
     """
 
     _INSTANCE: Optional["UniversalConnectorRegistry"] = None
@@ -50,38 +50,79 @@ class UniversalConnectorRegistry:
         except Exception as exc:
             logger.warning("[UniversalConnectorRegistry] Bridge bootstrap notice: %s", exc)
 
-    def register_connector(self, connector: IUniversalConnector) -> None:
+    def _normalize_id(self, connector_id: Optional[str]) -> str:
+        """Normalizes connector identity string; raises ValueError on empty or invalid ID."""
+        if not connector_id or not str(connector_id).strip():
+            raise ValueError("Connector ID must be a non-empty string.")
+        return str(connector_id).strip().lower()
+
+    def register_connector(self, connector: IUniversalConnector, allow_override: bool = False) -> None:
         """Registers a live connector instance with authoritative manifest."""
         with self._lock:
-            cid = connector.connector_id.lower().strip()
+            cid = self._normalize_id(connector.connector_id)
+            if not allow_override and cid in self._connectors:
+                raise ValueError(f"Connector '{cid}' is already registered. Set allow_override=True to replace.")
             manifest = connector.manifest
             self._connectors[cid] = connector
             self._manifests[cid] = manifest
             logger.info(f"[UniversalConnectorRegistry] Registered connector '{cid}' ({manifest.vendor_name}, {manifest.family.value}).")
 
-    def register_manifest(self, manifest: UniversalCapabilityManifest) -> None:
+    def register_manifest(self, manifest: UniversalCapabilityManifest, allow_override: bool = False) -> None:
         """Registers a capability manifest without requiring immediate live instantiation."""
         with self._lock:
-            cid = manifest.connector_id.lower().strip()
+            cid = self._normalize_id(manifest.connector_id)
+            if not allow_override and cid in self._manifests and cid in self._connectors:
+                raise ValueError(f"Manifest '{cid}' is already registered. Set allow_override=True to replace.")
             self._manifests[cid] = manifest
             logger.info(f"[UniversalConnectorRegistry] Registered capability manifest '{cid}' ({manifest.vendor_name}).")
 
-    def get_connector(self, connector_id: str) -> Optional[IUniversalConnector]:
-        """Retrieves connector instance by connector_id."""
+    def unregister_connector(self, connector_id: str) -> bool:
+        """Unregisters a connector and its manifest."""
         with self._lock:
-            cid = connector_id.lower().strip()
+            try:
+                cid = self._normalize_id(connector_id)
+            except ValueError:
+                return False
+            removed = False
+            if cid in self._connectors:
+                del self._connectors[cid]
+                removed = True
+            if cid in self._manifests:
+                del self._manifests[cid]
+                removed = True
+            return removed
+
+    def get_connector(self, connector_id: Optional[str]) -> Optional[IUniversalConnector]:
+        """Retrieves connector instance by connector_id. Fails closed if not found or invalid."""
+        if not connector_id:
+            return None
+        with self._lock:
+            try:
+                cid = self._normalize_id(connector_id)
+            except ValueError:
+                return None
             return self._connectors.get(cid)
 
-    def get_manifest(self, connector_id: str) -> Optional[UniversalCapabilityManifest]:
+    def get_manifest(self, connector_id: Optional[str]) -> Optional[UniversalCapabilityManifest]:
         """Retrieves capability manifest by connector_id. Fails closed if not found."""
+        if not connector_id:
+            return None
         with self._lock:
-            cid = connector_id.lower().strip()
+            try:
+                cid = self._normalize_id(connector_id)
+            except ValueError:
+                return None
             return self._manifests.get(cid)
 
-    def is_registered(self, connector_id: str) -> bool:
+    def is_registered(self, connector_id: Optional[str]) -> bool:
         """Returns True if connector or manifest is registered."""
+        if not connector_id:
+            return False
         with self._lock:
-            cid = connector_id.lower().strip()
+            try:
+                cid = self._normalize_id(connector_id)
+            except ValueError:
+                return False
             return cid in self._manifests or cid in self._connectors
 
     def list_connectors(self) -> List[str]:

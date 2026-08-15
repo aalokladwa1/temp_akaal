@@ -10,20 +10,20 @@ from enum import Enum
 
 class ConnectorFamily(str, Enum):
     """Canonical classification of enterprise connector technology families."""
-    RELATIONAL_DATABASE       = "RELATIONAL_DATABASE"
-    CLOUD_DATA_WAREHOUSE      = "CLOUD_DATA_WAREHOUSE"
-    DOCUMENT_DATABASE         = "DOCUMENT_DATABASE"
-    WIDE_COLUMN_DATABASE      = "WIDE_COLUMN_DATABASE"
-    GRAPH_DATABASE            = "GRAPH_DATABASE"
-    KEY_VALUE_STORE           = "KEY_VALUE_STORE"
-    SEARCH_ENGINE             = "SEARCH_ENGINE"
-    STREAM_EVENT_PLATFORM     = "STREAM_EVENT_PLATFORM"
-    DISTRIBUTED_FILESYSTEM    = "DISTRIBUTED_FILESYSTEM"
-    OBJECT_STORAGE            = "OBJECT_STORAGE"
-    FILE_DATASET              = "FILE_DATASET"
-    LAKEHOUSE_ANALYTICS       = "LAKEHOUSE_ANALYTICS"
-    CLOUD_PROVIDER            = "CLOUD_PROVIDER"
-    CONTAINER_ORCHESTRATION   = "CONTAINER_ORCHESTRATION"
+    RELATIONAL_DATABASE         = "RELATIONAL_DATABASE"
+    CLOUD_DATA_WAREHOUSE        = "CLOUD_DATA_WAREHOUSE"
+    DOCUMENT_DATABASE           = "DOCUMENT_DATABASE"
+    WIDE_COLUMN_DATABASE        = "WIDE_COLUMN_DATABASE"
+    GRAPH_DATABASE              = "GRAPH_DATABASE"
+    KEY_VALUE_STORE             = "KEY_VALUE_STORE"
+    SEARCH_ENGINE               = "SEARCH_ENGINE"
+    STREAM_EVENT_PLATFORM       = "STREAM_EVENT_PLATFORM"
+    DISTRIBUTED_FILESYSTEM      = "DISTRIBUTED_FILESYSTEM"
+    OBJECT_STORAGE              = "OBJECT_STORAGE"
+    FILE_DATASET                = "FILE_DATASET"
+    LAKEHOUSE_ANALYTICS         = "LAKEHOUSE_ANALYTICS"
+    CLOUD_PROVIDER              = "CLOUD_PROVIDER"
+    CONTAINER_ORCHESTRATION     = "CONTAINER_ORCHESTRATION"
     CONNECTIVITY_INFRASTRUCTURE = "CONNECTIVITY_INFRASTRUCTURE"
 
 
@@ -63,14 +63,55 @@ class ProofLevel(str, Enum):
     PRODUCTION_SCALE_PROVEN  = "PRODUCTION_SCALE_PROVEN"
 
 
+class ProofState(str, Enum):
+    """Independent proof state dimension."""
+    UNPROVEN                 = "UNPROVEN"
+    UNIT_PROVEN              = "UNIT_PROVEN"
+    SYNTHETIC_PROVEN         = "SYNTHETIC_PROVEN"
+    INTEGRATION_PROVEN       = "INTEGRATION_PROVEN"
+    REAL_SYSTEM_PROVEN       = "REAL_SYSTEM_PROVEN"
+    REAL_CLOUD_PROVEN        = "REAL_CLOUD_PROVEN"
+    PERFORMANCE_PROVEN       = "PERFORMANCE_PROVEN"
+    PRODUCTION_CERTIFIED     = "PRODUCTION_CERTIFIED"
+
+
+class ImplementationState(str, Enum):
+    """Independent implementation state dimension."""
+    ABSENT                   = "ABSENT"
+    STUB                     = "STUB"
+    PARTIAL                  = "PARTIAL"
+    IMPLEMENTED              = "IMPLEMENTED"
+
+
+class RegistrationState(str, Enum):
+    """Independent registration state dimension."""
+    UNREGISTERED             = "UNREGISTERED"
+    REGISTERED               = "REGISTERED"
+
+
+class PipelineState(str, Enum):
+    """Independent pipeline reachability dimension."""
+    UNREACHABLE              = "UNREACHABLE"
+    REACHABLE                = "REACHABLE"
+
+
+class SupportState(str, Enum):
+    """Independent operational support state dimension."""
+    UNSUPPORTED              = "UNSUPPORTED"
+    EXPERIMENTAL             = "EXPERIMENTAL"
+    PARTIAL                  = "PARTIAL"
+    SUPPORTED                = "SUPPORTED"
+    CERTIFIED                = "CERTIFIED"
+
+
 class CapabilitySupportStatus(str, Enum):
     """Machine-readable support classification for specific connector capabilities."""
-    SUPPORTED                 = "SUPPORTED"
+    SUPPORTED                  = "SUPPORTED"
     SUPPORTED_WITH_LIMITATIONS = "SUPPORTED_WITH_LIMITATIONS"
-    SUPPORTED_WITH_MAPPING    = "SUPPORTED_WITH_MAPPING"
-    LOSSY                     = "LOSSY"
-    UNSUPPORTED               = "UNSUPPORTED"
-    UNKNOWN_NOT_PROVEN        = "UNKNOWN_NOT_PROVEN"
+    SUPPORTED_WITH_MAPPING     = "SUPPORTED_WITH_MAPPING"
+    LOSSY                      = "LOSSY"
+    UNSUPPORTED                = "UNSUPPORTED"
+    UNKNOWN_NOT_PROVEN         = "UNKNOWN_NOT_PROVEN"
 
 
 class ConnectorErrorCategory(str, Enum):
