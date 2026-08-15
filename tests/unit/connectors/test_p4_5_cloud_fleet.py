@@ -5,7 +5,7 @@ Comprehensive hostile reality verification of the 3 authorized P4.5 cloud connec
 Amazon S3, Google Cloud Storage (GCS), and Azure Blob Storage.
 Verifies fail-closed connectivity isolation, zero-fake policy, missing driver handling,
 native continuation token object listing pagination, streaming read/write, range-reads,
-changed-object resume protection, secret redaction ([REDACTED]), metadata fidelity,
+resource-bound checkpoint resume protection, secret redaction ([REDACTED]), metadata fidelity,
 checksum calculation, and permission truth.
 """
 
@@ -300,6 +300,26 @@ class TestP45CloudFleet(unittest.TestCase):
                 self.assertIn("key", col_names)
                 self.assertIn("size", col_names)
                 self.assertIn("etag", col_names)
+
+        self.loop.run_until_complete(run())
+
+    # -------------------------------------------------------------------------
+    # 10. Wrong Bucket Checkpoint Resume Fails Closed
+    # -------------------------------------------------------------------------
+    def test_10_wrong_bucket_resume_fails_closed(self):
+        """10: Resuming listing with a checkpoint bound to a different bucket fails closed."""
+        ad = S3Adapter(self._make_cfg(SystemType.S3))
+        ad.is_connected = True
+        ad._client = object()
+
+        async def run():
+            with self.assertRaises(RuntimeError):
+                await ad.read_batch(
+                    table_name="target_bucket",
+                    offset=0,
+                    limit=10,
+                    last_processed_primary_key={"bucket": "wrong_source_bucket", "continuation_token": "tok123"},
+                )
 
         self.loop.run_until_complete(run())
 

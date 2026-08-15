@@ -170,6 +170,9 @@ class AzureBlobAdapter(BaseAdapter):
             container_client = self._service_client.get_container_client(container_name)
             continuation_token = None
             if last_processed_primary_key:
+                ckpt_container = last_processed_primary_key.get("container") or last_processed_primary_key.get("bucket") or last_processed_primary_key.get("resource_id")
+                if ckpt_container and ckpt_container != container_name:
+                    raise RuntimeError(f"Resource identity mismatch in checkpoint resume: expected {container_name}, got {ckpt_container}")
                 continuation_token = last_processed_primary_key.get("continuation_token") or last_processed_primary_key.get("page_token")
 
             pages = container_client.list_blobs(name_starts_with=prefix or None, results_per_page=limit).by_page(continuation_token=continuation_token)

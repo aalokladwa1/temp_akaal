@@ -163,6 +163,9 @@ class GCSAdapter(BaseAdapter):
             page_token = None
             start_offset = None
             if last_processed_primary_key:
+                ckpt_bucket = last_processed_primary_key.get("bucket") or last_processed_primary_key.get("resource_id")
+                if ckpt_bucket and ckpt_bucket != bucket_name:
+                    raise RuntimeError(f"Resource identity mismatch in checkpoint resume: expected {bucket_name}, got {ckpt_bucket}")
                 page_token = last_processed_primary_key.get("page_token") or last_processed_primary_key.get("continuation_token")
                 start_offset = last_processed_primary_key.get("key")
 

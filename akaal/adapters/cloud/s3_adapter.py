@@ -177,6 +177,9 @@ class S3Adapter(BaseAdapter):
                 kwargs["Prefix"] = prefix
 
             if last_processed_primary_key:
+                ckpt_bucket = last_processed_primary_key.get("bucket") or last_processed_primary_key.get("resource_id")
+                if ckpt_bucket and ckpt_bucket != bucket:
+                    raise RuntimeError(f"Resource identity mismatch in checkpoint resume: expected {bucket}, got {ckpt_bucket}")
                 if "continuation_token" in last_processed_primary_key:
                     kwargs["ContinuationToken"] = last_processed_primary_key["continuation_token"]
                 elif "key" in last_processed_primary_key:
