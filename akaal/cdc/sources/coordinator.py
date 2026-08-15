@@ -122,8 +122,8 @@ class CDCCaptureCoordinator:
             "status": "CAPTURING",
         }
 
-    def poll_cdc_transactions(self, cdc_session_id: str) -> List[CDCTransaction]:
-        """Polls active miner for committed CDCTransaction objects."""
+    def poll_cdc_transactions(self, cdc_session_id: str, fencing_epoch: int = 1, durable_buffer: Optional[Any] = None) -> List[CDCTransaction]:
+        """Polls active miner for committed CDCTransaction objects and buffers them durably."""
         if cdc_session_id not in self.active_miners:
             raise ValueError(f"CDC session '{cdc_session_id}' is not active.")
 
@@ -139,6 +139,11 @@ class CDCCaptureCoordinator:
         if committed_txs:
             boundary = self.consistency_boundaries[cdc_session_id]
             boundary.update_captured_position(miner.get_current_position())
+
+            if durable_buffer:
+                for tx in committed_txs:
+                    durable_buffer.append_transaction(tx, fencing_epoch=fencing_epoch)
+
             self._publish_telemetry(cdc_session_id, "CAPTURING")
 
         return committed_txs

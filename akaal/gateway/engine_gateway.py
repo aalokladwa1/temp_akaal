@@ -229,6 +229,20 @@ class EngineGateway:
             return self.stop_cdc_capture(payload)
         elif capability == "get_cdc_telemetry":
             return self.get_cdc_telemetry(payload)
+        elif capability == "get_cdc_backlog_status":
+            return self.get_cdc_backlog_status(payload)
+        elif capability == "start_cdc_apply":
+            return self.start_cdc_apply(payload)
+        elif capability == "process_cdc_apply_batch":
+            return self.process_cdc_apply_batch(payload)
+        elif capability == "pause_cdc_apply":
+            return self.pause_cdc_apply(payload)
+        elif capability == "resume_cdc_apply":
+            return self.resume_cdc_apply(payload)
+        elif capability == "stop_cdc_apply":
+            return self.stop_cdc_apply(payload)
+        elif capability == "recover_cdc_session":
+            return self.recover_cdc_session(payload)
         else:
             raise ValueError(f"Unsupported IPC capability: '{capability}'")
 
@@ -2366,3 +2380,54 @@ class EngineGateway:
         cdc_session_id = payload["cdc_session_id"]
         telemetry = self.state_store.get_cdc_telemetry(cdc_session_id)
         return telemetry or {"cdc_session_id": cdc_session_id, "status": "UNKNOWN"}
+
+    def _get_cdc_apply_coordinator(self):
+        if not hasattr(self, "_cdc_apply_coordinator") or self._cdc_apply_coordinator is None:
+            from akaal.cdc.apply.manager import CDCApplyCoordinator
+            self._cdc_apply_coordinator = CDCApplyCoordinator(state_store=self.state_store)
+        return self._cdc_apply_coordinator
+
+    def get_cdc_backlog_status(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        cdc_session_id = payload["cdc_session_id"]
+        return self._get_cdc_apply_coordinator().get_cdc_backlog_status(cdc_session_id)
+
+    def start_cdc_apply(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        migration_id = payload["migration_id"]
+        job_id = payload["job_id"]
+        run_id = payload["run_id"]
+        cdc_session_id = payload["cdc_session_id"]
+        fencing_epoch = payload.get("fencing_epoch")
+        return self._get_cdc_apply_coordinator().start_cdc_apply(
+            migration_id=migration_id,
+            job_id=job_id,
+            run_id=run_id,
+            cdc_session_id=cdc_session_id,
+            fencing_epoch=fencing_epoch,
+        )
+
+    def process_cdc_apply_batch(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        cdc_session_id = payload["cdc_session_id"]
+        batch_size = payload.get("batch_size", 10)
+        target_config = payload.get("target_config")
+        return self._get_cdc_apply_coordinator().process_apply_batch(
+            cdc_session_id=cdc_session_id,
+            batch_size=batch_size,
+            target_config=target_config,
+        )
+
+    def pause_cdc_apply(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        cdc_session_id = payload["cdc_session_id"]
+        return self._get_cdc_apply_coordinator().pause_cdc_apply(cdc_session_id)
+
+    def resume_cdc_apply(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        cdc_session_id = payload["cdc_session_id"]
+        return self._get_cdc_apply_coordinator().resume_cdc_apply(cdc_session_id)
+
+    def stop_cdc_apply(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        cdc_session_id = payload["cdc_session_id"]
+        return self._get_cdc_apply_coordinator().stop_cdc_apply(cdc_session_id)
+
+    def recover_cdc_session(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        migration_id = payload["migration_id"]
+        cdc_session_id = payload["cdc_session_id"]
+        return self._get_cdc_apply_coordinator().recover_cdc_session(migration_id, cdc_session_id)

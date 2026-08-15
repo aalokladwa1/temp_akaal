@@ -736,6 +736,66 @@ LAST_VERIFIED_COMMIT: c118f8d45984d8484254abaa1add824c69201f1f
 
 ---
 
+FEATURE_ID: P3.CDC.DURABLE_BUFFER
+PHASE: P3.3
+FEATURE_NAME: Durable CDC Transaction Buffer & Disk WAL
+PURPOSE: Persists committed CDC transactions to disk WAL with HMAC integrity signatures before target application.
+CANONICAL_AUTHORITY: DurableCDCBuffer
+IMPLEMENTATION_LOCATION: akaal/cdc/buffering/durable_buffer.py
+PRIMARY_CLASS_OR_FUNCTION: DurableCDCBuffer
+PRODUCTION_CALLER: CDCCaptureCoordinator / CDCApplyWorker
+PRODUCTION_ENTRYPOINT: EngineGateway → poll_cdc_transactions / start_cdc_apply
+PIPELINE_POSITION: CDC Persistence & Buffer Layer
+DOWNSTREAM_CONSUMER: CDCApplyWorker / CentralStateStore
+IDENTITY_BINDING: migration_id + job_id + run_id + cdc_session_id + tx_id
+STATE_OWNER: DurableCDCBuffer
+FAILURE_PROPAGATION: Queue congestion → triggers P1 BackpressureController throttling & hard limit exception (DURABLE_BUFFER_FAILURE)
+MONITORING_EXPOSURE: YES
+IPC_EXPOSURE: YES
+UI_EXPOSURE: YES (MonitoringModule → CDC Durable Buffer)
+MIGRATION_MODULE_FEATURE: Monitoring → CDC Buffer
+TEST_LOCATION: tests/unit/cdc/test_p3_3_durable_cdc_buffer_apply_pipeline.py
+PROOF_LEVEL: UNIT_PROVEN
+INTEGRATION_STATUS: DOMAIN_INTEGRATED
+REAL_DB_PROVEN: NO
+SECURITY_NOTES: HMAC SHA-256 integrity protected. Data-safe diagnostic redaction.
+DEPENDENCIES: DurableWALRingBuffer / BackpressureController
+LEGACY_OVERLAP: NONE
+FUTURE_EVOLUTION: P4 Multi-Database CDC Synchronization
+LAST_VERIFIED_COMMIT: c4f7e92357c628a0b05162c7dda1ae158c9a2f07
+
+---
+
+FEATURE_ID: P3.CDC.TARGET_APPLY_ENGINE
+PHASE: P3.3
+FEATURE_NAME: CDC Target Apply Engine & Fenced Worker
+PURPOSE: Applies durably buffered transactions to target database atomically under monotonic fencing epoch control.
+CANONICAL_AUTHORITY: CDCApplyWorker / CDCApplyCoordinator
+IMPLEMENTATION_LOCATION: akaal/cdc/apply/engine.py
+PRIMARY_CLASS_OR_FUNCTION: CDCApplyWorker / CDCApplyCoordinator
+PRODUCTION_CALLER: EngineGateway CDC apply handlers
+PRODUCTION_ENTRYPOINT: EngineGateway → process_cdc_apply_batch
+PIPELINE_POSITION: Target Application & Checkpoint Layer
+DOWNSTREAM_CONSUMER: Target Adapter / CentralStateStore
+IDENTITY_BINDING: migration_id + job_id + run_id + cdc_session_id + tx_id + fencing_epoch
+STATE_OWNER: CDCApplyWorker
+FAILURE_PROPAGATION: Unsafe DML / target failure → rolls back target transaction, raises CDCExecutionError, prevents position advancement
+MONITORING_EXPOSURE: YES
+IPC_EXPOSURE: YES
+UI_EXPOSURE: YES (MonitoringModule → CDC Target Apply)
+MIGRATION_MODULE_FEATURE: Monitoring → CDC Target Apply Engine
+TEST_LOCATION: tests/unit/cdc/test_p3_3_durable_cdc_buffer_apply_pipeline.py
+PROOF_LEVEL: UNIT_PROVEN
+INTEGRATION_STATUS: DOMAIN_INTEGRATED
+REAL_DB_PROVEN: NO
+SECURITY_NOTES: Replay/duplicate protection and unsafe DML rejection (UNSAFE_DELETE, UNSAFE_UPDATE).
+DEPENDENCIES: RecoveryCoordinator / CDCCheckpoint
+LEGACY_OVERLAP: NONE
+FUTURE_EVOLUTION: P4 Production Target Database Synchronization
+LAST_VERIFIED_COMMIT: c4f7e92357c628a0b05162c7dda1ae158c9a2f07
+
+---
+
 ## 5. UI / IPC / Gateway Mapping & Future P7D Redesign Destinations
 
 | Migration Module UI Feature | Current Backend Authority | Wiring Status | Future P7D Redesign Destination |
@@ -758,13 +818,14 @@ LAST_VERIFIED_COMMIT: c118f8d45984d8484254abaa1add824c69201f1f
 | **Report & Evidence Export** | `CanonicalReportExportService` / `export_*` | `FULLY_WIRED` | P7D Evidence Package Portal |
 | **CDC Telemetry & Status** | `CDCMonitoringDTO` / `CDCSessionStateMachine` | `FULLY_WIRED` | P7D Cutover & CDC Mission Control |
 | **CDC Capture Control** | `EngineGateway` / `CDCCaptureCoordinator` | `FULLY_WIRED` | P7D CDC Source Capture Engine |
+| **CDC Buffer & Target Apply** | `EngineGateway` / `CDCApplyCoordinator` | `FULLY_WIRED` | P7D CDC Target Apply Engine |
 
 ---
 
 ## 6. Summary Statistics & Ledger Health
 
-- **Total Features Ledgered**: 34 canonical P1/P2/P3.1/P3.2 features
-- **Fully Integrated P1/P2/P3.1/P3.2 Features**: 34 (100%)
+- **Total Features Ledgered**: 36 canonical P1/P2/P3.1/P3.2/P3.3 features
+- **Fully Integrated P1/P2/P3.1/P3.2/P3.3 Features**: 36 (100%)
 - **Partially Integrated Features**: 0 (0%)
 - **Orphaned Capabilities**: 0
 - **Duplicate Production Authorities**: 0

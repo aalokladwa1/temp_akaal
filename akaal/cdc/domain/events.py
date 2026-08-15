@@ -194,4 +194,63 @@ class CDCTransaction:
             "is_committed": self.is_committed,
             "is_aborted": self.is_aborted,
             "commit_timestamp": self.commit_timestamp,
+            "events": [e.to_dict() for e in self.events],
         }
+
+
+def parse_cdc_event(data: Dict[str, Any]) -> CDCEvent:
+    ident_dict = data["identity"]
+    identity = CDCEventIdentity(
+        migration_id=ident_dict["migration_id"],
+        job_id=ident_dict["job_id"],
+        run_id=ident_dict["run_id"],
+        cdc_session_id=ident_dict["cdc_session_id"],
+        event_id=ident_dict.get("event_id"),
+        sequence_number=ident_dict.get("sequence_number", 1),
+    )
+    pos = parse_source_position(data["position"])
+    op = CDCOperationType(data["operation"])
+    boundary = CDCTransactionBoundary(data.get("boundary", "SINGLE_EVENT"))
+
+    return CDCEvent(
+        identity=identity,
+        source_engine=data["source_engine"],
+        source_database=data["source_database"],
+        source_schema=data["source_schema"],
+        source_table=data["source_table"],
+        operation=op,
+        position=pos,
+        before_image=data.get("before_image"),
+        after_image=data.get("after_image"),
+        boundary=boundary,
+        tx_id=data.get("tx_id"),
+        commit_timestamp=data.get("commit_timestamp"),
+        captured_timestamp=data.get("captured_timestamp"),
+    )
+
+
+def parse_cdc_transaction(data: Dict[str, Any]) -> CDCTransaction:
+    ident_dict = data["identity"]
+    identity = CDCEventIdentity(
+        migration_id=ident_dict["migration_id"],
+        job_id=ident_dict["job_id"],
+        run_id=ident_dict["run_id"],
+        cdc_session_id=ident_dict["cdc_session_id"],
+        event_id=ident_dict.get("event_id"),
+        sequence_number=ident_dict.get("sequence_number", 1),
+    )
+    pos = parse_source_position(data["commit_position"])
+    events = [parse_cdc_event(e) for e in data.get("events", [])]
+
+    tx = CDCTransaction(
+        tx_id=data["tx_id"],
+        identity=identity,
+        commit_position=pos,
+        events=events,
+        commit_timestamp=data.get("commit_timestamp"),
+    )
+    if data.get("is_committed", True):
+        tx.is_committed = True
+    if data.get("is_aborted", False):
+        tx.is_aborted = True
+    return tx
