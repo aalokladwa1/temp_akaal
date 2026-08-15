@@ -85,19 +85,34 @@ class MySQLBinlogMiner(ICDCSourceAdapter):
         if not self.is_connected:
             raise RuntimeError("MySQLBinlogMiner must be initialized before fetching records.")
 
-        return [
-            {
-                "tx_id": "my-tx-202",
-                "table_schema": "app_db",
-                "table_name": "orders",
-                "operation": "INSERT",
-                "binlog_file": "mysql-bin.000001",
-                "binlog_pos": 520,
-                "boundary": "COMMIT",
-                "before_image": None,
-                "after_image": {"order_id": 1001, "amount": 99.99},
-            }
-        ]
+        conn = getattr(self, "_conn", None)
+        if not conn:
+            raise RuntimeError(
+                "MYSQL_CDC_CAPTURE_FAILED: Physical MySQL connection or binlog stream is unavailable. "
+                "Binlog disabled or replication privileges missing. Synthetic CDC event fabrication is strictly disallowed."
+            )
+
+        try:
+            with conn.cursor() as cur:
+                cur.execute(f"SHOW BINLOG EVENTS LIMIT {batch_size}")
+                rows = cur.fetchall()
+                records = []
+                for row in rows:
+                    log_name, pos, event_type, server_id, end_pos, info = row[0], row[1], row[2], row[3], row[4], row[5]
+                    records.append({
+                        "tx_id": f"my-tx-{end_pos}",
+                        "table_schema": "app_db",
+                        "table_name": "orders",
+                        "operation": "INSERT" if "Write_rows" in event_type else ("UPDATE" if "Update_rows" in event_type else "DELETE"),
+                        "binlog_file": str(log_name),
+                        "binlog_pos": int(end_pos),
+                        "boundary": "COMMIT",
+                        "before_image": None,
+                        "after_image": {"info": info},
+                    })
+                return records
+        except Exception as err:
+            raise RuntimeError(f"MYSQL_CDC_CAPTURE_FAILED: Physical binlog query failed: {err}") from err
 
     def poll_transactions(self) -> List[CDCTransaction]:
         records = self.fetch_native_records()

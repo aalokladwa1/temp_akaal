@@ -84,18 +84,36 @@ class OracleRedoMiner(ICDCSourceAdapter):
         if not self.is_connected:
             raise RuntimeError("OracleRedoMiner must be initialized before fetching records.")
 
-        return [
-            {
-                "tx_id": "ora-tx-303",
-                "table_schema": "HR",
-                "table_name": "EMPLOYEES",
-                "operation": "UPDATE",
-                "scn": 100500,
-                "boundary": "COMMIT",
-                "before_image": {"EMP_ID": 50, "SALARY": 70000},
-                "after_image": {"EMP_ID": 50, "SALARY": 75000},
-            }
-        ]
+        conn = getattr(self, "_conn", None)
+        if not conn:
+            raise RuntimeError(
+                "ORACLE_CDC_CAPTURE_FAILED: Physical Oracle database connection or DBMS_LOGMNR session is unavailable. "
+                "Supplemental logging or LogMiner privileges missing. Synthetic CDC event fabrication is strictly disallowed."
+            )
+
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT SCN, XID, SEG_OWNER, TABLE_NAME, OPERATION, SQL_REDO FROM V$LOGMNR_CONTENTS WHERE ROWNUM <= :1",
+                    (batch_size,)
+                )
+                rows = cur.fetchall()
+                records = []
+                for row in rows:
+                    scn, xid, owner, tbl, op, sql_redo = row[0], row[1], row[2], row[3], row[4], row[5]
+                    records.append({
+                        "tx_id": f"ora-tx-{xid or scn}",
+                        "table_schema": owner or "HR",
+                        "table_name": tbl or "EMPLOYEES",
+                        "operation": op if op in ("INSERT", "UPDATE", "DELETE") else "INSERT",
+                        "scn": scn,
+                        "boundary": "COMMIT",
+                        "before_image": None,
+                        "after_image": {"sql_redo": sql_redo},
+                    })
+                return records
+        except Exception as err:
+            raise RuntimeError(f"ORACLE_CDC_CAPTURE_FAILED: Physical V$LOGMNR_CONTENTS query failed: {err}") from err
 
     def poll_transactions(self) -> List[CDCTransaction]:
         records = self.fetch_native_records()

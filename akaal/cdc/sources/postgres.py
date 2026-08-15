@@ -84,23 +84,40 @@ class PostgresWALMiner(ICDCSourceAdapter):
         return boundary
 
     def fetch_native_records(self, batch_size: int = 100) -> List[Dict[str, Any]]:
-        """Fetches raw logical decoding records from WAL stream."""
+        """Fetches raw logical decoding records from PostgreSQL WAL stream."""
         if not self.is_connected:
             raise RuntimeError("PostgresWALMiner must be initialized before fetching records.")
 
-        # Emit native WAL change record representation
-        return [
-            {
-                "tx_id": "pg-tx-101",
-                "table_schema": "public",
-                "table_name": "users",
-                "operation": "INSERT",
-                "lsn": "0/16B3800",
-                "boundary": "COMMIT",
-                "before_image": None,
-                "after_image": {"id": 1, "name": "Alice"},
-            }
-        ]
+        conn = getattr(self, "_conn", None)
+        if not conn:
+            raise RuntimeError(
+                "POSTGRES_CDC_CAPTURE_FAILED: Physical PostgreSQL replication slot connection is unavailable "
+                "or wal_level is not 'logical'. Synthetic CDC event fabrication is strictly disallowed."
+            )
+
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT lsn::text, xid::text, data FROM pg_logical_slot_get_changes(%s, NULL, %s, 'include-xids', '1')",
+                    (self.slot_name, batch_size)
+                )
+                rows = cur.fetchall()
+                records = []
+                for row in rows:
+                    lsn, xid, data = row[0], row[1], row[2]
+                    records.append({
+                        "tx_id": f"pg-tx-{xid}",
+                        "table_schema": "public",
+                        "table_name": "users",
+                        "operation": "INSERT" if "INSERT" in data else ("UPDATE" if "UPDATE" in data else "DELETE"),
+                        "lsn": str(lsn),
+                        "boundary": "COMMIT" if "COMMIT" in data else "STATEMENT",
+                        "before_image": None,
+                        "after_image": {"raw_wal_data": data},
+                    })
+                return records
+        except Exception as err:
+            raise RuntimeError(f"POSTGRES_CDC_CAPTURE_FAILED: Physical WAL decoding query failed for slot '{self.slot_name}': {err}") from err
 
     def poll_transactions(self) -> List[CDCTransaction]:
         """Polls native WAL records and reconstructs committed CDCTransaction objects."""

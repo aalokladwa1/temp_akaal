@@ -275,11 +275,11 @@ class CDCApplyWorker:
         }
 
     def _execute_target_transaction(self, tx: CDCTransaction, target_config: Optional[Dict[str, Any]]) -> None:
-        """Executes DML statements inside target transaction boundary with safety checks."""
+        """Executes DML statements inside target transaction boundary with safety checks and physical target execution."""
         for evt in tx.events:
             # Enforce UPDATE safety: must contain primary key / target row identity
             if evt.operation == CDCOperationType.UPDATE:
-                has_key = (evt.before_image and len(evt.before_image) > 0) or (evt.after_image and "id" in evt.after_image or "pk" in str(evt.after_image).lower())
+                has_key = (evt.before_image and len(evt.before_image) > 0) or (evt.after_image and ("id" in evt.after_image or "pk" in str(evt.after_image).lower()))
                 if not has_key:
                     fail = CDCFailure(
                         failure_type=CDCFailureType.UNSAFE_UPDATE,
@@ -306,3 +306,17 @@ class CDCApplyWorker:
                         cdc_session_id=self.identity.cdc_session_id,
                     )
                     raise CDCExecutionError(fail)
+
+        # Execute physical target DML if target adapter is attached
+        target_adapter = getattr(self, "target_adapter", None)
+        if target_adapter:
+            import asyncio
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            
+            success = loop.run_until_complete(target_adapter.apply_changes(tx.events))
+            if not success:
+                raise RuntimeError(f"Physical target change application returned false for transaction '{tx.tx_id}'")

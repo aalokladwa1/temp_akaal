@@ -82,19 +82,35 @@ class MongoDBOplogMiner(ICDCSourceAdapter):
         if not self.is_connected:
             raise RuntimeError("MongoDBOplogMiner must be initialized before fetching records.")
 
-        return [
-            {
-                "tx_id": "mg-tx-505",
-                "table_schema": "analytics",
-                "table_name": "events",
-                "operation": "INSERT",
-                "ts_sec": 1700000005,
-                "inc": 1,
-                "boundary": "COMMIT",
-                "before_image": None,
-                "after_image": {"_id": "evt_555", "type": "click"},
-            }
-        ]
+        client = getattr(self, "_client", None)
+        if not client:
+            raise RuntimeError(
+                "MONGODB_CDC_CAPTURE_FAILED: Physical MongoDB connection or replica set change stream is unavailable. "
+                "Replica set or sharded cluster deployment required. Synthetic CDC event fabrication is strictly disallowed."
+            )
+
+        try:
+            stream = client.watch(max_await_time_ms=1000)
+            records = []
+            for doc in stream:
+                op_type = doc.get("operationType", "insert").upper()
+                ns = doc.get("ns", {})
+                records.append({
+                    "tx_id": f"mg-tx-{doc.get('_id', {}).get('_data', '1')}",
+                    "table_schema": ns.get("db", "analytics"),
+                    "table_name": ns.get("coll", "events"),
+                    "operation": op_type if op_type in ("INSERT", "UPDATE", "DELETE", "REPLACE") else "INSERT",
+                    "ts_sec": doc.get("clusterTime", {}).time if hasattr(doc.get("clusterTime"), "time") else 1700000000,
+                    "inc": 1,
+                    "boundary": "COMMIT",
+                    "before_image": doc.get("fullDocumentBeforeChange"),
+                    "after_image": doc.get("fullDocument"),
+                })
+                if len(records) >= batch_size:
+                    break
+            return records
+        except Exception as err:
+            raise RuntimeError(f"MONGODB_CDC_CAPTURE_FAILED: Physical MongoDB change stream watch failed: {err}") from err
 
     def poll_transactions(self) -> List[CDCTransaction]:
         records = self.fetch_native_records()

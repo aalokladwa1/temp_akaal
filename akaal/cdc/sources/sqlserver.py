@@ -82,18 +82,38 @@ class MSSQLCDCMiner(ICDCSourceAdapter):
         if not self.is_connected:
             raise RuntimeError("MSSQLCDCMiner must be initialized before fetching records.")
 
-        return [
-            {
-                "tx_id": "ms-tx-404",
-                "table_schema": "dbo",
-                "table_name": "Invoices",
-                "operation": "INSERT",
-                "lsn_hex": "0000002A:000001C8:0002",
-                "boundary": "COMMIT",
-                "before_image": None,
-                "after_image": {"InvoiceId": 901, "Total": 450.00},
-            }
-        ]
+        conn = getattr(self, "_conn", None)
+        if not conn:
+            raise RuntimeError(
+                "MSSQL_CDC_CAPTURE_FAILED: Physical SQL Server connection or CDC capture instance is unavailable. "
+                "CDC disabled at DB level or capture instance missing. Synthetic CDC event fabrication is strictly disallowed."
+            )
+
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT TOP (?) sys.fn_cdc_hexstrtobin(__$start_lsn), __$operation, sys.fn_cdc_hexstrtobin(__$seqval) "
+                    "FROM cdc.dbo_Invoices_CT ORDER BY __$start_lsn",
+                    (batch_size,)
+                )
+                rows = cur.fetchall()
+                records = []
+                for row in rows:
+                    lsn, op_code, seqval = row[0], row[1], row[2]
+                    op_map = {1: "DELETE", 2: "INSERT", 3: "UPDATE", 4: "UPDATE"}
+                    records.append({
+                        "tx_id": f"ms-tx-{lsn.hex() if isinstance(lsn, bytes) else lsn}",
+                        "table_schema": "dbo",
+                        "table_name": "Invoices",
+                        "operation": op_map.get(op_code, "INSERT"),
+                        "lsn_hex": lsn.hex() if isinstance(lsn, bytes) else str(lsn),
+                        "boundary": "COMMIT",
+                        "before_image": None,
+                        "after_image": {"op_code": op_code},
+                    })
+                return records
+        except Exception as err:
+            raise RuntimeError(f"MSSQL_CDC_CAPTURE_FAILED: Physical CDC change table query failed: {err}") from err
 
     def poll_transactions(self) -> List[CDCTransaction]:
         records = self.fetch_native_records()
