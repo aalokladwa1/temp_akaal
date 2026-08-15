@@ -64,9 +64,6 @@ class CDCDDLEngineDetector:
         sql_upper = raw_sql.upper()
         meta: Dict[str, Any] = {"source_engine": engine}
 
-        if not raw_sql:
-            return DDLOperationType.UNKNOWN_DDL, None, meta
-
         # Handle MongoDB change stream DDL/command events
         if engine == "MONGODB":
             if isinstance(payload, dict):
@@ -77,6 +74,9 @@ class CDCDDLEngineDetector:
                     return DDLOperationType.RENAME_TABLE, payload.get("collection"), meta
                 elif op == "modify":
                     return DDLOperationType.ALTER_COLUMN_TYPE, payload.get("collection"), meta
+            return DDLOperationType.UNKNOWN_DDL, None, meta
+
+        if not raw_sql:
             return DDLOperationType.UNKNOWN_DDL, None, meta
 
         # Table Level DDL
@@ -103,26 +103,26 @@ class CDCDDLEngineDetector:
             return DDLOperationType.RENAME_TABLE, tbl_old, meta
 
         # Column Level DDL
-        match_alter_tbl = re.search(r"ALTER\s+TABLE\s+(?:ONLY\s+)?(?:[\w\"`]+\.)?([\w\"`]+)\s+(.*)", sql_upper)
+        match_alter_tbl = re.search(r"(?i)ALTER\s+TABLE\s+(?:ONLY\s+)?(?:[\w\"`]+\.)?([\w\"`]+)\s+(.*)", raw_sql)
         if match_alter_tbl:
             tbl = match_alter_tbl.group(1).replace('"', '').replace('`', '')
             alter_clause = match_alter_tbl.group(2)
 
             # ADD / DROP PRIMARY KEY
-            if "ADD PRIMARY KEY" in alter_clause or "ADD CONSTRAINT" in alter_clause and "PRIMARY KEY" in alter_clause:
+            if re.search(r"(?i)ADD\s+PRIMARY\s+KEY|ADD\s+CONSTRAINT.*PRIMARY\s+KEY", alter_clause):
                 return DDLOperationType.ADD_PRIMARY_KEY, tbl, meta
 
-            if "DROP PRIMARY KEY" in alter_clause or "DROP CONSTRAINT" in alter_clause and "PRIMARY KEY" in alter_clause:
+            if re.search(r"(?i)DROP\s+PRIMARY\s+KEY|DROP\s+CONSTRAINT.*PRIMARY\s+KEY", alter_clause):
                 return DDLOperationType.DROP_PRIMARY_KEY, tbl, meta
 
             # ADD COLUMN
-            match_add_col = re.search(r"ADD\s+(?:COLUMN\s+)?([\w\"`]+)\s+([\w\(\)]+)", alter_clause)
+            match_add_col = re.search(r"(?i)ADD\s+(?:COLUMN\s+)?([\w\"`]+)\s+([\w\(\)]+)", alter_clause)
             if match_add_col:
                 col_name = match_add_col.group(1).replace('"', '').replace('`', '')
                 col_type = match_add_col.group(2)
-                is_not_null = "NOT NULL" in alter_clause
+                is_not_null = "NOT NULL" in alter_clause.upper()
                 default_val = None
-                default_match = re.search(r"DEFAULT\s+([^,\s]+)", alter_clause)
+                default_match = re.search(r"(?i)DEFAULT\s+([^,\s]+)", alter_clause)
                 if default_match:
                     default_val = default_match.group(1)
                 meta["column_name"] = col_name
@@ -132,14 +132,14 @@ class CDCDDLEngineDetector:
                 return DDLOperationType.ADD_COLUMN, tbl, meta
 
             # DROP COLUMN
-            match_drop_col = re.search(r"DROP\s+(?:COLUMN\s+)?([\w\"`]+)", alter_clause)
+            match_drop_col = re.search(r"(?i)DROP\s+(?:COLUMN\s+)?([\w\"`]+)", alter_clause)
             if match_drop_col:
                 col_name = match_drop_col.group(1).replace('"', '').replace('`', '')
                 meta["column_name"] = col_name
                 return DDLOperationType.DROP_COLUMN, tbl, meta
 
             # RENAME COLUMN
-            match_rename_col = re.search(r"RENAME\s+(?:COLUMN\s+)?([\w\"`]+)\s+TO\s+([\w\"`]+)", alter_clause)
+            match_rename_col = re.search(r"(?i)RENAME\s+(?:COLUMN\s+)?([\w\"`]+)\s+TO\s+([\w\"`]+)", alter_clause)
             if match_rename_col:
                 old_col = match_rename_col.group(1).replace('"', '').replace('`', '')
                 new_col = match_rename_col.group(2).replace('"', '').replace('`', '')
@@ -148,7 +148,7 @@ class CDCDDLEngineDetector:
                 return DDLOperationType.RENAME_COLUMN, tbl, meta
 
             # ALTER COLUMN TYPE / MODIFY
-            match_mod_col = re.search(r"(?:ALTER|MODIFY)\s+(?:COLUMN\s+)?([\w\"`]+)\s+(?:TYPE\s+)?([\w\(\)]+)", alter_clause)
+            match_mod_col = re.search(r"(?i)(?:ALTER|MODIFY)\s+(?:COLUMN\s+)?([\w\"`]+)\s+(?:TYPE\s+)?([\w\(\)]+)", alter_clause)
             if match_mod_col:
                 col_name = match_mod_col.group(1).replace('"', '').replace('`', '')
                 new_type = match_mod_col.group(2)

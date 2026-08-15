@@ -159,6 +159,10 @@ class CDCSchemaEvolutionCoordinator:
         if not trans:
             raise ValueError(f"No pending schema transition with ID '{transition_id}'.")
 
+        current_state = trans.get("state")
+        if current_state in {SchemaTransitionState.COMPLETED.value, SchemaTransitionState.FAILED.value, "REJECTED"}:
+            raise ValueError(f"Cannot approve transition in state '{current_state}'.")
+
         identity = CDCEventIdentity.from_dict(trans["identity"])
         app_rec = self.transition_engine.record_schema_approval(
             migration_id=identity.migration_id,
@@ -200,9 +204,16 @@ class CDCSchemaEvolutionCoordinator:
             requires_approval=requires_app,
         )
 
-        # Release Barrier
+        # Release Barrier with Monotonic Fencing Epoch Validation
         if trans.get("barrier_id"):
-            self.barrier_authority.release_barrier(identity.cdc_session_id, table_name, proposed_ver.schema_version_id)
+            self.barrier_authority.release_barrier(
+                cdc_session_id=identity.cdc_session_id,
+                table_name=table_name,
+                verified_schema_version_id=proposed_ver.schema_version_id,
+                fencing_epoch=epoch,
+                recovery_coordinator=self.recovery_coordinator,
+                migration_id=identity.migration_id,
+            )
 
         # Activate New Schema Version
         key = f"{identity.cdc_session_id}:{table_name}"

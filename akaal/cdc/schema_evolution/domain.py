@@ -23,10 +23,14 @@ def sanitize_ddl_statement(raw_ddl: str) -> str:
     if not raw_ddl:
         return ""
     sanitized = raw_ddl
-    # Redact identified password/credential patterns in DDL (e.g. IDENTIFIED BY 'secret', PASSWORD = 'secret')
+    # Redact identified password/credential patterns in DDL (e.g. IDENTIFIED BY 'secret', PASSWORD = 'secret', TOKEN = 'secret')
     sanitized = re.sub(r"(?i)(IDENTIFIED\s+BY\s+)(['\"][^'\"]+['\"]|\S+)", r"\1'[REDACTED_SECRET]'", sanitized)
     sanitized = re.sub(r"(?i)(PASSWORD\s*=\s*)(['\"][^'\"]+['\"]|\S+)", r"\1'[REDACTED_SECRET]'", sanitized)
     sanitized = re.sub(r"(?i)(SECRET\s*=\s*)(['\"][^'\"]+['\"]|\S+)", r"\1'[REDACTED_SECRET]'", sanitized)
+    sanitized = re.sub(r"(?i)(AUTH_TOKEN\s*=\s*)(['\"][^'\"]+['\"]|\S+)", r"\1'[REDACTED_SECRET]'", sanitized)
+    sanitized = re.sub(r"(?i)(API_KEY\s*=\s*)(['\"][^'\"]+['\"]|\S+)", r"\1'[REDACTED_SECRET]'", sanitized)
+    sanitized = re.sub(r"(?i)(BEARER\s+)(['\"][^'\"]+['\"]|\S+)", r"\1'[REDACTED_SECRET]'", sanitized)
+    sanitized = re.sub(r"(?i)(PRIVATE_KEY\s*=\s*)(['\"][^'\"]+['\"]|\S+)", r"\1'[REDACTED_SECRET]'", sanitized)
     return sanitized
 
 

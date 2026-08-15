@@ -70,12 +70,20 @@ class CDCSchemaTransitionBarrier:
         cdc_session_id: str,
         table_name: str,
         verified_schema_version_id: str,
+        fencing_epoch: Optional[int] = None,
+        recovery_coordinator: Optional[Any] = None,
+        migration_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         barrier_key = f"{cdc_session_id}:{table_name}"
         if not self.is_barrier_active(cdc_session_id, table_name):
             raise ValueError(f"No active schema barrier to release for session '{cdc_session_id}' table '{table_name}'.")
 
         barrier_info = self.active_barriers[barrier_key]
+
+        if fencing_epoch is not None and recovery_coordinator is not None and migration_id is not None:
+            if not recovery_coordinator.validate_fencing_token(migration_id, fencing_epoch):
+                raise ValueError(f"Fencing token violation! Stale epoch {fencing_epoch} rejected during barrier release.")
+
         if barrier_info["proposed_schema_version_id"] != verified_schema_version_id:
             raise ValueError(f"Cannot release barrier: Verified schema version '{verified_schema_version_id}' does not match proposed '{barrier_info['proposed_schema_version_id']}'.")
 

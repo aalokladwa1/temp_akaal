@@ -39,11 +39,13 @@ class CDCApplyWorker:
         durable_buffer: DurableCDCBuffer,
         recovery_coordinator: Optional[RecoveryCoordinator] = None,
         state_store: Optional[CentralStateStore] = None,
+        barrier_authority: Optional[Any] = None,
     ) -> None:
         self.identity = identity
         self.durable_buffer = durable_buffer
         self.recovery_coordinator = recovery_coordinator or RecoveryCoordinator()
         self.state_store = state_store or CentralStateStore()
+        self.barrier_authority = barrier_authority
 
         self.applied_transaction_ids: Set[str] = set()
         self.applied_transaction_hashes: Dict[str, str] = {}
@@ -124,6 +126,21 @@ class CDCApplyWorker:
                 cdc_session_id=self.identity.cdc_session_id,
             )
             raise CDCExecutionError(fail)
+
+        # Check Active Schema Barrier
+        if self.barrier_authority:
+            for evt in tx.events:
+                if self.barrier_authority.is_barrier_active(self.identity.cdc_session_id, evt.source_table):
+                    fail = CDCFailure(
+                        failure_type=CDCFailureType.SCHEMA_BARRIER_ACTIVE,
+                        category=CDCFailureCategory.PAUSABLE,
+                        message=f"[SCHEMA BARRIER ACTIVE] Cannot apply transaction '{tx.tx_id}' while active schema barrier is set for table '{evt.source_table}'.",
+                        migration_id=self.identity.migration_id,
+                        job_id=self.identity.job_id,
+                        run_id=self.identity.run_id,
+                        cdc_session_id=self.identity.cdc_session_id,
+                    )
+                    raise CDCExecutionError(fail)
 
         # Check if already applied (Restart-Persistent Replay & Duplicate Protection)
         if tx.tx_id in self.applied_transaction_ids:
