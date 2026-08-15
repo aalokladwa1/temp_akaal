@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import styles from './ReportsModule.module.css';
 import { ipcService } from '../../services/ipcService';
 
@@ -240,84 +240,10 @@ const generateValidPdfBytes = (title: string, lines: string[]): Uint8Array => {
   return pdfBuffer;
 };
 
-// Sample canonical report datasets representing backend truth for P2.12 demonstration
-const SAMPLE_REPORTS: CanonicalReportData[] = [
-  {
-    report_id: 'REP-2026-001',
-    report_version: 'AKAAL-CANONICAL-V1',
-    report_type: 'MIGRATION_AND_VALIDATION',
-    job_id: 'JOB-ORACLE-PG-01',
-    run_id: 'RUN-101',
-    created_at: '2026-08-14T18:30:00Z',
-    source_info: { engine: 'Oracle 19c Enterprise', database: 'PROD_FINANCE' },
-    target_info: { engine: 'PostgreSQL 16.2', database: 'ANALYTICS_DB' },
-    execution_summary: { status: 'COMPLETED', duration_seconds: 42.8 },
-    schema_summary: { risk_score: 5, overall_compatibility: 'COMPATIBLE', blocking_findings_count: 0 },
-    data_summary: { tables_validated: 18, total_rows_evaluated: 1420500, total_source_only_rows: 0, total_target_only_rows: 0, total_value_mismatch_rows: 0 },
-    validation_summary: { serialization_version: 'AKAAL-CANONICAL-V1', hash_algorithm: 'SHA-256', final_status: 'MATCHED', tables_matched: 18, tables_mismatched: 0, tables_indeterminate: 0, tables_failed: 0 },
-    governance_summary: { approval_required: true, approval_state: 'APPROVED' },
-    warnings: [],
-    errors: [],
-    manual_review_items: [],
-    evidence_fingerprints: ['7a8f3b2c1d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a'],
-    final_outcome: 'PASSED',
-    certification: {
-      certification_id: 'cert-REP-2026-001',
-      job_id: 'JOB-ORACLE-PG-01',
-      run_id: 'RUN-101',
-      outcome: 'CERTIFIED',
-      certification_fingerprint: '3b7d4e92a81f5c6e0d9a2b4c6e8f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f',
-      claims: [
-        { claim_type: 'SCHEMA_COMPATIBILITY_VERIFIED', status: 'PASSED', evidence_fingerprint: 'risk-5', description: 'Schema compatibility verified with risk score 5' },
-        { claim_type: 'ROW_COUNT_VERIFIED', status: 'PASSED', evidence_fingerprint: 'ev-rec-01', description: 'Row count verified across 18 tables' },
-        { claim_type: 'ROW_RECONCILIATION_VERIFIED', status: 'PASSED', evidence_fingerprint: 'ev-rec-01', description: 'Deep row reconciliation evaluated 1,420,500 rows' },
-        { claim_type: 'NO_VALUE_MISMATCHES', status: 'PASSED', evidence_fingerprint: 'ev-rec-01', description: 'Zero value mismatches detected' },
-        { claim_type: 'GOVERNANCE_APPROVAL_COMPLETE', status: 'PASSED', evidence_fingerprint: 'gov-ok', description: 'Governance approval gate verified' },
-      ],
-      evidence_manifest: [
-        { type: 'SCHEMA_RISK', fingerprint: 'risk-5', status: 'COMPATIBLE' },
-        { type: 'RECONCILIATION_EVIDENCE', fingerprint: 'ev-rec-01', status: 'MATCHED' },
-      ],
-    },
-    report_fingerprint: '9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1f0e9d8c7b6a5f4e3d2c1b0a9f8e',
-  },
-  {
-    report_id: 'REP-2026-002',
-    report_version: 'AKAAL-CANONICAL-V1',
-    report_type: 'VALIDATION_ONLY',
-    job_id: 'JOB-MYSQL-MSSQL-02',
-    run_id: 'RUN-202',
-    created_at: '2026-08-14T17:15:00Z',
-    source_info: { engine: 'MySQL 8.0', database: 'ECOMMERCE' },
-    target_info: { engine: 'Microsoft SQL Server 2022', database: 'ERP_TARGET' },
-    execution_summary: { status: 'VALIDATED', duration_seconds: 15.2 },
-    schema_summary: { risk_score: 25, overall_compatibility: 'COMPATIBLE_WITH_CONVERSION', blocking_findings_count: 0 },
-    data_summary: { tables_validated: 12, total_rows_evaluated: 850000, total_source_only_rows: 0, total_target_only_rows: 0, total_value_mismatch_rows: 14 },
-    validation_summary: { serialization_version: 'AKAAL-CANONICAL-V1', hash_algorithm: 'SHA-256', final_status: 'MISMATCHED', tables_matched: 10, tables_mismatched: 2, tables_indeterminate: 0, tables_failed: 0 },
-    governance_summary: { approval_required: false, approval_state: 'NOT_REQUIRED' },
-    warnings: ['14 value mismatches detected in customer_billing table'],
-    errors: [],
-    manual_review_items: ['Verify DATETIME2 precision conversion in MSSQL target'],
-    evidence_fingerprints: ['4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b'],
-    final_outcome: 'FAILED',
-    certification: {
-      certification_id: 'cert-REP-2026-002',
-      job_id: 'JOB-MYSQL-MSSQL-02',
-      run_id: 'RUN-202',
-      outcome: 'NOT_CERTIFIED',
-      certification_fingerprint: '1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b',
-      claims: [
-        { claim_type: 'ROW_RECONCILIATION_VERIFIED', status: 'FAILED', evidence_fingerprint: 'ev-rec-02', description: 'Deep row reconciliation detected 14 value mismatches' },
-      ],
-      evidence_manifest: [
-        { type: 'RECONCILIATION_EVIDENCE', fingerprint: 'ev-rec-02', status: 'MISMATCHED' },
-      ],
-    },
-    report_fingerprint: '2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c',
-  },
-];
+
 
 export const ReportsModule: React.FC = () => {
+  const [reports, setReports] = useState<CanonicalReportData[]>([]);
   const [selectedReport, setSelectedReport] = useState<CanonicalReportData | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'validation' | 'reconciliation' | 'schema' | 'evidence' | 'governance'>('overview');
   const [searchQuery, setSearchQuery] = useState('');
@@ -327,7 +253,27 @@ export const ReportsModule: React.FC = () => {
   const [exportState, setExportState] = useState<string | null>(null);
   const [integrityStatus, setIntegrityStatus] = useState<'UNEVALUATED' | 'INTEGRITY_VERIFIED' | 'INTEGRITY_FAILED' | 'UNABLE_TO_VERIFY'>('UNEVALUATED');
 
-  const filteredReports = SAMPLE_REPORTS.map(sanitizeValue).filter((r: CanonicalReportData) => {
+  useEffect(() => {
+    async function loadBackendReports() {
+      try {
+        const resStr = await ipcService.invokeEngineCapability('get_reports_catalog', '{}');
+        const data = typeof resStr === 'string' ? JSON.parse(resStr) : resStr;
+        if (Array.isArray(data) && data.length > 0) {
+          setReports(data);
+        } else {
+          setReports([]);
+        }
+      } catch (e: any) {
+        console.warn('[ReportsModule] IPC load failed — Engine report authority unavailable. No certified physical reports loaded.', e);
+        setReports([]);
+      }
+    }
+    loadBackendReports();
+  }, []);
+
+  const reportListToDisplay = reports.length > 0 ? reports : [];
+
+  const filteredReports = reportListToDisplay.map(sanitizeValue).filter((r: CanonicalReportData) => {
     const matchesSearch =
       r.report_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
       r.job_id.toLowerCase().includes(searchQuery.toLowerCase()) ||

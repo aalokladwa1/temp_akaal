@@ -388,9 +388,7 @@ class MSSQLAdapter(BaseAdapter):
 
     async def discover_columns(self, table_name: str) -> List[Dict[str, Any]]:
         if not self.is_connected:
-            raise RuntimeError("Not connected.")
-        if self.mock_mode:
-            return _MOCK_COLUMNS.get(table_name, [{"name": "id", "type": "INT", "nullable": False, "default": None, "parent_id": None}])
+            raise RuntimeError("MSSQL connection unavailable for column discovery.")
         sql = """
             SELECT 
                 c.COLUMN_NAME, c.DATA_TYPE, c.CHARACTER_MAXIMUM_LENGTH, 
@@ -807,20 +805,7 @@ class MSSQLAdapter(BaseAdapter):
         return rows[0][0] if rows else 0
 
     async def compute_checksum(self, table_name: str) -> str:
-        if self.mock_mode:
-            return hashlib.sha256(table_name.encode()).hexdigest()
-        def _row_hash(row: dict) -> str:
-            parts = []
-            for k in sorted(row.keys()):
-                v = row[k]
-                if isinstance(v, Decimal):
-                    v = str(v)
-                elif hasattr(v, "isoformat"):
-                    v = v.isoformat()
-                else:
-                    v = str(v) if v is not None else ""
-                parts.append(f"{k}={v}")
-            return hashlib.sha256("|".join(parts).encode()).hexdigest()
+        from akaal.validation.domain.canonical_checksum import compute_canonical_table_checksum
         pk = await self._primary_key_column(table_name)
         sql = f"SELECT * FROM [{table_name}] ORDER BY [{pk}]"
         async with self._connection() as conn_ctx:
@@ -828,21 +813,16 @@ class MSSQLAdapter(BaseAdapter):
                 async with conn_ctx.conn.cursor() as cur:
                     await cur.execute(sql)
                     col_names = [d[0] for d in cur.description]
-                    combined_parts = []
-                    async for row in cur:
-                        row_dict = dict(zip(col_names, row))
-                        combined_parts.append(_row_hash(row_dict))
+                    rows = [dict(zip(col_names, row)) async for row in cur]
+                    return compute_canonical_table_checksum(rows)
             else:
                 def _run():
                     with conn_ctx.conn.cursor() as cur:
                         cur.execute(sql)
                         col_names = [d[0] for d in cur.description]
-                        combined_parts = []
-                        for row in cur:
-                            row_dict = dict(zip(col_names, row))
-                            combined_parts.append(_row_hash(row_dict))
-                        return combined_parts
-                combined_parts = await asyncio.to_thread(_run)
+                        rows = [dict(zip(col_names, row)) for row in cur]
+                        return compute_canonical_table_checksum(rows)
+                return await asyncio.to_thread(_run)
         combined = "|".join(combined_parts)
         return hashlib.sha256(combined.encode()).hexdigest()
 

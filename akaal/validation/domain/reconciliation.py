@@ -46,6 +46,35 @@ class ValidationWriteFirewallError(PermissionError):
 class ValidationOnlyWriteFirewall:
     """Write Firewall enforcing zero target mutations during validation-only execution."""
 
+    # Mutation keywords that are forbidden in any validation-only SQL execution context.
+    # Normalization: strip leading/trailing whitespace, collapse internal spaces, uppercase.
+    _FORBIDDEN_KEYWORDS = frozenset([
+        "INSERT", "UPDATE", "DELETE", "MERGE", "UPSERT",
+        "TRUNCATE", "DROP", "ALTER", "CREATE", "REPLACE",
+        "CALL", "EXEC", "EXECUTE",
+    ])
+
+    @classmethod
+    def assert_read_only(cls, sql: str) -> None:
+        """
+        Inspect SQL text for mutation keywords.
+        Raises RuntimeError if any forbidden mutation keyword is found.
+        Case-insensitive, handles leading whitespace and CTE prefixes.
+        """
+        import re
+        if not isinstance(sql, str):
+            raise RuntimeError("[WRITE FIREWALL] SQL must be a string, got: " + type(sql).__name__)
+        # Extract all word tokens — catches casing, whitespace, CTE-based mutations
+        tokens = set(re.findall(r'\b[A-Za-z_]+\b', sql.upper()))
+        blocked = tokens & cls._FORBIDDEN_KEYWORDS
+        if blocked:
+            err_msg = (
+                f"[WRITE FIREWALL ENFORCED] SQL mutation keyword(s) {sorted(blocked)} are "
+                "strictly forbidden in VALIDATION_ONLY mode!"
+            )
+            logger.error(err_msg)
+            raise RuntimeError(err_msg)
+
     @staticmethod
     def assert_target_mutation_allowed(mode: ValidationExecutionMode, operation_name: str = "Target Write") -> None:
         """Blocks INSERT, UPDATE, DELETE, TRUNCATE, DDL, or CDC writes when mode is VALIDATION_ONLY."""

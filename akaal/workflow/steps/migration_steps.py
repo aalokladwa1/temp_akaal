@@ -780,6 +780,7 @@ class ValidationStep(AbstractStep):
             skipped = 0
             unsupported = 0
             failed = 0
+            count_query_successful = False  # Remains False until at least one physical count pair succeeds
 
             total_source_rows = 0
             total_target_rows = 0
@@ -828,13 +829,17 @@ class ValidationStep(AbstractStep):
                     if s_count_sql is not None and t_count_sql is not None:
                         s_count = s_count_sql
                         t_count = t_count_sql
+                        count_query_successful = True
                     else:
-                        s_count = rt_ctx.get("rows_read", rt_ctx.get("rows_migrated", 5))
-                        t_count = rt_ctx.get("rows_migrated", s_count)
+                        s_count = -1
+                        t_count = -1
+                        count_query_successful = False
+                        failed += 1
 
-                    total_source_rows += s_count
-                    total_target_rows += t_count
-                    migrated += 1
+                    if count_query_successful:
+                        total_source_rows += s_count
+                        total_target_rows += t_count
+                        migrated += 1
                 elif o_type in ("VIEW", "SEQUENCE", "PROCEDURE", "FUNCTION", "TRIGGER", "CANONICALVIEW", "CANONICALSEQUENCE"):
                     transformed += 1
                 elif o_type in ("UNSUPPORTED", "UNKNOWN"):
@@ -850,21 +855,19 @@ class ValidationStep(AbstractStep):
                 "skipped": skipped,
                 "unsupported": unsupported,
                 "failed": failed,
-                "invariant_satisfied": total_selected == (migrated + transformed + skipped + unsupported + failed)
+                "invariant_satisfied": (failed == 0) and (total_selected == (migrated + transformed + skipped + unsupported))
             }
 
-            transport_read = rt_ctx.get("rows_read", rt_ctx.get("rows_migrated", total_target_rows))
-            transport_written = rt_ctx.get("rows_migrated", total_target_rows)
-            row_diff = abs(total_source_rows - total_target_rows)
-            # Row match passes if live physical counts match OR if session transport read equals written
-            row_match = (total_source_rows == total_target_rows) or (transport_read == transport_written and transport_written > 0)
+            # Row match strictly requires physical count queries to have succeeded AND source count == target count
+            row_match = count_query_successful and (total_source_rows == total_target_rows) and (failed == 0)
+            validation_passed = row_match and reconciliation_matrix["invariant_satisfied"]
 
+            row_diff = abs(total_source_rows - total_target_rows) if count_query_successful else -1
             row_reconciliation = {
-                "source_rows": total_source_rows,
-                "transport_rows_read": transport_read,
-                "transport_rows_written": transport_written,
-                "target_rows": total_target_rows,
-                "row_difference": row_diff,
+                "source_rows": total_source_rows if count_query_successful else "UNABLE_TO_VERIFY",
+                "target_rows": total_target_rows if count_query_successful else "UNABLE_TO_VERIFY",
+                "count_verified": count_query_successful,
+                "row_difference": row_diff if count_query_successful else "UNABLE_TO_VERIFY",
                 "row_count_match": row_match
             }
 
@@ -876,7 +879,10 @@ class ValidationStep(AbstractStep):
             loop.run_until_complete(pg_adapter.close())
 
             if not row_match:
-                err_msg = f"ROW_RECONCILIATION_FAILED: Source row count ({total_source_rows}) != Target row count ({total_target_rows}) (Difference: {row_diff})"
+                if not count_query_successful:
+                    err_msg = "ROW_RECONCILIATION_FAILED: UNABLE_TO_VERIFY — physical source or target row count queries failed. Cannot certify data equivalence."
+                else:
+                    err_msg = f"ROW_RECONCILIATION_FAILED: Source row count ({total_source_rows}) != Target row count ({total_target_rows}) (Difference: {row_diff})"
                 logger.error(f"[ValidationStep] {err_msg}")
                 return WorkflowStepResult(
                     step_id=self.step_id,
@@ -884,7 +890,7 @@ class ValidationStep(AbstractStep):
                     status=StepStatus.FAILED,
                     errors=(err_msg,),
                     context_updates={
-                        "rows_validated": total_target_rows,
+                        "rows_validated": total_target_rows if count_query_successful else "UNABLE_TO_VERIFY",
                         "validation_passed": False,
                         "reconciliation_matrix": reconciliation_matrix,
                         "row_reconciliation": row_reconciliation

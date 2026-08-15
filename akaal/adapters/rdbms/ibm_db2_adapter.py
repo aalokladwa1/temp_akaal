@@ -295,19 +295,27 @@ class IBMDB2Adapter(BaseAdapter):
         return len(rows)
 
     async def get_row_count(self, table_name: str) -> int:
-        if self._is_mock:
-            return 2500
-        if self._conn:
-            import ibm_db
-            sql = f"SELECT COUNT(*) FROM {table_name.upper()}"
-            stmt = ibm_db.exec_immediate(self._conn, sql)
-            row = ibm_db.fetch_tuple(stmt)
-            return int(row[0]) if row else 0
-        return 2500
+        if not self._conn:
+            raise RuntimeError("IBM Db2 connection unavailable for row count query.")
+        import ibm_db
+        sql = f"SELECT COUNT(*) FROM {table_name.upper()}"
+        stmt = ibm_db.exec_immediate(self._conn, sql)
+        row = ibm_db.fetch_tuple(stmt)
+        return int(row[0]) if row else 0
 
     async def compute_checksum(self, table_name: str) -> str:
-        count = await self.get_row_count(table_name)
-        return hashlib.sha256(f"ibm_db2:{table_name.upper()}:{count}".encode("utf-8")).hexdigest()
+        from akaal.validation.domain.canonical_checksum import compute_canonical_table_checksum
+        if not self._conn:
+            raise RuntimeError("IBM Db2 connection unavailable for checksum computation.")
+        cursor = self._conn.cursor()
+        try:
+            cursor.execute(f'SELECT * FROM "{table_name.upper()}"')
+            cols = [d[0] for d in cursor.description] if cursor.description else []
+            rows = cursor.fetchall()
+            row_dicts = [dict(zip(cols, r)) for r in rows] if cols else []
+            return compute_canonical_table_checksum(row_dicts)
+        finally:
+            cursor.close()
 
     # ------------------------------------------------------------------
     # Transactions

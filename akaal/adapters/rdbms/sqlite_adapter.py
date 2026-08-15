@@ -365,28 +365,39 @@ class SQLiteAdapter(BaseAdapter):
         return await asyncio.to_thread(_write)
 
     async def get_row_count(self, table_name: str) -> int:
-        extra = getattr(self.config, "extra", {}) or {}
-        driver_opts = extra.get("driver_options", {}) if isinstance(extra, dict) else {}
-        if (
-            self.mock_mode
-            or extra.get("mock_mode") is True
-            or driver_opts.get("mock_mode") is True
-            or "example.com" in getattr(self.config, "host", "")
-        ):
-            return 250
+        if not self._conn:
+            raise RuntimeError("SQLite connection unavailable for row count query.")
         def _count():
             cursor = self._conn.cursor()
             try:
                 cursor.execute(f'SELECT COUNT(*) FROM "{table_name}"')
                 return cursor.fetchone()[0]
-            except Exception:
-                return 0
+            except Exception as e:
+                raise RuntimeError(f"SQLite row count query failed for '{table_name}': {e}") from e
             finally:
                 cursor.close()
         return await asyncio.to_thread(_count)
 
     async def compute_checksum(self, table_name: str) -> str:
-        return "mock_checksum"
+        from akaal.validation.domain.canonical_checksum import compute_canonical_table_checksum
+        def _calc():
+            if not self._conn:
+                raise RuntimeError("SQLite connection unavailable for checksum computation.")
+            cursor = self._conn.cursor()
+            try:
+                # Discover primary key or fallback to rowid for deterministic ordering
+                cursor.execute(f'PRAGMA table_info("{table_name}")')
+                cols_info = cursor.fetchall()
+                pk_cols = [c[1] for c in cols_info if c[5] > 0]
+                order_clause = f'ORDER BY {", ".join([f"""("{c}")""" for c in pk_cols])}' if pk_cols else "ORDER BY rowid"
+                
+                cursor.execute(f'SELECT * FROM "{table_name}" {order_clause}')
+                col_names = [d[0] for d in cursor.description]
+                rows = [dict(zip(col_names, r)) for r in cursor.fetchall()]
+                return compute_canonical_table_checksum(rows)
+            finally:
+                cursor.close()
+        return await asyncio.to_thread(_calc)
 
     async def discover_foreign_keys(self) -> List[Dict[str, Any]]:
         return []

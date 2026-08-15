@@ -301,11 +301,7 @@ class OracleAdapter(BaseAdapter):
 
     async def discover_columns(self, table_name: str) -> List[Dict[str, Any]]:
         if not self._conn:
-            raise RuntimeError("Not connected")
-        if self.mock_mode:
-            return _MOCK_COLUMNS.get(table_name, [
-                {"name": "id", "type": "INTEGER", "nullable": False, "default": None, "parent_id": None}
-            ])
+            raise RuntimeError("Oracle connection unavailable for column discovery.")
 
         sql = """
             SELECT COLUMN_NAME, DATA_TYPE, DATA_LENGTH, DATA_PRECISION, DATA_SCALE,
@@ -722,34 +718,18 @@ class OracleAdapter(BaseAdapter):
         return await asyncio.to_thread(_run)
 
     async def compute_checksum(self, table_name: str) -> str:
-        if self.mock_mode or not hasattr(self._conn, "cursor"):
-            return hashlib.sha256(f"oracle:{table_name}:1000".encode("utf-8")).hexdigest()
-        if not self._conn:
-            raise RuntimeError("Not connected")
+        from akaal.validation.domain.canonical_checksum import compute_canonical_table_checksum
+        if not self._conn or not hasattr(self._conn, "cursor"):
+            raise RuntimeError("Oracle connection unavailable for checksum computation.")
         pk = await self._primary_key_column(table_name)
         order_clause = self._quote(pk) if pk else 'ROWID'
         sql = f'SELECT * FROM {self._quote(self._schema)}.{self._quote(table_name)} ORDER BY {order_clause}'
-        def _row_hash(row: dict) -> str:
-            parts = []
-            for k in sorted(row.keys()):
-                v = row[k]
-                if isinstance(v, Decimal):
-                    v = str(v)
-                elif hasattr(v, "isoformat"):
-                    v = v.isoformat()
-                else:
-                    v = str(v) if v is not None else ""
-                parts.append(f"{k}={v}")
-            return hashlib.sha256("|".join(parts).encode()).hexdigest()
         def _run():
             with self._conn.cursor() as cur:
                 cur.execute(sql)
-                col_names = [d[0].lower() for d in cur.description]
-                hashes = []
-                for row in cur:
-                    row_dict = dict(zip(col_names, row))
-                    hashes.append(_row_hash(row_dict))
-                return hashlib.sha256("|".join(hashes).encode()).hexdigest()
+                cols = [col[0] for col in cur.description] if cur.description else []
+                rows = [dict(zip(cols, r)) for r in cur.fetchall()]
+            return compute_canonical_table_checksum(rows)
         return await asyncio.to_thread(_run)
 
     # ------------------------------------------------------------------

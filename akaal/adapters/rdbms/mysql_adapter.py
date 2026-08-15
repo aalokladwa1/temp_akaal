@@ -210,12 +210,8 @@ class MySQLAdapter(BaseAdapter):
         return await asyncio.to_thread(_run)
 
     async def discover_columns(self, table_name: str) -> List[Dict[str, Any]]:
-        if not self.is_connected:
-            raise RuntimeError("Not connected.")
-        if self.mock_mode:
-            return _MOCK_COLUMNS.get(table_name, [
-                {"name": "id", "type": "INTEGER", "nullable": False, "default": None, "parent_id": None}
-            ])
+        if not self.is_connected or not self._conn:
+            raise RuntimeError("MySQL connection unavailable for column discovery.")
         
         sql = """
             SELECT COLUMN_NAME, DATA_TYPE, COLUMN_TYPE, IS_NULLABLE, COLUMN_DEFAULT, EXTRA
@@ -625,30 +621,17 @@ class MySQLAdapter(BaseAdapter):
         return await asyncio.to_thread(_run)
 
     async def compute_checksum(self, table_name: str) -> str:
-        if self.mock_mode:
-            return hashlib.sha256(table_name.encode()).hexdigest()
+        from akaal.validation.domain.canonical_checksum import compute_canonical_table_checksum
+        if not self._conn:
+            raise RuntimeError("MySQL connection unavailable for checksum computation.")
         
-        # Consistent row hashing logic matching PostgreSQLAdapter exactly
-        def _row_hash(row: dict) -> str:
-            parts = []
-            for k in sorted(row.keys()):
-                v = row[k]
-                if isinstance(v, Decimal):
-                    v = str(v)
-                elif hasattr(v, 'isoformat'):
-                    v = v.isoformat()
-                else:
-                    v = str(v) if v is not None else ''
-                parts.append(f"{k}={v}")
-            return hashlib.sha256('|'.join(parts).encode()).hexdigest()
-
         pk = await self._primary_key_column(table_name)
         def _run():
             with self._conn.cursor() as cur:
                 cur.execute(f'SELECT * FROM `{table_name}` ORDER BY `{pk}`')
-                rows = cur.fetchall()
-            combined = '|'.join(_row_hash(dict(r)) for r in rows)
-            return hashlib.sha256(combined.encode()).hexdigest()
+                cols = [d[0] for d in cur.description] if cur.description else []
+                rows = [dict(zip(cols, r)) for r in cur.fetchall()]
+            return compute_canonical_table_checksum(rows)
         return await asyncio.to_thread(_run)
 
     async def discover_identity(self, schema: str, table: str, column: str) -> Optional[Any]:

@@ -265,18 +265,23 @@ class MariaDBAdapter(BaseAdapter):
         return len(rows)
 
     async def get_row_count(self, table_name: str) -> int:
-        if self._is_mock:
-            return 1000
-        if self._client:
-            async with self._client.cursor() as cur:
-                await cur.execute(f"SELECT COUNT(*) FROM `{table_name}`")
-                row = await cur.fetchone()
-                return int(row[0]) if row else 0
-        return 1000
+        if not self._client:
+            raise RuntimeError("MariaDB connection unavailable for row count query.")
+        async with self._client.cursor() as cur:
+            await cur.execute(f"SELECT COUNT(*) FROM `{table_name}`")
+            row = await cur.fetchone()
+            return int(row[0]) if row else 0
 
     async def compute_checksum(self, table_name: str) -> str:
-        count = await self.get_row_count(table_name)
-        return hashlib.sha256(f"mariadb:{table_name}:{count}".encode("utf-8")).hexdigest()
+        from akaal.validation.domain.canonical_checksum import compute_canonical_table_checksum
+        if not self._client:
+            raise RuntimeError("MariaDB connection unavailable for checksum computation.")
+        async with self._client.cursor() as cur:
+            await cur.execute(f"SELECT * FROM `{table_name}`")
+            cols = [d[0] for d in cur.description] if cur.description else []
+            rows = await cur.fetchall()
+            row_dicts = [dict(zip(cols, r)) for r in rows] if cols else []
+            return compute_canonical_table_checksum(row_dicts)
 
     # ------------------------------------------------------------------
     # Transactions
