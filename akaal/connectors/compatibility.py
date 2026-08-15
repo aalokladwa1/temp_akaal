@@ -133,6 +133,28 @@ class SemanticCompatibilityMatrix:
                 "risk_items": ["MISSING_OLTP_PRIMARY_KEYS"],
             }
 
+        # 4b. Warehouse <-> Warehouse & Warehouse <-> Lakehouse
+        if src_family in (ConnectorFamily.CLOUD_DATA_WAREHOUSE, ConnectorFamily.LAKEHOUSE_ANALYTICS) and tgt_family in (ConnectorFamily.CLOUD_DATA_WAREHOUSE, ConnectorFamily.LAKEHOUSE_ANALYTICS):
+            if source_manifest.system_type == target_manifest.system_type:
+                return {
+                    "compatibility": SemanticCompatibility.SUPPORTED.value,
+                    "is_viable": True,
+                    "reason": f"Homogeneous analytical migration ({source_manifest.system_type} -> {target_manifest.system_type}).",
+                    "limitations": [],
+                    "required_mappings": [],
+                    "risk_items": [],
+                }
+            required_mappings.append("ANALYTICAL_DIALECT_AND_STAGING_CONVERSION")
+            limitations.append("Requires cloud object staging coordination (e.g. S3/GCS/ADLS) for bulk transfer.")
+            return {
+                "compatibility": SemanticCompatibility.SUPPORTED_WITH_MAPPING.value,
+                "is_viable": True,
+                "reason": f"Cross-warehouse/lakehouse migration ({source_manifest.connector_id} -> {target_manifest.connector_id}).",
+                "limitations": limitations,
+                "required_mappings": required_mappings,
+                "risk_items": ["STAGED_TRANSFER_REQUIRED"],
+            }
+
         # 5. Relational -> Document (e.g. Oracle/Postgres -> MongoDB)
         if src_family == ConnectorFamily.RELATIONAL_DATABASE and tgt_family == ConnectorFamily.DOCUMENT_DATABASE:
             required_mappings.append("RELATIONAL_TABLES_TO_DOCUMENT_COLLECTIONS_MAPPING")

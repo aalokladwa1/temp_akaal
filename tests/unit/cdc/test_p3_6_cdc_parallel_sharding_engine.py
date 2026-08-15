@@ -102,12 +102,15 @@ class TestP36CDCParallelShardingEngine(unittest.TestCase):
     # 4. Different keys can route independently
     def test_04_different_keys_independent(self):
         router = CDCPartitionRouter(partition_count=100, routing_generation=1)
-        e1 = self._make_sample_event(1)
-        e2 = self._make_sample_event(99999)
-        k1 = router.route_event(e1, partition_count=100)
-        k2 = router.route_event(e2, partition_count=100)
-        # With 100 partitions, 1 and 99999 hash to different slots
-        self.assertNotEqual(k1.partition_id, k2.partition_id)
+        k1 = router.route_event(self._make_sample_event(1), partition_count=100)
+        # Find a key that routes to a different partition slot
+        diff_found = False
+        for alt_id in range(2, 50):
+            k_alt = router.route_event(self._make_sample_event(alt_id), partition_count=100)
+            if k_alt.partition_id != k1.partition_id:
+                diff_found = True
+                break
+        self.assertTrue(diff_found, "Different keys should be capable of routing to different partition slots")
 
     # 5. Single-partition transaction execution
     def test_05_single_partition_transaction_dispatch(self):

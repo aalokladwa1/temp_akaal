@@ -254,6 +254,83 @@ class MariaDBGTIDPosition(CDCSourcePosition):
         return self.sequence_no > other.sequence_no
 
 
+class DeltaTableVersionPosition(CDCSourcePosition):
+    """Databricks / Delta Lake table version & commit source position."""
+
+    def __init__(
+        self,
+        table_version: int,
+        table_name: str = "",
+        timestamp_ms: Optional[int] = None,
+        commit_id: Optional[str] = None,
+    ) -> None:
+        super().__init__("DATABRICKS")
+        if table_version < 0:
+            raise ValueError("Delta table version must be non-negative")
+        self.table_version = table_version
+        self.table_name = table_name
+        self.timestamp_ms = timestamp_ms
+        self.commit_id = commit_id
+
+    def to_string(self) -> str:
+        tbl_pfx = f"{self.table_name}@" if self.table_name else ""
+        return f"{tbl_pfx}v{self.table_version}"
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "engine": self.engine,
+            "table_version": self.table_version,
+            "table_name": self.table_name,
+            "timestamp_ms": self.timestamp_ms,
+            "commit_id": self.commit_id,
+        }
+
+    def is_after(self, other: CDCSourcePosition) -> bool:
+        if not isinstance(other, DeltaTableVersionPosition) or self.engine != other.engine:
+            raise TypeError(f"Cannot compare DeltaTableVersionPosition with {type(other)} (engine={getattr(other, 'engine', None)})")
+        if self.table_name and other.table_name and self.table_name != other.table_name:
+            raise TypeError(f"Cannot compare Delta positions across disparate tables: '{self.table_name}' vs '{other.table_name}'")
+        return self.table_version > other.table_version
+
+
+class WarehouseQueryPosition(CDCSourcePosition):
+    """Cloud Data Warehouse extraction query job / chunk / offset position."""
+
+    def __init__(
+        self,
+        engine: str,
+        query_id: str,
+        chunk_index: int = 0,
+        row_offset: int = 0,
+    ) -> None:
+        super().__init__(engine.upper())
+        if chunk_index < 0 or row_offset < 0:
+            raise ValueError("WarehouseQueryPosition chunk_index and row_offset must be non-negative")
+        self.query_id = str(query_id).strip()
+        self.chunk_index = chunk_index
+        self.row_offset = row_offset
+
+    def to_string(self) -> str:
+        return f"{self.query_id}:chunk{self.chunk_index}:offset{self.row_offset}"
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "engine": self.engine,
+            "query_id": self.query_id,
+            "chunk_index": self.chunk_index,
+            "row_offset": self.row_offset,
+        }
+
+    def is_after(self, other: CDCSourcePosition) -> bool:
+        if not isinstance(other, WarehouseQueryPosition) or self.engine != other.engine:
+            raise TypeError(f"Cannot compare WarehouseQueryPosition with {type(other)} (engine={getattr(other, 'engine', None)})")
+        if self.query_id != other.query_id:
+            raise TypeError(f"Cannot compare positions across different query IDs: '{self.query_id}' vs '{other.query_id}'")
+        if self.chunk_index == other.chunk_index:
+            return self.row_offset > other.row_offset
+        return self.chunk_index > other.chunk_index
+
+
 def parse_source_position(data: Dict[str, Any]) -> CDCSourcePosition:
     """Parses a dictionary into the appropriate engine-specific CDCSourcePosition instance."""
     if not isinstance(data, dict):
@@ -285,6 +362,20 @@ def parse_source_position(data: Dict[str, Any]) -> CDCSourcePosition:
         return MSSQLChangePosition(lsn_hex=data["lsn_hex"], seqval_hex=data.get("seqval_hex"))
     elif engine == "MONGODB":
         return MongoDBOpLogPosition(timestamp_sec=data["timestamp_sec"], inc=data["inc"])
+    elif engine in ("DATABRICKS", "DELTA", "DELTA_LAKE"):
+        return DeltaTableVersionPosition(
+            table_version=data.get("table_version", data.get("version", 0)),
+            table_name=data.get("table_name", ""),
+            timestamp_ms=data.get("timestamp_ms"),
+            commit_id=data.get("commit_id"),
+        )
+    elif engine in ("SNOWFLAKE", "BIGQUERY", "REDSHIFT", "WAREHOUSE"):
+        return WarehouseQueryPosition(
+            engine=engine,
+            query_id=data.get("query_id", "q-default"),
+            chunk_index=data.get("chunk_index", 0),
+            row_offset=data.get("row_offset", 0),
+        )
     else:
         raise ValueError(f"Unsupported or missing engine for CDC position: '{engine}'")
 

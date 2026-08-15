@@ -26,6 +26,7 @@ def _build_registry() -> dict:
         (SystemType.SNOWFLAKE, "akaal.adapters.warehouse.snowflake_adapter", "SnowflakeAdapter"),
         (SystemType.BIGQUERY, "akaal.adapters.warehouse.bigquery_adapter", "BigQueryAdapter"),
         (SystemType.REDSHIFT, "akaal.adapters.warehouse.redshift_adapter", "RedshiftAdapter"),
+        (SystemType.DATABRICKS, "akaal.adapters.warehouse.databricks_adapter", "DatabricksAdapter"),
         (SystemType.HDFS, "akaal.adapters.warehouse.hdfs_adapter", "HDFSAdapter"),
         (SystemType.MONGODB, "akaal.adapters.nosql.mongodb_adapter", "MongoDBAdapter"),
         (SystemType.CASSANDRA, "akaal.adapters.nosql.cassandra_adapter", "CassandraAdapter"),

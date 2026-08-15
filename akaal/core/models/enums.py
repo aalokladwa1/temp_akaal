@@ -187,10 +187,11 @@ class SystemType(str, Enum):
     IBM_DB2     = "IBM_DB2"
     SQLITE      = "SQLITE"
 
-    # Data Warehouses & Big Data
+    # Data Warehouses, Lakehouses & Big Data
     SNOWFLAKE   = "SNOWFLAKE"
     BIGQUERY    = "BIGQUERY"
     REDSHIFT    = "REDSHIFT"
+    DATABRICKS  = "DATABRICKS"
     HDFS        = "HDFS"
 
     # NoSQL, Graph, Key-Value & Search

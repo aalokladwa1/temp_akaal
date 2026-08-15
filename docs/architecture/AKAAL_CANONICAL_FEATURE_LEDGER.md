@@ -904,6 +904,36 @@ LAST_VERIFIED_COMMIT: HEAD
 
 ---
 
+FEATURE_ID: P4.3.CONNECTIVITY.WAREHOUSE_LAKEHOUSE_FLEET
+PHASE: P4.3
+FEATURE_NAME: Cloud Data Warehouse & Lakehouse Connector Fleet
+PURPOSE: Production adapters, schema discovery, complex nested data types (STRUCT/ARRAY/VARIANT/SUPER), staged bulk transfer coordination, and native position models for Snowflake, BigQuery, Redshift, and Databricks Delta Lake.
+CANONICAL_AUTHORITY: UniversalConnectorRegistry / BaseAdapter Fleet / StagedTransferCoordinator
+IMPLEMENTATION_LOCATION: akaal/adapters/warehouse/, akaal/connectors/staging.py, akaal/cdc/domain/positions.py
+PRIMARY_CLASS_OR_FUNCTION: SnowflakeAdapter / BigQueryAdapter / RedshiftAdapter / DatabricksAdapter / StagedTransferCoordinator
+PRODUCTION_CALLER: EngineGateway / WorkflowEngine / DataTransportStep
+PRODUCTION_ENTRYPOINT: EngineGateway → get_connector_manifest / test_connection / execute_migration
+PIPELINE_POSITION: Cloud Data Warehouse & Lakehouse Connectivity / Staged Transport Layer
+DOWNSTREAM_CONSUMER: WorkflowEngine / ReplicationScheduler / ValidationStep
+IDENTITY_BINDING: connector_id + profile_id + migration_id
+STATE_OWNER: UniversalConnectorRegistry
+FAILURE_PROPAGATION: Driver/staging error → maps to ConnectorErrorCategory → fails closed safely
+MONITORING_EXPOSURE: YES
+IPC_EXPOSURE: YES
+UI_EXPOSURE: YES (Database Connections Hub → Warehouse Fleet)
+MIGRATION_MODULE_FEATURE: Database Connections Hub → Cloud Warehouse & Lakehouse Fleet
+TEST_LOCATION: tests/unit/connectors/test_p4_3_cloud_warehouse_lakehouse_connector_fleet.py
+PROOF_LEVEL: UNIT_PROVEN
+INTEGRATION_STATUS: FULLY_INTEGRATED
+REAL_DB_PROVEN: NO (Mock/Offline verified with real driver interface contracts)
+SECURITY_NOTES: Staging descriptors bound to migration/run IDs; KMS keys and credentials redacted from all descriptors and logs.
+DEPENDENCIES: UniversalCapabilityManifest / StagedTransferCoordinator / SemanticCompatibilityMatrix
+LEGACY_OVERLAP: NONE
+FUTURE_EVOLUTION: P4.3.1 Hostile Warehouse Fleet Audit & P4.4 NoSQL Fleet
+LAST_VERIFIED_COMMIT: HEAD
+
+---
+
 ## 5. UI / IPC / Gateway Mapping & Future P7D Redesign Destinations
 
 | Migration Module UI Feature | Current Backend Authority | Wiring Status | Future P7D Redesign Destination |
@@ -914,7 +944,7 @@ LAST_VERIFIED_COMMIT: HEAD
 | **Execution Planning** | `PlannerPlatform` / `generate_plan` | `FULLY_WIRED` | P7D DAG Execution Planner |
 | **Governance & Approval** | `PolicyEngine` / `request_approval` | `FULLY_WIRED` | P7D Governance & Compliance Centre |
 | **Schema Execution** | `SchemaExecutionStep` / `UniversalDDLAuthority` | `FULLY_WIRED` | P7D Universal Schema Studio |
-| **Data Transport** | `DataTransportStep` / `ParallelReplicationScheduler` | `FULLY_WIRED` | P7D High-Throughput Transport Engine |
+| **Data Transport** | `DataTransportStep` / `ParallelReplicationScheduler` / `StagedTransferCoordinator` | `FULLY_WIRED` | P7D High-Throughput Transport Engine |
 | **Live Monitoring** | `CentralStateStore` / `get_monitoring_snapshot` | `FULLY_WIRED` | P7D Mission Control Hub |
 | **Workers & Partitions** | `ParallelReplicationScheduler` / `RangePartitioner` | `FULLY_WIRED` | P7D Worker & Fleet Manager |
 | **Reliability & Checkpoints** | `RecoveryCoordinator` / `JournalSupervisor` | `FULLY_WIRED` | P7D Reliability & Auto-Recovery Center |

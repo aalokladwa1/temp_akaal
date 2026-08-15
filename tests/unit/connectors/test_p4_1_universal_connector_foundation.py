@@ -429,8 +429,15 @@ class TestP41UniversalConnectorFoundation(unittest.TestCase):
         self.assertEqual(res_wh["compatibility"], SemanticCompatibility.SUPPORTED_WITH_LIMITATIONS.value)
         self.assertTrue(res_wh["is_viable"])
 
-        # 4. Snowflake (Target only) -> Postgres (Invalid Source)
-        res_inv = SemanticCompatibilityMatrix.evaluate_compatibility(m_snowflake, m_pg)
+        # 4. Target-only Connector -> Postgres (Invalid Source)
+        m_target_only = UniversalCapabilityManifest(
+            connector_id="target_only_dwh",
+            vendor_name="Target Only DWH",
+            system_type=SystemType.GENERIC,
+            family=ConnectorFamily.CLOUD_DATA_WAREHOUSE,
+            role=ConnectorRole.TARGET,
+        )
+        res_inv = SemanticCompatibilityMatrix.evaluate_compatibility(m_target_only, m_pg)
         self.assertEqual(res_inv["compatibility"], SemanticCompatibility.UNSUPPORTED.value)
         self.assertFalse(res_inv["is_viable"])
 

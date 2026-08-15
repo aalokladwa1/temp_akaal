@@ -199,6 +199,14 @@ class LegacyAdapterUniversalBridge(IUniversalConnector):
         if self._active_config:
             await self.connect(self._active_config)
 
+    def get_capability_extension(self, extension_name: str) -> Optional[Any]:
+        """Retrieves specialized capability extension instance if supported."""
+        ext_lower = str(extension_name).lower().strip()
+        if ext_lower in ("warehouse", "cloud_warehouse", "lakehouse"):
+            if self._family in (ConnectorFamily.CLOUD_DATA_WAREHOUSE, ConnectorFamily.LAKEHOUSE_ANALYTICS):
+                return self._active_adapter
+        return None
+
     def classify_error(self, exception: Exception) -> ConnectorErrorCategory:
         msg = str(exception).lower()
         if "permission" in msg or "privilege" in msg or "forbidden" in msg:
@@ -213,7 +221,7 @@ class LegacyAdapterUniversalBridge(IUniversalConnector):
 
 
 def register_canonical_bridge_connectors(registry: Any) -> None:
-    """Registers all 19 baseline systems as canonical bridge connectors in the Universal Registry."""
+    """Registers all baseline and lakehouse systems as canonical bridge connectors in the Universal Registry."""
     baseline_connectors = [
         # Relational Databases (Fully implemented core)
         LegacyAdapterUniversalBridge("oracle", SystemType.ORACLE, ConnectorFamily.RELATIONAL_DATABASE, "Oracle Database", ConnectorRole.BOTH, supports_cdc=True, supports_cutover=True, supports_failback=True, proof_level=ProofLevel.UNIT_PROVEN, implementation_state=ImplementationState.IMPLEMENTED, support_state=SupportState.SUPPORTED),
@@ -224,10 +232,11 @@ def register_canonical_bridge_connectors(registry: Any) -> None:
         LegacyAdapterUniversalBridge("ibm_db2", SystemType.IBM_DB2, ConnectorFamily.RELATIONAL_DATABASE, "IBM Db2", ConnectorRole.BOTH, supports_cdc=False, supports_cutover=True, supports_failback=True, proof_level=ProofLevel.UNIT_PROVEN, implementation_state=ImplementationState.IMPLEMENTED, support_state=SupportState.SUPPORTED),
         LegacyAdapterUniversalBridge("sqlite", SystemType.SQLITE, ConnectorFamily.RELATIONAL_DATABASE, "SQLite", ConnectorRole.BOTH, supports_cdc=False, supports_cutover=True, supports_failback=True, proof_level=ProofLevel.UNIT_PROVEN, implementation_state=ImplementationState.IMPLEMENTED, support_state=SupportState.SUPPORTED),
 
-        # Cloud Data Warehouses & Distributed Filesystems
-        LegacyAdapterUniversalBridge("snowflake", SystemType.SNOWFLAKE, ConnectorFamily.CLOUD_DATA_WAREHOUSE, "Snowflake Data Cloud", ConnectorRole.TARGET, supports_cdc=False, supports_cutover=False, supports_failback=False, proof_level=ProofLevel.UNIT_PROVEN, implementation_state=ImplementationState.PARTIAL, support_state=SupportState.PARTIAL),
-        LegacyAdapterUniversalBridge("bigquery", SystemType.BIGQUERY, ConnectorFamily.CLOUD_DATA_WAREHOUSE, "Google BigQuery", ConnectorRole.TARGET, supports_cdc=False, supports_cutover=False, supports_failback=False, proof_level=ProofLevel.UNIT_PROVEN, implementation_state=ImplementationState.PARTIAL, support_state=SupportState.PARTIAL),
-        LegacyAdapterUniversalBridge("redshift", SystemType.REDSHIFT, ConnectorFamily.CLOUD_DATA_WAREHOUSE, "Amazon Redshift", ConnectorRole.TARGET, supports_cdc=False, supports_cutover=False, supports_failback=False, proof_level=ProofLevel.UNIT_PROVEN, implementation_state=ImplementationState.PARTIAL, support_state=SupportState.PARTIAL),
+        # Cloud Data Warehouses & Lakehouses (P4.3 Complete)
+        LegacyAdapterUniversalBridge("snowflake", SystemType.SNOWFLAKE, ConnectorFamily.CLOUD_DATA_WAREHOUSE, "Snowflake Data Cloud", ConnectorRole.BOTH, supports_cdc=False, supports_cutover=True, supports_failback=True, proof_level=ProofLevel.UNIT_PROVEN, implementation_state=ImplementationState.IMPLEMENTED, support_state=SupportState.SUPPORTED),
+        LegacyAdapterUniversalBridge("bigquery", SystemType.BIGQUERY, ConnectorFamily.CLOUD_DATA_WAREHOUSE, "Google BigQuery", ConnectorRole.BOTH, supports_cdc=False, supports_cutover=True, supports_failback=True, proof_level=ProofLevel.UNIT_PROVEN, implementation_state=ImplementationState.IMPLEMENTED, support_state=SupportState.SUPPORTED),
+        LegacyAdapterUniversalBridge("redshift", SystemType.REDSHIFT, ConnectorFamily.CLOUD_DATA_WAREHOUSE, "Amazon Redshift", ConnectorRole.BOTH, supports_cdc=False, supports_cutover=True, supports_failback=True, proof_level=ProofLevel.UNIT_PROVEN, implementation_state=ImplementationState.IMPLEMENTED, support_state=SupportState.SUPPORTED),
+        LegacyAdapterUniversalBridge("databricks", SystemType.DATABRICKS, ConnectorFamily.LAKEHOUSE_ANALYTICS, "Databricks Delta Lake", ConnectorRole.BOTH, supports_cdc=False, supports_cutover=True, supports_failback=True, proof_level=ProofLevel.UNIT_PROVEN, implementation_state=ImplementationState.IMPLEMENTED, support_state=SupportState.SUPPORTED),
         LegacyAdapterUniversalBridge("hdfs", SystemType.HDFS, ConnectorFamily.DISTRIBUTED_FILESYSTEM, "Apache HDFS", ConnectorRole.BOTH, supports_cdc=False, supports_cutover=False, supports_failback=False, proof_level=ProofLevel.UNIT_PROVEN, implementation_state=ImplementationState.PARTIAL, support_state=SupportState.PARTIAL),
 
         # NoSQL, Graph, Key-Value & Search
