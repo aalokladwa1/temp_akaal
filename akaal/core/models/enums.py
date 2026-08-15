@@ -195,11 +195,14 @@ class SystemType(str, Enum):
     HDFS        = "HDFS"
 
     # NoSQL, Graph, Key-Value & Search
-    MONGODB     = "MONGODB"
-    CASSANDRA   = "CASSANDRA"
-    NEO4J       = "NEO4J"
-    REDIS       = "REDIS"
+    MONGODB       = "MONGODB"
+    CASSANDRA     = "CASSANDRA"
+    SCYLLADB      = "SCYLLADB"
+    NEO4J         = "NEO4J"
+    REDIS         = "REDIS"
+    KEYDB         = "KEYDB"
     ELASTICSEARCH = "ELASTICSEARCH"
+    OPENSEARCH    = "OPENSEARCH"
 
     # Cloud Object Storage
     S3          = "S3"

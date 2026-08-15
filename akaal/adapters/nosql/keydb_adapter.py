@@ -1,9 +1,8 @@
 """
-Akaal — Redis Key-Value Data Store Adapter
-==========================================
-100% Physical Reality Adapter for Redis using redis-py.
-Provides fail-closed connectivity, namespace/type discovery, SCAN cursor iteration,
-pipeline batch reads/writes, TTL preservation, and streaming canonical validation checksums.
+Akaal — KeyDB Multithreaded Key-Value Data Store Adapter
+=========================================================
+100% Physical Reality Adapter for KeyDB reusing redis-py wire protocol driver.
+Preserves explicit SystemType.KEYDB identity and KeyDB-specific capability declarations.
 """
 
 import asyncio
@@ -12,12 +11,12 @@ from typing import Any, Dict, List, Optional
 from akaal.adapters.base_adapter import BaseAdapter
 from akaal.core.models.enums import SystemType, AdapterCapability
 
-logger = logging.getLogger("akaal.adapters.redisadapter")
+logger = logging.getLogger("akaal.adapters.keydbadapter")
 
 
-class RedisAdapter(BaseAdapter):
+class KeyDBAdapter(BaseAdapter):
 
-    SYSTEM_TYPE = SystemType.REDIS
+    SYSTEM_TYPE = SystemType.KEYDB
     CAPABILITIES = [
         AdapterCapability.SCHEMA_DISCOVERY,
         AdapterCapability.BULK_READ,
@@ -31,7 +30,7 @@ class RedisAdapter(BaseAdapter):
 
     def _ensure_connected(self) -> None:
         if not self.is_connected or self._client is None:
-            raise RuntimeError("Redis database connection is not active.")
+            raise RuntimeError("KeyDB database connection is not active.")
 
     async def create_connection(self) -> Any:
         try:
@@ -56,11 +55,11 @@ class RedisAdapter(BaseAdapter):
         try:
             self._client = await self.create_connection()
             self.is_connected = True
-            logger.info(f"[RedisAdapter] Connected physically to Redis database.")
+            logger.info(f"[KeyDBAdapter] Connected physically to KeyDB database.")
         except Exception as exc:
             self.is_connected = False
             self._client = None
-            raise RuntimeError(f"Failed to connect to physical Redis instance: {exc}") from exc
+            raise RuntimeError(f"Failed to connect to physical KeyDB instance: {exc}") from exc
 
     async def close(self) -> None:
         if self._client:
@@ -69,7 +68,7 @@ class RedisAdapter(BaseAdapter):
             await asyncio.to_thread(_close)
             self._client = None
         self.is_connected = False
-        logger.info("[RedisAdapter] Connection closed.")
+        logger.info("[KeyDBAdapter] Connection closed.")
 
     async def check_permissions(self) -> bool:
         self._ensure_connected()
@@ -84,7 +83,6 @@ class RedisAdapter(BaseAdapter):
     async def discover_tables(self) -> List[str]:
         self._ensure_connected()
         def _run():
-            # Returns data structure categories in Redis
             return ["keys", "string", "hash", "list", "set", "zset"]
         return await asyncio.to_thread(_run)
 

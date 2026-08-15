@@ -1,9 +1,8 @@
 """
-Akaal — Apache Cassandra Wide-Column Database Adapter
-======================================================
-100% Physical Reality Adapter for Apache Cassandra using cassandra-driver.
-Provides fail-closed connectivity, keyspace/table discovery, partition/clustering column metadata,
-CQL batch extraction, prepared writes, and canonical checksum validation.
+Akaal — ScyllaDB Wide-Column Database Adapter
+=============================================
+100% Physical Reality Adapter for ScyllaDB reusing cassandra-driver CQL compatibility layer.
+Preserves explicit SystemType.SCYLLADB identity and ScyllaDB-specific capability declarations.
 """
 
 import asyncio
@@ -12,12 +11,12 @@ from typing import Any, Dict, List, Optional
 from akaal.adapters.base_adapter import BaseAdapter
 from akaal.core.models.enums import SystemType, AdapterCapability
 
-logger = logging.getLogger("akaal.adapters.cassandraadapter")
+logger = logging.getLogger("akaal.adapters.scylladbadapter")
 
 
-class CassandraAdapter(BaseAdapter):
+class ScyllaDBAdapter(BaseAdapter):
 
-    SYSTEM_TYPE = SystemType.CASSANDRA
+    SYSTEM_TYPE = SystemType.SCYLLADB
     CAPABILITIES = [
         AdapterCapability.SCHEMA_DISCOVERY,
         AdapterCapability.BULK_READ,
@@ -32,7 +31,7 @@ class CassandraAdapter(BaseAdapter):
 
     def _ensure_connected(self) -> None:
         if not self.is_connected or self._session is None:
-            raise RuntimeError("Cassandra database connection is not active.")
+            raise RuntimeError("ScyllaDB database connection is not active.")
 
     async def create_connection(self) -> Any:
         try:
@@ -55,12 +54,12 @@ class CassandraAdapter(BaseAdapter):
         try:
             self._cluster, self._session = await self.create_connection()
             self.is_connected = True
-            logger.info(f"[CassandraAdapter] Connected physically to Cassandra cluster keyspace '{self.config.database_name}'.")
+            logger.info(f"[ScyllaDBAdapter] Connected physically to ScyllaDB cluster keyspace '{self.config.database_name}'.")
         except Exception as exc:
             self.is_connected = False
             self._cluster = None
             self._session = None
-            raise RuntimeError(f"Failed to connect to physical Cassandra cluster: {exc}") from exc
+            raise RuntimeError(f"Failed to connect to physical ScyllaDB cluster: {exc}") from exc
 
     async def close(self) -> None:
         if self._cluster:
@@ -70,7 +69,7 @@ class CassandraAdapter(BaseAdapter):
             self._cluster = None
             self._session = None
         self.is_connected = False
-        logger.info("[CassandraAdapter] Connection closed.")
+        logger.info("[ScyllaDBAdapter] Connection closed.")
 
     async def check_permissions(self) -> bool:
         self._ensure_connected()

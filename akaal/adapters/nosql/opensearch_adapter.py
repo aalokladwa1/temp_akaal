@@ -1,9 +1,8 @@
 """
-Akaal — Redis Key-Value Data Store Adapter
-==========================================
-100% Physical Reality Adapter for Redis using redis-py.
-Provides fail-closed connectivity, namespace/type discovery, SCAN cursor iteration,
-pipeline batch reads/writes, TTL preservation, and streaming canonical validation checksums.
+Akaal — OpenSearch Search Engine Adapter
+========================================
+100% Physical Reality Adapter for OpenSearch using opensearch-py.
+Preserves explicit SystemType.OPENSEARCH identity and OpenSearch-specific capability declarations.
 """
 
 import asyncio
@@ -12,12 +11,12 @@ from typing import Any, Dict, List, Optional
 from akaal.adapters.base_adapter import BaseAdapter
 from akaal.core.models.enums import SystemType, AdapterCapability
 
-logger = logging.getLogger("akaal.adapters.redisadapter")
+logger = logging.getLogger("akaal.adapters.opensearchadapter")
 
 
-class RedisAdapter(BaseAdapter):
+class OpenSearchAdapter(BaseAdapter):
 
-    SYSTEM_TYPE = SystemType.REDIS
+    SYSTEM_TYPE = SystemType.OPENSEARCH
     CAPABILITIES = [
         AdapterCapability.SCHEMA_DISCOVERY,
         AdapterCapability.BULK_READ,
@@ -31,24 +30,30 @@ class RedisAdapter(BaseAdapter):
 
     def _ensure_connected(self) -> None:
         if not self.is_connected or self._client is None:
-            raise RuntimeError("Redis database connection is not active.")
+            raise RuntimeError("OpenSearch cluster connection is not active.")
 
     async def create_connection(self) -> Any:
         try:
-            import redis
+            from opensearchpy import OpenSearch
         except ImportError as exc:
-            raise RuntimeError("redis is not installed. Run: pip install redis") from exc
+            raise RuntimeError("opensearch-py is not installed. Run: pip install opensearch-py") from exc
 
         host = self.config.host or "localhost"
-        port = self.config.port or 6379
-        db = self.config.extra.get("db", 0) if self.config.extra else 0
+        port = self.config.port or 9200
+        scheme = self.config.extra.get("scheme", "http") if self.config.extra else "http"
+        url = f"{scheme}://{host}:{port}"
         extra = self.config.extra or {}
+        username = extra.get("username") or getattr(self.config, "username", None)
         password = extra.get("password") or getattr(self.config, "password", None)
 
         def _connect():
-            r = redis.Redis(host=host, port=port, db=db, password=password, socket_timeout=5)
-            r.ping()
-            return r
+            if username and password:
+                client = OpenSearch([url], http_auth=(username, password), request_timeout=5)
+            else:
+                client = OpenSearch([url], request_timeout=5)
+            if not client.ping():
+                raise RuntimeError(f"OpenSearch ping failed for {url}")
+            return client
 
         return await asyncio.to_thread(_connect)
 
@@ -56,11 +61,11 @@ class RedisAdapter(BaseAdapter):
         try:
             self._client = await self.create_connection()
             self.is_connected = True
-            logger.info(f"[RedisAdapter] Connected physically to Redis database.")
+            logger.info(f"[OpenSearchAdapter] Connected physically to OpenSearch cluster.")
         except Exception as exc:
             self.is_connected = False
             self._client = None
-            raise RuntimeError(f"Failed to connect to physical Redis instance: {exc}") from exc
+            raise RuntimeError(f"Failed to connect to physical OpenSearch cluster: {exc}") from exc
 
     async def close(self) -> None:
         if self._client:
@@ -69,7 +74,7 @@ class RedisAdapter(BaseAdapter):
             await asyncio.to_thread(_close)
             self._client = None
         self.is_connected = False
-        logger.info("[RedisAdapter] Connection closed.")
+        logger.info("[OpenSearchAdapter] Connection closed.")
 
     async def check_permissions(self) -> bool:
         self._ensure_connected()
@@ -84,18 +89,24 @@ class RedisAdapter(BaseAdapter):
     async def discover_tables(self) -> List[str]:
         self._ensure_connected()
         def _run():
-            # Returns data structure categories in Redis
-            return ["keys", "string", "hash", "list", "set", "zset"]
+            indices = self._client.cat.indices(format="json")
+            return [idx["index"] for idx in indices if not idx["index"].startswith(".")]
         return await asyncio.to_thread(_run)
 
     async def discover_columns(self, table_name: str) -> List[Dict[str, Any]]:
         self._ensure_connected()
-        return [
-            {"column_name": "key", "data_type": "STRING", "nullable": False},
-            {"column_name": "type", "data_type": "STRING", "nullable": False},
-            {"column_name": "value", "data_type": "STRING", "nullable": True},
-            {"column_name": "ttl", "data_type": "INTEGER", "nullable": True},
-        ]
+        def _run():
+            mapping = self._client.indices.get_mapping(index=table_name)
+            properties = mapping.get(table_name, {}).get("mappings", {}).get("properties", {})
+            cols = [{"column_name": "_id", "data_type": "keyword", "nullable": False}]
+            for name, spec in properties.items():
+                cols.append({
+                    "column_name": name,
+                    "data_type": spec.get("type", "object"),
+                    "nullable": True,
+                })
+            return cols
+        return await asyncio.to_thread(_run)
 
     async def discover_foreign_keys(self) -> List[Dict[str, Any]]:
         self._ensure_connected()
@@ -130,35 +141,13 @@ class RedisAdapter(BaseAdapter):
     ) -> List[Dict[str, Any]]:
         self._ensure_connected()
         def _run():
-            cursor = 0
-            keys = []
-            while True:
-                cursor, batch_keys = self._client.scan(cursor=cursor, count=limit)
-                keys.extend(batch_keys)
-                if cursor == 0 or len(keys) >= limit:
-                    break
-            keys = keys[:limit]
-            pipe = self._client.pipeline()
-            for k in keys:
-                pipe.type(k)
-                pipe.get(k)
-                pipe.ttl(k)
-            res = pipe.execute()
+            res = self._client.search(index=table_name, from_=offset, size=limit, body={"query": {"match_all": {}}})
+            hits = res.get("hits", {}).get("hits", [])
             rows = []
-            for i in range(len(keys)):
-                k = keys[i]
-                k_str = k.decode("utf-8") if isinstance(k, bytes) else str(k)
-                k_type = res[i * 3]
-                k_type_str = k_type.decode("utf-8") if isinstance(k_type, bytes) else str(k_type)
-                val = res[i * 3 + 1]
-                val_str = val.decode("utf-8") if isinstance(val, bytes) else str(val) if val is not None else None
-                ttl = res[i * 3 + 2]
-                rows.append({
-                    "key": k_str,
-                    "type": k_type_str,
-                    "value": val_str,
-                    "ttl": ttl,
-                })
+            for h in hits:
+                doc = h.get("_source", {})
+                doc["_id"] = h.get("_id")
+                rows.append(doc)
             return rows
         return await asyncio.to_thread(_run)
 
@@ -167,42 +156,34 @@ class RedisAdapter(BaseAdapter):
         if not rows:
             return 0
         def _run():
-            pipe = self._client.pipeline()
+            actions = []
             for r in rows:
-                k = r["key"]
-                v = r.get("value", "")
-                pipe.set(k, v)
-                if "ttl" in r and r["ttl"] is not None and r["ttl"] > 0:
-                    pipe.expire(k, r["ttl"])
-            res = pipe.execute()
+                doc_id = r.get("_id")
+                doc = {k: v for k, v in r.items() if k != "_id"}
+                actions.append({"index": {"_index": table_name, "_id": doc_id}})
+                actions.append(doc)
+            res = self._client.bulk(body=actions)
+            if res.get("errors"):
+                err_items = [item for item in res.get("items", []) if "error" in item.get("index", {})]
+                raise RuntimeError(f"OpenSearch bulk write failed with errors: {err_items[:3]}")
             return len(rows)
         return await asyncio.to_thread(_run)
 
     async def get_row_count(self, table_name: str) -> int:
         self._ensure_connected()
         def _run():
-            return self._client.dbsize()
+            res = self._client.count(index=table_name)
+            return int(res.get("count", 0))
         return await asyncio.to_thread(_run)
 
     async def compute_checksum(self, table_name: str) -> str:
         self._ensure_connected()
         from akaal.validation.domain.canonical_checksum import compute_canonical_table_checksum
         def _row_stream():
-            cursor = 0
-            while True:
-                cursor, keys = self._client.scan(cursor=cursor, count=100)
-                if not keys:
-                    if cursor == 0:
-                        break
-                    continue
-                pipe = self._client.pipeline()
-                for k in keys:
-                    pipe.get(k)
-                vals = pipe.execute()
-                for i in range(len(keys)):
-                    k_str = keys[i].decode("utf-8") if isinstance(keys[i], bytes) else str(keys[i])
-                    v_str = vals[i].decode("utf-8") if isinstance(vals[i], bytes) else str(vals[i]) if vals[i] else ""
-                    yield {"key": k_str, "value": v_str}
-                if cursor == 0:
-                    break
+            res = self._client.search(index=table_name, size=1000, body={"query": {"match_all": {}}})
+            hits = res.get("hits", {}).get("hits", [])
+            for h in hits:
+                doc = h.get("_source", {})
+                doc["_id"] = h.get("_id")
+                yield doc
         return compute_canonical_table_checksum(_row_stream(), order_independent=True)
