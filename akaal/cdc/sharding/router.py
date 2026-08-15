@@ -62,10 +62,11 @@ class CDCPartitionRouter:
             if pk_col in image:
                 return str(image[pk_col])
 
-        # Priority 2: first key in dictionary
+        # Priority 2: deterministic sorted first key-value in dictionary
         if image:
-            first_val = next(iter(image.values()))
-            return str(first_val)
+            sorted_keys = sorted(list(image.keys()))
+            first_key = sorted_keys[0]
+            return f"{first_key}:{image[first_key]}"
 
         # Fallback: table name default
         return f"table-{table_name}"

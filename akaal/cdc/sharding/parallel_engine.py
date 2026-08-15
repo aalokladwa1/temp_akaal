@@ -6,6 +6,7 @@ fenced partition worker ownership, P3.5 schema barrier checks, P1 backpressure,
 contiguous checkpoint frontiers, and backend-authoritative telemetry.
 """
 
+import hashlib
 import time
 import logging
 from typing import Dict, Any, List, Optional
@@ -66,11 +67,15 @@ class CDCParallelApplyEngine:
             recovery_coordinator=self.recovery_coordinator,
             state_store=self.state_store,
         )
-        self.frontier_tracker = CDCCheckpointFrontierTracker()
+        self.frontier_tracker = CDCCheckpointFrontierTracker(
+            state_store=self.state_store,
+            cdc_session_id=self.identity.cdc_session_id,
+        )
 
         # In-memory worker queues per partition
         self.partition_queues: Dict[int, List[CDCRoutedTransaction]] = {i: [] for i in range(self.partition_count)}
         self.workers: Dict[int, CDCApplyWorker] = {}
+        self._pending_tx_hashes: Dict[str, str] = {}
         self._is_paused = False
         self._start_time = time.time()
         self._total_applied_events = 0
@@ -123,11 +128,49 @@ class CDCParallelApplyEngine:
                 )
             )
 
+        # Validate Identity Isolation
+        if (
+            transaction.identity.migration_id != self.identity.migration_id
+            or transaction.identity.cdc_session_id != self.identity.cdc_session_id
+        ):
+            raise CDCExecutionError(
+                CDCFailure(
+                    failure_type=CDCFailureType.IDENTITY_MISMATCH,
+                    category=CDCFailureCategory.BLOCKING,
+                    message=f"[IDENTITY MISMATCH] Transaction identity '{transaction.identity.cdc_session_id}' does not match engine session '{self.identity.cdc_session_id}'.",
+                    migration_id=self.identity.migration_id,
+                    job_id=self.identity.job_id,
+                    run_id=self.identity.run_id,
+                    cdc_session_id=self.identity.cdc_session_id,
+                )
+            )
+
+        tx_hash = hashlib.sha256(str([e.to_dict() for e in transaction.events]).encode("utf-8")).hexdigest()
+
+        # Check duplicate pending transaction with mismatched payload hash
+        if transaction.tx_id in self._pending_tx_hashes:
+            existing_hash = self._pending_tx_hashes[transaction.tx_id]
+            if existing_hash != tx_hash:
+                raise CDCExecutionError(
+                    CDCFailure(
+                        failure_type=CDCFailureType.TRANSACTION_CORRUPTION,
+                        category=CDCFailureCategory.DATA_INTEGRITY_RISK,
+                        message=f"[CONCURRENT DISPATCH CORRUPTION] Transaction '{transaction.tx_id}' dispatched with mismatched payload hash.",
+                        migration_id=self.identity.migration_id,
+                        job_id=self.identity.job_id,
+                        run_id=self.identity.run_id,
+                        cdc_session_id=self.identity.cdc_session_id,
+                    )
+                )
+
         routed_tx = self.router.route_transaction(
             transaction=transaction,
             partition_count=self.partition_count,
             routing_generation=self.routing_generation,
         )
+
+        if transaction.tx_id not in self._pending_tx_hashes:
+            self._pending_tx_hashes[transaction.tx_id] = tx_hash
 
         # Register transaction position with frontier tracker
         self.frontier_tracker.register_pending_transaction(routed_tx.commit_position)
@@ -251,6 +294,19 @@ class CDCParallelApplyEngine:
 
     def resume(self) -> None:
         self._is_paused = False
+
+    def is_fully_drained(self) -> bool:
+        """
+        Evaluates whether parallel pipeline is completely drained and safe for cutover.
+        Requires: 0 pending transactions in all queues, 0 pending positions in frontier tracker,
+        and no active cross-partition barriers.
+        """
+        total_pending_tx = sum(len(q) for q in self.partition_queues.values())
+        if total_pending_tx > 0:
+            return False
+        if len(self.frontier_tracker.pending_positions) > 0:
+            return False
+        return True
 
     def get_telemetry(self) -> Dict[str, Any]:
         """Returns backend-authoritative parallel CDC telemetry DTO."""
