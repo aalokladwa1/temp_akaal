@@ -1,20 +1,9 @@
 """
-Akaal — Snowflake Cloud Data Warehouse Adapter (P4.3).
-======================================================
-Production implementation of BaseAdapter and IWarehouseCapability for Snowflake Data Cloud.
-
-Features:
-- Discovery: databases, schemas, tables, views, columns, clustering keys, primary keys.
-- Datatype Normalization: NUMBER, FLOAT, BOOLEAN, VARCHAR, BINARY, DATE, TIME,
-  TIMESTAMP_NTZ, TIMESTAMP_LTZ, TIMESTAMP_TZ, VARIANT, OBJECT, ARRAY, GEOGRAPHY.
-- Bulk Extraction: Bounded query extraction, deterministic pagination, query_id cursor.
-- Bulk Ingestion: High-throughput COPY INTO <table> FROM @<stage> and batch write.
-- UNLOAD: UNLOAD / COPY INTO @<stage> FROM <table> for high-speed egress.
-- Warehouse & Role Selection: Explicit warehouse/role context management.
-- Transactions: Explicit transaction primitives (BEGIN, COMMIT, ROLLBACK).
-- Validation: Read-only checksum calculation and row count auditing.
-- Checkpoint: Separated bulk checkpoint resume = True, native CDC resume = False.
-- Mock/Offline Resilience: Seamless test and offline simulation mode.
+Akaal — Snowflake Cloud Data Warehouse Adapter (P4.3 Physical Reality)
+========================================================================
+Physical BaseAdapter and IWarehouseCapability implementation for Snowflake.
+Strict Zero-Fake Policy: Uses physical snowflake-connector-python driver.
+Fails closed when disconnected or when driver is missing.
 """
 
 import logging
@@ -30,7 +19,7 @@ logger = logging.getLogger("akaal.adapters.snowflake")
 
 
 class SnowflakeAdapter(BaseAdapter, IWarehouseCapability):
-    """Production Adapter for Snowflake Data Cloud."""
+    """Physical Production Adapter for Snowflake Data Cloud."""
 
     SYSTEM_TYPE = SystemType.SNOWFLAKE
     CAPABILITIES = [
@@ -38,6 +27,7 @@ class SnowflakeAdapter(BaseAdapter, IWarehouseCapability):
         AdapterCapability.BULK_READ,
         AdapterCapability.STREAMING_READ,
         AdapterCapability.BULK_WRITE,
+        AdapterCapability.TRANSACTION_SUPPORT,
     ]
 
     def __init__(self, config) -> None:
@@ -45,67 +35,52 @@ class SnowflakeAdapter(BaseAdapter, IWarehouseCapability):
         self._client = None
         self._in_transaction = False
         extra = getattr(config, "extra", {}) or {}
-        driver_opts = extra.get("driver_options", {}) if isinstance(extra, dict) else {}
-        self.mock_mode = (
-            getattr(config, "mock_mode", False)
-            or extra.get("mock_mode") is True
-            or driver_opts.get("mock_mode") is True
-            or "example.com" in getattr(config, "host", "")
-        )
-        self.account = extra.get("account", getattr(config, "host", "sf-account"))
+        self.account = extra.get("account") or getattr(config, "host", "")
         self.warehouse = extra.get("warehouse", "COMPUTE_WH")
         self.database = getattr(config, "database_name", "ANALYTICS_DB") or "ANALYTICS_DB"
         self.schema = extra.get("schema", "PUBLIC") or "PUBLIC"
         self.role = extra.get("role", "ACCOUNTADMIN")
 
-    async def connect(self) -> None:
-        """Establishes connection to Snowflake or initializes resilient mock session."""
-        if self.mock_mode:
-            self._client = {
-                "session_id": "sf-mock-sess-1001",
-                "account": self.account,
-                "warehouse": self.warehouse,
-                "database": self.database,
-                "schema": self.schema,
-                "role": self.role,
-            }
-            self.is_connected = True
-            logger.info(f"[SnowflakeAdapter] Connected in simulation mode to {self.account}/{self.database}.{self.schema}")
-            return
-
+    async def create_connection(self) -> Any:
         try:
             import snowflake.connector
-            extra = getattr(self.config, "extra", {}) or {}
-            user = getattr(self.config, "credentials_ref", "sf_user")
-            pwd = extra.get("password", "")
+        except Exception as exc:
+            raise RuntimeError("snowflake-connector-python not installed. Run: pip install snowflake-connector-python") from exc
 
-            def _connect():
-                return snowflake.connector.connect(
-                    user=user,
-                    password=pwd,
-                    account=self.account,
-                    warehouse=self.warehouse,
-                    database=self.database,
-                    schema=self.schema,
-                    role=self.role,
-                )
+        if not self.account:
+            raise RuntimeError("Adapter config must include Snowflake account identifier")
 
-            self._client = await asyncio.to_thread(_connect)
+        extra = getattr(self.config, "extra", {}) or {}
+        user = getattr(self.config, "username", None) or extra.get("username") or getattr(self.config, "credentials_ref", "")
+        pwd = extra.get("password", "")
+
+        def _connect():
+            return snowflake.connector.connect(
+                user=user,
+                password=pwd,
+                account=self.account,
+                warehouse=self.warehouse,
+                database=self.database,
+                schema=self.schema,
+                role=self.role,
+            )
+
+        return await asyncio.to_thread(_connect)
+
+    async def connect(self) -> None:
+        """Establishes physical connection to Snowflake."""
+        try:
+            self._client = await self.create_connection()
             self.is_connected = True
             logger.info(f"[SnowflakeAdapter] Connected to Snowflake account {self.account}")
-        except ImportError:
-            logger.warning("[SnowflakeAdapter] snowflake-connector-python not installed; activating mock mode.")
-            self.mock_mode = True
-            self._client = {"session_id": "sf-fallback-sess"}
-            self.is_connected = True
         except Exception as exc:
             self.is_connected = False
-            logger.error(f"[SnowflakeAdapter] Connection failed: {exc}")
-            raise
+            self._client = None
+            raise RuntimeError(f"Failed to connect to physical Snowflake database: {exc}") from exc
 
     async def close(self) -> None:
-        """Closes active Snowflake connection and releases session resources."""
-        if self._client and not self.mock_mode:
+        """Closes physical Snowflake connection."""
+        if self._client:
             try:
                 def _close():
                     if hasattr(self._client, "close"):
@@ -118,73 +93,117 @@ class SnowflakeAdapter(BaseAdapter, IWarehouseCapability):
         self._in_transaction = False
         logger.info("[SnowflakeAdapter] Connection closed.")
 
+    def _ensure_connected(self) -> None:
+        if not self._client or not getattr(self, "is_connected", False):
+            raise RuntimeError("Snowflake connection is not active.")
+
     async def check_permissions(self) -> bool:
-        """Validates USAGE privilege on warehouse, database, and schema."""
-        return self.is_connected
+        self._ensure_connected()
+        def _check():
+            with self._client.cursor() as cur:
+                cur.execute("SELECT CURRENT_VERSION()")
+                row = cur.fetchone()
+                return bool(row)
+        return await asyncio.to_thread(_check)
 
     async def get_server_version(self) -> str:
-        """Returns Snowflake virtual warehouse release version."""
-        return "Snowflake 8.14.0 (Enterprise Edition)"
+        self._ensure_connected()
+        def _get_ver():
+            with self._client.cursor() as cur:
+                cur.execute("SELECT CURRENT_VERSION()")
+                row = cur.fetchone()
+                return row[0] if row else "Snowflake"
+        return await asyncio.to_thread(_get_ver)
 
     # -------------------------------------------------------------------------
     # Schema Discovery & Metadata
     # -------------------------------------------------------------------------
 
     async def discover_datasets(self) -> List[str]:
-        """Discovers databases/schemas in Snowflake."""
-        return [f"{self.database}.{self.schema}", f"{self.database}.STAGING", f"{self.database}.RAW"]
+        self._ensure_connected()
+        def _run():
+            with self._client.cursor() as cur:
+                cur.execute(f"SHOW SCHEMAS IN DATABASE \"{self.database}\"")
+                return [f"{self.database}.{r[1]}" for r in cur.fetchall()]
+        return await asyncio.to_thread(_run)
 
     async def discover_warehouse_tables(self, dataset_name: Optional[str] = None) -> List[str]:
-        """Discovers tables within dataset."""
         return await self.discover_tables()
 
     async def discover_tables(self) -> List[str]:
-        """Discovers all tables in active database schema."""
-        if self.mock_mode:
-            return ["CUSTOMER_DIM", "ORDER_FACT", "LINEITEM_FACT", "DAILY_AGGREGATES"]
-        # Real query execution
-        return ["CUSTOMER_DIM", "ORDER_FACT"]
+        self._ensure_connected()
+        def _run():
+            with self._client.cursor() as cur:
+                cur.execute(f"SELECT TABLE_NAME FROM \"{self.database}\".INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = '{self.schema}' AND TABLE_TYPE = 'BASE TABLE'")
+                return [r[0] for r in cur.fetchall()]
+        return await asyncio.to_thread(_run)
 
     async def discover_columns(self, table_name: str) -> List[Dict[str, Any]]:
-        """Extracts column metadata with rich Snowflake-native data types."""
-        return [
-            {"column_name": "ID", "data_type": "NUMBER(38,0)", "is_nullable": False, "is_pk": True},
-            {"column_name": "NAME", "data_type": "VARCHAR(255)", "is_nullable": True, "is_pk": False},
-            {"column_name": "BALANCE", "data_type": "NUMBER(18,4)", "is_nullable": True, "is_pk": False},
-            {"column_name": "IS_ACTIVE", "data_type": "BOOLEAN", "is_nullable": False, "is_pk": False},
-            {"column_name": "METADATA_PAYLOAD", "data_type": "VARIANT", "is_nullable": True, "is_pk": False},
-            {"column_name": "TAGS_LIST", "data_type": "ARRAY", "is_nullable": True, "is_pk": False},
-            {"column_name": "PROPERTIES", "data_type": "OBJECT", "is_nullable": True, "is_pk": False},
-            {"column_name": "GEO_LOCATION", "data_type": "GEOGRAPHY", "is_nullable": True, "is_pk": False},
-            {"column_name": "CREATED_AT", "data_type": "TIMESTAMP_NTZ", "is_nullable": False, "is_pk": False},
-            {"column_name": "UPDATED_AT", "data_type": "TIMESTAMP_TZ", "is_nullable": True, "is_pk": False},
-        ]
+        self._ensure_connected()
+        def _run():
+            with self._client.cursor() as cur:
+                cur.execute(f"SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, COLUMN_DEFAULT FROM \"{self.database}\".INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = '{self.schema}' AND TABLE_NAME = '{table_name}' ORDER BY ORDINAL_POSITION")
+                cols = []
+                for r in cur.fetchall():
+                    cols.append({
+                        "name": r[0],
+                        "type": r[1],
+                        "nullable": (r[2] == "YES"),
+                        "default": r[3],
+                    })
+                return cols
+        return await asyncio.to_thread(_run)
+
+    async def _primary_key_columns(self, table_name: str) -> List[str]:
+        self._ensure_connected()
+        def _run():
+            try:
+                with self._client.cursor() as cur:
+                    cur.execute(f"SHOW PRIMARY KEYS IN TABLE \"{self.database}\".\"{self.schema}\".\"{table_name}\"")
+                    return [r[4] for r in cur.fetchall()]
+            except Exception:
+                return []
+        return await asyncio.to_thread(_run)
+
+    async def _unique_key_columns(self, table_name: str) -> List[str]:
+        return await self._primary_key_columns(table_name)
 
     async def discover_foreign_keys(self) -> List[Dict[str, Any]]:
-        """Snowflake un-enforced informational foreign keys."""
         return []
 
     async def discover_indexes(self, table_name: str) -> List[Dict[str, Any]]:
-        """Snowflake does not use traditional indexes (uses micro-partitions and clustering keys)."""
         return []
 
     async def discover_constraints(self, table_name: str) -> List[Dict[str, Any]]:
-        return [{"constraint_name": f"PK_{table_name}", "constraint_type": "PRIMARY KEY", "columns": ["ID"]}]
+        pks = await self._primary_key_columns(table_name)
+        if pks:
+            return [{"constraint_name": f"PK_{table_name}", "constraint_type": "PRIMARY KEY", "columns": pks}]
+        return []
 
     async def discover_triggers(self, table_name: str) -> List[Dict[str, Any]]:
         return []
 
     async def discover_views(self) -> List[Dict[str, Any]]:
-        return [{"view_name": "V_ACTIVE_CUSTOMERS", "definition": "SELECT * FROM CUSTOMER_DIM WHERE IS_ACTIVE = TRUE"}]
+        self._ensure_connected()
+        def _run():
+            with self._client.cursor() as cur:
+                cur.execute(f"SELECT TABLE_NAME, VIEW_DEFINITION FROM \"{self.database}\".INFORMATION_SCHEMA.VIEWS WHERE TABLE_SCHEMA = '{self.schema}'")
+                return [{"view_name": r[0], "definition": r[1]} for r in cur.fetchall()]
+        return await asyncio.to_thread(_run)
 
     async def get_clustering_metadata(self, table_name: str) -> Dict[str, Any]:
-        """Returns clustering key specification for the table."""
-        return {
-            "table_name": table_name,
-            "clustering_key": "(CREATED_AT, ID)",
-            "clustering_depth": 1,
-            "automatic_clustering_enabled": True,
-        }
+        self._ensure_connected()
+        def _run():
+            with self._client.cursor() as cur:
+                cur.execute(f"SHOW TABLES LIKE '{table_name}' IN SCHEMA \"{self.database}\".\"{self.schema}\"")
+                row = cur.fetchone()
+                cluster_key = row[9] if row and len(row) > 9 else None
+                return {
+                    "table_name": table_name,
+                    "clustering_key": cluster_key,
+                    "automatic_clustering_enabled": bool(cluster_key),
+                }
+        return await asyncio.to_thread(_run)
 
     # -------------------------------------------------------------------------
     # Bulk Extraction & Ingestion
@@ -196,30 +215,77 @@ class SnowflakeAdapter(BaseAdapter, IWarehouseCapability):
         offset: int,
         limit: int,
         last_processed_primary_key: Optional[Dict[str, Any]] = None,
+        incremental_filter: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, Any]]:
-        """Extracts bounded batch of records with deterministic order."""
-        rows = []
-        for i in range(limit):
-            curr_id = offset + i + 1
-            rows.append({
-                "ID": curr_id,
-                "NAME": f"Customer_{curr_id}",
-                "BALANCE": 1000.50 + curr_id,
-                "IS_ACTIVE": (curr_id % 2 == 0),
-                "METADATA_PAYLOAD": {"tier": "gold", "score": 95},
-                "TAGS_LIST": ["vip", "enterprise"],
-                "PROPERTIES": {"region": "us-west"},
-                "GEO_LOCATION": "POINT(-122.4194 37.7749)",
-                "CREATED_AT": "2026-08-15T00:00:00Z",
-                "UPDATED_AT": "2026-08-15T12:00:00Z",
-            })
-        return rows
+        self._ensure_connected()
+        pk_cols = await self._unique_key_columns(table_name)
+        use_cursor = (
+            last_processed_primary_key is not None
+            and len(pk_cols) > 0
+            and all(col in last_processed_primary_key for col in pk_cols)
+        )
+
+        def _run():
+            with self._client.cursor() as cur:
+                where_clauses = []
+                params = []
+
+                if use_cursor:
+                    conditions = []
+                    for i in range(len(pk_cols)):
+                        eq_parts = []
+                        for col in pk_cols[:i]:
+                            eq_parts.append(f'"{col}" = %s')
+                            params.append(last_processed_primary_key[col])
+                        curr_col = pk_cols[i]
+                        eq_parts.append(f'"{curr_col}" > %s')
+                        params.append(last_processed_primary_key[curr_col])
+                        conditions.append("(" + " AND ".join(eq_parts) + ")")
+                    where_clauses.append("(" + " OR ".join(conditions) + ")")
+
+                if incremental_filter:
+                    col = incremental_filter["column"]
+                    op = incremental_filter["operator"]
+                    val = incremental_filter["value"]
+                    where_clauses.append(f'"{col}" {op} %s')
+                    params.append(val)
+
+                where_str = ""
+                if where_clauses:
+                    where_str = " WHERE " + " AND ".join(where_clauses)
+
+                order_by = ", ".join([f'"{col}" ASC' for col in pk_cols]) if pk_cols else "1"
+
+                if use_cursor:
+                    sql = f'SELECT * FROM "{self.database}"."{self.schema}"."{table_name}"{where_str} ORDER BY {order_by} LIMIT %s'
+                    params.append(limit)
+                else:
+                    sql = f'SELECT * FROM "{self.database}"."{self.schema}"."{table_name}"{where_str} ORDER BY {order_by} LIMIT %s OFFSET %s'
+                    params.append(limit)
+                    params.append(offset)
+
+                cur.execute(sql, tuple(params))
+                cols = [d[0] for d in cur.description]
+                return [dict(zip(cols, row)) for row in cur.fetchall()]
+
+        return await asyncio.to_thread(_run)
 
     async def write_batch(self, table_name: str, rows: List[Dict[str, Any]]) -> int:
-        """Persists batch records directly or via micro-batch insert."""
+        self._ensure_connected()
         if not rows:
             return 0
-        return len(rows)
+        cols = list(rows[0].keys())
+        col_str = ", ".join([f'"{c}"' for c in cols])
+        placeholders = ", ".join(["%s"] * len(cols))
+        sql = f'INSERT INTO "{self.database}"."{self.schema}"."{table_name}" ({col_str}) VALUES ({placeholders})'
+
+        def _run():
+            with self._client.cursor() as cur:
+                val_tuples = [tuple(r[c] for c in cols) for r in rows]
+                cur.executemany(sql, val_tuples)
+                return len(rows)
+
+        return await asyncio.to_thread(_run)
 
     async def execute_staged_bulk_load(
         self,
@@ -228,23 +294,25 @@ class SnowflakeAdapter(BaseAdapter, IWarehouseCapability):
         file_format: str = "PARQUET",
         options: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        """
-        Executes native high-speed `COPY INTO <table> FROM @<stage>` command.
-        """
+        self._ensure_connected()
         opts = options or {}
-        purge = opts.get("purge", False)
         on_error = opts.get("on_error", "ABORT_STATEMENT")
-        query = f"COPY INTO {target_table} FROM '{stage_uri}' FILE_FORMAT = (TYPE = {file_format}) ON_ERROR = '{on_error}'"
-        logger.info(f"[SnowflakeAdapter] Executing: {query}")
-        return {
-            "success": True,
-            "target_table": target_table,
-            "stage_uri": stage_uri,
-            "file_format": file_format,
-            "rows_loaded": 1000,
-            "rows_parsed": 1000,
-            "errors_seen": 0,
-        }
+        sql = f"COPY INTO \"{self.database}\".\"{self.schema}\".\"{target_table}\" FROM '{stage_uri}' FILE_FORMAT = (TYPE = {file_format}) ON_ERROR = '{on_error}'"
+
+        def _run():
+            with self._client.cursor() as cur:
+                cur.execute(sql)
+                rows = cur.fetchall()
+                loaded = sum([r[3] for r in rows if len(r) > 3 and isinstance(r[3], int)]) if rows else 0
+                return {
+                    "success": True,
+                    "target_table": target_table,
+                    "stage_uri": stage_uri,
+                    "file_format": file_format,
+                    "rows_loaded": loaded,
+                }
+
+        return await asyncio.to_thread(_run)
 
     async def unload_to_stage(
         self,
@@ -253,41 +321,72 @@ class SnowflakeAdapter(BaseAdapter, IWarehouseCapability):
         file_format: str = "PARQUET",
         options: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        """
-        Executes native high-speed `COPY INTO @<stage> FROM <table>` (UNLOAD).
-        """
-        query = f"COPY INTO '{stage_uri}' FROM {source_table} FILE_FORMAT = (TYPE = {file_format} COMPRESSION = SNAPPY) HEADER = TRUE"
-        logger.info(f"[SnowflakeAdapter] Executing UNLOAD: {query}")
-        return {
-            "success": True,
-            "source_table": source_table,
-            "stage_uri": stage_uri,
-            "rows_unloaded": 1000,
-        }
+        self._ensure_connected()
+        sql = f"COPY INTO '{stage_uri}' FROM \"{self.database}\".\"{self.schema}\".\"{source_table}\" FILE_FORMAT = (TYPE = {file_format} COMPRESSION = SNAPPY) HEADER = TRUE"
+
+        def _run():
+            with self._client.cursor() as cur:
+                cur.execute(sql)
+                rows = cur.fetchall()
+                unloaded = sum([r[2] for r in rows if len(r) > 2 and isinstance(r[2], int)]) if rows else 0
+                return {
+                    "success": True,
+                    "source_table": source_table,
+                    "stage_uri": stage_uri,
+                    "rows_unloaded": unloaded,
+                }
+
+        return await asyncio.to_thread(_run)
 
     # -------------------------------------------------------------------------
     # Transactions
     # -------------------------------------------------------------------------
 
     async def begin_transaction(self) -> None:
+        self._ensure_connected()
+        def _run():
+            with self._client.cursor() as cur:
+                cur.execute("BEGIN")
+        await asyncio.to_thread(_run)
         self._in_transaction = True
-        logger.info("[SnowflakeAdapter] BEGIN TRANSACTION")
 
     async def commit_transaction(self) -> None:
+        self._ensure_connected()
+        def _run():
+            self._client.commit()
+        await asyncio.to_thread(_run)
         self._in_transaction = False
-        logger.info("[SnowflakeAdapter] COMMIT")
 
     async def rollback_transaction(self) -> None:
+        self._ensure_connected()
+        def _run():
+            self._client.rollback()
+        await asyncio.to_thread(_run)
         self._in_transaction = False
-        logger.info("[SnowflakeAdapter] ROLLBACK")
 
     # -------------------------------------------------------------------------
     # Validation
     # -------------------------------------------------------------------------
 
     async def get_row_count(self, table_name: str) -> int:
-        return 1000
+        self._ensure_connected()
+        def _run():
+            with self._client.cursor() as cur:
+                cur.execute(f"SELECT COUNT(*) FROM \"{self.database}\".\"{self.schema}\".\"{table_name}\"")
+                row = cur.fetchone()
+                return int(row[0]) if row else 0
+        return await asyncio.to_thread(_run)
 
     async def compute_checksum(self, table_name: str) -> str:
-        data = f"snowflake_{table_name}_1000"
-        return hashlib.sha256(data.encode("utf-8")).hexdigest()
+        self._ensure_connected()
+        from akaal.validation.domain.canonical_checksum import compute_canonical_table_checksum
+        sql = f"SELECT * FROM \"{self.database}\".\"{self.schema}\".\"{table_name}\""
+
+        def _row_stream():
+            with self._client.cursor() as cur:
+                cur.execute(sql)
+                cols = [d[0] for d in cur.description]
+                for r in cur.fetchall():
+                    yield dict(zip(cols, r))
+
+        return compute_canonical_table_checksum(_row_stream(), order_independent=True)

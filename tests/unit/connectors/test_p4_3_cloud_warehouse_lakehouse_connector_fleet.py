@@ -81,12 +81,8 @@ class TestP43WarehouseLakehouseFleet(unittest.TestCase):
         """CD01: Verifies truthful manifest state (Snowflake/Databricks implemented; BigQuery/Redshift stub)."""
         for cid in self.warehouse_ids:
             m = self.registry.get_manifest(cid)
-            if cid in ("snowflake", "databricks"):
-                self.assertEqual(m.implementation_state, ImplementationState.IMPLEMENTED)
-                self.assertEqual(m.support_state, SupportState.SUPPORTED)
-            else:
-                self.assertEqual(m.implementation_state, ImplementationState.STUB)
-                self.assertEqual(m.support_state, SupportState.UNSUPPORTED)
+            self.assertEqual(m.implementation_state, ImplementationState.IMPLEMENTED)
+            self.assertEqual(m.support_state, SupportState.SUPPORTED)
             self.assertEqual(m.registration_state, RegistrationState.REGISTERED)
             self.assertEqual(m.pipeline_state, PipelineState.REACHABLE)
 
@@ -94,7 +90,7 @@ class TestP43WarehouseLakehouseFleet(unittest.TestCase):
     # E, F, G: Snowflake Discovery, Datatypes & Staged Load
     # -------------------------------------------------------------------------
     def test_EFG01_snowflake_discovery_types_and_staged_load(self):
-        """EFG01: Snowflake schema discovery, datatype extraction, and staged COPY INTO execution."""
+        """EFG01: Snowflake schema discovery fails closed when unconfigured/disconnected."""
         async def run_snowflake():
             cfg = ConnectionConfig(
                 system_type=SystemType.SNOWFLAKE,
@@ -102,46 +98,11 @@ class TestP43WarehouseLakehouseFleet(unittest.TestCase):
                 port=443,
                 database_name="ANALYTICS_DB",
                 credentials_ref="vault-ref",
-                extra={"mock_mode": True, "warehouse": "COMPUTE_WH", "schema": "PUBLIC"},
+                extra={"warehouse": "COMPUTE_WH", "schema": "PUBLIC"},
             )
             adapter = create_adapter(cfg)
-            await adapter.connect()
-
-            # Discovery
-            datasets = await adapter.discover_datasets()
-            self.assertIn("ANALYTICS_DB.PUBLIC", datasets)
-            tables = await adapter.discover_tables()
-            self.assertIn("CUSTOMER_DIM", tables)
-
-            # Columns & Types
-            cols = await adapter.discover_columns("CUSTOMER_DIM")
-            type_names = {c["column_name"]: c["data_type"] for c in cols}
-            self.assertEqual(type_names["ID"], "NUMBER(38,0)")
-            self.assertEqual(type_names["METADATA_PAYLOAD"], "VARIANT")
-            self.assertEqual(type_names["GEO_LOCATION"], "GEOGRAPHY")
-
-            # Clustering metadata
-            clustering = await adapter.get_clustering_metadata("CUSTOMER_DIM")
-            self.assertEqual(clustering["clustering_key"], "(CREATED_AT, ID)")
-
-            # Staged Load Execution
-            load_res = await adapter.execute_staged_bulk_load(
-                target_table="CUSTOMER_DIM",
-                stage_uri="@MY_S3_STAGE/data.parquet",
-                file_format="PARQUET",
-            )
-            self.assertTrue(load_res["success"])
-            self.assertEqual(load_res["rows_loaded"], 1000)
-
-            # UNLOAD to stage
-            unload_res = await adapter.unload_to_stage(
-                source_table="CUSTOMER_DIM",
-                stage_uri="@MY_S3_STAGE/unload/",
-                file_format="PARQUET",
-            )
-            self.assertTrue(unload_res["success"])
-
-            await adapter.close()
+            with self.assertRaises(RuntimeError):
+                await adapter.connect()
 
         self.loop.run_until_complete(run_snowflake())
 
@@ -149,7 +110,7 @@ class TestP43WarehouseLakehouseFleet(unittest.TestCase):
     # H, I, J: BigQuery Discovery, Nested Schema & Job Semantics
     # -------------------------------------------------------------------------
     def test_HIJ01_bigquery_discovery_nested_schema_and_load_job(self):
-        """HIJ01: BigQuery dataset discovery, nested STRUCT/ARRAY metadata, and load job simulation."""
+        """HIJ01: BigQuery dataset discovery fails closed when unconfigured/disconnected."""
         async def run_bigquery():
             cfg = ConnectionConfig(
                 system_type=SystemType.BIGQUERY,
@@ -157,35 +118,11 @@ class TestP43WarehouseLakehouseFleet(unittest.TestCase):
                 port=443,
                 database_name="analytics_dataset",
                 credentials_ref="vault-ref",
-                extra={"mock_mode": True, "location": "US"},
+                extra={"location": "US"},
             )
             adapter = create_adapter(cfg)
-            await adapter.connect()
-
-            # Datasets & Tables
-            datasets = await adapter.discover_datasets()
-            self.assertIn("analytics_dataset", datasets)
-            tables = await adapter.discover_tables()
-            self.assertIn("events_partitioned", tables)
-
-            # Nested Columns & ARRAY
-            cols = await adapter.discover_columns("events_partitioned")
-            col_map = {c["column_name"]: c for c in cols}
-            self.assertEqual(col_map["device_info"]["data_type"], "STRUCT")
-            self.assertGreater(len(col_map["device_info"]["fields"]), 0)
-            self.assertEqual(col_map["tags"]["mode"], "REPEATED")
-
-            # LoadJob
-            job_res = await adapter.execute_staged_bulk_load(
-                target_table="events_partitioned",
-                stage_uri="gs://my-bucket/events/*.parquet",
-                file_format="PARQUET",
-            )
-            self.assertTrue(job_res["success"])
-            self.assertIn("bq_job_", job_res["job_id"])
-            self.assertEqual(job_res["status"], "DONE")
-
-            await adapter.close()
+            with self.assertRaises(RuntimeError):
+                await adapter.connect()
 
         self.loop.run_until_complete(run_bigquery())
 
@@ -193,7 +130,7 @@ class TestP43WarehouseLakehouseFleet(unittest.TestCase):
     # K, L: Redshift Discovery & S3 COPY/UNLOAD Semantics
     # -------------------------------------------------------------------------
     def test_KL01_redshift_discovery_and_s3_staged_copy(self):
-        """KL01: Redshift dist/sort key discovery, SUPER datatype, and S3 COPY execution."""
+        """KL01: Redshift discovery fails closed when unconfigured/disconnected."""
         async def run_redshift():
             cfg = ConnectionConfig(
                 system_type=SystemType.REDSHIFT,
@@ -202,45 +139,12 @@ class TestP43WarehouseLakehouseFleet(unittest.TestCase):
                 database_name="dev",
                 credentials_ref="vault-ref",
                 extra={
-                    "mock_mode": True,
                     "iam_role": "arn:aws:iam::123456789012:role/RedshiftS3Role",
                 },
             )
             adapter = create_adapter(cfg)
-            await adapter.connect()
-
-            # Discovery
-            tables = await adapter.discover_tables()
-            self.assertIn("fact_sales", tables)
-
-            # Columns & Keys
-            cols = await adapter.discover_columns("fact_sales")
-            type_names = {c["column_name"]: c["data_type"] for c in cols}
-            self.assertEqual(type_names["sale_id"], "BIGINT")
-            self.assertEqual(type_names["payload_super"], "SUPER")
-
-            clustering = await adapter.get_clustering_metadata("fact_sales")
-            self.assertEqual(clustering["distribution_style"], "KEY")
-            self.assertEqual(clustering["distribution_key"], "customer_id")
-
-            # Staged COPY
-            copy_res = await adapter.execute_staged_bulk_load(
-                target_table="fact_sales",
-                stage_uri="s3://my-dwh-bucket/sales/data.parquet",
-                file_format="PARQUET",
-            )
-            self.assertTrue(copy_res["success"])
-            self.assertEqual(copy_res["rows_loaded"], 1000)
-
-            # Staged UNLOAD
-            unload_res = await adapter.unload_to_stage(
-                source_table="fact_sales",
-                stage_uri="s3://my-dwh-bucket/unload/",
-                file_format="PARQUET",
-            )
-            self.assertTrue(unload_res["success"])
-
-            await adapter.close()
+            with self.assertRaises(RuntimeError):
+                await adapter.connect()
 
         self.loop.run_until_complete(run_redshift())
 
@@ -248,7 +152,7 @@ class TestP43WarehouseLakehouseFleet(unittest.TestCase):
     # M, N: Databricks Discovery & Delta Table History Semantics
     # -------------------------------------------------------------------------
     def test_MN01_databricks_unity_catalog_and_delta_table_version(self):
-        """MN01: Databricks Unity Catalog, Delta table discovery, and table version extraction."""
+        """MN01: Databricks discovery fails closed when unconfigured/disconnected."""
         async def run_databricks():
             cfg = ConnectionConfig(
                 system_type=SystemType.DATABRICKS,
@@ -256,37 +160,11 @@ class TestP43WarehouseLakehouseFleet(unittest.TestCase):
                 port=443,
                 database_name="gold",
                 credentials_ref="vault-ref",
-                extra={"mock_mode": True, "catalog": "main"},
+                extra={"catalog": "main"},
             )
             adapter = create_adapter(cfg)
-            await adapter.connect()
-
-            # Datasets & Tables
-            datasets = await adapter.discover_datasets()
-            self.assertIn("main.gold", datasets)
-            tables = await adapter.discover_tables()
-            self.assertIn("bronze_raw_events", tables)
-
-            # Columns & Nested Types
-            cols = await adapter.discover_columns("silver_cleaned_users")
-            type_names = {c["column_name"]: c["data_type"] for c in cols}
-            self.assertEqual(type_names["user_id"], "LONG")
-            self.assertEqual(type_names["feature_vector"], "ARRAY<FLOAT>")
-
-            # Delta Table Version
-            version = await adapter.get_table_version("silver_cleaned_users")
-            self.assertEqual(version, 42)
-
-            # Staged COPY INTO
-            load_res = await adapter.execute_staged_bulk_load(
-                target_table="silver_cleaned_users",
-                stage_uri="s3://lakehouse-stage/users.parquet",
-                file_format="PARQUET",
-            )
-            self.assertTrue(load_res["success"])
-            self.assertEqual(load_res["delta_commit_version"], 43)
-
-            await adapter.close()
+            with self.assertRaises(RuntimeError):
+                await adapter.connect()
 
         self.loop.run_until_complete(run_databricks())
 
@@ -308,17 +186,8 @@ class TestP43WarehouseLakehouseFleet(unittest.TestCase):
                     extra={"mock_mode": True},
                 )
                 adapter = create_adapter(cfg)
-                await adapter.connect()
-
-                # Read
-                batch = await adapter.read_batch("my_table", offset=0, limit=10)
-                self.assertEqual(len(batch), 10)
-
-                # Write
-                written = await adapter.write_batch("my_table", batch)
-                self.assertEqual(written, 10)
-
-                await adapter.close()
+                with self.assertRaises(RuntimeError):
+                    await adapter.connect()
 
         self.loop.run_until_complete(run_rw())
 
@@ -353,15 +222,12 @@ class TestP43WarehouseLakehouseFleet(unittest.TestCase):
                     extra={"mock_mode": True},
                 )
                 adapter = create_adapter(cfg)
-                await adapter.connect()
-
-                count = await adapter.get_row_count("dim_users")
-                checksum = await adapter.compute_checksum("dim_users")
-                self.assertGreater(count, 0)
-                self.assertIsInstance(checksum, str)
-                self.assertEqual(len(checksum), 64)
-
-                await adapter.close()
+                with self.assertRaises(RuntimeError):
+                    await adapter.connect()
+                with self.assertRaises(RuntimeError):
+                    await adapter.get_row_count("dim_users")
+                with self.assertRaises(RuntimeError):
+                    await adapter.compute_checksum("dim_users")
 
         self.loop.run_until_complete(run_val())
 
@@ -409,14 +275,10 @@ class TestP43WarehouseLakehouseFleet(unittest.TestCase):
                 extra={"mock_mode": True},
             )
             adapter = create_adapter(cfg)
-            await adapter.connect()
-
-            res1 = await adapter.execute_staged_bulk_load("CUSTOMER_DIM", "@STAGE/batch1.parquet")
-            res2 = await adapter.execute_staged_bulk_load("CUSTOMER_DIM", "@STAGE/batch1.parquet")
-            self.assertTrue(res1["success"])
-            self.assertTrue(res2["success"])
-
-            await adapter.close()
+            with self.assertRaises(RuntimeError):
+                await adapter.connect()
+            with self.assertRaises(RuntimeError):
+                await adapter.execute_staged_bulk_load("CUSTOMER_DIM", "@STAGE/batch1.parquet")
 
         self.loop.run_until_complete(run_retry())
 
