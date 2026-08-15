@@ -289,14 +289,21 @@ class AkaalSuperEngine:
         logger.info(f"[AKAAL ENGINE CLI] Scope: {tot_tbls:,} objects, estimated {tot_rows:,} rows")
         logger.info("================================================================================")
 
-        if is_synthetic_test or not (source_params and target_params):
+        if not is_synthetic_test and not (source_params and target_params):
+            logger.error(f"[SUPER ENGINE] PHYSICAL_MIGRATION_FAILED: Source and target connection parameters missing for '{workflow_id}'.")
+            self.state_store.set_state(f"{workflow_id}_status", {"status": "FAILED", "error": "MISSING_PHYSICAL_AUTHORITY"}, category="runtime")
+            raise PhysicalExecutionContractError(
+                f"PHYSICAL_MIGRATION_FAILED: Source and target connection parameters are required for physical migration '{workflow_id}'. Missing physical connection authority."
+            )
+
+        if is_synthetic_test:
             import time
-            # Stage 1: Pre-Start Authority & Target Schema DDL Execution
-            logger.info("[STAGE 1/5] Pre-Start Authority Validation — Passed.")
-            logger.info(f"[STAGE 2/5] Target Schema DDL Execution — Applying DDL for {tot_tbls:,} objects...")
-            self.state_store.set_state(f"{workflow_id}_status", {"status": "RUNNING", "current_stage": "schema_exec"}, category="runtime")
-            self.event_bus.publish("migration.stage", {"migration_id": workflow_id, "stage": "schema_exec", "message": "Executing target schema DDL & constraints..."})
-            time.sleep(0.3)
+            # Isolated Test-Only Simulation Execution Path
+            logger.info("[TEST SIMULATION] Pre-Start Authority Validation — Passed.")
+            logger.info(f"[TEST SIMULATION] Target Schema DDL Execution — Applying DDL for {tot_tbls:,} objects...")
+            self.state_store.set_state(f"{workflow_id}_status", {"status": "RUNNING", "current_stage": "schema_exec", "mode": "TEST_SIMULATION"}, category="runtime")
+            self.event_bus.publish("migration.stage", {"migration_id": workflow_id, "stage": "schema_exec", "message": "Executing target schema DDL & constraints (Test Simulation)..."})
+            time.sleep(0.1)
 
             # Stage 2: Parallel Stream Data Transport (Optimized High-Throughput Batch Stream)
             logger.info(f"[STAGE 3/5] Parallel Stream Data Transport — Streaming {tot_rows:,} rows...")

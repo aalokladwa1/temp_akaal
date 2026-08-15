@@ -95,6 +95,8 @@ class OraclePhysicalWriter(IPhysicalWriter):
         insert_sql = f'INSERT INTO "{clean_schema}"."{clean_table}" ({col_str}) VALUES ({bind_placeholders})'
 
         if hasattr(self.conn, "_mock_name") or type(self.conn).__name__ == "MagicMock":
+            if not self.params.get("allow_test_mock_harness", False):
+                raise RuntimeError("OraclePhysicalWriter requires a valid physical database connection cursor. Mock fallback is disallowed in physical production writers.")
             logger.info(f"[OraclePhysicalWriter MOCK] Wrote batch of {len(data)} rows to {clean_schema}.{clean_table}")
             return len(data)
 

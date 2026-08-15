@@ -114,6 +114,8 @@ class PostgreSQLPhysicalReader(IPhysicalReader):
 
     def read_batch(self, batch_size: int) -> Tuple[List[Tuple], BatchMetadata]:
         if hasattr(self.conn, "_mock_name") or type(self.conn).__name__ == "MagicMock":
+            if not self.params.get("allow_test_mock_harness", False):
+                raise RuntimeError("PostgreSQLPhysicalReader requires a valid physical database connection cursor. Mock fallback is disallowed in physical production readers.")
             if self.batch_sequence >= 1:
                 return [], BatchMetadata(batch_id=f"batch-{self.batch_sequence}", partition_id=self.partition.partition_id if self.partition else "part-0", table_name="tbl", sequence=self.batch_sequence, row_count=0)
             self.batch_sequence += 1

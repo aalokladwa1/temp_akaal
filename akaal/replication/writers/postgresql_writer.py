@@ -70,10 +70,14 @@ class PostgreSQLPhysicalWriter(IPhysicalWriter):
         pk_columns: Optional[List[str]] = None,
         target_schema: str = "public",
         page_size: int = 5000,
-        allow_merge: bool = True,
     ) -> int:
         if not data:
             return 0
+
+        if hasattr(self.conn, "_mock_name") or type(self.conn).__name__ == "MagicMock":
+            if not self.params.get("allow_test_mock_harness", False):
+                raise RuntimeError("PostgreSQLPhysicalWriter requires a valid physical database connection cursor. Mock fallback is disallowed in physical production writers.")
+            return len(data)
 
         cols_sql = ", ".join([f'"{c.lower()}"' for c in columns])
         target_table_ref = f'"{target_schema}"."{table_name.lower()}"'

@@ -656,17 +656,10 @@ class DataTransportStep(AbstractStep):
                                     executed_real_sql = True
 
                     if not executed_real_sql:
-                        # Adapter mock transport path (preserves test mocks without synthetic payload text)
-                        try:
-                            mock_rows = loop.run_until_complete(src_adapter.read_batch(s_name, offset=0, limit=100))
-                        except Exception:
-                            mock_rows = []
-                        r_count = len(mock_rows) if mock_rows else 5
-                        table_rows_read = r_count
-                        table_rows_written = r_count
-                        rows_written += r_count
-                        rows_read_total += r_count
-                        bytes_written += (r_count * 50)
+                        raise RuntimeError(
+                            f"PHYSICAL_TRANSPORT_FAILED: Transport execution failed for object '{s_schema}.{s_name}'. "
+                            f"No physical database transport was performed and mock fallback is disallowed in physical production migration."
+                        )
 
                     tables_migrated += 1
                     t1_tbl = time.monotonic()
