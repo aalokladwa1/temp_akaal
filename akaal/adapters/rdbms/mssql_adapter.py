@@ -478,6 +478,22 @@ class MSSQLAdapter(BaseAdapter):
         except Exception:
             return []
 
+    async def _unique_key_columns(self, table_name: str) -> List[str]:
+        pks = await self._primary_key_columns(table_name)
+        if pks:
+            return pks
+        sql = """
+            SELECT COLUMN_NAME
+            FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
+            WHERE TABLE_SCHEMA = 'dbo' AND TABLE_NAME = ? AND CONSTRAINT_NAME LIKE 'UQ_%%'
+            ORDER BY ORDINAL_POSITION
+        """
+        try:
+            rows = await self._run_query(sql, (table_name,))
+            return [row[0] for row in rows] if rows else []
+        except Exception:
+            return []
+
     async def read_batch(
         self,
         table_name: str,
@@ -487,7 +503,7 @@ class MSSQLAdapter(BaseAdapter):
         incremental_filter: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, Any]]:
         self._ensure_connected()
-        pk_cols = await self._primary_key_columns(table_name)
+        pk_cols = await self._unique_key_columns(table_name)
 
         # Check if cursor can be used
         use_cursor = (

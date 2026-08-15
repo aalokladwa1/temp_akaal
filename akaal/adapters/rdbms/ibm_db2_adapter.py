@@ -226,6 +226,19 @@ class IBMDB2Adapter(BaseAdapter):
     # Data Operations & Bulk Extraction/Writing
     # ------------------------------------------------------------------
 
+    async def _unique_key_columns(self, table_name: str) -> List[str]:
+        self._ensure_connected()
+        import ibm_db
+        tbl_upper = table_name.upper()
+        sql = f"SELECT COLNAME FROM SYSCAT.INDEXES I JOIN SYSCAT.INDEXCOLUSE C ON I.INDSCHEMA = C.INDSCHEMA AND I.INDNAME = C.INDNAME WHERE I.TABNAME = '{tbl_upper}' AND (I.UNIQUERULE = 'P' OR I.UNIQUERULE = 'U') ORDER BY C.COLSEQ"
+        stmt = ibm_db.exec_immediate(self._conn, sql)
+        cols = []
+        row = ibm_db.fetch_assoc(stmt)
+        while row:
+            cols.append(row.get("COLNAME"))
+            row = ibm_db.fetch_assoc(stmt)
+        return cols
+
     async def read_batch(
         self,
         table_name: str,

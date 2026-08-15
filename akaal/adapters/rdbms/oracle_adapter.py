@@ -473,6 +473,27 @@ class OracleAdapter(BaseAdapter):
                 return []
         return await asyncio.to_thread(_run)
 
+    async def _unique_key_columns(self, table_name: str) -> List[str]:
+        pks = await self._primary_key_columns(table_name)
+        if pks:
+            return pks
+        sql = """
+            SELECT ACC.COLUMN_NAME
+            FROM ALL_CONSTRAINTS AC
+            JOIN ALL_CONS_COLUMNS ACC ON AC.OWNER = ACC.OWNER AND AC.CONSTRAINT_NAME = ACC.CONSTRAINT_NAME
+            WHERE AC.OWNER = :owner AND AC.TABLE_NAME = :tbl AND AC.CONSTRAINT_TYPE = 'U'
+            ORDER BY ACC.POSITION
+        """
+        def _run():
+            try:
+                with self._conn.cursor() as cur:
+                    cur.execute(sql, owner=self._schema.upper(), tbl=table_name.upper())
+                    rows = cur.fetchall()
+                return [row[0] for row in rows] if rows else []
+            except Exception:
+                return []
+        return await asyncio.to_thread(_run)
+
     async def read_batch(
         self,
         table_name: str,
@@ -485,7 +506,7 @@ class OracleAdapter(BaseAdapter):
         if not self._conn :
             raise RuntimeError("Not connected")
 
-        pk_cols = await self._primary_key_columns(table_name)
+        pk_cols = await self._unique_key_columns(table_name)
 
         # Check if cursor can be used
         use_cursor = (

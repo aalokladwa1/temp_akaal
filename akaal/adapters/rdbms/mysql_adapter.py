@@ -304,6 +304,26 @@ class MySQLAdapter(BaseAdapter):
                 return []
         return await asyncio.to_thread(_run)
 
+    async def _unique_key_columns(self, table_name: str) -> List[str]:
+        pks = await self._primary_key_columns(table_name)
+        if pks:
+            return pks
+        sql = """
+            SELECT COLUMN_NAME
+            FROM INFORMATION_SCHEMA.STATISTICS
+            WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND NON_UNIQUE = 0
+            ORDER BY SEQ_IN_INDEX
+        """
+        def _run():
+            try:
+                with self._conn.cursor() as cur:
+                    cur.execute(sql, (self.config.database_name, table_name))
+                    rows = cur.fetchall()
+                return [row["COLUMN_NAME"] for row in rows] if rows else []
+            except Exception:
+                return []
+        return await asyncio.to_thread(_run)
+
     async def read_batch(
         self,
         table_name: str,
@@ -313,7 +333,7 @@ class MySQLAdapter(BaseAdapter):
         incremental_filter: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, Any]]:
         self._ensure_connected()
-        pk_cols = await self._primary_key_columns(table_name)
+        pk_cols = await self._unique_key_columns(table_name)
 
         # Check if cursor can be used
         use_cursor = (

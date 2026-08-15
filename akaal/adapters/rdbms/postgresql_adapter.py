@@ -311,6 +311,31 @@ class PostgreSQLAdapter(BaseAdapter):
                 return []
         return await asyncio.to_thread(_run)
 
+    async def _unique_key_columns(self, table_name: str) -> List[str]:
+        pks = await self._primary_key_columns(table_name)
+        if pks:
+            return pks
+        sql = """
+            SELECT a.attname
+            FROM   pg_catalog.pg_index     i
+            JOIN   pg_catalog.pg_attribute a
+                   ON a.attrelid = i.indrelid
+                   AND a.attnum = ANY(i.indkey)
+            WHERE  i.indrelid = %s::regclass
+            AND    i.indisunique
+            AND    a.attnotnull
+            ORDER BY array_position(i.indkey, a.attnum::smallint);
+        """
+        def _run():
+            try:
+                with self._conn.cursor() as cur:
+                    cur.execute(sql, (table_name,))
+                    rows = cur.fetchall()
+                return [row[0] for row in rows] if rows else []
+            except Exception:
+                return []
+        return await asyncio.to_thread(_run)
+
     async def read_batch(
         self,
         table_name: str,
@@ -320,7 +345,7 @@ class PostgreSQLAdapter(BaseAdapter):
         incremental_filter: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, Any]]:
         self._ensure_connected()
-        pk_cols = await self._primary_key_columns(table_name)
+        pk_cols = await self._unique_key_columns(table_name)
         use_cursor = (
             last_processed_primary_key is not None
             and len(pk_cols) > 0

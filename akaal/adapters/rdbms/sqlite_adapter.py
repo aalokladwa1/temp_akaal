@@ -172,6 +172,29 @@ class SQLiteAdapter(BaseAdapter):
     # Data Operations
     # ------------------------------------------------------------------
 
+    async def _unique_key_columns(self, table_name: str) -> List[str]:
+        pks = await self._primary_key_columns(table_name)
+        if pks:
+            return pks
+        self._ensure_connected()
+        def _get_unique():
+            cursor = self._conn.cursor()
+            try:
+                cursor.execute(f'PRAGMA index_list("{table_name}")')
+                idx_rows = cursor.fetchall()
+                for idx in idx_rows:
+                    if idx["unique"] and not idx["origin"] == "pk":
+                        cursor.execute(f'PRAGMA index_info("{idx["name"]}")')
+                        cols = [info["name"] for info in cursor.fetchall()]
+                        if cols:
+                            return cols
+                return []
+            except Exception:
+                return []
+            finally:
+                cursor.close()
+        return await asyncio.to_thread(_get_unique)
+
     async def read_batch(
         self,
         table_name: str,
@@ -181,7 +204,7 @@ class SQLiteAdapter(BaseAdapter):
         incremental_filter: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, Any]]:
         self._ensure_connected()
-        pk_cols = await self._primary_key_columns(table_name)
+        pk_cols = await self._unique_key_columns(table_name)
         use_cursor = (
             last_processed_primary_key is not None
             and len(pk_cols) > 0
