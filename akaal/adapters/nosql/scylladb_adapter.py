@@ -3,7 +3,7 @@ Akaal — ScyllaDB Wide-Column Database Adapter
 =============================================
 100% Physical Reality Adapter for ScyllaDB reusing cassandra-driver CQL compatibility layer.
 Preserves explicit SystemType.SCYLLADB identity and ScyllaDB-specific capability declarations.
-Provides token/keyset continuation pagination preventing first-page repetition.
+Provides composite partition key token continuation pagination (WHERE token(c1, c2, ...) > token(%s, %s, ...)).
 """
 
 import asyncio
@@ -92,14 +92,14 @@ class ScyllaDBAdapter(BaseAdapter):
                 (keyspace,),
             )
             return [r.table_name for r in rows]
-        return await asyncio.to_thread(_run)
+        return await asyncio-to-thread(_run) if hasattr(asyncio, "to_thread") else await asyncio.get_event_loop().run_in_executor(None, _run)
 
     async def discover_columns(self, table_name: str) -> List[Dict[str, Any]]:
         self._ensure_connected()
         keyspace = self.config.database_name or "system"
         def _run():
             rows = self._session.execute(
-                "SELECT column_name, type, kind FROM system_schema.columns WHERE keyspace_name = %s AND table_name = %s",
+                "SELECT column_name, type, kind, position FROM system_schema.columns WHERE keyspace_name = %s AND table_name = %s",
                 (keyspace, table_name),
             )
             cols = []
@@ -108,6 +108,7 @@ class ScyllaDBAdapter(BaseAdapter):
                     "column_name": r.column_name,
                     "data_type": str(r.type),
                     "kind": r.kind,
+                    "position": getattr(r, "position", 0),
                     "nullable": r.kind not in ("partition_key", "clustering"),
                 })
             return cols
@@ -141,7 +142,7 @@ class ScyllaDBAdapter(BaseAdapter):
         return []
 
     # ------------------------------------------------------------------
-    # Data Operations (Token Continuation & Paging)
+    # Data Operations (Composite Partition Key Token Continuation)
     # ------------------------------------------------------------------
 
     async def read_batch(
@@ -155,16 +156,19 @@ class ScyllaDBAdapter(BaseAdapter):
         keyspace = self.config.database_name or "system"
         def _run():
             cols_info = self._session.execute(
-                "SELECT column_name, kind FROM system_schema.columns WHERE keyspace_name = %s AND table_name = %s",
+                "SELECT column_name, kind, position FROM system_schema.columns WHERE keyspace_name = %s AND table_name = %s",
                 (keyspace, table_name),
             )
-            pk_cols = [r.column_name for r in cols_info if r.kind == "partition_key"]
+            pk_rows = [r for r in cols_info if r.kind == "partition_key"]
+            pk_rows.sort(key=lambda x: getattr(x, "position", 0))
+            pk_cols = [r.column_name for r in pk_rows]
 
             if last_processed_primary_key and pk_cols and all(k in last_processed_primary_key for k in pk_cols):
-                pk_name = pk_cols[0]
-                val = last_processed_primary_key[pk_name]
-                query = f'SELECT * FROM "{keyspace}"."{table_name}" WHERE token("{pk_name}") > token(%s) LIMIT {limit}'
-                rows = self._session.execute(query, (val,))
+                cols_str = ", ".join([f'"{c}"' for c in pk_cols])
+                placeholders = ", ".join(["%s"] * len(pk_cols))
+                vals = tuple(last_processed_primary_key[c] for c in pk_cols)
+                query = f'SELECT * FROM "{keyspace}"."{table_name}" WHERE token({cols_str}) > token({placeholders}) LIMIT {limit}'
+                rows = self._session.execute(query, vals)
             else:
                 from cassandra.query import SimpleStatement
                 stmt = SimpleStatement(f'SELECT * FROM "{keyspace}"."{table_name}"', fetch_size=limit)

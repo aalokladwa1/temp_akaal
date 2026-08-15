@@ -3,7 +3,7 @@ Akaal — OpenSearch Search Engine Adapter
 ========================================
 100% Physical Reality Adapter for OpenSearch using opensearch-py.
 Provides fail-closed connectivity, index discovery, mapping field analysis,
-search_after / _id stable pagination, Bulk API writes with item error checking, and streaming canonical checksums.
+search_after sort_values array continuation, Bulk API writes with item error checking, and streaming canonical checksums.
 """
 
 import asyncio
@@ -130,7 +130,7 @@ class OpenSearchAdapter(BaseAdapter):
         return []
 
     # ------------------------------------------------------------------
-    # Data Operations (search_after / _id Pagination)
+    # Data Operations (search_after Sort Value Continuation)
     # ------------------------------------------------------------------
 
     async def read_batch(
@@ -142,14 +142,15 @@ class OpenSearchAdapter(BaseAdapter):
     ) -> List[Dict[str, Any]]:
         self._ensure_connected()
         def _run():
-            if last_processed_primary_key and "_id" in last_processed_primary_key:
+            if last_processed_primary_key and "sort_values" in last_processed_primary_key:
+                sort_vals = last_processed_primary_key["sort_values"]
                 res = self._client.search(
                     index=table_name,
                     size=limit,
                     body={
                         "query": {"match_all": {}},
-                        "search_after": [last_processed_primary_key["_id"]],
-                        "sort": [{"_id": "asc"}],
+                        "search_after": sort_vals,
+                        "sort": [{"_doc": "asc"}],
                     },
                 )
             else:
@@ -159,7 +160,7 @@ class OpenSearchAdapter(BaseAdapter):
                     size=limit,
                     body={
                         "query": {"match_all": {}},
-                        "sort": [{"_id": "asc"}],
+                        "sort": [{"_doc": "asc"}],
                     },
                 )
             hits = res.get("hits", {}).get("hits", [])
@@ -169,6 +170,8 @@ class OpenSearchAdapter(BaseAdapter):
                 doc["_id"] = h.get("_id")
                 if "_routing" in h:
                     doc["_routing"] = h.get("_routing")
+                if "sort" in h:
+                    doc["_sort_values"] = h.get("sort")
                 rows.append(doc)
             return rows
         return await asyncio.to_thread(_run)
@@ -182,7 +185,7 @@ class OpenSearchAdapter(BaseAdapter):
             for r in rows:
                 doc_id = r.get("_id")
                 routing = r.get("_routing")
-                doc = {k: v for k, v in r.items() if k not in ("_id", "_routing")}
+                doc = {k: v for k, v in r.items() if k not in ("_id", "_routing", "_sort_values")}
                 meta = {"_index": table_name}
                 if doc_id:
                     meta["_id"] = doc_id
@@ -208,7 +211,7 @@ class OpenSearchAdapter(BaseAdapter):
         self._ensure_connected()
         from akaal.validation.domain.canonical_checksum import compute_canonical_table_checksum
         def _row_stream():
-            res = self._client.search(index=table_name, size=1000, body={"query": {"match_all": {}}, "sort": [{"_id": "asc"}]})
+            res = self._client.search(index=table_name, size=1000, body={"query": {"match_all": {}}, "sort": [{"_doc": "asc"}]})
             hits = res.get("hits", {}).get("hits", [])
             for h in hits:
                 doc = h.get("_source", {})

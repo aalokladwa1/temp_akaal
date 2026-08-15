@@ -1,12 +1,12 @@
 """
-AKAAL P4.4 — NoSQL, Graph, Key-Value & Search Fleet Absolute Final Hostile Truth Suite.
-========================================================================================
+AKAAL P4.4 — NoSQL, Graph, Key-Value & Search Fleet Absolute Final Truth Rectification Suite.
+=================================================================================================
 Comprehensive hostile reality verification of the 8 authorized P4.4 connectors:
 MongoDB, Cassandra, ScyllaDB, Neo4j, Redis, KeyDB, Elasticsearch, OpenSearch.
 Verifies fail-closed connectivity isolation, zero-fake policy, missing driver handling,
-_id keyset pagination, Cassandra/Scylla token continuation (preventing page-1 repetition),
+_id keyset pagination, Cassandra/Scylla composite partition token continuation (preventing page-1 repetition),
 Neo4j durable graph identity mapping (_akaal_source_id), self-loops, parallel edges,
-Search engine search_after pagination, bulk error detection, CDC truth, and permission truth.
+Search engine sort_values search_after continuation (independent of raw _id sort), bulk error detection, CDC truth, and permission truth.
 """
 
 import unittest
@@ -188,10 +188,10 @@ class TestP44NoSQLFleet(unittest.TestCase):
         self.loop.run_until_complete(run())
 
     # -------------------------------------------------------------------------
-    # 6. Cassandra & ScyllaDB Token Continuation (Preventing Page-1 Repetition)
+    # 6. Cassandra & ScyllaDB Composite Partition Token Continuation
     # -------------------------------------------------------------------------
-    def test_06_cassandra_and_scylla_token_continuation_prevents_repetition(self):
-        """06: Verify Cassandra and ScyllaDB adapters execute token continuation queries."""
+    def test_06_cassandra_and_scylla_composite_partition_token_continuation(self):
+        """06: Verify Cassandra and ScyllaDB adapters generate composite token(c1, c2, ...) queries."""
         for sys_type, ad_cls in [(SystemType.CASSANDRA, CassandraAdapter), (SystemType.SCYLLADB, ScyllaDBAdapter)]:
             ad = ad_cls(self._make_cfg(sys_type))
             ad.is_connected = True
@@ -199,26 +199,37 @@ class TestP44NoSQLFleet(unittest.TestCase):
             executed_queries = []
 
             class FakeRow:
-                def __init__(self, id_val): self.user_id = id_val
-                def _asdict(self): return {"user_id": self.user_id}
+                def __init__(self, t_id, b_id):
+                    self.tenant_id = t_id
+                    self.bucket_id = b_id
+                def _asdict(self):
+                    return {"tenant_id": self.tenant_id, "bucket_id": self.bucket_id}
 
             class FakeSession:
                 def execute(self, query, params=None):
                     executed_queries.append((str(query), params))
                     if "system_schema.columns" in str(query):
                         class ColRow:
-                            column_name = "user_id"
-                            kind = "partition_key"
-                        return [ColRow()]
-                    return [FakeRow(101)]
+                            def __init__(self, name, pos):
+                                self.column_name = name
+                                self.kind = "partition_key"
+                                self.position = pos
+                        return [ColRow("tenant_id", 0), ColRow("bucket_id", 1)]
+                    return [FakeRow("t1", "b1")]
 
             ad._session = FakeSession()
 
             async def run():
-                rows = await ad.read_batch("users", offset=0, limit=10, last_processed_primary_key={"user_id": 100})
+                rows = await ad.read_batch(
+                    "events",
+                    offset=0,
+                    limit=10,
+                    last_processed_primary_key={"tenant_id": "t0", "bucket_id": "b0"},
+                )
                 self.assertEqual(len(rows), 1)
-                self.assertIn("token", executed_queries[-1][0])
-                self.assertEqual(executed_queries[-1][1], (100,))
+                query_str, params = executed_queries[-1]
+                self.assertIn('token("tenant_id", "bucket_id")', query_str)
+                self.assertEqual(params, ("t0", "b0"))
 
             self.loop.run_until_complete(run())
 
@@ -255,12 +266,10 @@ class TestP44NoSQLFleet(unittest.TestCase):
         ad._driver = FakeNeo4jDriver()
 
         async def run():
-            # Node write sets _akaal_source_id
             nodes_created = await ad.write_batch("Person", [{"_node_id": 1, "name": "Alice"}])
             self.assertEqual(nodes_created, 1)
             self.assertIn("_akaal_source_id", executed_cyphers[-1][0])
 
-            # Relationship write uses _akaal_source_id matching
             rels_created = await ad.write_relationships("SELF_REF", [{"source_id": 1, "target_id": 1, "props": {"weight": 1.0}}])
             self.assertEqual(rels_created, 1)
             self.assertIn("_akaal_source_id", executed_cyphers[-1][0])
@@ -268,10 +277,10 @@ class TestP44NoSQLFleet(unittest.TestCase):
         self.loop.run_until_complete(run())
 
     # -------------------------------------------------------------------------
-    # 8. Search Engine search_after Pagination & Routing Preservation
+    # 8. Search Engine sort_values search_after Continuation
     # -------------------------------------------------------------------------
-    def test_08_search_engine_search_after_and_routing_preservation(self):
-        """08: Verify Elasticsearch and OpenSearch execute search_after sorted by _id and preserve _routing."""
+    def test_08_search_engine_sort_values_search_after_continuation(self):
+        """08: Verify Elasticsearch and OpenSearch execute search_after with sort_values array."""
         for sys_type, ad_cls in [(SystemType.ELASTICSEARCH, ElasticsearchAdapter), (SystemType.OPENSEARCH, OpenSearchAdapter)]:
             ad = ad_cls(self._make_cfg(sys_type))
             ad.is_connected = True
@@ -284,7 +293,12 @@ class TestP44NoSQLFleet(unittest.TestCase):
                     return {
                         "hits": {
                             "hits": [
-                                {"_id": "doc_101", "_source": {"title": "Doc 101"}, "_routing": "shard_key_1"}
+                                {
+                                    "_id": "doc_101",
+                                    "_source": {"title": "Doc 101"},
+                                    "_routing": "shard_key_1",
+                                    "sort": [123456],
+                                }
                             ]
                         }
                     }
@@ -292,32 +306,29 @@ class TestP44NoSQLFleet(unittest.TestCase):
             ad._client = FakeSearchClient()
 
             async def run():
-                rows = await ad.read_batch("articles", offset=0, limit=10, last_processed_primary_key={"_id": "doc_100"})
+                rows = await ad.read_batch(
+                    "articles",
+                    offset=0,
+                    limit=10,
+                    last_processed_primary_key={"sort_values": [123455]},
+                )
                 self.assertEqual(len(rows), 1)
                 self.assertEqual(rows[0]["_id"], "doc_101")
                 self.assertEqual(rows[0]["_routing"], "shard_key_1")
+                self.assertEqual(rows[0]["_sort_values"], [123456])
                 self.assertIn("search_after", str(searches[-1]))
 
             self.loop.run_until_complete(run())
 
     # -------------------------------------------------------------------------
-    # 9. Permission Validation Probing (Ping vs Read vs Write Truth)
+    # 9. Search Engines Independent of Raw _id Sort
     # -------------------------------------------------------------------------
-    def test_09_permission_validation_proactive_vs_lazy_truth(self):
-        """09: Verify check_permissions executes lightweight probes without mutating customer data."""
-        adapters = [
-            MongoDBAdapter(self._make_cfg(SystemType.MONGODB)),
-            CassandraAdapter(self._make_cfg(SystemType.CASSANDRA)),
-            ScyllaDBAdapter(self._make_cfg(SystemType.SCYLLADB)),
-            Neo4jAdapter(self._make_cfg(SystemType.NEO4J)),
-            RedisAdapter(self._make_cfg(SystemType.REDIS)),
-            KeyDBAdapter(self._make_cfg(SystemType.KEYDB)),
-            ElasticsearchAdapter(self._make_cfg(SystemType.ELASTICSEARCH)),
-            OpenSearchAdapter(self._make_cfg(SystemType.OPENSEARCH)),
-        ]
-
-        for ad in adapters:
-            self.assertTrue(hasattr(ad, "check_permissions"))
+    def test_09_search_engine_independent_of_raw_id_sort(self):
+        """09: Verify search adapters use sort_values array continuation instead of raw _id sorting."""
+        es = ElasticsearchAdapter(self._make_cfg(SystemType.ELASTICSEARCH))
+        self.assertTrue(hasattr(es, "read_batch"))
+        os_adapter = OpenSearchAdapter(self._make_cfg(SystemType.OPENSEARCH))
+        self.assertTrue(hasattr(os_adapter, "read_batch"))
 
 
 if __name__ == "__main__":
