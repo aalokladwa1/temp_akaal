@@ -3,7 +3,7 @@ Akaal — Apache Cassandra Wide-Column Database Adapter
 ======================================================
 100% Physical Reality Adapter for Apache Cassandra using cassandra-driver.
 Provides fail-closed connectivity, keyspace/table discovery, partition/clustering column metadata,
-CQL batch extraction, prepared writes, and canonical checksum validation.
+token/keyset continuation pagination (preventing first-page repetition), prepared writes, and canonical checksum validation.
 """
 
 import asyncio
@@ -141,7 +141,7 @@ class CassandraAdapter(BaseAdapter):
         return []
 
     # ------------------------------------------------------------------
-    # Data Operations
+    # Data Operations (Token Continuation & Paging)
     # ------------------------------------------------------------------
 
     async def read_batch(
@@ -154,12 +154,29 @@ class CassandraAdapter(BaseAdapter):
         self._ensure_connected()
         keyspace = self.config.database_name or "system"
         def _run():
-            query = f'SELECT * FROM "{keyspace}"."{table_name}" LIMIT {limit}'
-            rows = self._session.execute(query)
+            cols_info = self._session.execute(
+                "SELECT column_name, kind FROM system_schema.columns WHERE keyspace_name = %s AND table_name = %s",
+                (keyspace, table_name),
+            )
+            pk_cols = [r.column_name for r in cols_info if r.kind == "partition_key"]
+
+            if last_processed_primary_key and pk_cols and all(k in last_processed_primary_key for k in pk_cols):
+                pk_name = pk_cols[0]
+                val = last_processed_primary_key[pk_name]
+                query = f'SELECT * FROM "{keyspace}"."{table_name}" WHERE token("{pk_name}") > token(%s) LIMIT {limit}'
+                rows = self._session.execute(query, (val,))
+            else:
+                from cassandra.query import SimpleStatement
+                stmt = SimpleStatement(f'SELECT * FROM "{keyspace}"."{table_name}"', fetch_size=limit)
+                rows = self._session.execute(stmt)
+
             result = []
             for r in rows:
                 result.append(r._asdict())
+                if len(result) >= limit:
+                    break
             return result
+
         return await asyncio.to_thread(_run)
 
     async def write_batch(self, table_name: str, rows: List[Dict[str, Any]]) -> int:

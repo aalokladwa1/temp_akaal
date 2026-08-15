@@ -3,7 +3,8 @@ Akaal — Neo4j Graph Database Adapter
 ====================================
 100% Physical Reality Adapter for Neo4j Graph Database using the official neo4j Python driver.
 Provides fail-closed connectivity, label/relationship/property discovery, Cypher parameterized
-batch node extraction, relationship topology migration, UNWIND batch writes, and streaming canonical validation checksums.
+batch node extraction, durable source-target identity mapping (_akaal_source_id), UNWIND batch writes,
+self-loop and multi-edge topology preservation, and streaming canonical validation checksums.
 """
 
 import asyncio
@@ -146,7 +147,7 @@ class Neo4jAdapter(BaseAdapter):
         return []
 
     # ------------------------------------------------------------------
-    # Data Operations (Nodes & Relationships)
+    # Data Operations (Nodes & Relationships with Durable Identity)
     # ------------------------------------------------------------------
 
     async def read_batch(
@@ -191,7 +192,7 @@ class Neo4jAdapter(BaseAdapter):
         self._ensure_connected()
         if not rows:
             return 0
-        query = f"UNWIND $rows AS row CREATE (n:`{table_name}`) SET n = row"
+        query = f"UNWIND $rows AS row CREATE (n:`{table_name}`) SET n = row, n._akaal_source_id = row._node_id"
         def _run():
             with self._driver.session() as session:
                 res = session.run(query, rows=rows)
@@ -203,7 +204,13 @@ class Neo4jAdapter(BaseAdapter):
         self._ensure_connected()
         if not relationships:
             return 0
-        query = f"UNWIND $rels AS rel MATCH (a), (b) WHERE id(a) = rel.source_id AND id(b) = rel.target_id CREATE (a)-[r:`{rel_type}`]->(b) SET r = rel.props"
+        query = (
+            f"UNWIND $rels AS rel "
+            f"MATCH (a), (b) "
+            f"WHERE (a._akaal_source_id = rel.source_id OR id(a) = rel.source_id) "
+            f"  AND (b._akaal_source_id = rel.target_id OR id(b) = rel.target_id) "
+            f"CREATE (a)-[r:`{rel_type}`]->(b) SET r = rel.props"
+        )
         def _run():
             with self._driver.session() as session:
                 res = session.run(query, rels=relationships)
