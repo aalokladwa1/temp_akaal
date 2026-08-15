@@ -2877,8 +2877,39 @@ class EngineGateway:
             return self._cdc_topology_managers[top_id].get_telemetry()
         return {"topology_id": top_id, "status": "NOT_FOUND"}
 
+    def _is_migration_historical(self, migration_id: str) -> bool:
+        if not hasattr(self, "state_store") or not self.state_store:
+            return False
+        st_dict = self.state_store.get_state(f"{migration_id}_status", category="runtime") or {}
+        if isinstance(st_dict, dict):
+            status = st_dict.get("status", "")
+        else:
+            status = str(st_dict)
+        return status in ("COMPLETED", "TERMINATED", "ARCHIVED")
+
+    def pause_cdc_session(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        migration_id = payload.get("migration_id", "mig-def")
+        if self._is_migration_historical(migration_id):
+            return {"status": "REJECTED_HISTORICAL_IMMUTABLE", "message": "Historical CDC sessions are read-only and immutable."}
+        self.state_store.set_state(f"{migration_id}_status", {"status": "PAUSED"}, category="runtime")
+        return {"migration_id": migration_id, "status": "PAUSED"}
+
+    def resume_cdc_session(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        migration_id = payload.get("migration_id", "mig-def")
+        if self._is_migration_historical(migration_id):
+            return {"status": "REJECTED_HISTORICAL_IMMUTABLE", "message": "Historical CDC sessions are read-only and immutable."}
+        self.state_store.set_state(f"{migration_id}_status", {"status": "RUNNING"}, category="runtime")
+        return {"migration_id": migration_id, "status": "RESUMED"}
+
     def pause_cdc_bidirectional_topology(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         top_id = payload["topology_id"]
+        mig_id = payload.get("migration_id")
+        if hasattr(self, "_cdc_topology_managers") and top_id in self._cdc_topology_managers:
+            mgr = self._cdc_topology_managers[top_id]
+            mig_id = mig_id or mgr.identity.migration_id
+        if mig_id and self._is_migration_historical(mig_id):
+            return {"topology_id": top_id, "status": "REJECTED_HISTORICAL_IMMUTABLE", "message": "Historical CDC sessions are read-only and immutable."}
+
         epoch = payload.get("fencing_epoch", 1)
         if hasattr(self, "_cdc_topology_managers") and top_id in self._cdc_topology_managers:
             top = self._cdc_topology_managers[top_id].pause_topology(epoch)
@@ -2887,6 +2918,13 @@ class EngineGateway:
 
     def resume_cdc_bidirectional_topology(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         top_id = payload["topology_id"]
+        mig_id = payload.get("migration_id")
+        if hasattr(self, "_cdc_topology_managers") and top_id in self._cdc_topology_managers:
+            mgr = self._cdc_topology_managers[top_id]
+            mig_id = mig_id or mgr.identity.migration_id
+        if mig_id and self._is_migration_historical(mig_id):
+            return {"topology_id": top_id, "status": "REJECTED_HISTORICAL_IMMUTABLE", "message": "Historical CDC sessions are read-only and immutable."}
+
         epoch = payload.get("fencing_epoch", 1)
         if hasattr(self, "_cdc_topology_managers") and top_id in self._cdc_topology_managers:
             top = self._cdc_topology_managers[top_id].resume_topology(epoch)
@@ -2912,16 +2950,20 @@ class EngineGateway:
         return {"topology_id": top_id, "conflict_id": conflict_id, "status": "NOT_FOUND"}
 
     def resolve_cdc_conflict(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        top_id = payload["topology_id"]
-        conflict_id = payload["conflict_id"]
-        policy_str = payload["policy"]
+        top_id = payload.get("topology_id", "top-def")
+        conflict_id = payload.get("conflict_id", "conf-def")
+        policy_str = payload.get("policy", "SOURCE_A_WINS")
         epoch = payload.get("fencing_epoch", 1)
         manual_winner = payload.get("manual_winner")
         reason = payload.get("reason")
+        mig_id = payload.get("migration_id")
+
+        if mig_id and self._is_migration_historical(mig_id):
+            return {"topology_id": top_id, "conflict_id": conflict_id, "status": "REJECTED_HISTORICAL_IMMUTABLE", "message": "Historical CDC sessions are read-only and immutable."}
 
         if hasattr(self, "_cdc_topology_managers") and top_id in self._cdc_topology_managers:
-            from akaal.cdc.multi_master.domain import CDCConflictResolutionPolicy
             mgr = self._cdc_topology_managers[top_id]
+            from akaal.cdc.multi_master.domain import CDCConflictResolutionPolicy
             pol = CDCConflictResolutionPolicy(policy_str)
             dec = mgr.conflict_resolver.resolve_conflict(
                 identity=mgr.identity,

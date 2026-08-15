@@ -96,7 +96,8 @@ class CDCMonitoringSnapshot:
             "checkpoint_current": True,
             "cutover_ready": True,
         }
-        self.operational_events = operational_events or []
+        raw_events = operational_events or []
+        self.operational_events = raw_events[-100:] if len(raw_events) > 100 else raw_events
 
     @classmethod
     def _sanitize(cls, data: Any) -> Any:
