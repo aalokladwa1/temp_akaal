@@ -178,6 +178,7 @@ class TestP34ContinuousCDCCutoverFailbackEngine(unittest.TestCase):
         self.sync_coordinator.start_continuous_sync(self.migration_id, self.job_id, self.run_id, self.cdc_session_id)
         self.sync_coordinator.session_state_machines[self.cdc_session_id].current_state = CDCSessionState.SYNCHRONIZED
         self.sync_coordinator.prepare_cutover(self.migration_id, self.job_id, self.run_id, self.cdc_session_id)
+        self.sync_coordinator.record_approval(self.cdc_session_id, "admin@corp.com", "tok-1")
         self.sync_coordinator.begin_final_drain(self.cdc_session_id)
         self.sync_coordinator.run_cutover_validation(self.cdc_session_id)
 
@@ -189,6 +190,7 @@ class TestP34ContinuousCDCCutoverFailbackEngine(unittest.TestCase):
         self.sync_coordinator.start_continuous_sync(self.migration_id, self.job_id, self.run_id, self.cdc_session_id)
         self.sync_coordinator.session_state_machines[self.cdc_session_id].current_state = CDCSessionState.SYNCHRONIZED
         self.sync_coordinator.prepare_cutover(self.migration_id, self.job_id, self.run_id, self.cdc_session_id)
+        self.sync_coordinator.record_approval(self.cdc_session_id, "admin@corp.com", "tok-1")
         self.sync_coordinator.begin_final_drain(self.cdc_session_id)
         self.sync_coordinator.run_cutover_validation(self.cdc_session_id)
 
@@ -228,6 +230,7 @@ class TestP34ContinuousCDCCutoverFailbackEngine(unittest.TestCase):
         self.sync_coordinator.start_continuous_sync(self.migration_id, self.job_id, self.run_id, self.cdc_session_id)
         self.sync_coordinator.session_state_machines[self.cdc_session_id].current_state = CDCSessionState.SYNCHRONIZED
         self.sync_coordinator.prepare_cutover(self.migration_id, self.job_id, self.run_id, self.cdc_session_id)
+        self.sync_coordinator.record_approval(self.cdc_session_id, "admin@corp.com", "tok-1")
         self.sync_coordinator.begin_final_drain(self.cdc_session_id)
         self.sync_coordinator.run_cutover_validation(self.cdc_session_id)
         self.sync_coordinator.commit_cutover(self.cdc_session_id)

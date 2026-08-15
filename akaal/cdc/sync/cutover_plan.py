@@ -153,7 +153,7 @@ class CDCCutoverReadinessEngine:
         if session_state not in {"SYNCHRONIZED", "CUTOVER_PREPARING", "FINAL_DRAIN", "VALIDATING", "CUTOVER_READY"}:
             blocking_reasons.append(f"SESSION_NOT_SYNCHRONIZED (Current State: {session_state})")
 
-        if not is_synchronized:
+        if not is_synchronized and session_state not in {"CUTOVER_PREPARING", "FINAL_DRAIN", "VALIDATING", "CUTOVER_READY"}:
             blocking_reasons.append("CDC_NOT_SUSTAINED_SYNCHRONIZED")
 
         if event_backlog > max_allowed_backlog:

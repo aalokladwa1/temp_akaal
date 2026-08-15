@@ -234,9 +234,26 @@ class CDCContinuousSyncCoordinator:
         buf = self.apply_coordinator.active_buffers.get(cdc_session_id)
         worker = self.apply_coordinator.active_workers.get(cdc_session_id)
         epoch = self.active_fencing_epochs.get(cdc_session_id, 0)
+        plan = self.cutover_plans.get(cdc_session_id)
 
         is_fencing_valid = self.recovery_coordinator.validate_fencing_token(sm.migration_id, epoch)
-        has_approval = cdc_session_id in self.approvals
+        
+        has_approval = False
+        if plan and plan.approval_reference:
+            app_ref = plan.approval_reference
+            if (
+                app_ref.get("cdc_session_id") == cdc_session_id
+                and app_ref.get("migration_id") == sm.migration_id
+                and app_ref.get("run_id") == sm.run_id
+                and app_ref.get("plan_id") == plan.plan_id
+            ):
+                has_approval = True
+
+        validation_passed = False
+        if plan and plan.validation_reference:
+            val_ref = plan.validation_reference
+            if val_ref.get("schema_match") and val_ref.get("row_count_match") and val_ref.get("checksum_match") and not val_ref.get("blockers"):
+                validation_passed = True
 
         backlog = buf._buffered_events if buf else 0
         is_sync = evaluator.synchronized_since is not None if evaluator else False
@@ -251,7 +268,7 @@ class CDCContinuousSyncCoordinator:
             checkpoint_valid=ckpt_valid,
             has_failed_transactions=False,
             is_stale_worker=not is_fencing_valid,
-            validation_passed=True,
+            validation_passed=validation_passed,
             approval_granted=has_approval,
         )
 
@@ -286,17 +303,26 @@ class CDCContinuousSyncCoordinator:
 
         return plan.to_dict()
 
-    def record_approval(self, cdc_session_id: str, approved_by: str, approval_token: str) -> Dict[str, Any]:
+    def record_approval(self, cdc_session_id: str, approved_by: str, approval_token: str, plan_id: Optional[str] = None) -> Dict[str, Any]:
         """Registers bound governance approval for cutover."""
+        if cdc_session_id not in self.cutover_plans:
+            raise ValueError(f"No active cutover plan for session '{cdc_session_id}'. Approval rejected.")
+
+        plan = self.cutover_plans[cdc_session_id]
+        if plan_id and plan.plan_id != plan_id:
+            raise ValueError(f"Approval plan_id '{plan_id}' does not match active plan_id '{plan.plan_id}'. Approval rejected.")
+
         approval_data = {
             "cdc_session_id": cdc_session_id,
+            "plan_id": plan.plan_id,
+            "migration_id": plan.identity.migration_id,
+            "run_id": plan.identity.run_id,
             "approved_by": approved_by,
             "approval_token": approval_token,
             "approved_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         }
         self.approvals[cdc_session_id] = approval_data
-        if cdc_session_id in self.cutover_plans:
-            self.cutover_plans[cdc_session_id].approval_reference = approval_data
+        plan.approval_reference = approval_data
         return approval_data
 
     def begin_final_drain(self, cdc_session_id: str, final_lsn_str: str = "0/9000000") -> Dict[str, Any]:
@@ -398,8 +424,22 @@ class CDCContinuousSyncCoordinator:
             )
             raise CDCExecutionError(fail)
 
+        if plan.is_committed or sm.current_state == CDCSessionState.CUTOVER_COMPLETE:
+            return {
+                "cdc_session_id": cdc_session_id,
+                "status": "CUTOVER_COMPLETE",
+                "authoritative_role": PrimaryRoleState.TARGET_PRIMARY.value,
+                "plan": plan.to_dict(),
+                "idempotent_replay": True,
+            }
+
         if sm.current_state != CDCSessionState.CUTOVER_READY:
             raise ValueError(f"Cannot commit cutover from state '{sm.current_state.value}'. Must be CUTOVER_READY.")
+
+        # Re-evaluate backend-authoritative readiness immediately before commit!
+        readiness = self.evaluate_cutover_readiness(cdc_session_id)
+        if not readiness["ready"]:
+            raise ValueError(f"Cannot commit cutover: Cutover readiness gates failed: {readiness['blocking_reasons']}")
 
         sm.transition_to(CDCSessionState.CUTOVER_COMMITTED)
         plan.advance_phase(CutoverPhase.CUTOVER_COMMITTED)
@@ -490,6 +530,9 @@ class CDCContinuousSyncCoordinator:
         """Restores cutover session state from durable CentralStateStore after restart."""
         persisted_plan = self.state_store.get_state(f"cutover_plan_{cdc_session_id}", category="cutover_plan")
         persisted_committed = self.state_store.get_state(f"cutover_committed_{cdc_session_id}", category="cutover_committed")
+
+        if persisted_plan and persisted_plan.get("identity", {}).get("migration_id") != migration_id:
+            raise ValueError(f"Recovery rejected: Migration ID '{migration_id}' does not match persisted plan migration ID '{persisted_plan.get('identity', {}).get('migration_id')}'.")
 
         new_epoch = self.recovery_coordinator.issue_epoch(migration_id)
         self.active_fencing_epochs[cdc_session_id] = new_epoch
