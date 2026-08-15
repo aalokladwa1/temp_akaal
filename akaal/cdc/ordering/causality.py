@@ -81,19 +81,42 @@ class CDCCausalityGraphEngine:
         with self._lock:
             key = self._get_graph_state_key()
             data = self.state_store.get_state(key, category="causality_graph")
-            if data and isinstance(data, dict):
-                self.nodes = data.get("nodes", {})
-                self.entity_history = data.get("entity_history", {})
-                self.predecessors = {k: set(v) for k, v in data.get("predecessors", {}).items()}
-                self.successors = {k: set(v) for k, v in data.get("successors", {}).items()}
-                self.completed_txs = set(data.get("completed_txs", []))
-                self.failed_txs = set(data.get("failed_txs", []))
-                for e_dict in data.get("edges", []):
-                    edge = CDCDependencyEdge.from_dict(e_dict)
-                    edge_key = f"{edge.source_tx_id}->{edge.target_tx_id}"
-                    self.edge_details[edge_key] = edge
-                logger.info(f"[CausalityGraph] Reconstructed {len(self.nodes)} nodes from CentralStateStore for session '{self.cdc_session_id}'")
-                return True
+            if data is not None:
+                if not isinstance(data, dict) or data.get("cdc_session_id") != self.cdc_session_id:
+                    fail = CDCFailure(
+                        failure_type=CDCFailureType.CAUSAL_STATE_CORRUPTION,
+                        category=CDCFailureCategory.BLOCKING,
+                        message=f"[CAUSAL STATE CORRUPTION] Persisted graph for session '{self.cdc_session_id}' is corrupt or session-mismatched.",
+                        migration_id="mig-unknown",
+                        job_id="job-unknown",
+                        run_id="run-unknown",
+                        cdc_session_id=self.cdc_session_id,
+                    )
+                    raise CDCExecutionError(fail)
+                try:
+                    self.nodes = data.get("nodes", {})
+                    self.entity_history = data.get("entity_history", {})
+                    self.predecessors = {k: set(v) for k, v in data.get("predecessors", {}).items()}
+                    self.successors = {k: set(v) for k, v in data.get("successors", {}).items()}
+                    self.completed_txs = set(data.get("completed_txs", []))
+                    self.failed_txs = set(data.get("failed_txs", []))
+                    for e_dict in data.get("edges", []):
+                        edge = CDCDependencyEdge.from_dict(e_dict)
+                        edge_key = f"{edge.source_tx_id}->{edge.target_tx_id}"
+                        self.edge_details[edge_key] = edge
+                    logger.info(f"[CausalityGraph] Reconstructed {len(self.nodes)} nodes from CentralStateStore for session '{self.cdc_session_id}'")
+                    return True
+                except Exception as exc:
+                    fail = CDCFailure(
+                        failure_type=CDCFailureType.CAUSAL_STATE_CORRUPTION,
+                        category=CDCFailureCategory.BLOCKING,
+                        message=f"[CAUSAL STATE CORRUPTION] Failed to parse persisted graph state: {exc}",
+                        migration_id="mig-unknown",
+                        job_id="job-unknown",
+                        run_id="run-unknown",
+                        cdc_session_id=self.cdc_session_id,
+                    )
+                    raise CDCExecutionError(fail)
             return False
 
     def extract_entity_keys(self, transaction: CDCTransaction) -> Set[Tuple[str, str]]:
@@ -210,6 +233,18 @@ class CDCCausalityGraphEngine:
         with self._lock:
             src = edge.source_tx_id
             tgt = edge.target_tx_id
+            if src == tgt:
+                fail = CDCFailure(
+                    failure_type=CDCFailureType.INVALID_DEPENDENCY_EDGE,
+                    category=CDCFailureCategory.BLOCKING,
+                    message=f"[INVALID DEPENDENCY EDGE] Self-dependency edge '{src} -> {tgt}' rejected.",
+                    migration_id="mig-unknown",
+                    job_id="job-unknown",
+                    run_id="run-unknown",
+                    cdc_session_id=self.cdc_session_id,
+                )
+                raise CDCExecutionError(fail)
+
             edge_key = f"{src}->{tgt}"
 
             if src not in self.successors:
@@ -258,11 +293,13 @@ class CDCCausalityGraphEngine:
     def is_transaction_ready(self, tx_id: str) -> bool:
         """Returns True if all predecessor transactions of tx_id are completed and satisfied."""
         with self._lock:
+            if tx_id in self.failed_txs:
+                return False
             if tx_id in self.completed_txs:
                 return True
             preds = self.predecessors.get(tx_id, set())
             for p in preds:
-                if p not in self.completed_txs:
+                if p in self.failed_txs or p not in self.completed_txs:
                     return False
             return True
 
