@@ -870,7 +870,7 @@ LAST_VERIFIED_COMMIT: 9399c1e7652c7279fecf821458a9b99b4d98aa3d
 | **Reports Dossier** | `CanonicalReportingAuthority` | `FULLY_WIRED` | P7D Reports & Dossier Portal |
 | **Certification & Seal** | `CanonicalReportingAuthority` / `TrustSealer` | `FULLY_WIRED` | P7D Trust Certification & Custody Ledger |
 | **Report & Evidence Export** | `CanonicalReportExportService` / `export_*` | `FULLY_WIRED` | P7D Evidence Package Portal |
-| **CDC Telemetry & Status** | `CDCMonitoringDTO` / `CDCSessionStateMachine` | `FULLY_WIRED` | P7D Cutover & CDC Mission Control |
+| **CDC Telemetry & Monitoring** | `CDCMonitoringAggregator` / `get_cdc_monitoring_snapshot` | `FULLY_WIRED` | P7D Cutover & CDC Mission Control |
 | **CDC Capture Control** | `EngineGateway` / `CDCCaptureCoordinator` | `FULLY_WIRED` | P7D CDC Source Capture Engine |
 | **CDC Live Schema Evolution** | `EngineGateway` / `CDCSchemaEvolutionCoordinator` | `FULLY_WIRED` | P7D Schema Evolution & Transition Manager |
 | **CDC Replay Ordering & Causality** | `EngineGateway` / `CDCTransactionOrderingCoordinator` | `FULLY_WIRED` | P7D CDC Causality & Replay Engine |
@@ -880,8 +880,8 @@ LAST_VERIFIED_COMMIT: 9399c1e7652c7279fecf821458a9b99b4d98aa3d
 
 ## 6. Summary Statistics & Ledger Health
 
-- **Total Features Ledgered**: 41 canonical P1/P2/P3.1-P3.8 features
-- **Fully Integrated P1/P2/P3.1-P3.8 Features**: 41 (100%)
+- **Total Features Ledgered**: 42 canonical P1/P2/P3.1-P3.9 features
+- **Fully Integrated P1/P2/P3.1-P3.9 Features**: 42 (100%)
 - **Partially Integrated Features**: 0 (0%)
 - **Orphaned Capabilities**: 0
 - **Duplicate Production Authorities**: 0

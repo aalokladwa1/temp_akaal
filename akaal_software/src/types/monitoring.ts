@@ -148,3 +148,60 @@ export interface CanonicalMonitoringSnapshotDTO {
   cdc: MonitoringCdcDTO;
   errors: MonitoringErrorsDTO;
 }
+
+export interface CdcHealthStripDTO {
+  cdc_state: string;
+  source_lag_sec: number;
+  backlog_events: number;
+  backlog_bytes: number;
+  apply_rate_rows_per_sec: number;
+  checkpoint_lsn: string;
+  unresolved_conflicts_count: number;
+  quarantined_entities_count: number;
+}
+
+export interface CdcPipelineStageDTO {
+  state: string;
+  rate_events_per_sec?: number;
+  depth_events?: number;
+  depth_bytes?: number;
+  blocked_tx_count?: number;
+  active_partitions?: number;
+  apply_rate_rows_per_sec?: number;
+}
+
+export interface CdcPipelineVisualizationDTO {
+  source_capture: CdcPipelineStageDTO;
+  durable_buffer: CdcPipelineStageDTO;
+  ordering_dag: CdcPipelineStageDTO;
+  partition_router: CdcPipelineStageDTO;
+  target_apply: CdcPipelineStageDTO;
+}
+
+export interface CdcMonitoringSnapshotDTO {
+  schema_version: string;
+  migration_id: string;
+  job_id: string;
+  run_id: string;
+  cdc_session_id: string;
+  monitoring_mode: "LIVE" | "HISTORICAL";
+  session_mode: "UNIDIRECTIONAL" | "BIDIRECTIONAL";
+  status: string;
+  source_engine: string;
+  target_engine: string;
+  source_database: string;
+  target_database: string;
+  captured_at: string;
+  health_strip: CdcHealthStripDTO;
+  pipeline: CdcPipelineVisualizationDTO;
+  overview: Record<string, any>;
+  telemetry_timeseries: Record<string, any>;
+  backlog_and_backpressure: Record<string, any>;
+  workers_and_partitions: Record<string, any>;
+  ordering_and_causality: Record<string, any>;
+  schema_transitions: Record<string, any>;
+  conflicts_and_topology: Record<string, any>;
+  recovery_and_checkpoints: Record<string, any>;
+  cutover_checklist: Record<string, any>;
+  operational_events: Array<{ timestamp: string; severity: string; category: string; description: string }>;
+}

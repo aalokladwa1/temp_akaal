@@ -2941,3 +2941,37 @@ class EngineGateway:
             return {"topology_id": top_id, "status": "RECOVERED", "telemetry": mgr.get_telemetry()}
         return {"topology_id": top_id, "status": "NOT_FOUND"}
 
+    def get_cdc_monitoring_snapshot(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        migration_id = payload.get("migration_id", "mig-def")
+        job_id = payload.get("job_id", "job-def")
+        run_id = payload.get("run_id", "run-def")
+        cdc_session_id = payload.get("cdc_session_id")
+
+        if not hasattr(self, "_cdc_monitoring_aggregator"):
+            from akaal.cdc.monitoring.aggregator import CDCMonitoringAggregator
+            self._cdc_monitoring_aggregator = CDCMonitoringAggregator(state_store=self.state_store)
+
+        top_mgr = None
+        if hasattr(self, "_cdc_topology_managers"):
+            for tm in self._cdc_topology_managers.values():
+                if tm.identity.migration_id == migration_id:
+                    top_mgr = tm
+                    break
+
+        ord_coord = None
+        if hasattr(self, "_cdc_ordering_coordinators"):
+            for oc in self._cdc_ordering_coordinators.values():
+                if oc.identity.migration_id == migration_id:
+                    ord_coord = oc
+                    break
+
+        snap = self._cdc_monitoring_aggregator.get_monitoring_snapshot(
+            migration_id=migration_id,
+            job_id=job_id,
+            run_id=run_id,
+            cdc_session_id=cdc_session_id,
+            topology_manager=top_mgr,
+            ordering_coordinator=ord_coord,
+        )
+        return snap.to_dict()
+

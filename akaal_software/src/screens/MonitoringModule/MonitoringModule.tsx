@@ -7,10 +7,12 @@ import { WorkersPanel } from './components/WorkersPanel';
 import { TablesPanel } from './components/TablesPanel';
 import { ReliabilityPanel } from './components/ReliabilityPanel';
 import { EventsPanel } from './components/EventsPanel';
+import { CdcPanel } from './components/CdcPanel';
 import { MonitoringHome, type MigrationRunSummary } from './components/MonitoringHome';
+import type { CdcMonitoringSnapshotDTO } from '../../types/monitoring';
 import styles from './MonitoringModule.module.css';
 
-type TabType = 'overview' | 'performance' | 'workers' | 'tables' | 'reliability' | 'events';
+type TabType = 'overview' | 'performance' | 'workers' | 'tables' | 'reliability' | 'events' | 'cdc';
 type ViewModeType = 'HOME' | 'DETAILS';
 
 export const MonitoringModule: React.FC = () => {
@@ -22,12 +24,24 @@ export const MonitoringModule: React.FC = () => {
   const [listError, setListError] = useState<string | null>(null);
 
   const [snapshot, setSnapshot] = useState<CanonicalMonitoringSnapshotDTO | null>(null);
+  const [cdcSnapshot, setCdcSnapshot] = useState<CdcMonitoringSnapshotDTO | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('overview');
 
   const activeMigRef = useRef<string>(selectedMigId);
   activeMigRef.current = selectedMigId;
+
+  const fetchCdcSnapshot = useCallback(async (migId: string) => {
+    try {
+      const resStr = await ipcService.invokeEngineCapability('get_cdc_monitoring_snapshot', JSON.stringify({ migration_id: migId }));
+      if (activeMigRef.current !== migId) return;
+      const data: CdcMonitoringSnapshotDTO = typeof resStr === 'string' ? JSON.parse(resStr) : resStr;
+      setCdcSnapshot(data);
+    } catch (e: any) {
+      console.warn('[MonitoringModule] Failed to fetch CDC monitoring snapshot:', e);
+    }
+  }, []);
 
   // Load available migrations from canonical backend
   const loadMigrations = useCallback(async () => {
@@ -288,6 +302,9 @@ export const MonitoringModule: React.FC = () => {
         <button className={`${styles.tabBtn} ${activeTab === 'events' ? styles.tabBtnActive : ''}`} onClick={() => setActiveTab('events')}>
           Events & Logs
         </button>
+        <button className={`${styles.tabBtn} ${activeTab === 'cdc' ? styles.tabBtnActive : ''}`} onClick={() => { setActiveTab('cdc'); fetchCdcSnapshot(selectedMigId); }}>
+          CDC Monitoring
+        </button>
       </div>
 
       {/* ── Active Tab Content ──────────────────────────────────────── */}
@@ -297,6 +314,7 @@ export const MonitoringModule: React.FC = () => {
       {activeTab === 'tables' && <TablesPanel snapshot={snapshot} />}
       {activeTab === 'reliability' && <ReliabilityPanel snapshot={snapshot} />}
       {activeTab === 'events' && <EventsPanel snapshot={snapshot} />}
+      {activeTab === 'cdc' && <CdcPanel cdcSnapshot={cdcSnapshot} migrationId={selectedMigId} onRefresh={() => fetchCdcSnapshot(selectedMigId)} />}
     </div>
   );
 };
