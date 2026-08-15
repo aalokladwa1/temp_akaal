@@ -371,8 +371,51 @@ class EngineGateway:
             return self.recover_cdc_migration_lifecycle(payload)
         elif capability == "get_cdc_migration_history":
             return self.get_cdc_migration_history(payload)
+        elif capability == "get_connector_manifest":
+            return self.get_connector_manifest(payload)
+        elif capability == "list_connector_manifests":
+            return self.list_connector_manifests(payload)
+        elif capability == "evaluate_connector_compatibility":
+            return self.evaluate_connector_compatibility(payload)
         else:
             raise ValueError(f"Unsupported IPC capability: '{capability}'")
+
+    def get_connector_manifest(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Retrieves authoritative Universal Capability Manifest for connector_id."""
+        from akaal.connectors.registry import UniversalConnectorRegistry
+        registry = UniversalConnectorRegistry.get_instance()
+        cid = payload.get("connector_id", "")
+        manifest = registry.get_manifest(cid)
+        if not manifest:
+            return {"connector_id": cid, "found": False, "manifest": None}
+        return {"connector_id": cid, "found": True, "manifest": manifest.to_dict()}
+
+    def list_connector_manifests(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Lists all registered Universal Capability Manifests."""
+        from akaal.connectors.registry import UniversalConnectorRegistry
+        from akaal.connectors.taxonomy import ConnectorFamily, ConnectorRole
+        registry = UniversalConnectorRegistry.get_instance()
+        fam_str = payload.get("family")
+        role_str = payload.get("role")
+        family = ConnectorFamily(fam_str) if fam_str else None
+        role = ConnectorRole(role_str) if role_str else None
+        manifests = registry.list_manifests(family=family, role=role)
+        return {"manifests": manifests, "count": len(manifests)}
+
+    def evaluate_connector_compatibility(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Evaluates source-to-target semantic compatibility."""
+        from akaal.connectors.registry import UniversalConnectorRegistry
+        from akaal.connectors.compatibility import SemanticCompatibilityMatrix
+        registry = UniversalConnectorRegistry.get_instance()
+        src_id = payload.get("source_connector_id", "")
+        tgt_id = payload.get("target_connector_id", "")
+        src_m = registry.get_manifest(src_id)
+        tgt_m = registry.get_manifest(tgt_id)
+        if not src_m:
+            return {"is_viable": False, "reason": f"Source connector '{src_id}' not found."}
+        if not tgt_m:
+            return {"is_viable": False, "reason": f"Target connector '{tgt_id}' not found."}
+        return SemanticCompatibilityMatrix.evaluate_compatibility(src_m, tgt_m)
 
     def get_engine_status(self) -> Dict[str, Any]:
         return {
@@ -380,18 +423,18 @@ class EngineGateway:
             "version": "1.0.0",
             "status": "RUNNING",
             "healthy": True,
-            "registered_capabilities": 22,
+            "registered_capabilities": 25,
             "active_sessions": len(self.workflow_engine._state_controllers),
         }
 
     def supported_engines(self) -> Dict[str, Any]:
+        from akaal.connectors.registry import UniversalConnectorRegistry
+        registry = UniversalConnectorRegistry.get_instance()
+        manifests = registry.list_manifests()
         return {
             "engines": [
-                {"id": "oracle", "name": "Oracle Database (19c/21c)", "role": "source_and_target"},
-                {"id": "postgresql", "name": "PostgreSQL (12+)", "role": "source_and_target"},
-                {"id": "mysql", "name": "MySQL (8.0+)", "role": "source_and_target"},
-                {"id": "sqlserver", "name": "Microsoft SQL Server (2019+)", "role": "source_and_target"},
-                {"id": "snowflake", "name": "Snowflake Data Cloud", "role": "target_only"},
+                {"id": m["connector_id"], "name": m["vendor_name"], "role": m["role"], "family": m["family"]}
+                for m in manifests
             ]
         }
 

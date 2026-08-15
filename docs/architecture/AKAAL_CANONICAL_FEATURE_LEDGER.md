@@ -19,6 +19,7 @@
 | `akaal/audit` | `SUPPORTING_PRODUCTION` | Tamper-evident audit trail & structured event logger. | `AuditTrailLogger` | YES | YES | `KEEP_SUPPORTING` |
 | `akaal/catalog` | `SUPPORTING_PRODUCTION` | Database schema catalog cache & metadata registry. | `CatalogRegistry` | YES | YES | `KEEP_SUPPORTING` |
 | `akaal/cdc` | `CANONICAL_PRODUCTION` | P3 Native CDC Change Data Capture, continuous replication, causality ordering, schema evolution, multi-master, monitoring, cutover & failback engine. | `CDCContinuousSyncCoordinator` | YES | YES | `KEEP_CANONICAL` |
+| `akaal/connectors` | `CANONICAL_PRODUCTION` | P4 Universal Connector Contract, Authoritative Capability Manifest, Connection Profiles, Semantic Compatibility & Extension Contracts. | `UniversalConnectorRegistry` | YES | YES | `KEEP_CANONICAL` |
 | `akaal/core` | `CANONICAL_PRODUCTION` | CentralStateStore, ErrorTaxonomy, SystemType enums, base domain models. | `CentralStateStore` | YES | YES | `KEEP_CANONICAL` |
 | `akaal/coverage` | `SUPPORTING_PRODUCTION` | Schema datatype conversion coverage analyzer. | `CoverageAnalyzer` | YES | YES | `KEEP_SUPPORTING` |
 | `akaal/data_integrity` | `SUPPORTING_PRODUCTION` | Row & table level checksum calculation helpers. | `PhysicalChecksumValidator` | YES | YES | `KEEP_SUPPORTING` |
