@@ -29,7 +29,7 @@ class TransactionReconstructor:
     Reconstructs database-native transaction streams into canonical P3.1 CDCTransaction objects.
     - Guarantees events from different transactions never mix.
     - Guarantees uncommitted or rolled-back transactions are NEVER emitted as committed changes.
-    - Uses P1 BackpressureController to prevent unbounded memory consumption.
+    - Uses P1 BackpressureController and strict queue limits to prevent unbounded memory consumption.
     """
 
     def __init__(
@@ -40,6 +40,7 @@ class TransactionReconstructor:
     ) -> None:
         self.identity = identity
         self.max_buffered_events = max_buffered_events
+        self.hard_event_limit = max_buffered_events * 2
         self.backpressure = backpressure_controller or BackpressureController(
             max_queue_capacity=max_buffered_events,
             high_watermark_ratio=0.8,
@@ -62,10 +63,38 @@ class TransactionReconstructor:
         before_image: Optional[Dict[str, Any]] = None,
         after_image: Optional[Dict[str, Any]] = None,
         commit_timestamp: Optional[str] = None,
+        record_identity: Optional[CDCEventIdentity] = None,
     ) -> Optional[CDCTransaction]:
         """
         Processes a raw native change record. Returns CDCTransaction if record represents a COMMIT, otherwise returns None.
         """
+        # Cross-run / session identity check
+        rec_ident = record_identity or self.identity
+        if rec_ident.migration_id != self.identity.migration_id or rec_ident.run_id != self.identity.run_id or rec_ident.cdc_session_id != self.identity.cdc_session_id:
+            fail = CDCFailure(
+                failure_type=CDCFailureType.TRANSACTION_CORRUPTION,
+                category=CDCFailureCategory.DATA_INTEGRITY_RISK,
+                message=f"[IDENTITY CONTAMINATION] Cross-run event rejected in transaction '{tx_id}'. Expected run '{self.identity.run_id}', got '{rec_ident.run_id}'.",
+                migration_id=self.identity.migration_id,
+                job_id=self.identity.job_id,
+                run_id=self.identity.run_id,
+                cdc_session_id=self.identity.cdc_session_id,
+            )
+            raise CDCExecutionError(fail)
+
+        # Enforce hard memory limit to prevent unbounded queue growth
+        if self.total_events_buffered >= self.hard_event_limit:
+            fail = CDCFailure(
+                failure_type=CDCFailureType.DURABLE_BUFFER_FAILURE,
+                category=CDCFailureCategory.PAUSABLE,
+                message=f"[RESOURCE EXHAUSTION] Hard event buffer limit reached ({self.total_events_buffered}/{self.hard_event_limit}). Downstream consumer stalled.",
+                migration_id=self.identity.migration_id,
+                job_id=self.identity.job_id,
+                run_id=self.identity.run_id,
+                cdc_session_id=self.identity.cdc_session_id,
+            )
+            raise CDCExecutionError(fail)
+
         # Apply P1 Backpressure check
         bp_state = self.backpressure.check_and_update(self.total_events_buffered)
         if bp_state in (BackpressureState.HIGH_WATERMARK, BackpressureState.THROTTLED):

@@ -42,7 +42,7 @@ class CDCCaptureCoordinator:
     }
 
     def __init__(self, state_store: Optional[CentralStateStore] = None) -> None:
-        self.state_store = state_store or CentralStateStore.get_instance()
+        self.state_store = state_store or CentralStateStore()
         self.active_miners: Dict[str, ICDCSourceAdapter] = {}
         self.session_state_machines: Dict[str, CDCSessionStateMachine] = {}
         self.consistency_boundaries: Dict[str, CDCConsistencyBoundary] = {}

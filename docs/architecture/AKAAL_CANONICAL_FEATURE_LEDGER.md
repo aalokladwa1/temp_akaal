@@ -640,12 +640,12 @@ UI_EXPOSURE: YES (MonitoringModule → CDC Prerequisites)
 MIGRATION_MODULE_FEATURE: Connection & Preflight → CDC Prerequisites
 TEST_LOCATION: tests/unit/cdc/test_p3_2_native_cdc_capture_miners.py
 PROOF_LEVEL: UNIT_PROVEN
-INTEGRATION_STATUS: FULLY_INTEGRATED
+INTEGRATION_STATUS: DOMAIN_INTEGRATED
 SECURITY_NOTES: Sanitizes database configuration diagnostics.
 DEPENDENCIES: CDCSourcePosition
 LEGACY_OVERLAP: NONE
 FUTURE_EVOLUTION: P4 Universal Connectivity
-LAST_VERIFIED_COMMIT: 76c760fa3e406d1d22198a9a83ce023b01381d82
+LAST_VERIFIED_COMMIT: c118f8d45984d8484254abaa1add824c69201f1f
 
 ---
 
@@ -662,19 +662,19 @@ PIPELINE_POSITION: Transaction Assembly & Flow Control Layer
 DOWNSTREAM_CONSUMER: CDCCaptureCoordinator / P3.3 Durable CDC Buffer
 IDENTITY_BINDING: migration_id + job_id + run_id + cdc_session_id + tx_id
 STATE_OWNER: TransactionReconstructor
-FAILURE_PROPAGATION: Queue congestion → triggers P1 BackpressureController throttling → prevents memory exhaustion
+FAILURE_PROPAGATION: Queue congestion → triggers P1 BackpressureController throttling & hard limit exception
 MONITORING_EXPOSURE: YES
 IPC_EXPOSURE: YES
 UI_EXPOSURE: YES (MonitoringModule → CDC Transaction Stream)
 MIGRATION_MODULE_FEATURE: Monitoring → CDC Stream
 TEST_LOCATION: tests/unit/cdc/test_p3_2_native_cdc_capture_miners.py
 PROOF_LEVEL: UNIT_PROVEN
-INTEGRATION_STATUS: FULLY_INTEGRATED
+INTEGRATION_STATUS: DOMAIN_INTEGRATED
 SECURITY_NOTES: Cross-session/run event isolation preventing transaction contamination.
 DEPENDENCIES: BackpressureController
 LEGACY_OVERLAP: NONE
 FUTURE_EVOLUTION: P3.3 Durable CDC Buffer
-LAST_VERIFIED_COMMIT: 76c760fa3e406d1d22198a9a83ce023b01381d82
+LAST_VERIFIED_COMMIT: c118f8d45984d8484254abaa1add824c69201f1f
 
 ---
 
@@ -698,12 +698,12 @@ UI_EXPOSURE: YES (MonitoringModule → PG WAL Status)
 MIGRATION_MODULE_FEATURE: Monitoring → PostgreSQL CDC
 TEST_LOCATION: tests/unit/cdc/test_p3_2_native_cdc_capture_miners.py
 PROOF_LEVEL: UNIT_PROVEN
-INTEGRATION_STATUS: FULLY_INTEGRATED
+INTEGRATION_STATUS: DOMAIN_INTEGRATED
 SECURITY_NOTES: Native LSN position tracking without uncommitted change loss.
 DEPENDENCIES: PostgresLSNPosition
 LEGACY_OVERLAP: NONE
 FUTURE_EVOLUTION: P4 Universal PostgreSQL Connectivity
-LAST_VERIFIED_COMMIT: 76c760fa3e406d1d22198a9a83ce023b01381d82
+LAST_VERIFIED_COMMIT: c118f8d45984d8484254abaa1add824c69201f1f
 
 ---
 
@@ -726,13 +726,13 @@ IPC_EXPOSURE: YES
 UI_EXPOSURE: YES (MonitoringModule → CDC Mission Control)
 MIGRATION_MODULE_FEATURE: Monitoring → CDC Mission Control
 TEST_LOCATION: tests/unit/cdc/test_p3_2_native_cdc_capture_miners.py
-PROOF_LEVEL: INTEGRATION_PROVEN
-INTEGRATION_STATUS: FULLY_INTEGRATED
-SECURITY_NOTES: Truthful capture telemetry without fabricated UI state.
+PROOF_LEVEL: UNIT_PROVEN
+INTEGRATION_STATUS: DOMAIN_INTEGRATED
+SECURITY_NOTES: Truthful capture telemetry without fabricated UI state. REAL_DB_PROVEN: NO.
 DEPENDENCIES: CentralStateStore
 LEGACY_OVERLAP: NONE
 FUTURE_EVOLUTION: P7D CDC Mission Control Portal
-LAST_VERIFIED_COMMIT: 76c760fa3e406d1d22198a9a83ce023b01381d82
+LAST_VERIFIED_COMMIT: c118f8d45984d8484254abaa1add824c69201f1f
 
 ---
 
