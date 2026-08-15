@@ -150,9 +150,24 @@ class EventHubsAdapter(BaseAdapter):
             partition_id = "0"
             start_seq = offset
             if last_processed_primary_key:
+                # 1. Event Hub identity check
                 ckpt_eh = last_processed_primary_key.get("eventhub") or last_processed_primary_key.get("eventhub_name")
                 if ckpt_eh and ckpt_eh != eventhub_name:
                     raise RuntimeError(f"Event Hub identity mismatch in checkpoint: expected '{eventhub_name}', got '{ckpt_eh}'")
+
+                # 2. Namespace / Resource identity check
+                extra = self.config.extra or {}
+                curr_ns = extra.get("namespace") or extra.get("fully_qualified_namespace") or "test-ns.servicebus.windows.net"
+                ckpt_ns = last_processed_primary_key.get("namespace") or last_processed_primary_key.get("fully_qualified_namespace")
+                if ckpt_ns and ckpt_ns != curr_ns:
+                    raise RuntimeError(f"Namespace identity mismatch in Event Hubs checkpoint: expected '{curr_ns}', got '{ckpt_ns}'")
+
+                # 3. Consumer Group identity check
+                curr_cg = extra.get("consumer_group", "$Default")
+                ckpt_cg = last_processed_primary_key.get("consumer_group")
+                if ckpt_cg and ckpt_cg != curr_cg:
+                    raise RuntimeError(f"Consumer group mismatch in Event Hubs checkpoint: expected '{curr_cg}', got '{ckpt_cg}'")
+
                 partition_id = str(last_processed_primary_key.get("partition_id", "0"))
                 start_seq = int(last_processed_primary_key.get("sequence_number", offset)) + 1
 

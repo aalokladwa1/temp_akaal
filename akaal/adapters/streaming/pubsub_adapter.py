@@ -154,24 +154,25 @@ class PubSubAdapter(BaseAdapter):
         sub_name = self.config.database_name or table_name
 
         def _run():
-            start_idx = offset
             if last_processed_primary_key:
                 ckpt_sub = last_processed_primary_key.get("subscription") or last_processed_primary_key.get("subscription_name")
                 if ckpt_sub and ckpt_sub != sub_name:
                     raise RuntimeError(f"Subscription identity mismatch in Pub/Sub checkpoint: expected '{sub_name}', got '{ckpt_sub}'")
-                msg_id = str(last_processed_primary_key.get("message_id", "0"))
-                start_idx = int(msg_id) if msg_id.isdigit() else offset
+                # Fail closed if arbitrary numeric cursor seek is attempted
+                if "offset" in last_processed_primary_key and last_processed_primary_key.get("offset") is not None and not last_processed_primary_key.get("allow_snapshot_seek"):
+                    raise RuntimeError("Pub/Sub does not support arbitrary numeric offset cursor seek. Native subscription ACK/nack redelivery semantics active.")
 
             rows = []
             for i in range(limit):
-                curr_id = start_idx + i + 1
+                msg_id = f"pubsub_msg_id_{offset + i + 1}"
                 row = {
-                    "message_id": str(curr_id),
-                    "data": f"pubsub_payload_{curr_id}".encode("utf-8"),
+                    "message_id": msg_id,
+                    "data": f"pubsub_payload_{i + 1}".encode("utf-8"),
                     "publish_time": "2026-08-16T00:00:00Z",
                     "attributes": {"origin": "akaal"},
                     "_subscription": sub_name,
-                    "_message_id": str(curr_id),
+                    "_message_id": msg_id,
+                    "_ack_id": f"ack_token_{msg_id}",
                 }
                 rows.append(row)
             return rows

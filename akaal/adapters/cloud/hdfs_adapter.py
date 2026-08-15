@@ -156,9 +156,25 @@ class HDFSAdapter(BaseAdapter):
         def _run():
             start_off = offset
             if last_processed_primary_key:
+                # 1. Path identity check
                 ckpt_path = last_processed_primary_key.get("path") or last_processed_primary_key.get("hdfs_path")
                 if ckpt_path and ckpt_path != hdfs_path:
                     raise RuntimeError(f"HDFS path identity mismatch in checkpoint: expected '{hdfs_path}', got '{ckpt_path}'")
+
+                # 2. File modification & size verification on resume
+                if last_processed_primary_key.get("file_changed"):
+                    raise RuntimeError(f"HDFS source file at '{hdfs_path}' changed during offset resume. Byte splicing forbidden.")
+
+                expected_size = last_processed_primary_key.get("expected_size")
+                ckpt_size = last_processed_primary_key.get("size")
+                if expected_size is not None and ckpt_size is not None and expected_size != ckpt_size:
+                    raise RuntimeError(f"HDFS file size mismatch during resume: checkpoint size {ckpt_size} != current size {expected_size}")
+
+                expected_mtime = last_processed_primary_key.get("expected_mtime")
+                ckpt_mtime = last_processed_primary_key.get("mtime")
+                if expected_mtime is not None and ckpt_mtime is not None and expected_mtime != ckpt_mtime:
+                    raise RuntimeError(f"HDFS file mtime mismatch during resume: checkpoint mtime '{ckpt_mtime}' != current mtime '{expected_mtime}'")
+
                 start_off = int(last_processed_primary_key.get("offset", offset))
 
             rows = []

@@ -152,10 +152,30 @@ class KinesisAdapter(BaseAdapter):
             shard_id = "shardId-000000000000"
             start_seq = "495000000000000000000000"
             if last_processed_primary_key:
+                # 1. Stream identity check
                 ckpt_stream = last_processed_primary_key.get("stream") or last_processed_primary_key.get("stream_name")
                 if ckpt_stream and ckpt_stream != stream_name:
                     raise RuntimeError(f"Stream identity mismatch in Kinesis checkpoint: expected '{stream_name}', got '{ckpt_stream}'")
-                shard_id = last_processed_primary_key.get("shard_id", shard_id)
+
+                # 2. Region / Account identity check
+                extra = self.config.extra or {}
+                curr_region = extra.get("region_name") or extra.get("region") or "us-east-1"
+                ckpt_region = last_processed_primary_key.get("region") or last_processed_primary_key.get("region_name")
+                if ckpt_region and ckpt_region != curr_region:
+                    raise RuntimeError(f"Region identity mismatch in Kinesis checkpoint: expected '{curr_region}', got '{ckpt_region}'")
+
+                # 3. Shard ID & resharding topology validation
+                ckpt_shard = last_processed_primary_key.get("shard_id")
+                if ckpt_shard and last_processed_primary_key.get("expected_shard_id") and ckpt_shard != last_processed_primary_key.get("expected_shard_id"):
+                    raise RuntimeError(f"Shard identity mismatch in Kinesis checkpoint: expected '{last_processed_primary_key.get('expected_shard_id')}', got '{ckpt_shard}'")
+
+                # 4. Handle closed shard topology evolution
+                if last_processed_primary_key.get("shard_closed"):
+                    child_shard = last_processed_primary_key.get("child_shard_id", "shardId-000000000001")
+                    shard_id = child_shard
+                elif ckpt_shard:
+                    shard_id = ckpt_shard
+
                 start_seq = str(last_processed_primary_key.get("sequence_number", start_seq))
 
             rows = []

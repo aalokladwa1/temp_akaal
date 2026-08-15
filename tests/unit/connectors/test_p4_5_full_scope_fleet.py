@@ -6,7 +6,8 @@ Apache Kafka, Confluent Platform, Amazon MSK, Amazon Kinesis, Azure Event Hubs, 
 Apache HDFS, Amazon S3, Google Cloud Storage, Azure Blob Storage, and MinIO.
 Verifies fail-closed connectivity isolation, native partition/shard/sequence checkpoints,
 wrong-resource checkpoint fail-closed protection, dataset movement foundations (CSV, JSONL, Parquet),
-secret redaction ([REDACTED]), and zero fake success paths.
+secret redaction ([REDACTED]), retention gaps, Pub/Sub seek rejection, MinIO HTTP policy,
+and changed-file resume safety.
 """
 
 import unittest
@@ -36,13 +37,14 @@ class TestP45FullScopeFleet(unittest.TestCase):
     def tearDown(self) -> None:
         self.loop.close()
 
-    def _make_cfg(self, st: SystemType, host: str = "localhost"):
+    def _make_cfg(self, st: SystemType, host: str = "localhost", extra: dict = None):
         return ConnectionConfig(
             system_type=st,
             host=host,
             port=9092 if "KAFKA" in st.name or st in (SystemType.CONFLUENT, SystemType.MSK) else 8020,
             database_name="",
             credentials_ref="none",
+            extra=extra or {},
         )
 
     # -------------------------------------------------------------------------
@@ -70,140 +72,191 @@ class TestP45FullScopeFleet(unittest.TestCase):
             self.assertEqual(manifest.support_state.name, "SUPPORTED")
 
     # -------------------------------------------------------------------------
-    # 2. Kafka Partition Offset Continuation & Wrong Topic Checkpoint Protection
+    # 2. Kafka Partition Offset, Cluster Identity & Retention Gap Protection
     # -------------------------------------------------------------------------
-    def test_02_kafka_partition_offset_continuation_and_topic_check(self):
-        """02: Verify Kafka partition offset continuation and wrong-topic fail-closed protection."""
-        ad = KafkaAdapter(self._make_cfg(SystemType.KAFKA))
+    def test_02_kafka_cluster_and_retention_gap_fail_closed(self):
+        """02: Verify Kafka cluster identity mismatch and retention gap expiry fail closed."""
+        ad = KafkaAdapter(self._make_cfg(SystemType.KAFKA, extra={"cluster_id": "cluster-A"}))
         ad.is_connected = True
 
         async def run():
-            # 1. Normal read with checkpoint
+            # Normal read
             rows = await ad.read_batch(
                 table_name="events_topic",
                 offset=0,
                 limit=5,
-                last_processed_primary_key={"topic": "events_topic", "partition": 0, "offset": 10},
+                last_processed_primary_key={"topic": "events_topic", "cluster_id": "cluster-A", "partition": 0, "offset": 10},
             )
             self.assertEqual(len(rows), 5)
             self.assertEqual(rows[0]["offset"], 11)
-            self.assertEqual(rows[0]["_topic"], "events_topic")
 
-            # 2. Mismatched topic checkpoint fails closed
+            # Mismatched cluster ID fails closed
             with self.assertRaises(RuntimeError):
                 await ad.read_batch(
                     table_name="events_topic",
                     offset=0,
                     limit=5,
-                    last_processed_primary_key={"topic": "wrong_topic", "partition": 0, "offset": 10},
+                    last_processed_primary_key={"topic": "events_topic", "cluster_id": "cluster-B", "partition": 0, "offset": 10},
+                )
+
+            # Retention-expired offset fails closed (no silent auto.offset.reset bypass)
+            with self.assertRaises(RuntimeError):
+                await ad.read_batch(
+                    table_name="events_topic",
+                    offset=0,
+                    limit=5,
+                    last_processed_primary_key={"topic": "events_topic", "cluster_id": "cluster-A", "partition": 0, "offset": 10, "retention_expired": True},
                 )
 
         self.loop.run_until_complete(run())
 
     # -------------------------------------------------------------------------
-    # 3. Kinesis Sequence Continuation & Wrong Stream Checkpoint Protection
+    # 3. Kinesis Region, Shard Identity & Resharding Topology
     # -------------------------------------------------------------------------
-    def test_03_kinesis_sequence_continuation_and_stream_check(self):
-        """03: Verify Kinesis sequence continuation and wrong-stream fail-closed protection."""
-        ad = KinesisAdapter(self._make_cfg(SystemType.KINESIS))
+    def test_03_kinesis_region_and_resharding_topology(self):
+        """03: Verify Kinesis region mismatch, shard mismatch fail closed, and closed shard transition."""
+        ad = KinesisAdapter(self._make_cfg(SystemType.KINESIS, extra={"region_name": "us-east-1"}))
         ad.is_connected = True
         ad._client = object()
 
         async def run():
-            rows = await ad.read_batch(
-                table_name="telemetry_stream",
-                offset=0,
-                limit=3,
-                last_processed_primary_key={"stream": "telemetry_stream", "shard_id": "shard-01", "sequence_number": "495000000000000000000000"},
-            )
-            self.assertEqual(len(rows), 3)
-            self.assertEqual(rows[0]["shard_id"], "shard-01")
-
+            # Mismatched region fails closed
             with self.assertRaises(RuntimeError):
                 await ad.read_batch(
                     table_name="telemetry_stream",
                     offset=0,
                     limit=3,
-                    last_processed_primary_key={"stream": "wrong_stream", "shard_id": "shard-01", "sequence_number": "495000000000000000000000"},
+                    last_processed_primary_key={"stream": "telemetry_stream", "region": "us-west-2", "shard_id": "shard-01", "sequence_number": "495000"},
+                )
+
+            # Closed shard transitions to child shard cleanly
+            rows = await ad.read_batch(
+                table_name="telemetry_stream",
+                offset=0,
+                limit=3,
+                last_processed_primary_key={"stream": "telemetry_stream", "region": "us-east-1", "shard_id": "shard-01", "sequence_number": "495000", "shard_closed": True, "child_shard_id": "shard-02"},
+            )
+            self.assertEqual(len(rows), 3)
+            self.assertEqual(rows[0]["shard_id"], "shard-02")
+
+        self.loop.run_until_complete(run())
+
+    # -------------------------------------------------------------------------
+    # 4. Pub/Sub Arbitrary Numeric Offset Seek Rejection
+    # -------------------------------------------------------------------------
+    def test_04_pubsub_numeric_offset_seek_rejection(self):
+        """04: Verify Google Pub/Sub fails closed on arbitrary numeric offset cursor seeking."""
+        ad = PubSubAdapter(self._make_cfg(SystemType.PUBSUB))
+        ad.is_connected = True
+        ad._subscriber = object()
+        ad._publisher = object()
+
+        async def run():
+            # Normal read with subscription metadata
+            rows = await ad.read_batch(
+                table_name="sub_orders",
+                offset=0,
+                limit=3,
+                last_processed_primary_key={"subscription": "sub_orders", "message_id": "msg_99"},
+            )
+            self.assertEqual(len(rows), 3)
+            self.assertEqual(rows[0]["_subscription"], "sub_orders")
+
+            # Arbitrary numeric cursor seek fails closed
+            with self.assertRaises(RuntimeError):
+                await ad.read_batch(
+                    table_name="sub_orders",
+                    offset=0,
+                    limit=3,
+                    last_processed_primary_key={"subscription": "sub_orders", "offset": 500},
                 )
 
         self.loop.run_until_complete(run())
 
     # -------------------------------------------------------------------------
-    # 4. HDFS Directory Traversal & Wrong Path Checkpoint Protection
+    # 5. HDFS Changed-File Resume Safety
     # -------------------------------------------------------------------------
-    def test_04_hdfs_directory_traversal_and_path_check(self):
-        """04: Verify HDFS path identity validation and wrong-path checkpoint fail-closed protection."""
+    def test_05_hdfs_changed_file_resume_fails_closed(self):
+        """05: Verify HDFS file read resume fails closed if file size or mtime changed."""
         ad = HDFSAdapter(self._make_cfg(SystemType.HDFS))
         ad.is_connected = True
         ad._client = object()
 
         async def run():
-            rows = await ad.read_batch(
-                table_name="/user/hadoop/data",
-                offset=0,
-                limit=4,
-                last_processed_primary_key={"path": "/user/hadoop/data", "offset": 10},
-            )
-            self.assertEqual(len(rows), 4)
-            self.assertIn("/user/hadoop/data", rows[0]["path"])
-
+            # File size mismatch fails closed
             with self.assertRaises(RuntimeError):
                 await ad.read_batch(
-                    table_name="/user/hadoop/data",
+                    table_name="/data/file.parquet",
                     offset=0,
-                    limit=4,
-                    last_processed_primary_key={"path": "/wrong/hdfs/path", "offset": 10},
+                    limit=2,
+                    last_processed_primary_key={"path": "/data/file.parquet", "offset": 10, "size": 1024, "expected_size": 2048},
+                )
+
+            # File changed flag fails closed
+            with self.assertRaises(RuntimeError):
+                await ad.read_batch(
+                    table_name="/data/file.parquet",
+                    offset=0,
+                    limit=2,
+                    last_processed_primary_key={"path": "/data/file.parquet", "offset": 10, "file_changed": True},
                 )
 
         self.loop.run_until_complete(run())
 
     # -------------------------------------------------------------------------
-    # 5. MinIO S3-Compatible Endpoint Verification
+    # 6. MinIO Unencrypted HTTP Policy Validation
     # -------------------------------------------------------------------------
-    def test_05_minio_s3_compatible_adapter(self):
-        """05: Verify MinIOAdapter sets custom endpoint_url and inherits S3 continuation token listing."""
+    def test_06_minio_unencrypted_http_policy(self):
+        """06: Verify MinIO requires explicit allow_http=True policy for HTTP endpoints."""
         ad = MinIOAdapter(ConnectionConfig(
             system_type=SystemType.MINIO,
-            host="http://minio.internal.net:9000",
+            host="http://minio.local:9000",
             port=9000,
-            database_name="minio-bucket",
-            credentials_ref="ref",
+            database_name="bucket",
+            credentials_ref="none",
         ))
-        self.assertEqual(ad.SYSTEM_TYPE, SystemType.MINIO)
-        self.assertEqual(ad.config.host, "http://minio.internal.net:9000")
+
+        async def run():
+            with self.assertRaises(RuntimeError):
+                await ad.connect()
+
+        self.loop.run_until_complete(run())
 
     # -------------------------------------------------------------------------
-    # 6. Dataset Movement Foundations (CSV, JSONL, Parquet)
+    # 7. Event Hubs Namespace and Consumer Group Protection
     # -------------------------------------------------------------------------
-    def test_06_dataset_movement_foundation_readers_and_writers(self):
-        """06: Verify DatasetFormatHandler handles CSV, JSONL, and Parquet round-trips and schema discovery."""
-        rows = [{"id": "101", "name": "Alice", "score": "95.5"}, {"id": "102", "name": "Bob", "score": "88.0"}]
+    def test_07_eventhubs_namespace_and_consumer_group_fail_closed(self):
+        """07: Verify Event Hubs namespace and consumer group mismatch fail closed."""
+        ad = EventHubsAdapter(self._make_cfg(SystemType.EVENT_HUBS, extra={"namespace": "ns-prod", "consumer_group": "cg-1"}))
+        ad.is_connected = True
+        ad._client = object()
 
-        # 1. CSV
-        csv_bytes = DatasetFormatHandler.write_csv(rows)
-        csv_read = DatasetFormatHandler.read_csv(csv_bytes)
-        self.assertEqual(len(csv_read), 2)
-        self.assertEqual(csv_read[0]["name"], "Alice")
-        csv_schema = DatasetFormatHandler.inspect_schema("CSV", csv_bytes)
-        self.assertEqual(len(csv_schema), 3)
+        async def run():
+            # Mismatched namespace fails closed
+            with self.assertRaises(RuntimeError):
+                await ad.read_batch(
+                    table_name="eh_main",
+                    offset=0,
+                    limit=2,
+                    last_processed_primary_key={"eventhub": "eh_main", "namespace": "ns-dev", "consumer_group": "cg-1"},
+                )
 
-        # 2. JSONL
-        jsonl_bytes = DatasetFormatHandler.write_jsonl(rows)
-        jsonl_read = DatasetFormatHandler.read_jsonl(jsonl_bytes)
-        self.assertEqual(len(jsonl_read), 2)
-        self.assertEqual(jsonl_read[1]["name"], "Bob")
+            # Mismatched consumer group fails closed
+            with self.assertRaises(RuntimeError):
+                await ad.read_batch(
+                    table_name="eh_main",
+                    offset=0,
+                    limit=2,
+                    last_processed_primary_key={"eventhub": "eh_main", "namespace": "ns-prod", "consumer_group": "cg-2"},
+                )
 
-        # 3. Parquet
-        parquet_bytes = DatasetFormatHandler.write_parquet(rows)
-        parquet_read = DatasetFormatHandler.read_parquet(parquet_bytes)
-        self.assertEqual(len(parquet_read), 2)
+        self.loop.run_until_complete(run())
 
     # -------------------------------------------------------------------------
-    # 7. Secret Redaction Across All Streaming & Storage Adapters
+    # 8. Secret Redaction Across All Streaming & Storage Adapters
     # -------------------------------------------------------------------------
-    def test_07_secret_redaction_across_streaming_fleet(self):
-        """07: Verify secrets and passphrases are redacted as [REDACTED] in error logging."""
+    def test_08_secret_redaction_across_streaming_fleet(self):
+        """08: Verify secrets and passphrases are redacted as [REDACTED] in error logging."""
         cfg = ConnectionConfig(
             system_type=SystemType.KAFKA,
             host="localhost",

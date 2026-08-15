@@ -155,11 +155,33 @@ class KafkaAdapter(BaseAdapter):
             start_offset = offset
             partition = 0
             if last_processed_primary_key:
-                ckpt_topic = last_processed_primary_key.get("topic")
+                # 1. Topic identity validation
+                ckpt_topic = last_processed_primary_key.get("topic") or last_processed_primary_key.get("topic_name")
                 if ckpt_topic and ckpt_topic != topic:
                     raise RuntimeError(f"Topic identity mismatch in Kafka checkpoint: expected '{topic}', got '{ckpt_topic}'")
+
+                # 2. Cluster / Broker identity validation
+                extra = self.config.extra or {}
+                curr_cluster = extra.get("cluster_id") or extra.get("bootstrap_servers") or f"{self.config.host}:{self.config.port or 9092}"
+                ckpt_cluster = last_processed_primary_key.get("cluster_id") or last_processed_primary_key.get("bootstrap_servers")
+                if ckpt_cluster and ckpt_cluster != curr_cluster:
+                    raise RuntimeError(f"Cluster identity mismatch in Kafka checkpoint: expected '{curr_cluster}', got '{ckpt_cluster}'")
+
+                # 3. Partition validation
                 partition = int(last_processed_primary_key.get("partition", 0))
-                start_offset = int(last_processed_primary_key.get("offset", offset)) + 1
+                if partition < 0:
+                    raise RuntimeError(f"Invalid negative partition '{partition}' in Kafka checkpoint")
+
+                # 4. Offset validation
+                ckpt_off = int(last_processed_primary_key.get("offset", offset))
+                if ckpt_off < 0:
+                    raise RuntimeError(f"Negative offset '{ckpt_off}' in Kafka checkpoint is invalid")
+
+                # 5. Retention gap validation
+                if last_processed_primary_key.get("retention_expired"):
+                    raise RuntimeError(f"Kafka offset '{ckpt_off}' is retention-expired. Silent auto.offset.reset forbidden.")
+
+                start_offset = ckpt_off + 1
 
             rows = []
             for idx in range(limit):
