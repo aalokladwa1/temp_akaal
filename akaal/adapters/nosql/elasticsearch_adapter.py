@@ -3,7 +3,7 @@ Akaal — Elasticsearch Search Engine Adapter
 ===========================================
 100% Physical Reality Adapter for Elasticsearch using elasticsearch-py.
 Provides fail-closed connectivity, index discovery, mapping field analysis,
-bounded search pagination, Bulk API writes with item error checking, and streaming canonical checksums.
+search_after / _id stable pagination, Bulk API writes with item error checking, and streaming canonical checksums.
 """
 
 import asyncio
@@ -107,7 +107,7 @@ class ElasticsearchAdapter(BaseAdapter):
                     "nullable": True,
                 })
             return cols
-        return await asyncio-to-thread(_run) if hasattr(asyncio, "to_thread") else await asyncio.get_event_loop().run_in_executor(None, _run)
+        return await asyncio.to_thread(_run)
 
     async def discover_foreign_keys(self) -> List[Dict[str, Any]]:
         self._ensure_connected()
@@ -130,7 +130,7 @@ class ElasticsearchAdapter(BaseAdapter):
         return []
 
     # ------------------------------------------------------------------
-    # Data Operations
+    # Data Operations (search_after / _id Pagination)
     # ------------------------------------------------------------------
 
     async def read_batch(
@@ -142,12 +142,29 @@ class ElasticsearchAdapter(BaseAdapter):
     ) -> List[Dict[str, Any]]:
         self._ensure_connected()
         def _run():
-            res = self._client.search(index=table_name, from_=offset, size=limit, query={"match_all": {}})
+            if last_processed_primary_key and "_id" in last_processed_primary_key:
+                res = self._client.search(
+                    index=table_name,
+                    size=limit,
+                    query={"match_all": {}},
+                    search_after=[last_processed_primary_key["_id"]],
+                    sort=[{"_id": "asc"}],
+                )
+            else:
+                res = self._client.search(
+                    index=table_name,
+                    from_=offset,
+                    size=limit,
+                    query={"match_all": {}},
+                    sort=[{"_id": "asc"}],
+                )
             hits = res.get("hits", {}).get("hits", [])
             rows = []
             for h in hits:
                 doc = h.get("_source", {})
                 doc["_id"] = h.get("_id")
+                if "_routing" in h:
+                    doc["_routing"] = h.get("_routing")
                 rows.append(doc)
             return rows
         return await asyncio.to_thread(_run)
@@ -160,8 +177,14 @@ class ElasticsearchAdapter(BaseAdapter):
             actions = []
             for r in rows:
                 doc_id = r.get("_id")
-                doc = {k: v for k, v in r.items() if k != "_id"}
-                actions.append({"index": {"_index": table_name, "_id": doc_id}})
+                routing = r.get("_routing")
+                doc = {k: v for k, v in r.items() if k not in ("_id", "_routing")}
+                meta = {"_index": table_name}
+                if doc_id:
+                    meta["_id"] = doc_id
+                if routing:
+                    meta["routing"] = routing
+                actions.append({"index": meta})
                 actions.append(doc)
             res = self._client.bulk(operations=actions)
             if res.get("errors"):
@@ -181,7 +204,7 @@ class ElasticsearchAdapter(BaseAdapter):
         self._ensure_connected()
         from akaal.validation.domain.canonical_checksum import compute_canonical_table_checksum
         def _row_stream():
-            res = self._client.search(index=table_name, size=1000, query={"match_all": {}})
+            res = self._client.search(index=table_name, size=1000, query={"match_all": {}}, sort=[{"_id": "asc"}])
             hits = res.get("hits", {}).get("hits", [])
             for h in hits:
                 doc = h.get("_source", {})

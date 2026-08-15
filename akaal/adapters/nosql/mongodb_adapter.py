@@ -2,8 +2,8 @@
 Akaal — MongoDB Document Database Adapter
 =========================================
 100% Physical Reality Adapter for MongoDB using pymongo.
-Provides fail-closed connectivity, database/collection discovery, document batch reads,
-bulk write ingestion, BSON type handling, and streaming canonical checksum validation.
+Provides fail-closed connectivity, collection/schema discovery, _id keyset pagination,
+durable checkpointing, BSON ObjectId serialization, bulk write ingestion, and canonical checksum validation.
 """
 
 import asyncio
@@ -42,7 +42,6 @@ class MongoDBAdapter(BaseAdapter):
 
         host = self.config.host or "localhost"
         port = self.config.port or 27017
-        database_name = self.config.database_name or "admin"
         extra = self.config.extra or {}
         username = extra.get("username") or getattr(self.config, "username", None)
         password = extra.get("password") or getattr(self.config, "password", None)
@@ -62,7 +61,6 @@ class MongoDBAdapter(BaseAdapter):
                     port=port,
                     serverSelectionTimeoutMS=5000,
                 )
-            # Validate physical ping
             client.admin.command("ping")
             return client
 
@@ -99,7 +97,7 @@ class MongoDBAdapter(BaseAdapter):
         return await asyncio.to_thread(_run)
 
     # ------------------------------------------------------------------
-    # Schema / Collection Discovery
+    # Schema Discovery
     # ------------------------------------------------------------------
 
     async def discover_tables(self) -> List[str]:
@@ -120,7 +118,7 @@ class MongoDBAdapter(BaseAdapter):
                 cols.append({
                     "column_name": k,
                     "data_type": type(v).__name__,
-                    "nullable": True if k != "_id" else False,
+                    "nullable": k != "_id",
                 })
             return cols
         return await asyncio.to_thread(_run)
@@ -147,7 +145,7 @@ class MongoDBAdapter(BaseAdapter):
         self._ensure_connected()
         return []
 
-    async def discover_triggers(self, table_name: str) -> List[Dict[str, Any]]:
+    async def discover_triggers(self) -> List[Dict[str, Any]]:
         self._ensure_connected()
         return []
 
@@ -156,7 +154,7 @@ class MongoDBAdapter(BaseAdapter):
         return []
 
     # ------------------------------------------------------------------
-    # Data Operations
+    # Data Operations (_id Keyset & Offset Pagination)
     # ------------------------------------------------------------------
 
     async def read_batch(
@@ -168,13 +166,28 @@ class MongoDBAdapter(BaseAdapter):
     ) -> List[Dict[str, Any]]:
         self._ensure_connected()
         def _run():
-            cursor = self._db[table_name].find().skip(offset).limit(limit)
+            query = {}
+            if last_processed_primary_key and "_id" in last_processed_primary_key:
+                last_id = last_processed_primary_key["_id"]
+                try:
+                    from bson import ObjectId
+                    if isinstance(last_id, str) and len(last_id) == 24 and ObjectId.is_valid(last_id):
+                        query["_id"] = {"$gt": ObjectId(last_id)}
+                    else:
+                        query["_id"] = {"$gt": last_id}
+                except Exception:
+                    query["_id"] = {"$gt": last_id}
+                cursor = self._db[table_name].find(query).sort("_id", 1).limit(limit)
+            else:
+                cursor = self._db[table_name].find(query).sort("_id", 1).skip(offset).limit(limit)
+
             rows = []
             for doc in cursor:
                 if "_id" in doc:
                     doc["_id"] = str(doc["_id"])
                 rows.append(doc)
             return rows
+
         return await asyncio.to_thread(_run)
 
     async def write_batch(self, table_name: str, rows: List[Dict[str, Any]]) -> int:
@@ -196,7 +209,7 @@ class MongoDBAdapter(BaseAdapter):
         self._ensure_connected()
         from akaal.validation.domain.canonical_checksum import compute_canonical_table_checksum
         def _row_stream():
-            cursor = self._db[table_name].find()
+            cursor = self._db[table_name].find().sort("_id", 1)
             for doc in cursor:
                 if "_id" in doc:
                     doc["_id"] = str(doc["_id"])

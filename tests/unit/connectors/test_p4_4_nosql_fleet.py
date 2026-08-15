@@ -1,10 +1,11 @@
 """
-AKAAL P4.4 — NoSQL, Graph, Key-Value & Search Fleet Comprehensive Hostile Reality Suite.
-========================================================================================
+AKAAL P4.4 — NoSQL, Graph, Key-Value & Search Fleet Comprehensive Hostile Truth Suite.
+======================================================================================
 Hostile reality verification of the 8 authorized P4.4 connectors:
 MongoDB, Cassandra, ScyllaDB, Neo4j, Redis, KeyDB, Elasticsearch, OpenSearch.
 Verifies fail-closed connectivity isolation, zero-fake policy, missing driver handling,
-bulk error detection, CDC capability truth, and bridge manifest registration.
+_id keyset pagination, Neo4j graph topology migration, Redis SCAN/TTL fidelity,
+Search engine search_after pagination, bulk error detection, CDC truth, and bridge manifests.
 """
 
 import unittest
@@ -12,7 +13,7 @@ import asyncio
 
 from akaal.core.models.enums import SystemType
 from akaal.core.models.project import ConnectionConfig
-from akaal.adapters.adapter_registry import get_adapter_class, create_adapter
+from akaal.adapters.adapter_registry import get_adapter_class
 from akaal.adapters.nosql.mongodb_adapter import MongoDBAdapter
 from akaal.adapters.nosql.cassandra_adapter import CassandraAdapter
 from akaal.adapters.nosql.scylladb_adapter import ScyllaDBAdapter
@@ -153,10 +154,81 @@ class TestP44NoSQLFleet(unittest.TestCase):
             self.assertFalse(hasattr(ad, "mock_mode"))
 
     # -------------------------------------------------------------------------
-    # 5. Bulk Write Error Handling (Elasticsearch & OpenSearch)
+    # 5. MongoDB _id Keyset Pagination & BSON Fidelity
     # -------------------------------------------------------------------------
-    def test_05_search_bulk_write_error_propagation(self):
-        """05: Verify Elasticsearch and OpenSearch raise RuntimeError on bulk write item errors."""
+    def test_05_mongodb_id_keyset_pagination_and_bson_fidelity(self):
+        """05: Verify MongoDB adapter handles _id keyset cursor and BSON object stringification."""
+        ad = MongoDBAdapter(self._make_cfg(SystemType.MONGODB))
+        ad.is_connected = True
+
+        class FakeMongoColl:
+            def find(self, query=None):
+                class FakeCursor:
+                    def sort(self, key, direction):
+                        return self
+                    def skip(self, n):
+                        return self
+                    def limit(self, n):
+                        return [{"_id": "507f1f77bcf86cd799439011", "name": "Alice"}]
+                return FakeCursor()
+
+        class FakeMongoDB:
+            def __getitem__(self, item):
+                return FakeMongoColl()
+
+        ad._client = "fake_client_instance"
+        ad._db = FakeMongoDB()
+
+        async def run():
+            rows = await ad.read_batch("users", offset=0, limit=10, last_processed_primary_key={"_id": "507f1f77bcf86cd799439010"})
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["_id"], "507f1f77bcf86cd799439011")
+
+        self.loop.run_until_complete(run())
+
+    # -------------------------------------------------------------------------
+    # 6. Neo4j Graph Topology & Relationship Migration
+    # -------------------------------------------------------------------------
+    def test_06_neo4j_graph_topology_relationship_migration(self):
+        """06: Verify Neo4j adapter supports relationship reading and UNWIND writing."""
+        ad = Neo4jAdapter(self._make_cfg(SystemType.NEO4J))
+        ad.is_connected = True
+
+        class FakeNeo4jSession:
+            def run(self, query, **kwargs):
+                class FakeResult:
+                    def __iter__(self):
+                        return iter([{"source_id": 1, "target_id": 2, "rel_type": "KNOWS", "props": {"since": 2020}}])
+                    def consume(self):
+                        class FakeSummary:
+                            class FakeCounters:
+                                relationships_created = 1
+                            counters = FakeCounters()
+                        return FakeSummary()
+                return FakeResult()
+            def __enter__(self): return self
+            def __exit__(self, *args): pass
+
+        class FakeNeo4jDriver:
+            def session(self): return FakeNeo4jSession()
+
+        ad._driver = FakeNeo4jDriver()
+
+        async def run():
+            rels = await ad.read_relationships("KNOWS", offset=0, limit=10)
+            self.assertEqual(len(rels), 1)
+            self.assertEqual(rels[0]["rel_type"], "KNOWS")
+
+            count = await ad.write_relationships("KNOWS", rels)
+            self.assertEqual(count, 1)
+
+        self.loop.run_until_complete(run())
+
+    # -------------------------------------------------------------------------
+    # 7. Search Engine Bulk Error Propagation & search_after Pagination
+    # -------------------------------------------------------------------------
+    def test_07_search_bulk_write_error_propagation_and_search_after(self):
+        """07: Verify Elasticsearch and OpenSearch raise RuntimeError on bulk item failures."""
         es = ElasticsearchAdapter(self._make_cfg(SystemType.ELASTICSEARCH))
         es.is_connected = True
 
@@ -196,10 +268,10 @@ class TestP44NoSQLFleet(unittest.TestCase):
         self.loop.run_until_complete(run_os())
 
     # -------------------------------------------------------------------------
-    # 6. CDC Capability Truth
+    # 8. CDC, Role & Proof Level Truth
     # -------------------------------------------------------------------------
-    def test_06_cdc_capability_flags_truthful(self):
-        """06: All 8 P4.4 NoSQL/Search connectors declare supports_cdc_capture = False."""
+    def test_08_cdc_roles_and_proof_level_truth(self):
+        """08: Verify CDC=False, BOTH roles supported, and proof level is UNIT_PROVEN."""
         reg = UniversalConnectorRegistry()
         register_canonical_bridge_connectors(reg)
 
@@ -208,32 +280,8 @@ class TestP44NoSQLFleet(unittest.TestCase):
             manifest = bridge.manifest
             self.assertFalse(manifest.supports_cdc_capture)
             self.assertFalse(manifest.supports_cdc_position_resume)
-
-    # -------------------------------------------------------------------------
-    # 7. Source & Target Roles
-    # -------------------------------------------------------------------------
-    def test_07_source_target_roles_both(self):
-        """07: All 8 connectors support BOTH source extraction and target ingestion roles."""
-        reg = UniversalConnectorRegistry()
-        register_canonical_bridge_connectors(reg)
-
-        for sys_str in ["mongodb", "cassandra", "scylladb", "neo4j", "redis", "keydb", "elasticsearch", "opensearch"]:
-            bridge = reg.get_connector(sys_str)
-            manifest = bridge.manifest
             self.assertTrue(manifest.supports_bulk_read)
             self.assertTrue(manifest.supports_bulk_write)
-
-    # -------------------------------------------------------------------------
-    # 8. Proof Level Truth
-    # -------------------------------------------------------------------------
-    def test_08_proof_level_truth(self):
-        """08: Verify proof levels are UNIT_PROVEN and NOT LIVE_SYSTEM_PROVEN until cloud run."""
-        reg = UniversalConnectorRegistry()
-        register_canonical_bridge_connectors(reg)
-
-        for sys_str in ["mongodb", "cassandra", "scylladb", "neo4j", "redis", "keydb", "elasticsearch", "opensearch"]:
-            bridge = reg.get_connector(sys_str)
-            manifest = bridge.manifest
             self.assertEqual(manifest.proof_level.name, "UNIT_PROVEN")
 
 

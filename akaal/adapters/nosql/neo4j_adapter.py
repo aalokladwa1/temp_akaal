@@ -3,7 +3,7 @@ Akaal — Neo4j Graph Database Adapter
 ====================================
 100% Physical Reality Adapter for Neo4j Graph Database using the official neo4j Python driver.
 Provides fail-closed connectivity, label/relationship/property discovery, Cypher parameterized
-batch node extraction, UNWIND batch writes, and streaming canonical validation checksums.
+batch node extraction, relationship topology migration, UNWIND batch writes, and streaming canonical validation checksums.
 """
 
 import asyncio
@@ -82,7 +82,7 @@ class Neo4jAdapter(BaseAdapter):
         return await asyncio.to_thread(_run)
 
     # ------------------------------------------------------------------
-    # Schema Discovery
+    # Schema Discovery (Labels & Relationships)
     # ------------------------------------------------------------------
 
     async def discover_tables(self) -> List[str]:
@@ -90,6 +90,14 @@ class Neo4jAdapter(BaseAdapter):
         def _run():
             with self._driver.session() as session:
                 res = session.run("CALL db.labels()")
+                return [record[0] for record in res]
+        return await asyncio.to_thread(_run)
+
+    async def discover_relationship_types(self) -> List[str]:
+        self._ensure_connected()
+        def _run():
+            with self._driver.session() as session:
+                res = session.run("CALL db.relationshipTypes()")
                 return [record[0] for record in res]
         return await asyncio.to_thread(_run)
 
@@ -123,7 +131,11 @@ class Neo4jAdapter(BaseAdapter):
 
     async def discover_constraints(self, table_name: str) -> List[Dict[str, Any]]:
         self._ensure_connected()
-        return []
+        def _run():
+            with self._driver.session() as session:
+                res = session.run("SHOW CONSTRAINTS")
+                return [{"constraint_name": record.get("name", "cst")} for record in res]
+        return await asyncio.to_thread(_run)
 
     async def discover_triggers(self, table_name: str) -> List[Dict[str, Any]]:
         self._ensure_connected()
@@ -134,7 +146,7 @@ class Neo4jAdapter(BaseAdapter):
         return []
 
     # ------------------------------------------------------------------
-    # Data Operations
+    # Data Operations (Nodes & Relationships)
     # ------------------------------------------------------------------
 
     async def read_batch(
@@ -145,7 +157,7 @@ class Neo4jAdapter(BaseAdapter):
         last_processed_primary_key: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, Any]]:
         self._ensure_connected()
-        query = f"MATCH (n:`{table_name}`) RETURN properties(n) AS props, id(n) AS _node_id SKIP {offset} LIMIT {limit}"
+        query = f"MATCH (n:`{table_name}`) RETURN properties(n) AS props, id(n) AS _node_id, labels(n) AS _labels SKIP {offset} LIMIT {limit}"
         def _run():
             with self._driver.session() as session:
                 res = session.run(query)
@@ -153,8 +165,26 @@ class Neo4jAdapter(BaseAdapter):
                 for record in res:
                     props = dict(record["props"])
                     props["_node_id"] = record["_node_id"]
+                    props["_labels"] = list(record["_labels"])
                     rows.append(props)
                 return rows
+        return await asyncio.to_thread(_run)
+
+    async def read_relationships(self, rel_type: str, offset: int, limit: int) -> List[Dict[str, Any]]:
+        self._ensure_connected()
+        query = f"MATCH (a)-[r:`{rel_type}`]->(b) RETURN id(a) AS source_id, id(b) AS target_id, type(r) AS rel_type, properties(r) AS props SKIP {offset} LIMIT {limit}"
+        def _run():
+            with self._driver.session() as session:
+                res = session.run(query)
+                rels = []
+                for record in res:
+                    rels.append({
+                        "source_id": record["source_id"],
+                        "target_id": record["target_id"],
+                        "rel_type": record["rel_type"],
+                        "props": dict(record["props"]),
+                    })
+                return rels
         return await asyncio.to_thread(_run)
 
     async def write_batch(self, table_name: str, rows: List[Dict[str, Any]]) -> int:
@@ -167,6 +197,18 @@ class Neo4jAdapter(BaseAdapter):
                 res = session.run(query, rows=rows)
                 summary = res.consume()
                 return summary.counters.nodes_created
+        return await asyncio.to_thread(_run)
+
+    async def write_relationships(self, rel_type: str, relationships: List[Dict[str, Any]]) -> int:
+        self._ensure_connected()
+        if not relationships:
+            return 0
+        query = f"UNWIND $rels AS rel MATCH (a), (b) WHERE id(a) = rel.source_id AND id(b) = rel.target_id CREATE (a)-[r:`{rel_type}`]->(b) SET r = rel.props"
+        def _run():
+            with self._driver.session() as session:
+                res = session.run(query, rels=relationships)
+                summary = res.consume()
+                return summary.counters.relationships_created
         return await asyncio.to_thread(_run)
 
     async def get_row_count(self, table_name: str) -> int:
@@ -182,12 +224,14 @@ class Neo4jAdapter(BaseAdapter):
     async def compute_checksum(self, table_name: str) -> str:
         self._ensure_connected()
         from akaal.validation.domain.canonical_checksum import compute_canonical_table_checksum
-        query = f"MATCH (n:`{table_name}`) RETURN properties(n) AS props, id(n) AS _node_id"
+        query = f"MATCH (n:`{table_name}`) OPTIONAL MATCH (n)-[r]->(m) RETURN properties(n) AS props, id(n) AS _node_id, type(r) AS rel_type, id(m) AS target_id"
         def _row_stream():
             with self._driver.session() as session:
                 res = session.run(query)
                 for record in res:
                     props = dict(record["props"])
                     props["_node_id"] = record["_node_id"]
+                    if record["rel_type"]:
+                        props["_rel"] = f"{record['rel_type']}->{record['target_id']}"
                     yield props
         return compute_canonical_table_checksum(_row_stream(), order_independent=True)
