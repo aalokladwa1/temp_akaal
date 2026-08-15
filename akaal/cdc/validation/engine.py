@@ -154,7 +154,7 @@ class CDCValidationEngine:
             mismatches = 0
 
             if not row_count_match or not checksum_match or level in (CDCValidationLevel.LEVEL_3_ROW_RECONCILIATION, CDCValidationLevel.LEVEL_4_COLUMN_DIAGNOSIS):
-                t_recons, mismatches, t_divs = self._reconcile_table(val_run_id, table_name, src_rows, tgt_rows, level)
+                t_recons, mismatches, t_divs = self._reconcile_table(val_run_id, table_name, src_rows, tgt_rows, level, identity=identity)
                 reconciliations.extend(t_recons)
 
             total_mismatches += mismatches
@@ -231,6 +231,11 @@ class CDCValidationEngine:
             return {"reconciliation_id": reconciliation_id, "status": "NOT_FOUND", "repair_status": "FAILED"}
 
         rec = CDCReconciliationRecord.from_dict(recon_data)
+        if rec.migration_id and identity.migration_id and rec.migration_id != identity.migration_id:
+            return {"reconciliation_id": reconciliation_id, "status": "CROSS_MIGRATION_SUBSTITUTION_REJECTED", "repair_status": "FAILED"}
+        if rec.run_id and identity.run_id and identity.run_id != "run-def" and rec.run_id != identity.run_id:
+            return {"reconciliation_id": reconciliation_id, "status": "CROSS_RUN_SUBSTITUTION_REJECTED", "repair_status": "FAILED"}
+
         if rec.repair_action == CDCRepairActionType.MANUAL_GOVERNANCE_REQUIRED:
             return {
                 "reconciliation_id": reconciliation_id,
@@ -259,16 +264,20 @@ class CDCValidationEngine:
         src_rows: List[Dict[str, Any]],
         tgt_rows: List[Dict[str, Any]],
         level: CDCValidationLevel,
+        identity: Optional[CDCEventIdentity] = None,
     ) -> Tuple[List[CDCReconciliationRecord], int, List[str]]:
         """Performs entity-level matching and divergence classification."""
         recons: List[CDCReconciliationRecord] = []
         divs: Set[str] = set()
 
-        # Build primary key maps (pk: 'id' or first column)
+        # Build primary key maps (pk: 'id' or composite ID columns)
         def get_pk(row: Dict[str, Any]) -> str:
             for k in ["id", "uuid", "pk", f"{table_name}_id", "_id"]:
                 if k in row:
                     return str(row[k])
+            id_cols = [k for k in sorted(row.keys()) if k.endswith("_id") or k.endswith("_pk") or k.endswith("_key") or k in ("code", "key")]
+            if id_cols:
+                return ":".join(f"{k}={row[k]}" for k in id_cols)
             return str(sorted(row.items())[0]) if row else "unknown_key"
 
         src_map = {get_pk(r): r for r in src_rows}
@@ -290,6 +299,8 @@ class CDCValidationEngine:
                     table_name=table_name,
                     entity_key_fingerprint=key,
                     mismatch_class=CDCDivergenceClass.MISSING_TARGET_ROW,
+                    migration_id=identity.migration_id if identity else None,
+                    run_id=identity.run_id if identity else None,
                     source_fingerprint=str(hash(frozenset(s_row.items()))),
                     target_fingerprint=None,
                     repair_action=CDCRepairActionType.REPAIR_MISSING_ROW,
@@ -306,6 +317,8 @@ class CDCValidationEngine:
                     table_name=table_name,
                     entity_key_fingerprint=key,
                     mismatch_class=CDCDivergenceClass.EXTRA_TARGET_ROW,
+                    migration_id=identity.migration_id if identity else None,
+                    run_id=identity.run_id if identity else None,
                     source_fingerprint=None,
                     target_fingerprint=str(hash(frozenset(t_row.items()))),
                     repair_action=CDCRepairActionType.MANUAL_GOVERNANCE_REQUIRED,
@@ -329,6 +342,8 @@ class CDCValidationEngine:
                         table_name=table_name,
                         entity_key_fingerprint=key,
                         mismatch_class=CDCDivergenceClass.VALUE_MISMATCH,
+                        migration_id=identity.migration_id if identity else None,
+                        run_id=identity.run_id if identity else None,
                         source_fingerprint=str(hash(frozenset(s_row.items()))),
                         target_fingerprint=str(hash(frozenset(t_row.items()))),
                         column_mismatches=col_mismatches,

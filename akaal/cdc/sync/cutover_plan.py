@@ -77,9 +77,15 @@ class CDCSourceQuiescenceContract:
             self.invalidation_reason = f"Write detected after quiescence at LSN '{observed_lsn}' (Expected: '{self.final_expected_lsn}')"
             logger.critical(f"[QuiescenceContract] Quiescence VIOLATION for session '{self.cdc_session_id}': {self.invalidation_reason}")
 
+    def record_source_write(self, observed_lsn: CDCSourcePosition) -> None:
+        self.record_write_observed(observed_lsn)
+
+    def is_valid(self) -> bool:
+        return self.is_quiesced and not self.quiescence_invalidated
+
     @property
     def is_quiescence_valid(self) -> bool:
-        return self.is_quiesced and not self.quiescence_invalidated
+        return self.is_valid()
 
     def to_dict(self) -> Dict[str, Any]:
         return {

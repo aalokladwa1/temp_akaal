@@ -137,6 +137,8 @@ class CDCFailbackDecisionEngine:
         if target_received_post_cutover_writes and not reverse_cdc_available:
             blockers.append("POST_CUTOVER_TARGET_WRITES_WITHOUT_REVERSE_CDC")
             classification = CDCFailbackClassification.MANUAL_INTERVENTION_REQUIRED
+        elif target_received_post_cutover_writes and reverse_cdc_available and not source_received_post_cutover_writes:
+            classification = CDCFailbackClassification.POST_CUTOVER_REVERSE_SYNC_REQUIRED
 
         if target_received_post_cutover_writes and source_received_post_cutover_writes:
             blockers.append("SPLIT_BRAIN_BOTH_DATABASES_RECEIVED_WRITES")
@@ -153,6 +155,18 @@ class CDCFailbackDecisionEngine:
                 "classification": classification.value if isinstance(classification, Enum) else classification,
                 "status": "MANUAL_INTERVENTION_REQUIRED",
                 "blockers": blockers,
+                "current_role": self.current_role.value,
+                "evaluated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            }
+
+        if classification == CDCFailbackClassification.POST_CUTOVER_REVERSE_SYNC_REQUIRED:
+            return {
+                "cdc_session_id": self.cdc_session_id,
+                "safe_auto_failback": False,
+                "classification": classification.value if isinstance(classification, Enum) else classification,
+                "status": "REVERSE_SYNC_REQUIRED",
+                "action_required": "DRAIN_REVERSE_CDC_BEFORE_FAILBACK",
+                "blockers": [],
                 "current_role": self.current_role.value,
                 "evaluated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
             }

@@ -32,7 +32,7 @@ from akaal.cdc.sync.cutover_plan import (
     SourceQuiescenceMode,
     CDCCutoverReadinessEngine,
 )
-from akaal.cdc.sync.failback import PrimaryRoleState, CDCFailbackDecisionEngine
+from akaal.cdc.sync.failback import PrimaryRoleState, CDCFailbackDecisionEngine, CDCRecoveryPlan
 
 from akaal.runtime.recovery.coordinator import RecoveryCoordinator
 from akaal.core.state.state_store import CentralStateStore
@@ -89,21 +89,29 @@ class CDCContinuousSyncCoordinator:
 
     def start_continuous_sync(
         self,
-        migration_id: str,
-        job_id: str,
-        run_id: str,
-        cdc_session_id: str,
+        migration_id: Any,
+        job_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+        cdc_session_id: Optional[str] = None,
         source_engine: str = "POSTGRESQL",
         source_config: Optional[Dict[str, Any]] = None,
         target_config: Optional[Dict[str, Any]] = None,
+        starting_position: Optional[Any] = None,
     ) -> Dict[str, Any]:
         """Initializes and launches continuous CDC capture + apply loop."""
-        identity = CDCEventIdentity(
-            migration_id=migration_id,
-            job_id=job_id,
-            run_id=run_id,
-            cdc_session_id=cdc_session_id,
-        )
+        if isinstance(migration_id, CDCEventIdentity):
+            identity = migration_id
+            migration_id = identity.migration_id
+            job_id = identity.job_id
+            run_id = identity.run_id
+            cdc_session_id = identity.cdc_session_id
+        else:
+            identity = CDCEventIdentity(
+                migration_id=migration_id,
+                job_id=job_id or "job-def",
+                run_id=run_id or "run-def",
+                cdc_session_id=cdc_session_id or f"cdc-{migration_id}",
+            )
         sm = self.get_or_create_state_machine(identity)
         if sm.current_state == CDCSessionState.CREATED:
             sm.transition_to(CDCSessionState.INITIALIZING)
@@ -296,14 +304,21 @@ class CDCContinuousSyncCoordinator:
 
     def prepare_cutover(
         self,
-        migration_id: str,
-        job_id: str,
-        run_id: str,
-        cdc_session_id: str,
+        migration_id: Any,
+        job_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+        cdc_session_id: Optional[str] = None,
         requested_by: str = "operator",
     ) -> Dict[str, Any]:
         """Creates durable cutover plan and transitions to CUTOVER_PREPARING."""
-        identity = CDCEventIdentity(migration_id, job_id, run_id, cdc_session_id)
+        if isinstance(migration_id, CDCEventIdentity):
+            identity = migration_id
+            migration_id = identity.migration_id
+            job_id = identity.job_id
+            run_id = identity.run_id
+            cdc_session_id = identity.cdc_session_id
+        else:
+            identity = CDCEventIdentity(migration_id, job_id or "job-def", run_id or "run-def", cdc_session_id or f"cdc-{migration_id}")
         sm = self.get_or_create_state_machine(identity)
         if cdc_session_id in self.active_fencing_epochs:
             epoch = self.active_fencing_epochs[cdc_session_id]
@@ -346,6 +361,23 @@ class CDCContinuousSyncCoordinator:
         self.approvals[cdc_session_id] = approval_data
         plan.approval_reference = approval_data
         return approval_data
+
+    def begin_source_quiescence(self, cdc_session_id: str, final_lsn_str: str = "0/9000000", verified_by: str = "operator") -> Dict[str, Any]:
+        """Acknowledge source database write quiescence."""
+        if cdc_session_id not in self.cutover_plans:
+            raise ValueError(f"No active cutover plan for session '{cdc_session_id}'.")
+        plan = self.cutover_plans[cdc_session_id]
+        if not plan.quiescence_contract:
+            plan.quiescence_contract = CDCSourceQuiescenceContract(cdc_session_id, verified_by=verified_by)
+        pos = PostgresLSNPosition(final_lsn_str)
+        plan.quiescence_contract.mark_quiesced(pos)
+        plan.final_source_position = pos
+        plan.advance_phase(CutoverPhase.SOURCE_QUIESCED)
+        return {
+            "cdc_session_id": cdc_session_id,
+            "status": "SOURCE_QUIESCED",
+            "quiescence": plan.quiescence_contract.to_dict(),
+        }
 
     def begin_final_drain(self, cdc_session_id: str, final_lsn_str: str = "0/9000000") -> Dict[str, Any]:
         """Executes final drain after source application quiescence."""
@@ -550,25 +582,53 @@ class CDCContinuousSyncCoordinator:
             source_received_post_cutover_writes=source_received_writes,
         )
 
-    def execute_failback(self, cdc_session_id: str, force_governed: bool = False) -> Dict[str, Any]:
+    def execute_failback(
+        self,
+        cdc_session_id: str,
+        target_received_writes: bool = True,
+        source_received_writes: bool = False,
+        reverse_cdc_available: bool = False,
+        force_governed: bool = False,
+    ) -> Dict[str, Any]:
         """Executes governed post-cutover failback workflow if safe."""
         sm = self.session_state_machines.get(cdc_session_id)
         eng = self.failback_engines.get(cdc_session_id)
         plan = self.cutover_plans.get(cdc_session_id)
 
-        eval_res = self.evaluate_failback(cdc_session_id, target_received_writes=True)
+        eval_res = self.evaluate_failback(
+            cdc_session_id,
+            target_received_writes=target_received_writes,
+            source_received_writes=source_received_writes,
+        )
         if not eval_res["safe_auto_failback"] and not force_governed:
             return eval_res
 
         if sm:
             sm.transition_to(CDCSessionState.FAILBACK_PREPARING)
             sm.transition_to(CDCSessionState.FAILBACK_COMPLETE)
+        if eng:
             eng.set_role(PrimaryRoleState.SOURCE_PRIMARY)
+
+        # Generate and record durable recovery plan
+        epoch = self.active_fencing_epochs.get(cdc_session_id, 1)
+        rec_plan = None
+        if plan:
+            rec_plan = CDCRecoveryPlan(
+                identity=plan.identity,
+                cutover_plan_id=plan.plan_id,
+                fencing_epoch=epoch,
+                current_primary=PrimaryRoleState.SOURCE_PRIMARY,
+                previous_primary=PrimaryRoleState.TARGET_PRIMARY,
+            )
+            rec_plan.is_executed = True
+            rec_plan.executed_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            self.state_store.set_state(f"recovery_plan_{cdc_session_id}", rec_plan.to_dict(), category="recovery_plan")
 
         return {
             "cdc_session_id": cdc_session_id,
             "status": "FAILBACK_COMPLETE",
             "authoritative_role": PrimaryRoleState.SOURCE_PRIMARY.value,
+            "recovery_plan": rec_plan.to_dict() if rec_plan else None,
         }
 
     def recover_cutover_session(self, migration_id: str, cdc_session_id: str) -> Dict[str, Any]:
@@ -588,6 +648,8 @@ class CDCContinuousSyncCoordinator:
         if persisted_committed:
             status = "CUTOVER_COMPLETE"
             role = PrimaryRoleState.TARGET_PRIMARY.value
+            if cdc_session_id in self.failback_engines:
+                self.failback_engines[cdc_session_id].set_role(PrimaryRoleState.TARGET_PRIMARY)
 
         return {
             "cdc_session_id": cdc_session_id,

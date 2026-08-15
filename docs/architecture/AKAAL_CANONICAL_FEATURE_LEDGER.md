@@ -897,16 +897,15 @@ LAST_VERIFIED_COMMIT: HEAD
 | **CDC Capture Control** | `EngineGateway` / `CDCCaptureCoordinator` | `FULLY_WIRED` | P7D CDC Source Capture Engine |
 | **CDC Live Schema Evolution** | `EngineGateway` / `CDCSchemaEvolutionCoordinator` | `FULLY_WIRED` | P7D Schema Evolution & Transition Manager |
 | **CDC Replay Ordering & Causality** | `EngineGateway` / `CDCTransactionOrderingCoordinator` | `FULLY_WIRED` | P7D CDC Causality & Replay Engine |
-| **CDC Conflict & Multi-Master** | `EngineGateway` / `CDCBirectionalTopologyManager` | `FULLY_WIRED` | P7D Bidirectional & Multi-Master Engine |
-| **CDC Monitoring Hostile Audit** | `CDCMonitoringAggregator` / `test_p3_9_1_cdc_monitoring_hostile_audit` | `FULLY_WIRED` | P7D Hostile Verification & Security Suite |
 | **CDC Lifecycle & Cutover Workspace** | `EngineGateway` / `CDCMigrationLifecycleCoordinator` / `CDCValidationEngine` | `FULLY_WIRED` | P7D Cutover & Lifecycle Management Suite |
+| **CDC Hostile Lifecycle & Cutover Audit** | `CDCValidationEngine` / `CDCCutoverReadinessEngine` / `CDCFailbackDecisionEngine` / `CDCMigrationLifecycleCoordinator` | `FULLY_WIRED` | P7D Hostile Acceptance & Security Audit Suite |
 
 ---
 
 ## 6. Summary Statistics & Ledger Health
 
-- **Total Features Ledgered**: 44 canonical P1/P2/P3.1-P3.10 features
-- **Fully Integrated P1/P2/P3.1-P3.10 Features**: 44 (100%)
+- **Total Features Ledgered**: 45 canonical P1/P2/P3.1-P3.10.1 features
+- **Fully Integrated P1/P2/P3.1-P3.10.1 Features**: 45 (100%)
 - **Partially Integrated Features**: 0 (0%)
 - **Orphaned Capabilities**: 0
 - **Duplicate Production Authorities**: 0

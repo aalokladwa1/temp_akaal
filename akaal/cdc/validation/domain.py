@@ -128,6 +128,8 @@ class CDCReconciliationRecord:
     table_name: str
     entity_key_fingerprint: str
     mismatch_class: CDCDivergenceClass
+    migration_id: Optional[str] = None
+    run_id: Optional[str] = None
     source_fingerprint: Optional[str] = None
     target_fingerprint: Optional[str] = None
     first_seen_position: Optional[str] = None

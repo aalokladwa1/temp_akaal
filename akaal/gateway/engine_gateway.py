@@ -3414,11 +3414,72 @@ class EngineGateway:
         )
         return plan.to_dict()
 
-    def recover_cdc_migration_lifecycle(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+    def initialize_migration_lifecycle(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         migration_id = payload.get("migration_id", "mig-def")
-        return self.get_migration_lifecycle({"migration_id": migration_id})
+        if self._is_migration_historical(migration_id):
+            return {"migration_id": migration_id, "status": "REJECTED_HISTORICAL_IMMUTABLE"}
+        
+        if not hasattr(self, "_lifecycle_coordinator"):
+            from akaal.cdc.lifecycle.coordinator import CDCMigrationLifecycleCoordinator
+            self._lifecycle_coordinator = CDCMigrationLifecycleCoordinator(
+                state_store=self.state_store,
+                recovery_coordinator=self.recovery_coordinator,
+            )
 
-    def get_cdc_migration_history(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        from akaal.cdc.lifecycle.coordinator import MigrationLifecycleState
+        initial_state_str = payload.get("initial_state", "CREATED")
+        return self._lifecycle_coordinator.initialize_lifecycle(
+            migration_id=migration_id,
+            job_id=payload.get("job_id", "job-def"),
+            run_id=payload.get("run_id", "run-def"),
+            cdc_session_id=payload.get("cdc_session_id", f"cdc-{migration_id}"),
+            initial_state=MigrationLifecycleState(initial_state_str),
+        )
+
+    def get_migration_lifecycle(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        migration_id = payload.get("migration_id", "mig-def")
+        if not hasattr(self, "_lifecycle_coordinator"):
+            from akaal.cdc.lifecycle.coordinator import CDCMigrationLifecycleCoordinator
+            self._lifecycle_coordinator = CDCMigrationLifecycleCoordinator(
+                state_store=self.state_store,
+                recovery_coordinator=self.recovery_coordinator,
+            )
+
+        res = self._lifecycle_coordinator.get_lifecycle(migration_id)
+        if res:
+            return res
+        return {
+            "migration_id": migration_id,
+            "current_state": "CREATED",
+            "history": [],
+            "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        }
+
+    def transition_migration_lifecycle(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        migration_id = payload.get("migration_id", "mig-def")
+        if self._is_migration_historical(migration_id):
+            return {"migration_id": migration_id, "status": "REJECTED_HISTORICAL_IMMUTABLE"}
+
+        if not hasattr(self, "_lifecycle_coordinator"):
+            from akaal.cdc.lifecycle.coordinator import CDCMigrationLifecycleCoordinator
+            self._lifecycle_coordinator = CDCMigrationLifecycleCoordinator(
+                state_store=self.state_store,
+                recovery_coordinator=self.recovery_coordinator,
+            )
+
+        from akaal.cdc.lifecycle.coordinator import MigrationLifecycleState
+        target_state_str = payload.get("target_state", "CONFIGURING")
+        reason = payload.get("reason", "Gateway transition request")
+        metadata = payload.get("metadata")
+
+        return self._lifecycle_coordinator.transition_state(
+            migration_id=migration_id,
+            target_state=MigrationLifecycleState(target_state_str),
+            reason=reason,
+            metadata=metadata,
+        )
+
+    def get_migration_lifecycle_history(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         migration_id = payload.get("migration_id", "mig-def")
         lifecycle = self.get_migration_lifecycle({"migration_id": migration_id})
         return {
@@ -3426,5 +3487,12 @@ class EngineGateway:
             "history": lifecycle.get("history", []),
             "current_state": lifecycle.get("current_state", "UNKNOWN"),
         }
+
+    def recover_cdc_migration_lifecycle(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        migration_id = payload.get("migration_id", "mig-def")
+        return self.get_migration_lifecycle({"migration_id": migration_id})
+
+    def get_cdc_migration_history(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        return self.get_migration_lifecycle_history(payload)
 
 
