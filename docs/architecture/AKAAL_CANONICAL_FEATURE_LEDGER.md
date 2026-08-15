@@ -18,7 +18,7 @@
 | `akaal/api` | `SUPPORTING_PRODUCTION` | Python SDK & IPC data contracts. | `EngineGateway` | YES | YES | `KEEP_SUPPORTING` |
 | `akaal/audit` | `SUPPORTING_PRODUCTION` | Tamper-evident audit trail & structured event logger. | `AuditTrailLogger` | YES | YES | `KEEP_SUPPORTING` |
 | `akaal/catalog` | `SUPPORTING_PRODUCTION` | Database schema catalog cache & metadata registry. | `CatalogRegistry` | YES | YES | `KEEP_SUPPORTING` |
-| `akaal/cdc` | `FUTURE_PHASE_SCAFFOLDING` | P3 native CDC change data capture log miners (Oracle Redo, PG logical, MySQL binlog). | N/A (P3) | NO | NO | `KEEP_FUTURE` |
+| `akaal/cdc` | `CANONICAL_PRODUCTION` | P3 Native CDC Change Data Capture, continuous replication, causality ordering, schema evolution, multi-master, monitoring, cutover & failback engine. | `CDCContinuousSyncCoordinator` | YES | YES | `KEEP_CANONICAL` |
 | `akaal/core` | `CANONICAL_PRODUCTION` | CentralStateStore, ErrorTaxonomy, SystemType enums, base domain models. | `CentralStateStore` | YES | YES | `KEEP_CANONICAL` |
 | `akaal/coverage` | `SUPPORTING_PRODUCTION` | Schema datatype conversion coverage analyzer. | `CoverageAnalyzer` | YES | YES | `KEEP_SUPPORTING` |
 | `akaal/data_integrity` | `SUPPORTING_PRODUCTION` | Row & table level checksum calculation helpers. | `PhysicalChecksumValidator` | YES | YES | `KEEP_SUPPORTING` |

@@ -235,7 +235,7 @@ class CDCContinuousSyncCoordinator:
             "cdc_session_id": cdc_session_id,
             "status": sm.current_state.value,
             "captured_tx_count": len(captured_txs),
-            "applied_tx_count": apply_res.get("applied_count", 0),
+            "applied_tx_count": apply_res.get("transactions_applied", 0),
             "stability": stab_res,
         }
 
@@ -437,9 +437,9 @@ class CDCContinuousSyncCoordinator:
         sm.transition_to(CDCSessionState.VALIDATING)
 
         worker = self.apply_coordinator.active_workers.get(cdc_session_id)
-        src_pos_str = str(plan.final_source_position) if plan.final_source_position else "0/9000000"
-        app_pos_str = str(plan.final_applied_position) if plan.final_applied_position else src_pos_str
-        ckpt_pos_str = str(worker.last_checkpoint.checkpoint_position) if (worker and worker.last_checkpoint) else app_pos_str
+        src_pos_str = plan.final_source_position.to_string() if hasattr(plan.final_source_position, "to_string") else str(plan.final_source_position or "0/9000000")
+        app_pos_str = plan.final_applied_position.to_string() if hasattr(plan.final_applied_position, "to_string") else str(plan.final_applied_position or src_pos_str)
+        ckpt_pos_str = worker.last_checkpoint.source_position.to_string() if (worker and worker.last_checkpoint and hasattr(worker.last_checkpoint.source_position, "to_string")) else app_pos_str
 
         window = self.validation_engine.establish_validation_window(
             source_position=src_pos_str,
