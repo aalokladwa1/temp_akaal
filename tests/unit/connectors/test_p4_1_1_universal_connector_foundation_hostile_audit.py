@@ -591,7 +591,7 @@ class TestP411UniversalConnectorHostileAudit(unittest.TestCase):
             ("bigquery", ConnectorFamily.CLOUD_DATA_WAREHOUSE, ImplementationState.IMPLEMENTED, SupportState.SUPPORTED),
             ("redshift", ConnectorFamily.CLOUD_DATA_WAREHOUSE, ImplementationState.IMPLEMENTED, SupportState.SUPPORTED),
             ("databricks", ConnectorFamily.LAKEHOUSE_ANALYTICS, ImplementationState.IMPLEMENTED, SupportState.SUPPORTED),
-            ("hdfs", ConnectorFamily.DISTRIBUTED_FILESYSTEM, ImplementationState.STUB, SupportState.UNSUPPORTED),
+            ("hdfs", ConnectorFamily.DISTRIBUTED_FILESYSTEM, ImplementationState.IMPLEMENTED, SupportState.SUPPORTED),
             ("mongodb", ConnectorFamily.DOCUMENT_DATABASE, ImplementationState.IMPLEMENTED, SupportState.SUPPORTED),
             ("cassandra", ConnectorFamily.WIDE_COLUMN_DATABASE, ImplementationState.IMPLEMENTED, SupportState.SUPPORTED),
             ("neo4j", ConnectorFamily.GRAPH_DATABASE, ImplementationState.IMPLEMENTED, SupportState.SUPPORTED),

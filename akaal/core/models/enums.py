@@ -204,10 +204,19 @@ class SystemType(str, Enum):
     ELASTICSEARCH = "ELASTICSEARCH"
     OPENSEARCH    = "OPENSEARCH"
 
-    # Cloud Object Storage
+    # Cloud Object Storage & Distributed Filesystem
     S3          = "S3"
     GCS         = "GCS"
     AZURE_BLOB  = "AZURE_BLOB"
+    MINIO       = "MINIO"
+
+    # Streaming & Event Platforms
+    KAFKA       = "KAFKA"
+    CONFLUENT   = "CONFLUENT"
+    MSK         = "MSK"
+    KINESIS     = "KINESIS"
+    EVENT_HUBS  = "EVENT_HUBS"
+    PUBSUB      = "PUBSUB"
 
     GENERIC     = "GENERIC"
 

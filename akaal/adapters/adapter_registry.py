@@ -27,7 +27,8 @@ def _build_registry() -> dict:
         (SystemType.BIGQUERY, "akaal.adapters.warehouse.bigquery_adapter", "BigQueryAdapter"),
         (SystemType.REDSHIFT, "akaal.adapters.warehouse.redshift_adapter", "RedshiftAdapter"),
         (SystemType.DATABRICKS, "akaal.adapters.warehouse.databricks_adapter", "DatabricksAdapter"),
-        (SystemType.HDFS, "akaal.adapters.warehouse.hdfs_adapter", "HDFSAdapter"),
+        (SystemType.HDFS, "akaal.adapters.cloud.hdfs_adapter", "HDFSAdapter"),
+        (SystemType.MINIO, "akaal.adapters.cloud.minio_adapter", "MinIOAdapter"),
         (SystemType.MONGODB, "akaal.adapters.nosql.mongodb_adapter", "MongoDBAdapter"),
         (SystemType.CASSANDRA, "akaal.adapters.nosql.cassandra_adapter", "CassandraAdapter"),
         (SystemType.SCYLLADB, "akaal.adapters.nosql.scylladb_adapter", "ScyllaDBAdapter"),
@@ -39,6 +40,12 @@ def _build_registry() -> dict:
         (SystemType.S3, "akaal.adapters.cloud.s3_adapter", "S3Adapter"),
         (SystemType.GCS, "akaal.adapters.cloud.gcs_adapter", "GCSAdapter"),
         (SystemType.AZURE_BLOB, "akaal.adapters.cloud.azure_blob_adapter", "AzureBlobAdapter"),
+        (SystemType.KAFKA, "akaal.adapters.streaming.kafka_adapter", "KafkaAdapter"),
+        (SystemType.CONFLUENT, "akaal.adapters.streaming.kafka_adapter", "ConfluentAdapter"),
+        (SystemType.MSK, "akaal.adapters.streaming.kafka_adapter", "MSKAdapter"),
+        (SystemType.KINESIS, "akaal.adapters.streaming.kinesis_adapter", "KinesisAdapter"),
+        (SystemType.EVENT_HUBS, "akaal.adapters.streaming.eventhubs_adapter", "EventHubsAdapter"),
+        (SystemType.PUBSUB, "akaal.adapters.streaming.pubsub_adapter", "PubSubAdapter"),
     ]
 
     registry = {}

@@ -115,9 +115,11 @@ class TestP41RealityReconstructionHostileSuite(unittest.TestCase):
     def test_06_compatibility_matrix_fails_closed_for_stub_connectors(self):
         """SemanticCompatibilityMatrix returns is_viable=False if source or target is STUB."""
         m_pg = self.registry.get_manifest("postgresql")
-        m_hdfs = self.registry.get_manifest("hdfs")  # STUB
+        from akaal.connectors.manifest import UniversalCapabilityManifest
+        from akaal.connectors.taxonomy import ConnectorFamily, ImplementationState, SupportState, ProofState
+        m_stub = UniversalCapabilityManifest("stub_conn", ConnectorFamily.STREAM_EVENT_PLATFORM, "Stub Vendor", "stub_type", implementation_state=ImplementationState.STUB, support_state=SupportState.UNSUPPORTED, proof_state=ProofState.UNPROVEN)
 
-        res = SemanticCompatibilityMatrix.evaluate_compatibility(m_pg, m_hdfs)
+        res = SemanticCompatibilityMatrix.evaluate_compatibility(m_pg, m_stub)
         self.assertFalse(res["is_viable"])
         self.assertEqual(res["compatibility"], "UNSUPPORTED")
         self.assertIn("UNSUPPORTED_TARGET_CONNECTOR", res["risk_items"])
