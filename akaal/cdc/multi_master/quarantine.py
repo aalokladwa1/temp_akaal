@@ -98,6 +98,19 @@ class CDCConflictQuarantineManager:
         Prevents events modifying this key from reaching target apply.
         """
         with self._lock:
+            # Fencing validation
+            if not self.recovery_coordinator.validate_fencing_token(identity.migration_id, fencing_epoch):
+                fail = CDCFailure(
+                    failure_type=CDCFailureType.STALE_WORKER,
+                    category=CDCFailureCategory.BLOCKING,
+                    message=f"[STALE WORKER] Stale epoch {fencing_epoch} rejected for quarantine acquisition '{entity_table}:{entity_key}'.",
+                    migration_id=identity.migration_id,
+                    job_id=identity.job_id,
+                    run_id=identity.run_id,
+                    cdc_session_id=identity.cdc_session_id,
+                )
+                raise CDCExecutionError(fail)
+
             lock_key = self._get_entity_lock_key(entity_table, entity_key)
             qid = f"quar-{uuid.uuid4().hex[:8]}"
 

@@ -5,6 +5,7 @@ Identifies true concurrent multi-master conflicts between peer replication strea
 Differentiates causally ordered transactions, duplicate replays, and echo events from true non-causal entity conflicts.
 """
 
+import json
 import uuid
 import logging
 import threading
@@ -165,6 +166,9 @@ class CDCConflictDetector:
 
             # 7. Create identity-bound conflict record
             conflict_id = f"conf-{uuid.uuid4().hex[:8]}"
+            pos_a_str = json.dumps(tx_a.commit_position.to_dict()) if tx_a.commit_position else ""
+            pos_b_str = json.dumps(tx_b.commit_position.to_dict()) if tx_b.commit_position else ""
+
             record = CDCConflictRecord(
                 conflict_id=conflict_id,
                 topology_id=self.topology_id,
@@ -175,8 +179,8 @@ class CDCConflictDetector:
                 entity_key=key,
                 source_a_tx_id=tx_a.tx_id,
                 source_b_tx_id=tx_b.tx_id,
-                source_a_position=str(tx_a.commit_position),
-                source_b_position=str(tx_b.commit_position),
+                source_a_position=pos_a_str,
+                source_b_position=pos_b_str,
                 conflict_type=ctype,
                 conflict_state=CDCConflictState.DETECTED,
                 causal_evidence_ref=f"causal_graph_{self.causality_graph.cdc_session_id}",

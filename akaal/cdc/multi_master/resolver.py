@@ -153,17 +153,34 @@ class CDCConflictResolver:
 
             elif policy == CDCConflictResolutionPolicy.LATEST_VERSION_WINS:
                 # Compare position values (LSN/SCN coordinates)
-                pos_a = record.source_a_position
-                pos_b = record.source_b_position
-                if pos_a and pos_b and pos_a != pos_b:
-                    winner = "SOURCE_A" if pos_a > pos_b else "SOURCE_B"
-                else:
-                    # Indeterminate version comparison -> Fail closed into MANUAL_GOVERNANCE_REQUIRED
-                    policy = CDCConflictResolutionPolicy.MANUAL_GOVERNANCE_REQUIRED
-                    winner = "MANUAL_GOVERNANCE"
-                    decision_reason = "LATEST_VERSION position coordinates inconclusive; falling back to manual governance."
+                pos_a_str = record.source_a_position or "{}"
+                pos_b_str = record.source_b_position or "{}"
 
-            elif policy == CDCConflictResolutionPolicy.MANUAL_GOVERNANCE_REQUIRED:
+                try:
+                    import json
+                    dict_a = json.loads(pos_a_str) if pos_a_str.startswith("{") else {}
+                    dict_b = json.loads(pos_b_str) if pos_b_str.startswith("{") else {}
+                    engine_a = dict_a.get("engine", "")
+                    engine_b = dict_b.get("engine", "")
+
+                    if not engine_a or not engine_b or engine_a != engine_b:
+                        # Heterogeneous cross-engine position domains -> Fail closed into MANUAL_GOVERNANCE_REQUIRED
+                        policy = CDCConflictResolutionPolicy.MANUAL_GOVERNANCE_REQUIRED
+                        decision_reason = f"Heterogeneous position domains '{engine_a}' vs '{engine_b}' cannot be compared safely; falling back to manual governance."
+                    else:
+                        from akaal.cdc.domain.positions import parse_source_position
+                        p_a = parse_source_position(dict_a)
+                        p_b = parse_source_position(dict_b)
+                        if p_a != p_b:
+                            winner = "SOURCE_A" if p_a > p_b else "SOURCE_B"
+                        else:
+                            policy = CDCConflictResolutionPolicy.MANUAL_GOVERNANCE_REQUIRED
+                            decision_reason = "Identical position coordinates; falling back to manual governance."
+                except Exception as exc:
+                    policy = CDCConflictResolutionPolicy.MANUAL_GOVERNANCE_REQUIRED
+                    decision_reason = f"Unparseable position coordinates: {exc}; falling back to manual governance."
+
+            if policy == CDCConflictResolutionPolicy.MANUAL_GOVERNANCE_REQUIRED:
                 if manual_winner in ("SOURCE_A", "SOURCE_B"):
                     winner = manual_winner
                     decision_reason = reason or f"Manual operator governance decision: {manual_winner} selected."
@@ -173,7 +190,7 @@ class CDCConflictResolver:
                     fail = CDCFailure(
                         failure_type=CDCFailureType.CONFLICT_RESOLUTION_REJECTED,
                         category=CDCFailureCategory.BLOCKING,
-                        message=f"[MANUAL GOVERNANCE REQUIRED] Conflict '{conflict_id}' requires explicit operator winner selection.",
+                        message=f"[MANUAL GOVERNANCE REQUIRED] Conflict '{conflict_id}' requires explicit operator winner selection. Reason: {decision_reason}",
                         migration_id=identity.migration_id,
                         job_id=identity.job_id,
                         run_id=identity.run_id,

@@ -145,6 +145,7 @@ class CDCEvent:
             "commit_timestamp": self.commit_timestamp,
             "captured_timestamp": self.captured_timestamp,
             "schema_version_id": self.schema_version_id,
+            "details": self._sanitize_dict_recursive(self.details),
         }
 
     def to_data_safe_dict(self) -> Dict[str, Any]:
@@ -242,6 +243,7 @@ def parse_cdc_event(data: Dict[str, Any]) -> CDCEvent:
         tx_id=data.get("tx_id"),
         commit_timestamp=data.get("commit_timestamp"),
         captured_timestamp=data.get("captured_timestamp"),
+        details=data.get("details"),
     )
 
 
