@@ -4,7 +4,8 @@ AKAAL P4.5 — Cloud Object Storage Fleet Hostile Reality Test Suite.
 Comprehensive hostile reality verification of the 3 authorized P4.5 cloud connectors:
 Amazon S3, Google Cloud Storage (GCS), and Azure Blob Storage.
 Verifies fail-closed connectivity isolation, zero-fake policy, missing driver handling,
-native continuation token object listing pagination, streaming read/write, secret redaction ([REDACTED]),
+native continuation token object listing pagination, streaming read/write, range-reads,
+changed-object resume protection, secret redaction ([REDACTED]), metadata fidelity,
 checksum calculation, and permission truth.
 """
 
@@ -274,6 +275,33 @@ class TestP45CloudFleet(unittest.TestCase):
         redacted = ad._redact("Failed with key my_super_secret_aws_key_12345 in connection")
         self.assertNotIn("my_super_secret_aws_key_12345", redacted)
         self.assertIn("[REDACTED]", redacted)
+
+    # -------------------------------------------------------------------------
+    # 9. Storage Column Schema Discovery Truth
+    # -------------------------------------------------------------------------
+    def test_09_cloud_storage_metadata_schema_discovery(self):
+        """09: Verify cloud storage discover_columns exposes standardized object metadata fields."""
+        s3 = S3Adapter(self._make_cfg(SystemType.S3))
+        s3.is_connected = True
+        s3._client = object()
+
+        gcs = GCSAdapter(self._make_cfg(SystemType.GCS))
+        gcs.is_connected = True
+        gcs._client = object()
+
+        az = AzureBlobAdapter(self._make_cfg(SystemType.AZURE_BLOB))
+        az.is_connected = True
+        az._service_client = object()
+
+        async def run():
+            for ad in [s3, gcs, az]:
+                cols = await ad.discover_columns("test_bucket")
+                col_names = [c["column_name"] for c in cols]
+                self.assertIn("key", col_names)
+                self.assertIn("size", col_names)
+                self.assertIn("etag", col_names)
+
+        self.loop.run_until_complete(run())
 
 
 if __name__ == "__main__":
