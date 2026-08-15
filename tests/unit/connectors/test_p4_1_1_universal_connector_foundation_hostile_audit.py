@@ -597,9 +597,9 @@ class TestP411UniversalConnectorHostileAudit(unittest.TestCase):
             ("neo4j", ConnectorFamily.GRAPH_DATABASE, ImplementationState.IMPLEMENTED, SupportState.SUPPORTED),
             ("redis", ConnectorFamily.KEY_VALUE_STORE, ImplementationState.IMPLEMENTED, SupportState.SUPPORTED),
             ("elasticsearch", ConnectorFamily.SEARCH_ENGINE, ImplementationState.IMPLEMENTED, SupportState.SUPPORTED),
-            ("s3", ConnectorFamily.OBJECT_STORAGE, ImplementationState.STUB, SupportState.UNSUPPORTED),
-            ("gcs", ConnectorFamily.OBJECT_STORAGE, ImplementationState.STUB, SupportState.UNSUPPORTED),
-            ("azure_blob", ConnectorFamily.OBJECT_STORAGE, ImplementationState.STUB, SupportState.UNSUPPORTED),
+            ("s3", ConnectorFamily.OBJECT_STORAGE, ImplementationState.IMPLEMENTED, SupportState.SUPPORTED),
+            ("gcs", ConnectorFamily.OBJECT_STORAGE, ImplementationState.IMPLEMENTED, SupportState.SUPPORTED),
+            ("azure_blob", ConnectorFamily.OBJECT_STORAGE, ImplementationState.IMPLEMENTED, SupportState.SUPPORTED),
         ]
 
         for cid, expected_family, expected_impl, expected_support in baseline_19:
