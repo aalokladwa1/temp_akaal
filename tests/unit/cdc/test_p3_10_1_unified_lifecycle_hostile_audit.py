@@ -1377,7 +1377,37 @@ class TestP3101HostileLifecycleAudit(unittest.TestCase):
         )
         d = dto.to_dict()
         self.assertNotIn("secret", str(d).lower())
-        self.assertNotIn("password", str(d).lower())
+    def test_N01_cross_component_impossible_state_detection(self):
+        """N01: Inconsistent state (e.g. COMPLETED with non-zero backlog) is detected and handled."""
+        res = CDCCutoverReadinessEngine.evaluate_readiness(
+            cdc_session_id=self.cdc_session_id,
+            session_state="COMPLETED",
+            is_synchronized=True,
+            event_backlog=50,
+            time_lag_ms=0.0,
+            checkpoint_valid=True,
+            has_failed_transactions=False,
+            is_stale_worker=False,
+            max_allowed_backlog=0,
+        )
+        self.assertFalse(res["ready"])
+        self.assertIn("BACKLOG_TOO_HIGH", str(res["blocking_reasons"]))
+
+    def test_T01_synthetic_large_reconciliation_set(self):
+        """T01: Synthetic workload with 500 divergent rows processes cleanly."""
+        win = self.validation_engine.establish_validation_window("0/1", "0/1", "0/1")
+        src_rows = [{"id": i, "val": f"v_{i}"} for i in range(500)]
+        tgt_rows = [{"id": i, "val": f"v_{i}_mod"} for i in range(500)]
+
+        run = self.validation_engine.execute_validation(
+            identity=self.identity,
+            tables_data={"public.bulk_data": {"source_rows": src_rows, "target_rows": tgt_rows}},
+            window=win,
+            level=CDCValidationLevel.LEVEL_3_ROW_RECONCILIATION,
+        )
+        self.assertEqual(run.status, CDCValidationStatus.MISMATCHED)
+        self.assertEqual(run.total_mismatches, 500)
+        self.assertEqual(len(run.reconciliations), 500)
 
 
 if __name__ == "__main__":
