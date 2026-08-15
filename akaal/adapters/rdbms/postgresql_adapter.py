@@ -146,7 +146,7 @@ class PostgreSQLAdapter(BaseAdapter):
             with self._conn.cursor() as cur:
                 cur.execute(sql, (table_name,))
                 row = cur.fetchone()
-            return row[0] if row else 'id'
+            return row[0] if row else None
         return await asyncio.to_thread(_run)
 
     async def check_permissions(self) -> bool:
@@ -308,7 +308,7 @@ class PostgreSQLAdapter(BaseAdapter):
                     rows = cur.fetchall()
                 return [row[0] for row in rows] if rows else []
             except Exception:
-                return ["id"]
+                return []
         return await asyncio.to_thread(_run)
 
     async def read_batch(
@@ -356,7 +356,7 @@ class PostgreSQLAdapter(BaseAdapter):
                 if where_clauses:
                     where_str = " WHERE " + " AND ".join(where_clauses)
 
-                order_by = ", ".join([f'"{col}" ASC' for col in pk_cols]) if pk_cols else '"id"'
+                order_by = ", ".join([f'"{col}" ASC' for col in pk_cols]) if pk_cols else "ctid"
 
                 if use_cursor:
                     sql = f'SELECT * FROM "{table_name}"{where_str} ORDER BY {order_by} LIMIT %s'

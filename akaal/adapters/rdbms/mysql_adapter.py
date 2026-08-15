@@ -137,7 +137,7 @@ class MySQLAdapter(BaseAdapter):
                 row = cur.fetchone()
             if row:
                 return row["COLUMN_NAME"]
-            return "id"
+            return None
         return await asyncio.to_thread(_run)
 
     async def check_permissions(self) -> bool:
@@ -301,7 +301,7 @@ class MySQLAdapter(BaseAdapter):
                     rows = cur.fetchall()
                 return [row["COLUMN_NAME"] for row in rows] if rows else []
             except Exception:
-                return ["id"]
+                return []
         return await asyncio.to_thread(_run)
 
     async def read_batch(
@@ -350,7 +350,7 @@ class MySQLAdapter(BaseAdapter):
                 if where_clauses:
                     where_str = " WHERE " + " AND ".join(where_clauses)
 
-                order_by = ", ".join([f"`{col}` ASC" for col in pk_cols]) if pk_cols else "`id`"
+                order_by = ", ".join([f"`{col}` ASC" for col in pk_cols]) if pk_cols else "1"
 
                 if use_cursor:
                     sql = f"SELECT * FROM `{table_name}`{where_str} ORDER BY {order_by} LIMIT %s"

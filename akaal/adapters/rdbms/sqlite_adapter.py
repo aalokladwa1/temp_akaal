@@ -39,6 +39,13 @@ class SQLiteAdapter(BaseAdapter):
     # ------------------------------------------------------------------
 
     async def create_connection(self) -> sqlite3.Connection:
+        import os
+        if not self._db_path:
+            raise ValueError("SQLite database_name / path is required.")
+        if self._db_path != ":memory:" and not self._db_path.startswith("file:"):
+            parent_dir = os.path.dirname(self._db_path)
+            if parent_dir and not os.path.exists(parent_dir):
+                raise FileNotFoundError(f"Directory for SQLite database file does not exist: '{parent_dir}'")
         def _connect():
             conn = sqlite3.connect(self._db_path, check_same_thread=False)
             conn.row_factory = sqlite3.Row
@@ -159,7 +166,7 @@ class SQLiteAdapter(BaseAdapter):
 
     async def _primary_key_column(self, table_name: str) -> str:
         pks = await self._primary_key_columns(table_name)
-        return pks[0] if pks else "id"
+        return pks[0] if pks else None
 
     # ------------------------------------------------------------------
     # Data Operations

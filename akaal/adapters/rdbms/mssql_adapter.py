@@ -317,7 +317,7 @@ class MSSQLAdapter(BaseAdapter):
         rows = await self._run_query(sql, (table_name,))
         if rows:
             return rows[0][0]
-        return "id"
+        return None
 
     # ------------------------------------------------------------------
     # Schema Discovery
@@ -476,7 +476,7 @@ class MSSQLAdapter(BaseAdapter):
             rows = await self._run_query(sql, (table_name,))
             return [row[0] for row in rows] if rows else []
         except Exception:
-            return ["id"]
+            return []
 
     async def read_batch(
         self,
@@ -515,7 +515,7 @@ class MSSQLAdapter(BaseAdapter):
             params.append(limit)
             bind_vals = tuple(params)
         else:
-            order_by = ", ".join([f"[{col}] ASC" for col in pk_cols]) if pk_cols else "[id]"
+            order_by = ", ".join([f"[{col}] ASC" for col in pk_cols]) if pk_cols else "(SELECT 1)"
             sql = f"SELECT * FROM [{table_name}] ORDER BY {order_by} OFFSET ? ROWS FETCH NEXT ? ROWS ONLY"
             bind_vals = (offset, limit)
 

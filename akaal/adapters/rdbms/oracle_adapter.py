@@ -470,7 +470,7 @@ class OracleAdapter(BaseAdapter):
                     rows = cur.fetchall()
                 return [row[0] for row in rows] if rows else []
             except Exception:
-                return ["ID"]
+                return []
         return await asyncio.to_thread(_run)
 
     async def read_batch(
@@ -482,7 +482,7 @@ class OracleAdapter(BaseAdapter):
         incremental_filter: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, Any]]:
         self._ensure_connected()
-        if not self._conn and not self.mock_mode:
+        if not self._conn :
             raise RuntimeError("Not connected")
 
         pk_cols = await self._primary_key_columns(table_name)
