@@ -4,7 +4,7 @@ AKAAL P4.4 — NoSQL, Graph, Key-Value & Search Fleet Absolute Final Truth Recti
 Comprehensive hostile reality verification of the 8 authorized P4.4 connectors:
 MongoDB, Cassandra, ScyllaDB, Neo4j, Redis, KeyDB, Elasticsearch, OpenSearch.
 Verifies fail-closed connectivity isolation, zero-fake policy, missing driver handling,
-_id keyset pagination, Cassandra/Scylla intra-partition clustering & token continuation (preventing intra-partition row loss),
+_id keyset pagination, Cassandra/Scylla multi-column clustering tuple continuation (WHERE (ck1, ck2, ...) > (%s, %s, ...)),
 Neo4j durable graph identity mapping (_akaal_source_id), self-loops, parallel edges,
 Search engine PIT lifecycle & search_after continuation, bulk error detection, CDC truth, and permission truth.
 """
@@ -155,10 +155,10 @@ class TestP44NoSQLFleet(unittest.TestCase):
             self.assertFalse(hasattr(ad, "mock_mode"))
 
     # -------------------------------------------------------------------------
-    # 5. Cassandra & ScyllaDB Intra-Partition Clustering Continuation (No Row Loss)
+    # 5. Cassandra & ScyllaDB Multi-Column Clustering Tuple Continuation
     # -------------------------------------------------------------------------
-    def test_05_cassandra_and_scylla_intra_partition_clustering_continuation(self):
-        """05: Verify Cassandra and ScyllaDB adapters generate intra-partition clustering queries."""
+    def test_05_cassandra_and_scylla_multi_column_clustering_tuple_continuation(self):
+        """05: Verify Cassandra and ScyllaDB generate (ck1, ck2, ...) > (%s, %s, ...) tuple queries."""
         for sys_type, ad_cls in [(SystemType.CASSANDRA, CassandraAdapter), (SystemType.SCYLLADB, ScyllaDBAdapter)]:
             ad = ad_cls(self._make_cfg(sys_type))
             ad.is_connected = True
@@ -166,12 +166,18 @@ class TestP44NoSQLFleet(unittest.TestCase):
             executed_queries = []
 
             class FakeRow:
-                def __init__(self, t_id, b_id, e_time):
+                def __init__(self, t_id, b_id, e_time, e_id):
                     self.tenant_id = t_id
                     self.bucket_id = b_id
                     self.event_time = e_time
+                    self.event_id = e_id
                 def _asdict(self):
-                    return {"tenant_id": self.tenant_id, "bucket_id": self.bucket_id, "event_time": self.event_time}
+                    return {
+                        "tenant_id": self.tenant_id,
+                        "bucket_id": self.bucket_id,
+                        "event_time": self.event_time,
+                        "event_id": self.event_id,
+                    }
 
             class FakeSession:
                 def execute(self, query, params=None):
@@ -186,8 +192,9 @@ class TestP44NoSQLFleet(unittest.TestCase):
                             ColRow("tenant_id", "partition_key", 0),
                             ColRow("bucket_id", "partition_key", 1),
                             ColRow("event_time", "clustering", 0),
+                            ColRow("event_id", "clustering", 1),
                         ]
-                    return [FakeRow("t1", "b1", 102)]
+                    return [FakeRow("t1", "b1", 100, "e2")]
 
             ad._session = FakeSession()
 
@@ -196,12 +203,12 @@ class TestP44NoSQLFleet(unittest.TestCase):
                     "events",
                     offset=0,
                     limit=10,
-                    last_processed_primary_key={"tenant_id": "t1", "bucket_id": "b1", "event_time": 101},
+                    last_processed_primary_key={"tenant_id": "t1", "bucket_id": "b1", "event_time": 100, "event_id": "e1"},
                 )
                 self.assertEqual(len(rows), 1)
                 query_str, params = executed_queries[-1]
-                self.assertIn('"tenant_id" = %s AND "bucket_id" = %s AND "event_time" > %s', query_str)
-                self.assertEqual(params, ("t1", "b1", 101))
+                self.assertIn('("event_time", "event_id") > (%s, %s)', query_str)
+                self.assertEqual(params, ("t1", "b1", 100, "e1"))
 
             self.loop.run_until_complete(run())
 

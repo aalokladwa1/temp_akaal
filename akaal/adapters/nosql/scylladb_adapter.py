@@ -3,7 +3,7 @@ Akaal — ScyllaDB Wide-Column Database Adapter
 =============================================
 100% Physical Reality Adapter for ScyllaDB reusing cassandra-driver CQL compatibility layer.
 Preserves explicit SystemType.SCYLLADB identity and ScyllaDB-specific capability declarations.
-Provides intra-partition clustering continuation and token partition continuation.
+Provides multi-column clustering tuple continuation (WHERE (ck1, ck2, ...) > (%s, %s, ...)) and token partition continuation.
 """
 
 import asyncio
@@ -99,7 +99,7 @@ class ScyllaDBAdapter(BaseAdapter):
         keyspace = self.config.database_name or "system"
         def _run():
             rows = self._session.execute(
-                "SELECT column_name, type, kind, position FROM system_schema.columns WHERE keyspace_name = %s AND table_name = %s",
+                "SELECT column_name, type, kind, position, clustering_order FROM system_schema.columns WHERE keyspace_name = %s AND table_name = %s",
                 (keyspace, table_name),
             )
             cols = []
@@ -109,6 +109,7 @@ class ScyllaDBAdapter(BaseAdapter):
                     "data_type": str(r.type),
                     "kind": r.kind,
                     "position": getattr(r, "position", 0),
+                    "clustering_order": getattr(r, "clustering_order", "none"),
                     "nullable": r.kind not in ("partition_key", "clustering"),
                 })
             return cols
@@ -124,7 +125,7 @@ class ScyllaDBAdapter(BaseAdapter):
         def _run():
             rows = self._session.execute(
                 "SELECT index_name FROM system_schema.indexes WHERE keyspace_name = %s AND table_name = %s",
-                (keyspace, table_name),
+                (keyspace,),
             )
             return [{"index_name": r.index_name} for r in rows]
         return await asyncio.to_thread(_run)
@@ -142,7 +143,7 @@ class ScyllaDBAdapter(BaseAdapter):
         return []
 
     # ------------------------------------------------------------------
-    # Data Operations (Intra-Partition Clustering & Token Continuation)
+    # Data Operations (Multi-Column Clustering Tuple & Token Continuation)
     # ------------------------------------------------------------------
 
     async def read_batch(
@@ -170,12 +171,19 @@ class ScyllaDBAdapter(BaseAdapter):
 
             results = []
 
-            # 1. Attempt intra-partition continuation if clustering key values are present
+            # 1. Attempt multi-column clustering tuple continuation if clustering key values are present
             if last_processed_primary_key and pk_cols and ck_cols and all(k in last_processed_primary_key for k in pk_cols + ck_cols):
                 pk_eq = " AND ".join([f'"{c}" = %s' for c in pk_cols])
-                ck_name = ck_cols[0]
-                query_intra = f'SELECT * FROM "{keyspace}"."{table_name}" WHERE {pk_eq} AND "{ck_name}" > %s LIMIT {limit}'
-                vals_intra = tuple(last_processed_primary_key[c] for c in pk_cols) + (last_processed_primary_key[ck_name],)
+                if len(ck_cols) == 1:
+                    ck_name = ck_cols[0]
+                    query_intra = f'SELECT * FROM "{keyspace}"."{table_name}" WHERE {pk_eq} AND "{ck_name}" > %s LIMIT {limit}'
+                    vals_intra = tuple(last_processed_primary_key[c] for c in pk_cols) + (last_processed_primary_key[ck_name],)
+                else:
+                    ck_cols_str = ", ".join([f'"{c}"' for c in ck_cols])
+                    ck_placeholders = ", ".join(["%s"] * len(ck_cols))
+                    query_intra = f'SELECT * FROM "{keyspace}"."{table_name}" WHERE {pk_eq} AND ({ck_cols_str}) > ({ck_placeholders}) LIMIT {limit}'
+                    vals_intra = tuple(last_processed_primary_key[c] for c in pk_cols) + tuple(last_processed_primary_key[c] for c in ck_cols)
+
                 rows_intra = list(self._session.execute(query_intra, vals_intra))
                 if rows_intra:
                     for r in rows_intra:
@@ -227,7 +235,7 @@ class ScyllaDBAdapter(BaseAdapter):
                 self._session.execute(query, vals)
                 count += 1
             return count
-        return await asyncio-to-thread(_run) if hasattr(asyncio, "to_thread") else await asyncio.get_event_loop().run_in_executor(None, _run)
+        return await asyncio.to_thread(_run)
 
     async def get_row_count(self, table_name: str) -> int:
         self._ensure_connected()
