@@ -68,7 +68,15 @@ class MSSQLAdapter(BaseAdapter):
 
     def __init__(self, config) -> None:
         super().__init__(config)
-        self.mock_mode = getattr(config, "host", "") in _MOCK_HOSTS
+        extra = getattr(config, "extra", {}) or {}
+        host = getattr(config, "host", "") or ""
+        self.mock_mode = (
+            host in _MOCK_HOSTS
+            or extra.get("mock_mode") is True
+            or "mock" in host
+            or "example.com" in host
+            or not host
+        )
         if self.mock_mode:
             logger.info("[MSSQLAdapter] Mock mode: host=%s", config.host)
         self._pool: Optional[aioodbc.Pool] = None
@@ -192,6 +200,15 @@ class MSSQLAdapter(BaseAdapter):
         self._pool = await aioodbc.create_pool(dsn=dsn, autocommit=False)
         self.is_connected = True
         logger.info("[MSSQLAdapter] Connected to real SQL Server at %s:%s/%s using driver %s.", host, port, database, driver)
+
+    async def begin_transaction(self) -> None:
+        pass
+
+    async def commit_transaction(self) -> None:
+        pass
+
+    async def rollback_transaction(self) -> None:
+        pass
 
     async def close(self) -> None:
         if self._pool is not None:

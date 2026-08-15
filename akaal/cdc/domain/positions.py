@@ -218,6 +218,42 @@ class MongoDBOpLogPosition(CDCSourcePosition):
         return self.timestamp_sec > other.timestamp_sec
 
 
+class MariaDBGTIDPosition(CDCSourcePosition):
+    """MariaDB GTID (Domain-Server-Sequence) and Binlog Source Position."""
+
+    def __init__(self, domain_id: int, server_id: int, sequence_no: int, binlog_file: Optional[str] = None, binlog_pos: int = 0) -> None:
+        super().__init__("MARIADB")
+        if domain_id < 0 or server_id < 0 or sequence_no < 0:
+            raise ValueError("MariaDB GTID domain_id, server_id, and sequence_no must be non-negative")
+        self.domain_id = domain_id
+        self.server_id = server_id
+        self.sequence_no = sequence_no
+        self.binlog_file = binlog_file or "mariadb-bin.000001"
+        self.binlog_pos = binlog_pos
+
+    def to_string(self) -> str:
+        return f"{self.domain_id}-{self.server_id}-{self.sequence_no}@{self.binlog_file}:{self.binlog_pos}"
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "engine": self.engine,
+            "domain_id": self.domain_id,
+            "server_id": self.server_id,
+            "sequence_no": self.sequence_no,
+            "binlog_file": self.binlog_file,
+            "binlog_pos": self.binlog_pos,
+        }
+
+    def is_after(self, other: CDCSourcePosition) -> bool:
+        if not isinstance(other, MariaDBGTIDPosition) or self.engine != other.engine:
+            raise TypeError(f"Cannot compare MariaDBGTIDPosition with {type(other)} (engine={getattr(other, 'engine', None)})")
+        if self.domain_id == other.domain_id and self.server_id == other.server_id:
+            return self.sequence_no > other.sequence_no
+        if self.sequence_no == other.sequence_no:
+            return self.binlog_pos > other.binlog_pos
+        return self.sequence_no > other.sequence_no
+
+
 def parse_source_position(data: Dict[str, Any]) -> CDCSourcePosition:
     """Parses a dictionary into the appropriate engine-specific CDCSourcePosition instance."""
     engine = data.get("engine", "").upper()
@@ -228,6 +264,14 @@ def parse_source_position(data: Dict[str, Any]) -> CDCSourcePosition:
             binlog_file=data["binlog_file"],
             binlog_pos=data["binlog_pos"],
             gtid_set=data.get("gtid_set"),
+        )
+    elif engine == "MARIADB":
+        return MariaDBGTIDPosition(
+            domain_id=data.get("domain_id", 0),
+            server_id=data.get("server_id", 1),
+            sequence_no=data.get("sequence_no", data.get("binlog_pos", 0)),
+            binlog_file=data.get("binlog_file"),
+            binlog_pos=data.get("binlog_pos", 0),
         )
     elif engine == "ORACLE":
         return OracleSCNPosition(
@@ -241,3 +285,4 @@ def parse_source_position(data: Dict[str, Any]) -> CDCSourcePosition:
         return MongoDBOpLogPosition(timestamp_sec=data["timestamp_sec"], inc=data["inc"])
     else:
         raise ValueError(f"Unsupported or missing engine for CDC position: '{engine}'")
+

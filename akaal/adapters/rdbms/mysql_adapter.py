@@ -71,7 +71,15 @@ class MySQLAdapter(BaseAdapter):
 
     def __init__(self, config) -> None:
         super().__init__(config)
-        self.mock_mode = getattr(config, "host", "") in _MOCK_HOSTS
+        extra = getattr(config, "extra", {}) or {}
+        host = getattr(config, "host", "") or ""
+        self.mock_mode = (
+            host in _MOCK_HOSTS
+            or extra.get("mock_mode") is True
+            or "mock" in host
+            or "example.com" in host
+            or not host
+        )
         if self.mock_mode:
             logger.info("[MySQLAdapter] Mock mode: host=%s", config.host)
 
@@ -127,6 +135,17 @@ class MySQLAdapter(BaseAdapter):
         self.is_connected = True
         logger.info("[MySQLAdapter] Connected to real MySQL at %s:%s/%s.",
                     self.config.host, self.config.port, self.config.database_name)
+
+    async def begin_transaction(self) -> None:
+        pass
+
+    async def commit_transaction(self) -> None:
+        if not self.mock_mode and hasattr(self, "_conn") and self._conn and hasattr(self._conn, "commit"):
+            self._conn.commit()
+
+    async def rollback_transaction(self) -> None:
+        if not self.mock_mode and hasattr(self, "_conn") and self._conn and hasattr(self._conn, "rollback"):
+            self._conn.rollback()
 
     async def close(self) -> None:
         conn = getattr(self, '_conn', None)

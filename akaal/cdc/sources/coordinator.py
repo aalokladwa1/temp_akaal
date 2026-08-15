@@ -11,11 +11,12 @@ import logging
 from akaal.cdc.sources.base import ICDCSourceAdapter
 from akaal.cdc.sources.postgres import PostgresWALMiner
 from akaal.cdc.sources.mysql import MySQLBinlogMiner
+from akaal.cdc.sources.mariadb import MariaDBBinlogMiner
 from akaal.cdc.sources.oracle import OracleRedoMiner
 from akaal.cdc.sources.sqlserver import MSSQLCDCMiner
 from akaal.cdc.sources.mongodb import MongoDBOplogMiner
 
-from akaal.cdc.domain.positions import CDCSourcePosition, parse_source_position, PostgresLSNPosition, MySQLGTIDPosition, OracleSCNPosition, MSSQLChangePosition, MongoDBOpLogPosition
+from akaal.cdc.domain.positions import CDCSourcePosition, parse_source_position, PostgresLSNPosition, MySQLGTIDPosition, MariaDBGTIDPosition, OracleSCNPosition, MSSQLChangePosition, MongoDBOpLogPosition
 from akaal.cdc.domain.events import CDCEventIdentity, CDCTransaction
 from akaal.cdc.domain.consistency import CDCConsistencyBoundary
 from akaal.cdc.domain.lifecycle import CDCSessionState, CDCSessionStateMachine
@@ -36,6 +37,7 @@ class CDCCaptureCoordinator:
         "POSTGRESQL": PostgresWALMiner,
         "POSTGRES": PostgresWALMiner,
         "MYSQL": MySQLBinlogMiner,
+        "MARIADB": MariaDBBinlogMiner,
         "ORACLE": OracleRedoMiner,
         "MSSQL": MSSQLCDCMiner,
         "MONGODB": MongoDBOplogMiner,

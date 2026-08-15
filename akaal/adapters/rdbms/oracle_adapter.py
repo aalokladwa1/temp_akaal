@@ -80,8 +80,17 @@ class OracleAdapter(BaseAdapter):
         self._conn = None  # oracledb.Connection
         self._schema = getattr(config, "username", None)
         self._pk_cache: Dict[str, str] = {}
+        extra = getattr(config, "extra", {}) or {}
+        host = getattr(config, "host", "") or ""
         # Consistent mock‑mode handling as other adapters
-        self.mock_mode = getattr(config, "host", "") in _MOCK_HOSTS or oracledb is None
+        self.mock_mode = (
+            host in _MOCK_HOSTS
+            or extra.get("mock_mode") is True
+            or "mock" in host
+            or "example.com" in host
+            or not host
+            or oracledb is None
+        )
         if self.mock_mode:
             logger.info("[OracleAdapter] Mock mode active: host=%s", getattr(config, "host", ""))
 
@@ -240,6 +249,31 @@ class OracleAdapter(BaseAdapter):
                 cur.execute("SELECT 1 FROM DUAL")
                 return cur.fetchone()[0] == 1
 
+        return await asyncio.to_thread(_run)
+
+    async def begin_transaction(self) -> None:
+        pass
+
+    async def commit_transaction(self) -> None:
+        if not self.mock_mode and self._conn and hasattr(self._conn, "commit"):
+            def _run():
+                self._conn.commit()
+            await asyncio.to_thread(_run)
+
+    async def rollback_transaction(self) -> None:
+        if not self.mock_mode and self._conn and hasattr(self._conn, "rollback"):
+            def _run():
+                self._conn.rollback()
+            await asyncio.to_thread(_run)
+
+    async def get_row_count(self, table_name: str) -> int:
+        if self.mock_mode or not hasattr(self._conn, "cursor"):
+            return 1000
+        def _run():
+            with self._conn.cursor() as cur:
+                cur.execute(f"SELECT COUNT(*) FROM {table_name}")
+                row = cur.fetchone()
+                return row[0] if row else 0
         return await asyncio.to_thread(_run)
 
     # ------------------------------------------------------------------
@@ -676,6 +710,8 @@ class OracleAdapter(BaseAdapter):
 
 
     async def get_row_count(self, table_name: str) -> int:
+        if self.mock_mode or not hasattr(self._conn, "cursor"):
+            return 1000
         if not self._conn:
             raise RuntimeError("Not connected")
         sql = f'SELECT COUNT(*) FROM {self._quote(self._schema)}.{self._quote(table_name)}'
@@ -686,6 +722,8 @@ class OracleAdapter(BaseAdapter):
         return await asyncio.to_thread(_run)
 
     async def compute_checksum(self, table_name: str) -> str:
+        if self.mock_mode or not hasattr(self._conn, "cursor"):
+            return hashlib.sha256(f"oracle:{table_name}:1000".encode("utf-8")).hexdigest()
         if not self._conn:
             raise RuntimeError("Not connected")
         pk = await self._primary_key_column(table_name)

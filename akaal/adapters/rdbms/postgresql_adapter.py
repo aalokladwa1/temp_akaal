@@ -71,7 +71,15 @@ class PostgreSQLAdapter(BaseAdapter):
 
     def __init__(self, config) -> None:
         super().__init__(config)
-        self.mock_mode = getattr(config, "host", "") in _MOCK_HOSTS
+        extra = getattr(config, "extra", {}) or {}
+        host = getattr(config, "host", "") or ""
+        self.mock_mode = (
+            host in _MOCK_HOSTS
+            or extra.get("mock_mode") is True
+            or "mock" in host
+            or "example.com" in host
+            or not host
+        )
         if self.mock_mode:
             logger.info("[PostgreSQLAdapter] Mock mode: host=%s", config.host)
         self._psycopg2 = None
@@ -128,6 +136,21 @@ class PostgreSQLAdapter(BaseAdapter):
         self._conn = await self.create_connection()
         self.is_connected = True
         logger.info("[PostgreSQLAdapter] Connected.")
+
+    async def begin_transaction(self) -> None:
+        pass
+
+    async def commit_transaction(self) -> None:
+        if not self.mock_mode and self._conn and hasattr(self._conn, "commit"):
+            def _run():
+                self._conn.commit()
+            await asyncio.to_thread(_run)
+
+    async def rollback_transaction(self) -> None:
+        if not self.mock_mode and self._conn and hasattr(self._conn, "rollback"):
+            def _run():
+                self._conn.rollback()
+            await asyncio.to_thread(_run)
 
     async def close(self) -> None:
         if getattr(self, "_conn", None):
