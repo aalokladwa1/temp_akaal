@@ -1765,9 +1765,9 @@ class EngineGateway:
             # 3 & 4. Governance V6 Approval & Fingerprint Gate Verification
             plan_fingerprint = super_engine.verify_governance_authorization(workflow_id, merged_spec, dag_dict)
 
-            # 5. Physical Execution Contracts Verification (H1 & H5)
-            is_synth = bool(payload.get("is_synthetic_test", False))
-            super_engine.validate_execution_contracts(merged_spec, is_physical=True, is_synthetic_test=is_synth)
+            # 5. Physical Execution Contracts Verification (H1 & H5) - Production Gateway strictly disallows simulation switches
+            is_synth = False
+            super_engine.validate_execution_contracts(merged_spec, is_physical=True, is_synthetic_test=False)
 
         except ApprovalRequiredError as ex:
             return {"stage": "start_transport", "status": "error", "error_code": "APPROVAL_REQUIRED", "error_message": f"Cannot start transport: {str(ex)}"}

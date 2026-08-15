@@ -72,40 +72,40 @@ class TestP1RealityRectificationHostileSuite(unittest.TestCase):
         self.assertFalse(res.success)
         self.assertEqual(res.context_updates.get("rows_migrated", 0), 0)
 
-    def test_04_oracle_reader_fails_closed_on_unauthorized_mock(self):
-        """Hostile Check 15: OraclePhysicalReader fails closed when MagicMock passed without test flag."""
+    def test_04_oracle_reader_fails_closed_unconditionally(self):
+        """Hostile Check 15: OraclePhysicalReader fails closed when MagicMock passed."""
         reader = OraclePhysicalReader({"mock_mode": True})
         reader.conn = MagicMock()
         with self.assertRaises(RuntimeError) as ctx:
             reader.read_batch(100)
         self.assertIn("Mock fallback is disallowed in physical production readers", str(ctx.exception))
 
-    def test_05_postgres_reader_fails_closed_on_unauthorized_mock(self):
-        """Hostile Check 15: PostgreSQLPhysicalReader fails closed when MagicMock passed without test flag."""
+    def test_05_postgres_reader_fails_closed_unconditionally(self):
+        """Hostile Check 15: PostgreSQLPhysicalReader fails closed when MagicMock passed."""
         reader = PostgreSQLPhysicalReader({"mock_mode": True})
         reader.conn = MagicMock()
         with self.assertRaises(RuntimeError) as ctx:
             reader.read_batch(100)
         self.assertIn("Mock fallback is disallowed in physical production readers", str(ctx.exception))
 
-    def test_06_mysql_reader_fails_closed_on_unauthorized_mock(self):
-        """Hostile Check 15: MySQLPhysicalReader fails closed when MagicMock passed without test flag."""
+    def test_06_mysql_reader_fails_closed_unconditionally(self):
+        """Hostile Check 15: MySQLPhysicalReader fails closed when MagicMock passed."""
         reader = MySQLPhysicalReader({"mock_mode": True})
         reader.conn = MagicMock()
         with self.assertRaises(RuntimeError) as ctx:
             reader.read_batch(100)
         self.assertIn("Mock fallback is disallowed in physical production readers", str(ctx.exception))
 
-    def test_07_mssql_reader_fails_closed_on_unauthorized_mock(self):
-        """Hostile Check 15: MSSQLPhysicalReader fails closed when MagicMock passed without test flag."""
+    def test_07_mssql_reader_fails_closed_unconditionally(self):
+        """Hostile Check 15: MSSQLPhysicalReader fails closed when MagicMock passed."""
         reader = MSSQLPhysicalReader({"mock_mode": True})
         reader.conn = MagicMock()
         with self.assertRaises(RuntimeError) as ctx:
             reader.read_batch(100)
         self.assertIn("Mock fallback is disallowed in physical production readers", str(ctx.exception))
 
-    def test_08_oracle_writer_fails_closed_on_unauthorized_mock(self):
-        """Hostile Check 6 & 15: OraclePhysicalWriter fails closed when MagicMock passed without test flag."""
+    def test_08_oracle_writer_fails_closed_unconditionally(self):
+        """Hostile Check 6 & 15: OraclePhysicalWriter fails closed when MagicMock passed."""
         writer = OraclePhysicalWriter({"mock_mode": True})
         writer.conn = MagicMock()
         meta = BatchMetadata(batch_id="b1", partition_id="p1", table_name="T1", sequence=1, row_count=1)
@@ -113,8 +113,8 @@ class TestP1RealityRectificationHostileSuite(unittest.TestCase):
             writer.write_batch("T1", ["ID"], [(1,)], meta)
         self.assertIn("Mock fallback is disallowed in physical production writers", str(ctx.exception))
 
-    def test_09_postgres_writer_fails_closed_on_unauthorized_mock(self):
-        """Hostile Check 6 & 15: PostgreSQLPhysicalWriter fails closed when MagicMock passed without test flag."""
+    def test_09_postgres_writer_fails_closed_unconditionally(self):
+        """Hostile Check 6 & 15: PostgreSQLPhysicalWriter fails closed when MagicMock passed."""
         writer = PostgreSQLPhysicalWriter({"mock_mode": True})
         writer.conn = MagicMock()
         meta = BatchMetadata(batch_id="b1", partition_id="p1", table_name="T1", sequence=1, row_count=1)
@@ -122,8 +122,8 @@ class TestP1RealityRectificationHostileSuite(unittest.TestCase):
             writer.write_batch("T1", ["ID"], [(1,)], meta)
         self.assertIn("Mock fallback is disallowed in physical production writers", str(ctx.exception))
 
-    def test_10_mysql_writer_fails_closed_on_unauthorized_mock(self):
-        """Hostile Check 6 & 15: MySQLPhysicalWriter fails closed when MagicMock passed without test flag."""
+    def test_10_mysql_writer_fails_closed_unconditionally(self):
+        """Hostile Check 6 & 15: MySQLPhysicalWriter fails closed when MagicMock passed."""
         writer = MySQLPhysicalWriter({"mock_mode": True})
         writer.conn = MagicMock()
         meta = BatchMetadata(batch_id="b1", partition_id="p1", table_name="T1", sequence=1, row_count=1)
@@ -131,22 +131,14 @@ class TestP1RealityRectificationHostileSuite(unittest.TestCase):
             writer.write_batch("T1", ["ID"], [(1,)], meta)
         self.assertIn("Mock fallback is disallowed in physical production writers", str(ctx.exception))
 
-    def test_11_mssql_writer_fails_closed_on_unauthorized_mock(self):
-        """Hostile Check 6 & 15: MSSQLPhysicalWriter fails closed when MagicMock passed without test flag."""
+    def test_11_mssql_writer_fails_closed_unconditionally(self):
+        """Hostile Check 6 & 15: MSSQLPhysicalWriter fails closed when MagicMock passed."""
         writer = MSSQLPhysicalWriter({"mock_mode": True})
         writer.conn = MagicMock()
         meta = BatchMetadata(batch_id="b1", partition_id="p1", table_name="T1", sequence=1, row_count=1)
         with self.assertRaises(RuntimeError) as ctx:
             writer.write_batch("T1", ["ID"], [(1,)], meta)
         self.assertIn("Mock fallback is disallowed in physical production writers", str(ctx.exception))
-
-    def test_12_explicit_test_mock_harness_permitted(self):
-        """Hostile Check 15 (Sanity): Explicit test harness flag permits test mock execution."""
-        reader = OraclePhysicalReader({"allow_test_mock_harness": True, "mock_mode": True})
-        reader.conn = MagicMock()
-        data, meta = reader.read_batch(100)
-        self.assertEqual(len(data), 2)
-        self.assertEqual(meta.row_count, 2)
 
 
 if __name__ == "__main__":

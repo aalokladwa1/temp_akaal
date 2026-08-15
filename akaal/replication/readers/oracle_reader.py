@@ -113,21 +113,7 @@ class OraclePhysicalReader(IPhysicalReader):
 
     def read_batch(self, batch_size: int) -> Tuple[List[Tuple], BatchMetadata]:
         if hasattr(self.conn, "_mock_name") or type(self.conn).__name__ == "MagicMock" or self.params.get("mock_mode") or self.params.get("is_mock"):
-            if not self.params.get("allow_test_mock_harness", False):
-                raise RuntimeError("OraclePhysicalReader requires a valid physical database connection cursor. Mock fallback is disallowed in physical production readers.")
-            if self.batch_sequence >= 1:
-                return [], BatchMetadata(batch_id=f"batch-{self.batch_sequence}", partition_id=self.partition.partition_id if self.partition else "part-0", table_name="CUSTOMERS", sequence=self.batch_sequence, row_count=0)
-            self.batch_sequence += 1
-            mock_data = [(1, "oracle_mock_1", 100.0), (2, "oracle_mock_2", 200.0)]
-            return mock_data, BatchMetadata(
-                batch_id=f"batch-{self.batch_sequence}",
-                partition_id=self.partition.partition_id if self.partition else "part-0",
-                table_name="CUSTOMERS",
-                sequence=self.batch_sequence,
-                row_count=len(mock_data),
-                first_pk=1,
-                last_pk=2,
-            )
+            raise RuntimeError("OraclePhysicalReader requires a valid physical database connection cursor. Mock fallback is disallowed in physical production readers.")
 
         if not self.cursor:
             raise RuntimeError("Partition not opened before reading batch.")
