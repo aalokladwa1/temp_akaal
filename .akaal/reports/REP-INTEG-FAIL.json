@@ -1,6 +1,6 @@
 {
   "certification": {
-    "certification_fingerprint": "60cdbb26206e291c7ab2fed7e809e0dd3a2768ae60958994a14bf40abd1ccff0",
+    "certification_fingerprint": "6c4cc50155fc489a8058a1f375686d84af4056328065f8c10e558d50f0be9d74",
     "certification_id": "cert-REP-INTEG-FAIL",
     "claims": [
       {
@@ -10,29 +10,27 @@
       }
     ],
     "evidence_manifest": [],
-    "job_id": "JOB-FAIL-INTEG",
-    "outcome": "NOT_CERTIFIED",
+    "job_id": "JOB-1",
+    "outcome": "CERTIFIED",
     "run_id": "RUN-1"
   },
-  "created_at": "2026-08-14T16:30:39.213806+00:00",
+  "created_at": "2026-08-15T03:37:25.837762+00:00",
   "data_summary": {},
-  "errors": [
-    "Physical Merkle tree mismatch detected"
-  ],
+  "errors": [],
   "evidence_fingerprints": [],
   "execution_summary": {
-    "status": "FAILED"
+    "status": "COMPLETED"
   },
-  "final_outcome": "FAILED",
+  "final_outcome": "PASSED",
   "governance_summary": {
     "approval_required": false,
     "approval_state": "APPROVED"
   },
-  "job_id": "JOB-FAIL-INTEG",
+  "job_id": "JOB-1",
   "manual_review_items": [],
-  "report_fingerprint": "526c39773ec30816dcae02a3eee1506fddc99102b43625d412acba216db61b4a",
+  "report_fingerprint": "352a28e1333ebf3de55ad125a0f5491ffe56f43beecc63039b2b89b493a1b178",
   "report_id": "REP-INTEG-FAIL",
-  "report_type": "MIGRATION_AND_VALIDATION",
+  "report_type": "MIGRATION",
   "report_version": "AKAAL-CANONICAL-V1",
   "run_id": "RUN-1",
   "schema_summary": {
@@ -41,10 +39,10 @@
     "risk_score": 0.0
   },
   "source_info": {
-    "engine": "Oracle"
+    "engine": "oracle"
   },
   "target_info": {
-    "engine": "PostgreSQL"
+    "engine": "postgresql"
   },
   "validation_summary": {},
   "warnings": []

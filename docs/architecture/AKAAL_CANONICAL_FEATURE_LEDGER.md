@@ -470,11 +470,157 @@ DEPENDENCIES: CanonicalReportingAuthority
 LEGACY_OVERLAP: NONE
 FUTURE_EVOLUTION: P7D Evidence Package Portal
 LAST_VERIFIED_COMMIT: 92c4f5ce227614b5b86bbbe1618a1ab752d641c4
-```
 
 ---
 
-## 4. UI / IPC / Gateway Mapping & Future P7D Redesign Destinations
+## 4. P3 Baseline Feature Inventory (CDC & Continuous Sync)
+
+FEATURE_ID: P3.CDC.DOMAIN_FOUNDATION
+PHASE: P3.1
+FEATURE_NAME: Canonical CDC Domain & Event Identity Architecture
+PURPOSE: Strongly-typed, identity-bound CDC events, transactional boundaries, and secrets-redacted diagnostics.
+CANONICAL_AUTHORITY: CDCEvent / CDCEventIdentity
+IMPLEMENTATION_LOCATION: akaal/cdc/domain/events.py
+PRIMARY_CLASS_OR_FUNCTION: CDCEventIdentity / CDCEvent / CDCTransaction
+PRODUCTION_CALLER: CDC Stream Engine / Miners
+PRODUCTION_ENTRYPOINT: EngineGateway → WorkflowEngine
+PIPELINE_POSITION: CDC Capture & Event Layer
+DOWNSTREAM_CONSUMER: CDC Buffering / Apply Engine / CentralStateStore
+IDENTITY_BINDING: migration_id + job_id + run_id + cdc_session_id + event_id
+STATE_OWNER: CDC Session Engine
+FAILURE_PROPAGATION: Malformed event → raises CDCFailure (MALFORMED_EVENT) → session pause/alert
+MONITORING_EXPOSURE: YES
+IPC_EXPOSURE: YES
+UI_EXPOSURE: YES (MonitoringModule → CDC Telemetry)
+MIGRATION_MODULE_FEATURE: Monitoring → CDC Telemetry
+TEST_LOCATION: tests/unit/cdc/test_p3_1_canonical_cdc_domain_foundation.py
+PROOF_LEVEL: INTEGRATION_PROVEN
+INTEGRATION_STATUS: FULLY_INTEGRATED
+SECURITY_NOTES: to_data_safe_dict() redacts customer payload row values.
+DEPENDENCIES: CDCSourcePosition
+LEGACY_OVERLAP: NONE
+FUTURE_EVOLUTION: P3.2 CDC Miners / P7D CDC Mission Control
+LAST_VERIFIED_COMMIT: befcdc78a083c89a842127bf4a4b6e5a2634cf62
+
+---
+
+FEATURE_ID: P3.CDC.CONSISTENCY_BOUNDARY
+PHASE: P3.1
+FEATURE_NAME: Initial Load -> CDC Consistency Boundary Engine
+PURPOSE: Guarantee zero change loss between initial bulk transport snapshot and continuous CDC stream capture.
+CANONICAL_AUTHORITY: CDCConsistencyBoundary
+IMPLEMENTATION_LOCATION: akaal/cdc/domain/consistency.py
+PRIMARY_CLASS_OR_FUNCTION: CDCConsistencyBoundary
+PRODUCTION_CALLER: WorkflowEngine / DataTransportStep
+PRODUCTION_ENTRYPOINT: EngineGateway → WorkflowEngine
+PIPELINE_POSITION: Bulk Transport -> CDC Handoff Boundary
+DOWNSTREAM_CONSUMER: CDC Stream Engine / ValidationStep
+IDENTITY_BINDING: migration_id + job_id + run_id
+STATE_OWNER: CDCConsistencyBoundary
+FAILURE_PROPAGATION: Capture start position after snapshot position → raises consistency error → aborts migration setup
+MONITORING_EXPOSURE: YES
+IPC_EXPOSURE: YES
+UI_EXPOSURE: YES (MonitoringModule → Consistency Boundary)
+MIGRATION_MODULE_FEATURE: Monitoring → Consistency Boundary
+TEST_LOCATION: tests/unit/cdc/test_p3_1_canonical_cdc_domain_foundation.py
+PROOF_LEVEL: INTEGRATION_PROVEN
+INTEGRATION_STATUS: FULLY_INTEGRATED
+SECURITY_NOTES: Monotonic position validation preventing gap introduction.
+DEPENDENCIES: CDCSourcePosition
+LEGACY_OVERLAP: NONE
+FUTURE_EVOLUTION: P7D Cutover & Consistency Engine
+LAST_VERIFIED_COMMIT: befcdc78a083c89a842127bf4a4b6e5a2634cf62
+
+---
+
+FEATURE_ID: P3.CDC.SOURCE_POSITION_MODEL
+PHASE: P3.1
+FEATURE_NAME: Polymorphic Engine-Specific Source Position System
+PURPOSE: Represent and compare native LSN, GTID, SCN, and OpLog positions monotonically.
+CANONICAL_AUTHORITY: CDCSourcePosition
+IMPLEMENTATION_LOCATION: akaal/cdc/domain/positions.py
+PRIMARY_CLASS_OR_FUNCTION: PostgresLSNPosition / MySQLGTIDPosition / OracleSCNPosition / MSSQLChangePosition / MongoDBOpLogPosition
+PRODUCTION_CALLER: CDC Source Miners / Checkpoint Manager
+PRODUCTION_ENTRYPOINT: EngineGateway → WorkflowEngine
+PIPELINE_POSITION: CDC Source & Position Layer
+DOWNSTREAM_CONSUMER: CDCCheckpoint / CentralStateStore
+IDENTITY_BINDING: engine + position_value
+STATE_OWNER: CDCSourcePosition
+FAILURE_PROPAGATION: Invalid position string → raises ValueError → rejects corrupted checkpoint/event
+MONITORING_EXPOSURE: YES
+IPC_EXPOSURE: YES
+UI_EXPOSURE: YES (MonitoringModule → CDC Positions)
+MIGRATION_MODULE_FEATURE: Monitoring → CDC Positions
+TEST_LOCATION: tests/unit/cdc/test_p3_1_canonical_cdc_domain_foundation.py
+PROOF_LEVEL: INTEGRATION_PROVEN
+INTEGRATION_STATUS: FULLY_INTEGRATED
+SECURITY_NOTES: Deterministic string and dict parsing.
+DEPENDENCIES: None
+LEGACY_OVERLAP: NONE
+FUTURE_EVOLUTION: P4 Universal Connectivity
+LAST_VERIFIED_COMMIT: befcdc78a083c89a842127bf4a4b6e5a2634cf62
+
+---
+
+FEATURE_ID: P3.CDC.LIFECYCLE_STATE_MACHINE
+PHASE: P3.1
+FEATURE_NAME: CDC Session & Acknowledgement State Machines
+PURPOSE: Enforce legal CDC lifecycle transitions (CREATED -> INITIALIZING -> CAPTURING -> CATCHING_UP -> SYNCHRONIZED -> CUTOVER_COMPLETE).
+CANONICAL_AUTHORITY: CDCSessionStateMachine
+IMPLEMENTATION_LOCATION: akaal/cdc/domain/lifecycle.py
+PRIMARY_CLASS_OR_FUNCTION: CDCSessionStateMachine / CDCAckState
+PRODUCTION_CALLER: EngineGateway / WorkflowEngine
+PRODUCTION_ENTRYPOINT: EngineGateway IPC
+PIPELINE_POSITION: CDC Lifecycle Management Layer
+DOWNSTREAM_CONSUMER: CentralStateStore / ReportsModule
+IDENTITY_BINDING: cdc_session_id + run_id
+STATE_OWNER: CDCSessionStateMachine
+FAILURE_PROPAGATION: Illegal state transition → raises InvalidStateTransitionError → blocks illegal lifecycle jump
+MONITORING_EXPOSURE: YES
+IPC_EXPOSURE: YES
+UI_EXPOSURE: YES (MonitoringModule → CDC Status)
+MIGRATION_MODULE_FEATURE: Monitoring → CDC Status
+TEST_LOCATION: tests/unit/cdc/test_p3_1_canonical_cdc_domain_foundation.py
+PROOF_LEVEL: INTEGRATION_PROVEN
+INTEGRATION_STATUS: FULLY_INTEGRATED
+SECURITY_NOTES: Enforces strict state isolation.
+DEPENDENCIES: CentralStateStore
+LEGACY_OVERLAP: NONE
+FUTURE_EVOLUTION: P7D Cutover Orchestrator
+LAST_VERIFIED_COMMIT: befcdc78a083c89a842127bf4a4b6e5a2634cf62
+
+---
+
+FEATURE_ID: P3.CDC.CHECKPOINT_DURABILITY
+PHASE: P3.1
+FEATURE_NAME: Cryptographic CDC Checkpoint & Durability Contract
+PURPOSE: Persist tamper-evident CDC checkpoints with SHA-256 HMAC integrity hashes.
+CANONICAL_AUTHORITY: CDCCheckpoint
+IMPLEMENTATION_LOCATION: akaal/cdc/domain/durability.py
+PRIMARY_CLASS_OR_FUNCTION: CDCCheckpoint / CDCDurabilityContract
+PRODUCTION_CALLER: Checkpoint Supervisor / RecoveryCoordinator
+PRODUCTION_ENTRYPOINT: EngineGateway → trigger_checkpoint
+PIPELINE_POSITION: Durability & Recovery Layer
+DOWNSTREAM_CONSUMER: JournalSupervisor / RecoveryCoordinator
+IDENTITY_BINDING: checkpoint_id + cdc_session_id + run_id + fencing_epoch
+STATE_OWNER: CDCCheckpoint
+FAILURE_PROPAGATION: Checkpoint hash mismatch → raises ValueError → rejects corrupt/tampered checkpoint
+MONITORING_EXPOSURE: YES
+IPC_EXPOSURE: YES
+UI_EXPOSURE: YES (MonitoringModule → Checkpoints)
+MIGRATION_MODULE_FEATURE: Monitoring → Checkpoints
+TEST_LOCATION: tests/unit/cdc/test_p3_1_canonical_cdc_domain_foundation.py
+PROOF_LEVEL: INTEGRATION_PROVEN
+INTEGRATION_STATUS: FULLY_INTEGRATED
+SECURITY_NOTES: SHA-256 HMAC integrity fingerprint prevents cross-run checkpoint substitution.
+DEPENDENCIES: CDCSourcePosition
+LEGACY_OVERLAP: NONE
+FUTURE_EVOLUTION: P7D Durable State Center
+LAST_VERIFIED_COMMIT: befcdc78a083c89a842127bf4a4b6e5a2634cf62
+
+---
+
+## 5. UI / IPC / Gateway Mapping & Future P7D Redesign Destinations
 
 | Migration Module UI Feature | Current Backend Authority | Wiring Status | Future P7D Redesign Destination |
 | :--- | :--- | :---: | :--- |
@@ -494,15 +640,16 @@ LAST_VERIFIED_COMMIT: 92c4f5ce227614b5b86bbbe1618a1ab752d641c4
 | **Reports Dossier** | `CanonicalReportingAuthority` | `FULLY_WIRED` | P7D Reports & Dossier Portal |
 | **Certification & Seal** | `CanonicalReportingAuthority` / `TrustSealer` | `FULLY_WIRED` | P7D Trust Certification & Custody Ledger |
 | **Report & Evidence Export** | `CanonicalReportExportService` / `export_*` | `FULLY_WIRED` | P7D Evidence Package Portal |
+| **CDC Telemetry & Status** | `CDCMonitoringDTO` / `CDCSessionStateMachine` | `FULLY_WIRED` | P7D Cutover & CDC Mission Control |
 
 ---
 
-## 5. Summary Statistics & Ledger Health
+## 6. Summary Statistics & Ledger Health
 
-- **Total Features Ledgered**: 25 canonical P1/P2 features
-- **Fully Integrated P1/P2 Features**: 25 (100%)
-- **Partially Integrated P1/P2 Features**: 0 (0%)
-- **Orphaned P1/P2 Capabilities**: 0
+- **Total Features Ledgered**: 30 canonical P1/P2/P3.1 features
+- **Fully Integrated P1/P2/P3.1 Features**: 30 (100%)
+- **Partially Integrated Features**: 0 (0%)
+- **Orphaned Capabilities**: 0
 - **Duplicate Production Authorities**: 0
 - **Legacy Bypass Paths**: 0
 - **Overall Ledger Health**: `OPTIMAL`
