@@ -43,12 +43,21 @@ class CDCConsistencyBoundary:
         initial_load_snapshot_position: CDCSourcePosition,
         cdc_capture_start_position: Optional[CDCSourcePosition] = None,
     ) -> None:
+        if not migration_id or not job_id or not run_id:
+            raise ValueError("Consistency boundary identity bindings (migration_id, job_id, run_id) must be non-empty.")
         self.migration_id = migration_id
         self.job_id = job_id
         self.run_id = run_id
         self.initial_load_snapshot_position = initial_load_snapshot_position
         # Default CDC capture start to initial load snapshot position to prevent gaps!
         self.cdc_capture_start_position = cdc_capture_start_position or initial_load_snapshot_position
+
+        # Reject cross-engine comparison
+        if self.cdc_capture_start_position.engine != self.initial_load_snapshot_position.engine:
+            raise TypeError(
+                f"[CONSISTENCY BOUNDARY ERROR] Cross-engine position comparison rejected: "
+                f"cdc_capture_start ({self.cdc_capture_start_position.engine}) vs snapshot ({self.initial_load_snapshot_position.engine})."
+            )
 
         # Validate that capture start position is NOT after initial load snapshot position!
         if self.cdc_capture_start_position.is_after(self.initial_load_snapshot_position):
@@ -67,19 +76,25 @@ class CDCConsistencyBoundary:
         self.synchronized_at: Optional[str] = None
 
     def update_captured_position(self, pos: CDCSourcePosition) -> None:
-        """Updates last durably captured position ensuring monotonicity."""
+        """Updates last durably captured position ensuring engine match and monotonicity."""
+        if pos.engine != self.initial_load_snapshot_position.engine:
+            raise TypeError(f"Cross-engine position updated: {pos.engine} vs {self.initial_load_snapshot_position.engine}")
         if self.last_durably_captured_position and self.last_durably_captured_position.is_after(pos):
             raise ValueError(f"Non-monotonic capture position regression: {pos} < {self.last_durably_captured_position}")
         self.last_durably_captured_position = pos
 
     def update_applied_position(self, pos: CDCSourcePosition) -> None:
         """Updates last durably applied position ensuring it does not exceed captured position."""
+        if pos.engine != self.initial_load_snapshot_position.engine:
+            raise TypeError(f"Cross-engine position updated: {pos.engine} vs {self.initial_load_snapshot_position.engine}")
         if self.last_durably_captured_position and pos.is_after(self.last_durably_captured_position):
             raise ValueError(f"Applied position {pos} cannot exceed captured position {self.last_durably_captured_position}")
         self.last_durably_applied_position = pos
 
     def update_acknowledged_position(self, pos: CDCSourcePosition) -> None:
         """Updates last acknowledged position ensuring it does not exceed applied position."""
+        if pos.engine != self.initial_load_snapshot_position.engine:
+            raise TypeError(f"Cross-engine position updated: {pos.engine} vs {self.initial_load_snapshot_position.engine}")
         if self.last_durably_applied_position and pos.is_after(self.last_durably_applied_position):
             raise ValueError(f"Acknowledged position {pos} cannot exceed applied position {self.last_durably_applied_position}")
         self.last_acknowledged_position = pos

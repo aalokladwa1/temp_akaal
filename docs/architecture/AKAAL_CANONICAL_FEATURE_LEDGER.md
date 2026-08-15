@@ -482,7 +482,7 @@ PURPOSE: Strongly-typed, identity-bound CDC events, transactional boundaries, an
 CANONICAL_AUTHORITY: CDCEvent / CDCEventIdentity
 IMPLEMENTATION_LOCATION: akaal/cdc/domain/events.py
 PRIMARY_CLASS_OR_FUNCTION: CDCEventIdentity / CDCEvent / CDCTransaction
-PRODUCTION_CALLER: CDC Stream Engine / Miners
+PRODUCTION_CALLER: CDC Stream Engine / Miners (P3.2+)
 PRODUCTION_ENTRYPOINT: EngineGateway → WorkflowEngine
 PIPELINE_POSITION: CDC Capture & Event Layer
 DOWNSTREAM_CONSUMER: CDC Buffering / Apply Engine / CentralStateStore
@@ -494,13 +494,13 @@ IPC_EXPOSURE: YES
 UI_EXPOSURE: YES (MonitoringModule → CDC Telemetry)
 MIGRATION_MODULE_FEATURE: Monitoring → CDC Telemetry
 TEST_LOCATION: tests/unit/cdc/test_p3_1_canonical_cdc_domain_foundation.py
-PROOF_LEVEL: INTEGRATION_PROVEN
-INTEGRATION_STATUS: FULLY_INTEGRATED
-SECURITY_NOTES: to_data_safe_dict() redacts customer payload row values.
+PROOF_LEVEL: UNIT_PROVEN
+INTEGRATION_STATUS: FOUNDATION_INTEGRATED
+SECURITY_NOTES: to_data_safe_dict() redacts customer payload row values and nested secrets.
 DEPENDENCIES: CDCSourcePosition
 LEGACY_OVERLAP: NONE
 FUTURE_EVOLUTION: P3.2 CDC Miners / P7D CDC Mission Control
-LAST_VERIFIED_COMMIT: befcdc78a083c89a842127bf4a4b6e5a2634cf62
+LAST_VERIFIED_COMMIT: e8d216d73915c2d7b4075a10b2990af33ac1314f
 
 ---
 
@@ -511,7 +511,7 @@ PURPOSE: Guarantee zero change loss between initial bulk transport snapshot and 
 CANONICAL_AUTHORITY: CDCConsistencyBoundary
 IMPLEMENTATION_LOCATION: akaal/cdc/domain/consistency.py
 PRIMARY_CLASS_OR_FUNCTION: CDCConsistencyBoundary
-PRODUCTION_CALLER: WorkflowEngine / DataTransportStep
+PRODUCTION_CALLER: WorkflowEngine / DataTransportStep (P3.2+)
 PRODUCTION_ENTRYPOINT: EngineGateway → WorkflowEngine
 PIPELINE_POSITION: Bulk Transport -> CDC Handoff Boundary
 DOWNSTREAM_CONSUMER: CDC Stream Engine / ValidationStep
@@ -523,13 +523,13 @@ IPC_EXPOSURE: YES
 UI_EXPOSURE: YES (MonitoringModule → Consistency Boundary)
 MIGRATION_MODULE_FEATURE: Monitoring → Consistency Boundary
 TEST_LOCATION: tests/unit/cdc/test_p3_1_canonical_cdc_domain_foundation.py
-PROOF_LEVEL: INTEGRATION_PROVEN
-INTEGRATION_STATUS: FULLY_INTEGRATED
+PROOF_LEVEL: UNIT_PROVEN
+INTEGRATION_STATUS: FOUNDATION_INTEGRATED
 SECURITY_NOTES: Monotonic position validation preventing gap introduction.
 DEPENDENCIES: CDCSourcePosition
 LEGACY_OVERLAP: NONE
 FUTURE_EVOLUTION: P7D Cutover & Consistency Engine
-LAST_VERIFIED_COMMIT: befcdc78a083c89a842127bf4a4b6e5a2634cf62
+LAST_VERIFIED_COMMIT: e8d216d73915c2d7b4075a10b2990af33ac1314f
 
 ---
 
@@ -552,13 +552,13 @@ IPC_EXPOSURE: YES
 UI_EXPOSURE: YES (MonitoringModule → CDC Positions)
 MIGRATION_MODULE_FEATURE: Monitoring → CDC Positions
 TEST_LOCATION: tests/unit/cdc/test_p3_1_canonical_cdc_domain_foundation.py
-PROOF_LEVEL: INTEGRATION_PROVEN
-INTEGRATION_STATUS: FULLY_INTEGRATED
-SECURITY_NOTES: Deterministic string and dict parsing.
+PROOF_LEVEL: UNIT_PROVEN
+INTEGRATION_STATUS: FOUNDATION_INTEGRATED
+SECURITY_NOTES: Deterministic string and dict parsing with cross-engine type safety.
 DEPENDENCIES: None
 LEGACY_OVERLAP: NONE
 FUTURE_EVOLUTION: P4 Universal Connectivity
-LAST_VERIFIED_COMMIT: befcdc78a083c89a842127bf4a4b6e5a2634cf62
+LAST_VERIFIED_COMMIT: e8d216d73915c2d7b4075a10b2990af33ac1314f
 
 ---
 
@@ -581,42 +581,42 @@ IPC_EXPOSURE: YES
 UI_EXPOSURE: YES (MonitoringModule → CDC Status)
 MIGRATION_MODULE_FEATURE: Monitoring → CDC Status
 TEST_LOCATION: tests/unit/cdc/test_p3_1_canonical_cdc_domain_foundation.py
-PROOF_LEVEL: INTEGRATION_PROVEN
-INTEGRATION_STATUS: FULLY_INTEGRATED
+PROOF_LEVEL: UNIT_PROVEN
+INTEGRATION_STATUS: FOUNDATION_INTEGRATED
 SECURITY_NOTES: Enforces strict state isolation.
 DEPENDENCIES: CentralStateStore
 LEGACY_OVERLAP: NONE
 FUTURE_EVOLUTION: P7D Cutover Orchestrator
-LAST_VERIFIED_COMMIT: befcdc78a083c89a842127bf4a4b6e5a2634cf62
+LAST_VERIFIED_COMMIT: e8d216d73915c2d7b4075a10b2990af33ac1314f
 
 ---
 
 FEATURE_ID: P3.CDC.CHECKPOINT_DURABILITY
 PHASE: P3.1
 FEATURE_NAME: Cryptographic CDC Checkpoint & Durability Contract
-PURPOSE: Persist tamper-evident CDC checkpoints with SHA-256 HMAC integrity hashes.
+PURPOSE: Persist tamper-evident CDC checkpoints with Keyed SHA-256 HMAC integrity hashes.
 CANONICAL_AUTHORITY: CDCCheckpoint
 IMPLEMENTATION_LOCATION: akaal/cdc/domain/durability.py
-PRIMARY_CLASS_OR_FUNCTION: CDCCheckpoint / CDCDurabilityContract
+PRIMARY_CLASS_OR_FUNCTION: CDCCheckpoint / CDCDurabilityContract / CDCKeyProvider
 PRODUCTION_CALLER: Checkpoint Supervisor / RecoveryCoordinator
 PRODUCTION_ENTRYPOINT: EngineGateway → trigger_checkpoint
 PIPELINE_POSITION: Durability & Recovery Layer
 DOWNSTREAM_CONSUMER: JournalSupervisor / RecoveryCoordinator
 IDENTITY_BINDING: checkpoint_id + cdc_session_id + run_id + fencing_epoch
 STATE_OWNER: CDCCheckpoint
-FAILURE_PROPAGATION: Checkpoint hash mismatch → raises ValueError → rejects corrupt/tampered checkpoint
+FAILURE_PROPAGATION: Checkpoint HMAC mismatch → raises ValueError → rejects corrupt/tampered checkpoint
 MONITORING_EXPOSURE: YES
 IPC_EXPOSURE: YES
 UI_EXPOSURE: YES (MonitoringModule → Checkpoints)
 MIGRATION_MODULE_FEATURE: Monitoring → Checkpoints
 TEST_LOCATION: tests/unit/cdc/test_p3_1_canonical_cdc_domain_foundation.py
-PROOF_LEVEL: INTEGRATION_PROVEN
-INTEGRATION_STATUS: FULLY_INTEGRATED
-SECURITY_NOTES: SHA-256 HMAC integrity fingerprint prevents cross-run checkpoint substitution.
+PROOF_LEVEL: UNIT_PROVEN
+INTEGRATION_STATUS: FOUNDATION_INTEGRATED
+SECURITY_NOTES: Keyed SHA-256 HMAC integrity fingerprint prevents cross-run checkpoint substitution and tampering.
 DEPENDENCIES: CDCSourcePosition
 LEGACY_OVERLAP: NONE
 FUTURE_EVOLUTION: P7D Durable State Center
-LAST_VERIFIED_COMMIT: befcdc78a083c89a842127bf4a4b6e5a2634cf62
+LAST_VERIFIED_COMMIT: e8d216d73915c2d7b4075a10b2990af33ac1314f
 
 ---
 

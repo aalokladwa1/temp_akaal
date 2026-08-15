@@ -1,15 +1,30 @@
 """
-AKAAL CDC Engine Durability Contracts & Checkpointing Models.
-============================================================
-Defines durable CDC checkpoint artifacts with cryptographic HMAC hashes and identity binding.
+AKAAL CDC Engine Durability Contracts & Cryptographic HMAC Checkpointing Models.
+===============================================================================
+Defines durable CDC checkpoint artifacts with keyed SHA-256 HMAC integrity hashes and identity binding.
 """
 
 from typing import Dict, Any, Optional
 import datetime
+import hmac
 import hashlib
 import json
+import os
 
 from akaal.cdc.domain.positions import CDCSourcePosition, parse_source_position
+
+
+class CDCKeyProvider:
+    """System HMAC Key Provider for cryptographic CDC checkpoint integrity."""
+
+    _SYSTEM_KEY: str = "AKAAL-CANONICAL-CDC-HMAC-SECRET-KEY-V1"
+
+    @classmethod
+    def get_checkpoint_hmac_key(cls) -> bytes:
+        env_key = os.environ.get("AKAAL_CDC_HMAC_KEY")
+        if env_key:
+            return env_key.encode("utf-8")
+        return cls._SYSTEM_KEY.encode("utf-8")
 
 
 class CDCCheckpoint:
@@ -17,7 +32,7 @@ class CDCCheckpoint:
     Durable CDC Checkpoint artifact binding:
     - migration_id, job_id, run_id, cdc_session_id, fencing_epoch
     - captured_position, applied_position, acknowledged_position
-    - SHA-256 HMAC integrity fingerprint preventing checkpoint corruption/substitution.
+    - Keyed SHA-256 HMAC integrity fingerprint preventing checkpoint corruption, forgery, or substitution.
     """
 
     def __init__(
@@ -33,7 +48,13 @@ class CDCCheckpoint:
         acknowledged_position: Optional[CDCSourcePosition] = None,
         created_at: Optional[str] = None,
         checkpoint_hash: Optional[str] = None,
+        secret_key: Optional[bytes] = None,
     ) -> None:
+        if not checkpoint_id or not migration_id or not job_id or not run_id or not cdc_session_id:
+            raise ValueError("All checkpoint identity fields (checkpoint_id, migration_id, job_id, run_id, cdc_session_id) must be non-empty.")
+        if fencing_epoch < 0:
+            raise ValueError("fencing_epoch must be a non-negative integer.")
+
         self.checkpoint_id = checkpoint_id
         self.migration_id = migration_id
         self.job_id = job_id
@@ -44,16 +65,26 @@ class CDCCheckpoint:
         self.applied_position = applied_position or source_position
         self.acknowledged_position = acknowledged_position or source_position
         self.created_at = created_at or datetime.datetime.now(datetime.timezone.utc).isoformat()
-        self.checkpoint_hash = checkpoint_hash or self.compute_hash()
 
-    def compute_hash(self) -> str:
-        """Computes deterministic SHA-256 hash of checkpoint identity and positions."""
+        # Enforce position safety invariants: acknowledged <= applied <= captured
+        if self.applied_position.is_after(self.source_position):
+            raise ValueError(f"[CHECKPOINT CONTRADICTION] Applied position {self.applied_position} cannot exceed source captured position {self.source_position}.")
+        if self.acknowledged_position.is_after(self.applied_position):
+            raise ValueError(f"[CHECKPOINT CONTRADICTION] Acknowledged position {self.acknowledged_position} cannot exceed applied position {self.applied_position}.")
+
+        self.secret_key = secret_key or CDCKeyProvider.get_checkpoint_hmac_key()
+        self.checkpoint_hash = checkpoint_hash or self.compute_hmac(self.secret_key)
+
+    def compute_hmac(self, key: Optional[bytes] = None) -> str:
+        """Computes deterministic Keyed SHA-256 HMAC digest of checkpoint identity and positions."""
+        hmac_key = key or self.secret_key or CDCKeyProvider.get_checkpoint_hmac_key()
         raw = f"{self.checkpoint_id}:{self.migration_id}:{self.job_id}:{self.run_id}:{self.cdc_session_id}:{self.fencing_epoch}:{self.source_position.to_string()}:{self.applied_position.to_string()}:{self.acknowledged_position.to_string()}"
-        return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+        return hmac.new(hmac_key, raw.encode("utf-8"), hashlib.sha256).hexdigest()
 
-    def verify_integrity(self) -> bool:
-        """Returns True if checkpoint hash matches computed hash."""
-        return self.checkpoint_hash == self.compute_hash()
+    def verify_integrity(self, key: Optional[bytes] = None) -> bool:
+        """Returns True if checkpoint_hash matches computed HMAC digest."""
+        expected = self.compute_hmac(key)
+        return hmac.compare_digest(self.checkpoint_hash, expected)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -71,7 +102,7 @@ class CDCCheckpoint:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "CDCCheckpoint":
+    def from_dict(cls, data: Dict[str, Any], key: Optional[bytes] = None) -> "CDCCheckpoint":
         chk = cls(
             checkpoint_id=data["checkpoint_id"],
             migration_id=data["migration_id"],
@@ -84,9 +115,10 @@ class CDCCheckpoint:
             acknowledged_position=parse_source_position(data["acknowledged_position"]) if data.get("acknowledged_position") else None,
             created_at=data.get("created_at"),
             checkpoint_hash=data.get("checkpoint_hash"),
+            secret_key=key,
         )
-        if not chk.verify_integrity():
-            raise ValueError(f"[CORRUPT CHECKPOINT] Checkpoint '{chk.checkpoint_id}' failed SHA-256 integrity verification!")
+        if not chk.verify_integrity(key):
+            raise ValueError(f"[CORRUPT CHECKPOINT] Checkpoint '{chk.checkpoint_id}' failed SHA-256 HMAC integrity verification!")
         return chk
 
 

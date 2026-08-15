@@ -1,7 +1,7 @@
 """
 AKAAL CDC Engine Event & Transaction Domain Models.
 ===================================================
-Identity-bound CDC events, transactional boundaries, and secrets-redacted diagnostic representations.
+Identity-bound CDC events, transactional boundaries, and secrets-redacted diagnostics with recursive sanitization.
 """
 
 from enum import Enum
@@ -68,6 +68,8 @@ class CDCEvent:
     and provides data-safe diagnostic sanitization.
     """
 
+    SECRET_KEYWORDS = {"password", "passwd", "secret", "token", "api_key", "authorization", "private_key", "connection_string", "auth_token"}
+
     def __init__(
         self,
         identity: CDCEventIdentity,
@@ -98,6 +100,20 @@ class CDCEvent:
         self.commit_timestamp = commit_timestamp or datetime.datetime.now(datetime.timezone.utc).isoformat()
         self.captured_timestamp = captured_timestamp or datetime.datetime.now(datetime.timezone.utc).isoformat()
 
+    @classmethod
+    def _sanitize_dict_recursive(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            sanitized = {}
+            for k, v in data.items():
+                if any(sec in k.lower() for sec in cls.SECRET_KEYWORDS):
+                    sanitized[k] = "[REDACTED_SECRET]"
+                else:
+                    sanitized[k] = cls._sanitize_dict_recursive(v)
+            return sanitized
+        elif isinstance(data, list):
+            return [cls._sanitize_dict_recursive(item) for item in data]
+        return data
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "identity": self.identity.to_dict(),
@@ -107,8 +123,8 @@ class CDCEvent:
             "source_table": self.source_table,
             "operation": self.operation.value,
             "position": self.position.to_dict(),
-            "before_image": self.before_image,
-            "after_image": self.after_image,
+            "before_image": self._sanitize_dict_recursive(self.before_image),
+            "after_image": self._sanitize_dict_recursive(self.after_image),
             "boundary": self.boundary.value,
             "tx_id": self.tx_id,
             "commit_timestamp": self.commit_timestamp,
@@ -116,7 +132,7 @@ class CDCEvent:
         }
 
     def to_data_safe_dict(self) -> Dict[str, Any]:
-        """Returns a diagnostic summary that redacts actual customer row contents."""
+        """Returns a diagnostic summary that redacts actual customer row contents and nested secrets."""
         return {
             "identity": self.identity.to_dict(),
             "source_engine": self.source_engine,
@@ -127,8 +143,8 @@ class CDCEvent:
             "tx_id": self.tx_id,
             "has_before_image": self.before_image is not None,
             "has_after_image": self.after_image is not None,
-            "before_keys": list(self.before_image.keys()) if self.before_image else [],
-            "after_keys": list(self.after_image.keys()) if self.after_image else [],
+            "before_keys": list(self.before_image.keys()) if isinstance(self.before_image, dict) else [],
+            "after_keys": list(self.after_image.keys()) if isinstance(self.after_image, dict) else [],
             "captured_timestamp": self.captured_timestamp,
         }
 
@@ -155,12 +171,18 @@ class CDCTransaction:
     def add_event(self, event: CDCEvent) -> None:
         if self.is_committed or self.is_aborted:
             raise ValueError(f"Cannot add event to finalized transaction '{self.tx_id}'.")
+        if event.identity.migration_id != self.identity.migration_id or event.identity.run_id != self.identity.run_id:
+            raise ValueError(f"Cross-migration/run event substitution rejected for transaction '{self.tx_id}'.")
         self.events.append(event)
 
     def mark_commit(self) -> None:
+        if self.is_aborted:
+            raise ValueError(f"Cannot commit aborted transaction '{self.tx_id}'.")
         self.is_committed = True
 
     def mark_abort(self) -> None:
+        if self.is_committed:
+            raise ValueError(f"Cannot abort committed transaction '{self.tx_id}'.")
         self.is_aborted = True
 
     def to_dict(self) -> Dict[str, Any]:

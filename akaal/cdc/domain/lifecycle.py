@@ -19,6 +19,21 @@ class CDCAckState(str, Enum):
     ACKNOWLEDGED = "ACKNOWLEDGED"
     FAILED = "FAILED"
 
+    @classmethod
+    def can_transition(cls, current: "CDCAckState", target: "CDCAckState") -> bool:
+        """Enforces strict, unskippable event lifecycle progression."""
+        LEGAL_ACK_TRANSITIONS = {
+            cls.CAPTURED: {cls.DURABLY_BUFFERED, cls.FAILED},
+            cls.DURABLY_BUFFERED: {cls.APPLYING, cls.FAILED},
+            cls.APPLYING: {cls.APPLIED, cls.FAILED},
+            cls.APPLIED: {cls.CHECKPOINTED, cls.FAILED},
+            cls.CHECKPOINTED: {cls.ACKNOWLEDGED, cls.FAILED},
+            cls.ACKNOWLEDGED: set(),  # Terminal
+            cls.FAILED: set(),  # Terminal for this event attempt
+        }
+        allowed = LEGAL_ACK_TRANSITIONS.get(current, set())
+        return target in allowed
+
 
 class CDCSessionState(str, Enum):
     """CDC Session lifecycle states."""
@@ -60,9 +75,9 @@ class CDCSessionStateMachine:
         CDCSessionState.FINAL_DRAIN: {CDCSessionState.VALIDATING, CDCSessionState.FAILED, CDCSessionState.TERMINATED},
         CDCSessionState.VALIDATING: {CDCSessionState.CUTOVER_READY, CDCSessionState.FAILED, CDCSessionState.TERMINATED},
         CDCSessionState.CUTOVER_READY: {CDCSessionState.CUTOVER_COMPLETE, CDCSessionState.FAILED, CDCSessionState.TERMINATED},
-        CDCSessionState.CUTOVER_COMPLETE: set(),  # Terminal state
-        CDCSessionState.FAILED: {CDCSessionState.INITIALIZING, CDCSessionState.TERMINATED},  # Can restart from INITIALIZING
-        CDCSessionState.TERMINATED: set(),  # Terminal state
+        CDCSessionState.CUTOVER_COMPLETE: set(),  # Terminal state - no resurrection permitted!
+        CDCSessionState.FAILED: {CDCSessionState.INITIALIZING, CDCSessionState.TERMINATED},  # Can only re-initialize cleanly
+        CDCSessionState.TERMINATED: set(),  # Terminal state - no resurrection permitted!
     }
 
     def __init__(self, migration_id: str, job_id: str, run_id: str, cdc_session_id: str) -> None:

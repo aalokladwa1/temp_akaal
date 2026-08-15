@@ -52,6 +52,8 @@ class PostgresLSNPosition(CDCSourcePosition):
     @staticmethod
     def _lsn_to_int(lsn_str: str) -> int:
         parts = lsn_str.split("/")
+        if len(parts) != 2:
+            raise ValueError(f"Malformed LSN '{lsn_str}'")
         return (int(parts[0], 16) << 32) + int(parts[1], 16)
 
     def to_string(self) -> str:
@@ -66,8 +68,8 @@ class PostgresLSNPosition(CDCSourcePosition):
         }
 
     def is_after(self, other: CDCSourcePosition) -> bool:
-        if not isinstance(other, PostgresLSNPosition):
-            raise TypeError(f"Cannot compare PostgresLSNPosition with {type(other)}")
+        if not isinstance(other, PostgresLSNPosition) or self.engine != other.engine:
+            raise TypeError(f"Cannot compare PostgresLSNPosition with {type(other)} (engine={getattr(other, 'engine', None)})")
         return self.numeric_val > other.numeric_val
 
 
@@ -76,8 +78,8 @@ class MySQLGTIDPosition(CDCSourcePosition):
 
     def __init__(self, binlog_file: str, binlog_pos: int, gtid_set: Optional[str] = None) -> None:
         super().__init__("MYSQL")
-        if binlog_pos < 0:
-            raise ValueError(f"Invalid MySQL binlog position: {binlog_pos}")
+        if binlog_pos < 0 or not binlog_file:
+            raise ValueError(f"Invalid MySQL binlog file or position: '{binlog_file}':{binlog_pos}")
         self.binlog_file = binlog_file
         self.binlog_pos = binlog_pos
         self.gtid_set = gtid_set
@@ -96,8 +98,8 @@ class MySQLGTIDPosition(CDCSourcePosition):
         }
 
     def is_after(self, other: CDCSourcePosition) -> bool:
-        if not isinstance(other, MySQLGTIDPosition):
-            raise TypeError(f"Cannot compare MySQLGTIDPosition with {type(other)}")
+        if not isinstance(other, MySQLGTIDPosition) or self.engine != other.engine:
+            raise TypeError(f"Cannot compare MySQLGTIDPosition with {type(other)} (engine={getattr(other, 'engine', None)})")
         if self.binlog_file == other.binlog_file:
             return self.binlog_pos > other.binlog_pos
         return self.binlog_file > other.binlog_file
@@ -126,8 +128,8 @@ class OracleSCNPosition(CDCSourcePosition):
         }
 
     def is_after(self, other: CDCSourcePosition) -> bool:
-        if not isinstance(other, OracleSCNPosition):
-            raise TypeError(f"Cannot compare OracleSCNPosition with {type(other)}")
+        if not isinstance(other, OracleSCNPosition) or self.engine != other.engine:
+            raise TypeError(f"Cannot compare OracleSCNPosition with {type(other)} (engine={getattr(other, 'engine', None)})")
         if self.scn == other.scn:
             return self.sequence_number > other.sequence_number
         return self.scn > other.scn
@@ -154,8 +156,8 @@ class MSSQLChangePosition(CDCSourcePosition):
         }
 
     def is_after(self, other: CDCSourcePosition) -> bool:
-        if not isinstance(other, MSSQLChangePosition):
-            raise TypeError(f"Cannot compare MSSQLChangePosition with {type(other)}")
+        if not isinstance(other, MSSQLChangePosition) or self.engine != other.engine:
+            raise TypeError(f"Cannot compare MSSQLChangePosition with {type(other)} (engine={getattr(other, 'engine', None)})")
         if self.lsn_hex == other.lsn_hex:
             return self.seqval_hex > other.seqval_hex
         return self.lsn_hex > other.lsn_hex
@@ -182,8 +184,8 @@ class MongoDBOpLogPosition(CDCSourcePosition):
         }
 
     def is_after(self, other: CDCSourcePosition) -> bool:
-        if not isinstance(other, MongoDBOpLogPosition):
-            raise TypeError(f"Cannot compare MongoDBOpLogPosition with {type(other)}")
+        if not isinstance(other, MongoDBOpLogPosition) or self.engine != other.engine:
+            raise TypeError(f"Cannot compare MongoDBOpLogPosition with {type(other)} (engine={getattr(other, 'engine', None)})")
         if self.timestamp_sec == other.timestamp_sec:
             return self.inc > other.inc
         return self.timestamp_sec > other.timestamp_sec
