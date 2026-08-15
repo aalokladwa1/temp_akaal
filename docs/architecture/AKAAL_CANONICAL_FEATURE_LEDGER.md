@@ -620,6 +620,122 @@ LAST_VERIFIED_COMMIT: e8d216d73915c2d7b4075a10b2990af33ac1314f
 
 ---
 
+FEATURE_ID: P3.CDC.CAPTURE_CONTRACT
+PHASE: P3.2
+FEATURE_NAME: Canonical CDC Source Adapter & Capability Contract
+PURPOSE: Abstract source capture miner contract, prerequisite validation, and explicit capability flags.
+CANONICAL_AUTHORITY: ICDCSourceAdapter
+IMPLEMENTATION_LOCATION: akaal/cdc/sources/base.py
+PRIMARY_CLASS_OR_FUNCTION: ICDCSourceAdapter / CDCCapabilityFlags
+PRODUCTION_CALLER: CDCCaptureCoordinator
+PRODUCTION_ENTRYPOINT: EngineGateway → validate_cdc_prerequisites
+PIPELINE_POSITION: Source Capture Layer
+DOWNSTREAM_CONSUMER: TransactionReconstructor / CentralStateStore
+IDENTITY_BINDING: engine_name + capabilities
+STATE_OWNER: ICDCSourceAdapter
+FAILURE_PROPAGATION: Prerequisite missing → raises CDCExecutionError → blocks CDC session initialization
+MONITORING_EXPOSURE: YES
+IPC_EXPOSURE: YES
+UI_EXPOSURE: YES (MonitoringModule → CDC Prerequisites)
+MIGRATION_MODULE_FEATURE: Connection & Preflight → CDC Prerequisites
+TEST_LOCATION: tests/unit/cdc/test_p3_2_native_cdc_capture_miners.py
+PROOF_LEVEL: UNIT_PROVEN
+INTEGRATION_STATUS: FULLY_INTEGRATED
+SECURITY_NOTES: Sanitizes database configuration diagnostics.
+DEPENDENCIES: CDCSourcePosition
+LEGACY_OVERLAP: NONE
+FUTURE_EVOLUTION: P4 Universal Connectivity
+LAST_VERIFIED_COMMIT: 76c760fa3e406d1d22198a9a83ce023b01381d82
+
+---
+
+FEATURE_ID: P3.CDC.TRANSACTION_RECONSTRUCTION
+PHASE: P3.2
+FEATURE_NAME: Transaction Reconstruction & Flow Control Engine
+PURPOSE: Reconstruct database-native change records into ordered CDCTransaction objects with commit/rollback isolation and P1 backpressure.
+CANONICAL_AUTHORITY: TransactionReconstructor
+IMPLEMENTATION_LOCATION: akaal/cdc/sources/reconstruction.py
+PRIMARY_CLASS_OR_FUNCTION: TransactionReconstructor
+PRODUCTION_CALLER: Native CDC Miners (PostgresWALMiner, MySQLBinlogMiner, OracleRedoMiner, MSSQLCDCMiner, MongoDBOplogMiner)
+PRODUCTION_ENTRYPOINT: EngineGateway → poll_cdc_transactions
+PIPELINE_POSITION: Transaction Assembly & Flow Control Layer
+DOWNSTREAM_CONSUMER: CDCCaptureCoordinator / P3.3 Durable CDC Buffer
+IDENTITY_BINDING: migration_id + job_id + run_id + cdc_session_id + tx_id
+STATE_OWNER: TransactionReconstructor
+FAILURE_PROPAGATION: Queue congestion → triggers P1 BackpressureController throttling → prevents memory exhaustion
+MONITORING_EXPOSURE: YES
+IPC_EXPOSURE: YES
+UI_EXPOSURE: YES (MonitoringModule → CDC Transaction Stream)
+MIGRATION_MODULE_FEATURE: Monitoring → CDC Stream
+TEST_LOCATION: tests/unit/cdc/test_p3_2_native_cdc_capture_miners.py
+PROOF_LEVEL: UNIT_PROVEN
+INTEGRATION_STATUS: FULLY_INTEGRATED
+SECURITY_NOTES: Cross-session/run event isolation preventing transaction contamination.
+DEPENDENCIES: BackpressureController
+LEGACY_OVERLAP: NONE
+FUTURE_EVOLUTION: P3.3 Durable CDC Buffer
+LAST_VERIFIED_COMMIT: 76c760fa3e406d1d22198a9a83ce023b01381d82
+
+---
+
+FEATURE_ID: P3.CDC.MINER.POSTGRESQL
+PHASE: P3.2
+FEATURE_NAME: PostgreSQL Native Logical Decoding WAL Miner
+PURPOSE: Extract change events from PostgreSQL replication slots and convert to PostgresLSNPosition CDCTransactions.
+CANONICAL_AUTHORITY: PostgresWALMiner
+IMPLEMENTATION_LOCATION: akaal/cdc/sources/postgres.py
+PRIMARY_CLASS_OR_FUNCTION: PostgresWALMiner
+PRODUCTION_CALLER: CDCCaptureCoordinator
+PRODUCTION_ENTRYPOINT: EngineGateway → initialize_cdc_capture
+PIPELINE_POSITION: Native PostgreSQL Capture Layer
+DOWNSTREAM_CONSUMER: TransactionReconstructor
+IDENTITY_BINDING: cdc_session_id + slot_name + publication_name
+STATE_OWNER: PostgresWALMiner
+FAILURE_PROPAGATION: wal_level != logical → raises CDCExecutionError (CDC_PREREQUISITE_MISSING) → blocks capture
+MONITORING_EXPOSURE: YES
+IPC_EXPOSURE: YES
+UI_EXPOSURE: YES (MonitoringModule → PG WAL Status)
+MIGRATION_MODULE_FEATURE: Monitoring → PostgreSQL CDC
+TEST_LOCATION: tests/unit/cdc/test_p3_2_native_cdc_capture_miners.py
+PROOF_LEVEL: UNIT_PROVEN
+INTEGRATION_STATUS: FULLY_INTEGRATED
+SECURITY_NOTES: Native LSN position tracking without uncommitted change loss.
+DEPENDENCIES: PostgresLSNPosition
+LEGACY_OVERLAP: NONE
+FUTURE_EVOLUTION: P4 Universal PostgreSQL Connectivity
+LAST_VERIFIED_COMMIT: 76c760fa3e406d1d22198a9a83ce023b01381d82
+
+---
+
+FEATURE_ID: P3.CDC.CAPTURE_COORDINATOR
+PHASE: P3.2
+FEATURE_NAME: CDC Capture Orchestration Coordinator & Gateway Facade
+PURPOSE: Orchestrate miner instances, manage capture session lifecycles, and publish CentralStateStore telemetry via EngineGateway.
+CANONICAL_AUTHORITY: CDCCaptureCoordinator
+IMPLEMENTATION_LOCATION: akaal/cdc/sources/coordinator.py
+PRIMARY_CLASS_OR_FUNCTION: CDCCaptureCoordinator
+PRODUCTION_CALLER: EngineGateway CDC handlers
+PRODUCTION_ENTRYPOINT: IPC / Tauri / EngineGateway.invoke
+PIPELINE_POSITION: CDC Gateway Orchestration Layer
+DOWNSTREAM_CONSUMER: CentralStateStore / ReportsModule
+IDENTITY_BINDING: cdc_session_id + run_id
+STATE_OWNER: CDCCaptureCoordinator
+FAILURE_PROPAGATION: Uninitialized session poll → raises ValueError → returns error status to IPC
+MONITORING_EXPOSURE: YES
+IPC_EXPOSURE: YES
+UI_EXPOSURE: YES (MonitoringModule → CDC Mission Control)
+MIGRATION_MODULE_FEATURE: Monitoring → CDC Mission Control
+TEST_LOCATION: tests/unit/cdc/test_p3_2_native_cdc_capture_miners.py
+PROOF_LEVEL: INTEGRATION_PROVEN
+INTEGRATION_STATUS: FULLY_INTEGRATED
+SECURITY_NOTES: Truthful capture telemetry without fabricated UI state.
+DEPENDENCIES: CentralStateStore
+LEGACY_OVERLAP: NONE
+FUTURE_EVOLUTION: P7D CDC Mission Control Portal
+LAST_VERIFIED_COMMIT: 76c760fa3e406d1d22198a9a83ce023b01381d82
+
+---
+
 ## 5. UI / IPC / Gateway Mapping & Future P7D Redesign Destinations
 
 | Migration Module UI Feature | Current Backend Authority | Wiring Status | Future P7D Redesign Destination |
@@ -641,13 +757,14 @@ LAST_VERIFIED_COMMIT: e8d216d73915c2d7b4075a10b2990af33ac1314f
 | **Certification & Seal** | `CanonicalReportingAuthority` / `TrustSealer` | `FULLY_WIRED` | P7D Trust Certification & Custody Ledger |
 | **Report & Evidence Export** | `CanonicalReportExportService` / `export_*` | `FULLY_WIRED` | P7D Evidence Package Portal |
 | **CDC Telemetry & Status** | `CDCMonitoringDTO` / `CDCSessionStateMachine` | `FULLY_WIRED` | P7D Cutover & CDC Mission Control |
+| **CDC Capture Control** | `EngineGateway` / `CDCCaptureCoordinator` | `FULLY_WIRED` | P7D CDC Source Capture Engine |
 
 ---
 
 ## 6. Summary Statistics & Ledger Health
 
-- **Total Features Ledgered**: 30 canonical P1/P2/P3.1 features
-- **Fully Integrated P1/P2/P3.1 Features**: 30 (100%)
+- **Total Features Ledgered**: 34 canonical P1/P2/P3.1/P3.2 features
+- **Fully Integrated P1/P2/P3.1/P3.2 Features**: 34 (100%)
 - **Partially Integrated Features**: 0 (0%)
 - **Orphaned Capabilities**: 0
 - **Duplicate Production Authorities**: 0

@@ -20,6 +20,7 @@ class CDCFailureCategory(str, Enum):
 
 class CDCFailureType(str, Enum):
     """Specific CDC failure classification types."""
+    CDC_PREREQUISITE_MISSING = "CDC_PREREQUISITE_MISSING"
     SOURCE_DISCONNECT = "SOURCE_DISCONNECT"
     SOURCE_POSITION_INVALID = "SOURCE_POSITION_INVALID"
     SOURCE_LOG_UNAVAILABLE = "SOURCE_LOG_UNAVAILABLE"

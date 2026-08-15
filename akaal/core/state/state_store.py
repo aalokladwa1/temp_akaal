@@ -125,6 +125,15 @@ class CentralStateStore(IStateStore):
     def update_progress(self, migration_id: str, progress_data: Dict[str, Any]) -> None:
         self.set_state(migration_id, progress_data, category="progress")
 
+    def update_cdc_telemetry(self, cdc_session_id: str, telemetry_data: Dict[str, Any]) -> None:
+        self.set_state(cdc_session_id, telemetry_data, category="cdc_telemetry")
+
+    def get_cdc_telemetry(self, cdc_session_id: str) -> Optional[Dict[str, Any]]:
+        val = self.get_state(cdc_session_id, default=None, category="cdc_telemetry")
+        if isinstance(val, dict):
+            return val
+        return None
+
     def get_progress(self, migration_id: str) -> Dict[str, Any]:
         val = self.get_state(migration_id, default=None, category="progress")
         if isinstance(val, dict):

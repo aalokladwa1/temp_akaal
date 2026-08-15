@@ -215,6 +215,20 @@ class EngineGateway:
             return self.export_evidence_package(payload)
         elif capability == "verify_evidence_package":
             return self.verify_evidence_package(payload)
+        elif capability == "validate_cdc_prerequisites":
+            return self.validate_cdc_prerequisites(payload)
+        elif capability == "initialize_cdc_capture":
+            return self.initialize_cdc_capture(payload)
+        elif capability == "start_cdc_capture":
+            return self.start_cdc_capture(payload)
+        elif capability == "poll_cdc_transactions":
+            return self.poll_cdc_transactions(payload)
+        elif capability == "pause_cdc_capture":
+            return self.pause_cdc_capture(payload)
+        elif capability == "stop_cdc_capture":
+            return self.stop_cdc_capture(payload)
+        elif capability == "get_cdc_telemetry":
+            return self.get_cdc_telemetry(payload)
         else:
             raise ValueError(f"Unsupported IPC capability: '{capability}'")
 
@@ -2299,3 +2313,56 @@ class EngineGateway:
         elif filepath:
             return exporter.verify_evidence_package(filepath)
         return {"status": "ERROR", "reason": "No zip payload_b64 or filepath provided"}
+
+    def _get_cdc_coordinator(self):
+        if not hasattr(self, "_cdc_coordinator") or self._cdc_coordinator is None:
+            from akaal.cdc.sources.coordinator import CDCCaptureCoordinator
+            self._cdc_coordinator = CDCCaptureCoordinator(state_store=self.state_store)
+        return self._cdc_coordinator
+
+    def validate_cdc_prerequisites(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        engine = payload.get("engine") or payload.get("source_engine") or "POSTGRESQL"
+        return self._get_cdc_coordinator().validate_cdc_prerequisites(engine, payload)
+
+    def initialize_cdc_capture(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        engine = payload.get("engine") or payload.get("source_engine") or "POSTGRESQL"
+        migration_id = payload["migration_id"]
+        job_id = payload["job_id"]
+        run_id = payload["run_id"]
+        cdc_session_id = payload["cdc_session_id"]
+        initial_snapshot_position = payload["initial_snapshot_position"]
+        return self._get_cdc_coordinator().initialize_cdc_capture(
+            engine=engine,
+            migration_id=migration_id,
+            job_id=job_id,
+            run_id=run_id,
+            cdc_session_id=cdc_session_id,
+            initial_snapshot_position_dict=initial_snapshot_position,
+            source_config=payload,
+        )
+
+    def start_cdc_capture(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        cdc_session_id = payload["cdc_session_id"]
+        return self._get_cdc_coordinator().start_cdc_capture(cdc_session_id)
+
+    def poll_cdc_transactions(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        cdc_session_id = payload["cdc_session_id"]
+        txs = self._get_cdc_coordinator().poll_cdc_transactions(cdc_session_id)
+        return {
+            "cdc_session_id": cdc_session_id,
+            "transaction_count": len(txs),
+            "transactions": [tx.to_dict() for tx in txs],
+        }
+
+    def pause_cdc_capture(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        cdc_session_id = payload["cdc_session_id"]
+        return self._get_cdc_coordinator().pause_cdc_capture(cdc_session_id)
+
+    def stop_cdc_capture(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        cdc_session_id = payload["cdc_session_id"]
+        return self._get_cdc_coordinator().stop_cdc_capture(cdc_session_id)
+
+    def get_cdc_telemetry(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        cdc_session_id = payload["cdc_session_id"]
+        telemetry = self.state_store.get_cdc_telemetry(cdc_session_id)
+        return telemetry or {"cdc_session_id": cdc_session_id, "status": "UNKNOWN"}
