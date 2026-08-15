@@ -49,7 +49,11 @@ class CDCSessionState(str, Enum):
     FINAL_DRAIN = "FINAL_DRAIN"
     VALIDATING = "VALIDATING"
     CUTOVER_READY = "CUTOVER_READY"
+    CUTOVER_COMMITTED = "CUTOVER_COMMITTED"
     CUTOVER_COMPLETE = "CUTOVER_COMPLETE"
+    PRE_CUTOVER_ABORTED = "PRE_CUTOVER_ABORTED"
+    FAILBACK_PREPARING = "FAILBACK_PREPARING"
+    FAILBACK_COMPLETE = "FAILBACK_COMPLETE"
     FAILED = "FAILED"
     TERMINATED = "TERMINATED"
 
@@ -69,15 +73,19 @@ class CDCSessionStateMachine:
         CDCSessionState.BUFFERING: {CDCSessionState.APPLYING, CDCSessionState.CATCHING_UP, CDCSessionState.PAUSED, CDCSessionState.FAILED, CDCSessionState.TERMINATED},
         CDCSessionState.APPLYING: {CDCSessionState.CATCHING_UP, CDCSessionState.SYNCHRONIZED, CDCSessionState.PAUSED, CDCSessionState.FAILED, CDCSessionState.TERMINATED},
         CDCSessionState.CATCHING_UP: {CDCSessionState.SYNCHRONIZED, CDCSessionState.PAUSED, CDCSessionState.FAILED, CDCSessionState.TERMINATED},
-        CDCSessionState.SYNCHRONIZED: {CDCSessionState.CUTOVER_PREPARING, CDCSessionState.PAUSED, CDCSessionState.FAILED, CDCSessionState.TERMINATED},
+        CDCSessionState.SYNCHRONIZED: {CDCSessionState.CUTOVER_PREPARING, CDCSessionState.CATCHING_UP, CDCSessionState.PAUSED, CDCSessionState.FAILED, CDCSessionState.TERMINATED},
         CDCSessionState.PAUSED: {CDCSessionState.CAPTURING, CDCSessionState.APPLYING, CDCSessionState.CATCHING_UP, CDCSessionState.TERMINATED},
-        CDCSessionState.CUTOVER_PREPARING: {CDCSessionState.FINAL_DRAIN, CDCSessionState.FAILED, CDCSessionState.TERMINATED},
-        CDCSessionState.FINAL_DRAIN: {CDCSessionState.VALIDATING, CDCSessionState.FAILED, CDCSessionState.TERMINATED},
-        CDCSessionState.VALIDATING: {CDCSessionState.CUTOVER_READY, CDCSessionState.FAILED, CDCSessionState.TERMINATED},
-        CDCSessionState.CUTOVER_READY: {CDCSessionState.CUTOVER_COMPLETE, CDCSessionState.FAILED, CDCSessionState.TERMINATED},
-        CDCSessionState.CUTOVER_COMPLETE: set(),  # Terminal state - no resurrection permitted!
-        CDCSessionState.FAILED: {CDCSessionState.INITIALIZING, CDCSessionState.TERMINATED},  # Can only re-initialize cleanly
-        CDCSessionState.TERMINATED: set(),  # Terminal state - no resurrection permitted!
+        CDCSessionState.CUTOVER_PREPARING: {CDCSessionState.FINAL_DRAIN, CDCSessionState.PRE_CUTOVER_ABORTED, CDCSessionState.FAILED, CDCSessionState.TERMINATED},
+        CDCSessionState.FINAL_DRAIN: {CDCSessionState.VALIDATING, CDCSessionState.PRE_CUTOVER_ABORTED, CDCSessionState.FAILED, CDCSessionState.TERMINATED},
+        CDCSessionState.VALIDATING: {CDCSessionState.CUTOVER_READY, CDCSessionState.PRE_CUTOVER_ABORTED, CDCSessionState.FAILED, CDCSessionState.TERMINATED},
+        CDCSessionState.CUTOVER_READY: {CDCSessionState.CUTOVER_COMMITTED, CDCSessionState.PRE_CUTOVER_ABORTED, CDCSessionState.FAILED, CDCSessionState.TERMINATED},
+        CDCSessionState.CUTOVER_COMMITTED: {CDCSessionState.CUTOVER_COMPLETE, CDCSessionState.FAILBACK_PREPARING, CDCSessionState.FAILED, CDCSessionState.TERMINATED},
+        CDCSessionState.CUTOVER_COMPLETE: {CDCSessionState.FAILBACK_PREPARING},  # Governed failback workflow only
+        CDCSessionState.PRE_CUTOVER_ABORTED: {CDCSessionState.CAPTURING, CDCSessionState.INITIALIZING, CDCSessionState.PAUSED, CDCSessionState.TERMINATED},
+        CDCSessionState.FAILBACK_PREPARING: {CDCSessionState.FAILBACK_COMPLETE, CDCSessionState.FAILED, CDCSessionState.TERMINATED},
+        CDCSessionState.FAILBACK_COMPLETE: {CDCSessionState.INITIALIZING, CDCSessionState.TERMINATED},
+        CDCSessionState.FAILED: {CDCSessionState.INITIALIZING, CDCSessionState.TERMINATED},
+        CDCSessionState.TERMINATED: set(),
     }
 
     def __init__(self, migration_id: str, job_id: str, run_id: str, cdc_session_id: str) -> None:

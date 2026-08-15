@@ -794,6 +794,34 @@ LEGACY_OVERLAP: NONE
 FUTURE_EVOLUTION: P4 Production Target Database Synchronization
 LAST_VERIFIED_COMMIT: c4f7e92357c628a0b05162c7dda1ae158c9a2f07
 
+FEATURE_ID: P3.CDC.CONTINUOUS_SYNC_CUTOVER_FAILBACK
+PHASE: P3.4
+FEATURE_NAME: Multi-Database Continuous CDC Synchronization, Catch-Up, Controlled Cutover & Failback Engine
+PURPOSE: Master Orchestrator managing continuous synchronization, lag stability, cutover readiness, durable cutover plans, final drain, P2 validation reuse, governance approvals, cutover commit, pre-cutover abort, governed failback, split-brain prevention, and process restart recovery across PostgreSQL, MySQL, Oracle, MSSQL, and MongoDB.
+CANONICAL_AUTHORITY: CDCContinuousSyncCoordinator / CDCCutoverReadinessEngine / CDCFailbackDecisionEngine
+IMPLEMENTATION_LOCATION: akaal/cdc/sync/coordinator.py
+PRIMARY_CLASS_OR_FUNCTION: CDCContinuousSyncCoordinator / CDCCutoverPlan / CDCCutoverReadinessEngine / CDCFailbackDecisionEngine
+PRODUCTION_CALLER: EngineGateway IPC capabilities (13 methods)
+PRODUCTION_ENTRYPOINT: EngineGateway → start_continuous_sync / prepare_cutover / commit_cutover / execute_failback
+PIPELINE_POSITION: Continuous Synchronization & Controlled Cutover Layer
+DOWNSTREAM_CONSUMER: Target Adapter / CentralStateStore / P2 Validation Authority
+IDENTITY_BINDING: migration_id + job_id + run_id + cdc_session_id + plan_id + fencing_epoch
+STATE_OWNER: CDCContinuousSyncCoordinator
+FAILURE_PROPAGATION: Unready state / stale fencing / post-cutover divergence → fails closed with explicit error or MANUAL_INTERVENTION_REQUIRED
+MONITORING_EXPOSURE: YES
+IPC_EXPOSURE: YES
+UI_EXPOSURE: YES (MonitoringModule → CDC Continuous Sync & Cutover Control)
+MIGRATION_MODULE_FEATURE: Monitoring → CDC Sync & Cutover
+TEST_LOCATION: tests/unit/cdc/test_p3_4_continuous_cdc_cutover_failback_engine.py
+PROOF_LEVEL: UNIT_PROVEN
+INTEGRATION_STATUS: DOMAIN_INTEGRATED
+REAL_DB_PROVEN: NO
+SECURITY_NOTES: Bound governance approvals, secret redaction, and split-brain prevention.
+DEPENDENCIES: CDCCaptureCoordinator / DurableCDCBuffer / CDCApplyCoordinator / RecoveryCoordinator / CentralStateStore / CanonicalReconciliationEngine
+LEGACY_OVERLAP: NONE
+FUTURE_EVOLUTION: P4 Real Database Infrastructure Certification
+LAST_VERIFIED_COMMIT: a5a3c342f45987cd03ac3f09e980c25c0785092a
+
 ---
 
 ## 5. UI / IPC / Gateway Mapping & Future P7D Redesign Destinations
@@ -819,13 +847,14 @@ LAST_VERIFIED_COMMIT: c4f7e92357c628a0b05162c7dda1ae158c9a2f07
 | **CDC Telemetry & Status** | `CDCMonitoringDTO` / `CDCSessionStateMachine` | `FULLY_WIRED` | P7D Cutover & CDC Mission Control |
 | **CDC Capture Control** | `EngineGateway` / `CDCCaptureCoordinator` | `FULLY_WIRED` | P7D CDC Source Capture Engine |
 | **CDC Buffer & Target Apply** | `EngineGateway` / `CDCApplyCoordinator` | `FULLY_WIRED` | P7D CDC Target Apply Engine |
+| **CDC Continuous Sync & Cutover** | `EngineGateway` / `CDCContinuousSyncCoordinator` | `FULLY_WIRED` | P7D Cutover Control & Failback Manager |
 
 ---
 
 ## 6. Summary Statistics & Ledger Health
 
-- **Total Features Ledgered**: 36 canonical P1/P2/P3.1/P3.2/P3.3 features
-- **Fully Integrated P1/P2/P3.1/P3.2/P3.3 Features**: 36 (100%)
+- **Total Features Ledgered**: 37 canonical P1/P2/P3.1/P3.2/P3.3/P3.4 features
+- **Fully Integrated P1/P2/P3.1/P3.2/P3.3/P3.4 Features**: 37 (100%)
 - **Partially Integrated Features**: 0 (0%)
 - **Orphaned Capabilities**: 0
 - **Duplicate Production Authorities**: 0

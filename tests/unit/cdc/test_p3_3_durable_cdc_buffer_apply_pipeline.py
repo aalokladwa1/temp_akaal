@@ -9,7 +9,8 @@ import unittest
 import os
 import shutil
 import tempfile
-from typing import Dict, Any
+import uuid
+from typing import Dict, Any, Optional
 
 from akaal.cdc.domain.events import (
     CDCEventIdentity,
@@ -33,11 +34,12 @@ class TestP33DurableCDCBufferApplyPipeline(unittest.TestCase):
 
     def setUp(self):
         self.temp_dir = tempfile.mkdtemp()
+        suffix = uuid.uuid4().hex[:8]
         self.identity = CDCEventIdentity(
-            migration_id="mig-p33-01",
-            job_id="job-p33-01",
-            run_id="run-p33-01",
-            cdc_session_id="sess-p33-01",
+            migration_id=f"mig-p33-{suffix}",
+            job_id=f"job-p33-{suffix}",
+            run_id=f"run-p33-{suffix}",
+            cdc_session_id=f"sess-p33-{suffix}",
         )
         self.recovery_coord = RecoveryCoordinator()
         self.fencing_epoch = self.recovery_coord.issue_epoch(self.identity.migration_id)

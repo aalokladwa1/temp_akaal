@@ -243,6 +243,30 @@ class EngineGateway:
             return self.stop_cdc_apply(payload)
         elif capability == "recover_cdc_session":
             return self.recover_cdc_session(payload)
+        elif capability == "start_continuous_sync":
+            return self.start_continuous_sync(payload)
+        elif capability == "process_sync_cycle":
+            return self.process_sync_cycle(payload)
+        elif capability == "evaluate_cutover_readiness":
+            return self.evaluate_cutover_readiness(payload)
+        elif capability == "prepare_cutover":
+            return self.prepare_cutover(payload)
+        elif capability == "record_cutover_approval":
+            return self.record_cutover_approval(payload)
+        elif capability == "begin_final_drain":
+            return self.begin_final_drain(payload)
+        elif capability == "run_cutover_validation":
+            return self.run_cutover_validation(payload)
+        elif capability == "commit_cutover":
+            return self.commit_cutover(payload)
+        elif capability == "abort_cutover":
+            return self.abort_cutover(payload)
+        elif capability == "evaluate_failback":
+            return self.evaluate_failback(payload)
+        elif capability == "execute_failback":
+            return self.execute_failback(payload)
+        elif capability == "recover_cutover_session":
+            return self.recover_cutover_session(payload)
         else:
             raise ValueError(f"Unsupported IPC capability: '{capability}'")
 
@@ -2431,3 +2455,89 @@ class EngineGateway:
         migration_id = payload["migration_id"]
         cdc_session_id = payload["cdc_session_id"]
         return self._get_cdc_apply_coordinator().recover_cdc_session(migration_id, cdc_session_id)
+
+    def _get_cdc_sync_coordinator(self):
+        if not hasattr(self, "_cdc_sync_coordinator") or self._cdc_sync_coordinator is None:
+            from akaal.cdc.sync.coordinator import CDCContinuousSyncCoordinator
+            self._cdc_sync_coordinator = CDCContinuousSyncCoordinator(
+                capture_coordinator=self._get_cdc_coordinator(),
+                apply_coordinator=self._get_cdc_apply_coordinator(),
+                state_store=self.state_store,
+            )
+        return self._cdc_sync_coordinator
+
+    def start_continuous_sync(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        return self._get_cdc_sync_coordinator().start_continuous_sync(
+            migration_id=payload["migration_id"],
+            job_id=payload["job_id"],
+            run_id=payload["run_id"],
+            cdc_session_id=payload["cdc_session_id"],
+            source_engine=payload.get("source_engine", "POSTGRESQL"),
+            source_config=payload.get("source_config"),
+            target_config=payload.get("target_config"),
+        )
+
+    def process_sync_cycle(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        return self._get_cdc_sync_coordinator().process_sync_cycle(
+            cdc_session_id=payload["cdc_session_id"],
+            source_engine=payload.get("source_engine", "POSTGRESQL"),
+            batch_size=payload.get("batch_size", 10),
+            target_config=payload.get("target_config"),
+        )
+
+    def evaluate_cutover_readiness(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        cdc_session_id = payload["cdc_session_id"]
+        return self._get_cdc_sync_coordinator().evaluate_cutover_readiness(cdc_session_id)
+
+    def prepare_cutover(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        return self._get_cdc_sync_coordinator().prepare_cutover(
+            migration_id=payload["migration_id"],
+            job_id=payload["job_id"],
+            run_id=payload["run_id"],
+            cdc_session_id=payload["cdc_session_id"],
+            requested_by=payload.get("requested_by", "operator"),
+        )
+
+    def record_cutover_approval(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        return self._get_cdc_sync_coordinator().record_approval(
+            cdc_session_id=payload["cdc_session_id"],
+            approved_by=payload["approved_by"],
+            approval_token=payload["approval_token"],
+        )
+
+    def begin_final_drain(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        cdc_session_id = payload["cdc_session_id"]
+        final_lsn_str = payload.get("final_lsn_str", "0/9000000")
+        return self._get_cdc_sync_coordinator().begin_final_drain(cdc_session_id, final_lsn_str)
+
+    def run_cutover_validation(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        cdc_session_id = payload["cdc_session_id"]
+        return self._get_cdc_sync_coordinator().run_cutover_validation(cdc_session_id)
+
+    def commit_cutover(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        cdc_session_id = payload["cdc_session_id"]
+        return self._get_cdc_sync_coordinator().commit_cutover(cdc_session_id)
+
+    def abort_cutover(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        cdc_session_id = payload["cdc_session_id"]
+        return self._get_cdc_sync_coordinator().abort_cutover(cdc_session_id)
+
+    def evaluate_failback(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        cdc_session_id = payload["cdc_session_id"]
+        target_received_writes = payload.get("target_received_writes", False)
+        source_received_writes = payload.get("source_received_writes", False)
+        return self._get_cdc_sync_coordinator().evaluate_failback(
+            cdc_session_id=cdc_session_id,
+            target_received_writes=target_received_writes,
+            source_received_writes=source_received_writes,
+        )
+
+    def execute_failback(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        cdc_session_id = payload["cdc_session_id"]
+        force_governed = payload.get("force_governed", False)
+        return self._get_cdc_sync_coordinator().execute_failback(cdc_session_id, force_governed=force_governed)
+
+    def recover_cutover_session(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        migration_id = payload["migration_id"]
+        cdc_session_id = payload["cdc_session_id"]
+        return self._get_cdc_sync_coordinator().recover_cutover_session(migration_id, cdc_session_id)
