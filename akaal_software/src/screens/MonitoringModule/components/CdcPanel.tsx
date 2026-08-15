@@ -96,31 +96,31 @@ export const CdcPanel: React.FC<CdcPanelProps> = ({ cdcSnapshot, migrationId, on
 
   return (
     <div style={{ marginTop: 16 }}>
-      {/* ── Action Banners ────────────────────────────────────────────── */}
+      {/* ── Action Notifications ───────────────────────────────────────── */}
       {isHistorical && (
-        <div style={{ padding: '8px 16px', background: '#1e293b', border: '1px solid #334155', borderRadius: 8, marginBottom: 16, color: '#94a3b8', fontSize: 13 }}>
+        <div style={{ padding: '10px 16px', background: 'var(--dash-input-bg)', border: '1px solid var(--dash-border)', borderRadius: 10, marginBottom: 16, fontSize: 13 }}>
           🔒 <strong>HISTORICAL MODE</strong> — Viewing read-only CDC evidence for completed/historical session. Operational actions disabled.
         </div>
       )}
       {actionMsg && (
-        <div style={{ padding: '8px 16px', background: '#064e3b', border: '1px solid #059669', borderRadius: 8, marginBottom: 16, color: '#34d399', fontSize: 13 }}>
+        <div style={{ padding: '10px 16px', background: 'var(--dash-notif-success-bg, rgba(16,185,129,0.1))', border: '1px solid var(--dash-notif-success-border, rgba(16,185,129,0.3))', borderRadius: 10, marginBottom: 16, color: 'var(--dash-tag-running-text, #10B981)', fontSize: 13 }}>
           ✓ {actionMsg}
         </div>
       )}
       {actionError && (
-        <div style={{ padding: '8px 16px', background: '#450a0a', border: '1px solid #dc2626', borderRadius: 8, marginBottom: 16, color: '#f87171', fontSize: 13 }}>
+        <div style={{ padding: '10px 16px', background: 'var(--dash-notif-error-bg, rgba(239,68,68,0.1))', border: '1px solid var(--dash-notif-error-border, rgba(239,68,68,0.3))', borderRadius: 10, marginBottom: 16, color: 'var(--dash-tag-failed-text, #EF4444)', fontSize: 13 }}>
           ⚠️ {actionError}
         </div>
       )}
 
       {/* ── CDC Header Row ────────────────────────────────────────────── */}
-      <div className={styles.bannerCard} style={{ marginBottom: 16 }}>
+      <div className={styles.cdcHeaderCard}>
         <div className={styles.bannerMeta}>
           <div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--dash-text-primary, #F9FAFB)' }}>
+            <div className={styles.cdcHeaderTitle}>
               CDC Monitoring — <span className={styles.mono}>{cdcSnapshot.migration_id}</span>
             </div>
-            <div style={{ fontSize: 12, color: 'var(--dash-text-secondary, #9CA3AF)', marginTop: 4 }}>
+            <div className={styles.cdcHeaderSub}>
               Source: <strong>{cdcSnapshot.source_engine}</strong> ({cdcSnapshot.source_database}) → Target: <strong>{cdcSnapshot.target_engine}</strong> ({cdcSnapshot.target_database}) | Session: <span className={styles.mono}>{cdcSnapshot.cdc_session_id}</span>
             </div>
           </div>
@@ -135,14 +135,14 @@ export const CdcPanel: React.FC<CdcPanelProps> = ({ cdcSnapshot, migrationId, on
         </div>
 
         {!isHistorical && (
-          <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+          <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
             <button className={styles.primaryBtn} onClick={handlePauseCDC} disabled={cdcSnapshot.status === 'PAUSED'}>
               Pause CDC
             </button>
             <button className={styles.primaryBtn} onClick={handleResumeCDC} disabled={cdcSnapshot.status === 'HEALTHY'}>
               Resume CDC
             </button>
-            <button className={styles.primaryBtn} style={{ background: '#374151' }} onClick={onRefresh}>
+            <button className={styles.primaryBtn} style={{ background: 'var(--dash-input-bg, #374151)', color: 'var(--dash-text-primary, #fff)', boxShadow: 'none' }} onClick={onRefresh}>
               Refresh Snapshot
             </button>
           </div>
@@ -150,105 +150,105 @@ export const CdcPanel: React.FC<CdcPanelProps> = ({ cdcSnapshot, migrationId, on
       </div>
 
       {/* ── Top Operational Health Strip ──────────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 12, marginBottom: 16 }}>
-        <div className={styles.card} style={{ padding: 12 }}>
-          <div className={styles.statLbl}>CDC STATE</div>
-          <div className={styles.statVal} style={{ fontSize: 16, color: health_strip.cdc_state === 'HEALTHY' ? '#10b981' : health_strip.cdc_state === 'FAILED' ? '#ef4444' : '#f59e0b' }}>
+      <div className={styles.cdcHealthStripGrid}>
+        <div className={styles.cdcHealthCard}>
+          <div className={styles.cdcHealthLabel}>CDC STATE</div>
+          <div className={`${styles.cdcHealthValue} ${health_strip.cdc_state === 'HEALTHY' ? styles.successText : health_strip.cdc_state === 'FAILED' ? styles.errorText : styles.warningText}`}>
             {health_strip.cdc_state}
           </div>
-          <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>Mode: {cdcSnapshot.session_mode}</div>
+          <div className={styles.cdcHealthSub}>Mode: {cdcSnapshot.session_mode}</div>
         </div>
 
-        <div className={styles.card} style={{ padding: 12 }}>
-          <div className={styles.statLbl}>SOURCE LAG</div>
-          <div className={styles.statVal} style={{ fontSize: 16, color: health_strip.source_lag_sec > 5.0 ? '#f59e0b' : '#10b981' }}>
+        <div className={styles.cdcHealthCard}>
+          <div className={styles.cdcHealthLabel}>SOURCE LAG</div>
+          <div className={`${styles.cdcHealthValue} ${health_strip.source_lag_sec > 5.0 ? styles.warningText : styles.successText}`}>
             {health_strip.source_lag_sec.toFixed(1)}s
           </div>
-          <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{health_strip.source_lag_sec < 2.0 ? 'Real-time' : 'Catching up'}</div>
+          <div className={styles.cdcHealthSub}>{health_strip.source_lag_sec < 2.0 ? 'Real-time' : 'Catching up'}</div>
         </div>
 
-        <div className={styles.card} style={{ padding: 12 }}>
-          <div className={styles.statLbl}>BACKLOG</div>
-          <div className={styles.statVal} style={{ fontSize: 16 }}>
+        <div className={styles.cdcHealthCard}>
+          <div className={styles.cdcHealthLabel}>BACKLOG</div>
+          <div className={styles.cdcHealthValue}>
             {health_strip.backlog_events.toLocaleString()}
           </div>
-          <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{(health_strip.backlog_bytes / 1024).toFixed(0)} KB buffered</div>
+          <div className={styles.cdcHealthSub}>{(health_strip.backlog_bytes / 1024).toFixed(0)} KB buffered</div>
         </div>
 
-        <div className={styles.card} style={{ padding: 12 }}>
-          <div className={styles.statLbl}>APPLY RATE</div>
-          <div className={styles.statVal} style={{ fontSize: 16, color: '#3b82f6' }}>
+        <div className={styles.cdcHealthCard}>
+          <div className={styles.cdcHealthLabel}>APPLY RATE</div>
+          <div className={`${styles.cdcHealthValue} ${styles.accentText}`}>
             {health_strip.apply_rate_rows_per_sec > 0 ? `${(health_strip.apply_rate_rows_per_sec / 1000).toFixed(1)}k/s` : '0/s'}
           </div>
-          <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{workers_and_partitions.active_workers || 4} active workers</div>
+          <div className={styles.cdcHealthSub}>{workers_and_partitions.active_workers || 4} active workers</div>
         </div>
 
-        <div className={styles.card} style={{ padding: 12 }}>
-          <div className={styles.statLbl}>CHECKPOINT</div>
-          <div className={styles.statVal} style={{ fontSize: 14, fontFamily: 'monospace' }}>
+        <div className={styles.cdcHealthCard}>
+          <div className={styles.cdcHealthLabel}>CHECKPOINT</div>
+          <div className={`${styles.cdcHealthValue} ${styles.mono}`} style={{ fontSize: 14 }}>
             {health_strip.checkpoint_lsn}
           </div>
-          <div style={{ fontSize: 11, color: '#10b981', marginTop: 2 }}>Contiguous Frontier</div>
+          <div className={`${styles.cdcHealthSub} ${styles.successText}`}>Contiguous Frontier</div>
         </div>
 
-        <div className={styles.card} style={{ padding: 12 }}>
-          <div className={styles.statLbl}>CONFLICTS</div>
-          <div className={styles.statVal} style={{ fontSize: 16, color: health_strip.unresolved_conflicts_count > 0 ? '#ef4444' : '#10b981' }}>
+        <div className={styles.cdcHealthCard}>
+          <div className={styles.cdcHealthLabel}>CONFLICTS</div>
+          <div className={`${styles.cdcHealthValue} ${health_strip.unresolved_conflicts_count > 0 ? styles.errorText : styles.successText}`}>
             {health_strip.unresolved_conflicts_count}
           </div>
-          <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{health_strip.quarantined_entities_count} quarantined</div>
+          <div className={styles.cdcHealthSub}>{health_strip.quarantined_entities_count} quarantined</div>
         </div>
       </div>
 
       {/* ── Primary CDC Pipeline Visualization ────────────────────────── */}
-      <div className={styles.card} style={{ padding: 16, marginBottom: 16 }}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--dash-text-primary, #F9FAFB)', marginBottom: 12 }}>
+      <div className={styles.pipelineFlowBox}>
+        <div className={styles.pipelineFlowTitle}>
           CDC Pipeline Flow & Stage Status
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+        <div className={styles.pipelineFlowRow}>
           {/* Stage 1: Capture */}
-          <div style={{ flex: 1, padding: 10, background: '#1e293b', border: '1px solid #334155', borderRadius: 8, textAlign: 'center' }}>
-            <div style={{ fontSize: 11, color: '#94a3b8' }}>1. SOURCE CAPTURE</div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#10b981', marginTop: 4 }}>{pipeline.source_capture.state}</div>
-            <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{pipeline.source_capture.rate_events_per_sec || 0} evt/s</div>
+          <div className={styles.pipelineStageCard}>
+            <div className={styles.pipelineStageNum}>1. SOURCE CAPTURE</div>
+            <div className={`${styles.pipelineStageState} ${styles.successText}`}>{pipeline.source_capture.state}</div>
+            <div className={styles.pipelineStageSub}>{pipeline.source_capture.rate_events_per_sec || 0} evt/s</div>
           </div>
-          <div style={{ color: '#64748b', fontWeight: 700 }}>→</div>
+          <div className={styles.pipelineArrow}>→</div>
 
           {/* Stage 2: Durable Buffer */}
-          <div style={{ flex: 1, padding: 10, background: '#1e293b', border: '1px solid #334155', borderRadius: 8, textAlign: 'center' }}>
-            <div style={{ fontSize: 11, color: '#94a3b8' }}>2. DURABLE BUFFER</div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: pipeline.durable_buffer.state === 'NORMAL' ? '#10b981' : '#f59e0b', marginTop: 4 }}>{pipeline.durable_buffer.state}</div>
-            <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{pipeline.durable_buffer.depth_events || 0} queued</div>
+          <div className={styles.pipelineStageCard}>
+            <div className={styles.pipelineStageNum}>2. DURABLE BUFFER</div>
+            <div className={`${styles.pipelineStageState} ${pipeline.durable_buffer.state === 'NORMAL' ? styles.successText : styles.warningText}`}>{pipeline.durable_buffer.state}</div>
+            <div className={styles.pipelineStageSub}>{pipeline.durable_buffer.depth_events || 0} queued</div>
           </div>
-          <div style={{ color: '#64748b', fontWeight: 700 }}>→</div>
+          <div className={styles.pipelineArrow}>→</div>
 
           {/* Stage 3: Ordering DAG */}
-          <div style={{ flex: 1, padding: 10, background: '#1e293b', border: '1px solid #334155', borderRadius: 8, textAlign: 'center' }}>
-            <div style={{ fontSize: 11, color: '#94a3b8' }}>3. ORDERING DAG</div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: pipeline.ordering_dag.state === 'HEALTHY' ? '#10b981' : '#ef4444', marginTop: 4 }}>{pipeline.ordering_dag.state}</div>
-            <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{pipeline.ordering_dag.blocked_tx_count || 0} blocked</div>
+          <div className={styles.pipelineStageCard}>
+            <div className={styles.pipelineStageNum}>3. ORDERING DAG</div>
+            <div className={`${styles.pipelineStageState} ${pipeline.ordering_dag.state === 'HEALTHY' ? styles.successText : styles.errorText}`}>{pipeline.ordering_dag.state}</div>
+            <div className={styles.pipelineStageSub}>{pipeline.ordering_dag.blocked_tx_count || 0} blocked</div>
           </div>
-          <div style={{ color: '#64748b', fontWeight: 700 }}>→</div>
+          <div className={styles.pipelineArrow}>→</div>
 
           {/* Stage 4: Partition Router */}
-          <div style={{ flex: 1, padding: 10, background: '#1e293b', border: '1px solid #334155', borderRadius: 8, textAlign: 'center' }}>
-            <div style={{ fontSize: 11, color: '#94a3b8' }}>4. PARTITION ROUTER</div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#10b981', marginTop: 4 }}>{pipeline.partition_router.state}</div>
-            <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{pipeline.partition_router.active_partitions || 1} partitions</div>
+          <div className={styles.pipelineStageCard}>
+            <div className={styles.pipelineStageNum}>4. PARTITION ROUTER</div>
+            <div className={`${styles.pipelineStageState} ${styles.successText}`}>{pipeline.partition_router.state}</div>
+            <div className={styles.pipelineStageSub}>{pipeline.partition_router.active_partitions || 1} partitions</div>
           </div>
-          <div style={{ color: '#64748b', fontWeight: 700 }}>→</div>
+          <div className={styles.pipelineArrow}>→</div>
 
           {/* Stage 5: Target Apply */}
-          <div style={{ flex: 1, padding: 10, background: '#1e293b', border: '1px solid #334155', borderRadius: 8, textAlign: 'center' }}>
-            <div style={{ fontSize: 11, color: '#94a3b8' }}>5. TARGET APPLY</div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: pipeline.target_apply.state === 'HEALTHY' ? '#10b981' : '#f59e0b', marginTop: 4 }}>{pipeline.target_apply.state}</div>
-            <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{pipeline.target_apply.apply_rate_rows_per_sec || 0} rows/s</div>
+          <div className={styles.pipelineStageCard}>
+            <div className={styles.pipelineStageNum}>5. TARGET APPLY</div>
+            <div className={`${styles.pipelineStageState} ${pipeline.target_apply.state === 'HEALTHY' ? styles.successText : styles.warningText}`}>{pipeline.target_apply.state}</div>
+            <div className={styles.pipelineStageSub}>{pipeline.target_apply.apply_rate_rows_per_sec || 0} rows/s</div>
           </div>
         </div>
       </div>
 
       {/* ── Internal Sub-Tabs Navigation ───────────────────────────── */}
-      <div className={styles.tabsRow} style={{ marginBottom: 16 }}>
+      <div className={styles.tabsRow} style={{ marginBottom: 20 }}>
         <button className={`${styles.tabBtn} ${subTab === 'overview' ? styles.tabBtnActive : ''}`} onClick={() => setSubTab('overview')}>Overview</button>
         <button className={`${styles.tabBtn} ${subTab === 'pipeline' ? styles.tabBtnActive : ''}`} onClick={() => setSubTab('pipeline')}>Pipeline & Throughput</button>
         <button className={`${styles.tabBtn} ${subTab === 'workers' ? styles.tabBtnActive : ''}`} onClick={() => setSubTab('workers')}>Workers & Partitions</button>
@@ -261,9 +261,9 @@ export const CdcPanel: React.FC<CdcPanelProps> = ({ cdcSnapshot, migrationId, on
 
       {/* ── SUB-TAB 1: Overview ──────────────────────────────────────── */}
       {subTab === 'overview' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16 }}>
-          <div className={styles.card} style={{ padding: 16 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--dash-text-primary, #F9FAFB)', marginBottom: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 20 }}>
+          <div className={styles.card}>
+            <div className={styles.pipelineFlowTitle}>
               Session & Position Telemetry
             </div>
             <table className={styles.table}>
@@ -274,32 +274,32 @@ export const CdcPanel: React.FC<CdcPanelProps> = ({ cdcSnapshot, migrationId, on
                 <tr><td>Fencing Epoch</td><td className={styles.mono}>{overview.fencing_epoch || 1}</td></tr>
                 <tr><td>Active Workers</td><td>{overview.active_workers || 4} / {overview.configured_workers || 4}</td></tr>
                 <tr><td>Backlog Depth</td><td>{backlog_and_backpressure.queue_depth || 0} events ({backlog_and_backpressure.utilization_pct || 0}% capacity)</td></tr>
-                <tr><td>Backpressure State</td><td style={{ color: backlog_and_backpressure.backpressure_state === 'NORMAL' ? '#10b981' : '#f59e0b' }}>{backlog_and_backpressure.backpressure_state || 'NORMAL'}</td></tr>
+                <tr><td>Backpressure State</td><td className={backlog_and_backpressure.backpressure_state === 'NORMAL' ? styles.successText : styles.warningText}>{backlog_and_backpressure.backpressure_state || 'NORMAL'}</td></tr>
               </tbody>
             </table>
           </div>
 
-          <div className={styles.card} style={{ padding: 16 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--dash-text-primary, #F9FAFB)', marginBottom: 12 }}>
+          <div className={styles.card}>
+            <div className={styles.pipelineFlowTitle}>
               Cutover Readiness Checklist
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 13 }}>
-              <div style={{ color: cutover_checklist.backlog_drained ? '#10b981' : '#ef4444' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13 }}>
+              <div className={cutover_checklist.backlog_drained ? styles.successText : styles.errorText}>
                 {cutover_checklist.backlog_drained ? '✓' : '✗'} Backlog Drained
               </div>
-              <div style={{ color: cutover_checklist.ordering_dependencies_resolved ? '#10b981' : '#ef4444' }}>
+              <div className={cutover_checklist.ordering_dependencies_resolved ? styles.successText : styles.errorText}>
                 {cutover_checklist.ordering_dependencies_resolved ? '✓' : '✗'} Ordering Dependencies Resolved
               </div>
-              <div style={{ color: cutover_checklist.schema_barriers_clear ? '#10b981' : '#ef4444' }}>
+              <div className={cutover_checklist.schema_barriers_clear ? styles.successText : styles.errorText}>
                 {cutover_checklist.schema_barriers_clear ? '✓' : '✗'} Schema Barriers Clear
               </div>
-              <div style={{ color: cutover_checklist.conflicts_resolved ? '#10b981' : '#ef4444' }}>
+              <div className={cutover_checklist.conflicts_resolved ? styles.successText : styles.errorText}>
                 {cutover_checklist.conflicts_resolved ? '✓' : '✗'} Multi-Master Conflicts Resolved
               </div>
-              <div style={{ color: cutover_checklist.quarantines_clear ? '#10b981' : '#ef4444' }}>
+              <div className={cutover_checklist.quarantines_clear ? styles.successText : styles.errorText}>
                 {cutover_checklist.quarantines_clear ? '✓' : '✗'} Entity Quarantines Released
               </div>
-              <div style={{ borderTop: '1px solid #334155', paddingTop: 8, marginTop: 4, fontWeight: 700, color: cutover_checklist.cutover_ready ? '#10b981' : '#ef4444' }}>
+              <div style={{ borderTop: '1px solid var(--dash-border)', paddingTop: 10, marginTop: 6, fontWeight: 700 }} className={cutover_checklist.cutover_ready ? styles.successText : styles.errorText}>
                 STATUS: {cutover_checklist.cutover_ready ? 'CUTOVER READY' : 'CUTOVER BLOCKED'}
               </div>
             </div>
@@ -309,8 +309,8 @@ export const CdcPanel: React.FC<CdcPanelProps> = ({ cdcSnapshot, migrationId, on
 
       {/* ── SUB-TAB 2: Pipeline & Throughput ─────────────────────────── */}
       {subTab === 'pipeline' && (
-        <div className={styles.card} style={{ padding: 16 }}>
-          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--dash-text-primary, #F9FAFB)', marginBottom: 12 }}>
+        <div className={styles.card}>
+          <div className={styles.pipelineFlowTitle}>
             Time-Series Operational Telemetry (Last 15 Minutes)
           </div>
           <table className={styles.table}>
@@ -340,8 +340,8 @@ export const CdcPanel: React.FC<CdcPanelProps> = ({ cdcSnapshot, migrationId, on
 
       {/* ── SUB-TAB 3: Workers & Partitions ───────────────────────────── */}
       {subTab === 'workers' && (
-        <div className={styles.card} style={{ padding: 16 }}>
-          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--dash-text-primary, #F9FAFB)', marginBottom: 12 }}>
+        <div className={styles.card}>
+          <div className={styles.pipelineFlowTitle}>
             Parallel Apply Workers & Shard Partitions (P3.6 Authority)
           </div>
           <table className={styles.table}>
@@ -373,32 +373,32 @@ export const CdcPanel: React.FC<CdcPanelProps> = ({ cdcSnapshot, migrationId, on
 
       {/* ── SUB-TAB 4: Ordering & Causality ──────────────────────────── */}
       {subTab === 'ordering' && (
-        <div className={styles.card} style={{ padding: 16 }}>
-          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--dash-text-primary, #F9FAFB)', marginBottom: 12 }}>
+        <div className={styles.card}>
+          <div className={styles.pipelineFlowTitle}>
             Transactional Causality DAG & Dependency Ordering (P3.7 Authority)
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 16 }}>
-            <div style={{ padding: 8, background: '#1e293b', borderRadius: 6 }}>
-              <div style={{ fontSize: 11, color: '#94a3b8' }}>Ready Transactions</div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: '#10b981' }}>{ordering_and_causality.ready_transaction_count || 0}</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 20 }}>
+            <div className={styles.pipelineStageCard}>
+              <div className={styles.pipelineStageNum}>Ready Transactions</div>
+              <div className={`${styles.pipelineStageState} ${styles.successText}`}>{ordering_and_causality.ready_transaction_count || 0}</div>
             </div>
-            <div style={{ padding: 8, background: '#1e293b', borderRadius: 6 }}>
-              <div style={{ fontSize: 11, color: '#94a3b8' }}>Blocked Transactions</div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: ordering_and_causality.blocked_transaction_count > 0 ? '#ef4444' : '#10b981' }}>{ordering_and_causality.blocked_transaction_count || 0}</div>
+            <div className={styles.pipelineStageCard}>
+              <div className={styles.pipelineStageNum}>Blocked Transactions</div>
+              <div className={`${styles.pipelineStageState} ${ordering_and_causality.blocked_transaction_count > 0 ? styles.errorText : styles.successText}`}>{ordering_and_causality.blocked_transaction_count || 0}</div>
             </div>
-            <div style={{ padding: 8, background: '#1e293b', borderRadius: 6 }}>
-              <div style={{ fontSize: 11, color: '#94a3b8' }}>Causality DAG Nodes</div>
-              <div style={{ fontSize: 18, fontWeight: 700 }}>{ordering_and_causality.causality_graph_nodes_count || 0}</div>
+            <div className={styles.pipelineStageCard}>
+              <div className={styles.pipelineStageNum}>Causality DAG Nodes</div>
+              <div className={styles.pipelineStageState}>{ordering_and_causality.causality_graph_nodes_count || 0}</div>
             </div>
-            <div style={{ padding: 8, background: '#1e293b', borderRadius: 6 }}>
-              <div style={{ fontSize: 11, color: '#94a3b8' }}>Ordering Health</div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: ordering_and_causality.ordering_health === 'HEALTHY' ? '#10b981' : '#ef4444' }}>{ordering_and_causality.ordering_health || 'HEALTHY'}</div>
+            <div className={styles.pipelineStageCard}>
+              <div className={styles.pipelineStageNum}>Ordering Health</div>
+              <div className={`${styles.pipelineStageState} ${ordering_and_causality.ordering_health === 'HEALTHY' ? styles.successText : styles.errorText}`}>{ordering_and_causality.ordering_health || 'HEALTHY'}</div>
             </div>
           </div>
 
           {(ordering_and_causality.blocked_transactions || []).length > 0 && (
             <div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: '#f87171', marginBottom: 8 }}>Blocked Transaction Drill-Down</div>
+              <div className={`${styles.pipelineFlowTitle} ${styles.errorText}`} style={{ fontSize: 13, marginBottom: 10 }}>Blocked Transaction Drill-Down</div>
               <table className={styles.table}>
                 <thead>
                   <tr>
@@ -412,7 +412,7 @@ export const CdcPanel: React.FC<CdcPanelProps> = ({ cdcSnapshot, migrationId, on
                     <tr key={tx.tx_id}>
                       <td className={styles.mono}>{tx.tx_id}</td>
                       <td className={styles.mono}>{tx.source_position}</td>
-                      <td style={{ color: '#f87171' }}>{tx.block_reason}</td>
+                      <td className={styles.errorText}>{tx.block_reason}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -424,41 +424,41 @@ export const CdcPanel: React.FC<CdcPanelProps> = ({ cdcSnapshot, migrationId, on
 
       {/* ── SUB-TAB 5: Schema Transitions ───────────────────────────── */}
       {subTab === 'schema' && (
-        <div className={styles.card} style={{ padding: 16 }}>
-          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--dash-text-primary, #F9FAFB)', marginBottom: 12 }}>
+        <div className={styles.card}>
+          <div className={styles.pipelineFlowTitle}>
             Live Schema Evolution Barriers (P3.5 Authority)
           </div>
-          <div style={{ fontSize: 13, color: '#94a3b8' }}>
-            Active Schema Barriers: <strong>{schema_transitions.active_barriers_count || 0}</strong> | Evolution State: <strong style={{ color: '#10b981' }}>{schema_transitions.schema_evolution_state || 'HEALTHY'}</strong>
+          <div style={{ fontSize: 13, color: 'var(--dash-text-secondary)' }}>
+            Active Schema Barriers: <strong>{schema_transitions.active_barriers_count || 0}</strong> | Evolution State: <strong className={styles.successText}>{schema_transitions.schema_evolution_state || 'HEALTHY'}</strong>
           </div>
         </div>
       )}
 
       {/* ── SUB-TAB 6: Conflicts & Multi-Master ───────────────────────── */}
       {subTab === 'conflicts' && (
-        <div className={styles.card} style={{ padding: 16 }}>
-          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--dash-text-primary, #F9FAFB)', marginBottom: 12 }}>
+        <div className={styles.card}>
+          <div className={styles.pipelineFlowTitle}>
             Bidirectional Topology & Multi-Master Conflict Management (P3.8 Authority)
           </div>
 
           {cdcSnapshot.session_mode === 'BIDIRECTIONAL' && (
-            <div style={{ padding: 12, background: '#1e293b', border: '1px solid #334155', borderRadius: 8, marginBottom: 16, textAlign: 'center' }}>
-              <div style={{ fontSize: 12, color: '#94a3b8' }}>BIDIRECTIONAL REPLICATION TOPOLOGY</div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: '#38bdf8', marginTop: 4 }}>
+            <div className={styles.topologyBox}>
+              <div className={styles.topologyTitle}>BIDIRECTIONAL REPLICATION TOPOLOGY</div>
+              <div className={styles.topologyNodes}>
                 NODE A ({conflicts_and_topology.source_a_database_id}) &lt;=================&gt; NODE B ({conflicts_and_topology.source_b_database_id})
               </div>
-              <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
+              <div className={styles.topologySub}>
                 Designated Primary: <strong>{conflicts_and_topology.designated_primary}</strong> | Echo Suppressed A→B: {conflicts_and_topology.echo_events_suppressed_a_to_b} | B→A: {conflicts_and_topology.echo_events_suppressed_b_to_a}
               </div>
             </div>
           )}
 
-          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--dash-text-primary, #F9FAFB)', marginBottom: 8 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--dash-text-primary)', marginBottom: 12 }}>
             Detected Multi-Master Conflicts ({conflicts_and_topology.unresolved_conflicts_count || 0} Unresolved)
           </div>
 
           {(conflicts_and_topology.conflicts_list || []).length === 0 ? (
-            <div style={{ fontSize: 13, color: '#10b981', padding: 12, background: '#064e3b', borderRadius: 6 }}>
+            <div className={styles.successText} style={{ fontSize: 13, padding: 14, background: 'var(--dash-notif-success-bg)', border: '1px solid var(--dash-notif-success-border)', borderRadius: 10 }}>
               ✓ Zero multi-master conflicts detected. Topology operating safely.
             </div>
           ) : (
@@ -483,7 +483,7 @@ export const CdcPanel: React.FC<CdcPanelProps> = ({ cdcSnapshot, migrationId, on
                     <td>{c.policy || 'UNRESOLVED'}</td>
                     <td>
                       {!isHistorical && c.conflict_state !== 'RESOLVED' && (
-                        <button className={styles.primaryBtn} style={{ padding: '4px 8px', fontSize: 11 }} onClick={() => setSelectedConflictId(c.conflict_id)}>
+                        <button className={styles.primaryBtn} style={{ padding: '4px 10px', fontSize: 11 }} onClick={() => setSelectedConflictId(c.conflict_id)}>
                           Inspect & Resolve
                         </button>
                       )}
@@ -496,14 +496,14 @@ export const CdcPanel: React.FC<CdcPanelProps> = ({ cdcSnapshot, migrationId, on
 
           {/* Conflict Inspection & Governance Modal */}
           {selectedConflictId && (
-            <div style={{ marginTop: 16, padding: 16, background: '#0f172a', border: '1px solid #3b82f6', borderRadius: 8 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: '#60a5fa', marginBottom: 8 }}>
+            <div className={styles.governanceBox}>
+              <div className={`${styles.pipelineFlowTitle} ${styles.accentText}`} style={{ marginBottom: 8 }}>
                 Operator Conflict Governance Panel — <span className={styles.mono}>{selectedConflictId}</span>
               </div>
-              <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 12 }}>
+              <div style={{ fontSize: 12, color: 'var(--dash-text-secondary)', marginBottom: 14 }}>
                 Select a canonical resolution policy to apply to conflict {selectedConflictId}:
               </div>
-              <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
                 <button className={styles.primaryBtn} onClick={() => handleResolveConflict(selectedConflictId, 'SOURCE_A_WINS')}>
                   Source A Wins
                 </button>
@@ -518,8 +518,8 @@ export const CdcPanel: React.FC<CdcPanelProps> = ({ cdcSnapshot, migrationId, on
                 </button>
               </div>
 
-              <div style={{ borderTop: '1px solid #334155', paddingTop: 12, marginTop: 8 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: '#e2e8f0', marginBottom: 6 }}>Explicit Manual Governance Winner:</div>
+              <div style={{ borderTop: '1px solid var(--dash-border)', paddingTop: 14 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--dash-text-primary)', marginBottom: 8 }}>Explicit Manual Governance Winner:</div>
                 <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                   <select value={manualWinner} onChange={(e) => setManualWinner(e.target.value as any)} className={styles.selectInput}>
                     <option value="SOURCE_A">Winner: Source A ({conflicts_and_topology.source_a_database_id})</option>
@@ -530,12 +530,12 @@ export const CdcPanel: React.FC<CdcPanelProps> = ({ cdcSnapshot, migrationId, on
                     placeholder="Governance audit reason..."
                     value={governanceReason}
                     onChange={(e) => setGovernanceReason(e.target.value)}
-                    style={{ flex: 1, padding: '6px 12px', background: '#1e293b', border: '1px solid #475569', borderRadius: 6, color: '#fff', fontSize: 12 }}
+                    style={{ flex: 1, padding: '8px 14px', background: 'var(--dash-input-bg)', border: '1px solid var(--dash-border)', borderRadius: 8, color: 'var(--dash-text-primary)', fontSize: 12 }}
                   />
                   <button className={styles.primaryBtn} style={{ background: '#059669' }} onClick={() => handleResolveConflict(selectedConflictId, 'MANUAL_GOVERNANCE_REQUIRED')}>
                     Apply Manual Winner
                   </button>
-                  <button className={styles.primaryBtn} style={{ background: '#475569' }} onClick={() => setSelectedConflictId(null)}>
+                  <button className={styles.primaryBtn} style={{ background: 'var(--dash-input-bg)', color: 'var(--dash-text-primary)', boxShadow: 'none' }} onClick={() => setSelectedConflictId(null)}>
                     Cancel
                   </button>
                 </div>
@@ -547,13 +547,13 @@ export const CdcPanel: React.FC<CdcPanelProps> = ({ cdcSnapshot, migrationId, on
 
       {/* ── SUB-TAB 7: Recovery & Checkpoints ─────────────────────────── */}
       {subTab === 'recovery' && (
-        <div className={styles.card} style={{ padding: 16 }}>
-          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--dash-text-primary, #F9FAFB)', marginBottom: 12 }}>
+        <div className={styles.card}>
+          <div className={styles.pipelineFlowTitle}>
             Monotonic Recovery & Checkpoint Frontier (P1 & P3.6 Authority)
           </div>
           <table className={styles.table}>
             <tbody>
-              <tr><td>Recovery State</td><td><span className={styles.badge} style={{ background: '#064e3b', color: '#34d399' }}>{recovery_and_checkpoints.recovery_state}</span></td></tr>
+              <tr><td>Recovery State</td><td><span className={`${styles.badge} ${styles.badgeRunning}`}>{recovery_and_checkpoints.recovery_state}</span></td></tr>
               <tr><td>Fencing Epoch Token</td><td className={styles.mono}>{recovery_and_checkpoints.fencing_epoch}</td></tr>
               <tr><td>Last Durable Checkpoint</td><td className={styles.mono}>{recovery_and_checkpoints.last_durable_checkpoint}</td></tr>
               <tr><td>Contiguous Frontier LSN</td><td className={styles.mono}>{recovery_and_checkpoints.contiguous_frontier_lsn}</td></tr>
@@ -566,8 +566,8 @@ export const CdcPanel: React.FC<CdcPanelProps> = ({ cdcSnapshot, migrationId, on
 
       {/* ── SUB-TAB 8: Operational Timeline & History ─────────────────── */}
       {subTab === 'history' && (
-        <div className={styles.card} style={{ padding: 16 }}>
-          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--dash-text-primary, #F9FAFB)', marginBottom: 12 }}>
+        <div className={styles.card}>
+          <div className={styles.pipelineFlowTitle}>
             Operational Event Timeline
           </div>
           <table className={styles.table}>
