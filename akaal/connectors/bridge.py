@@ -89,7 +89,7 @@ class LegacyAdapterUniversalBridge(IUniversalConnector):
             supports_schema_discovery=(self._family != ConnectorFamily.KEY_VALUE_STORE),
             supports_bulk_read=(self._role in (ConnectorRole.SOURCE, ConnectorRole.BOTH)),
             supports_bulk_write=(self._role in (ConnectorRole.TARGET, ConnectorRole.BOTH)),
-            supports_transactions=(self._family == ConnectorFamily.RELATIONAL_DATABASE),
+            supports_transactions=(self._family == ConnectorFamily.RELATIONAL_DATABASE or self._system_type in (SystemType.SNOWFLAKE, SystemType.REDSHIFT)),
             supports_cdc_capture=self._supports_cdc,
             supports_continuous_sync=self._supports_cdc,
             supports_lobs=True,
