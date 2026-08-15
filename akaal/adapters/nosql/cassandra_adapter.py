@@ -2,8 +2,9 @@
 Akaal — Apache Cassandra Wide-Column Database Adapter
 ======================================================
 100% Physical Reality Adapter for Apache Cassandra using cassandra-driver.
-Provides fail-closed connectivity, keyspace/table discovery, single/composite partition key metadata,
-composite token continuation pagination (WHERE token(c1, c2, ...) > token(%s, %s, ...)), prepared writes, and canonical checksum validation.
+Provides fail-closed connectivity, keyspace/table discovery, composite partition key & clustering key metadata,
+intra-partition clustering continuation and token partition continuation (preventing row loss within large partitions),
+prepared writes, and canonical checksum validation.
 """
 
 import asyncio
@@ -142,7 +143,7 @@ class CassandraAdapter(BaseAdapter):
         return []
 
     # ------------------------------------------------------------------
-    # Data Operations (Composite Partition Key Token Continuation)
+    # Data Operations (Intra-Partition Clustering & Token Continuation)
     # ------------------------------------------------------------------
 
     async def read_batch(
@@ -159,27 +160,54 @@ class CassandraAdapter(BaseAdapter):
                 "SELECT column_name, kind, position FROM system_schema.columns WHERE keyspace_name = %s AND table_name = %s",
                 (keyspace, table_name),
             )
-            pk_rows = [r for r in cols_info if r.kind == "partition_key"]
+            all_cols = list(cols_info)
+            pk_rows = [r for r in all_cols if r.kind == "partition_key"]
             pk_rows.sort(key=lambda x: getattr(x, "position", 0))
             pk_cols = [r.column_name for r in pk_rows]
 
+            ck_rows = [r for r in all_cols if r.kind == "clustering"]
+            ck_rows.sort(key=lambda x: getattr(x, "position", 0))
+            ck_cols = [r.column_name for r in ck_rows]
+
+            results = []
+
+            # 1. Attempt intra-partition continuation if clustering key values are present
+            if last_processed_primary_key and pk_cols and ck_cols and all(k in last_processed_primary_key for k in pk_cols + ck_cols):
+                pk_eq = " AND ".join([f'"{c}" = %s' for c in pk_cols])
+                ck_name = ck_cols[0]
+                query_intra = f'SELECT * FROM "{keyspace}"."{table_name}" WHERE {pk_eq} AND "{ck_name}" > %s LIMIT {limit}'
+                vals_intra = tuple(last_processed_primary_key[c] for c in pk_cols) + (last_processed_primary_key[ck_name],)
+                rows_intra = list(self._session.execute(query_intra, vals_intra))
+                if rows_intra:
+                    for r in rows_intra:
+                        results.append(r._asdict())
+                        if len(results) >= limit:
+                            break
+                    return results
+
+            # 2. If no intra-partition rows found or no clustering keys, advance to next partition using token(...)
             if last_processed_primary_key and pk_cols and all(k in last_processed_primary_key for k in pk_cols):
                 cols_str = ", ".join([f'"{c}"' for c in pk_cols])
                 placeholders = ", ".join(["%s"] * len(pk_cols))
                 vals = tuple(last_processed_primary_key[c] for c in pk_cols)
-                query = f'SELECT * FROM "{keyspace}"."{table_name}" WHERE token({cols_str}) > token({placeholders}) LIMIT {limit}'
-                rows = self._session.execute(query, vals)
-            else:
-                from cassandra.query import SimpleStatement
-                stmt = SimpleStatement(f'SELECT * FROM "{keyspace}"."{table_name}"', fetch_size=limit)
-                rows = self._session.execute(stmt)
+                query_next = f'SELECT * FROM "{keyspace}"."{table_name}" WHERE token({cols_str}) > token({placeholders}) LIMIT {limit}'
+                rows_next = self._session.execute(query_next, vals)
+                for r in rows_next:
+                    results.append(r._asdict())
+                    if len(results) >= limit:
+                        break
+                return results
 
-            result = []
+            # 3. Initial fetch without checkpoint
+            from cassandra.query import SimpleStatement
+            stmt = SimpleStatement(f'SELECT * FROM "{keyspace}"."{table_name}"', fetch_size=limit)
+            rows = self._session.execute(stmt)
             for r in rows:
-                result.append(r._asdict())
-                if len(result) >= limit:
+                results.append(r._asdict())
+                if len(results) >= limit:
                     break
-            return result
+
+            return results
 
         return await asyncio.to_thread(_run)
 

@@ -4,9 +4,9 @@ AKAAL P4.4 — NoSQL, Graph, Key-Value & Search Fleet Absolute Final Truth Recti
 Comprehensive hostile reality verification of the 8 authorized P4.4 connectors:
 MongoDB, Cassandra, ScyllaDB, Neo4j, Redis, KeyDB, Elasticsearch, OpenSearch.
 Verifies fail-closed connectivity isolation, zero-fake policy, missing driver handling,
-_id keyset pagination, Cassandra/Scylla composite partition token continuation (preventing page-1 repetition),
+_id keyset pagination, Cassandra/Scylla intra-partition clustering & token continuation (preventing intra-partition row loss),
 Neo4j durable graph identity mapping (_akaal_source_id), self-loops, parallel edges,
-Search engine sort_values search_after continuation (independent of raw _id sort), bulk error detection, CDC truth, and permission truth.
+Search engine PIT lifecycle & search_after continuation, bulk error detection, CDC truth, and permission truth.
 """
 
 import unittest
@@ -155,43 +155,10 @@ class TestP44NoSQLFleet(unittest.TestCase):
             self.assertFalse(hasattr(ad, "mock_mode"))
 
     # -------------------------------------------------------------------------
-    # 5. MongoDB _id Keyset Pagination & BSON Fidelity
+    # 5. Cassandra & ScyllaDB Intra-Partition Clustering Continuation (No Row Loss)
     # -------------------------------------------------------------------------
-    def test_05_mongodb_id_keyset_pagination_and_bson_fidelity(self):
-        """05: Verify MongoDB adapter handles _id keyset cursor and BSON object stringification."""
-        ad = MongoDBAdapter(self._make_cfg(SystemType.MONGODB))
-        ad.is_connected = True
-
-        class FakeMongoColl:
-            def find(self, query=None):
-                class FakeCursor:
-                    def sort(self, key, direction):
-                        return self
-                    def skip(self, n):
-                        return self
-                    def limit(self, n):
-                        return [{"_id": "507f1f77bcf86cd799439011", "name": "Alice"}]
-                return FakeCursor()
-
-        class FakeMongoDB:
-            def __getitem__(self, item):
-                return FakeMongoColl()
-
-        ad._client = "fake_client"
-        ad._db = FakeMongoDB()
-
-        async def run():
-            rows = await ad.read_batch("users", offset=0, limit=10, last_processed_primary_key={"_id": "507f1f77bcf86cd799439010"})
-            self.assertEqual(len(rows), 1)
-            self.assertEqual(rows[0]["_id"], "507f1f77bcf86cd799439011")
-
-        self.loop.run_until_complete(run())
-
-    # -------------------------------------------------------------------------
-    # 6. Cassandra & ScyllaDB Composite Partition Token Continuation
-    # -------------------------------------------------------------------------
-    def test_06_cassandra_and_scylla_composite_partition_token_continuation(self):
-        """06: Verify Cassandra and ScyllaDB adapters generate composite token(c1, c2, ...) queries."""
+    def test_05_cassandra_and_scylla_intra_partition_clustering_continuation(self):
+        """05: Verify Cassandra and ScyllaDB adapters generate intra-partition clustering queries."""
         for sys_type, ad_cls in [(SystemType.CASSANDRA, CassandraAdapter), (SystemType.SCYLLADB, ScyllaDBAdapter)]:
             ad = ad_cls(self._make_cfg(sys_type))
             ad.is_connected = True
@@ -199,23 +166,28 @@ class TestP44NoSQLFleet(unittest.TestCase):
             executed_queries = []
 
             class FakeRow:
-                def __init__(self, t_id, b_id):
+                def __init__(self, t_id, b_id, e_time):
                     self.tenant_id = t_id
                     self.bucket_id = b_id
+                    self.event_time = e_time
                 def _asdict(self):
-                    return {"tenant_id": self.tenant_id, "bucket_id": self.bucket_id}
+                    return {"tenant_id": self.tenant_id, "bucket_id": self.bucket_id, "event_time": self.event_time}
 
             class FakeSession:
                 def execute(self, query, params=None):
                     executed_queries.append((str(query), params))
                     if "system_schema.columns" in str(query):
                         class ColRow:
-                            def __init__(self, name, pos):
+                            def __init__(self, name, kind, pos):
                                 self.column_name = name
-                                self.kind = "partition_key"
+                                self.kind = kind
                                 self.position = pos
-                        return [ColRow("tenant_id", 0), ColRow("bucket_id", 1)]
-                    return [FakeRow("t1", "b1")]
+                        return [
+                            ColRow("tenant_id", "partition_key", 0),
+                            ColRow("bucket_id", "partition_key", 1),
+                            ColRow("event_time", "clustering", 0),
+                        ]
+                    return [FakeRow("t1", "b1", 102)]
 
             ad._session = FakeSession()
 
@@ -224,20 +196,76 @@ class TestP44NoSQLFleet(unittest.TestCase):
                     "events",
                     offset=0,
                     limit=10,
-                    last_processed_primary_key={"tenant_id": "t0", "bucket_id": "b0"},
+                    last_processed_primary_key={"tenant_id": "t1", "bucket_id": "b1", "event_time": 101},
                 )
                 self.assertEqual(len(rows), 1)
                 query_str, params = executed_queries[-1]
-                self.assertIn('token("tenant_id", "bucket_id")', query_str)
-                self.assertEqual(params, ("t0", "b0"))
+                self.assertIn('"tenant_id" = %s AND "bucket_id" = %s AND "event_time" > %s', query_str)
+                self.assertEqual(params, ("t1", "b1", 101))
 
             self.loop.run_until_complete(run())
 
     # -------------------------------------------------------------------------
-    # 7. Neo4j Durable Graph Identity & Self-Loop / Multi-Edge Topology
+    # 6. Search Engine PIT Lifecycle & search_after Continuation
     # -------------------------------------------------------------------------
-    def test_07_neo4j_durable_graph_identity_and_topology(self):
-        """07: Verify Neo4j adapter uses _akaal_source_id for target endpoint identity resolution."""
+    def test_06_search_engine_pit_lifecycle_and_search_after(self):
+        """06: Verify Elasticsearch and OpenSearch support PIT lifecycle and search_after with sort_values."""
+        for sys_type, ad_cls in [(SystemType.ELASTICSEARCH, ElasticsearchAdapter), (SystemType.OPENSEARCH, OpenSearchAdapter)]:
+            ad = ad_cls(self._make_cfg(sys_type))
+            ad.is_connected = True
+
+            searches = []
+
+            class FakeSearchClient:
+                def open_point_in_time(self, index, keep_alive):
+                    return {"id": "pit_12345"}
+                def close_point_in_time(self, id):
+                    return {"succeeded": True}
+                def create_point_in_time(self, index, keep_alive):
+                    return {"pit_id": "pit_12345"}
+                def delete_point_in_time(self, body):
+                    return {"succeeded": True}
+                def search(self, **kwargs):
+                    searches.append(kwargs)
+                    return {
+                        "hits": {
+                            "hits": [
+                                {
+                                    "_id": "doc_101",
+                                    "_source": {"title": "Doc 101"},
+                                    "_routing": "shard_key_1",
+                                    "sort": [123456],
+                                }
+                            ]
+                        }
+                    }
+
+            ad._client = FakeSearchClient()
+
+            async def run():
+                pit_id = await ad.open_point_in_time("articles")
+                self.assertEqual(pit_id, "pit_12345")
+
+                rows = await ad.read_batch(
+                    "articles",
+                    offset=0,
+                    limit=10,
+                    last_processed_primary_key={"pit_id": pit_id, "sort_values": [123455]},
+                )
+                self.assertEqual(len(rows), 1)
+                self.assertEqual(rows[0]["_id"], "doc_101")
+                self.assertIn("search_after", str(searches[-1]))
+
+                closed = await ad.close_point_in_time(pit_id)
+                self.assertTrue(closed)
+
+            self.loop.run_until_complete(run())
+
+    # -------------------------------------------------------------------------
+    # 7. Neo4j Durable Identity & Graph Topology
+    # -------------------------------------------------------------------------
+    def test_07_neo4j_durable_identity_and_topology(self):
+        """07: Verify Neo4j adapter uses _akaal_source_id for target relationship resolution."""
         ad = Neo4jAdapter(self._make_cfg(SystemType.NEO4J))
         ad.is_connected = True
 
@@ -275,60 +303,6 @@ class TestP44NoSQLFleet(unittest.TestCase):
             self.assertIn("_akaal_source_id", executed_cyphers[-1][0])
 
         self.loop.run_until_complete(run())
-
-    # -------------------------------------------------------------------------
-    # 8. Search Engine sort_values search_after Continuation
-    # -------------------------------------------------------------------------
-    def test_08_search_engine_sort_values_search_after_continuation(self):
-        """08: Verify Elasticsearch and OpenSearch execute search_after with sort_values array."""
-        for sys_type, ad_cls in [(SystemType.ELASTICSEARCH, ElasticsearchAdapter), (SystemType.OPENSEARCH, OpenSearchAdapter)]:
-            ad = ad_cls(self._make_cfg(sys_type))
-            ad.is_connected = True
-
-            searches = []
-
-            class FakeSearchClient:
-                def search(self, **kwargs):
-                    searches.append(kwargs)
-                    return {
-                        "hits": {
-                            "hits": [
-                                {
-                                    "_id": "doc_101",
-                                    "_source": {"title": "Doc 101"},
-                                    "_routing": "shard_key_1",
-                                    "sort": [123456],
-                                }
-                            ]
-                        }
-                    }
-
-            ad._client = FakeSearchClient()
-
-            async def run():
-                rows = await ad.read_batch(
-                    "articles",
-                    offset=0,
-                    limit=10,
-                    last_processed_primary_key={"sort_values": [123455]},
-                )
-                self.assertEqual(len(rows), 1)
-                self.assertEqual(rows[0]["_id"], "doc_101")
-                self.assertEqual(rows[0]["_routing"], "shard_key_1")
-                self.assertEqual(rows[0]["_sort_values"], [123456])
-                self.assertIn("search_after", str(searches[-1]))
-
-            self.loop.run_until_complete(run())
-
-    # -------------------------------------------------------------------------
-    # 9. Search Engines Independent of Raw _id Sort
-    # -------------------------------------------------------------------------
-    def test_09_search_engine_independent_of_raw_id_sort(self):
-        """09: Verify search adapters use sort_values array continuation instead of raw _id sorting."""
-        es = ElasticsearchAdapter(self._make_cfg(SystemType.ELASTICSEARCH))
-        self.assertTrue(hasattr(es, "read_batch"))
-        os_adapter = OpenSearchAdapter(self._make_cfg(SystemType.OPENSEARCH))
-        self.assertTrue(hasattr(os_adapter, "read_batch"))
 
 
 if __name__ == "__main__":

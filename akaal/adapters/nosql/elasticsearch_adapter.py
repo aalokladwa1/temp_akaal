@@ -3,7 +3,7 @@ Akaal — Elasticsearch Search Engine Adapter
 ===========================================
 100% Physical Reality Adapter for Elasticsearch using elasticsearch-py.
 Provides fail-closed connectivity, index discovery, mapping field analysis,
-search_after array sort continuation, Bulk API writes with item error checking, and streaming canonical checksums.
+Point-in-Time (PIT) lifecycle management, search_after sort continuation, Bulk API writes with item error checking, and streaming canonical checksums.
 """
 
 import asyncio
@@ -84,6 +84,30 @@ class ElasticsearchAdapter(BaseAdapter):
         return await asyncio.to_thread(_run)
 
     # ------------------------------------------------------------------
+    # PIT Lifecycle Management
+    # ------------------------------------------------------------------
+
+    async def open_point_in_time(self, index: str, keep_alive: str = "5m") -> str:
+        self._ensure_connected()
+        def _run():
+            if hasattr(self._client, "open_point_in_time"):
+                res = self._client.open_point_in_time(index=index, keep_alive=keep_alive)
+                return res.get("id")
+            return None
+        return await asyncio.to_thread(_run)
+
+    async def close_point_in_time(self, pit_id: str) -> bool:
+        self._ensure_connected()
+        if not pit_id:
+            return True
+        def _run():
+            if hasattr(self._client, "close_point_in_time"):
+                res = self._client.close_point_in_time(id=pit_id)
+                return res.get("succeeded", True)
+            return True
+        return await asyncio.to_thread(_run)
+
+    # ------------------------------------------------------------------
     # Schema Discovery
     # ------------------------------------------------------------------
 
@@ -121,7 +145,7 @@ class ElasticsearchAdapter(BaseAdapter):
         self._ensure_connected()
         return []
 
-    async def discover_triggers(self) -> List[Dict[str, Any]]:
+    async def discover_triggers(self, table_name: str) -> List[Dict[str, Any]]:
         self._ensure_connected()
         return []
 
@@ -130,7 +154,7 @@ class ElasticsearchAdapter(BaseAdapter):
         return []
 
     # ------------------------------------------------------------------
-    # Data Operations (search_after Sort Value Continuation)
+    # Data Operations (PIT & search_after Continuation)
     # ------------------------------------------------------------------
 
     async def read_batch(
@@ -142,23 +166,21 @@ class ElasticsearchAdapter(BaseAdapter):
     ) -> List[Dict[str, Any]]:
         self._ensure_connected()
         def _run():
-            if last_processed_primary_key and "sort_values" in last_processed_primary_key:
-                sort_vals = last_processed_primary_key["sort_values"]
-                res = self._client.search(
-                    index=table_name,
-                    size=limit,
-                    query={"match_all": {}},
-                    search_after=sort_vals,
-                    sort=[{"_doc": "asc"}],
-                )
-            else:
-                res = self._client.search(
-                    index=table_name,
-                    from_=offset,
-                    size=limit,
-                    query={"match_all": {}},
-                    sort=[{"_doc": "asc"}],
-                )
+            body = {
+                "size": limit,
+                "query": {"match_all": {}},
+                "sort": [{"_doc": "asc"}],
+            }
+            if last_processed_primary_key:
+                if "pit_id" in last_processed_primary_key:
+                    body["pit"] = {"id": last_processed_primary_key["pit_id"], "keep_alive": "5m"}
+                if "sort_values" in last_processed_primary_key:
+                    body["search_after"] = last_processed_primary_key["sort_values"]
+
+            res = self._client.search(
+                index=None if "pit" in body else table_name,
+                body=body,
+            )
             hits = res.get("hits", {}).get("hits", [])
             rows = []
             for h in hits:
