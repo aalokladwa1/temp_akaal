@@ -267,6 +267,20 @@ class EngineGateway:
             return self.execute_failback(payload)
         elif capability == "recover_cutover_session":
             return self.recover_cutover_session(payload)
+        elif capability == "get_cdc_schema_status":
+            return self.get_cdc_schema_status(payload)
+        elif capability == "get_pending_schema_transitions":
+            return self.get_pending_schema_transitions(payload)
+        elif capability == "evaluate_schema_transition":
+            return self.evaluate_schema_transition(payload)
+        elif capability == "approve_schema_transition":
+            return self.approve_schema_transition(payload)
+        elif capability == "apply_schema_transition":
+            return self.apply_schema_transition(payload)
+        elif capability == "reject_schema_transition":
+            return self.reject_schema_transition(payload)
+        elif capability == "recover_schema_transition":
+            return self.recover_schema_transition(payload)
         else:
             raise ValueError(f"Unsupported IPC capability: '{capability}'")
 
@@ -2541,3 +2555,68 @@ class EngineGateway:
         migration_id = payload["migration_id"]
         cdc_session_id = payload["cdc_session_id"]
         return self._get_cdc_sync_coordinator().recover_cutover_session(migration_id, cdc_session_id)
+
+    def _get_cdc_schema_coordinator(self):
+        if not hasattr(self, "_cdc_schema_coordinator") or self._cdc_schema_coordinator is None:
+            from akaal.cdc.schema_evolution.coordinator import CDCSchemaEvolutionCoordinator
+            self._cdc_schema_coordinator = CDCSchemaEvolutionCoordinator(state_store=self.state_store)
+        return self._cdc_schema_coordinator
+
+    def get_cdc_schema_status(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        cdc_session_id = payload["cdc_session_id"]
+        telemetry = self.state_store.get_state(f"schema_telemetry_{cdc_session_id}", category="schema_telemetry")
+        return telemetry or {"cdc_session_id": cdc_session_id, "status": "UNKNOWN"}
+
+    def get_pending_schema_transitions(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        coord = self._get_cdc_schema_coordinator()
+        cdc_session_id = payload.get("cdc_session_id")
+        pending = [t for t in coord.pending_transitions.values() if not cdc_session_id or t["identity"]["cdc_session_id"] == cdc_session_id]
+        return {"cdc_session_id": cdc_session_id, "pending_count": len(pending), "pending_transitions": pending}
+
+    def evaluate_schema_transition(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        from akaal.cdc.domain.events import CDCEventIdentity
+        from akaal.cdc.domain.positions import parse_source_position
+        coord = self._get_cdc_schema_coordinator()
+        from akaal.cdc.domain.positions import PostgresLSNPosition
+        identity = CDCEventIdentity(
+            migration_id=payload["migration_id"],
+            job_id=payload["job_id"],
+            run_id=payload["run_id"],
+            cdc_session_id=payload["cdc_session_id"],
+        )
+        pos = parse_source_position(payload["source_position"]) if "source_position" in payload else PostgresLSNPosition("0/1000000")
+        return coord.process_detected_ddl(
+            identity=identity,
+            source_position=pos,
+            raw_statement_or_payload=payload.get("raw_statement", ""),
+            table_name=payload.get("table_name", "tbl"),
+            fencing_epoch=payload.get("fencing_epoch", 1),
+            allow_auto_ddl=payload.get("allow_auto_ddl", True),
+        )
+
+    def approve_schema_transition(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        coord = self._get_cdc_schema_coordinator()
+        return coord.approve_schema_transition(
+            transition_id=payload["transition_id"],
+            approved_by=payload["approved_by"],
+            approval_token=payload["approval_token"],
+        )
+
+    def apply_schema_transition(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        coord = self._get_cdc_schema_coordinator()
+        return coord.apply_schema_transition(transition_id=payload["transition_id"])
+
+    def reject_schema_transition(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        coord = self._get_cdc_schema_coordinator()
+        transition_id = payload["transition_id"]
+        trans = coord.pending_transitions.get(transition_id)
+        if trans:
+            trans["state"] = "REJECTED"
+        return {"transition_id": transition_id, "status": "REJECTED"}
+
+    def recover_schema_transition(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        coord = self._get_cdc_schema_coordinator()
+        return coord.recover_schema_transition(
+            cdc_session_id=payload["cdc_session_id"],
+            transition_id=payload["transition_id"],
+        )

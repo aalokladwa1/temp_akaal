@@ -191,7 +191,7 @@ class TestP331CDCDurabilityFailureSafetyAudit(unittest.TestCase):
         tiny_buffer = DurableCDCBuffer(
             identity=self.identity,
             max_buffered_events=100,
-            max_buffer_bytes=1500,
+            max_buffer_bytes=2000,
             wal_dir=self.temp_dir,
         )
         tx1 = self._create_sample_tx("tx-df-1")

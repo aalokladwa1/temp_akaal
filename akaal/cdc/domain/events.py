@@ -60,6 +60,17 @@ class CDCEventIdentity:
             "sequence_number": self.sequence_number,
         }
 
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "CDCEventIdentity":
+        return cls(
+            migration_id=data["migration_id"],
+            job_id=data["job_id"],
+            run_id=data["run_id"],
+            cdc_session_id=data["cdc_session_id"],
+            event_id=data.get("event_id"),
+            sequence_number=data.get("sequence_number", 1),
+        )
+
 
 class CDCEvent:
     """
@@ -85,6 +96,7 @@ class CDCEvent:
         tx_id: Optional[str] = None,
         commit_timestamp: Optional[str] = None,
         captured_timestamp: Optional[str] = None,
+        schema_version_id: Optional[str] = None,
     ) -> None:
         self.identity = identity
         self.source_engine = source_engine.upper()
@@ -99,6 +111,7 @@ class CDCEvent:
         self.tx_id = tx_id
         self.commit_timestamp = commit_timestamp or datetime.datetime.now(datetime.timezone.utc).isoformat()
         self.captured_timestamp = captured_timestamp or datetime.datetime.now(datetime.timezone.utc).isoformat()
+        self.schema_version_id = schema_version_id
 
     @classmethod
     def _sanitize_dict_recursive(cls, data: Any) -> Any:
@@ -129,6 +142,7 @@ class CDCEvent:
             "tx_id": self.tx_id,
             "commit_timestamp": self.commit_timestamp,
             "captured_timestamp": self.captured_timestamp,
+            "schema_version_id": self.schema_version_id,
         }
 
     def to_data_safe_dict(self) -> Dict[str, Any]:

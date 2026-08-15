@@ -144,6 +144,7 @@ class CDCCutoverReadinessEngine:
         is_stale_worker: bool,
         validation_passed: bool = True,
         approval_granted: bool = True,
+        has_unresolved_schema_transition: bool = False,
         max_allowed_backlog: int = 5,
         max_allowed_lag_ms: float = 2000.0,
     ) -> Dict[str, Any]:
@@ -178,6 +179,9 @@ class CDCCutoverReadinessEngine:
 
         if not approval_granted:
             blocking_reasons.append("GOVERNANCE_APPROVAL_MISSING")
+
+        if has_unresolved_schema_transition:
+            blocking_reasons.append("UNRESOLVED_SCHEMA_TRANSITION")
 
         is_ready = (len(blocking_reasons) == 0)
 

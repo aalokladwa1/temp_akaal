@@ -820,7 +820,33 @@ SECURITY_NOTES: Bound governance approvals, secret redaction, and split-brain pr
 DEPENDENCIES: CDCCaptureCoordinator / DurableCDCBuffer / CDCApplyCoordinator / RecoveryCoordinator / CentralStateStore / CanonicalReconciliationEngine
 LEGACY_OVERLAP: NONE
 FUTURE_EVOLUTION: P4 Real Database Infrastructure Certification
-LAST_VERIFIED_COMMIT: a5a3c342f45987cd03ac3f09e980c25c0785092a
+FEATURE_ID: P3.CDC.LIVE_SCHEMA_EVOLUTION
+PHASE: P3.5
+FEATURE_NAME: Live CDC Schema Evolution, DDL Capture, Compatibility Enforcement & Safe Schema Transition Engine
+PURPOSE: Master orchestrator managing DDL capture detection, canonical schema versioning, compatibility analysis, evolution policy enforcement, transition barriers, target DDL execution, post-apply verification, restart recovery, P3.4 cutover integration, and telemetry.
+CANONICAL_AUTHORITY: CDCSchemaEvolutionCoordinator / CDCSchemaCompatibilityEvaluator / CDCSchemaEvolutionPolicyEngine / CDCSchemaTransitionBarrier / CDCTargetSchemaTransitionEngine
+IMPLEMENTATION_LOCATION: akaal/cdc/schema_evolution/coordinator.py
+PRIMARY_CLASS_OR_FUNCTION: CDCSchemaEvolutionCoordinator / CDCSchemaVersion / CDCDDLEvent / CDCSchemaTransitionBarrier / CDCTargetSchemaTransitionEngine
+PRODUCTION_CALLER: EngineGateway IPC capabilities (7 schema methods)
+PRODUCTION_ENTRYPOINT: EngineGateway → evaluate_schema_transition / approve_schema_transition / apply_schema_transition
+PIPELINE_POSITION: Live Schema Evolution & DDL Transition Layer
+DOWNSTREAM_CONSUMER: Target Adapter / CentralStateStore / CDCCutoverReadinessEngine
+IDENTITY_BINDING: migration_id + job_id + run_id + cdc_session_id + transition_id + fencing_epoch
+STATE_OWNER: CDCSchemaEvolutionCoordinator
+FAILURE_PROPAGATION: Unresolved DDL / incompatible change / stale fencing → blocks CDC apply and fails cutover readiness
+MONITORING_EXPOSURE: YES
+IPC_EXPOSURE: YES
+UI_EXPOSURE: YES (MonitoringModule → CDC Live Schema Evolution Control)
+MIGRATION_MODULE_FEATURE: Monitoring → CDC Schema Evolution
+TEST_LOCATION: tests/unit/cdc/test_p3_5_cdc_schema_evolution_engine.py
+PROOF_LEVEL: UNIT_PROVEN
+INTEGRATION_STATUS: DOMAIN_INTEGRATED
+REAL_DB_PROVEN: NO
+SECURITY_NOTES: Sanitizes passwords/secrets in DDL diagnostics, identity-bound destructive approvals.
+DEPENDENCIES: CDCDDLEngineDetector / CDCSchemaCompatibilityEvaluator / CDCSchemaTransitionBarrier / CDCTargetSchemaTransitionEngine / RecoveryCoordinator / CentralStateStore
+LEGACY_OVERLAP: NONE
+FUTURE_EVOLUTION: P4 Real Database Infrastructure Certification
+LAST_VERIFIED_COMMIT: 9399c1e7652c7279fecf821458a9b99b4d98aa3d
 
 ---
 
@@ -848,13 +874,14 @@ LAST_VERIFIED_COMMIT: a5a3c342f45987cd03ac3f09e980c25c0785092a
 | **CDC Capture Control** | `EngineGateway` / `CDCCaptureCoordinator` | `FULLY_WIRED` | P7D CDC Source Capture Engine |
 | **CDC Buffer & Target Apply** | `EngineGateway` / `CDCApplyCoordinator` | `FULLY_WIRED` | P7D CDC Target Apply Engine |
 | **CDC Continuous Sync & Cutover** | `EngineGateway` / `CDCContinuousSyncCoordinator` | `FULLY_WIRED` | P7D Cutover Control & Failback Manager |
+| **CDC Live Schema Evolution** | `EngineGateway` / `CDCSchemaEvolutionCoordinator` | `FULLY_WIRED` | P7D Schema Evolution & Transition Manager |
 
 ---
 
 ## 6. Summary Statistics & Ledger Health
 
-- **Total Features Ledgered**: 37 canonical P1/P2/P3.1/P3.2/P3.3/P3.4 features
-- **Fully Integrated P1/P2/P3.1/P3.2/P3.3/P3.4 Features**: 37 (100%)
+- **Total Features Ledgered**: 38 canonical P1/P2/P3.1/P3.2/P3.3/P3.4/P3.5 features
+- **Fully Integrated P1/P2/P3.1/P3.2/P3.3/P3.4/P3.5 Features**: 38 (100%)
 - **Partially Integrated Features**: 0 (0%)
 - **Orphaned Capabilities**: 0
 - **Duplicate Production Authorities**: 0
