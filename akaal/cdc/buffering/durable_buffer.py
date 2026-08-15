@@ -68,7 +68,9 @@ class DurableCDCBuffer:
         tx_id = tx_dict["tx_id"]
         pos_dict = tx_dict.get("commit_position", {})
         pos_str = str(pos_dict.get("lsn") or pos_dict.get("gtid") or pos_dict.get("scn") or pos_dict.get("position_str") or pos_dict)
-        raw = f"{self.identity.migration_id}:{self.identity.run_id}:{self.identity.cdc_session_id}:{tx_id}:{fencing_epoch}:{pos_str}"
+        events_json = json.dumps(tx_dict.get("events", []), sort_keys=True)
+        payload_hash = hashlib.sha256(events_json.encode("utf-8")).hexdigest()[:16]
+        raw = f"{self.identity.migration_id}:{self.identity.run_id}:{self.identity.cdc_session_id}:{tx_id}:{fencing_epoch}:{pos_str}:{payload_hash}"
         return hmac.new(self.hmac_key, raw.encode("utf-8"), hashlib.sha256).hexdigest()
 
     def append_transaction(self, tx: CDCTransaction, fencing_epoch: int) -> Dict[str, Any]:
@@ -121,11 +123,24 @@ class DurableCDCBuffer:
             "record_hmac": record_hmac,
             "buffer_timestamp": time.time(),
         }
+        entry_bytes = len(json.dumps(entry))
+
+        # Enforce storage byte capacity limit
+        if self._buffered_bytes + entry_bytes > self.max_buffer_bytes:
+            fail = CDCFailure(
+                failure_type=CDCFailureType.DURABLE_BUFFER_FAILURE,
+                category=CDCFailureCategory.PAUSABLE,
+                message=f"[STORAGE EXHAUSTION] Hard buffer byte capacity limit reached ({self._buffered_bytes + entry_bytes}/{self.max_buffer_bytes} bytes).",
+                migration_id=self.identity.migration_id,
+                job_id=self.identity.job_id,
+                run_id=self.identity.run_id,
+                cdc_session_id=self.identity.cdc_session_id,
+            )
+            raise CDCExecutionError(fail)
 
         # Write to durable WAL on disk (flush + fsync)
         res = self.wal_buffer.append_record("CDC_TX_COMMITTED", entry)
 
-        entry_bytes = len(json.dumps(entry))
         self._buffered_bytes += entry_bytes
         self._buffered_events += num_events
         self._in_memory_queue.append(entry)
@@ -164,10 +179,26 @@ class DurableCDCBuffer:
 
         return entry
 
-    def remove_acknowledged_transaction(self, tx_id: str) -> bool:
-        """Removes an acknowledged transaction from the buffer."""
+    def remove_acknowledged_transaction(self, tx_id: str, worker_last_ack_pos: Optional[CDCSourcePosition] = None) -> bool:
+        """Removes an acknowledged transaction from the buffer after verifying acknowledgement position safety."""
         for idx, entry in enumerate(self._in_memory_queue):
             if entry["tx_id"] == tx_id:
+                # Verify that transaction position is acknowledged
+                if worker_last_ack_pos:
+                    tx_dict = entry["transaction_data"]
+                    commit_pos = parse_source_position(tx_dict["commit_position"])
+                    if commit_pos.is_after(worker_last_ack_pos):
+                        fail = CDCFailure(
+                            failure_type=CDCFailureType.BUFFER_CORRUPTION,
+                            category=CDCFailureCategory.DATA_INTEGRITY_RISK,
+                            message=f"[UNSAFE RECLAMATION] Transaction '{tx_id}' position {commit_pos} exceeds acknowledged position {worker_last_ack_pos}.",
+                            migration_id=self.identity.migration_id,
+                            job_id=self.identity.job_id,
+                            run_id=self.identity.run_id,
+                            cdc_session_id=self.identity.cdc_session_id,
+                        )
+                        raise CDCExecutionError(fail)
+
                 removed = self._in_memory_queue.pop(idx)
                 tx_data = removed["transaction_data"]
                 num_evts = len(tx_data.get("events", []))

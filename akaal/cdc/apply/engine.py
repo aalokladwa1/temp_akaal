@@ -2,7 +2,8 @@
 AKAAL CDC Target Apply Engine & Acknowledgement Controller.
 ============================================================
 Orchestrates ordered CDC transaction application to target adapters, target transaction atomicity,
-durable checkpointing, replay/duplicate protection, monotonic fencing enforcement, and safe acknowledgement state transitions.
+durable checkpointing, restart-persistent replay/duplicate protection, monotonic fencing enforcement,
+and safe acknowledgement state transitions.
 """
 
 from typing import Dict, Any, List, Optional, Set
@@ -29,7 +30,7 @@ class CDCApplyWorker:
     """
     Target Apply Worker processing durably buffered CDC transactions.
     Enforces target transaction atomicity (BEGIN -> DML -> COMMIT or ROLLBACK),
-    unsafe DML detection, replay deduplication, and fencing epoch protection.
+    unsafe DML detection, restart-persistent replay deduplication, and fencing epoch protection.
     """
 
     def __init__(
@@ -43,11 +44,44 @@ class CDCApplyWorker:
         self.durable_buffer = durable_buffer
         self.recovery_coordinator = recovery_coordinator or RecoveryCoordinator()
         self.state_store = state_store or CentralStateStore()
-        
+
         self.applied_transaction_ids: Set[str] = set()
+        self.applied_transaction_hashes: Dict[str, str] = {}
         self.last_applied_position: Optional[CDCSourcePosition] = None
         self.last_checkpoint: Optional[CDCCheckpoint] = None
         self.last_acknowledged_position: Optional[CDCSourcePosition] = None
+
+        # Load restart-persistent applied transaction state from CentralStateStore
+        self._load_persistent_applied_state()
+
+    def _load_persistent_applied_state(self) -> None:
+        """Loads durable applied transaction IDs and payload digests from CentralStateStore to survive process restarts."""
+        state_key = f"cdc_applied_txs_{self.identity.cdc_session_id}"
+        persisted = self.state_store.get_state(state_key, category="cdc_applied_txs", default={})
+        if isinstance(persisted, dict):
+            self.applied_transaction_ids = set(persisted.get("applied_ids", []))
+            self.applied_transaction_hashes = persisted.get("applied_hashes", {})
+            if persisted.get("last_applied_position"):
+                self.last_applied_position = parse_source_position(persisted["last_applied_position"])
+                self.last_acknowledged_position = self.last_applied_position
+            logger.info(
+                f"[CDCApplyWorker] Restored {len(self.applied_transaction_ids)} durable applied transactions from CentralStateStore for session '{self.identity.cdc_session_id}'."
+            )
+
+    def _persist_applied_transaction(self, tx_id: str, tx_hash: str, commit_position: CDCSourcePosition) -> None:
+        """Persists applied transaction state synchronously to CentralStateStore."""
+        self.applied_transaction_ids.add(tx_id)
+        self.applied_transaction_hashes[tx_id] = tx_hash
+        self.last_applied_position = commit_position
+
+        state_key = f"cdc_applied_txs_{self.identity.cdc_session_id}"
+        payload = {
+            "applied_ids": list(self.applied_transaction_ids),
+            "applied_hashes": self.applied_transaction_hashes,
+            "last_applied_position": commit_position.to_dict(),
+            "updated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        }
+        self.state_store.set_state(state_key, payload, category="cdc_applied_txs")
 
     def apply_next_transaction(self, current_fencing_epoch: int, target_config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
@@ -72,6 +106,7 @@ class CDCApplyWorker:
 
         tx_dict = buffer_entry["transaction_data"]
         tx = parse_cdc_transaction(tx_dict)
+        tx_hash = buffer_entry.get("record_hmac", "")
 
         # Validate transaction identity
         if (
@@ -90,10 +125,37 @@ class CDCApplyWorker:
             )
             raise CDCExecutionError(fail)
 
-        # Check if already applied (Replay / Duplicate Protection)
+        # Check if already applied (Restart-Persistent Replay & Duplicate Protection)
         if tx.tx_id in self.applied_transaction_ids:
-            logger.info(f"[CDCApplyWorker] Transaction '{tx.tx_id}' already applied on target. Suppressing duplicate DML execution.")
-            # Advance positions safely without re-executing target DML
+            # Detect tampered duplicate payload
+            expected_hash = self.applied_transaction_hashes.get(tx.tx_id)
+            if expected_hash and tx_hash and expected_hash != tx_hash:
+                fail = CDCFailure(
+                    failure_type=CDCFailureType.TRANSACTION_CORRUPTION,
+                    category=CDCFailureCategory.DATA_INTEGRITY_RISK,
+                    message=f"[REPLAY PAYLOAD TAMPERING] Duplicate tx '{tx.tx_id}' replayed with mismatched payload hash.",
+                    migration_id=self.identity.migration_id,
+                    job_id=self.identity.job_id,
+                    run_id=self.identity.run_id,
+                    cdc_session_id=self.identity.cdc_session_id,
+                )
+                raise CDCExecutionError(fail)
+
+            logger.info(f"[CDCApplyWorker] Transaction '{tx.tx_id}' already applied on target (durable dedup). Suppressing duplicate DML execution.")
+            
+            # Revalidate fencing token before checkpoint & ack
+            if not self.recovery_coordinator.validate_fencing_token(self.identity.migration_id, current_fencing_epoch):
+                fail = CDCFailure(
+                    failure_type=CDCFailureType.STALE_WORKER,
+                    category=CDCFailureCategory.BLOCKING,
+                    message=f"[FENCING VIOLATION] Stale worker fencing epoch {current_fencing_epoch} rejected during deduplicated checkpointing.",
+                    migration_id=self.identity.migration_id,
+                    job_id=self.identity.job_id,
+                    run_id=self.identity.run_id,
+                    cdc_session_id=self.identity.cdc_session_id,
+                )
+                raise CDCExecutionError(fail)
+
             self.last_applied_position = tx.commit_position
             ckpt = CDCCheckpoint(
                 checkpoint_id=f"ckpt-{uuid.uuid4().hex[:8]}",
@@ -108,7 +170,7 @@ class CDCApplyWorker:
             )
             self.last_checkpoint = ckpt
             self.last_acknowledged_position = tx.commit_position
-            self.durable_buffer.remove_acknowledged_transaction(tx.tx_id)
+            self.durable_buffer.remove_acknowledged_transaction(tx.tx_id, worker_last_ack_pos=tx.commit_position)
 
             return {
                 "status": "SUCCESS",
@@ -136,9 +198,21 @@ class CDCApplyWorker:
             )
             raise CDCExecutionError(fail)
 
-        # Target transaction committed successfully!
-        self.applied_transaction_ids.add(tx.tx_id)
-        self.last_applied_position = tx.commit_position
+        # Target transaction committed successfully! Persist durable applied state immediately
+        self._persist_applied_transaction(tx.tx_id, tx_hash, tx.commit_position)
+
+        # Revalidate fencing epoch before checkpoint & ack
+        if not self.recovery_coordinator.validate_fencing_token(self.identity.migration_id, current_fencing_epoch):
+            fail = CDCFailure(
+                failure_type=CDCFailureType.STALE_WORKER,
+                category=CDCFailureCategory.BLOCKING,
+                message=f"[FENCING VIOLATION] Stale worker fencing epoch {current_fencing_epoch} rejected before checkpointing.",
+                migration_id=self.identity.migration_id,
+                job_id=self.identity.job_id,
+                run_id=self.identity.run_id,
+                cdc_session_id=self.identity.cdc_session_id,
+            )
+            raise CDCExecutionError(fail)
 
         # Write durable checkpoint with HMAC digest
         ckpt = CDCCheckpoint(
@@ -155,8 +229,8 @@ class CDCApplyWorker:
         self.last_checkpoint = ckpt
         self.last_acknowledged_position = tx.commit_position
 
-        # Remove acknowledged transaction from durable buffer
-        self.durable_buffer.remove_acknowledged_transaction(tx.tx_id)
+        # Remove acknowledged transaction from durable buffer (validating ack position)
+        self.durable_buffer.remove_acknowledged_transaction(tx.tx_id, worker_last_ack_pos=tx.commit_position)
 
         # Record checkpoint in state store
         self.state_store.set_state(f"checkpoint-{self.identity.cdc_session_id}", ckpt.to_dict(), category="checkpoint")
