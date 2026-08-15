@@ -3,7 +3,8 @@ Akaal — ScyllaDB Wide-Column Database Adapter
 =============================================
 100% Physical Reality Adapter for ScyllaDB reusing cassandra-driver CQL compatibility layer.
 Preserves explicit SystemType.SCYLLADB identity and ScyllaDB-specific capability declarations.
-Provides multi-column clustering tuple continuation (WHERE (ck1, ck2, ...) > (%s, %s, ...)) and token partition continuation.
+Provides multi-column clustering tuple continuation (WHERE (ck1, ck2, ...) > (%s, %s, ...)),
+fail-closed safety for mixed clustering orders, and token partition continuation.
 """
 
 import asyncio
@@ -157,7 +158,7 @@ class ScyllaDBAdapter(BaseAdapter):
         keyspace = self.config.database_name or "system"
         def _run():
             cols_info = self._session.execute(
-                "SELECT column_name, kind, position FROM system_schema.columns WHERE keyspace_name = %s AND table_name = %s",
+                "SELECT column_name, kind, position, clustering_order FROM system_schema.columns WHERE keyspace_name = %s AND table_name = %s",
                 (keyspace, table_name),
             )
             all_cols = list(cols_info)
@@ -168,6 +169,10 @@ class ScyllaDBAdapter(BaseAdapter):
             ck_rows = [r for r in all_cols if r.kind == "clustering"]
             ck_rows.sort(key=lambda x: getattr(x, "position", 0))
             ck_cols = [r.column_name for r in ck_rows]
+
+            orders = set(r.clustering_order.lower() for r in ck_rows if hasattr(r, "clustering_order") and r.clustering_order != "none")
+            if len(orders) > 1:
+                raise RuntimeError(f"Table '{table_name}' has mixed clustering column orders ({orders}). Mixed clustering order continuation is not supported; fail-closed for safety.")
 
             results = []
 

@@ -4,7 +4,7 @@ Akaal — Apache Cassandra Wide-Column Database Adapter
 100% Physical Reality Adapter for Apache Cassandra using cassandra-driver.
 Provides fail-closed connectivity, keyspace/table discovery, composite partition key & multi-column clustering key metadata,
 multi-column clustering tuple continuation (WHERE (ck1, ck2, ...) > (%s, %s, ...)) and token partition continuation (preventing intra-partition equal-prefix row loss),
-prepared writes, and canonical checksum validation.
+fail-closed safety for mixed clustering orders, prepared writes, and canonical checksum validation.
 """
 
 import asyncio
@@ -126,7 +126,7 @@ class CassandraAdapter(BaseAdapter):
         def _run():
             rows = self._session.execute(
                 "SELECT index_name FROM system_schema.indexes WHERE keyspace_name = %s AND table_name = %s",
-                (keyspace, table_name),
+                (keyspace,),
             )
             return [{"index_name": r.index_name} for r in rows]
         return await asyncio.to_thread(_run)
@@ -158,7 +158,7 @@ class CassandraAdapter(BaseAdapter):
         keyspace = self.config.database_name or "system"
         def _run():
             cols_info = self._session.execute(
-                "SELECT column_name, kind, position FROM system_schema.columns WHERE keyspace_name = %s AND table_name = %s",
+                "SELECT column_name, kind, position, clustering_order FROM system_schema.columns WHERE keyspace_name = %s AND table_name = %s",
                 (keyspace, table_name),
             )
             all_cols = list(cols_info)
@@ -169,6 +169,10 @@ class CassandraAdapter(BaseAdapter):
             ck_rows = [r for r in all_cols if r.kind == "clustering"]
             ck_rows.sort(key=lambda x: getattr(x, "position", 0))
             ck_cols = [r.column_name for r in ck_rows]
+
+            orders = set(r.clustering_order.lower() for r in ck_rows if hasattr(r, "clustering_order") and r.clustering_order != "none")
+            if len(orders) > 1:
+                raise RuntimeError(f"Table '{table_name}' has mixed clustering column orders ({orders}). Mixed clustering order continuation is not supported; fail-closed for safety.")
 
             results = []
 
