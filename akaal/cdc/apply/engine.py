@@ -36,16 +36,18 @@ class CDCApplyWorker:
     def __init__(
         self,
         identity: CDCEventIdentity,
-        durable_buffer: DurableCDCBuffer,
+        durable_buffer: Optional[DurableCDCBuffer] = None,
         recovery_coordinator: Optional[RecoveryCoordinator] = None,
         state_store: Optional[CentralStateStore] = None,
         barrier_authority: Optional[Any] = None,
+        worker_id: str = "default_worker",
     ) -> None:
         self.identity = identity
         self.durable_buffer = durable_buffer
         self.recovery_coordinator = recovery_coordinator or RecoveryCoordinator()
         self.state_store = state_store or CentralStateStore()
         self.barrier_authority = barrier_authority
+        self.worker_id = worker_id
 
         self.applied_transaction_ids: Set[str] = set()
         self.applied_transaction_hashes: Dict[str, str] = {}
@@ -85,9 +87,9 @@ class CDCApplyWorker:
         }
         self.state_store.set_state(state_key, payload, category="cdc_applied_txs")
 
-    def apply_next_transaction(self, current_fencing_epoch: int, target_config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def apply_next_transaction(self, current_fencing_epoch: int, target_config: Optional[Dict[str, Any]] = None, transaction: Optional[CDCTransaction] = None) -> Dict[str, Any]:
         """
-        Reads next transaction from durable buffer, validates fencing, applies to target, writes checkpoint, and acknowledges.
+        Reads next transaction from durable buffer (or takes transaction directly), validates fencing, applies to target, writes checkpoint, and acknowledges.
         """
         # Validate fencing epoch
         if not self.recovery_coordinator.validate_fencing_token(self.identity.migration_id, current_fencing_epoch):
@@ -102,13 +104,19 @@ class CDCApplyWorker:
             )
             raise CDCExecutionError(fail)
 
-        buffer_entry = self.durable_buffer.pop_next_transaction()
-        if not buffer_entry:
-            return {"status": "NO_TRANSACTIONS", "applied": False}
+        if transaction is not None:
+            tx = transaction
+            tx_hash = ""
+        else:
+            if not self.durable_buffer:
+                return {"status": "NO_TRANSACTIONS", "applied": False}
+            buffer_entry = self.durable_buffer.pop_next_transaction()
+            if not buffer_entry:
+                return {"status": "NO_TRANSACTIONS", "applied": False}
 
-        tx_dict = buffer_entry["transaction_data"]
-        tx = parse_cdc_transaction(tx_dict)
-        tx_hash = buffer_entry.get("record_hmac", "")
+            tx_dict = buffer_entry["transaction_data"]
+            tx = parse_cdc_transaction(tx_dict)
+            tx_hash = buffer_entry.get("record_hmac", "")
 
         # Validate transaction identity
         if (
@@ -187,7 +195,8 @@ class CDCApplyWorker:
             )
             self.last_checkpoint = ckpt
             self.last_acknowledged_position = tx.commit_position
-            self.durable_buffer.remove_acknowledged_transaction(tx.tx_id, worker_last_ack_pos=tx.commit_position)
+            if self.durable_buffer:
+                self.durable_buffer.remove_acknowledged_transaction(tx.tx_id, worker_last_ack_pos=tx.commit_position)
 
             return {
                 "status": "SUCCESS",
@@ -247,7 +256,8 @@ class CDCApplyWorker:
         self.last_acknowledged_position = tx.commit_position
 
         # Remove acknowledged transaction from durable buffer (validating ack position)
-        self.durable_buffer.remove_acknowledged_transaction(tx.tx_id, worker_last_ack_pos=tx.commit_position)
+        if self.durable_buffer:
+            self.durable_buffer.remove_acknowledged_transaction(tx.tx_id, worker_last_ack_pos=tx.commit_position)
 
         # Record checkpoint in state store
         self.state_store.set_state(f"checkpoint-{self.identity.cdc_session_id}", ckpt.to_dict(), category="checkpoint")

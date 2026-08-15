@@ -281,6 +281,24 @@ class EngineGateway:
             return self.reject_schema_transition(payload)
         elif capability == "recover_schema_transition":
             return self.recover_schema_transition(payload)
+        elif capability == "get_cdc_parallel_status":
+            return self.get_cdc_parallel_status(payload)
+        elif capability == "get_cdc_partition_status":
+            return self.get_cdc_partition_status(payload)
+        elif capability == "configure_cdc_parallelism":
+            return self.configure_cdc_parallelism(payload)
+        elif capability == "start_cdc_parallel_apply":
+            return self.start_cdc_parallel_apply(payload)
+        elif capability == "pause_cdc_parallel_apply":
+            return self.pause_cdc_parallel_apply(payload)
+        elif capability == "resume_cdc_parallel_apply":
+            return self.resume_cdc_parallel_apply(payload)
+        elif capability == "rebalance_cdc_partitions":
+            return self.rebalance_cdc_partitions(payload)
+        elif capability == "process_cdc_parallel_batch":
+            return self.process_cdc_parallel_batch(payload)
+        elif capability == "recover_cdc_parallel_session":
+            return self.recover_cdc_parallel_session(payload)
         else:
             raise ValueError(f"Unsupported IPC capability: '{capability}'")
 
@@ -2620,3 +2638,95 @@ class EngineGateway:
             cdc_session_id=payload["cdc_session_id"],
             transition_id=payload["transition_id"],
         )
+
+    def _get_cdc_parallel_engine(self, migration_id: str, job_id: str, run_id: str, cdc_session_id: str, partition_count: int = 4):
+        if not hasattr(self, "_cdc_parallel_engines"):
+            self._cdc_parallel_engines = {}
+        if cdc_session_id not in self._cdc_parallel_engines:
+            from akaal.cdc.domain.events import CDCEventIdentity
+            from akaal.cdc.sharding.parallel_engine import CDCParallelApplyEngine
+            identity = CDCEventIdentity(migration_id, job_id, run_id, cdc_session_id)
+            eng = CDCParallelApplyEngine(identity=identity, partition_count=partition_count, state_store=self.state_store)
+            eng.initialize_partition_workers(fencing_epoch=1)
+            self._cdc_parallel_engines[cdc_session_id] = eng
+        return self._cdc_parallel_engines[cdc_session_id]
+
+    def get_cdc_parallel_status(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        cdc_session_id = payload["cdc_session_id"]
+        if hasattr(self, "_cdc_parallel_engines") and cdc_session_id in self._cdc_parallel_engines:
+            return self._cdc_parallel_engines[cdc_session_id].get_telemetry()
+        return {"cdc_session_id": cdc_session_id, "status": "NOT_INITIALIZED", "partition_count": 0}
+
+    def get_cdc_partition_status(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        cdc_session_id = payload["cdc_session_id"]
+        partition_id = payload.get("partition_id", 0)
+        status = self.get_cdc_parallel_status(payload)
+        parts = status.get("partitions", [])
+        part_telemetry = next((p for p in parts if p.get("partition_id") == partition_id), {"partition_id": partition_id, "status": "UNKNOWN"})
+        return {"cdc_session_id": cdc_session_id, "partition": part_telemetry}
+
+    def configure_cdc_parallelism(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        cdc_session_id = payload["cdc_session_id"]
+        partition_count = payload.get("partition_count", 4)
+        eng = self._get_cdc_parallel_engine(
+            migration_id=payload.get("migration_id", "mig-def"),
+            job_id=payload.get("job_id", "job-def"),
+            run_id=payload.get("run_id", "run-def"),
+            cdc_session_id=cdc_session_id,
+            partition_count=partition_count,
+        )
+        return {"cdc_session_id": cdc_session_id, "status": "CONFIGURED", "partition_count": eng.partition_count}
+
+    def start_cdc_parallel_apply(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        eng = self._get_cdc_parallel_engine(
+            migration_id=payload["migration_id"],
+            job_id=payload["job_id"],
+            run_id=payload["run_id"],
+            cdc_session_id=payload["cdc_session_id"],
+            partition_count=payload.get("partition_count", 4),
+        )
+        eng.resume()
+        return {"cdc_session_id": payload["cdc_session_id"], "status": "RUNNING", "telemetry": eng.get_telemetry()}
+
+    def pause_cdc_parallel_apply(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        cdc_session_id = payload["cdc_session_id"]
+        if hasattr(self, "_cdc_parallel_engines") and cdc_session_id in self._cdc_parallel_engines:
+            self._cdc_parallel_engines[cdc_session_id].pause()
+        return {"cdc_session_id": cdc_session_id, "status": "PAUSED"}
+
+    def resume_cdc_parallel_apply(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        cdc_session_id = payload["cdc_session_id"]
+        if hasattr(self, "_cdc_parallel_engines") and cdc_session_id in self._cdc_parallel_engines:
+            self._cdc_parallel_engines[cdc_session_id].resume()
+        return {"cdc_session_id": cdc_session_id, "status": "RESUMED"}
+
+    def rebalance_cdc_partitions(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        cdc_session_id = payload["cdc_session_id"]
+        migration_id = payload.get("migration_id", "mig-def")
+        new_count = payload.get("new_partition_count", 8)
+        fencing_epoch = payload.get("fencing_epoch", 1)
+        eng = self._get_cdc_parallel_engine(migration_id, "job-def", "run-def", cdc_session_id)
+        route_gen = eng.shard_guard.initiate_rebalance(migration_id, cdc_session_id, new_count, fencing_epoch)
+        eng.shard_guard.complete_rebalance(migration_id, cdc_session_id, route_gen.routing_generation, fencing_epoch)
+        eng.partition_count = new_count
+        eng.routing_generation = route_gen.routing_generation
+        eng.router.partition_count = new_count
+        eng.router.routing_generation = route_gen.routing_generation
+        eng.initialize_partition_workers(fencing_epoch)
+        return {"cdc_session_id": cdc_session_id, "status": "REBALANCED", "routing_generation": route_gen.routing_generation, "new_partition_count": new_count}
+
+    def process_cdc_parallel_batch(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        cdc_session_id = payload["cdc_session_id"]
+        fencing_epoch = payload.get("fencing_epoch", 1)
+        if hasattr(self, "_cdc_parallel_engines") and cdc_session_id in self._cdc_parallel_engines:
+            eng = self._cdc_parallel_engines[cdc_session_id]
+            res = eng.process_all_partitions(fencing_epoch)
+            return {"cdc_session_id": cdc_session_id, "processed_partitions": len(res), "telemetry": eng.get_telemetry()}
+        return {"cdc_session_id": cdc_session_id, "status": "NOT_INITIALIZED"}
+
+    def recover_cdc_parallel_session(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        cdc_session_id = payload["cdc_session_id"]
+        migration_id = payload["migration_id"]
+        eng = self._get_cdc_parallel_engine(migration_id, payload.get("job_id", "j"), payload.get("run_id", "r"), cdc_session_id)
+        return {"cdc_session_id": cdc_session_id, "status": "RECOVERED", "telemetry": eng.get_telemetry()}
+

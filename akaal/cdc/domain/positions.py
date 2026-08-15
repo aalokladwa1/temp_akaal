@@ -31,6 +31,33 @@ class CDCSourcePosition(ABC):
         """Monotonic comparison: returns True if self is strictly after other."""
         pass
 
+    def __lt__(self, other: Any) -> bool:
+        if isinstance(other, CDCSourcePosition):
+            if hasattr(self, "numeric_val") and hasattr(other, "numeric_val"):
+                return self.numeric_val < getattr(other, "numeric_val")
+            return not self.is_after(other) and self.to_string() != other.to_string()
+        return NotImplemented
+
+    def __le__(self, other: Any) -> bool:
+        if isinstance(other, CDCSourcePosition):
+            return self < other or self.to_string() == other.to_string()
+        return NotImplemented
+
+    def __gt__(self, other: Any) -> bool:
+        if isinstance(other, CDCSourcePosition):
+            return self.is_after(other)
+        return NotImplemented
+
+    def __ge__(self, other: Any) -> bool:
+        if isinstance(other, CDCSourcePosition):
+            return self.is_after(other) or self.to_string() == other.to_string()
+        return NotImplemented
+
+    def __eq__(self, other: Any) -> bool:
+        if isinstance(other, CDCSourcePosition):
+            return self.engine == other.engine and self.to_string() == other.to_string()
+        return False
+
     def __str__(self) -> str:
         return f"{self.engine}:{self.to_string()}"
 
