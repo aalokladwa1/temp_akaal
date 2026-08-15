@@ -47,6 +47,7 @@ class TestP41RealityReconstructionHostileSuite(unittest.TestCase):
 
     def setUp(self) -> None:
         self.registry = UniversalConnectorRegistry.get_instance()
+        self.registry._bootstrap_default_registry()
 
     def test_01_stub_connector_cannot_report_implemented_or_supported(self):
         """A STUB implementation state automatically enforces UNSUPPORTED and UNPROVEN."""

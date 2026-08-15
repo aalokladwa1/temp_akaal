@@ -129,9 +129,13 @@ class UniversalCapabilityManifest:
         Evaluates capability support status.
         FAILS CLOSED: If capability is unknown, empty, or unspecified, returns UNKNOWN_NOT_PROVEN / UNSUPPORTED.
         UNKNOWN is NEVER interpreted as SUPPORTED.
+        STUB or ABSENT connectors always evaluate to UNSUPPORTED for operational capabilities.
         """
         if not capability_name:
             return CapabilitySupportStatus.UNKNOWN_NOT_PROVEN
+
+        if self.implementation_state in (ImplementationState.STUB, ImplementationState.ABSENT) and str(capability_name).lower().strip() != "tls":
+            return CapabilitySupportStatus.UNSUPPORTED
 
         cap_key = str(capability_name).lower().strip()
         if cap_key in self.capabilities_map:
@@ -164,11 +168,15 @@ class UniversalCapabilityManifest:
         return CapabilitySupportStatus.UNKNOWN_NOT_PROVEN
 
     def is_source_capable(self) -> bool:
-        """Returns True if connector declares SOURCE or BOTH role support."""
+        """Returns True if connector declares SOURCE or BOTH role support and is implemented."""
+        if self.implementation_state in (ImplementationState.STUB, ImplementationState.ABSENT):
+            return False
         return self.role in (ConnectorRole.SOURCE, ConnectorRole.BOTH)
 
     def is_target_capable(self) -> bool:
-        """Returns True if connector declares TARGET or BOTH role support."""
+        """Returns True if connector declares TARGET or BOTH role support and is implemented."""
+        if self.implementation_state in (ImplementationState.STUB, ImplementationState.ABSENT):
+            return False
         return self.role in (ConnectorRole.TARGET, ConnectorRole.BOTH)
 
     def to_dict(self) -> Dict[str, Any]:

@@ -10,7 +10,13 @@ from typing import Dict, Any, List, Optional, Type
 import threading
 import logging
 
-from akaal.connectors.taxonomy import ConnectorFamily, ConnectorRole
+from akaal.connectors.taxonomy import (
+    ConnectorFamily,
+    ConnectorRole,
+    ImplementationState,
+    SupportState,
+    ProofState,
+)
 from akaal.connectors.manifest import UniversalCapabilityManifest
 from akaal.connectors.contracts.base import IUniversalConnector
 
@@ -56,6 +62,14 @@ class UniversalConnectorRegistry:
             raise ValueError("Connector ID must be a non-empty string.")
         return str(connector_id).strip().lower()
 
+    def _validate_manifest_invariants(self, manifest: UniversalCapabilityManifest) -> None:
+        """Validates zero-fake manifest invariants upon registration."""
+        if not manifest or not isinstance(manifest, UniversalCapabilityManifest):
+            raise ValueError("Invalid capability manifest.")
+        if manifest.implementation_state in (ImplementationState.STUB, ImplementationState.ABSENT):
+            if manifest.support_state == SupportState.SUPPORTED or manifest.proof_state == ProofState.REAL_SYSTEM_PROVEN:
+                raise ValueError(f"STUB/ABSENT connector '{manifest.connector_id}' cannot claim SUPPORTED or REAL_SYSTEM_PROVEN state.")
+
     def register_connector(self, connector: IUniversalConnector, allow_override: bool = False) -> None:
         """Registers a live connector instance with authoritative manifest."""
         with self._lock:
@@ -63,6 +77,7 @@ class UniversalConnectorRegistry:
             if not allow_override and cid in self._connectors:
                 raise ValueError(f"Connector '{cid}' is already registered. Set allow_override=True to replace.")
             manifest = connector.manifest
+            self._validate_manifest_invariants(manifest)
             self._connectors[cid] = connector
             self._manifests[cid] = manifest
             logger.info(f"[UniversalConnectorRegistry] Registered connector '{cid}' ({manifest.vendor_name}, {manifest.family.value}).")
@@ -73,6 +88,7 @@ class UniversalConnectorRegistry:
             cid = self._normalize_id(manifest.connector_id)
             if not allow_override and cid in self._manifests and cid in self._connectors:
                 raise ValueError(f"Manifest '{cid}' is already registered. Set allow_override=True to replace.")
+            self._validate_manifest_invariants(manifest)
             self._manifests[cid] = manifest
             logger.info(f"[UniversalConnectorRegistry] Registered capability manifest '{cid}' ({manifest.vendor_name}).")
 

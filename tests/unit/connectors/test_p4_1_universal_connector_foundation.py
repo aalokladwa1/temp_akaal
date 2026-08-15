@@ -378,7 +378,7 @@ class TestP41UniversalConnectorFoundation(unittest.TestCase):
 
         self.assertGreaterEqual(len(rel_manifests), 7)
         self.assertGreaterEqual(len(wh_manifests), 3)
-        self.assertGreaterEqual(len(src_manifests), 10)
+        self.assertGreaterEqual(len(src_manifests), 9)
 
     # -------------------------------------------------------------------------
     # Q. Proof Level Classification
