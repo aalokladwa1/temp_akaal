@@ -54,6 +54,8 @@ class UniversalCapabilityManifest:
         supports_failback: bool = False,
         supports_lobs: bool = True,
         supports_checkpoint_resume: bool = True,
+        supports_bulk_checkpoint_resume: Optional[bool] = None,
+        supports_cdc_position_resume: Optional[bool] = None,
         supported_formats: Optional[List[str]] = None,
         supported_isolation_levels: Optional[List[str]] = None,
         known_restrictions: Optional[List[str]] = None,
@@ -89,6 +91,12 @@ class UniversalCapabilityManifest:
         self.supports_failback = supports_failback
         self.supports_lobs = supports_lobs
         self.supports_checkpoint_resume = supports_checkpoint_resume
+        self.supports_bulk_checkpoint_resume = (
+            supports_bulk_checkpoint_resume if supports_bulk_checkpoint_resume is not None else supports_checkpoint_resume
+        )
+        self.supports_cdc_position_resume = (
+            supports_cdc_position_resume if supports_cdc_position_resume is not None else supports_cdc_capture
+        )
         self.supported_formats = list(supported_formats or [])
         self.supported_isolation_levels = list(supported_isolation_levels or ["READ_COMMITTED"])
         self.known_restrictions = list(known_restrictions or [])
@@ -132,6 +140,8 @@ class UniversalCapabilityManifest:
             "failback": self.supports_failback,
             "lobs": self.supports_lobs,
             "checkpoint_resume": self.supports_checkpoint_resume,
+            "bulk_checkpoint_resume": self.supports_bulk_checkpoint_resume,
+            "cdc_position_resume": self.supports_cdc_position_resume,
         }
 
         if cap_key in flag_map:
@@ -175,6 +185,8 @@ class UniversalCapabilityManifest:
             "supports_failback": self.supports_failback,
             "supports_lobs": self.supports_lobs,
             "supports_checkpoint_resume": self.supports_checkpoint_resume,
+            "supports_bulk_checkpoint_resume": self.supports_bulk_checkpoint_resume,
+            "supports_cdc_position_resume": self.supports_cdc_position_resume,
             "supported_formats": list(self.supported_formats),
             "supported_isolation_levels": list(self.supported_isolation_levels),
             "known_restrictions": list(self.known_restrictions),
@@ -279,6 +291,8 @@ class UniversalCapabilityManifest:
             supports_failback=data.get("supports_failback", False),
             supports_lobs=data.get("supports_lobs", True),
             supports_checkpoint_resume=data.get("supports_checkpoint_resume", True),
+            supports_bulk_checkpoint_resume=data.get("supports_bulk_checkpoint_resume", None),
+            supports_cdc_position_resume=data.get("supports_cdc_position_resume", None),
             supported_formats=data.get("supported_formats", []),
             supported_isolation_levels=data.get("supported_isolation_levels", ["READ_COMMITTED"]),
             known_restrictions=data.get("known_restrictions", []),

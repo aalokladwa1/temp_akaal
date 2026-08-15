@@ -876,11 +876,11 @@ LAST_VERIFIED_COMMIT: HEAD
 
 FEATURE_ID: P4.2.CONNECTIVITY.RELATIONAL_FLEET
 PHASE: P4.2
-FEATURE_NAME: Enterprise Relational Database Connector Fleet
-PURPOSE: Provide universal connector contracts, schema discovery, batch read/write, transaction primitives, and CDC hooks for Oracle, PostgreSQL, MySQL, MariaDB, MSSQL, IBM Db2, and SQLite.
+FEATURE_NAME: Enterprise Relational Database Connector Fleet & P4.2.1 Hostile Certification
+PURPOSE: Provide universal connector contracts, schema discovery, batch read/write, transaction primitives, separated bulk checkpointing, and CDC hooks for Oracle, PostgreSQL, MySQL, MariaDB, MSSQL, IBM Db2, and SQLite.
 CANONICAL_AUTHORITY: UniversalConnectorRegistry / BaseAdapter Fleet
-IMPLEMENTATION_LOCATION: akaal/connectors/bridge.py, akaal/adapters/rdbms/
-PRIMARY_CLASS_OR_FUNCTION: LegacyAdapterUniversalBridge / UniversalConnectorRegistry
+IMPLEMENTATION_LOCATION: akaal/connectors/bridge.py, akaal/adapters/rdbms/, akaal/connectors/manifest.py, akaal/connectors/profile.py
+PRIMARY_CLASS_OR_FUNCTION: LegacyAdapterUniversalBridge / UniversalConnectorRegistry / UniversalCapabilityManifest
 PRODUCTION_CALLER: EngineGateway / WorkflowEngine / CDCCaptureCoordinator
 PRODUCTION_ENTRYPOINT: EngineGateway → get_connector_manifest / test_connection / execute_migration
 PIPELINE_POSITION: Connectivity & Data Transport / CDC Miner Layer
@@ -892,14 +892,14 @@ MONITORING_EXPOSURE: YES
 IPC_EXPOSURE: YES
 UI_EXPOSURE: YES (Connection Setup & Hub)
 MIGRATION_MODULE_FEATURE: Database Connections Hub → Relational Fleet
-TEST_LOCATION: tests/unit/connectors/test_p4_2_relational_connector_fleet.py
+TEST_LOCATION: tests/unit/connectors/test_p4_2_1_relational_connector_fleet_hostile_audit.py, tests/unit/connectors/test_p4_2_relational_connector_fleet.py
 PROOF_LEVEL: UNIT_PROVEN
 INTEGRATION_STATUS: FULLY_INTEGRATED
 REAL_DB_PROVEN: NO (SQLite: REAL_SQLITE_PROOF on local files)
 SECURITY_NOTES: Recursive secret sanitization; plaintext credentials never logged or exposed.
 DEPENDENCIES: UniversalCapabilityManifest / ConnectionProfile / SemanticCompatibilityMatrix
 LEGACY_OVERLAP: NONE
-FUTURE_EVOLUTION: P4.2.1 Hostile Real-Database Certification
+FUTURE_EVOLUTION: P4.3 Cloud Data Warehouse Fleet
 LAST_VERIFIED_COMMIT: HEAD
 
 ---

@@ -256,6 +256,8 @@ class MariaDBGTIDPosition(CDCSourcePosition):
 
 def parse_source_position(data: Dict[str, Any]) -> CDCSourcePosition:
     """Parses a dictionary into the appropriate engine-specific CDCSourcePosition instance."""
+    if not isinstance(data, dict):
+        raise ValueError("Position data must be a dictionary.")
     engine = data.get("engine", "").upper()
     if engine in ("POSTGRESQL", "POSTGRES"):
         return PostgresLSNPosition(lsn=data["lsn"], flushed_lsn=data.get("flushed_lsn"))

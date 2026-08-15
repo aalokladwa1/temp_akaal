@@ -71,6 +71,7 @@ class ConnectionProfile:
         pool_options: Optional[Dict[str, Any]] = None,
         driver_options: Optional[Dict[str, Any]] = None,
         health_metadata: Optional[Dict[str, Any]] = None,
+        tags: Optional[Dict[str, Any]] = None,
     ) -> None:
         self.connection_id = connection_id or f"conn-{uuid.uuid4().hex[:8]}"
         self.display_name = display_name
@@ -100,7 +101,13 @@ class ConnectionProfile:
         self.pool_options = dict(pool_options or {"min_size": 1, "max_size": 10, "timeout": 30})
         self.driver_options = dict(driver_options or {})
         self.health_metadata = dict(health_metadata or {})
+        self.tags = dict(tags or {})
         self.created_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+    @property
+    def profile_id(self) -> str:
+        """Alias for connection_id ensuring canonical profile identity access."""
+        return self.connection_id
 
     def get_effective_secret(self, key: str = "password") -> Optional[str]:
         """Retrieves raw credential in-memory during active connection establishment only."""
