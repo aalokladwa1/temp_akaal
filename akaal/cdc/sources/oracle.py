@@ -93,6 +93,12 @@ class OracleRedoMiner(ICDCSourceAdapter):
 
         try:
             with conn.cursor() as cur:
+                # Ensure active LogMiner session is started
+                try:
+                    cur.execute("BEGIN DBMS_LOGMNR.START_LOGMNR(OPTIONS => DBMS_LOGMNR.DICT_FROM_ONLINE_CATALOG + DBMS_LOGMNR.COMMITTED_DATA_ONLY); END;")
+                except Exception:
+                    pass  # If LogMiner session already running or requires ADD_LOGFILE, proceed to query contents
+
                 cur.execute(
                     "SELECT SCN, XID, SEG_OWNER, TABLE_NAME, OPERATION, SQL_REDO FROM V$LOGMNR_CONTENTS WHERE ROWNUM <= :1",
                     (batch_size,)

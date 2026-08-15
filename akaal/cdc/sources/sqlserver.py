@@ -91,26 +91,35 @@ class MSSQLCDCMiner(ICDCSourceAdapter):
 
         try:
             with conn.cursor() as cur:
-                cur.execute(
-                    "SELECT TOP (?) sys.fn_cdc_hexstrtobin(__$start_lsn), __$operation, sys.fn_cdc_hexstrtobin(__$seqval) "
-                    "FROM cdc.dbo_Invoices_CT ORDER BY __$start_lsn",
-                    (batch_size,)
-                )
-                rows = cur.fetchall()
+                # Discover active CDC capture instances dynamically from SQL Server metadata
+                cur.execute("SELECT capture_instance, source_schema, source_table FROM cdc.change_tables")
+                instances = cur.fetchall()
+                if not instances:
+                    return []
+
                 records = []
-                for row in rows:
-                    lsn, op_code, seqval = row[0], row[1], row[2]
-                    op_map = {1: "DELETE", 2: "INSERT", 3: "UPDATE", 4: "UPDATE"}
-                    records.append({
-                        "tx_id": f"ms-tx-{lsn.hex() if isinstance(lsn, bytes) else lsn}",
-                        "table_schema": "dbo",
-                        "table_name": "Invoices",
-                        "operation": op_map.get(op_code, "INSERT"),
-                        "lsn_hex": lsn.hex() if isinstance(lsn, bytes) else str(lsn),
-                        "boundary": "COMMIT",
-                        "before_image": None,
-                        "after_image": {"op_code": op_code},
-                    })
+                for inst in instances:
+                    cap_inst, sch, tbl = inst[0], inst[1], inst[2]
+                    ct_table = f"cdc.{cap_inst}_CT"
+                    cur.execute(
+                        f"SELECT TOP (?) sys.fn_cdc_hexstrtobin(__$start_lsn), __$operation, sys.fn_cdc_hexstrtobin(__$seqval) "
+                        f"FROM {ct_table} ORDER BY __$start_lsn",
+                        (batch_size,)
+                    )
+                    rows = cur.fetchall()
+                    for row in rows:
+                        lsn, op_code, seqval = row[0], row[1], row[2]
+                        op_map = {1: "DELETE", 2: "INSERT", 3: "UPDATE", 4: "UPDATE"}
+                        records.append({
+                            "tx_id": f"ms-tx-{lsn.hex() if isinstance(lsn, bytes) else lsn}",
+                            "table_schema": sch,
+                            "table_name": tbl,
+                            "operation": op_map.get(op_code, "INSERT"),
+                            "lsn_hex": lsn.hex() if isinstance(lsn, bytes) else str(lsn),
+                            "boundary": "COMMIT",
+                            "before_image": None,
+                            "after_image": {"op_code": op_code},
+                        })
                 return records
         except Exception as err:
             raise RuntimeError(f"MSSQL_CDC_CAPTURE_FAILED: Physical CDC change table query failed: {err}") from err

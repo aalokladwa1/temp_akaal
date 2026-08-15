@@ -163,6 +163,10 @@ class TestP3RealityRectificationSuite(unittest.TestCase):
         pos = PostgresLSNPosition("0/3000")
         tx = CDCTransaction(tx_id="tx-dup-99", identity=identity, events=[evt], commit_position=pos)
 
+        # Ensure clean initial state
+        worker.applied_transaction_ids.clear()
+        worker.applied_transaction_hashes.clear()
+
         res1 = worker.apply_next_transaction(current_fencing_epoch=1, transaction=tx)
         self.assertEqual(res1["status"], "SUCCESS")
         self.assertFalse(res1["duplicate_suppressed"])

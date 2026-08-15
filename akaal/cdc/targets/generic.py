@@ -23,37 +23,38 @@ class GenericDatabaseTargetAdapter(ICDCTargetAdapter):
             )
 
         cursor = conn.cursor()
+        placeholder = "%s" if getattr(self, "driver_type", "postgres") != "oracle" else ":1"
         try:
             for evt in events:
-                tbl = evt.target_table or evt.source_table
-                sch = evt.target_schema or evt.source_schema or "public"
+                tbl = (evt.target_table or evt.source_table).strip('"`[]')
+                sch = (evt.target_schema or evt.source_schema or "public").strip('"`[]')
                 
                 if evt.operation == "INSERT":
                     if not evt.after_image:
                         continue
-                    cols = list(evt.after_image.keys())
+                    cols = [c.strip('"`[]') for c in evt.after_image.keys()]
                     col_str = ", ".join([f'"{c}"' for c in cols])
-                    val_str = ", ".join(["%s"] * len(cols))
+                    val_str = ", ".join([placeholder] * len(cols))
                     vals = list(evt.after_image.values())
                     sql = f'INSERT INTO "{sch}"."{tbl}" ({col_str}) VALUES ({val_str})'
                     cursor.execute(sql, vals)
                 elif evt.operation == "UPDATE":
                     if not evt.after_image:
                         continue
-                    cols = [c for c in evt.after_image.keys() if c.lower() != "id"]
-                    set_str = ", ".join([f'"{c}" = %s' for c in cols])
+                    cols = [c.strip('"`[]') for c in evt.after_image.keys() if c.lower() != "id"]
+                    set_str = ", ".join([f'"{c}" = {placeholder}' for c in cols])
                     vals = [evt.after_image[c] for c in cols]
                     pk_val = evt.after_image.get("id") or (evt.before_image.get("id") if evt.before_image else None)
                     if pk_val is None:
                         raise RuntimeError(f"TARGET_APPLY_FAILED: Unsafe UPDATE on '{sch}.{tbl}' without primary key row identity.")
                     vals.append(pk_val)
-                    sql = f'UPDATE "{sch}"."{tbl}" SET {set_str} WHERE "id" = %s'
+                    sql = f'UPDATE "{sch}"."{tbl}" SET {set_str} WHERE "id" = {placeholder}'
                     cursor.execute(sql, vals)
                 elif evt.operation == "DELETE":
                     pk_val = evt.before_image.get("id") if evt.before_image else None
                     if pk_val is None:
                         raise RuntimeError(f"TARGET_APPLY_FAILED: Unsafe DELETE on '{sch}.{tbl}' without primary key row identity.")
-                    sql = f'DELETE FROM "{sch}"."{tbl}" WHERE "id" = %s'
+                    sql = f'DELETE FROM "{sch}"."{tbl}" WHERE "id" = {placeholder}'
                     cursor.execute(sql, (pk_val,))
             conn.commit()
             return True

@@ -83,6 +83,55 @@ class PostgresWALMiner(ICDCSourceAdapter):
         self.is_connected = True
         return boundary
 
+    @staticmethod
+    def _parse_wal_change_data(data: str) -> Tuple[str, str, str, Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
+        """
+        Parses PostgreSQL test_decoding / wal2json text output into:
+        (schema_name, table_name, operation, before_image, after_image)
+        """
+        import re
+        import json
+
+        if data.strip().startswith("{") and data.strip().endswith("}"):
+            try:
+                j = json.loads(data)
+                sch = j.get("schema", "public")
+                tbl = j.get("table", "users")
+                op = j.get("kind", "INSERT").upper()
+                after = {c["name"]: c["value"] for c in j.get("columnvalues", [])} if "columnvalues" in j else j.get("after")
+                before = {c["name"]: c["value"] for c in j.get("oldkeys", {}).get("keyvalues", [])} if "oldkeys" in j else j.get("before")
+                return sch, tbl, op, before, after
+            except Exception:
+                pass
+
+        # Parse test_decoding text format: "table public.users: INSERT: id[integer]:1 name[text]:'Alice'"
+        m = re.match(r"table\s+([^.]+)\.([^:]+):\s*(INSERT|UPDATE|DELETE):\s*(.*)", data)
+        if m:
+            sch, tbl, op, payload = m.group(1), m.group(2), m.group(3), m.group(4)
+            cols = {}
+            # Match col[type]:val or col[type]:'val'
+            for cm in re.finditer(r"([A-Za-z0-9_]+)\[[^\]]+\]:(?:'([^']*)'|([^\s]+))", payload):
+                c_name = cm.group(1)
+                c_val = cm.group(2) if cm.group(2) is not None else cm.group(3)
+                if c_val == "null":
+                    c_val = None
+                elif c_val == "true":
+                    c_val = True
+                elif c_val == "false":
+                    c_val = False
+                elif c_val and c_val.isdigit():
+                    c_val = int(c_val)
+                cols[c_name] = c_val
+
+            if op == "INSERT":
+                return sch, tbl, op, None, cols
+            elif op == "DELETE":
+                return sch, tbl, op, cols, None
+            else:
+                return sch, tbl, op, cols, cols
+
+        return "public", "users", "INSERT", None, {"raw_wal_data": data}
+
     def fetch_native_records(self, batch_size: int = 100) -> List[Dict[str, Any]]:
         """Fetches raw logical decoding records from PostgreSQL WAL stream."""
         if not self.is_connected:
@@ -105,15 +154,16 @@ class PostgresWALMiner(ICDCSourceAdapter):
                 records = []
                 for row in rows:
                     lsn, xid, data = row[0], row[1], row[2]
+                    sch, tbl, op, before, after = self._parse_wal_change_data(str(data))
                     records.append({
                         "tx_id": f"pg-tx-{xid}",
-                        "table_schema": "public",
-                        "table_name": "users",
-                        "operation": "INSERT" if "INSERT" in data else ("UPDATE" if "UPDATE" in data else "DELETE"),
+                        "table_schema": sch,
+                        "table_name": tbl,
+                        "operation": op,
                         "lsn": str(lsn),
                         "boundary": "COMMIT" if "COMMIT" in data else "STATEMENT",
-                        "before_image": None,
-                        "after_image": {"raw_wal_data": data},
+                        "before_image": before,
+                        "after_image": after,
                     })
                 return records
         except Exception as err:
