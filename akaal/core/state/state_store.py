@@ -134,6 +134,26 @@ class CentralStateStore(IStateStore):
             return val
         return None
 
+    def get_category(self, category: str) -> Dict[str, Any]:
+        """Retrieves all key-value entries belonging to a specific category."""
+        results: Dict[str, Any] = {}
+        with self._lock:
+            if category in self._state and isinstance(self._state[category], dict):
+                results.update(self._state[category])
+            try:
+                conn = self._get_connection()
+                cur = conn.execute("SELECT state_key, val_json FROM central_state WHERE category=?", (category,))
+                for row in cur.fetchall():
+                    if row["val_json"] and row["val_json"] != "null":
+                        try:
+                            val = json.loads(row["val_json"])
+                            results[row["state_key"]] = val
+                        except Exception:
+                            pass
+            except Exception:
+                pass
+        return results
+
     def get_progress(self, migration_id: str) -> Dict[str, Any]:
         val = self.get_state(migration_id, default=None, category="progress")
         if isinstance(val, dict):

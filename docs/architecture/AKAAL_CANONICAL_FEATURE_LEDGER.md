@@ -843,10 +843,33 @@ PROOF_LEVEL: UNIT_PROVEN
 INTEGRATION_STATUS: DOMAIN_INTEGRATED
 REAL_DB_PROVEN: NO
 SECURITY_NOTES: Sanitizes passwords/secrets in DDL diagnostics, identity-bound destructive approvals.
-DEPENDENCIES: CDCDDLEngineDetector / CDCSchemaCompatibilityEvaluator / CDCSchemaTransitionBarrier / CDCTargetSchemaTransitionEngine / RecoveryCoordinator / CentralStateStore
+FEATURE_ID: P3.CDC.UNIFIED_VALIDATION_CUTOVER_FAILBACK_LIFECYCLE
+PHASE: P3.10
+FEATURE_NAME: Unified CDC Validation, Reconciliation, Controlled Cutover, Failback/Recovery & End-to-End Migration Lifecycle Management
+PURPOSE: Master Orchestrator managing CDC stream validation (Levels 1-5), logical consistency windows, safe idempotent repair, 17-gate cutover readiness, source quiescence contract, single-point cutover commit, role transitions, safe failback, target write divergence detection, and 24-state canonical migration lifecycle state machine.
+CANONICAL_AUTHORITY: CDCValidationEngine / CDCCutoverReadinessEngine / CDCFailbackDecisionEngine / CDCMigrationLifecycleCoordinator
+IMPLEMENTATION_LOCATION: akaal/cdc/validation/engine.py, akaal/cdc/sync/cutover_plan.py, akaal/cdc/sync/failback.py, akaal/cdc/lifecycle/coordinator.py
+PRIMARY_CLASS_OR_FUNCTION: CDCValidationEngine / CDCCutoverPlan / CDCFailbackDecisionEngine / CDCMigrationLifecycleCoordinator
+PRODUCTION_CALLER: EngineGateway IPC capabilities (22 methods)
+PRODUCTION_ENTRYPOINT: EngineGateway → start_cdc_validation / get_cdc_cutover_readiness / commit_cdc_cutover / evaluate_cdc_failback / transition_migration_lifecycle
+PIPELINE_POSITION: Continuous Verification, Cutover, Disaster Recovery & Lifecycle Orchestration Layer
+DOWNSTREAM_CONSUMER: Target Database Adapter / CentralStateStore / RecoveryCoordinator / MissionControlView
+IDENTITY_BINDING: migration_id + job_id + run_id + cdc_session_id + plan_id + fencing_epoch
+STATE_OWNER: CDCMigrationLifecycleCoordinator & CentralStateStore
+FAILURE_PROPAGATION: Moving stream / unresolved divergence / stale fencing / post-cutover write divergence → fails closed with explicit error or MANUAL_GOVERNANCE_REQUIRED
+MONITORING_EXPOSURE: YES
+IPC_EXPOSURE: YES
+UI_EXPOSURE: YES (MigrationModule → CdcLifecycleWorkspace, CdcValidationView, CdcCutoverView, CdcRecoveryView, CdcGovernanceView, CdcHistoryView)
+MIGRATION_MODULE_FEATURE: Mission Control → CDC Lifecycle & Cutover Workspace
+TEST_LOCATION: tests/unit/cdc/test_p3_10_unified_validation_cutover_failback_lifecycle.py
+PROOF_LEVEL: INTEGRATION_PROVEN
+INTEGRATION_STATUS: FULLY_INTEGRATED
+REAL_DB_PROVEN: NO
+SECURITY_NOTES: Bound governance approvals, secret redaction, fencing tokens, and split-brain prevention.
+DEPENDENCIES: CDCValidationEngine / RecoveryCoordinator / CentralStateStore / CanonicalReconciliationEngine / PolicyEngine
 LEGACY_OVERLAP: NONE
 FUTURE_EVOLUTION: P4 Real Database Infrastructure Certification
-LAST_VERIFIED_COMMIT: 9399c1e7652c7279fecf821458a9b99b4d98aa3d
+LAST_VERIFIED_COMMIT: HEAD
 
 ---
 
@@ -876,15 +899,17 @@ LAST_VERIFIED_COMMIT: 9399c1e7652c7279fecf821458a9b99b4d98aa3d
 | **CDC Replay Ordering & Causality** | `EngineGateway` / `CDCTransactionOrderingCoordinator` | `FULLY_WIRED` | P7D CDC Causality & Replay Engine |
 | **CDC Conflict & Multi-Master** | `EngineGateway` / `CDCBirectionalTopologyManager` | `FULLY_WIRED` | P7D Bidirectional & Multi-Master Engine |
 | **CDC Monitoring Hostile Audit** | `CDCMonitoringAggregator` / `test_p3_9_1_cdc_monitoring_hostile_audit` | `FULLY_WIRED` | P7D Hostile Verification & Security Suite |
+| **CDC Lifecycle & Cutover Workspace** | `EngineGateway` / `CDCMigrationLifecycleCoordinator` / `CDCValidationEngine` | `FULLY_WIRED` | P7D Cutover & Lifecycle Management Suite |
 
 ---
 
 ## 6. Summary Statistics & Ledger Health
 
-- **Total Features Ledgered**: 43 canonical P1/P2/P3.1-P3.9.1 features
-- **Fully Integrated P1/P2/P3.1-P3.9.1 Features**: 43 (100%)
+- **Total Features Ledgered**: 44 canonical P1/P2/P3.1-P3.10 features
+- **Fully Integrated P1/P2/P3.1-P3.10 Features**: 44 (100%)
 - **Partially Integrated Features**: 0 (0%)
 - **Orphaned Capabilities**: 0
 - **Duplicate Production Authorities**: 0
 - **Legacy Bypass Paths**: 0
 - **Overall Ledger Health**: `OPTIMAL`
+

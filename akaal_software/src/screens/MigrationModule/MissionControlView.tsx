@@ -29,6 +29,7 @@ import type { RuntimeSnapshotDTO } from '../../types/bridge';
 import { notificationService } from '../../services/notificationService';
 import { ipcService } from '../../services/ipcService';
 import { approvalRepository } from '../../repositories/approvalRepository';
+import { CdcLifecycleWorkspace } from './components/CdcLifecycleWorkspace';
 
 export type ConfirmActionType =
   | 'start'
@@ -136,6 +137,7 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
 
   // Authoritative State Machine Driven by Snapshot
   const [controlState, setControlState] = useState<MissionControlState>('READY_TO_START');
+  const [activeViewMode, setActiveViewMode] = useState<'STAGES' | 'CDC_LIFECYCLE'>('STAGES');
   const [showPlanDrawer, setShowPlanDrawer] = useState(false);
   const [showOperationsMenu, setShowOperationsMenu] = useState(false);
 
@@ -539,10 +541,33 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
           </div>
         </div>
 
-        <button type="button" onClick={() => setShowPlanDrawer(true)}
-          style={{ padding: '8px 16px', borderRadius: 8, background: 'rgba(37,99,235,0.12)', border: '1px solid var(--dash-accent)', color: 'var(--dash-accent)', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-          <Zap size={15} /> View Plan
-        </button>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <button
+            type="button"
+            onClick={() => setActiveViewMode(activeViewMode === 'STAGES' ? 'CDC_LIFECYCLE' : 'STAGES')}
+            style={{
+              padding: '8px 14px',
+              borderRadius: 8,
+              background: activeViewMode === 'CDC_LIFECYCLE' ? 'var(--dash-accent)' : 'var(--dash-card-bg)',
+              border: '1px solid var(--dash-accent)',
+              color: activeViewMode === 'CDC_LIFECYCLE' ? '#fff' : 'var(--dash-accent)',
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              flexShrink: 0,
+            }}
+          >
+            {activeViewMode === 'CDC_LIFECYCLE' ? 'View Pipeline Stages' : 'CDC Lifecycle & Cutover Workspace'}
+          </button>
+
+          <button type="button" onClick={() => setShowPlanDrawer(true)}
+            style={{ padding: '8px 16px', borderRadius: 8, background: 'rgba(37,99,235,0.12)', border: '1px solid var(--dash-accent)', color: 'var(--dash-accent)', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+            <Zap size={15} /> View Plan
+          </button>
+        </div>
       </div>
 
       {/* ── MIGRATION FAILURE BANNER ────────────────────────────────────────── */}
@@ -693,6 +718,14 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
       </div>
 
       {/* ── MAIN CONTENT WORKSPACE ────────────────────────────────────────── */}
+      {activeViewMode === 'CDC_LIFECYCLE' ? (
+        <div style={{ flex: 1, overflowY: 'auto', padding: 24, width: '100%', boxSizing: 'border-box' }}>
+          <CdcLifecycleWorkspace
+            migrationId={migration.id}
+            isHistorical={(migration as any).status === 'COMPLETED' || (migration as any).status === 'TERMINATED'}
+          />
+        </div>
+      ) : (
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden', padding: 20, gap: 16, width: '100%' }}>
 
         {/* LEFT COLUMN: CANONICAL EXECUTION TIMELINE & STAGE PROGRESS ──────── */}
@@ -1026,6 +1059,7 @@ export const MissionControlView: FC<MissionControlViewProps> = ({
         </div>
 
       </div>
+      )}
 
       {/* ── EXECUTION PLAN DRAWER ─────────────────────────────────────────── */}
       {showPlanDrawer && (

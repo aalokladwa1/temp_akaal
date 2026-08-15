@@ -239,6 +239,25 @@ class CDCBirectionalTopologyManager:
             logger.info(f"[TopologyManager] Topology '{self.topology_id}' resumed.")
             return self.topology
 
+    def resolve_conflict(
+        self,
+        conflict_id: str,
+        policy: Any,
+        fencing_epoch: int = 1,
+        winner_source_id: Optional[str] = None,
+        operator_id: str = "operator",
+    ) -> CDCConflictResolutionDecision:
+        """Resolves conflict via underlying conflict_resolver."""
+        pol = CDCConflictResolutionPolicy(policy) if isinstance(policy, str) else policy
+        return self.conflict_resolver.resolve_conflict(
+            identity=self.identity,
+            conflict_id=conflict_id,
+            policy=pol,
+            fencing_epoch=fencing_epoch,
+            manual_winner=winner_source_id,
+            reason=f"Resolved by {operator_id}",
+        )
+
     def is_cutover_eligible(self) -> bool:
         """
         Cutover readiness validation gate.

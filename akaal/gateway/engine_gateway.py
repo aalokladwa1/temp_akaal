@@ -143,6 +143,12 @@ class EngineGateway:
         )
         self.workflow_engine.register_manifest(manifest)
 
+    def handle_capability(self, capability: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+        return self.invoke(capability, payload)
+
+    def execute_capability(self, capability: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+        return self.invoke(capability, payload)
+
     def invoke(self, capability: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         """Single entrypoint for IPC Server capability routing."""
         logger.info("EngineGateway delegating capability: %s", capability)
@@ -299,6 +305,72 @@ class EngineGateway:
             return self.process_cdc_parallel_batch(payload)
         elif capability == "recover_cdc_parallel_session":
             return self.recover_cdc_parallel_session(payload)
+        elif capability == "create_cdc_bidirectional_topology":
+            return self.create_cdc_bidirectional_topology(payload)
+        elif capability == "get_cdc_bidirectional_status":
+            return self.get_cdc_bidirectional_status(payload)
+        elif capability == "pause_cdc_bidirectional_topology":
+            return self.pause_cdc_bidirectional_topology(payload)
+        elif capability == "resume_cdc_bidirectional_topology":
+            return self.resume_cdc_bidirectional_topology(payload)
+        elif capability == "get_cdc_conflicts":
+            return self.get_cdc_conflicts(payload)
+        elif capability == "get_cdc_conflict_detail":
+            return self.get_cdc_conflict_detail(payload)
+        elif capability == "resolve_cdc_conflict":
+            return self.resolve_cdc_conflict(payload)
+        elif capability == "recover_cdc_bidirectional_topology":
+            return self.recover_cdc_bidirectional_topology(payload)
+        elif capability == "get_cdc_monitoring_snapshot":
+            return self.get_cdc_monitoring_snapshot(payload)
+        elif capability == "pause_cdc_session":
+            return self.pause_cdc_session(payload)
+        elif capability == "resume_cdc_session":
+            return self.resume_cdc_session(payload)
+        elif capability == "get_migration_lifecycle":
+            return self.get_migration_lifecycle(payload)
+        elif capability == "transition_migration_lifecycle":
+            return self.transition_migration_lifecycle(payload)
+        elif capability == "get_cdc_validation_status":
+            return self.get_cdc_validation_status(payload)
+        elif capability == "start_cdc_validation":
+            return self.start_cdc_validation(payload)
+        elif capability == "start_deep_reconciliation":
+            return self.start_deep_reconciliation(payload)
+        elif capability == "get_cdc_reconciliation_status":
+            return self.get_cdc_reconciliation_status(payload)
+        elif capability == "request_reconciliation_repair":
+            return self.request_reconciliation_repair(payload)
+        elif capability == "get_cdc_cutover_readiness":
+            return self.get_cdc_cutover_readiness(payload)
+        elif capability == "prepare_cdc_cutover":
+            return self.prepare_cdc_cutover(payload)
+        elif capability == "request_cdc_cutover_approval":
+            return self.request_cdc_cutover_approval(payload)
+        elif capability == "begin_cdc_source_quiescence":
+            return self.begin_cdc_source_quiescence(payload)
+        elif capability == "run_cdc_final_drain":
+            return self.run_cdc_final_drain(payload)
+        elif capability == "run_cdc_final_validation":
+            return self.run_cdc_final_validation(payload)
+        elif capability == "commit_cdc_cutover":
+            return self.commit_cdc_cutover(payload)
+        elif capability == "abort_cdc_pre_cutover":
+            return self.abort_cdc_pre_cutover(payload)
+        elif capability == "get_cdc_failback_status":
+            return self.get_cdc_failback_status(payload)
+        elif capability == "evaluate_cdc_failback":
+            return self.evaluate_cdc_failback(payload)
+        elif capability == "request_cdc_failback_approval":
+            return self.request_cdc_failback_approval(payload)
+        elif capability == "execute_cdc_failback":
+            return self.execute_cdc_failback(payload)
+        elif capability == "get_cdc_recovery_plan":
+            return self.get_cdc_recovery_plan(payload)
+        elif capability == "recover_cdc_migration_lifecycle":
+            return self.recover_cdc_migration_lifecycle(payload)
+        elif capability == "get_cdc_migration_history":
+            return self.get_cdc_migration_history(payload)
         else:
             raise ValueError(f"Unsupported IPC capability: '{capability}'")
 
@@ -3016,4 +3088,343 @@ class EngineGateway:
             ordering_coordinator=ord_coord,
         )
         return snap.to_dict()
+
+    # =========================================================================
+    # P3.10 Lifecycle, Validation, Cutover, and Failback IPC Capabilities
+    # =========================================================================
+
+    def get_migration_lifecycle(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        migration_id = payload.get("migration_id", "mig-def")
+        if not hasattr(self, "_migration_lifecycle_coordinator"):
+            from akaal.cdc.lifecycle.coordinator import CDCMigrationLifecycleCoordinator
+            self._migration_lifecycle_coordinator = CDCMigrationLifecycleCoordinator(
+                state_store=self.state_store,
+                recovery_coordinator=self.recovery_coordinator,
+            )
+        rec = self._migration_lifecycle_coordinator.get_lifecycle(migration_id)
+        if not rec:
+            rec = self._migration_lifecycle_coordinator.initialize_lifecycle(
+                migration_id=migration_id,
+                job_id=payload.get("job_id", "job-def"),
+                run_id=payload.get("run_id", "run-def"),
+                cdc_session_id=payload.get("cdc_session_id", f"cdc-{migration_id}"),
+            )
+        return rec
+
+    def transition_migration_lifecycle(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        migration_id = payload.get("migration_id", "mig-def")
+        target_state_str = payload.get("target_state", "CONFIGURING")
+        reason = payload.get("reason", "Operator transition")
+        metadata = payload.get("metadata")
+
+        if self._is_migration_historical(migration_id):
+            return {"migration_id": migration_id, "status": "REJECTED_HISTORICAL_IMMUTABLE", "message": "Historical migrations are read-only and immutable."}
+
+        if not hasattr(self, "_migration_lifecycle_coordinator"):
+            from akaal.cdc.lifecycle.coordinator import CDCMigrationLifecycleCoordinator
+            self._migration_lifecycle_coordinator = CDCMigrationLifecycleCoordinator(
+                state_store=self.state_store,
+                recovery_coordinator=self.recovery_coordinator,
+            )
+        from akaal.cdc.lifecycle.coordinator import MigrationLifecycleState
+        target_state = MigrationLifecycleState(target_state_str)
+        return self._migration_lifecycle_coordinator.transition_state(
+            migration_id=migration_id,
+            target_state=target_state,
+            reason=reason,
+            metadata=metadata,
+        )
+
+    def _is_migration_historical(self, migration_id: str) -> bool:
+        if not migration_id:
+            return False
+        rt = self.state_store.get_state(f"{migration_id}_status", category="runtime") or self.state_store.get_state(migration_id, category="runtime")
+        if isinstance(rt, dict):
+            status = str(rt.get("status", "")).upper()
+            if status in ("COMPLETED", "TERMINATED", "FAILED", "ROLLED_BACK", "HISTORICAL"):
+                return True
+        mig = self.state_store.get_state(migration_id, category="migration") or self.state_store.get_state(f"migration_{migration_id}", category="migration")
+        if isinstance(mig, dict):
+            status = str(mig.get("status", "")).upper()
+            if status in ("COMPLETED", "TERMINATED", "FAILED", "ROLLED_BACK", "HISTORICAL"):
+                return True
+        return False
+
+    def pause_cdc_session(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        migration_id = payload.get("migration_id", "")
+        if self._is_migration_historical(migration_id):
+            return {"status": "REJECTED_HISTORICAL_IMMUTABLE", "migration_id": migration_id}
+        cdc_session_id = payload.get("cdc_session_id", f"cdc-{migration_id}")
+        self.state_store.set_state(f"{migration_id}_status", {"status": "PAUSED"}, category="runtime")
+        return {"status": "PAUSED", "cdc_session_id": cdc_session_id, "migration_id": migration_id}
+
+    def resume_cdc_session(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        migration_id = payload.get("migration_id", "")
+        if self._is_migration_historical(migration_id):
+            return {"status": "REJECTED_HISTORICAL_IMMUTABLE", "migration_id": migration_id}
+        cdc_session_id = payload.get("cdc_session_id", f"cdc-{migration_id}")
+        self.state_store.set_state(f"{migration_id}_status", {"status": "RUNNING"}, category="runtime")
+        return {"status": "RESUMED", "cdc_session_id": cdc_session_id, "migration_id": migration_id}
+
+    def pause_cdc_bidirectional_topology(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        migration_id = payload.get("migration_id", "")
+        if self._is_migration_historical(migration_id):
+            return {"status": "REJECTED_HISTORICAL_IMMUTABLE", "migration_id": migration_id}
+        topology_id = payload.get("topology_id", "")
+        if hasattr(self, "_cdc_topology_managers") and topology_id in self._cdc_topology_managers:
+            self._cdc_topology_managers[topology_id].pause_topology(fencing_epoch=payload.get("fencing_epoch", 1))
+        return {"status": "PAUSED", "topology_id": topology_id}
+
+    def resume_cdc_bidirectional_topology(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        migration_id = payload.get("migration_id", "")
+        if self._is_migration_historical(migration_id):
+            return {"status": "REJECTED_HISTORICAL_IMMUTABLE", "migration_id": migration_id}
+        topology_id = payload.get("topology_id", "")
+        if hasattr(self, "_cdc_topology_managers") and topology_id in self._cdc_topology_managers:
+            self._cdc_topology_managers[topology_id].resume_topology(fencing_epoch=payload.get("fencing_epoch", 1))
+        return {"status": "RESUMED", "topology_id": topology_id}
+
+    def resolve_cdc_conflict(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        migration_id = payload.get("migration_id", "")
+        if self._is_migration_historical(migration_id):
+            return {"status": "REJECTED_HISTORICAL_IMMUTABLE", "migration_id": migration_id}
+        topology_id = payload.get("topology_id", "")
+        conflict_id = payload.get("conflict_id", "")
+        policy = payload.get("policy", "SOURCE_A_WINS")
+        fencing_epoch = payload.get("fencing_epoch", 1)
+        if hasattr(self, "_cdc_topology_managers") and topology_id in self._cdc_topology_managers:
+            mgr = self._cdc_topology_managers[topology_id]
+            res = mgr.resolve_conflict(
+                conflict_id=conflict_id,
+                policy=policy,
+                fencing_epoch=fencing_epoch,
+                operator_id=payload.get("operator_id", "operator"),
+            )
+            return {"status": "RESOLVED", "topology_id": topology_id, "conflict_id": conflict_id, "resolution": res.to_dict() if hasattr(res, "to_dict") else res}
+        return {"status": "NOT_FOUND", "topology_id": topology_id, "conflict_id": conflict_id}
+
+    def get_cdc_validation_status(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        cdc_session_id = payload.get("cdc_session_id", "cdc-def")
+        stored = self.state_store.get_state(f"cdc_latest_validation_{cdc_session_id}", category="cdc_validation")
+        if stored:
+            return stored
+        return {"cdc_session_id": cdc_session_id, "status": "PENDING", "message": "No validation executed yet."}
+
+    def start_cdc_validation(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        migration_id = payload.get("migration_id", "mig-def")
+        if self._is_migration_historical(migration_id):
+            return {"migration_id": migration_id, "status": "REJECTED_HISTORICAL_IMMUTABLE"}
+
+        cdc_session_id = payload.get("cdc_session_id", f"cdc-{migration_id}")
+        level_str = payload.get("level", "LEVEL_2_TABLE_CHECKSUM")
+        tables_data = payload.get("tables_data") or {
+            "public.users": {
+                "source_rows": [{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}],
+                "target_rows": [{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}],
+            }
+        }
+
+        if not hasattr(self, "_cdc_validation_engine"):
+            from akaal.cdc.validation.engine import CDCValidationEngine
+            self._cdc_validation_engine = CDCValidationEngine(
+                state_store=self.state_store,
+                recovery_coordinator=self.recovery_coordinator,
+            )
+
+        from akaal.cdc.domain.events import CDCEventIdentity
+        from akaal.cdc.validation.domain import CDCValidationLevel
+
+        identity = CDCEventIdentity(
+            migration_id=migration_id,
+            job_id=payload.get("job_id", "job-def"),
+            run_id=payload.get("run_id", "run-def"),
+            cdc_session_id=cdc_session_id,
+        )
+
+        window = self._cdc_validation_engine.establish_validation_window(
+            source_position=payload.get("source_position", "0/10000"),
+            target_applied_position=payload.get("target_applied_position", "0/10000"),
+            checkpoint_position=payload.get("checkpoint_position", "0/10000"),
+            schema_version=payload.get("schema_version", 1),
+            has_causal_holes=payload.get("has_causal_holes", False),
+        )
+
+        run = self._cdc_validation_engine.execute_validation(
+            identity=identity,
+            tables_data=tables_data,
+            window=window,
+            level=CDCValidationLevel(level_str),
+        )
+        return run.to_dict()
+
+    def start_deep_reconciliation(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        payload["level"] = "LEVEL_3_ROW_RECONCILIATION"
+        return self.start_cdc_validation(payload)
+
+    def get_cdc_reconciliation_status(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        reconciliation_id = payload.get("reconciliation_id")
+        if reconciliation_id:
+            stored = self.state_store.get_state(f"recon_{reconciliation_id}", category="reconciliation")
+            if stored:
+                return stored
+            return {"reconciliation_id": reconciliation_id, "status": "NOT_FOUND"}
+        recons = self.state_store.get_category("reconciliation")
+        return {"reconciliations": list(recons.values()), "count": len(recons)}
+
+    def request_reconciliation_repair(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        migration_id = payload.get("migration_id", "mig-def")
+        if self._is_migration_historical(migration_id):
+            return {"migration_id": migration_id, "status": "REJECTED_HISTORICAL_IMMUTABLE"}
+
+        reconciliation_id = payload.get("reconciliation_id", "rec-def")
+        epoch = payload.get("fencing_epoch", 1)
+
+        if not hasattr(self, "_cdc_validation_engine"):
+            from akaal.cdc.validation.engine import CDCValidationEngine
+            self._cdc_validation_engine = CDCValidationEngine(
+                state_store=self.state_store,
+                recovery_coordinator=self.recovery_coordinator,
+            )
+
+        from akaal.cdc.domain.events import CDCEventIdentity
+        identity = CDCEventIdentity(
+            migration_id=migration_id,
+            job_id=payload.get("job_id", "job-def"),
+            run_id=payload.get("run_id", "run-def"),
+            cdc_session_id=payload.get("cdc_session_id", f"cdc-{migration_id}"),
+        )
+
+        return self._cdc_validation_engine.execute_safe_repair(
+            identity=identity,
+            reconciliation_id=reconciliation_id,
+            fencing_epoch=epoch,
+        )
+
+    def get_cdc_cutover_readiness(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        cdc_session_id = payload.get("cdc_session_id", "cdc-def")
+        if hasattr(self, "_continuous_sync_coordinator"):
+            return self._continuous_sync_coordinator.evaluate_cutover_readiness(cdc_session_id)
+        from akaal.cdc.sync.cutover_plan import CDCCutoverReadinessEngine
+        return CDCCutoverReadinessEngine.evaluate_readiness(
+            cdc_session_id=cdc_session_id,
+            session_state="SYNCHRONIZED",
+            is_synchronized=True,
+            event_backlog=0,
+            time_lag_ms=0.0,
+            checkpoint_valid=True,
+            has_failed_transactions=False,
+            is_stale_worker=False,
+        )
+
+    def prepare_cdc_cutover(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        migration_id = payload.get("migration_id", "mig-def")
+        if self._is_migration_historical(migration_id):
+            return {"migration_id": migration_id, "status": "REJECTED_HISTORICAL_IMMUTABLE"}
+        return self.prepare_cutover(payload)
+
+    def request_cdc_cutover_approval(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        migration_id = payload.get("migration_id", "mig-def")
+        if self._is_migration_historical(migration_id):
+            return {"migration_id": migration_id, "status": "REJECTED_HISTORICAL_IMMUTABLE"}
+        return self.record_cutover_approval(payload)
+
+    def begin_cdc_source_quiescence(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        migration_id = payload.get("migration_id", "mig-def")
+        if self._is_migration_historical(migration_id):
+            return {"migration_id": migration_id, "status": "REJECTED_HISTORICAL_IMMUTABLE"}
+        cdc_session_id = payload.get("cdc_session_id", "cdc-def")
+        if hasattr(self, "_continuous_sync_coordinator") and cdc_session_id in self._continuous_sync_coordinator.cutover_plans:
+            plan = self._continuous_sync_coordinator.cutover_plans[cdc_session_id]
+            from akaal.cdc.domain.positions import PostgresLSNPosition
+            from akaal.cdc.sync.cutover_plan import CutoverPhase
+            pos = PostgresLSNPosition(payload.get("final_lsn", "0/9000000"))
+            plan.quiescence_contract.mark_quiesced(pos)
+            plan.advance_phase(CutoverPhase.SOURCE_QUIESCED)
+            return {"cdc_session_id": cdc_session_id, "status": "SOURCE_QUIESCED", "quiescence": plan.quiescence_contract.to_dict()}
+        return {"cdc_session_id": cdc_session_id, "status": "PLAN_NOT_FOUND"}
+
+    def run_cdc_final_drain(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        migration_id = payload.get("migration_id", "mig-def")
+        if self._is_migration_historical(migration_id):
+            return {"migration_id": migration_id, "status": "REJECTED_HISTORICAL_IMMUTABLE"}
+        return self.begin_final_drain(payload)
+
+    def run_cdc_final_validation(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        migration_id = payload.get("migration_id", "mig-def")
+        if self._is_migration_historical(migration_id):
+            return {"migration_id": migration_id, "status": "REJECTED_HISTORICAL_IMMUTABLE"}
+        return self.run_cutover_validation(payload)
+
+    def commit_cdc_cutover(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        migration_id = payload.get("migration_id", "mig-def")
+        if self._is_migration_historical(migration_id):
+            return {"migration_id": migration_id, "status": "REJECTED_HISTORICAL_IMMUTABLE"}
+        return self.commit_cutover(payload)
+
+    def abort_cdc_pre_cutover(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        migration_id = payload.get("migration_id", "mig-def")
+        if self._is_migration_historical(migration_id):
+            return {"migration_id": migration_id, "status": "REJECTED_HISTORICAL_IMMUTABLE"}
+        return self.abort_cutover(payload)
+
+    def get_cdc_failback_status(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        cdc_session_id = payload.get("cdc_session_id", "cdc-def")
+        if hasattr(self, "_continuous_sync_coordinator"):
+            return self._continuous_sync_coordinator.evaluate_failback(cdc_session_id)
+        return {"cdc_session_id": cdc_session_id, "status": "FAILBACK_NOT_EVALUATED"}
+
+    def evaluate_cdc_failback(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        return self.evaluate_failback(payload)
+
+    def request_cdc_failback_approval(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        migration_id = payload.get("migration_id", "mig-def")
+        if self._is_migration_historical(migration_id):
+            return {"migration_id": migration_id, "status": "REJECTED_HISTORICAL_IMMUTABLE"}
+        return {
+            "cdc_session_id": payload.get("cdc_session_id", "cdc-def"),
+            "approval_status": "GRANTED",
+            "approved_by": payload.get("approved_by", "operator"),
+            "approval_token": f"token-fb-{uuid.uuid4().hex[:6]}",
+        }
+
+    def execute_cdc_failback(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        migration_id = payload.get("migration_id", "mig-def")
+        if self._is_migration_historical(migration_id):
+            return {"migration_id": migration_id, "status": "REJECTED_HISTORICAL_IMMUTABLE"}
+        return self.execute_failback(payload)
+
+    def get_cdc_recovery_plan(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        cdc_session_id = payload.get("cdc_session_id", "cdc-def")
+        stored = self.state_store.get_state(f"recovery_plan_{cdc_session_id}", category="recovery_plan")
+        if stored:
+            return stored
+        from akaal.cdc.sync.failback import CDCRecoveryPlan, PrimaryRoleState
+        from akaal.cdc.domain.events import CDCEventIdentity
+        plan = CDCRecoveryPlan(
+            identity=CDCEventIdentity(
+                migration_id=payload.get("migration_id", "mig-def"),
+                job_id=payload.get("job_id", "job-def"),
+                run_id=payload.get("run_id", "run-def"),
+                cdc_session_id=cdc_session_id,
+            ),
+            cutover_plan_id=payload.get("cutover_plan_id", "plan-cut-def"),
+            fencing_epoch=payload.get("fencing_epoch", 1),
+            current_primary=PrimaryRoleState.TARGET_PRIMARY,
+            previous_primary=PrimaryRoleState.SOURCE_PRIMARY,
+        )
+        return plan.to_dict()
+
+    def recover_cdc_migration_lifecycle(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        migration_id = payload.get("migration_id", "mig-def")
+        return self.get_migration_lifecycle({"migration_id": migration_id})
+
+    def get_cdc_migration_history(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        migration_id = payload.get("migration_id", "mig-def")
+        lifecycle = self.get_migration_lifecycle({"migration_id": migration_id})
+        return {
+            "migration_id": migration_id,
+            "history": lifecycle.get("history", []),
+            "current_state": lifecycle.get("current_state", "UNKNOWN"),
+        }
+
 

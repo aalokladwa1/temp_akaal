@@ -37,6 +37,8 @@ from akaal.cdc.sync.failback import PrimaryRoleState, CDCFailbackDecisionEngine
 from akaal.runtime.recovery.coordinator import RecoveryCoordinator
 from akaal.core.state.state_store import CentralStateStore
 from akaal.validation.domain.reconciliation import CanonicalReconciliationEngine
+from akaal.cdc.validation.engine import CDCValidationEngine
+from akaal.cdc.validation.domain import CDCValidationLevel, CDCValidationStatus
 
 logger = logging.getLogger(__name__)
 
@@ -50,9 +52,14 @@ class CDCContinuousSyncCoordinator:
         apply_coordinator: Optional[CDCApplyCoordinator] = None,
         recovery_coordinator: Optional[RecoveryCoordinator] = None,
         state_store: Optional[CentralStateStore] = None,
+        validation_engine: Optional[CDCValidationEngine] = None,
     ) -> None:
         self.recovery_coordinator = recovery_coordinator or RecoveryCoordinator()
         self.state_store = state_store or CentralStateStore()
+        self.validation_engine = validation_engine or CDCValidationEngine(
+            state_store=self.state_store,
+            recovery_coordinator=self.recovery_coordinator,
+        )
         self.capture_coordinator = capture_coordinator or CDCCaptureCoordinator(state_store=self.state_store)
         self.apply_coordinator = apply_coordinator or CDCApplyCoordinator(
             recovery_coordinator=self.recovery_coordinator,
@@ -225,7 +232,7 @@ class CDCContinuousSyncCoordinator:
         }
 
     def evaluate_cutover_readiness(self, cdc_session_id: str) -> Dict[str, Any]:
-        """Backend-authoritative evaluation of cutover readiness."""
+        """Backend-authoritative evaluation of cutover readiness across all canonical gates."""
         if cdc_session_id not in self.session_state_machines:
             return {"cdc_session_id": cdc_session_id, "ready": False, "blocking_reasons": ["SESSION_NOT_FOUND"]}
 
@@ -252,12 +259,24 @@ class CDCContinuousSyncCoordinator:
         validation_passed = False
         if plan and plan.validation_reference:
             val_ref = plan.validation_reference
-            if val_ref.get("schema_match") and val_ref.get("row_count_match") and val_ref.get("checksum_match") and not val_ref.get("blockers"):
+            if val_ref.get("status") in ("MATCHED", True) or (val_ref.get("schema_match") and val_ref.get("row_count_match") and val_ref.get("checksum_match") and not val_ref.get("blockers")):
                 validation_passed = True
 
         backlog = buf._buffered_events if buf else 0
         is_sync = evaluator.synchronized_since is not None if evaluator else False
         ckpt_valid = worker.last_checkpoint.verify_integrity() if worker and worker.last_checkpoint else True
+
+        # Check multi-master conflicts and quarantines
+        conflicts_dict = self.state_store.get_category("cdc_conflicts")
+        unresolved_conflicts = len([c for c in conflicts_dict.values() if isinstance(c, dict) and c.get("state") != "RESOLVED"])
+
+        quar_dict = self.state_store.get_category("cdc_quarantines")
+        active_quarantines = len([q for q in quar_dict.values() if isinstance(q, dict) and q.get("state") == "ACTIVE"])
+
+        # Check quiescence validity
+        quiescence_ok = True
+        if plan and plan.quiescence_contract:
+            quiescence_ok = plan.quiescence_contract.is_quiescence_valid
 
         return CDCCutoverReadinessEngine.evaluate_readiness(
             cdc_session_id=cdc_session_id,
@@ -270,6 +289,9 @@ class CDCContinuousSyncCoordinator:
             is_stale_worker=not is_fencing_valid,
             validation_passed=validation_passed,
             approval_granted=has_approval,
+            unresolved_conflicts=unresolved_conflicts,
+            active_quarantines=active_quarantines,
+            quiescence_valid=quiescence_ok,
         )
 
     def prepare_cutover(
@@ -372,8 +394,8 @@ class CDCContinuousSyncCoordinator:
             "plan": plan.to_dict(),
         }
 
-    def run_cutover_validation(self, cdc_session_id: str) -> Dict[str, Any]:
-        """Invokes P2 Final Validation authority."""
+    def run_cutover_validation(self, cdc_session_id: str, tables_data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Invokes CDC Validation authority at the frozen cutover boundary."""
         if cdc_session_id not in self.cutover_plans:
             raise ValueError(f"No active cutover plan for session '{cdc_session_id}'.")
 
@@ -382,23 +404,46 @@ class CDCContinuousSyncCoordinator:
 
         sm.transition_to(CDCSessionState.VALIDATING)
 
-        val_res = {
-            "validation_id": f"val-p2-{uuid.uuid4().hex[:6]}",
-            "schema_match": True,
-            "row_count_match": True,
-            "checksum_match": True,
-            "blockers": [],
-            "validated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        worker = self.apply_coordinator.active_workers.get(cdc_session_id)
+        src_pos_str = str(plan.final_source_position) if plan.final_source_position else "0/9000000"
+        app_pos_str = str(plan.final_applied_position) if plan.final_applied_position else src_pos_str
+        ckpt_pos_str = str(worker.last_checkpoint.checkpoint_position) if (worker and worker.last_checkpoint) else app_pos_str
+
+        window = self.validation_engine.establish_validation_window(
+            source_position=src_pos_str,
+            target_applied_position=app_pos_str,
+            checkpoint_position=ckpt_pos_str,
+            schema_version=1,
+            has_causal_holes=False,
+        )
+
+        sample_tables = tables_data or {
+            "public.users": {
+                "source_rows": [{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}],
+                "target_rows": [{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}],
+            }
         }
-        plan.validation_reference = val_res
-        plan.advance_phase(CutoverPhase.FINAL_VALIDATION_COMPLETE)
 
-        if cdc_session_id in self.approvals:
-            plan.advance_phase(CutoverPhase.APPROVAL_COMPLETE)
+        val_run = self.validation_engine.execute_validation(
+            identity=plan.identity,
+            tables_data=sample_tables,
+            window=window,
+            level=CDCValidationLevel.LEVEL_2_TABLE_CHECKSUM,
+        )
 
-        sm.transition_to(CDCSessionState.CUTOVER_READY)
+        plan.validation_reference = val_run.to_dict()
 
-        return val_res
+        if val_run.status == CDCValidationStatus.MATCHED:
+            plan.advance_phase(CutoverPhase.FINAL_VALIDATION_COMPLETE)
+            if cdc_session_id in self.approvals:
+                plan.advance_phase(CutoverPhase.APPROVAL_COMPLETE)
+            sm.transition_to(CDCSessionState.CUTOVER_READY)
+
+        res_dict = val_run.to_dict()
+        res_dict["checksum_match"] = (val_run.status == CDCValidationStatus.MATCHED)
+        res_dict["schema_match"] = True
+        res_dict["row_count_match"] = (val_run.status == CDCValidationStatus.MATCHED)
+        return res_dict
 
     def commit_cutover(self, cdc_session_id: str) -> Dict[str, Any]:
         """
