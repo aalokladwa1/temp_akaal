@@ -148,6 +148,43 @@ class TestP2RealityRectificationSuite(unittest.TestCase):
         )
         self.assertEqual(seal.status, CertificationSealStatus.REVOKED)
 
+    def test_17_canonical_checksum_normalizes_decimal_scale(self):
+        """Decimal('1.0') and Decimal('1.00') must produce identical canonical hashes."""
+        from decimal import Decimal
+        hash_1 = canonical_hash_row({"amount": Decimal("1.0")})
+        hash_2 = canonical_hash_row({"amount": Decimal("1.00")})
+        self.assertEqual(hash_1, hash_2)
+
+    def test_18_canonical_checksum_normalizes_timezone_utc(self):
+        """Timestamp 10:00 UTC and 15:30 +05:30 must produce identical canonical hashes."""
+        from datetime import datetime, timezone, timedelta
+        dt_utc = datetime(2026, 8, 15, 10, 0, 0, tzinfo=timezone.utc)
+        dt_ist = datetime(2026, 8, 15, 15, 30, 0, tzinfo=timezone(timedelta(hours=5, minutes=30)))
+        hash_utc = canonical_hash_row({"ts": dt_utc})
+        hash_ist = canonical_hash_row({"ts": dt_ist})
+        self.assertEqual(hash_utc, hash_ist)
+
+    def test_19_canonical_checksum_normalizes_unicode_nfc(self):
+        """NFC 'e\\u0301' and NFD 'e\\u0301' must produce identical canonical hashes."""
+        import unicodedata
+        nfc_str = unicodedata.normalize('NFC', 'e\u0301')
+        nfd_str = unicodedata.normalize('NFD', 'e\u0301')
+        hash_nfc = canonical_hash_row({"text": nfc_str})
+        hash_nfd = canonical_hash_row({"text": nfd_str})
+        self.assertEqual(hash_nfc, hash_nfd)
+
+    def test_20_canonical_checksum_normalizes_column_casing(self):
+        """Column 'ID' and column 'id' must produce identical canonical hashes."""
+        hash_upper = canonical_hash_row({"ID": 1, "NAME": "Alice"})
+        hash_lower = canonical_hash_row({"id": 1, "name": "Alice"})
+        self.assertEqual(hash_upper, hash_lower)
+
+    def test_21_write_firewall_blocks_comment_obfuscated_mutation(self):
+        """ValidationOnlyWriteFirewall blocks mutation verbs hidden inside/after SQL comments."""
+        with self.assertRaises(RuntimeError) as ctx:
+            ValidationOnlyWriteFirewall.assert_read_only("SELECT 1; -- comment\nDELETE FROM users;")
+        self.assertIn("strictly forbidden", str(ctx.exception))
+
 
 if __name__ == "__main__":
     unittest.main()

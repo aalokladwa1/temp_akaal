@@ -385,16 +385,24 @@ class SQLiteAdapter(BaseAdapter):
                 raise RuntimeError("SQLite connection unavailable for checksum computation.")
             cursor = self._conn.cursor()
             try:
-                # Discover primary key or fallback to rowid for deterministic ordering
+                # Discover primary key or fallback to order-independent row hashing
                 cursor.execute(f'PRAGMA table_info("{table_name}")')
                 cols_info = cursor.fetchall()
                 pk_cols = [c[1] for c in cols_info if c[5] > 0]
-                order_clause = f'ORDER BY {", ".join([f"""("{c}")""" for c in pk_cols])}' if pk_cols else "ORDER BY rowid"
+                order_clause = f'ORDER BY {", ".join([f"""("{c}")""" for c in pk_cols])}' if pk_cols else ""
                 
                 cursor.execute(f'SELECT * FROM "{table_name}" {order_clause}')
-                col_names = [d[0] for d in cursor.description]
-                rows = [dict(zip(col_names, r)) for r in cursor.fetchall()]
-                return compute_canonical_table_checksum(rows)
+                col_names = [d[0] for d in cursor.description] if cursor.description else []
+                
+                def _row_stream():
+                    while True:
+                        batch = cursor.fetchmany(1000)
+                        if not batch:
+                            break
+                        for r in batch:
+                            yield dict(zip(col_names, r))
+
+                return compute_canonical_table_checksum(_row_stream(), order_independent=(not pk_cols))
             finally:
                 cursor.close()
         return await asyncio.to_thread(_calc)

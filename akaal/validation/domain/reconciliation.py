@@ -51,21 +51,30 @@ class ValidationOnlyWriteFirewall:
     _FORBIDDEN_KEYWORDS = frozenset([
         "INSERT", "UPDATE", "DELETE", "MERGE", "UPSERT",
         "TRUNCATE", "DROP", "ALTER", "CREATE", "REPLACE",
-        "CALL", "EXEC", "EXECUTE",
+        "GRANT", "REVOKE", "CALL", "EXEC", "EXECUTE",
+        "VACUUM", "ATTACH", "DETACH", "PRAGMA", "COPY", "INTO",
     ])
 
     @classmethod
     def assert_read_only(cls, sql: str) -> None:
         """
         Inspect SQL text for mutation keywords.
-        Raises RuntimeError if any forbidden mutation keyword is found.
-        Case-insensitive, handles leading whitespace and CTE prefixes.
+        Strips SQL comments (-- and /* */) before parsing tokens to prevent comment-obfuscation bypasses.
+        Raises RuntimeError if any forbidden mutation keyword is found or if query does not start with SELECT/EXPLAIN/SHOW/WITH.
         """
         import re
         if not isinstance(sql, str):
             raise RuntimeError("[WRITE FIREWALL] SQL must be a string, got: " + type(sql).__name__)
-        # Extract all word tokens — catches casing, whitespace, CTE-based mutations
-        tokens = set(re.findall(r'\b[A-Za-z_]+\b', sql.upper()))
+        
+        # Strip comments
+        clean_sql = re.sub(r'--.*$', '', sql, flags=re.MULTILINE)
+        clean_sql = re.sub(r'/\*.*?\*/', '', clean_sql, flags=re.DOTALL).strip()
+
+        if not clean_sql:
+            return
+
+        # Extract all word tokens
+        tokens = set(re.findall(r'\b[A-Za-z_]+\b', clean_sql.upper()))
         blocked = tokens & cls._FORBIDDEN_KEYWORDS
         if blocked:
             err_msg = (

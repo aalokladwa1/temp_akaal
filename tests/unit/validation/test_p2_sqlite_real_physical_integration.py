@@ -150,9 +150,9 @@ class TestP2SQLiteRealPhysicalIntegration(unittest.TestCase):
 
         src_cs, tgt_cs = asyncio.run(_run())
         self.assertEqual(src_cs, tgt_cs)
-        # Empty table canonical sentinel
+        # Empty table canonical domain separation sentinel
         import hashlib
-        self.assertEqual(src_cs, hashlib.sha256(b"EMPTY_TABLE").hexdigest())
+        self.assertEqual(src_cs, hashlib.sha256(b"AKAAL_CANONICAL_CHECKSUM_V1:DOMAIN_EMPTY_TABLE").hexdigest())
 
     def test_05_unicode_data_handling(self):
         """Scenario 5: Unicode UTF-8 string matching across SQLite files."""
