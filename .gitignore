@@ -11,6 +11,7 @@ htmlcov/
 *.db
 *.db-shm
 *.db-wal
+testdb*
 validation_workspace/
 akaal_workspace/
 smoke_test_workspace/
