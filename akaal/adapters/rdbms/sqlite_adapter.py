@@ -1,7 +1,8 @@
 """
-Akaal — SQLite Adapter
-======================
-Implements BaseAdapter for SQLite using standard sqlite3 wrapped in threads.
+Akaal — SQLite Adapter (P4.2 Physical Reality)
+================================================
+Physical BaseAdapter implementation for SQLite using standard sqlite3.
+Strict Zero-Fake Policy: Requires physical database connection/file.
 """
 
 import asyncio
@@ -22,12 +23,13 @@ class SQLiteAdapter(BaseAdapter):
         AdapterCapability.SCHEMA_DISCOVERY,
         AdapterCapability.BULK_READ,
         AdapterCapability.BULK_WRITE,
-        AdapterCapability.TRANSACTION_SUPPORT
+        AdapterCapability.TRANSACTION_SUPPORT,
     ]
 
     def __init__(self, config) -> None:
         super().__init__(config)
-        self._conn = None
+        self._conn: Optional[sqlite3.Connection] = None
+        self._in_transaction = False
         self._db_path = getattr(config, "database_name", ":memory:")
         if isinstance(config, dict):
             self._db_path = config.get("database_name") or config.get("db_path") or ":memory:"
@@ -36,24 +38,23 @@ class SQLiteAdapter(BaseAdapter):
     # Connection
     # ------------------------------------------------------------------
 
-    async def create_connection(self) -> Any:
-        if self.mock_mode:
-            return "mock_sqlite_conn"
+    async def create_connection(self) -> sqlite3.Connection:
         def _connect():
             conn = sqlite3.connect(self._db_path, check_same_thread=False)
             conn.row_factory = sqlite3.Row
             return conn
         return await asyncio.to_thread(_connect)
 
-    async def close_connection(self, conn: Any) -> None:
-        if conn and conn != "mock_sqlite_conn":
+    async def close_connection(self, conn: sqlite3.Connection) -> None:
+        if conn:
             def _close():
-                conn.close()
+                try:
+                    conn.close()
+                except Exception:
+                    pass
             await asyncio.to_thread(_close)
 
-    async def validate_connection(self, conn: Any) -> bool:
-        if conn == "mock_sqlite_conn":
-            return True
+    async def validate_connection(self, conn: sqlite3.Connection) -> bool:
         if conn is None:
             return False
         try:
@@ -67,93 +68,93 @@ class SQLiteAdapter(BaseAdapter):
             return False
 
     async def connect(self) -> None:
-        """Connect to SQLite database."""
+        """Establishes physical connection to SQLite database file or memory."""
         self._conn = await self.create_connection()
         self.is_connected = True
+        self._in_transaction = False
         logger.info("[SQLiteAdapter] Connected to DB at %s", self._db_path)
 
     async def close(self) -> None:
-        """Close SQLite connection."""
+        """Close physical SQLite connection."""
         if self._conn:
             await self.close_connection(self._conn)
             self._conn = None
         self.is_connected = False
+        self._in_transaction = False
         logger.info("[SQLiteAdapter] Connection closed.")
 
     async def check_permissions(self) -> bool:
-        return True
+        if not self._conn:
+            raise RuntimeError("SQLite connection is not active.")
+        return await self.validate_connection(self._conn)
 
     async def begin_transaction(self) -> None:
-        pass
+        if not self._conn:
+            raise RuntimeError("SQLite connection is not active for transaction begin.")
+        self._in_transaction = True
 
     async def commit_transaction(self) -> None:
-        if self._conn and hasattr(self._conn, "commit"):
-            def _run():
-                self._conn.commit()
-            await asyncio.to_thread(_run)
+        if not self._conn:
+            raise RuntimeError("SQLite connection is not active for transaction commit.")
+        def _run():
+            self._conn.commit()
+        await asyncio.to_thread(_run)
+        self._in_transaction = False
 
     async def rollback_transaction(self) -> None:
-        if self._conn and hasattr(self._conn, "rollback"):
-            def _run():
-                self._conn.rollback()
-            await asyncio.to_thread(_run)
+        if not self._conn:
+            raise RuntimeError("SQLite connection is not active for transaction rollback.")
+        def _run():
+            self._conn.rollback()
+        await asyncio.to_thread(_run)
+        self._in_transaction = False
+
+    def _ensure_connected(self) -> None:
+        if not self._conn:
+            raise RuntimeError("SQLite connection is not active.")
 
     async def discover_tables(self) -> List[str]:
-        if self.mock_mode:
-            return ["users", "orders", "composite_table"]
-        
+        self._ensure_connected()
         def _get_tables():
             cursor = self._conn.cursor()
-            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
-            tables = [row["name"] for row in cursor.fetchall()]
-            if not tables:
-                # Pre-populate sample tables for in-memory / blank test DBs
-                cursor.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, name TEXT, email TEXT)")
-                cursor.execute("CREATE TABLE IF NOT EXISTS orders (id INTEGER PRIMARY KEY, user_id INTEGER, amount REAL)")
-                self._conn.commit()
-                tables = ["users", "orders"]
-            return tables
+            try:
+                cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
+                return [row["name"] for row in cursor.fetchall()]
+            finally:
+                cursor.close()
         return await asyncio.to_thread(_get_tables)
 
     async def discover_columns(self, table_name: str) -> List[Dict[str, Any]]:
-        if self.mock_mode:
-            return [{"name": "id", "type": "INTEGER", "nullable": False, "default": None}]
-            
+        self._ensure_connected()
         def _get_cols():
             cursor = self._conn.cursor()
-            cursor.execute(f"PRAGMA table_info('{table_name}')")
-            cols = []
-            for row in cursor.fetchall():
-                cols.append({
-                    "name": row["name"],
-                    "type": row["type"],
-                    "nullable": not row["notnull"],
-                    "default": row["dflt_value"]
-                })
-            return cols
+            try:
+                cursor.execute(f'PRAGMA table_info("{table_name}")')
+                cols = []
+                for row in cursor.fetchall():
+                    cols.append({
+                        "name": row["name"],
+                        "type": row["type"],
+                        "nullable": not row["notnull"],
+                        "default": row["dflt_value"]
+                    })
+                return cols
+            finally:
+                cursor.close()
         return await asyncio.to_thread(_get_cols)
 
     async def _primary_key_columns(self, table_name: str) -> List[str]:
-        """Return all primary key columns for table_name."""
-        if self.mock_mode:
-            if table_name == "composite_table":
-                return ["pk1", "pk2"]
-            elif table_name == "uuid_table":
-                return ["uuid_col"]
-            elif table_name == "string_table":
-                return ["str_col"]
-            elif table_name == "no_pk_table":
-                return []
-            return ["id"]
-
+        self._ensure_connected()
         def _get_pks():
             cursor = self._conn.cursor()
-            cursor.execute(f"PRAGMA table_info('{table_name}')")
-            rows = cursor.fetchall()
-            # pk field is > 0 if it is part of primary key. Sort by it to preserve PK order.
-            pk_rows = [row for row in rows if row["pk"] > 0]
-            pk_rows.sort(key=lambda r: r["pk"])
-            return [row["name"] for row in pk_rows]
+            try:
+                cursor.execute(f'PRAGMA table_info("{table_name}")')
+                rows = cursor.fetchall()
+                pk_rows = [row for row in rows if row["pk"] > 0]
+                pk_rows.sort(key=lambda r: r["pk"])
+                return [row["name"] for row in pk_rows]
+            finally:
+                cursor.close()
         return await asyncio.to_thread(_get_pks)
 
     async def _primary_key_column(self, table_name: str) -> str:
@@ -172,63 +173,11 @@ class SQLiteAdapter(BaseAdapter):
         last_processed_primary_key: Optional[Dict[str, Any]] = None,
         incremental_filter: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, Any]]:
-        extra = getattr(self.config, "extra", {}) or {}
-        if self.mock_mode or extra.get("mock_mode") is True:
-            start_id = offset
-            pk_cols = await self._primary_key_columns(table_name)
-            if last_processed_primary_key and pk_cols:
-                if len(pk_cols) == 1:
-                    pk_val = last_processed_primary_key.get(pk_cols[0])
-                    if pk_val is not None:
-                        if isinstance(pk_val, str) and "-" in pk_val:
-                            try:
-                                start_id = int(pk_val.split("-")[-1]) + 1
-                            except ValueError:
-                                start_id = offset
-                        else:
-                            try:
-                                start_id = int(pk_val) + 1
-                            except ValueError:
-                                start_id = offset
-                else:
-                    pk_val = last_processed_primary_key.get(pk_cols[0])
-                    if pk_val is not None:
-                        try:
-                            start_id = int(pk_val) + 1
-                        except ValueError:
-                            start_id = offset
-            
-            # Enforce dynamic limit for mock table pagination
-            mock_max_rows = getattr(self.config, "mock_max_rows", 250)
-            if start_id >= mock_max_rows:
-                return []
-            if start_id + limit > 250:
-                limit = mock_max_rows - start_id
-
-            rows = []
-            for i in range(start_id, start_id + limit):
-                row = {"data": f"mock_row_{i}"}
-                if table_name == "composite_table":
-                    row["pk1"] = i
-                    row["pk2"] = i * 10
-                elif table_name == "uuid_table":
-                    row["uuid_col"] = f"uuid-{i}"
-                elif table_name == "string_table":
-                    row["str_col"] = f"str-{i}"
-                elif table_name == "no_pk_table":
-                    row["data"] = f"mock_row_{i}"
-                elif table_name == "lob_table":
-                    row["id"] = i
-                    row["blob_col"] = f"mock_blob_value_{i}"
-                else:
-                    row["id"] = i
-                rows.append(row)
-            return rows
-
+        self._ensure_connected()
         pk_cols = await self._primary_key_columns(table_name)
         use_cursor = (
-            last_processed_primary_key is not None 
-            and len(pk_cols) > 0 
+            last_processed_primary_key is not None
+            and len(pk_cols) > 0
             and all(col in last_processed_primary_key for col in pk_cols)
         )
 
@@ -261,8 +210,8 @@ class SQLiteAdapter(BaseAdapter):
                 if where_clauses:
                     where_str = " WHERE " + " AND ".join(where_clauses)
 
-                order_by = ", ".join([f'"{col}" ASC' for col in pk_cols]) if pk_cols else '"id"'
-                
+                order_by = ", ".join([f'"{col}" ASC' for col in pk_cols]) if pk_cols else "ROWID"
+
                 if use_cursor:
                     sql = f'SELECT * FROM "{table_name}"{where_str} ORDER BY {order_by} LIMIT ?'
                     params.append(limit)
@@ -287,14 +236,10 @@ class SQLiteAdapter(BaseAdapter):
         offset: int,
         chunk_size: int,
     ) -> bytes:
-        if self.mock_mode:
-            mock_data = f"mock_lob_data_for_row_{list(pk_value.values())[0] if pk_value else 0}".encode()
-            return mock_data[offset : offset + chunk_size]
-
+        self._ensure_connected()
         pk_cols = list(pk_value.keys())
         where_parts = [f'"{col}" = ?' for col in pk_cols]
         where_clause = " AND ".join(where_parts)
-        # SQLite substr is 1-indexed
         params = [offset + 1, chunk_size] + list(pk_value.values())
 
         sql = f'SELECT substr("{lob_column}", ?, ?) FROM "{table_name}" WHERE {where_clause}'
@@ -317,9 +262,7 @@ class SQLiteAdapter(BaseAdapter):
         chunk_data: bytes,
         offset: int,
     ) -> None:
-        if self.mock_mode:
-            return
-
+        self._ensure_connected()
         pk_cols = list(pk_value.keys())
         where_parts = [f'"{col}" = ?' for col in pk_cols]
         where_clause = " AND ".join(where_parts)
@@ -328,7 +271,6 @@ class SQLiteAdapter(BaseAdapter):
             sql = f'UPDATE "{table_name}" SET "{lob_column}" = ? WHERE {where_clause}'
             params = [chunk_data] + list(pk_value.values())
         else:
-            # SQLite uses || operator
             sql = f'UPDATE "{table_name}" SET "{lob_column}" = "{lob_column}" || ? WHERE {where_clause}'
             params = [chunk_data] + list(pk_value.values())
 
@@ -336,15 +278,14 @@ class SQLiteAdapter(BaseAdapter):
             cursor = self._conn.cursor()
             try:
                 cursor.execute(sql, tuple(params))
-                self._conn.commit()
+                if not self._in_transaction:
+                    self._conn.commit()
             finally:
                 cursor.close()
         await asyncio.to_thread(_run)
 
     async def write_batch(self, table_name: str, rows: List[Dict[str, Any]]) -> int:
-        extra = getattr(self.config, "extra", {}) or {}
-        if self.mock_mode or extra.get("mock_mode") is True:
-            return len(rows)
+        self._ensure_connected()
         if not rows:
             return 0
 
@@ -355,18 +296,18 @@ class SQLiteAdapter(BaseAdapter):
                 placeholders = ", ".join(["?"] * len(columns))
                 cols_sql = ", ".join([f'"{c}"' for c in columns])
                 sql = f'INSERT OR REPLACE INTO "{table_name}" ({cols_sql}) VALUES ({placeholders})'
-                
+
                 vals = [tuple(row[c] for c in columns) for row in rows]
                 cursor.executemany(sql, vals)
-                self._conn.commit()
+                if not self._in_transaction:
+                    self._conn.commit()
                 return cursor.rowcount
             finally:
                 cursor.close()
         return await asyncio.to_thread(_write)
 
     async def get_row_count(self, table_name: str) -> int:
-        if not self._conn:
-            raise RuntimeError("SQLite connection unavailable for row count query.")
+        self._ensure_connected()
         def _count():
             cursor = self._conn.cursor()
             try:
@@ -379,21 +320,19 @@ class SQLiteAdapter(BaseAdapter):
         return await asyncio.to_thread(_count)
 
     async def compute_checksum(self, table_name: str) -> str:
+        self._ensure_connected()
         from akaal.validation.domain.canonical_checksum import compute_canonical_table_checksum
         def _calc():
-            if not self._conn:
-                raise RuntimeError("SQLite connection unavailable for checksum computation.")
             cursor = self._conn.cursor()
             try:
-                # Discover primary key or fallback to order-independent row hashing
                 cursor.execute(f'PRAGMA table_info("{table_name}")')
                 cols_info = cursor.fetchall()
                 pk_cols = [c[1] for c in cols_info if c[5] > 0]
                 order_clause = f'ORDER BY {", ".join([f"""("{c}")""" for c in pk_cols])}' if pk_cols else ""
-                
+
                 cursor.execute(f'SELECT * FROM "{table_name}" {order_clause}')
                 col_names = [d[0] for d in cursor.description] if cursor.description else []
-                
+
                 def _row_stream():
                     while True:
                         batch = cursor.fetchmany(1000)
@@ -408,16 +347,74 @@ class SQLiteAdapter(BaseAdapter):
         return await asyncio.to_thread(_calc)
 
     async def discover_foreign_keys(self) -> List[Dict[str, Any]]:
-        return []
+        self._ensure_connected()
+        tables = await self.discover_tables()
+        def _get_fks():
+            fks = []
+            cursor = self._conn.cursor()
+            try:
+                for tbl in tables:
+                    cursor.execute(f'PRAGMA foreign_key_list("{tbl}")')
+                    for row in cursor.fetchall():
+                        fks.append({
+                            "table_name": tbl,
+                            "column_name": row["from"],
+                            "foreign_table_name": row["table"],
+                            "foreign_column_name": row["to"],
+                            "constraint_name": f"fk_{tbl}_{row['from']}",
+                        })
+                return fks
+            finally:
+                cursor.close()
+        return await asyncio.to_thread(_get_fks)
 
     async def discover_indexes(self, table_name: str) -> List[Dict[str, Any]]:
-        return []
+        self._ensure_connected()
+        def _get_idx():
+            indexes = []
+            cursor = self._conn.cursor()
+            try:
+                cursor.execute(f'PRAGMA index_list("{table_name}")')
+                for row in cursor.fetchall():
+                    indexes.append({
+                        "name": row["name"],
+                        "unique": bool(row["unique"]),
+                        "origin": row["origin"],
+                    })
+                return indexes
+            finally:
+                cursor.close()
+        return await asyncio.to_thread(_get_idx)
 
     async def discover_constraints(self, table_name: str) -> List[Dict[str, Any]]:
-        return []
+        self._ensure_connected()
+        pks = await self._primary_key_columns(table_name)
+        constraints = []
+        if pks:
+            constraints.append({"name": f"pk_{table_name}", "type": "PRIMARY KEY", "columns": pks})
+        return constraints
 
     async def discover_triggers(self, table_name: str) -> List[Dict[str, Any]]:
-        return []
+        self._ensure_connected()
+        def _get_trig():
+            cursor = self._conn.cursor()
+            try:
+                cursor.execute(
+                    "SELECT name, sql FROM sqlite_master WHERE type='trigger' AND tbl_name=?",
+                    (table_name,)
+                )
+                return [{"name": row["name"], "sql": row["sql"]} for row in cursor.fetchall()]
+            finally:
+                cursor.close()
+        return await asyncio.to_thread(_get_trig)
 
     async def discover_views(self) -> List[Dict[str, Any]]:
-        return []
+        self._ensure_connected()
+        def _get_views():
+            cursor = self._conn.cursor()
+            try:
+                cursor.execute("SELECT name, sql FROM sqlite_master WHERE type='view'")
+                return [{"name": row["name"], "definition": row["sql"]} for row in cursor.fetchall()]
+            finally:
+                cursor.close()
+        return await asyncio.to_thread(_get_views)

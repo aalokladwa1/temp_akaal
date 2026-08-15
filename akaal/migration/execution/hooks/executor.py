@@ -50,7 +50,7 @@ class HookExecutor:
                 if hook.rollback_on_failure:
                     logger.info("[Hooks] Executing failure rollback commands...")
                     # Perform dummy rollback or execute fallback SQL if needed
-                    if conn and conn != "mock_pg_conn" and hasattr(conn, "rollback"):
+                    if conn and hasattr(conn, "rollback"):
                         try:
                             conn.rollback()
                         except Exception:
@@ -76,9 +76,7 @@ class HookExecutor:
 
     async def _execute_commands(self, conn: Any, hook: SQLHook) -> None:
         """Executes hook SQL commands sequentially."""
-        if conn == "mock_pg_conn" or conn is None:
-            # Mock mode execution simulation delay
-            await asyncio.sleep(0.01)
+        if conn is None:
             return
 
         def _run():

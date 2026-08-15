@@ -21,17 +21,6 @@ from akaal.core.models.enums import SystemType, AdapterCapability
 
 logger = logging.getLogger("akaal.adapters.mysql")
 
-_MOCK_HOSTS = {
-    "source-db.example.com",
-    "source-prod.example.com",
-    "target-db.example.com",
-    "target-cloud.example.com",
-    "connection-fail.example.com",
-    "permission-fail.example.com",
-    "large-db.example.com",
-    "oracle-prod.example.com",
-    "postgres-target.example.com",
-}
 
 _LARGE_TABLES = [
     "users", "user_profiles", "categories", "products",
@@ -39,22 +28,6 @@ _LARGE_TABLES = [
     "shipping_details", "payments"
 ]
 
-_MOCK_COLUMNS = {
-    "users": [
-        {"name": "id",           "type": "INTEGER",      "nullable": False, "default": "nextval('users_id_seq')", "parent_id": None},
-        {"name": "email",        "type": "VARCHAR(255)",  "nullable": False, "default": None,                     "parent_id": None},
-        {"name": "password_hash","type": "VARCHAR(255)",  "nullable": False, "default": None,                     "parent_id": None},
-        {"name": "status",       "type": "VARCHAR(50)",   "nullable": True,  "default": "'active'",               "parent_id": None},
-        {"name": "created_at",   "type": "TIMESTAMP",     "nullable": True,  "default": "now()",                  "parent_id": None},
-    ],
-    "orders": [
-        {"name": "id",           "type": "INTEGER",      "nullable": False, "default": "nextval('orders_id_seq')", "parent_id": None},
-        {"name": "user_id",      "type": "INTEGER",      "nullable": True,  "default": None,                       "parent_id": "users.id"},
-        {"name": "total_amount", "type": "NUMERIC(10,2)","nullable": True,  "default": None,                       "parent_id": None},
-        {"name": "status",       "type": "VARCHAR(50)",  "nullable": True,  "default": "'pending'",                "parent_id": None},
-        {"name": "order_date",   "type": "TIMESTAMP",    "nullable": True,  "default": "now()",                    "parent_id": None},
-    ],
-}
 
 
 class MySQLAdapter(BaseAdapter):
@@ -73,30 +46,17 @@ class MySQLAdapter(BaseAdapter):
         super().__init__(config)
         extra = getattr(config, "extra", {}) or {}
         host = getattr(config, "host", "") or ""
-        self.mock_mode = (
-            host in _MOCK_HOSTS
-            or extra.get("mock_mode") is True
-            or "mock" in host
-            or "example.com" in host
-            or not host
-        )
-        if self.mock_mode:
-            logger.info("[MySQLAdapter] Mock mode: host=%s", config.host)
 
     async def create_connection(self) -> Any:
-        if self.mock_mode:
-            if getattr(self.config, "host", "") == "connection-fail.example.com":
-                raise ConnectionError("Mock: MySQL connection failure.")
-            return "mock_mysql_conn"
         try:
             import pymysql
             import pymysql.cursors
         except ImportError:
             raise RuntimeError("PyMySQL not installed. Run: pip install PyMySQL")
-            
+
         user = getattr(self.config, 'username', None) or os.environ.get('AKAAL_MYSQL_USER', 'root')
         password = getattr(self.config, 'password', None) or os.environ.get('AKAAL_MYSQL_PASSWORD', '')
-        
+
         return await asyncio.to_thread(
             pymysql.connect,
             host=self.config.host,
@@ -107,22 +67,21 @@ class MySQLAdapter(BaseAdapter):
             cursorclass=pymysql.cursors.DictCursor
         )
 
+
+    def _ensure_connected(self) -> None:
+        if not hasattr(self, "_conn") or not self._conn or not getattr(self, "is_connected", False):
+            raise RuntimeError("MySQL connection is not active.")
+
     async def connect(self) -> None:
-        if self.mock_mode:
-            if getattr(self.config, "host", "") == "connection-fail.example.com":
-                raise ConnectionError("Mock: MySQL connection failure.")
-            self.is_connected = True
-            logger.info("[MySQLAdapter] Connected (mock).")
-            return
         try:
             import pymysql
             import pymysql.cursors
         except ImportError:
             raise RuntimeError("PyMySQL not installed. Run: pip install PyMySQL")
-        
+
         user = getattr(self.config, 'username', None) or os.environ.get('AKAAL_MYSQL_USER', 'root')
         password = getattr(self.config, 'password', None) or os.environ.get('AKAAL_MYSQL_PASSWORD', '')
-        
+
         self._conn = pymysql.connect(
             host=self.config.host,
             port=int(getattr(self.config, 'port', 3306)),
@@ -137,14 +96,17 @@ class MySQLAdapter(BaseAdapter):
                     self.config.host, self.config.port, self.config.database_name)
 
     async def begin_transaction(self) -> None:
+        self._ensure_connected()
         pass
 
     async def commit_transaction(self) -> None:
-        if not self.mock_mode and hasattr(self, "_conn") and self._conn and hasattr(self._conn, "commit"):
+        self._ensure_connected()
+        if hasattr(self, "_conn") and self._conn and hasattr(self._conn, "commit"):
             self._conn.commit()
 
     async def rollback_transaction(self) -> None:
-        if not self.mock_mode and hasattr(self, "_conn") and self._conn and hasattr(self._conn, "rollback"):
+        self._ensure_connected()
+        if hasattr(self, "_conn") and self._conn and hasattr(self._conn, "rollback"):
             self._conn.rollback()
 
     async def close(self) -> None:
@@ -181,25 +143,16 @@ class MySQLAdapter(BaseAdapter):
     async def check_permissions(self) -> bool:
         if not self.is_connected:
             raise RuntimeError("Not connected.")
-        if self.mock_mode:
-            if getattr(self.config, "host", "") == "permission-fail.example.com":
-                return False
-            return True
         return True
 
     async def discover_tables(self) -> List[str]:
+        self._ensure_connected()
         if not self.is_connected:
             raise RuntimeError("Not connected.")
-        if self.mock_mode:
-            host = getattr(self.config, "host", "")
-            if host in ("large-db.example.com", "oracle-prod.example.com", "postgres-target.example.com"):
-                return _LARGE_TABLES
-            return ["users", "orders", "order_items"]
-        
         sql = """
-            SELECT TABLE_NAME 
-            FROM information_schema.TABLES 
-            WHERE TABLE_SCHEMA = %s 
+            SELECT TABLE_NAME
+            FROM information_schema.TABLES
+            WHERE TABLE_SCHEMA = %s
               AND TABLE_TYPE = 'BASE TABLE'
         """
         def _run():
@@ -210,9 +163,10 @@ class MySQLAdapter(BaseAdapter):
         return await asyncio.to_thread(_run)
 
     async def discover_columns(self, table_name: str) -> List[Dict[str, Any]]:
+        self._ensure_connected()
         if not self.is_connected or not self._conn:
             raise RuntimeError("MySQL connection unavailable for column discovery.")
-        
+
         sql = """
             SELECT COLUMN_NAME, DATA_TYPE, COLUMN_TYPE, IS_NULLABLE, COLUMN_DEFAULT, EXTRA
             FROM information_schema.COLUMNS
@@ -239,16 +193,13 @@ class MySQLAdapter(BaseAdapter):
         return await asyncio.to_thread(_run)
 
     async def discover_foreign_keys(self) -> List[Dict[str, Any]]:
-        if self.mock_mode:
-            return [
-                {"name": "fk_orders_user", "from_table": "orders", "from_column": "user_id", "to_table": "users", "to_column": "id"},
-            ]
+        self._ensure_connected()
         sql = """
-            SELECT 
-                CONSTRAINT_NAME, TABLE_NAME, COLUMN_NAME, 
+            SELECT
+                CONSTRAINT_NAME, TABLE_NAME, COLUMN_NAME,
                 REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME
             FROM information_schema.KEY_COLUMN_USAGE
-            WHERE TABLE_SCHEMA = %s 
+            WHERE TABLE_SCHEMA = %s
               AND REFERENCED_TABLE_NAME IS NOT NULL
         """
         def _run():
@@ -268,8 +219,7 @@ class MySQLAdapter(BaseAdapter):
         return await asyncio.to_thread(_run)
 
     async def discover_indexes(self, table_name: str) -> List[Dict[str, Any]]:
-        if self.mock_mode:
-            return [{"name": f"{table_name}_pkey", "columns": ["id"], "unique": True}]
+        self._ensure_connected()
         sql = f"SHOW INDEX FROM `{table_name}`"
         def _run():
             with self._conn.cursor() as cur:
@@ -289,8 +239,7 @@ class MySQLAdapter(BaseAdapter):
         return await asyncio.to_thread(_run)
 
     async def discover_constraints(self, table_name: str) -> List[Dict[str, Any]]:
-        if self.mock_mode:
-            return []
+        self._ensure_connected()
         sql = """
             SELECT CONSTRAINT_NAME, CONSTRAINT_TYPE
             FROM information_schema.TABLE_CONSTRAINTS
@@ -304,8 +253,7 @@ class MySQLAdapter(BaseAdapter):
         return await asyncio.to_thread(_run)
 
     async def discover_triggers(self, table_name: str) -> List[Dict[str, Any]]:
-        if self.mock_mode:
-            return []
+        self._ensure_connected()
         sql = """
             SELECT TRIGGER_NAME, EVENT_MANIPULATION, ACTION_STATEMENT
             FROM information_schema.TRIGGERS
@@ -316,15 +264,14 @@ class MySQLAdapter(BaseAdapter):
                 cur.execute(sql, (self.config.database_name, table_name))
                 rows = cur.fetchall()
             return [{
-                "name": r["TRIGGER_NAME"], 
-                "event": r["EVENT_MANIPULATION"], 
+                "name": r["TRIGGER_NAME"],
+                "event": r["EVENT_MANIPULATION"],
                 "definition": r["ACTION_STATEMENT"]
             } for r in rows]
         return await asyncio.to_thread(_run)
 
     async def discover_views(self) -> List[Dict[str, Any]]:
-        if self.mock_mode:
-            return []
+        self._ensure_connected()
         sql = """
             SELECT TABLE_NAME, VIEW_DEFINITION
             FROM information_schema.VIEWS
@@ -339,17 +286,6 @@ class MySQLAdapter(BaseAdapter):
 
     async def _primary_key_columns(self, table_name: str) -> List[str]:
         """Return all primary key columns for table_name."""
-        if self.mock_mode:
-            if table_name == "composite_table":
-                return ["pk1", "pk2"]
-            elif table_name == "uuid_table":
-                return ["uuid_col"]
-            elif table_name == "string_table":
-                return ["str_col"]
-            elif table_name == "no_pk_table":
-                return []
-            return ["id"]
-
         sql = """
             SELECT COLUMN_NAME
             FROM information_schema.KEY_COLUMN_USAGE
@@ -376,66 +312,13 @@ class MySQLAdapter(BaseAdapter):
         last_processed_primary_key: Optional[Dict[str, Any]] = None,
         incremental_filter: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, Any]]:
-        if self.mock_mode:
-            start_id = offset
-            pk_cols = await self._primary_key_columns(table_name)
-            if last_processed_primary_key and pk_cols:
-                # Mock cursor progression logic
-                if len(pk_cols) == 1:
-                    pk_val = last_processed_primary_key.get(pk_cols[0])
-                    if pk_val is not None:
-                        if isinstance(pk_val, str) and "-" in pk_val:
-                            try:
-                                start_id = int(pk_val.split("-")[-1]) + 1
-                            except ValueError:
-                                start_id = offset
-                        else:
-                            try:
-                                start_id = int(pk_val) + 1
-                            except ValueError:
-                                start_id = offset
-                else:
-                    # Composite key progress: mock using the first pk column
-                    pk_val = last_processed_primary_key.get(pk_cols[0])
-                    if pk_val is not None:
-                        try:
-                            start_id = int(pk_val) + 1
-                        except ValueError:
-                            start_id = offset
-            
-            # Enforce dynamic limit for mock table pagination
-            mock_max_rows = getattr(self.config, "mock_max_rows", 250)
-            if start_id >= mock_max_rows:
-                return []
-            if start_id + limit > 250:
-                limit = mock_max_rows - start_id
-
-            rows = []
-            for i in range(start_id, start_id + limit):
-                row = {"data": f"mock_row_{i}"}
-                if table_name == "composite_table":
-                    row["pk1"] = i
-                    row["pk2"] = i * 10
-                elif table_name == "uuid_table":
-                    row["uuid_col"] = f"uuid-{i}"
-                elif table_name == "string_table":
-                    row["str_col"] = f"str-{i}"
-                elif table_name == "no_pk_table":
-                    row["data"] = f"mock_row_{i}"
-                elif table_name == "lob_table":
-                    row["id"] = i
-                    row["blob_col"] = f"mock_blob_value_{i}"
-                else:
-                    row["id"] = i
-                rows.append(row)
-            return rows
-
+        self._ensure_connected()
         pk_cols = await self._primary_key_columns(table_name)
-        
+
         # Check if cursor can be used
         use_cursor = (
-            last_processed_primary_key is not None 
-            and len(pk_cols) > 0 
+            last_processed_primary_key is not None
+            and len(pk_cols) > 0
             and all(col in last_processed_primary_key for col in pk_cols)
         )
 
@@ -468,7 +351,7 @@ class MySQLAdapter(BaseAdapter):
                     where_str = " WHERE " + " AND ".join(where_clauses)
 
                 order_by = ", ".join([f"`{col}` ASC" for col in pk_cols]) if pk_cols else "`id`"
-                
+
                 if use_cursor:
                     sql = f"SELECT * FROM `{table_name}`{where_str} ORDER BY {order_by} LIMIT %s"
                     params.append(limit)
@@ -490,10 +373,6 @@ class MySQLAdapter(BaseAdapter):
         offset: int,
         chunk_size: int,
     ) -> bytes:
-        if self.mock_mode:
-            mock_data = f"mock_lob_data_for_row_{list(pk_value.values())[0] if pk_value else 0}".encode()
-            return mock_data[offset : offset + chunk_size]
-
         pk_cols = list(pk_value.keys())
         where_parts = [f"`{col}` = %s" for col in pk_cols]
         where_clause = " AND ".join(where_parts)
@@ -516,9 +395,6 @@ class MySQLAdapter(BaseAdapter):
         chunk_data: bytes,
         offset: int,
     ) -> None:
-        if self.mock_mode:
-            return
-
         pk_cols = list(pk_value.keys())
         where_parts = [f"`{col}` = %s" for col in pk_cols]
         where_clause = " AND ".join(where_parts)
@@ -538,9 +414,7 @@ class MySQLAdapter(BaseAdapter):
 
 
     async def write_batch(self, table_name: str, rows: List[Dict[str, Any]]) -> int:
-        if self.mock_mode:
-            logger.info("[MySQLAdapter] Mock write: %d rows to %s", len(rows), table_name)
-            return len(rows)
+        self._ensure_connected()
         if not rows:
             return 0
 
@@ -595,7 +469,7 @@ class MySQLAdapter(BaseAdapter):
                 else:
                     row_data.append(val)
             data.append(tuple(row_data))
-        
+
         def _run():
             try:
                 with self._conn.cursor() as cur:
@@ -608,9 +482,7 @@ class MySQLAdapter(BaseAdapter):
         return len(rows)
 
     async def get_row_count(self, table_name: str) -> int:
-        if self.mock_mode:
-            counts = {"users": 200000, "orders": 300000, "order_items": 617070}
-            return counts.get(table_name, 10000)
+        self._ensure_connected()
         def _run():
             with self._conn.cursor() as cur:
                 cur.execute(f'SELECT COUNT(*) FROM `{table_name}`')
@@ -621,10 +493,11 @@ class MySQLAdapter(BaseAdapter):
         return await asyncio.to_thread(_run)
 
     async def compute_checksum(self, table_name: str) -> str:
+        self._ensure_connected()
         from akaal.validation.domain.canonical_checksum import compute_canonical_table_checksum
         if not self._conn:
             raise RuntimeError("MySQL connection unavailable for checksum computation.")
-        
+
         pk = await self._primary_key_column(table_name)
         def _run():
             with self._conn.cursor() as cur:
@@ -637,27 +510,15 @@ class MySQLAdapter(BaseAdapter):
     async def discover_identity(self, schema: str, table: str, column: str) -> Optional[Any]:
         if not self.is_connected:
             raise RuntimeError("Not connected.")
-            
+
         from akaal.migration.models.identity import IdentityRuntimeState, IdentityStateConfidence, GeneratorValueSemantics
-        
-        if self.mock_mode:
-            # Handle mock values for testing
-            if table.lower() == "users" and column.lower() == "id":
-                return IdentityRuntimeState(
-                    current_generator_value=1,
-                    last_generated_value=1,
-                    restart_value=1,
-                    state_confidence=IdentityStateConfidence.EXACT,
-                    value_semantics=GeneratorValueSemantics.TABLE_NEXT_VALUE
-                )
-            return None
 
         sql = """
-        SELECT 
+        SELECT
             t.AUTO_INCREMENT,
             c.COLUMN_TYPE,
             c.EXTRA,
-            (SELECT COUNT(*) FROM information_schema.key_column_usage k 
+            (SELECT COUNT(*) FROM information_schema.key_column_usage k
              WHERE k.table_schema = %s AND k.table_name = %s AND k.column_name = %s) AS is_key,
             t.ENGINE
         FROM information_schema.tables t
@@ -670,7 +531,7 @@ class MySQLAdapter(BaseAdapter):
                 row = cur.fetchone()
             if not row:
                 return None
-            
+
             # Since some drivers return row dict, let's handle list or dict:
             if isinstance(row, dict):
                 auto_inc = row.get("AUTO_INCREMENT")
@@ -678,14 +539,14 @@ class MySQLAdapter(BaseAdapter):
                 engine = row.get("ENGINE")
             else:
                 auto_inc, col_type, extra, is_key, engine = row
-                
+
             if not extra or "auto_increment" not in extra.lower():
                 return None
-                
+
             # AUTO_INCREMENT in MySQL represents the next to emit, but let's treat it as EXACT for InnoDB
             confidence = IdentityStateConfidence.EXACT
             cur_val = int(auto_inc) if auto_inc is not None else 1
-            
+
             return IdentityRuntimeState(
                 current_generator_value=cur_val,
                 last_generated_value=None,
@@ -693,7 +554,7 @@ class MySQLAdapter(BaseAdapter):
                 state_confidence=confidence,
                 value_semantics=GeneratorValueSemantics.TABLE_NEXT_VALUE
             )
-            
+
         return await asyncio.to_thread(_run)
 
     async def discover_partition_scheme(self, schema: str, table: str) -> Optional[Any]:
@@ -716,53 +577,9 @@ class MySQLAdapter(BaseAdapter):
             CanonicalColumnPartitionKey
         )
 
-        if self.mock_mode:
-            if table == "orders":
-                return CanonicalPartitionScheme(
-                    table_identity=ObjectIdentity(schema, table, "TABLE"),
-                    source_dialect="mysql",
-                    source_version="8.0",
-                    confidence=MetadataConfidence.COMPLETE,
-                    strategy=PartitionStrategy.RANGE,
-                    keys=(
-                        CanonicalColumnPartitionKey(
-                            column_name="order_date",
-                            canonical_type=CanonicalDataType.TIMESTAMP,
-                            native_type="TIMESTAMP",
-                            position=0,
-                            nullable=True
-                        ),
-                    ),
-                    partitions=(
-                        CanonicalRangePartition(
-                            object_identity=ObjectIdentity(schema, "orders_p1", "PARTITION"),
-                            partition_name="orders_p1",
-                            ordinal=0,
-                            boundary=CanonicalRangeInterval(
-                                lower=CanonicalRangeBound(
-                                    values=(),
-                                    inclusivity=BoundInclusivity.EXCLUSIVE,
-                                    unbounded=True
-                                ),
-                                upper=CanonicalRangeBound(
-                                    values=(
-                                        CanonicalScalarValue(
-                                            data_type=CanonicalDataType.TIMESTAMP,
-                                            ts_val=datetime(2026, 1, 1)
-                                        ),
-                                    ),
-                                    inclusivity=BoundInclusivity.EXCLUSIVE,
-                                    unbounded=False
-                                )
-                            )
-                        ),
-                    )
-                )
-            return None
-
         def _run():
             sql = """
-                SELECT 
+                SELECT
                     PARTITION_METHOD,
                     PARTITION_EXPRESSION,
                     PARTITION_NAME,

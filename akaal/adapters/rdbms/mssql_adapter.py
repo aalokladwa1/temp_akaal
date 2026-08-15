@@ -18,17 +18,6 @@ from akaal.core.models.enums import SystemType, AdapterCapability
 logger = logging.getLogger("akaal.adapters.mssqladapter")
 
 # Mock configuration – identical to other adapters for testing without a real DB
-_MOCK_HOSTS = {
-    "source-db.example.com",
-    "source-prod.example.com",
-    "target-db.example.com",
-    "target-cloud.example.com",
-    "connection-fail.example.com",
-    "permission-fail.example.com",
-    "large-db.example.com",
-    "oracle-prod.example.com",
-    "postgres-target.example.com",
-}
 
 _LARGE_TABLES = [
     "users", "user_profiles", "categories", "products",
@@ -36,22 +25,6 @@ _LARGE_TABLES = [
     "shipping_details", "payments",
 ]
 
-_MOCK_COLUMNS = {
-    "users": [
-        {"name": "id", "type": "INT", "nullable": False, "default": None, "parent_id": None},
-        {"name": "email", "type": "NVARCHAR(255)", "nullable": False, "default": None, "parent_id": None},
-        {"name": "password_hash", "type": "NVARCHAR(255)", "nullable": False, "default": None, "parent_id": None},
-        {"name": "status", "type": "NVARCHAR(50)", "nullable": True, "default": "'active'", "parent_id": None},
-        {"name": "created_at", "type": "DATETIME2", "nullable": True, "default": "GETDATE()", "parent_id": None},
-    ],
-    "orders": [
-        {"name": "id", "type": "INT", "nullable": False, "default": None, "parent_id": None},
-        {"name": "user_id", "type": "INT", "nullable": True, "default": None, "parent_id": "users.id"},
-        {"name": "total_amount", "type": "DECIMAL(10,2)", "nullable": True, "default": None, "parent_id": None},
-        {"name": "status", "type": "NVARCHAR(50)", "nullable": True, "default": "'pending'", "parent_id": None},
-        {"name": "order_date", "type": "DATETIME2", "nullable": True, "default": "GETDATE()", "parent_id": None},
-    ],
-}
 
 
 class MSSQLAdapter(BaseAdapter):
@@ -70,23 +43,9 @@ class MSSQLAdapter(BaseAdapter):
         super().__init__(config)
         extra = getattr(config, "extra", {}) or {}
         host = getattr(config, "host", "") or ""
-        self.mock_mode = (
-            host in _MOCK_HOSTS
-            or extra.get("mock_mode") is True
-            or "mock" in host
-            or "example.com" in host
-            or not host
-        )
-        if self.mock_mode:
-            logger.info("[MSSQLAdapter] Mock mode: host=%s", config.host)
         self._pool: Optional[aioodbc.Pool] = None
 
     async def create_connection(self) -> Any:
-        if self.mock_mode:
-            if getattr(self.config, "host", "") == "connection-fail.example.com":
-                raise ConnectionError("Mock: MSSQL connection failure.")
-            return "mock_mssql_conn"
-            
         user = getattr(self.config, "username", None) or os.environ.get("MSSQL_USERNAME", "sa")
         password = getattr(self.config, "password", None) or os.environ.get("MSSQL_PASSWORD", "")
         host = getattr(self.config, "host", "localhost")
@@ -137,18 +96,16 @@ class MSSQLAdapter(BaseAdapter):
     # Connection
     # ------------------------------------------------------------------
 
+
+    def _ensure_connected(self) -> None:
+        if not hasattr(self, "_conn") or not self._conn or not getattr(self, "is_connected", False):
+            raise RuntimeError("MS SQL Server connection is not active.")
+
     async def connect(self) -> None:
         """Create an aioodbc connection pool.
 
         In mock mode we simply set is_connected=True and skip real network work.
         """
-        if self.mock_mode:
-            if getattr(self.config, "host", "") == "connection-fail.example.com":
-                raise ConnectionError("Mock: MSSQL connection failure.")
-            self.is_connected = True
-            logger.info("[MSSQLAdapter] Connected (mock).")
-            return
-
         user = getattr(self.config, "username", None) or os.environ.get("MSSQL_USERNAME", "sa")
         password = getattr(self.config, "password", None) or os.environ.get("MSSQL_PASSWORD", "")
         host = getattr(self.config, "host", "localhost")
@@ -202,12 +159,15 @@ class MSSQLAdapter(BaseAdapter):
         logger.info("[MSSQLAdapter] Connected to real SQL Server at %s:%s/%s using driver %s.", host, port, database, driver)
 
     async def begin_transaction(self) -> None:
+        self._ensure_connected()
         pass
 
     async def commit_transaction(self) -> None:
+        self._ensure_connected()
         pass
 
     async def rollback_transaction(self) -> None:
+        self._ensure_connected()
         pass
 
     async def close(self) -> None:
@@ -282,8 +242,6 @@ class MSSQLAdapter(BaseAdapter):
             raise RuntimeError("Not connected.")
         if not self._pool and getattr(self, "_conn", None) is None:
             raise RuntimeError("Not connected.")
-        if self.mock_mode:
-            return []
         async with self._connection() as conn_ctx:
             rows = await conn_ctx.execute(sql, params)
             if commit and not conn_ctx.is_async:
@@ -331,10 +289,6 @@ class MSSQLAdapter(BaseAdapter):
     async def check_permissions(self) -> bool:
         if not self.is_connected:
             raise RuntimeError("Not connected.")
-        if self.mock_mode:
-            if getattr(self.config, "host", "") == "permission-fail.example.com":
-                return False
-            return True
         async with self._connection() as conn_ctx:
             await conn_ctx.execute("SELECT 1")
         return True
@@ -370,13 +324,9 @@ class MSSQLAdapter(BaseAdapter):
     # ------------------------------------------------------------------
 
     async def discover_tables(self) -> List[str]:
+        self._ensure_connected()
         if not self.is_connected:
             raise RuntimeError("Not connected.")
-        if self.mock_mode:
-            host = getattr(self.config, "host", "")
-            if host in ("large-db.example.com", "oracle-prod.example.com", "postgres-target.example.com"):
-                return _LARGE_TABLES
-            return ["users", "orders", "order_items"]
         sql = """
             SELECT TABLE_NAME
             FROM INFORMATION_SCHEMA.TABLES
@@ -387,11 +337,12 @@ class MSSQLAdapter(BaseAdapter):
         return [r[0] for r in rows]
 
     async def discover_columns(self, table_name: str) -> List[Dict[str, Any]]:
+        self._ensure_connected()
         if not self.is_connected:
             raise RuntimeError("MSSQL connection unavailable for column discovery.")
         sql = """
-            SELECT 
-                c.COLUMN_NAME, c.DATA_TYPE, c.CHARACTER_MAXIMUM_LENGTH, 
+            SELECT
+                c.COLUMN_NAME, c.DATA_TYPE, c.CHARACTER_MAXIMUM_LENGTH,
                 c.IS_NULLABLE, c.COLUMN_DEFAULT,
                 sc.is_identity
             FROM INFORMATION_SCHEMA.COLUMNS c
@@ -420,26 +371,25 @@ class MSSQLAdapter(BaseAdapter):
         return cols
 
     async def discover_foreign_keys(self) -> List[Dict[str, Any]]:
-        if self.mock_mode:
-            return [{"name": "fk_orders_user", "from_table": "orders", "from_column": "user_id", "to_table": "users", "to_column": "id"}]
+        self._ensure_connected()
         sql = """
-            SELECT 
+            SELECT
                 fk.name AS constraint_name,
                 tp.name AS table_name,
                 cp.name AS column_name,
                 tr.name AS referenced_table_name,
                 cr.name AS referenced_column_name
-            FROM 
+            FROM
                 sys.foreign_keys fk
-            INNER JOIN 
+            INNER JOIN
                 sys.foreign_key_columns fkc ON fk.object_id = fkc.constraint_object_id
-            INNER JOIN 
+            INNER JOIN
                 sys.tables tp ON fkc.parent_object_id = tp.object_id
-            INNER JOIN 
+            INNER JOIN
                 sys.columns cp ON fkc.parent_object_id = cp.object_id AND fkc.parent_column_id = cp.column_id
-            INNER JOIN 
+            INNER JOIN
                 sys.tables tr ON fkc.referenced_object_id = tr.object_id
-            INNER JOIN 
+            INNER JOIN
                 sys.columns cr ON fkc.referenced_object_id = cr.object_id AND fkc.referenced_column_id = cr.column_id
         """
         rows = await self._run_query(sql)
@@ -456,8 +406,7 @@ class MSSQLAdapter(BaseAdapter):
         return fkeys
 
     async def discover_indexes(self, table_name: str) -> List[Dict[str, Any]]:
-        if self.mock_mode:
-            return [{"name": f"{table_name}_pkey", "columns": ["id"], "unique": True}]
+        self._ensure_connected()
         sql = """
             SELECT i.name AS index_name, c.name AS column_name, i.is_unique
             FROM sys.indexes i
@@ -476,8 +425,7 @@ class MSSQLAdapter(BaseAdapter):
         return list(indices_map.values())
 
     async def discover_constraints(self, table_name: str) -> List[Dict[str, Any]]:
-        if self.mock_mode:
-            return []
+        self._ensure_connected()
         sql = """
             SELECT CONSTRAINT_NAME, CONSTRAINT_TYPE
             FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS
@@ -487,8 +435,7 @@ class MSSQLAdapter(BaseAdapter):
         return [{"name": r[0], "type": r[1]} for r in rows]
 
     async def discover_triggers(self, table_name: str) -> List[Dict[str, Any]]:
-        if self.mock_mode:
-            return []
+        self._ensure_connected()
         sql = """
             SELECT name, OBJECT_DEFINITION(object_id) AS definition, type_desc
             FROM sys.triggers
@@ -502,8 +449,7 @@ class MSSQLAdapter(BaseAdapter):
         return triggers
 
     async def discover_views(self) -> List[Dict[str, Any]]:
-        if self.mock_mode:
-            return []
+        self._ensure_connected()
         sql = """
             SELECT TABLE_NAME, VIEW_DEFINITION
             FROM INFORMATION_SCHEMA.VIEWS
@@ -518,17 +464,6 @@ class MSSQLAdapter(BaseAdapter):
 
     async def _primary_key_columns(self, table_name: str) -> List[str]:
         """Return all primary key columns for table_name."""
-        if self.mock_mode:
-            if table_name == "composite_table":
-                return ["pk1", "pk2"]
-            elif table_name == "uuid_table":
-                return ["uuid_col"]
-            elif table_name == "string_table":
-                return ["str_col"]
-            elif table_name == "no_pk_table":
-                return []
-            return ["id"]
-
         sql = """
             SELECT COLUMN_NAME
             FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
@@ -551,63 +486,13 @@ class MSSQLAdapter(BaseAdapter):
         last_processed_primary_key: Optional[Dict[str, Any]] = None,
         incremental_filter: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, Any]]:
-        if self.mock_mode:
-            start_id = offset
-            pk_cols = await self._primary_key_columns(table_name)
-            if last_processed_primary_key and pk_cols:
-                # Mock cursor progression logic
-                if len(pk_cols) == 1:
-                    pk_val = last_processed_primary_key.get(pk_cols[0])
-                    if pk_val is not None:
-                        if isinstance(pk_val, str) and "-" in pk_val:
-                            try:
-                                start_id = int(pk_val.split("-")[-1]) + 1
-                            except ValueError:
-                                start_id = offset
-                        else:
-                            try:
-                                start_id = int(pk_val) + 1
-                            except ValueError:
-                                start_id = offset
-                else:
-                    # Composite key progress: mock using the first pk column
-                    pk_val = last_processed_primary_key.get(pk_cols[0])
-                    if pk_val is not None:
-                        try:
-                            start_id = int(pk_val) + 1
-                        except ValueError:
-                            start_id = offset
-            
-            # Enforce dynamic limit for mock table pagination
-            mock_max_rows = getattr(self.config, "mock_max_rows", 250)
-            if start_id >= mock_max_rows:
-                return []
-            if start_id + limit > 250:
-                limit = mock_max_rows - start_id
-
-            rows = []
-            for i in range(start_id, start_id + limit):
-                row = {"data": f"mock_row_{i}"}
-                if table_name == "composite_table":
-                    row["pk1"] = i
-                    row["pk2"] = i * 10
-                elif table_name == "uuid_table":
-                    row["uuid_col"] = f"uuid-{i}"
-                elif table_name == "string_table":
-                    row["str_col"] = f"str-{i}"
-                elif table_name == "no_pk_table":
-                    row["data"] = f"mock_row_{i}"
-                else:
-                    row["id"] = i
-                rows.append(row)
-            return rows
-
+        self._ensure_connected()
         pk_cols = await self._primary_key_columns(table_name)
-        
+
         # Check if cursor can be used
         use_cursor = (
-            last_processed_primary_key is not None 
-            and len(pk_cols) > 0 
+            last_processed_primary_key is not None
+            and len(pk_cols) > 0
             and all(col in last_processed_primary_key for col in pk_cols)
         )
 
@@ -623,7 +508,7 @@ class MSSQLAdapter(BaseAdapter):
                 eq_parts.append(f"[{curr_col}] > ?")
                 params.append(last_processed_primary_key[curr_col])
                 conditions.append("(" + " AND ".join(eq_parts) + ")")
-            
+
             where_clause = " OR ".join(conditions)
             order_by = ", ".join([f"[{col}] ASC" for col in pk_cols])
             sql = f"SELECT * FROM [{table_name}] WHERE {where_clause} ORDER BY {order_by} OFFSET 0 ROWS FETCH NEXT ? ROWS ONLY"
@@ -655,9 +540,7 @@ class MSSQLAdapter(BaseAdapter):
         return result
 
     async def write_batch(self, table_name: str, rows: List[Dict[str, Any]]) -> int:
-        if self.mock_mode:
-            logger.info("[MSSQLAdapter] Mock write: %d rows to %s", len(rows), table_name)
-            return len(rows)
+        self._ensure_connected()
         if not rows:
             return 0
 
@@ -690,7 +573,7 @@ class MSSQLAdapter(BaseAdapter):
         columns = list(rows[0].keys())
         placeholders = ", ".join(["?"] * len(columns))
         cols_sql = ", ".join([f"[{c}]" for c in columns])
-        
+
         async with self._connection() as conn_ctx:
             if conn_ctx.is_async:
                 async with conn_ctx.conn.cursor() as cur:
@@ -701,7 +584,7 @@ class MSSQLAdapter(BaseAdapter):
                         has_identity = (await cur.fetchone()) is not None
                         if has_identity:
                             await cur.execute(f"SET IDENTITY_INSERT [{table_name}] ON")
-                            
+
                         # Branch based on PK presence
                         if pk and pk in columns:
                             non_pk = [c for c in columns if c != pk]
@@ -731,7 +614,7 @@ class MSSQLAdapter(BaseAdapter):
                             insert_sql = f"INSERT INTO [{table_name}] ({cols_sql}) VALUES ({placeholders})"
                             data = [tuple(row[col] for col in columns) for row in rows]
                             await cur.executemany(insert_sql, data)
-                            
+
                         await conn_ctx.conn.commit()
                     except Exception:
                         await conn_ctx.conn.rollback()
@@ -752,7 +635,7 @@ class MSSQLAdapter(BaseAdapter):
                             has_identity = cur.fetchone() is not None
                             if has_identity:
                                 cur.execute(f"SET IDENTITY_INSERT [{table_name}] ON")
-                                
+
                             # Branch based on PK presence
                             if pk and pk in columns:
                                 non_pk = [c for c in columns if c != pk]
@@ -782,7 +665,7 @@ class MSSQLAdapter(BaseAdapter):
                                 insert_sql = f"INSERT INTO [{table_name}] ({cols_sql}) VALUES ({placeholders})"
                                 data = [tuple(row[col] for col in columns) for row in rows]
                                 cur.executemany(insert_sql, data)
-                                
+
                             conn_ctx.conn.commit()
                         except Exception:
                             conn_ctx.conn.rollback()
@@ -797,14 +680,13 @@ class MSSQLAdapter(BaseAdapter):
         return len(rows)
 
     async def get_row_count(self, table_name: str) -> int:
-        if self.mock_mode:
-            counts = {"users": 200000, "orders": 300000, "order_items": 617070}
-            return counts.get(table_name, 10000)
+        self._ensure_connected()
         sql = f"SELECT COUNT(*) FROM [{table_name}]"
         rows = await self._run_query(sql)
         return rows[0][0] if rows else 0
 
     async def compute_checksum(self, table_name: str) -> str:
+        self._ensure_connected()
         from akaal.validation.domain.canonical_checksum import compute_canonical_table_checksum
         pk = await self._primary_key_column(table_name)
         sql = f"SELECT * FROM [{table_name}] ORDER BY [{pk}]"
@@ -829,24 +711,12 @@ class MSSQLAdapter(BaseAdapter):
     async def discover_identity(self, schema: str, table: str, column: str) -> Optional[Any]:
         if not self.is_connected:
             raise RuntimeError("Not connected.")
-            
+
         from akaal.migration.models.identity import IdentityRuntimeState, IdentityStateConfidence, GeneratorValueSemantics
-        
-        if self.mock_mode:
-            # Handle mock values for testing
-            if table.lower() == "users" and column.lower() == "id":
-                return IdentityRuntimeState(
-                    current_generator_value=1,
-                    last_generated_value=1,
-                    restart_value=1,
-                    state_confidence=IdentityStateConfidence.EXACT,
-                    value_semantics=GeneratorValueSemantics.LAST_EMITTED
-                )
-            return None
 
         table_fullname = f"{schema}.{table}"
         sql = """
-        SELECT 
+        SELECT
             seed_value,
             increment_value,
             last_value,
@@ -854,20 +724,20 @@ class MSSQLAdapter(BaseAdapter):
         FROM sys.identity_columns
         WHERE object_id = OBJECT_ID(?) AND name = ?
         """
-        
+
         rows = await self._run_query(sql, (table_fullname, column))
         if not rows:
             return None
-            
+
         seed_value, increment_value, last_value, is_not_for_replication = rows[0]
-        
+
         # Convert values to int safely
         seed = int(seed_value) if seed_value is not None else 1
         inc = int(increment_value) if increment_value is not None else 1
         last_val = int(last_value) if last_value is not None else None
-        
+
         cur_val = last_val if last_val is not None else seed
-        
+
         return IdentityRuntimeState(
             current_generator_value=cur_val,
             last_generated_value=last_val,
@@ -896,53 +766,9 @@ class MSSQLAdapter(BaseAdapter):
             CanonicalColumnPartitionKey
         )
 
-        if self.mock_mode:
-            if table.lower() == "orders":
-                return CanonicalPartitionScheme(
-                    table_identity=ObjectIdentity(schema, table, "TABLE"),
-                    source_dialect="mssql",
-                    source_version="2019",
-                    confidence=MetadataConfidence.COMPLETE,
-                    strategy=PartitionStrategy.RANGE,
-                    keys=(
-                        CanonicalColumnPartitionKey(
-                            column_name="order_date",
-                            canonical_type=CanonicalDataType.TIMESTAMP,
-                            native_type="TIMESTAMP",
-                            position=0,
-                            nullable=True
-                        ),
-                    ),
-                    partitions=(
-                        CanonicalRangePartition(
-                            object_identity=ObjectIdentity(schema, "orders_p1", "PARTITION"),
-                            partition_name="orders_p1",
-                            ordinal=0,
-                            boundary=CanonicalRangeInterval(
-                                lower=CanonicalRangeBound(
-                                    values=(),
-                                    inclusivity=BoundInclusivity.EXCLUSIVE,
-                                    unbounded=True
-                                ),
-                                upper=CanonicalRangeBound(
-                                    values=(
-                                        CanonicalScalarValue(
-                                            data_type=CanonicalDataType.TIMESTAMP,
-                                            ts_val=datetime(2026, 1, 1)
-                                        ),
-                                    ),
-                                    inclusivity=BoundInclusivity.EXCLUSIVE,
-                                    unbounded=False
-                                )
-                            )
-                        ),
-                    )
-                )
-            return None
-
         table_fullname = f"{schema}.{table}"
         sql = """
-            SELECT 
+            SELECT
                 pf.name AS function_name,
                 ps.name AS scheme_name,
                 pf.type_desc AS strategy,

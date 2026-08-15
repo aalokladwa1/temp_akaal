@@ -25,7 +25,6 @@ class BaseAdapter(ABC):
     def __init__(self, config: "ConnectionConfig") -> None:
         self.config = config
         self.is_connected = False
-        self.mock_mode = getattr(config, "mock_mode", False) or getattr(config, "host", "") in ("mock-db.example.com", "mock_host")
         self._discovery_provider = None
 
     def get_discovery_provider(self) -> Any:

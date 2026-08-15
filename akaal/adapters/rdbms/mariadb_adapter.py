@@ -1,67 +1,18 @@
 """
-Akaal — MariaDB Adapter
-=======================
-Production-grade MariaDB adapter implementing BaseAdapter.
-Supports both live connection mode (via aiomysql/pymysql) and deterministic
-mock/fallback mode for testing environments without live database instances.
-
-Dependencies:
-    aiomysql (optional for async live driver)
-    pymysql (optional for sync driver)
+Akaal — MariaDB Adapter (P4.2 Physical Reality)
+================================================
+Physical BaseAdapter implementation for MariaDB using PyMySQL/MariaDB driver.
+Strict Zero-Fake Policy: Requires physical MariaDB database connection.
 """
 
 import asyncio
-import hashlib
 import logging
-from decimal import Decimal
 from typing import Any, Dict, List, Optional
+
 from akaal.adapters.base_adapter import BaseAdapter
 from akaal.core.models.enums import SystemType, AdapterCapability
 
 logger = logging.getLogger("akaal.adapters.mariadb")
-
-_MOCK_HOSTS = {
-    "mariadb-source.example.com",
-    "mariadb-target.example.com",
-    "mariadb-prod.example.com",
-    "localhost",
-    "127.0.0.1",
-}
-
-_MOCK_TABLES = [
-    "customers", "orders", "order_items", "products", "audit_log"
-]
-
-_MOCK_COLUMNS: Dict[str, List[Dict[str, Any]]] = {
-    "customers": [
-        {"name": "id", "type": "INT", "nullable": False, "default": "AUTO_INCREMENT", "parent_id": None},
-        {"name": "name", "type": "VARCHAR(255)", "nullable": False, "default": None, "parent_id": None},
-        {"name": "email", "type": "VARCHAR(255)", "nullable": False, "default": None, "parent_id": None},
-        {"name": "created_at", "type": "DATETIME", "nullable": True, "default": "CURRENT_TIMESTAMP", "parent_id": None},
-    ],
-    "orders": [
-        {"name": "id", "type": "INT", "nullable": False, "default": "AUTO_INCREMENT", "parent_id": None},
-        {"name": "customer_id", "type": "INT", "nullable": False, "default": None, "parent_id": "customers.id"},
-        {"name": "amount", "type": "DECIMAL(10,2)", "nullable": False, "default": None, "parent_id": None},
-        {"name": "status", "type": "VARCHAR(50)", "nullable": True, "default": "'pending'", "parent_id": None},
-    ],
-    "order_items": [
-        {"name": "id", "type": "INT", "nullable": False, "default": "AUTO_INCREMENT", "parent_id": None},
-        {"name": "order_id", "type": "INT", "nullable": False, "default": None, "parent_id": "orders.id"},
-        {"name": "product_name", "type": "VARCHAR(255)", "nullable": False, "default": None, "parent_id": None},
-        {"name": "quantity", "type": "INT", "nullable": False, "default": "1", "parent_id": None},
-    ],
-    "products": [
-        {"name": "id", "type": "INT", "nullable": False, "default": "AUTO_INCREMENT", "parent_id": None},
-        {"name": "name", "type": "VARCHAR(255)", "nullable": False, "default": None, "parent_id": None},
-        {"name": "price", "type": "DECIMAL(10,2)", "nullable": False, "default": None, "parent_id": None},
-    ],
-    "audit_log": [
-        {"name": "id", "type": "INT", "nullable": False, "default": "AUTO_INCREMENT", "parent_id": None},
-        {"name": "action", "type": "VARCHAR(100)", "nullable": False, "default": None, "parent_id": None},
-        {"name": "performed_at", "type": "DATETIME", "nullable": True, "default": "CURRENT_TIMESTAMP", "parent_id": None},
-    ]
-}
 
 
 class MariaDBAdapter(BaseAdapter):
@@ -82,43 +33,44 @@ class MariaDBAdapter(BaseAdapter):
     def __init__(self, config) -> None:
         super().__init__(config)
         self._client = None
-        self._is_mock = self._detect_mock_mode()
         self._in_transaction = False
 
-    def _detect_mock_mode(self) -> bool:
-        host = getattr(self.config, "host", "") or ""
-        extra = getattr(self.config, "extra", {}) or {}
-        driver_opts = extra.get("driver_options", {}) if isinstance(extra, dict) else {}
-        if extra.get("mock_mode") is True or driver_opts.get("mock_mode") is True:
-            return True
-        return host in _MOCK_HOSTS or "mock" in host or "example.com" in host or not host
+    def _ensure_connected(self) -> None:
+        if not self._client or not self.is_connected:
+            raise RuntimeError("MariaDB connection is not active.")
 
     async def connect(self) -> None:
-        if self._is_mock:
-            self.is_connected = True
-            logger.info(f"[MariaDBAdapter] Connected in MOCK mode to '{self.config.host}:{self.config.port}'.")
-            return
+        """Establishes physical connection to MariaDB server."""
+        try:
+            import pymysql
+        except ImportError as exc:
+            self.is_connected = False
+            raise RuntimeError("MariaDB physical driver 'pymysql' is not installed.") from exc
 
         try:
-            import aiomysql
-            self._client = await aiomysql.connect(
-                host=self.config.host,
-                port=self.config.port or 3306,
-                user=self.config.extra.get("username", "root"),
-                password=self.config.extra.get("password", ""),
-                db=self.config.database_name,
+            host = getattr(self.config, "host", "") or "localhost"
+            port = getattr(self.config, "port", 3306) or 3306
+            db_name = getattr(self.config, "database_name", "") or ""
+            extra = getattr(self.config, "extra", {}) or {}
+            username = extra.get("username", getattr(self.config, "username", ""))
+            password = extra.get("password", getattr(self.config, "password", ""))
+
+            self._client = pymysql.connect(
+                host=host,
+                port=port,
+                user=username,
+                password=password,
+                database=db_name,
                 autocommit=True,
+                cursorclass=pymysql.cursors.DictCursor,
             )
             self.is_connected = True
-            logger.info(f"[MariaDBAdapter] Connected to live MariaDB at {self.config.host}:{self.config.port}.")
-        except ImportError:
-            logger.warning("[MariaDBAdapter] aiomysql driver missing; activating deterministic mock fallback.")
-            self._is_mock = True
-            self.is_connected = True
+            logger.info(f"[MariaDBAdapter] Connected to physical MariaDB at {host}:{port}.")
         except Exception as exc:
             self.is_connected = False
-            logger.error(f"[MariaDBAdapter] Connection failed: {exc}")
-            raise
+            self._client = None
+            logger.error(f"[MariaDBAdapter] Physical connection failed: {exc}")
+            raise RuntimeError(f"Failed to connect to physical MariaDB database: {exc}") from exc
 
     async def close(self) -> None:
         if self._client:
@@ -132,91 +84,126 @@ class MariaDBAdapter(BaseAdapter):
         logger.info("[MariaDBAdapter] Connection closed.")
 
     async def check_permissions(self) -> bool:
-        return self.is_connected
+        self._ensure_connected()
+        try:
+            with self._client.cursor() as cursor:
+                cursor.execute("SELECT 1")
+                return True
+        except Exception:
+            return False
 
     async def get_server_version(self) -> str:
-        if self._is_mock:
-            return "10.11.4-MariaDB"
-        if self._client:
-            async with self._client.cursor() as cur:
-                await cur.execute("SELECT VERSION()")
-                row = await cur.fetchone()
-                return str(row[0]) if row else "MariaDB"
-        return "MariaDB"
+        self._ensure_connected()
+        with self._client.cursor() as cursor:
+            cursor.execute("SELECT VERSION()")
+            res = cursor.fetchone()
+            return str(list(res.values())[0]) if res else "MariaDB"
 
     # ------------------------------------------------------------------
     # Schema Discovery
     # ------------------------------------------------------------------
 
     async def discover_tables(self) -> List[str]:
-        if self._is_mock:
-            return list(_MOCK_TABLES)
-        if self._client:
-            async with self._client.cursor() as cur:
-                await cur.execute("SHOW TABLES")
-                rows = await cur.fetchall()
-                return [r[0] for r in rows]
-        return list(_MOCK_TABLES)
+        self._ensure_connected()
+        db_name = getattr(self.config, "database_name", "")
+        with self._client.cursor() as cursor:
+            cursor.execute(
+                "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = %s AND TABLE_TYPE = 'BASE TABLE'",
+                (db_name,)
+            )
+            rows = cursor.fetchall()
+            return [r["TABLE_NAME"] for r in rows]
 
     async def discover_columns(self, table_name: str) -> List[Dict[str, Any]]:
-        if self._is_mock:
-            return _MOCK_COLUMNS.get(table_name, [
-                {"name": "id", "type": "INT", "nullable": False, "default": "AUTO_INCREMENT", "parent_id": None},
-                {"name": "data", "type": "TEXT", "nullable": True, "default": None, "parent_id": None},
-            ])
-        if self._client:
-            async with self._client.cursor() as cur:
-                await cur.execute(f"DESCRIBE `{table_name}`")
-                rows = await cur.fetchall()
-                cols = []
-                for r in rows:
-                    cols.append({
-                        "name": r[0],
-                        "type": str(r[1]).upper(),
-                        "nullable": r[2] == "YES",
-                        "default": r[4],
-                        "parent_id": None,
-                    })
-                return cols
-        return []
+        self._ensure_connected()
+        db_name = getattr(self.config, "database_name", "")
+        with self._client.cursor() as cursor:
+            cursor.execute(
+                "SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, COLUMN_DEFAULT FROM INFORMATION_SCHEMA.COLUMNS "
+                "WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s ORDER BY ORDINAL_POSITION",
+                (db_name, table_name)
+            )
+            rows = cursor.fetchall()
+            return [{
+                "name": r["COLUMN_NAME"],
+                "type": str(r["DATA_TYPE"]).upper(),
+                "nullable": r["IS_NULLABLE"].upper() == "YES",
+                "default": r["COLUMN_DEFAULT"],
+            } for r in rows]
 
     async def discover_foreign_keys(self) -> List[Dict[str, Any]]:
-        return [
-            {
-                "constraint_name": "fk_orders_customers",
-                "table_name": "orders",
-                "column_name": "customer_id",
-                "foreign_table_name": "customers",
-                "foreign_column_name": "id",
-            },
-            {
-                "constraint_name": "fk_order_items_orders",
-                "table_name": "order_items",
-                "column_name": "order_id",
-                "foreign_table_name": "orders",
-                "foreign_column_name": "id",
-            },
-        ]
+        self._ensure_connected()
+        db_name = getattr(self.config, "database_name", "")
+        with self._client.cursor() as cursor:
+            cursor.execute(
+                "SELECT CONSTRAINT_NAME, TABLE_NAME, COLUMN_NAME, REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME "
+                "FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA = %s AND REFERENCED_TABLE_NAME IS NOT NULL",
+                (db_name,)
+            )
+            rows = cursor.fetchall()
+            return [{
+                "constraint_name": r["CONSTRAINT_NAME"],
+                "table_name": r["TABLE_NAME"],
+                "column_name": r["COLUMN_NAME"],
+                "foreign_table_name": r["REFERENCED_TABLE_NAME"],
+                "foreign_column_name": r["REFERENCED_COLUMN_NAME"],
+            } for r in rows]
 
     async def discover_indexes(self, table_name: str) -> List[Dict[str, Any]]:
-        return [
-            {"name": f"PRIMARY_{table_name}", "columns": ["id"], "unique": True},
-            {"name": f"idx_{table_name}_created", "columns": ["created_at" if table_name == "customers" else "id"], "unique": False},
-        ]
+        self._ensure_connected()
+        db_name = getattr(self.config, "database_name", "")
+        with self._client.cursor() as cursor:
+            cursor.execute(
+                "SELECT INDEX_NAME, NON_UNIQUE, COLUMN_NAME FROM INFORMATION_SCHEMA.STATISTICS "
+                "WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s ORDER BY INDEX_NAME, SEQ_IN_INDEX",
+                (db_name, table_name)
+            )
+            rows = cursor.fetchall()
+            idx_map: Dict[str, Dict[str, Any]] = {}
+            for r in rows:
+                name = r["INDEX_NAME"]
+                if name not in idx_map:
+                    idx_map[name] = {"name": name, "unique": r["NON_UNIQUE"] == 0, "columns": []}
+                idx_map[name]["columns"].append(r["COLUMN_NAME"])
+            return list(idx_map.values())
 
     async def discover_constraints(self, table_name: str) -> List[Dict[str, Any]]:
-        return [
-            {"name": f"pk_{table_name}", "type": "PRIMARY KEY", "columns": ["id"]},
-        ]
+        self._ensure_connected()
+        db_name = getattr(self.config, "database_name", "")
+        with self._client.cursor() as cursor:
+            cursor.execute(
+                "SELECT CONSTRAINT_NAME, CONSTRAINT_TYPE FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS "
+                "WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s",
+                (db_name, table_name)
+            )
+            rows = cursor.fetchall()
+            return [{"name": r["CONSTRAINT_NAME"], "type": r["CONSTRAINT_TYPE"]} for r in rows]
 
     async def discover_triggers(self, table_name: str) -> List[Dict[str, Any]]:
-        return []
+        self._ensure_connected()
+        db_name = getattr(self.config, "database_name", "")
+        with self._client.cursor() as cursor:
+            cursor.execute(
+                "SELECT TRIGGER_NAME, ACTION_STATEMENT FROM INFORMATION_SCHEMA.TRIGGERS "
+                "WHERE EVENT_OBJECT_SCHEMA = %s AND EVENT_OBJECT_TABLE = %s",
+                (db_name, table_name)
+            )
+            rows = cursor.fetchall()
+            return [{"name": r["TRIGGER_NAME"], "statement": r["ACTION_STATEMENT"]} for r in rows]
 
     async def discover_views(self) -> List[Dict[str, Any]]:
-        return []
+        self._ensure_connected()
+        db_name = getattr(self.config, "database_name", "")
+        with self._client.cursor() as cursor:
+            cursor.execute(
+                "SELECT TABLE_NAME, VIEW_DEFINITION FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_SCHEMA = %s",
+                (db_name,)
+            )
+            rows = cursor.fetchall()
+            return [{"name": r["TABLE_NAME"], "definition": r["VIEW_DEFINITION"]} for r in rows]
 
     # ------------------------------------------------------------------
-    # Data Operations & Bulk Extraction/Writing
+    # Data Operations
     # ------------------------------------------------------------------
 
     async def read_batch(
@@ -227,78 +214,59 @@ class MariaDBAdapter(BaseAdapter):
         last_processed_primary_key: Optional[Dict[str, Any]] = None,
         incremental_filter: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, Any]]:
-        if self._is_mock:
-            rows = []
-            for i in range(limit):
-                idx = offset + i + 1
-                if table_name == "customers":
-                    rows.append({"id": idx, "name": f"Customer {idx}", "email": f"cust{idx}@example.com", "created_at": "2026-08-15 10:00:00"})
-                elif table_name == "orders":
-                    rows.append({"id": idx, "customer_id": (idx % 10) + 1, "amount": Decimal(f"{(idx * 15.5):.2f}"), "status": "completed"})
-                else:
-                    rows.append({"id": idx, "data": f"Data row {idx}"})
-            return rows
-
-        if self._client:
-            async with self._client.cursor() as cur:
-                await cur.execute(f"SELECT * FROM `{table_name}` LIMIT %s OFFSET %s", (limit, offset))
-                rows = await cur.fetchall()
-                desc = [d[0] for d in cur.description]
-                return [dict(zip(desc, r)) for r in rows]
-        return []
+        self._ensure_connected()
+        sql = f"SELECT * FROM `{table_name}` LIMIT %s OFFSET %s"
+        with self._client.cursor() as cursor:
+            cursor.execute(sql, (limit, offset))
+            return cursor.fetchall()
 
     async def write_batch(self, table_name: str, rows: List[Dict[str, Any]]) -> int:
+        self._ensure_connected()
         if not rows:
             return 0
-        if self._is_mock:
-            return len(rows)
-
-        if self._client:
-            cols = list(rows[0].keys())
-            placeholders = ", ".join(["%s"] * len(cols))
-            col_names = ", ".join([f"`{c}`" for c in cols])
-            query = f"INSERT INTO `{table_name}` ({col_names}) VALUES ({placeholders})"
-            data = [[r.get(c) for c in cols] for r in rows]
-            async with self._client.cursor() as cur:
-                await cur.executemany(query, data)
-            return len(rows)
-        return len(rows)
+        cols = list(rows[0].keys())
+        cols_sql = ", ".join([f"`{c}`" for c in cols])
+        placeholders = ", ".join(["%s"] * len(cols))
+        sql = f"INSERT INTO `{table_name}` ({cols_sql}) VALUES ({placeholders})"
+        vals = [tuple(r.get(c) for c in cols) for r in rows]
+        with self._client.cursor() as cursor:
+            count = cursor.executemany(sql, vals)
+            return count
 
     async def get_row_count(self, table_name: str) -> int:
-        if not self._client:
-            raise RuntimeError("MariaDB connection unavailable for row count query.")
-        async with self._client.cursor() as cur:
-            await cur.execute(f"SELECT COUNT(*) FROM `{table_name}`")
-            row = await cur.fetchone()
-            return int(row[0]) if row else 0
+        self._ensure_connected()
+        sql = f"SELECT COUNT(*) AS cnt FROM `{table_name}`"
+        with self._client.cursor() as cursor:
+            cursor.execute(sql)
+            res = cursor.fetchone()
+            return int(res["cnt"]) if res else 0
 
     async def compute_checksum(self, table_name: str) -> str:
+        self._ensure_connected()
         from akaal.validation.domain.canonical_checksum import compute_canonical_table_checksum
-        if not self._client:
-            raise RuntimeError("MariaDB connection unavailable for checksum computation.")
-        async with self._client.cursor() as cur:
-            await cur.execute(f"SELECT * FROM `{table_name}`")
-            cols = [d[0] for d in cur.description] if cur.description else []
-            rows = await cur.fetchall()
-            row_dicts = [dict(zip(cols, r)) for r in rows] if cols else []
-            return compute_canonical_table_checksum(row_dicts)
+        sql = f"SELECT * FROM `{table_name}`"
+        with self._client.cursor() as cursor:
+            cursor.execute(sql)
+            rows = cursor.fetchall()
+            return compute_canonical_table_checksum(rows, order_independent=True)
 
     # ------------------------------------------------------------------
     # Transactions
     # ------------------------------------------------------------------
 
     async def begin_transaction(self) -> None:
+        self._ensure_connected()
+        self._client.begin()
         self._in_transaction = True
-        if self._client:
-            async with self._client.cursor() as cur:
-                await cur.execute("START TRANSACTION")
 
     async def commit_transaction(self) -> None:
-        if self._client and self._in_transaction:
-            await self._client.commit()
-        self._in_transaction = False
+        self._ensure_connected()
+        if self._in_transaction:
+            self._client.commit()
+            self._in_transaction = False
 
     async def rollback_transaction(self) -> None:
-        if self._client and self._in_transaction:
-            await self._client.rollback()
-        self._in_transaction = False
+        self._ensure_connected()
+        if self._in_transaction:
+            self._client.rollback()
+            self._in_transaction = False

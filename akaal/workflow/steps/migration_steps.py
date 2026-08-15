@@ -375,7 +375,7 @@ class SchemaExecutionStep(AbstractStep):
             conn = pg_adapter.get_connection()
             # Bounded DDL Transaction Grouping & Target Capacity Safety (P0.10-O / Rectification 1 & 10)
             max_locks = 64
-            if conn and conn != "mock_pg_conn" and hasattr(conn, "cursor"):
+            if conn and pg_adapter.is_connected and hasattr(conn, "cursor"):
                 try:
                     with conn.cursor() as cur_cap:
                         cur_cap.execute("SHOW max_locks_per_transaction;")
@@ -392,7 +392,7 @@ class SchemaExecutionStep(AbstractStep):
             committed_groups = 0
             checkpointed_objects = []
             
-            if conn and conn != "mock_pg_conn" and hasattr(conn, "cursor"):
+            if conn and pg_adapter.is_connected and hasattr(conn, "cursor"):
                 # Group DDL statements respecting dependency ordering in bounded chunks
                 for idx in range(0, total_ops, eff_group_size):
                     group_chunk = ddl_statements[idx : idx + eff_group_size]
@@ -541,7 +541,7 @@ class DataTransportStep(AbstractStep):
 
                 if o_type in ("TABLE", "CANONICALTABLE"):
                     # Check target table existence (P0.10-G & Section 10 ownership check)
-                    if pg_conn and pg_conn != "mock_pg_conn" and hasattr(pg_conn, "cursor"):
+                    if pg_conn and pg_pg_adapter.is_connected and hasattr(pg_conn, "cursor"):
                         with pg_conn.cursor() as check_cur:
                             try:
                                 check_cur.execute(f"SELECT 1 FROM {t_schema}.{o_name} WHERE 1=0")
@@ -554,7 +554,7 @@ class DataTransportStep(AbstractStep):
                     batch_size = 5000
                     # Real production transport path with fallback for mock test environments
                     executed_real_sql = False
-                    if src_conn and src_conn != "mock_oracle_conn" and (hasattr(src_conn, "cursor") or type(src_conn).__name__ == "MagicMock"):
+                    if src_conn and src_adapter.is_connected and (hasattr(src_conn, "cursor") or type(src_conn).__name__ == "MagicMock"):
                         try:
                             from akaal.replication.resolver import resolve_physical_reader, resolve_physical_writer
                             from akaal.engine.spec import TransportPartition, PartitionStrategy, BatchMetadata
@@ -573,8 +573,6 @@ class DataTransportStep(AbstractStep):
                             elif hasattr(tgt_sys_val, "name"):
                                 tgt_sys_val = tgt_sys_val.name
 
-                            is_src_mock = hasattr(src_conn, "_mock_name") or type(src_conn).__name__ == "MagicMock" or src_conn == "mock_oracle_conn"
-                            is_tgt_mock = hasattr(pg_conn, "_mock_name") or type(pg_conn).__name__ == "MagicMock" or pg_conn == "mock_pg_conn"
 
                             src_params = {
                                 "system_type": src_sys_val,
@@ -583,8 +581,6 @@ class DataTransportStep(AbstractStep):
                                 "database": src_config.database_name,
                                 "username": src_config.extra.get("username", "SYSTEM"),
                                 "password": src_config.extra.get("password", ""),
-                                "mock_mode": is_src_mock,
-                                "allow_mock_fallback": True,
                             }
                             tgt_params = {
                                 "system_type": tgt_sys_val,
@@ -593,8 +589,6 @@ class DataTransportStep(AbstractStep):
                                 "database": pg_config.database_name,
                                 "username": pg_config.extra.get("username", "postgres"),
                                 "password": pg_config.extra.get("password", ""),
-                                "mock_mode": is_tgt_mock,
-                                "allow_mock_fallback": True,
                             }
 
                             range_partitioner = RangePartitioner()
@@ -624,7 +618,7 @@ class DataTransportStep(AbstractStep):
                                     executed_real_sql = True
                         except Exception as real_trans_err:
                             logger.warning(f"[DataTransportStep] Canonical replication transport fallback triggered for {s_schema}.{s_name}: {real_trans_err}")
-                            if src_conn and src_conn != "mock_oracle_conn" and hasattr(src_conn, "cursor"):
+                            if src_conn and src_adapter.is_connected and hasattr(src_conn, "cursor"):
                                 with src_conn.cursor() as s_cur:
                                     s_cur.execute(f"SELECT * FROM {s_schema}.{s_name}")
                                     col_names = [desc[0] for desc in s_cur.description]
@@ -642,7 +636,7 @@ class DataTransportStep(AbstractStep):
                                         r_count_batch = len(batch_rows)
                                         table_rows_read += r_count_batch
 
-                                        if pg_conn and pg_conn != "mock_pg_conn" and hasattr(pg_conn, "cursor"):
+                                        if pg_conn and pg_pg_adapter.is_connected and hasattr(pg_conn, "cursor"):
                                             with pg_conn.cursor() as p_cur:
                                                 p_cur.executemany(insert_sql, batch_rows)
                                             pg_conn.commit()
@@ -805,7 +799,7 @@ class ValidationStep(AbstractStep):
 
                 if o_type in ("TABLE", "CANONICALTABLE"):
                     s_count_sql = None
-                    if src_conn and src_conn != "mock_oracle_conn" and hasattr(src_conn, "cursor") and not getattr(src_adapter, "mock_mode", False):
+                    if src_conn and src_adapter.is_connected and hasattr(src_conn, "cursor"):
                         try:
                             with src_conn.cursor() as s_cur:
                                 s_cur.execute(f"SELECT COUNT(*) FROM {s_schema}.{s_name}")
@@ -816,7 +810,7 @@ class ValidationStep(AbstractStep):
                             logger.warning(f"[ValidationStep] Direct source count failed for {s_schema}.{s_name}: {s_cnt_err}")
 
                     t_count_sql = None
-                    if pg_conn and pg_conn != "mock_pg_conn" and hasattr(pg_conn, "cursor") and not getattr(pg_adapter, "mock_mode", False):
+                    if pg_conn and pg_pg_adapter.is_connected and hasattr(pg_conn, "cursor"):
                         try:
                             with pg_conn.cursor() as t_cur:
                                 t_cur.execute(f"SELECT COUNT(*) FROM {t_schema}.{o_name}")

@@ -987,7 +987,7 @@ class EngineGateway:
 
                             if r_count == 0:
                                 try:
-                                    if shared_conn_obj and shared_conn_obj != "mock_oracle_conn" and hasattr(shared_conn_obj, "cursor"):
+                                    if shared_conn_obj and hasattr(shared_conn_obj, "cursor"):
                                         with shared_conn_obj.cursor() as cnt_cur:
                                             cnt_cur.execute(f"SELECT COUNT(*) FROM {t_sch}.{t_name}")
                                             cnt_res = cnt_cur.fetchone()
@@ -1270,7 +1270,7 @@ class EngineGateway:
                 tgt_ad = create_adapter(target_cfg)
                 loop.run_until_complete(tgt_ad.connect())
                 p_conn = tgt_ad.get_connection()
-                if p_conn and p_conn != "mock_pg_conn" and hasattr(p_conn, "cursor"):
+                if p_conn and hasattr(p_conn, "cursor"):
                     with p_conn.cursor() as p_cur:
                         p_cur.execute("SHOW max_locks_per_transaction;")
                         p_res = p_cur.fetchone()

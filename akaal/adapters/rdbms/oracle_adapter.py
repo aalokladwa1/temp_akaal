@@ -33,34 +33,7 @@ _LARGE_TABLES = [
     "shipping_details", "payments"
 ]
 
-_MOCK_COLUMNS = {
-    "users": [
-        {"name": "id",           "type": "INTEGER",      "nullable": False, "default": "nextval('users_id_seq')", "parent_id": None},
-        {"name": "email",        "type": "VARCHAR(255)",  "nullable": False, "default": None,                     "parent_id": None},
-        {"name": "password_hash","type": "VARCHAR(255)",  "nullable": False, "default": None,                     "parent_id": None},
-        {"name": "status",       "type": "VARCHAR(50)",   "nullable": True,  "default": "'active'",               "parent_id": None},
-        {"name": "created_at",   "type": "TIMESTAMP",     "nullable": True,  "default": "now()",                  "parent_id": None},
-    ],
-    "orders": [
-        {"name": "id",           "type": "INTEGER",      "nullable": False, "default": "nextval('orders_id_seq')", "parent_id": None},
-        {"name": "user_id",      "type": "INTEGER",      "nullable": True,  "default": None,                       "parent_id": "users.id"},
-        {"name": "total_amount", "type": "NUMERIC(10,2)","nullable": True,  "default": None,                       "parent_id": None},
-        {"name": "status",       "type": "VARCHAR(50)",  "nullable": True,  "default": "'pending'",                "parent_id": None},
-        {"name": "order_date",   "type": "TIMESTAMP",    "nullable": True,  "default": "now()",                    "parent_id": None},
-    ],
-}
 
-_MOCK_HOSTS = {
-    "source-db.example.com",
-    "source-prod.example.com",
-    "target-db.example.com",
-    "target-cloud.example.com",
-    "connection-fail.example.com",
-    "permission-fail.example.com",
-    "large-db.example.com",
-    "oracle-prod.example.com",
-    "postgres-target.example.com",
-}
 
 class OracleAdapter(BaseAdapter):
     """Adapter for Oracle Autonomous Database (Free tier)."""
@@ -82,37 +55,25 @@ class OracleAdapter(BaseAdapter):
         self._pk_cache: Dict[str, str] = {}
         extra = getattr(config, "extra", {}) or {}
         host = getattr(config, "host", "") or ""
-        # Consistent mock‑mode handling as other adapters
-        self.mock_mode = (
-            host in _MOCK_HOSTS
-            or extra.get("mock_mode") is True
-            or "mock" in host
-            or "example.com" in host
-            or not host
-            or oracledb is None
-        )
-        if self.mock_mode:
-            logger.info("[OracleAdapter] Mock mode active: host=%s", getattr(config, "host", ""))
 
     # ------------------------------------------------------------------
     # Connection handling
     # ------------------------------------------------------------------
     async def create_connection(self) -> Any:
-        if self.mock_mode:
-            return "mock_oracle_conn"
-            
+        if oracledb is None:
+            raise RuntimeError("Oracle driver 'oracledb' is not installed.")
         user = getattr(self.config, "username", None)
         password = getattr(self.config, "password", None)
         if not user or not password:
             raise RuntimeError("Adapter config must include username and password")
-            
+
         host = getattr(self.config, "host", None)
         port = getattr(self.config, "port", None)
         database = getattr(self.config, "database_name", getattr(self.config, "database", None))
-        
+
         wallet_path = os.getenv("ORACLE_WALLET_PATH")
         tns_entry = os.getenv("ORACLE_TNS_ENTRY")
-        
+
         def _output_type_handler(cursor, name, default_type=None, size=None, precision=None, scale=None):
             if default_type is None and not isinstance(name, str):
                 metadata = name
@@ -126,10 +87,10 @@ class OracleAdapter(BaseAdapter):
                 return cursor.var(oracledb.DB_TYPE_LONG_RAW, arraysize=cursor.arraysize)
 
         priv_str = str(
-            getattr(self.config, "privilege_mode", None) or 
-            getattr(self.config, "oracle_privilege", None) or 
-            (self.config.extra.get("privilege_mode") if hasattr(self.config, "extra") and isinstance(self.config.extra, dict) else None) or 
-            (self.config.extra.get("oracle_privilege") if hasattr(self.config, "extra") and isinstance(self.config.extra, dict) else None) or 
+            getattr(self.config, "privilege_mode", None) or
+            getattr(self.config, "oracle_privilege", None) or
+            (self.config.extra.get("privilege_mode") if hasattr(self.config, "extra") and isinstance(self.config.extra, dict) else None) or
+            (self.config.extra.get("oracle_privilege") if hasattr(self.config, "extra") and isinstance(self.config.extra, dict) else None) or
             "NORMAL"
         ).strip().upper()
 
@@ -207,12 +168,10 @@ class OracleAdapter(BaseAdapter):
         return await asyncio.to_thread(_sync_connect)
 
     async def close_connection(self, conn: Any) -> None:
-        if conn and conn != "mock_oracle_conn":
+        if conn and conn is not None:
             await asyncio.to_thread(conn.close)
 
     async def validate_connection(self, conn: Any) -> bool:
-        if conn == "mock_oracle_conn":
-            return True
         if conn is None:
             return False
         try:
@@ -221,11 +180,21 @@ class OracleAdapter(BaseAdapter):
         except Exception:
             return False
 
+
+    def _ensure_connected(self) -> None:
+        if not hasattr(self, "_conn") or not self._conn or not getattr(self, "is_connected", False):
+            raise RuntimeError("Oracle connection is not active.")
+
     async def connect(self) -> None:
         """Establish an async Oracle connection."""
-        self._conn = await self.create_connection()
-        self.is_connected = True
-        logger.info("[OracleAdapter] Connected.")
+        try:
+            self._conn = await self.create_connection()
+            self.is_connected = True
+            logger.info("[OracleAdapter] Connected.")
+        except Exception as exc:
+            self.is_connected = False
+            self._conn = None
+            raise RuntimeError(f"Failed to connect to physical Oracle database: {exc}") from exc
 
     async def close(self) -> None:
         if self._conn:
@@ -238,12 +207,6 @@ class OracleAdapter(BaseAdapter):
     async def check_permissions(self) -> bool:
         if not self._conn:
             raise RuntimeError("Not connected")
-        if self.mock_mode:
-            # Mock permission failures mirror MySQL/PostgreSQL behavior
-            if getattr(self.config, "host", "") == "permission-fail.example.com":
-                return False
-            return True
-
         def _run():
             with self._conn.cursor() as cur:
                 cur.execute("SELECT 1 FROM DUAL")
@@ -252,23 +215,25 @@ class OracleAdapter(BaseAdapter):
         return await asyncio.to_thread(_run)
 
     async def begin_transaction(self) -> None:
+        self._ensure_connected()
         pass
 
     async def commit_transaction(self) -> None:
-        if not self.mock_mode and self._conn and hasattr(self._conn, "commit"):
+        self._ensure_connected()
+        if self._conn and hasattr(self._conn, "commit"):
             def _run():
                 self._conn.commit()
             await asyncio.to_thread(_run)
 
     async def rollback_transaction(self) -> None:
-        if not self.mock_mode and self._conn and hasattr(self._conn, "rollback"):
+        self._ensure_connected()
+        if self._conn and hasattr(self._conn, "rollback"):
             def _run():
                 self._conn.rollback()
             await asyncio.to_thread(_run)
 
     async def get_row_count(self, table_name: str) -> int:
-        if self.mock_mode or not hasattr(self._conn, "cursor"):
-            return 1000
+        self._ensure_connected()
         def _run():
             with self._conn.cursor() as cur:
                 cur.execute(f"SELECT COUNT(*) FROM {table_name}")
@@ -280,14 +245,9 @@ class OracleAdapter(BaseAdapter):
     # Schema discovery
     # ------------------------------------------------------------------
     async def discover_tables(self) -> List[str]:
+        self._ensure_connected()
         if not self._conn:
             raise RuntimeError("Not connected")
-        if self.mock_mode:
-            host = getattr(self.config, "host", "")
-            if host in ("large-db.example.com", "oracle-prod.example.com", "postgres-target.example.com"):
-                return _LARGE_TABLES
-            return ["users", "orders", "order_items"]
-
         sql = """
             SELECT TABLE_NAME FROM ALL_TABLES WHERE OWNER = :owner AND IOT_TYPE IS NULL
         """
@@ -300,6 +260,7 @@ class OracleAdapter(BaseAdapter):
         return await asyncio.to_thread(_run)
 
     async def discover_columns(self, table_name: str) -> List[Dict[str, Any]]:
+        self._ensure_connected()
         if not self._conn:
             raise RuntimeError("Oracle connection unavailable for column discovery.")
 
@@ -323,7 +284,7 @@ class OracleAdapter(BaseAdapter):
                             col_type = "INTEGER"
                         else:
                             col_type = "DECIMAL"
-                            
+
                     default_val = r[6]
                     if len(r) > 7 and r[7] == "YES":
                         default_val = "IDENTITY"
@@ -355,24 +316,21 @@ class OracleAdapter(BaseAdapter):
         # Use cached PK if available
         if table_name in self._pk_cache:
             return self._pk_cache[table_name]
-        
+
         def _run():
             with self._conn.cursor() as cur:
                 cur.execute(sql, owner=self._schema.upper(), tbl=table_name.upper())
                 row = cur.fetchone()
                 pk_val = row[0] if row else None
                 return pk_val
-        
+
         pk = await asyncio.to_thread(_run)
         # Cache result (even if None to avoid repeated queries)
         self._pk_cache[table_name] = pk
         return pk
 
     async def discover_foreign_keys(self) -> List[Dict[str, Any]]:
-        if self.mock_mode:
-            return [
-                {"name": "fk_orders_user", "from_table": "orders", "from_column": "user_id", "to_table": "users", "to_column": "id"}
-            ]
+        self._ensure_connected()
         sql = """
             SELECT AC.CONSTRAINT_NAME, AC.TABLE_NAME, ACC.COLUMN_NAME,
                    R_CON.TABLE_NAME AS REFERENCED_TABLE, R_ACC.COLUMN_NAME AS REFERENCED_COLUMN
@@ -401,9 +359,8 @@ class OracleAdapter(BaseAdapter):
         return await asyncio.to_thread(_run)
 
     async def discover_indexes(self, table_name: str) -> List[Dict[str, Any]]:
+        self._ensure_connected()
         # Mock mode matches other adapters
-        if self.mock_mode:
-            return [{"name": f"{table_name}_pkey", "columns": ["id"], "unique": True}]
         # Fetch column lists per index (uses ALL_IND_COLUMNS)
         cols_sql = """
             SELECT INDEX_NAME, COLUMN_NAME
@@ -440,8 +397,7 @@ class OracleAdapter(BaseAdapter):
 
 
     async def discover_constraints(self, table_name: str) -> List[Dict[str, Any]]:
-        if self.mock_mode:
-            return []
+        self._ensure_connected()
         sql = """
             SELECT CONSTRAINT_NAME, CONSTRAINT_TYPE
             FROM ALL_CONSTRAINTS
@@ -461,11 +417,10 @@ class OracleAdapter(BaseAdapter):
                 return [{"name": r[0], "type": type_map.get(r[1], r[1])} for r in rows]
 
         return await asyncio.to_thread(_run)
-    
+
     async def discover_views(self):
+        self._ensure_connected()
         """Discover Oracle views."""
-        if self.mock_mode:
-            return []
         sql = """
             SELECT VIEW_NAME
             FROM ALL_VIEWS
@@ -481,10 +436,8 @@ class OracleAdapter(BaseAdapter):
 
 
     async def discover_triggers(self, table_name: str) -> List[Dict[str, Any]]:
+        self._ensure_connected()
         """Discover Oracle triggers."""
-        if self.mock_mode:
-            return []
-
         sql = """
             SELECT TRIGGER_NAME
             FROM ALL_TRIGGERS
@@ -497,23 +450,12 @@ class OracleAdapter(BaseAdapter):
                 return [{"name": row[0]} for row in cur.fetchall()]
 
         return await asyncio.to_thread(_run)
-        
+
     # ------------------------------------------------------------------
     # Data operations
     # ------------------------------------------------------------------
     async def _primary_key_columns(self, table_name: str) -> List[str]:
         """Return all primary key columns for table_name."""
-        if self.mock_mode:
-            if table_name == "composite_table":
-                return ["PK1", "PK2"]
-            elif table_name == "uuid_table":
-                return ["UUID_COL"]
-            elif table_name == "string_table":
-                return ["STR_COL"]
-            elif table_name == "no_pk_table":
-                return []
-            return ["ID"]
-
         sql = """
             SELECT ACC.COLUMN_NAME
             FROM ALL_CONSTRAINTS AC
@@ -539,58 +481,16 @@ class OracleAdapter(BaseAdapter):
         last_processed_primary_key: Optional[Dict[str, Any]] = None,
         incremental_filter: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, Any]]:
+        self._ensure_connected()
         if not self._conn and not self.mock_mode:
             raise RuntimeError("Not connected")
-            
-        if self.mock_mode:
-            start_id = offset
-            pk_cols = await self._primary_key_columns(table_name)
-            if last_processed_primary_key and pk_cols:
-                # Mock cursor progression logic
-                first_pk = pk_cols[0]
-                pk_val = last_processed_primary_key.get(first_pk) or last_processed_primary_key.get(first_pk.lower()) or last_processed_primary_key.get(first_pk.upper())
-                if pk_val is not None:
-                    if isinstance(pk_val, str) and "-" in pk_val:
-                        try:
-                            start_id = int(pk_val.split("-")[-1]) + 1
-                        except ValueError:
-                            start_id = offset
-                    else:
-                        try:
-                            start_id = int(pk_val) + 1
-                        except ValueError:
-                            start_id = offset
-            
-            # Enforce dynamic limit for mock table pagination
-            mock_max_rows = getattr(self.config, "mock_max_rows", 250)
-            if start_id >= mock_max_rows:
-                return []
-            if start_id + limit > 250:
-                limit = mock_max_rows - start_id
-
-            rows = []
-            for i in range(start_id, start_id + limit):
-                row = {"data": f"mock_row_{i}"}
-                if table_name == "composite_table":
-                    row["PK1"] = i
-                    row["PK2"] = i * 10
-                elif table_name == "uuid_table":
-                    row["UUID_COL"] = f"uuid-{i}"
-                elif table_name == "string_table":
-                    row["STR_COL"] = f"str-{i}"
-                elif table_name == "no_pk_table":
-                    row["data"] = f"mock_row_{i}"
-                else:
-                    row["ID"] = i
-                rows.append(row)
-            return rows
 
         pk_cols = await self._primary_key_columns(table_name)
-        
+
         # Check if cursor can be used
         use_cursor = (
-            last_processed_primary_key is not None 
-            and len(pk_cols) > 0 
+            last_processed_primary_key is not None
+            and len(pk_cols) > 0
             and all((col in last_processed_primary_key or col.lower() in last_processed_primary_key or col.upper() in last_processed_primary_key) for col in pk_cols)
         )
 
@@ -610,7 +510,7 @@ class OracleAdapter(BaseAdapter):
                         eq_parts.append(f'"{curr_col}" > :{p_name}')
                         params[p_name] = last_processed_primary_key.get(curr_col) or last_processed_primary_key.get(curr_col.lower()) or last_processed_primary_key.get(curr_col.upper())
                         conditions.append("(" + " AND ".join(eq_parts) + ")")
-                    
+
                     where_clause = " OR ".join(conditions)
                     order_by = ", ".join([f'"{col}" ASC' for col in pk_cols])
                     sql = f'SELECT * FROM {self._quote(self._schema)}.{self._quote(table_name)} WHERE {where_clause} ORDER BY {order_by} OFFSET 0 ROWS FETCH NEXT :lim ROWS ONLY'
@@ -622,7 +522,7 @@ class OracleAdapter(BaseAdapter):
                         SELECT * FROM {self._quote(self._schema)}.{self._quote(table_name)} ORDER BY {order_clause} OFFSET :off ROWS FETCH NEXT :lim ROWS ONLY
                     """
                     cur.execute(sql, off=offset, lim=limit)
-                
+
                 col_names = [d[0].lower() for d in cur.description]
                 rows = []
                 for row in cur:
@@ -632,11 +532,9 @@ class OracleAdapter(BaseAdapter):
         return await asyncio.to_thread(_run)
 
     async def write_batch(self, table_name: str, rows: List[Dict[str, Any]]) -> int:
+        self._ensure_connected()
         if not self._conn:
             raise RuntimeError("Not connected")
-        if self.mock_mode:
-            logger.info("[OracleAdapter] Mock write: %d rows to %s", len(rows), table_name)
-            return len(rows)
         if not rows:
             return 0
         pk = await self._primary_key_column(table_name)
@@ -706,8 +604,7 @@ class OracleAdapter(BaseAdapter):
 
 
     async def get_row_count(self, table_name: str) -> int:
-        if self.mock_mode or not hasattr(self._conn, "cursor"):
-            return 1000
+        self._ensure_connected()
         if not self._conn:
             raise RuntimeError("Not connected")
         sql = f'SELECT COUNT(*) FROM {self._quote(self._schema)}.{self._quote(table_name)}'
@@ -718,6 +615,7 @@ class OracleAdapter(BaseAdapter):
         return await asyncio.to_thread(_run)
 
     async def compute_checksum(self, table_name: str) -> str:
+        self._ensure_connected()
         from akaal.validation.domain.canonical_checksum import compute_canonical_table_checksum
         if not self._conn or not hasattr(self._conn, "cursor"):
             raise RuntimeError("Oracle connection unavailable for checksum computation.")
@@ -741,24 +639,12 @@ class OracleAdapter(BaseAdapter):
     async def discover_identity(self, schema: str, table: str, column: str) -> Optional[Any]:
         if not self._conn:
             raise RuntimeError("Not connected")
-            
+
         from akaal.migration.models.identity import IdentityRuntimeState, IdentityStateConfidence, GeneratorValueSemantics
-        
-        if self.mock_mode:
-            # Handle mock values for testing
-            if table.upper() == "USERS" and column.upper() == "ID":
-                return IdentityRuntimeState(
-                    current_generator_value=1,
-                    last_generated_value=1,
-                    restart_value=1,
-                    state_confidence=IdentityStateConfidence.ESTIMATED,
-                    value_semantics=GeneratorValueSemantics.NEXT_TO_EMIT
-                )
-            return None
 
         # 1. Native Identity Column Query
         sql_native = """
-        SELECT 
+        SELECT
             ic.generation_type,
             ic.sequence_name,
             s.min_value,
@@ -772,21 +658,21 @@ class OracleAdapter(BaseAdapter):
         JOIN all_sequences s ON ic.sequence_name = s.sequence_name AND ic.owner = s.sequence_owner
         WHERE ic.owner = :schema AND ic.table_name = :table AND ic.column_name = :column
         """
-        
+
         # 2. Trigger Trigger SQL
         sql_trigger = """
-        SELECT trigger_name 
-        FROM all_triggers 
+        SELECT trigger_name
+        FROM all_triggers
         WHERE owner = :schema AND table_name = :table AND trigger_type = 'BEFORE EACH ROW' AND triggering_event LIKE '%INSERT%' AND status = 'ENABLED'
         """
-        
+
         # 3. Dependencies dependency SQL
         sql_dep = """
-        SELECT referenced_name 
-        FROM all_dependencies 
+        SELECT referenced_name
+        FROM all_dependencies
         WHERE owner = :schema AND name = :trigger AND referenced_type = 'SEQUENCE'
         """
-        
+
         # 4. Sequence details query
         sql_seq = """
         SELECT min_value, max_value, increment_by, cycle_flag, cache_size, order_flag, last_number
@@ -809,7 +695,7 @@ class OracleAdapter(BaseAdapter):
                         state_confidence=confidence,
                         value_semantics=GeneratorValueSemantics.NEXT_TO_EMIT
                     )
-                
+
                 # Check for emulated trigger-sequence
                 cur.execute(sql_trigger, {"schema": schema.upper(), "table": table.upper()})
                 triggers = cur.fetchall()
@@ -830,7 +716,7 @@ class OracleAdapter(BaseAdapter):
                                 value_semantics=GeneratorValueSemantics.NEXT_TO_EMIT
                             )
                 return None
-                
+
         return await asyncio.to_thread(_run)
 
     async def discover_partition_scheme(self, schema: str, table: str) -> Optional[Any]:
@@ -852,50 +738,6 @@ class OracleAdapter(BaseAdapter):
             BoundInclusivity,
             CanonicalColumnPartitionKey
         )
-
-        if self.mock_mode:
-            if table.upper() == "ORDERS":
-                return CanonicalPartitionScheme(
-                    table_identity=ObjectIdentity(schema, table, "TABLE"),
-                    source_dialect="oracle",
-                    source_version="19c",
-                    confidence=MetadataConfidence.COMPLETE,
-                    strategy=PartitionStrategy.RANGE,
-                    keys=(
-                        CanonicalColumnPartitionKey(
-                            column_name="order_date",
-                            canonical_type=CanonicalDataType.TIMESTAMP,
-                            native_type="TIMESTAMP",
-                            position=0,
-                            nullable=True
-                        ),
-                    ),
-                    partitions=(
-                        CanonicalRangePartition(
-                            object_identity=ObjectIdentity(schema, "ORDERS_P1", "PARTITION"),
-                            partition_name="ORDERS_P1",
-                            ordinal=0,
-                            boundary=CanonicalRangeInterval(
-                                lower=CanonicalRangeBound(
-                                    values=(),
-                                    inclusivity=BoundInclusivity.EXCLUSIVE,
-                                    unbounded=True
-                                ),
-                                upper=CanonicalRangeBound(
-                                    values=(
-                                        CanonicalScalarValue(
-                                            data_type=CanonicalDataType.TIMESTAMP,
-                                            ts_val=datetime(2026, 1, 1)
-                                        ),
-                                    ),
-                                    inclusivity=BoundInclusivity.EXCLUSIVE,
-                                    unbounded=False
-                                )
-                            )
-                        ),
-                    )
-                )
-            return None
 
         def _run():
             sql = """
