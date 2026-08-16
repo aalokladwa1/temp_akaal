@@ -98,8 +98,16 @@ class PrivacyEngine:
         if strat == PrivacyStrategy.KEYED_PSEUDONYM:
             hmac_key = self._get_hmac_key(rule.key_id)
             domain_prefix = rule.privacy_domain or "DEFAULT_DOMAIN"
-            payload_str = f"{domain_prefix}:{val_str}"
-            h = hmac.new(hmac_key, payload_str.encode("utf-8"), hashlib.sha256)
+            domain_bytes = domain_prefix.encode("utf-8")
+            val_bytes = val_str.encode("utf-8")
+            # Unambiguous length-prefixed binary encoding preventing delimiter collisions
+            unambiguous_payload = (
+                len(domain_bytes).to_bytes(4, byteorder="big")
+                + domain_bytes
+                + len(val_bytes).to_bytes(4, byteorder="big")
+                + val_bytes
+            )
+            h = hmac.new(hmac_key, unambiguous_payload, hashlib.sha256)
             return f"PSEUDO-{h.hexdigest()[:16].upper()}"
 
         if strat == PrivacyStrategy.TOKENIZE:
