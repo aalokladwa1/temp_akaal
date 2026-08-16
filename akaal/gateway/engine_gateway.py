@@ -4023,14 +4023,35 @@ class EngineGateway:
 
         selected_scope = payload.get("selected_scope", {})
         connector_type = payload.get("connector_type", "GENERIC")
+        current_discovery = payload.get("current_discovery")
         compiler = PlanCompiler()
         sel_def = compiler.resolve_selection_definition(selected_scope)
         info = compiler.resolve_rules_and_projections(selected_scope, sel_def, connector_type)
-        blockers = [d for d in info["diagnostics"] if d.level == "BLOCKER"]
+        diagnostics = list(info["diagnostics"])
+
+        if current_discovery:
+            drift_diags = compiler.verify_discovery_drift(selected_scope, current_discovery)
+            diagnostics.extend(drift_diags)
+
+        blockers = [d for d in diagnostics if d.level == "BLOCKER"]
         return {
             "status": "SUCCESS" if not blockers else "BLOCKER",
             "is_valid": len(blockers) == 0,
-            "diagnostics": [d.to_dict() for d in info["diagnostics"]],
+            "diagnostics": [d.to_dict() for d in diagnostics],
+        }
+
+    def p5_verify_pre_execution_fence(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        from akaal.planner.engine.plan_compiler import PlanCompiler
+
+        planned_scope = payload.get("planned_scope", {})
+        current_discovery = payload.get("current_discovery", {})
+        compiler = PlanCompiler()
+        drift_diags = compiler.verify_discovery_drift(planned_scope, current_discovery)
+        blockers = [d for d in drift_diags if d.level == "BLOCKER"]
+        return {
+            "status": "SUCCESS" if not blockers else "BLOCKER",
+            "execution_permitted": len(blockers) == 0,
+            "diagnostics": [d.to_dict() for d in drift_diags],
         }
 
     def p5_preview_selection(self, payload: Dict[str, Any]) -> Dict[str, Any]:

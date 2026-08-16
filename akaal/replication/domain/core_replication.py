@@ -111,6 +111,20 @@ class CoreReplicationDomain(IDomainReplicator):
 
         return res
 
+    def process_incoming_cdc_batch(self, events: List[Dict[str, Any]], predicates: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Processes live incoming CDC change events against SelectionDefinition predicates in real production replication pipeline."""
+        processed = []
+        for evt in events:
+            evt_type = evt.get("operation") or evt.get("event_type") or "UPDATE"
+            before_doc = evt.get("before_image") or evt.get("before_doc")
+            after_doc = evt.get("after_image") or evt.get("after_doc")
+            action = self.process_cdc_event_with_predicates(evt_type, before_doc, after_doc, predicates)
+            if action != "SKIP":
+                processed_evt = dict(evt)
+                processed_evt["reconciled_action"] = action
+                processed.append(processed_evt)
+        return processed
+
     @staticmethod
     def process_cdc_event_with_predicates(
         event_type: str,

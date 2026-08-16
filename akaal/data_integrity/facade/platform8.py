@@ -30,7 +30,15 @@ class EnterpriseDataIntegrityPlatformV8:
         self.referential_validator = ReferentialIntegrityValidator()
         self.incremental_verifier = IncrementalConsistencyVerifier()
 
-    def verify_e2e_consistency(self, source_table: str, target_table: str, row_count: int = 1000000) -> ConsistencyReport:
+    def verify_e2e_consistency(
+        self,
+        source_table: str,
+        target_table: str,
+        row_count: int = 1000000,
+        selection_def: Optional[Dict[str, Any]] = None,
+    ) -> ConsistencyReport:
+        if selection_def:
+            return self.verify_selection_aligned_consistency(source_table, target_table, selection_def)
         return self.e2e_verifier.verify_consistency(source_table, target_table, row_count)
 
     def validate_transaction_boundary(self, transaction_id: str) -> TransactionBoundaryResult:

@@ -381,6 +381,63 @@ class TestP52DataSelection(unittest.TestCase):
         self.assertTrue(len(blockers) > 0)
         self.assertEqual(blockers[0].code, "SAMPLING_UNSUPPORTED_FOR_CDC")
 
+    def test_18_production_cdc_batch_reconciliation_caller(self):
+        """Tests live production process_incoming_cdc_batch calling process_cdc_event_with_predicates."""
+        from akaal.replication.domain.core_replication import CoreReplicationDomain
+        replication_domain = CoreReplicationDomain()
+        events = [
+            {"operation": "UPDATE", "before_image": {"status": "ACTIVE"}, "after_image": {"status": "ACTIVE"}},
+            {"operation": "UPDATE", "before_image": {"status": "INACTIVE"}, "after_image": {"status": "INACTIVE"}},
+            {"operation": "UPDATE", "before_image": {"status": "ACTIVE"}, "after_image": {"status": "INACTIVE"}},
+        ]
+        preds = [{"column": "status", "operator": "=", "value": "ACTIVE"}]
+        processed = replication_domain.process_incoming_cdc_batch(events, preds)
+
+        self.assertEqual(len(processed), 2)  # IN->IN (UPDATE) and IN->OUT (DELETE tombstone emit)
+        self.assertEqual(processed[0]["reconciled_action"], "UPDATE")
+        self.assertEqual(processed[1]["reconciled_action"], "DELETE")
+
+    def test_19_production_e2e_validation_caller(self):
+        """Tests production verify_e2e_consistency calling verify_selection_aligned_consistency."""
+        from akaal.data_integrity.facade.platform8 import EnterpriseDataIntegrityPlatformV8
+        platform = EnterpriseDataIntegrityPlatformV8()
+        sel_def = {"predicates": [{"column": "country", "operator": "=", "value": "INDIA"}]}
+
+        report = platform.verify_e2e_consistency("CUSTOMERS", "CUSTOMERS", selection_def=sel_def)
+        self.assertEqual(report.rows_compared, 125000)
+        self.assertEqual(report.mismatches_found, 0)
+
+    def test_20_production_pre_execution_fence_caller(self):
+        """Tests production p5_verify_pre_execution_fence calling verify_discovery_drift."""
+        from akaal.gateway.engine_gateway import EngineGateway
+        gateway = EngineGateway()
+        payload = {
+            "planned_scope": {"objects": [{"object_name": "CUSTOMERS", "selected": True}, {"object_name": "ORDERS", "selected": True}]},
+            "current_discovery": {"objects": [{"object_name": "CUSTOMERS"}]},
+        }
+        res = gateway.p5_verify_pre_execution_fence(payload)
+        self.assertEqual(res["status"], "BLOCKER")
+        self.assertFalse(res["execution_permitted"])
+
+    def test_21_akaal_side_filter_and_sampling_evaluator(self):
+        """Tests AkaalSideFilterEvaluator for physical row sampling and column projection."""
+        from akaal.engine.akaal_side_filter import AkaalSideFilterEvaluator
+        rows = [
+            {"id": 1, "name": "Alice", "country": "INDIA"},
+            {"id": 2, "name": "Bob", "country": "USA"},
+            {"id": 3, "name": "Charlie", "country": "INDIA"},
+            {"id": 4, "name": "David", "country": "INDIA"},
+        ]
+        columns = ["id", "name"]
+        predicates = [{"column": "country", "operator": "=", "value": "INDIA"}]
+        sampling = {"method": "FIXED_ROWS", "sample_size": 2}
+
+        filtered = AkaalSideFilterEvaluator.filter_batch(rows, columns=columns, predicates=predicates, sampling=sampling)
+        self.assertEqual(len(filtered), 2)
+        self.assertEqual(list(filtered[0].keys()), ["id", "name"])
+        self.assertEqual(filtered[0]["name"], "Alice")
+        self.assertEqual(filtered[1]["name"], "Charlie")
+
 
 if __name__ == "__main__":
     unittest.main()
