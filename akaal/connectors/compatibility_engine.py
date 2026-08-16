@@ -3,7 +3,7 @@ Akaal — Universal Capability Negotiation Engine (P4.8)
 =====================================================
 Universal cross-system compatibility engine negotiating capability intersections in O(N) complexity.
 Calculates SOURCE_CAN_PRODUCE ∩ AKAAL_CAN_REPRESENT ∩ TARGET_CAN_CONSUME across Bulk, Schema,
-CDC, Validation, and Datatypes with fail-closed UNKNOWN semantics and machine-readable evidence.
+CDC, Validation, and Datatypes with fail-closed UNKNOWN semantics, delegating to UniversalConnectorRegistry.
 """
 
 import logging
@@ -16,17 +16,11 @@ from akaal.connectors.taxonomy import (
     ImplementationState,
     ProofLevel,
 )
-from akaal.connectors.contracts.capability_contract import (
-    ConnectorCapabilityContract,
-    SourceCapabilitySpec,
-    TargetCapabilitySpec,
-    ValidationCapabilitySpec,
-)
-from akaal.connectors.datatype_semantics import (
-    SemanticDatatypeFamily,
-    DatatypeDimensions,
-    map_vendor_type_to_semantic_family,
-)
+from akaal.connectors.manifest import UniversalCapabilityManifest
+from akaal.connectors.registry import UniversalConnectorRegistry
+from akaal.connectors.contracts.capability_contract import ConnectorCapabilityContract
+from akaal.schema.domain.types import CanonicalTypeCategory
+from akaal.connectors.datatype_semantics import DatatypeDimensions
 from akaal.connectors.lossiness_engine import LossinessEngine, LossinessReasonCode, LossinessIssue
 
 logger = logging.getLogger("akaal.connectors.compatibility_engine")
@@ -41,22 +35,33 @@ class UniversalCompatibilityEngine:
     def register_capability_contract(self, contract: ConnectorCapabilityContract) -> None:
         """Registers a connector capability contract ONCE for a system type."""
         self._registered_contracts[contract.system_type.upper()] = contract
-        logger.info("Registered capability contract for system: %s (Family: %s)", contract.system_type, contract.family.value)
 
     def get_contract(self, system_type: str) -> Optional[ConnectorCapabilityContract]:
-        return self._registered_contracts.get(system_type.upper())
+        # First check explicitly registered contracts (e.g. for synthetic tests)
+        sys_key = system_type.upper()
+        if sys_key in self._registered_contracts:
+            return self._registered_contracts[sys_key]
+
+        # Otherwise derive dynamically from UniversalConnectorRegistry manifests
+        reg = UniversalConnectorRegistry.get_instance()
+        for manifest in reg._manifests.values():
+            if manifest.system_type.upper() == sys_key:
+                contract = ConnectorCapabilityContract.from_manifest(manifest)
+                self._registered_contracts[sys_key] = contract
+                return contract
+
+        return None
 
     def evaluate_cross_system_compatibility(
         self,
         source_system: str,
         target_system: str,
         requested_modes: Optional[List[str]] = None,
-        requested_datatypes: Optional[List[SemanticDatatypeFamily]] = None,
+        requested_datatypes: Optional[List[CanonicalTypeCategory]] = None,
     ) -> Dict[str, Any]:
         """
         Negotiates compatibility between Source and Target capability contracts.
         Computes intersection: SOURCE_CAN_PRODUCE ∩ AKAAL_CAN_REPRESENT ∩ TARGET_CAN_CONSUME.
-        Returns machine-readable compatibility result, lossiness analysis, risk, and proof level.
         """
         src_contract = self.get_contract(source_system)
         tgt_contract = self.get_contract(target_system)
@@ -67,7 +72,7 @@ class UniversalCompatibilityEngine:
                 "overall_compatibility": SemanticCompatibility.UNSUPPORTED.value,
                 "is_viable": False,
                 "reason_code": "UNKNOWN_SOURCE_SYSTEM",
-                "message": f"Source system '{source_system}' has no registered capability contract.",
+                "message": f"Source system '{source_system}' has no registered capability contract or manifest.",
                 "proof_level": ProofLevel.UNIMPLEMENTED.value,
                 "lossiness_issues": [],
                 "warnings": [f"Unregistered source system: {source_system}"],
@@ -78,7 +83,7 @@ class UniversalCompatibilityEngine:
                 "overall_compatibility": SemanticCompatibility.UNSUPPORTED.value,
                 "is_viable": False,
                 "reason_code": "UNKNOWN_TARGET_SYSTEM",
-                "message": f"Target system '{target_system}' has no registered capability contract.",
+                "message": f"Target system '{target_system}' has no registered capability contract or manifest.",
                 "proof_level": ProofLevel.UNIMPLEMENTED.value,
                 "lossiness_issues": [],
                 "warnings": [f"Unregistered target system: {target_system}"],

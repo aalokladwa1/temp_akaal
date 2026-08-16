@@ -1,13 +1,14 @@
 """
 Akaal — Canonical Connector Capability Contract (P4.8)
 =====================================================
-Defines the canonical contract declared ONCE per connector family / system type.
-Exposes structured Source, Target, CDC, Schema, and Validation capabilities for O(N) compatibility reasoning.
+Consolidated with UniversalCapabilityManifest (akaal.connectors.manifest).
+Adapts UniversalCapabilityManifest into structured Source, Target, and Validation specs without duplicating capability state.
 """
 
 from typing import Dict, Any, Optional, List, Set
 from akaal.connectors.taxonomy import ConnectorFamily, SupportState, ImplementationState
-from akaal.connectors.datatype_semantics import SemanticDatatypeFamily
+from akaal.connectors.manifest import UniversalCapabilityManifest
+from akaal.schema.domain.types import CanonicalTypeCategory
 
 
 class SourceCapabilitySpec:
@@ -18,8 +19,8 @@ class SourceCapabilitySpec:
         range_extraction: bool = True,
         parallel_reads: bool = True,
         cdc_available: bool = False,
-        cdc_mechanism: str = "NONE",  # LOG_BASED, TRIGGER_BASED, TIMESTAMP_BASED, NONE
-        cdc_position_type: str = "NONE",  # LSN, SCN, BINLOG_OFFSET, GTID, RESUME_TOKEN, PARTITION_OFFSET, NONE
+        cdc_mechanism: str = "NONE",
+        cdc_position_type: str = "NONE",
         before_image_available: bool = False,
         ddl_capture: bool = False,
         delete_capture: bool = False,
@@ -149,7 +150,7 @@ class ValidationCapabilitySpec:
 
 
 class ConnectorCapabilityContract:
-    """Canonical Capability Contract declared ONCE per connector system."""
+    """Canonical Capability Contract derived directly from UniversalCapabilityManifest."""
 
     def __init__(
         self,
@@ -159,29 +160,60 @@ class ConnectorCapabilityContract:
         source_spec: Optional[SourceCapabilitySpec] = None,
         target_spec: Optional[TargetCapabilitySpec] = None,
         validation_spec: Optional[ValidationCapabilitySpec] = None,
-        supported_semantic_types: Optional[List[SemanticDatatypeFamily]] = None,
+        supported_semantic_types: Optional[List[CanonicalTypeCategory]] = None,
         support_state: SupportState = SupportState.SUPPORTED,
         implementation_state: ImplementationState = ImplementationState.IMPLEMENTED,
+        manifest: Optional[UniversalCapabilityManifest] = None,
     ) -> None:
         self.connector_id = connector_id.lower()
         self.system_type = system_type.upper()
         self.family = ConnectorFamily(family)
-        self.source_spec = source_spec or SourceCapabilitySpec()
-        self.target_spec = target_spec or TargetCapabilitySpec()
-        self.validation_spec = validation_spec or ValidationCapabilitySpec()
-        self.supported_semantic_types = set(supported_semantic_types or [
-            SemanticDatatypeFamily.INTEGER,
-            SemanticDatatypeFamily.FIXED_DECIMAL,
-            SemanticDatatypeFamily.FLOATING_POINT,
-            SemanticDatatypeFamily.VARIABLE_STRING,
-            SemanticDatatypeFamily.DATE,
-            SemanticDatatypeFamily.TIMESTAMP,
-            SemanticDatatypeFamily.BOOLEAN,
-        ])
-        self.support_state = SupportState(support_state)
-        self.implementation_state = ImplementationState(implementation_state)
+        self.manifest = manifest
 
-    def is_type_supported(self, semantic_type: SemanticDatatypeFamily) -> bool:
+        # Derive specs from manifest if manifest provided, else use explicit specs
+        if manifest:
+            self.source_spec = SourceCapabilitySpec(
+                snapshot_extraction=manifest.supports_bulk_read,
+                cdc_available=manifest.supports_cdc_capture,
+                cdc_position_type=str(manifest.feature_flags.get("cdc_position_type", "LOG_POSITION")),
+                lob_streaming=manifest.supports_lobs,
+            )
+            self.target_spec = TargetCapabilitySpec(
+                bulk_ingestion=manifest.supports_bulk_write,
+                cdc_event_application=manifest.supports_streaming_write or manifest.supports_continuous_sync,
+                transaction_support=manifest.supports_transactions,
+            )
+            self.validation_spec = ValidationCapabilitySpec()
+            self.support_state = manifest.support_state
+            self.implementation_state = manifest.implementation_state
+        else:
+            self.source_spec = source_spec or SourceCapabilitySpec()
+            self.target_spec = target_spec or TargetCapabilitySpec()
+            self.validation_spec = validation_spec or ValidationCapabilitySpec()
+            self.support_state = SupportState(support_state)
+            self.implementation_state = ImplementationState(implementation_state)
+
+        self.supported_semantic_types = set(supported_semantic_types or [
+            CanonicalTypeCategory.INTEGER,
+            CanonicalTypeCategory.DECIMAL,
+            CanonicalTypeCategory.FLOAT,
+            CanonicalTypeCategory.VARCHAR,
+            CanonicalTypeCategory.DATE,
+            CanonicalTypeCategory.TIMESTAMP,
+            CanonicalTypeCategory.BOOLEAN,
+        ])
+
+    @classmethod
+    def from_manifest(cls, manifest: UniversalCapabilityManifest) -> "ConnectorCapabilityContract":
+        """Factory deriving ConnectorCapabilityContract dynamically from UniversalCapabilityManifest."""
+        return cls(
+            connector_id=manifest.connector_id,
+            system_type=manifest.system_type,
+            family=manifest.family,
+            manifest=manifest,
+        )
+
+    def is_type_supported(self, semantic_type: CanonicalTypeCategory) -> bool:
         return semantic_type in self.supported_semantic_types
 
     def to_dict(self) -> Dict[str, Any]:
