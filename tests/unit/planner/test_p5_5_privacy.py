@@ -357,6 +357,72 @@ class TestP55PrivacyControls(unittest.TestCase):
         with self.assertRaises(TokenVaultError):
             vault.detokenize(token, privacy_domain="SSN")
 
+    def test_13_stale_approval_real_execution_rejection(self):
+        """Hostile Integration Test: Real ReplicationPipeline rejects stale approval with zero target writes."""
+        import asyncio
+        from akaal.replication.pipeline.orchestrator import ReplicationPipeline
+        from akaal.replication.core.context import ReplicationContext
+        from akaal.replication.core.registry import ReplicatorRegistry
+        from akaal.replication.core.models import ReplicationStatus
+
+        policy_v1 = PrivacyPolicy(object_name="T1", rules=[PrivacyRule(rule_id="r1", column_name="col", strategy=PrivacyStrategy.STATIC_REDACT)])
+        policy_v2 = PrivacyPolicy(object_name="T1", rules=[PrivacyRule(rule_id="r1", column_name="col", strategy=PrivacyStrategy.TOKENIZE)])
+
+        fp_v1 = PrivacyEngine(policy_v1).compile_policy().fingerprint
+        fp_v2 = PrivacyEngine(policy_v2).compile_policy().fingerprint
+
+        exec_plan = {
+            "execution_plan_id": "plan-999",
+            "fingerprint": fp_v1,
+            "resolved_configuration": {"privacy_fingerprint": fp_v1},
+        }
+
+        # Context contains execution_plan with fp_v1, but approved_fingerprint is fp_v2 (stale approval!)
+        context = ReplicationContext(
+            runtime_metadata={
+                "execution_plan": exec_plan,
+                "approved_fingerprint": fp_v2,
+            }
+        )
+
+        pipeline = ReplicationPipeline(registry=ReplicatorRegistry())
+        session = asyncio.run(pipeline.execute_pipeline(context))
+
+        # Real production pipeline MUST reject stale approval and fail before any target domain replication!
+        self.assertEqual(session.state, ReplicationStatus.FAILED)
+        self.assertEqual(len(session.results), 0, "Target write count must be EXACTLY 0.")
+
+    def test_14_stale_resume_real_execution_rejection(self):
+        """Hostile Integration Test: Real DeterministicResumeEngine rejects stale resume with zero target writes."""
+        from akaal.migration.execution.resume_engine import DeterministicResumeEngine
+        from akaal.orchestration.checkpoint.checkpoint import WorkflowCheckpoint
+
+        checkpoint = WorkflowCheckpoint(
+            checkpoint_id="chk-777",
+            workflow_id="wf-123",
+            job_id="job-001",
+            step_name="MIGRATION_STEP",
+            step_index=1,
+            engine_state="PAUSED",
+            workflow_version="1.0.0",
+            config_version=1,
+            config_checksum="test_chksum",
+            state_data={"last_committed_batch": 5, "privacy_fingerprint": "FP_POLICY_VERSION_1"},
+        )
+
+        resume_engine = DeterministicResumeEngine()
+
+        # Attempt resume with current_privacy_fingerprint = "FP_POLICY_VERSION_2" (stale checkpoint!)
+        with self.assertRaises(RuntimeError) as ctx_err:
+            resume_engine.resume_migration(
+                workflow_id="wf-123",
+                checkpoint=checkpoint,
+                table_name="CUSTOMERS",
+                current_privacy_fingerprint="FP_POLICY_VERSION_2",
+            )
+
+        self.assertIn("STALE_RESUME_REJECTED", str(ctx_err.exception))
+
 
 if __name__ == "__main__":
     unittest.main()

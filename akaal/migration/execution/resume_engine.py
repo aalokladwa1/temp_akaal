@@ -116,13 +116,19 @@ class DeterministicResumeEngine:
         checkpoint: WorkflowCheckpoint,
         table_name: str,
         pk_columns: Optional[List[str]] = None,
+        current_privacy_fingerprint: Optional[str] = None,
     ) -> ResumeExecutionResult:
         """
         Resumes a migration from a saved checkpoint deterministically.
         Delegates workflow state resumption to WorkflowEngine.resume().
+        Enforces canonical checkpoint privacy fingerprint validation before target execution.
         """
         if not checkpoint.verify_checksum():
             raise ValueError(f"Checkpoint integrity checksum verification failed for {checkpoint.checkpoint_id}")
+
+        if current_privacy_fingerprint and checkpoint.state_data:
+            from akaal.planner.engine.plan_compiler import PlanCompiler
+            PlanCompiler.validate_resume_checkpoint(checkpoint.state_data, current_privacy_fingerprint)
 
         spec = self.build_resume_spec(table_name, checkpoint, pk_columns=pk_columns)
 
