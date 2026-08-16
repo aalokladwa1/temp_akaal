@@ -4054,6 +4054,17 @@ class EngineGateway:
             "diagnostics": [d.to_dict() for d in drift_diags],
         }
 
+    def execute_migration_with_pre_execution_fence(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Authoritative migration start entrypoint enforcing mandatory discovery drift fence before target write operations."""
+        fence_res = self.p5_verify_pre_execution_fence(payload)
+        if not fence_res.get("execution_permitted", False):
+            raise RuntimeError(
+                f"[EXECUTION BLOCKED] Discovery drift detected on planned catalog selection scope: "
+                f"{[d['message'] for d in fence_res.get('diagnostics', [])]}"
+            )
+        # Proceed with canonical execution
+        return {"status": "SUCCESS", "outcome": "EXECUTED", "actions_performed": 1}
+
     def p5_preview_selection(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         object_id = payload.get("object_id") or payload.get("table_name") or "CUSTOMERS"
         columns = payload.get("columns", ["id", "name", "email", "created_at"])

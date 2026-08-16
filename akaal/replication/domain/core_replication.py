@@ -77,6 +77,13 @@ class CoreReplicationDomain(IDomainReplicator):
                 migration_id=migration_id,
             )
 
+            # Process CDC Stream reconciliation if continuous replication active
+            cdc_batch = meta.get("cdc_stream_batch", [])
+            predicates = physical_spec.get("selection_definition", {}).get("predicates", [])
+            if cdc_batch:
+                reconciled_cdc = self.process_incoming_cdc_batch(cdc_batch, predicates)
+                logger.info(f"[CORE REPLICATION] Reconciled {len(reconciled_cdc)} CDC stream events against SelectionDefinition predicates.")
+
             elapsed = (time.time() - start_t) * 1000.0
             res = ReplicationResult(
                 domain_name=self.domain_name,

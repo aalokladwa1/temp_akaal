@@ -133,11 +133,11 @@ class BaseAdapter(ABC):
         predicates: Optional[List[Dict[str, Any]]] = None,
         sampling: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, Any]]:
-        """Read a batch of rows/documents from source with optional column projection, predicates, and sampling."""
-        from akaal.engine.akaal_side_filter import AkaalSideFilterEvaluator
-        # Base fallback extraction batch
-        raw_rows = [{"id": offset + i, "name": f"Item_{offset + i}", "status": "ACTIVE"} for i in range(min(limit, 10))]
-        return AkaalSideFilterEvaluator.filter_batch(raw_rows, columns=columns, predicates=predicates, sampling=sampling)
+        """Read a batch of rows/documents from source. Must be overridden by concrete connectors to perform real source extraction."""
+        raise NotImplementedError(
+            f"Connector '{self.__class__.__name__}' does not implement real source batch extraction. "
+            "AKAAL strictly forbids synthetic data fallback."
+        )
 
     @abstractmethod
     async def write_batch(self, table_name: str, rows: List[Dict[str, Any]]) -> int:

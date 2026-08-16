@@ -419,6 +419,30 @@ class TestP52DataSelection(unittest.TestCase):
         self.assertEqual(res["status"], "BLOCKER")
         self.assertFalse(res["execution_permitted"])
 
+    def test_00_baseadapter_read_batch_fails_closed_without_synthetic_data(self):
+        """Tests that BaseAdapter.read_batch raises NotImplementedError without fabricating synthetic Item_i rows."""
+        from akaal.adapters.base_adapter import BaseAdapter
+        class DummyAdapter(BaseAdapter):
+            async def connect(self): pass
+            async def close(self): pass
+            async def check_permissions(self): pass
+            async def discover_tables(self): pass
+            async def discover_columns(self, t): pass
+            async def discover_indexes(self, t): pass
+            async def discover_constraints(self, t): pass
+            async def discover_foreign_keys(self, t): pass
+            async def discover_triggers(self, t): pass
+            async def discover_views(self): pass
+            async def write_batch(self, t, r): pass
+            async def get_row_count(self, t): pass
+            async def compute_checksum(self, t): pass
+
+        adapter = DummyAdapter(None)
+        import asyncio
+        with self.assertRaises(NotImplementedError) as ctx:
+            asyncio.run(adapter.read_batch("tbl", 0, 10))
+        self.assertIn("strictly forbids synthetic data fallback", str(ctx.exception))
+
     def test_21_akaal_side_filter_and_sampling_evaluator(self):
         """Tests AkaalSideFilterEvaluator for physical row sampling and column projection."""
         from akaal.engine.akaal_side_filter import AkaalSideFilterEvaluator
@@ -437,6 +461,32 @@ class TestP52DataSelection(unittest.TestCase):
         self.assertEqual(list(filtered[0].keys()), ["id", "name"])
         self.assertEqual(filtered[0]["name"], "Alice")
         self.assertEqual(filtered[1]["name"], "Charlie")
+
+    def test_22_execute_migration_aborts_on_discovery_drift(self):
+        """Tests that authoritative migration start entrypoint aborts execution before target write when discovery drift occurs."""
+        from akaal.gateway.engine_gateway import EngineGateway
+        gateway = EngineGateway()
+        payload = {
+            "planned_scope": {"objects": [{"object_name": "CUSTOMERS", "selected": True}, {"object_name": "ORDERS", "selected": True}]},
+            "current_discovery": {"objects": [{"object_name": "CUSTOMERS"}]},
+        }
+        with self.assertRaises(RuntimeError) as ctx:
+            gateway.execute_migration_with_pre_execution_fence(payload)
+        self.assertIn("[EXECUTION BLOCKED]", str(ctx.exception))
+
+    def test_23_transitive_cdc_stream_reconciliation(self):
+        """Tests transitive execution of CDC batch reconciliation in CoreReplicationDomain."""
+        from akaal.replication.domain.core_replication import CoreReplicationDomain
+        domain = CoreReplicationDomain()
+        batch = [
+            {"operation": "UPDATE", "before_image": {"status": "ACTIVE"}, "after_image": {"status": "ACTIVE"}},
+            {"operation": "UPDATE", "before_image": {"status": "ACTIVE"}, "after_image": {"status": "INACTIVE"}},
+        ]
+        preds = [{"column": "status", "operator": "=", "value": "ACTIVE"}]
+        reconciled = domain.process_incoming_cdc_batch(batch, preds)
+        self.assertEqual(len(reconciled), 2)
+        self.assertEqual(reconciled[0]["reconciled_action"], "UPDATE")
+        self.assertEqual(reconciled[1]["reconciled_action"], "DELETE")
 
 
 if __name__ == "__main__":
