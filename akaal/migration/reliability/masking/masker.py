@@ -1,7 +1,8 @@
-import hashlib
 import logging
 from typing import Any, Dict, List, Optional
 from akaal.core.models.configuration import MaskingConfiguration, MaskingRule
+from akaal.privacy.models import PrivacyPolicy, PrivacyRule as CanonicalPrivacyRule, PrivacyStrategy
+from akaal.privacy.engine import PrivacyEngine, PrivacyEngineError
 
 logger = logging.getLogger("akaal.migration.masking")
 
@@ -11,64 +12,55 @@ class MaskingPolicyError(Exception):
 class DataMasker:
     def __init__(self, config: MaskingConfiguration) -> None:
         self.config = config
+        self._engines: Dict[str, PrivacyEngine] = {}
 
-    def validate_policies(self) -> None:
-        """Validates all registered masking policies."""
-        if not self.config or not self.config.policies:
-            return
-        for table, rules in self.config.policies.items():
-            for rule in rules:
-                strat = rule.masking_strategy.upper()
-                if strat not in ("REDACT", "HASH", "PARTIAL", "NULLIFY"):
-                    raise MaskingPolicyError(f"Unsupported masking strategy '{rule.masking_strategy}' for column '{rule.column_name}'.")
-                if strat == "PARTIAL" and rule.unmasked_length < 0:
-                    raise MaskingPolicyError(f"Invalid partial unmasked length for column '{rule.column_name}'.")
+    def _get_engine(self, table_name: str) -> PrivacyEngine:
+        if table_name in self._engines:
+            return self._engines[table_name]
 
-    def mask_row(self, table_name: str, row: Dict[str, Any]) -> Dict[str, Any]:
-        """Applies masking rules, logging audit summaries."""
-        if not self.config or not self.config.policies:
-            return row
-        rules = self.config.policies.get(table_name, [])
-        if not rules:
-            return row
+        rules = self.config.policies.get(table_name, []) if self.config and self.config.policies else []
+        canonical_rules: List[CanonicalPrivacyRule] = []
 
-        new_row = dict(row)
-        masked_count = 0
+        for r in rules:
+            strat_str = r.masking_strategy.upper()
+            strat = PrivacyStrategy.STATIC_REDACT
+            if strat_str == "REDACT":
+                strat = PrivacyStrategy.STATIC_REDACT
+            elif strat_str == "NULLIFY":
+                strat = PrivacyStrategy.NULLIFY
+            elif strat_str == "HASH":
+                strat = PrivacyStrategy.HASH
+            elif strat_str == "PARTIAL":
+                strat = PrivacyStrategy.PARTIAL_MASK
 
-        for rule in rules:
-            col = rule.column_name
-            if col not in new_row or new_row[col] is None:
-                continue
-
-            strat = rule.masking_strategy.upper()
-            val = str(new_row[col])
-
-            if strat == "REDACT":
-                new_row[col] = rule.replacement_value or "[REDACTED]"
-                masked_count += 1
-            elif strat == "NULLIFY":
-                new_row[col] = None
-                masked_count += 1
-            elif strat == "HASH":
-                salt = rule.salt or ""
-                payload = val + salt
-                new_row[col] = hashlib.sha256(payload.encode("utf-8")).hexdigest()
-                masked_count += 1
-            elif strat == "PARTIAL":
-                length = len(val)
-                unmasked = rule.unmasked_length
-                if length <= unmasked:
-                    new_row[col] = rule.mask_char * length
-                else:
-                    visible = val[-unmasked:]
-                    masked_part = rule.mask_char * (length - unmasked)
-                    new_row[col] = masked_part + visible
-                masked_count += 1
-
-        if masked_count > 0:
-            logger.debug(
-                "[Masking Audit] Table '%s': Masked %d columns in row.",
-                table_name, masked_count
+            canonical_rules.append(
+                CanonicalPrivacyRule(
+                    rule_id=f"rule-{r.column_name}",
+                    column_name=r.column_name,
+                    strategy=strat,
+                    salt=r.salt,
+                    mask_char=r.mask_char if hasattr(r, "mask_char") and r.mask_char else "*",
+                    unmasked_length=r.unmasked_length,
+                    replacement_value=r.replacement_value,
+                )
             )
 
-        return new_row
+        policy = PrivacyPolicy(object_name=table_name, rules=canonical_rules)
+        engine = PrivacyEngine(policy)
+        engine.compile_policy()
+        self._engines[table_name] = engine
+        return engine
+
+    def validate_policies(self) -> None:
+        """Validates all registered masking policies by building canonical PrivacyEngine."""
+        if not self.config or not self.config.policies:
+            return
+        for table in self.config.policies.keys():
+            self._get_engine(table)
+
+    def mask_row(self, table_name: str, row: Dict[str, Any]) -> Dict[str, Any]:
+        """Delegates masking execution to canonical PrivacyEngine."""
+        if not self.config or not self.config.policies:
+            return row
+        engine = self._get_engine(table_name)
+        return engine.transform_row(row)

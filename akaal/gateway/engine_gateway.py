@@ -4214,6 +4214,57 @@ class EngineGateway:
             "diagnostics": [],
         }
 
+    def compile_privacy_policy(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Compiles a PrivacyPolicy payload and computes SHA-256 fingerprint."""
+        from akaal.privacy.models import PrivacyPolicy
+        from akaal.privacy.engine import PrivacyEngine
+        policy = PrivacyPolicy.from_dict(payload)
+        engine = PrivacyEngine(policy)
+        compiled = engine.compile_policy()
+        return {
+            "status": "SUCCESS",
+            "object_name": compiled.object_name,
+            "compiled_policy": compiled.to_dict(),
+            "fingerprint": compiled.fingerprint,
+        }
+
+    def validate_privacy_policy(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Validates PrivacyPolicy payload rule configurations."""
+        try:
+            res = self.compile_privacy_policy(payload)
+            return {
+                "status": "SUCCESS",
+                "is_valid": True,
+                "fingerprint": res["fingerprint"],
+                "diagnostics": [],
+            }
+        except Exception as exc:
+            return {
+                "status": "FAILED",
+                "is_valid": False,
+                "error": str(exc),
+                "diagnostics": [str(exc)],
+            }
+
+    def preview_privacy_policy(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Executes PrivacyEngine preview with ZERO target writes and sanitized outputs."""
+        from akaal.privacy.models import PrivacyPolicy
+        from akaal.privacy.engine import PrivacyEngine
+        policy = PrivacyPolicy.from_dict(payload)
+        engine = PrivacyEngine(policy)
+        engine.compile_policy()
+        sample_rows = payload.get("source_rows", [])
+        return engine.preview_privacy(sample_rows)
+
+    def p5_compile_privacy_policy(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        return self.compile_privacy_policy(payload)
+
+    def p5_validate_privacy_policy(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        return self.validate_privacy_policy(payload)
+
+    def p5_preview_privacy_policy(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        return self.preview_privacy_policy(payload)
+
     def p5_compile_transformation(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         return self.compile_transformation(payload)
 
