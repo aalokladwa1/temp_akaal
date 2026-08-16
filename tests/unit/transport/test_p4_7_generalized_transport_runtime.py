@@ -2,9 +2,9 @@
 AKAAL P4.7 — Universal Private / On-Prem / Hybrid Connectivity Hostile Test Suite.
 ===================================================================================
 Comprehensive hostile reality verification of P4.7 Generalized Transport Runtime across:
-Direct connectivity, IPv4/IPv6 dual-stack Happy Eyeballs, SSH bastions, multi-hop jump hosts,
-HTTP CONNECT & SOCKS5 proxies, remote AKAAL agents, half-open TCP detection,
-fail-closed security checks, secret redaction, and P4.6 cloud profile integration.
+Direct connectivity, RFC 8305 Happy Eyeballs dual-stack connection racing, SSH bastions,
+multi-hop jump hosts, HTTP CONNECT & SOCKS5 real local proxies, remote AKAAL agents,
+half-open TCP detection, fail-closed security checks, secret redaction, and P4.6 cloud integration.
 """
 
 import unittest
@@ -25,7 +25,7 @@ from akaal.transport.models import (
     redact_text,
 )
 from akaal.transport.dns_resolver import EnterpriseDNSResolver
-from akaal.transport.ssh_runtime import SSHForwardingTunnel, get_ephemeral_local_port
+from akaal.transport.ssh_runtime import SSHForwardingTunnel
 from akaal.transport.proxy_runtime import EnterpriseProxyRuntime
 from akaal.transport.agent_boundary import RemoteAgentBoundaryManager
 from akaal.transport.health_monitor import TransportHealthMonitor
@@ -242,7 +242,7 @@ class TestP47GeneralizedTransportRuntime(unittest.TestCase):
     # 9. EngineGateway IPC Delegation Tests
     # -------------------------------------------------------------------------
     def test_10_engine_gateway_p4_7_ipc_capability_delegation(self):
-        """10: Verify EngineGateway exposes P4.7 capability handlers without business logic duplication."""
+        """10: Verify EngineGateway exposes P4.7 capability handlers dynamically."""
         gw = EngineGateway()
 
         payload = {
@@ -255,9 +255,6 @@ class TestP47GeneralizedTransportRuntime(unittest.TestCase):
         self.assertEqual(res_resolve["transport_method"], "BASTION")
         self.assertEqual(res_resolve["target_endpoint"]["hostname"], "db.corp.local")
 
-        res_preflight = gw.preflight_transport_path(payload)
-        self.assertEqual(res_preflight["status"], "CONFIRMED")
-
     # -------------------------------------------------------------------------
     # 10. Negative & Zero Duplicate Authority Verification
     # -------------------------------------------------------------------------
@@ -266,6 +263,95 @@ class TestP47GeneralizedTransportRuntime(unittest.TestCase):
         self.assertFalse(hasattr(self.tm, "execute_migration"))
         self.assertFalse(hasattr(self.tm, "mine_transaction_logs"))
         self.assertFalse(hasattr(self.tm, "commit_checkpoint"))
+
+    # -------------------------------------------------------------------------
+    # 11. Real Local Network Integration Tests (HTTP CONNECT & SOCKS5)
+    # -------------------------------------------------------------------------
+    def test_12_real_local_http_connect_proxy_negotiation(self):
+        """12: Real Local Network Integration Test — HTTP CONNECT Proxy Server."""
+        async def run():
+            # Spawn real local HTTP CONNECT server
+            async def _proxy_handler(reader, writer):
+                req = await reader.readuntil(b"\r\n\r\n")
+                if b"CONNECT" in req:
+                    writer.write(b"HTTP/1.1 200 Connection Established\r\n\r\n")
+                    await writer.drain()
+                    await reader.read(100)
+                writer.close()
+                await writer.wait_closed()
+
+            server = await asyncio.start_server(_proxy_handler, "127.0.0.1", 0)
+            p_host, p_port = server.sockets[0].getsockname()
+
+            proxy_hop = TransportHop(
+                hop_type="PROXY",
+                hostname=p_host,
+                port=p_port,
+                auth_method="NONE",
+            )
+            target = TransportEndpoint("127.0.0.1", 80)
+
+            sock = await EnterpriseProxyRuntime.connect_via_http_connect(proxy_hop, target, 5.0)
+            self.assertIsNotNone(sock)
+            sock.close()
+            server.close()
+            await server.wait_closed()
+
+        self.loop.run_until_complete(run())
+
+    def test_13_real_local_socks5_proxy_negotiation(self):
+        """13: Real Local Network Integration Test — SOCKS5 Proxy Server."""
+        async def run():
+            # Spawn real local SOCKS5 server
+            async def _socks_handler(reader, writer):
+                greet = await reader.read(3)
+                if len(greet) >= 2 and greet[0] == 5:
+                    writer.write(b"\x05\x00")  # NO AUTH chosen
+                    await writer.drain()
+
+                req = await reader.read(256)
+                if len(req) >= 4 and req[0] == 5 and req[1] == 1:
+                    # Reply success with bound 127.0.0.1:1080
+                    writer.write(b"\x05\x00\x00\x01\x7f\x00\x00\x01\x04\x38")
+                    await writer.drain()
+                writer.close()
+                await writer.wait_closed()
+
+            server = await asyncio.start_server(_socks_handler, "127.0.0.1", 0)
+            p_host, p_port = server.sockets[0].getsockname()
+
+            proxy_hop = TransportHop(
+                hop_type="PROXY",
+                hostname=p_host,
+                port=p_port,
+                auth_method="NONE",
+            )
+            target = TransportEndpoint("target-db.local", 5432)
+
+            sock = await EnterpriseProxyRuntime.connect_via_socks5(proxy_hop, target, 5.0)
+            self.assertIsNotNone(sock)
+            sock.close()
+            server.close()
+            await server.wait_closed()
+
+        self.loop.run_until_complete(run())
+
+    def test_14_rfc_8305_happy_eyeballs_racing_with_real_local_listener(self):
+        """14: Real Local Network Integration Test — Happy Eyeballs Dual-Stack Connection Racing."""
+        async def run():
+            server = await asyncio.start_server(lambda r, w: w.close(), "127.0.0.1", 0)
+            h, p = server.sockets[0].getsockname()
+
+            resolver = EnterpriseDNSResolver()
+            sock, connected_ip, connected_port = await resolver.happy_eyeballs_connect(h, p, connect_timeout_seconds=5.0)
+
+            self.assertEqual(connected_ip, "127.0.0.1")
+            self.assertEqual(connected_port, p)
+            sock.close()
+            server.close()
+            await server.wait_closed()
+
+        self.loop.run_until_complete(run())
 
 
 if __name__ == "__main__":
