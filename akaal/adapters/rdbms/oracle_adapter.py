@@ -501,6 +501,8 @@ class OracleAdapter(BaseAdapter):
         limit: int,
         last_processed_primary_key: Optional[Dict[str, Any]] = None,
         incremental_filter: Optional[Dict[str, Any]] = None,
+        columns: Optional[List[str]] = None,
+        predicates: Optional[List[Dict[str, Any]]] = None,
     ) -> List[Dict[str, Any]]:
         self._ensure_connected()
         if not self._conn :
@@ -517,9 +519,28 @@ class OracleAdapter(BaseAdapter):
 
         def _run():
             with self._conn.cursor() as cur:
+                select_cols = ", ".join([f'"{c}"' for c in columns]) if columns else "*"
+                extra_where = []
+                params = {}
+
+                if predicates:
+                    valid_ops = {"=", "!=", ">", ">=", "<", "<=", "IN", "NOT IN", "LIKE", "IS NULL", "IS NOT NULL"}
+                    for idx, p in enumerate(predicates):
+                        col = p.get("column")
+                        op = str(p.get("operator", "=")).upper()
+                        val = p.get("value")
+                        if col and op in valid_ops:
+                            if op in ("IS NULL", "IS NOT NULL"):
+                                extra_where.append(f'"{col}" {op}')
+                            else:
+                                p_key = f"pred_{idx}"
+                                extra_where.append(f'"{col}" {op} :{p_key}')
+                                params[p_key] = val
+
+                extra_str = (" AND " + " AND ".join(extra_where)) if extra_where else ""
+
                 if use_cursor:
                     conditions = []
-                    params = {}
                     for i in range(len(pk_cols)):
                         eq_parts = []
                         for col in pk_cols[:i]:
@@ -532,17 +553,20 @@ class OracleAdapter(BaseAdapter):
                         params[p_name] = last_processed_primary_key.get(curr_col) or last_processed_primary_key.get(curr_col.lower()) or last_processed_primary_key.get(curr_col.upper())
                         conditions.append("(" + " AND ".join(eq_parts) + ")")
 
-                    where_clause = " OR ".join(conditions)
+                    where_clause = "(" + " OR ".join(conditions) + ")" + extra_str
                     order_by = ", ".join([f'"{col}" ASC' for col in pk_cols])
-                    sql = f'SELECT * FROM {self._quote(self._schema)}.{self._quote(table_name)} WHERE {where_clause} ORDER BY {order_by} OFFSET 0 ROWS FETCH NEXT :lim ROWS ONLY'
+                    sql = f'SELECT {select_cols} FROM {self._quote(self._schema)}.{self._quote(table_name)} WHERE {where_clause} ORDER BY {order_by} OFFSET 0 ROWS FETCH NEXT :lim ROWS ONLY'
                     params["lim"] = limit
                     cur.execute(sql, **params)
                 else:
                     order_clause = ", ".join([self._quote(col) for col in pk_cols]) if pk_cols else 'ROWID'
+                    where_clause = ("WHERE " + " AND ".join(extra_where)) if extra_where else ""
                     sql = f"""
-                        SELECT * FROM {self._quote(self._schema)}.{self._quote(table_name)} ORDER BY {order_clause} OFFSET :off ROWS FETCH NEXT :lim ROWS ONLY
+                        SELECT {select_cols} FROM {self._quote(self._schema)}.{self._quote(table_name)} {where_clause} ORDER BY {order_clause} OFFSET :off ROWS FETCH NEXT :lim ROWS ONLY
                     """
-                    cur.execute(sql, off=offset, lim=limit)
+                    params["off"] = offset
+                    params["lim"] = limit
+                    cur.execute(sql, **params)
 
                 col_names = [d[0].lower() for d in cur.description]
                 rows = []

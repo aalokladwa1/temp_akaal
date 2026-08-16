@@ -278,6 +278,37 @@ class TestP52DataSelection(unittest.TestCase):
         res = self.compiler.resolve_rules_and_projections(selected_scope, sel_def, "POSTGRESQL")
         self.assertEqual(len(res["diagnostics"]), 0)
 
+    def test_11_live_connector_preview_read(self):
+        """Tests p5_preview_selection returns bounded, sanitized rows."""
+        gateway = EngineGateway()
+        res = gateway.handle_capability("p5_preview_selection", {
+            "object_id": "CUSTOMERS",
+            "columns": ["id", "name", "email", "password"],
+            "connection_params": {"connector_type": "SQLITE", "database": ":memory:"},
+        })
+        self.assertEqual(res["status"], "SUCCESS")
+        preview = res["preview"]
+        self.assertTrue(len(preview["rows"]) <= 10)
+        self.assertTrue(preview["sanitized"])
+
+    def test_12_adapter_read_batch_column_and_predicate_projection(self):
+        """Tests that BaseAdapter implementations accept column lists and predicates."""
+        from akaal.adapters.rdbms.sqlite_adapter import SQLiteAdapter
+        from akaal.adapters.rdbms.postgresql_adapter import PostgreSQLAdapter
+
+        sq_adapter = SQLiteAdapter.__new__(SQLiteAdapter)
+        pg_adapter = PostgreSQLAdapter.__new__(PostgreSQLAdapter)
+
+        # Confirm method signatures accept columns and predicates without error
+        import inspect
+        sq_sig = inspect.signature(sq_adapter.read_batch)
+        pg_sig = inspect.signature(pg_adapter.read_batch)
+
+        self.assertIn("columns", sq_sig.parameters)
+        self.assertIn("predicates", sq_sig.parameters)
+        self.assertIn("columns", pg_sig.parameters)
+        self.assertIn("predicates", pg_sig.parameters)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -202,6 +202,8 @@ class SQLiteAdapter(BaseAdapter):
         limit: int,
         last_processed_primary_key: Optional[Dict[str, Any]] = None,
         incremental_filter: Optional[Dict[str, Any]] = None,
+        columns: Optional[List[str]] = None,
+        predicates: Optional[List[Dict[str, Any]]] = None,
     ) -> List[Dict[str, Any]]:
         self._ensure_connected()
         pk_cols = await self._unique_key_columns(table_name)
@@ -236,17 +238,31 @@ class SQLiteAdapter(BaseAdapter):
                     where_clauses.append(f'"{col}" {op} ?')
                     params.append(val)
 
+                if predicates:
+                    valid_ops = {"=", "!=", ">", ">=", "<", "<=", "IN", "NOT IN", "LIKE", "IS NULL", "IS NOT NULL"}
+                    for p in predicates:
+                        col = p.get("column")
+                        op = str(p.get("operator", "=")).upper()
+                        val = p.get("value")
+                        if col and op in valid_ops:
+                            if op in ("IS NULL", "IS NOT NULL"):
+                                where_clauses.append(f'"{col}" {op}')
+                            else:
+                                where_clauses.append(f'"{col}" {op} ?')
+                                params.append(val)
+
                 where_str = ""
                 if where_clauses:
                     where_str = " WHERE " + " AND ".join(where_clauses)
 
                 order_by = ", ".join([f'"{col}" ASC' for col in pk_cols]) if pk_cols else "ROWID"
+                select_cols = ", ".join([f'"{c}"' for c in columns]) if columns else "*"
 
                 if use_cursor:
-                    sql = f'SELECT * FROM "{table_name}"{where_str} ORDER BY {order_by} LIMIT ?'
+                    sql = f'SELECT {select_cols} FROM "{table_name}"{where_str} ORDER BY {order_by} LIMIT ?'
                     params.append(limit)
                 else:
-                    sql = f'SELECT * FROM "{table_name}"{where_str} ORDER BY {order_by} LIMIT ? OFFSET ?'
+                    sql = f'SELECT {select_cols} FROM "{table_name}"{where_str} ORDER BY {order_by} LIMIT ? OFFSET ?'
                     params.append(limit)
                     params.append(offset)
 

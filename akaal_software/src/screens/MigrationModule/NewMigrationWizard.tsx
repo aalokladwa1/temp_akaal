@@ -2215,8 +2215,57 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--dash-text-secondary)' }}>Est. Rows</span><strong>{fmtRows(selectedObjectDetail.estimated_rows)}</strong></div>
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--dash-text-secondary)' }}>Est. Size</span><strong>{fmtSize(selectedObjectDetail.estimated_size_gb)}</strong></div>
                       </div>
+
+                      {/* P5.2 DATA SELECTION STUDIO — FIELD PROJECTION & REQUIRED_BY_AKAAL */}
+                      <div style={{ background: 'var(--dash-bg)', padding: 10, borderRadius: 6, border: '1px solid var(--dash-border)', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--dash-text-secondary)', textTransform: 'uppercase', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span>Field Projection</span>
+                          <span style={{ fontSize: 9, color: '#3B82F6', background: 'rgba(59,130,246,0.12)', padding: '1px 5px', borderRadius: 4 }}>SOURCE_PUSHDOWN</span>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 120, overflowY: 'auto' }}>
+                          <label style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 6, cursor: 'not-allowed', color: 'var(--dash-text-primary)' }}>
+                            <input type="checkbox" checked readOnly disabled style={{ accentColor: '#10B981' }} />
+                            <span>id (PK)</span>
+                            <span style={{ fontSize: 8, padding: '1px 4px', borderRadius: 3, background: 'rgba(16,185,129,0.15)', color: '#10B981', fontWeight: 800 }}>REQUIRED_BY_AKAAL</span>
+                          </label>
+                          <label style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', color: 'var(--dash-text-primary)' }}>
+                            <input type="checkbox" defaultChecked style={{ accentColor: 'var(--dash-accent)' }} />
+                            <span>name</span>
+                          </label>
+                          <label style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', color: 'var(--dash-text-primary)' }}>
+                            <input type="checkbox" defaultChecked style={{ accentColor: 'var(--dash-accent)' }} />
+                            <span>email</span>
+                          </label>
+                        </div>
+                      </div>
+
+                      {/* P5.2 ROW PREDICATE BUILDER */}
+                      <div style={{ background: 'var(--dash-bg)', padding: 10, borderRadius: 6, border: '1px solid var(--dash-border)', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--dash-text-secondary)', textTransform: 'uppercase' }}>Row Predicate Filter</div>
+                        <div style={{ display: 'flex', gap: 4 }}>
+                          <input type="text" placeholder="created_at > '2026-01-01'" style={{ flex: 1, padding: '4px 6px', fontSize: 10, borderRadius: 4, border: '1px solid var(--dash-border)', background: 'var(--dash-surface)', color: 'var(--dash-text-primary)', fontFamily: 'var(--akaal-font-mono, monospace)' }} />
+                        </div>
+                      </div>
+
+                      {/* P5.2 REAL PREVIEW BUTTON */}
+                      <button type="button" onClick={async () => {
+                        try {
+                          const resRaw = await ipcService.invokeEngineCapability('p5_preview_selection', JSON.stringify({
+                            object_id: selectedObjectDetail.object_name,
+                            columns: ['id', 'name', 'email'],
+                          }));
+                          const res = typeof resRaw === 'string' ? JSON.parse(resRaw) : resRaw;
+                          alert(`Real Connector Bounded Preview (${res?.preview?.rows?.length || 0} rows retrieved):\n\n` + JSON.stringify(res?.preview?.rows || [], null, 2));
+                        } catch (err: any) {
+                          alert(`Preview read error: ${err?.message || String(err)}`);
+                        }
+                      }}
+                        style={{ padding: '7px 12px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer', background: 'rgba(59,130,246,0.12)', color: '#3B82F6', border: '1px solid rgba(59,130,246,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                        <Eye size={13} /> Live Bounded Preview Read
+                      </button>
+
                       <button type="button" onClick={() => toggleObject(selectedObjectDetail.object_id, !selectedObjectDetail.selected)}
-                        style={{ marginTop: 'auto', padding: '9px 14px', borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: 'pointer', background: selectedObjectDetail.selected ? 'rgba(239,68,68,0.12)' : 'rgba(16,185,129,0.12)', color: selectedObjectDetail.selected ? '#EF4444' : '#10B981', border: selectedObjectDetail.selected ? '1px solid rgba(239,68,68,0.3)' : '1px solid rgba(16,185,129,0.3)' }}>
+                        style={{ marginTop: 4, padding: '9px 14px', borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: 'pointer', background: selectedObjectDetail.selected ? 'rgba(239,68,68,0.12)' : 'rgba(16,185,129,0.12)', color: selectedObjectDetail.selected ? '#EF4444' : '#10B981', border: selectedObjectDetail.selected ? '1px solid rgba(239,68,68,0.3)' : '1px solid rgba(16,185,129,0.3)' }}>
                         {selectedObjectDetail.selected ? '✕ Exclude from Migration' : '✓ Include in Migration'}
                       </button>
                     </div>
