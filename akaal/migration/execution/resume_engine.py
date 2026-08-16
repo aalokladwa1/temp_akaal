@@ -126,7 +126,7 @@ class DeterministicResumeEngine:
         if not checkpoint.verify_checksum():
             raise ValueError(f"Checkpoint integrity checksum verification failed for {checkpoint.checkpoint_id}")
 
-        if current_privacy_fingerprint and checkpoint.state_data:
+        if checkpoint.state_data or current_privacy_fingerprint:
             from akaal.planner.engine.plan_compiler import PlanCompiler
             PlanCompiler.validate_resume_checkpoint(checkpoint.state_data, current_privacy_fingerprint)
 

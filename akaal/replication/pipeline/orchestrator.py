@@ -44,15 +44,15 @@ class ReplicationPipeline:
             if not sim_report.is_safe:
                 logger.warning(f"Replication simulation unsafe (rollback prob={sim_report.rollback_probability})")
 
-        # 3b. Canonical Privacy & Plan Fingerprint Approval Validation
+        # 3b. Canonical Privacy & Plan Fingerprint Approval Validation (Fail Closed)
         exec_plan = getattr(context, "execution_plan", None) or (context.runtime_metadata.get("execution_plan") if context.runtime_metadata else None)
         approved_fp = getattr(context, "approved_fingerprint", None) or (context.runtime_metadata.get("approved_fingerprint") if context.runtime_metadata else None)
-        if exec_plan and approved_fp:
+        if exec_plan or approved_fp:
             from akaal.planner.engine.plan_compiler import PlanCompiler
             try:
                 PlanCompiler.validate_plan_approval(exec_plan, approved_fp)
             except Exception as app_err:
-                logger.error(f"Replication execution aborted: Stale approval detected: {app_err}")
+                logger.error(f"Replication execution aborted: Approval validation failed: {app_err}")
                 session.state = ReplicationStatus.FAILED
                 return session
 

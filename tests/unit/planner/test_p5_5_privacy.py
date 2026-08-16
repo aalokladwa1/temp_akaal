@@ -423,6 +423,100 @@ class TestP55PrivacyControls(unittest.TestCase):
 
         self.assertIn("STALE_RESUME_REJECTED", str(ctx_err.exception))
 
+    def test_15_missing_approval_metadata_fail_closed(self):
+        """Hostile Test: Missing/empty/malformed approval metadata on privacy plan MUST fail closed with 0 target writes."""
+        import asyncio
+        from akaal.replication.pipeline.orchestrator import ReplicationPipeline
+        from akaal.replication.core.context import ReplicationContext
+        from akaal.replication.core.registry import ReplicatorRegistry
+        from akaal.replication.core.models import ReplicationStatus
+
+        policy = PrivacyPolicy(object_name="T1", rules=[PrivacyRule(rule_id="r1", column_name="col", strategy=PrivacyStrategy.STATIC_REDACT)])
+        privacy_fp = PrivacyEngine(policy).compile_policy().fingerprint
+
+        privacy_exec_plan = {
+            "execution_plan_id": "plan-priv",
+            "fingerprint": privacy_fp,
+            "resolved_configuration": {"privacy_fingerprint": privacy_fp},
+        }
+
+        pipeline = ReplicationPipeline(registry=ReplicatorRegistry())
+
+        # CASE A: Privacy plan + None approved_fingerprint -> MUST fail closed
+        ctx_none = ReplicationContext(runtime_metadata={"execution_plan": privacy_exec_plan, "approved_fingerprint": None})
+        session_none = asyncio.run(pipeline.execute_pipeline(ctx_none))
+        self.assertEqual(session_none.state, ReplicationStatus.FAILED)
+        self.assertEqual(len(session_none.results), 0, "Target write count must be EXACTLY 0.")
+
+        # CASE B: Privacy plan + empty approved_fingerprint ("") -> MUST fail closed
+        ctx_empty = ReplicationContext(runtime_metadata={"execution_plan": privacy_exec_plan, "approved_fingerprint": ""})
+        session_empty = asyncio.run(pipeline.execute_pipeline(ctx_empty))
+        self.assertEqual(session_empty.state, ReplicationStatus.FAILED)
+        self.assertEqual(len(session_empty.results), 0, "Target write count must be EXACTLY 0.")
+
+        # CASE C: Privacy plan + whitespace approved_fingerprint ("   ") -> MUST fail closed
+        ctx_ws = ReplicationContext(runtime_metadata={"execution_plan": privacy_exec_plan, "approved_fingerprint": "   "})
+        session_ws = asyncio.run(pipeline.execute_pipeline(ctx_ws))
+        self.assertEqual(session_ws.state, ReplicationStatus.FAILED)
+        self.assertEqual(len(session_ws.results), 0, "Target write count must be EXACTLY 0.")
+
+        # CASE D: Genuine non-privacy plan (no privacy rules/fingerprint) -> valid behavior preserved
+        no_priv_plan = {"execution_plan_id": "plan-nopriv", "fingerprint": "", "resolved_configuration": {}}
+        ctx_nopriv = ReplicationContext(runtime_metadata={"execution_plan": no_priv_plan})
+        session_nopriv = asyncio.run(pipeline.execute_pipeline(ctx_nopriv))
+        self.assertNotEqual(session_nopriv.state, ReplicationStatus.FAILED)
+
+    def test_16_missing_resume_metadata_fail_closed(self):
+        """Hostile Test: Missing/empty resume privacy metadata MUST fail closed before workflow resume."""
+        from akaal.migration.execution.resume_engine import DeterministicResumeEngine
+        from akaal.orchestration.checkpoint.checkpoint import WorkflowCheckpoint
+
+        resume_engine = DeterministicResumeEngine()
+
+        privacy_ckpt = WorkflowCheckpoint(
+            checkpoint_id="chk-priv",
+            workflow_id="wf-1",
+            job_id="job-1",
+            step_name="STEP",
+            step_index=1,
+            engine_state="PAUSED",
+            workflow_version="1.0",
+            config_version=1,
+            config_checksum="chksum",
+            state_data={"last_committed_batch": 2, "privacy_fingerprint": "FP_PRIVACY_ACTIVE"},
+        )
+
+        # CASE A: Privacy checkpoint + None current_privacy_fingerprint -> MUST fail closed
+        with self.assertRaises(RuntimeError) as err_a:
+            resume_engine.resume_migration("wf-1", privacy_ckpt, "USERS", current_privacy_fingerprint=None)
+        self.assertIn("STALE_RESUME_REJECTED", str(err_a.exception))
+
+        # CASE B: Privacy checkpoint + empty current_privacy_fingerprint ("") -> MUST fail closed
+        with self.assertRaises(RuntimeError) as err_b:
+            resume_engine.resume_migration("wf-1", privacy_ckpt, "USERS", current_privacy_fingerprint="")
+        self.assertIn("STALE_RESUME_REJECTED", str(err_b.exception))
+
+        # CASE C: Non-privacy checkpoint + privacy-controlled current execution -> MUST fail closed
+        nopriv_ckpt = WorkflowCheckpoint(
+            checkpoint_id="chk-nopriv",
+            workflow_id="wf-2",
+            job_id="job-2",
+            step_name="STEP",
+            step_index=1,
+            engine_state="PAUSED",
+            workflow_version="1.0",
+            config_version=1,
+            config_checksum="chksum",
+            state_data={"last_committed_batch": 2},
+        )
+        with self.assertRaises(RuntimeError) as err_c:
+            resume_engine.resume_migration("wf-2", nopriv_ckpt, "USERS", current_privacy_fingerprint="FP_NEW_PRIVACY")
+        self.assertIn("STALE_RESUME_REJECTED", str(err_c.exception))
+
+        # CASE D: Genuine non-privacy checkpoint + no current privacy fingerprint -> valid behavior preserved
+        res_d = resume_engine.resume_migration("wf-2", nopriv_ckpt, "USERS", current_privacy_fingerprint=None)
+        self.assertTrue(res_d.success)
+
 
 if __name__ == "__main__":
     unittest.main()

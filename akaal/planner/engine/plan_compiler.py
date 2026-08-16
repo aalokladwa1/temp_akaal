@@ -282,10 +282,10 @@ class PlanCompiler:
         )
 
     @staticmethod
-    def validate_plan_approval(execution_plan: Dict[str, Any], approved_fingerprint: str) -> bool:
+    def validate_plan_approval(execution_plan: Dict[str, Any], approved_fingerprint: Optional[str]) -> bool:
         """
         Enforces that current ExecutionPlan privacy/plan fingerprint matches approved_fingerprint.
-        Fails closed if the plan or privacy policy was altered after approval.
+        Fails closed if metadata is missing, empty, or altered after approval.
         """
         if not execution_plan or not isinstance(execution_plan, dict):
             raise RuntimeError("STALE_APPROVAL_REJECTED: Execution plan is missing or invalid.")
@@ -293,7 +293,12 @@ class PlanCompiler:
         current_fp = execution_plan.get("fingerprint")
         privacy_fp = execution_plan.get("resolved_configuration", {}).get("privacy_fingerprint")
 
-        if approved_fingerprint and current_fp != approved_fingerprint and privacy_fp != approved_fingerprint:
+        # Missing or empty approved_fingerprint for a privacy-controlled plan MUST fail closed
+        if not approved_fingerprint or not isinstance(approved_fingerprint, str) or not approved_fingerprint.strip():
+            if current_fp or privacy_fp:
+                raise RuntimeError("STALE_APPROVAL_REJECTED: Approved fingerprint is missing or empty for privacy-controlled plan.")
+
+        if approved_fingerprint and (current_fp != approved_fingerprint and privacy_fp != approved_fingerprint):
             raise RuntimeError(
                 f"STALE_APPROVAL_REJECTED: Approved fingerprint '{approved_fingerprint}' does not match "
                 f"current plan fingerprint '{current_fp}' (privacy_fingerprint='{privacy_fp}'). Plan requires re-approval."
@@ -301,20 +306,27 @@ class PlanCompiler:
         return True
 
     @staticmethod
-    def validate_resume_checkpoint(checkpoint_data: Dict[str, Any], current_privacy_fingerprint: str) -> bool:
+    def validate_resume_checkpoint(checkpoint_data: Dict[str, Any], current_privacy_fingerprint: Optional[str]) -> bool:
         """
         Enforces that checkpoint privacy fingerprint matches current execution privacy fingerprint on job resume.
-        Fails closed with zero target writes if policy has changed.
+        Fails closed with zero target writes if metadata is missing, empty, or policy has changed.
         """
         if not checkpoint_data or not isinstance(checkpoint_data, dict):
             raise RuntimeError("STALE_RESUME_REJECTED: Checkpoint data is missing or invalid.")
 
         ckpt_privacy_fp = checkpoint_data.get("privacy_fingerprint")
-        if ckpt_privacy_fp and current_privacy_fingerprint and ckpt_privacy_fp != current_privacy_fingerprint:
-            raise RuntimeError(
-                f"STALE_RESUME_REJECTED: Checkpoint privacy fingerprint '{ckpt_privacy_fp}' does not match "
-                f"current privacy fingerprint '{current_privacy_fingerprint}'. Resume aborted with zero target writes."
-            )
+
+        if ckpt_privacy_fp:
+            if not current_privacy_fingerprint or not isinstance(current_privacy_fingerprint, str) or not current_privacy_fingerprint.strip():
+                raise RuntimeError("STALE_RESUME_REJECTED: Checkpoint is privacy-controlled, but current_privacy_fingerprint is missing or empty.")
+            if ckpt_privacy_fp != current_privacy_fingerprint:
+                raise RuntimeError(
+                    f"STALE_RESUME_REJECTED: Checkpoint privacy fingerprint '{ckpt_privacy_fp}' does not match "
+                    f"current privacy fingerprint '{current_privacy_fingerprint}'. Resume aborted with zero target writes."
+                )
+        elif current_privacy_fingerprint:
+            raise RuntimeError("STALE_RESUME_REJECTED: Current execution requires privacy controls, but checkpoint is missing privacy fingerprint.")
+
         return True
 
     def _build_dynamic_dag(
