@@ -123,9 +123,10 @@ class CoreReplicationDomain(IDomainReplicator):
         events: List[Dict[str, Any]],
         predicates: List[Dict[str, Any]],
         compiled_mapping: Optional[Dict[str, Any]] = None,
+        transformation_engine: Optional[Any] = None,
         source_object: str = "CUSTOMERS",
     ) -> List[Dict[str, Any]]:
-        """Processes live incoming CDC change events against SelectionDefinition predicates and P5.3 CompiledMapping in production replication pipeline."""
+        """Processes live incoming CDC change events against SelectionDefinition predicates, P5.3 CompiledMapping, and P5.4 TransformationEngine."""
         from akaal.engine.structural_mapper import StructuralRowMapper
         processed = []
         for evt in events:
@@ -141,6 +142,10 @@ class CoreReplicationDomain(IDomainReplicator):
                         processed_evt["before_image"] = StructuralRowMapper.remap_row(source_object, before_doc, compiled_mapping)
                     if after_doc:
                         processed_evt["after_image"] = StructuralRowMapper.remap_row(source_object, after_doc, compiled_mapping)
+
+                if transformation_engine:
+                    processed_evt = transformation_engine.transform_cdc_event(processed_evt, source_object)
+
                 processed.append(processed_evt)
         return processed
 

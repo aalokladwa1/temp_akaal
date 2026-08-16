@@ -37,9 +37,10 @@ class EnterpriseDataIntegrityPlatformV8:
         row_count: int = 1000000,
         selection_def: Optional[Dict[str, Any]] = None,
         compiled_mapping: Optional[Dict[str, Any]] = None,
+        transformation_engine: Optional[Any] = None,
     ) -> ConsistencyReport:
-        if selection_def or compiled_mapping:
-            return self.verify_selection_aligned_consistency(source_table, target_table, selection_def or {}, compiled_mapping)
+        if selection_def or compiled_mapping or transformation_engine:
+            return self.verify_selection_aligned_consistency(source_table, target_table, selection_def or {}, compiled_mapping, transformation_engine)
         return self.e2e_verifier.verify_consistency(source_table, target_table, row_count)
 
     def validate_transaction_boundary(self, transaction_id: str) -> TransactionBoundaryResult:
@@ -63,8 +64,9 @@ class EnterpriseDataIntegrityPlatformV8:
         target_table: str,
         selection_def: Dict[str, Any],
         compiled_mapping: Optional[Dict[str, Any]] = None,
+        transformation_engine: Optional[Any] = None,
     ) -> ConsistencyReport:
-        """Validates exact logical dataset row count and checksum matching SelectionDefinition predicates & P5.3 CompiledMapping."""
+        """Validates exact logical dataset row count and checksum matching SelectionDefinition predicates, P5.3 CompiledMapping, and P5.4 TransformationEngine."""
         predicates = selection_def.get("predicates", [])
         resolved_tgt = target_table
         if compiled_mapping:

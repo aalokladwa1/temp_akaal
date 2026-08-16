@@ -399,6 +399,12 @@ class EngineGateway:
             return self.recover_cdc_migration_lifecycle(payload)
         elif capability == "get_cdc_migration_history":
             return self.get_cdc_migration_history(payload)
+        elif capability in ("compile_transformation", "p5_compile_transformation"):
+            return self.compile_transformation(payload)
+        elif capability in ("validate_transformation", "p5_validate_transformation"):
+            return self.validate_transformation(payload)
+        elif capability in ("preview_transformation", "p5_preview_transformation"):
+            return self.preview_transformation(payload)
         elif capability == "get_connector_manifest":
             return self.get_connector_manifest(payload)
         elif capability == "list_connector_manifests":
@@ -4116,6 +4122,106 @@ class EngineGateway:
             return {"status": "BLOCKER", "message": "Invalid template format: missing routing definition."}
         routing_def = template.get("routing", {})
         return self.p5_compile_mapping({"selected_scope": selected_scope, "routing_definition": routing_def})
+
+    def compile_transformation(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Compiles TransformationDefinition and returns CompiledTransformation DTO with fingerprint."""
+        from akaal.transformation.models import TransformationDefinition, TransformationRule, RuleType
+        from akaal.transformation.expression_compiler import ExpressionCompiler
+        from akaal.transformation.engine import TransformationEngine
+
+        object_name = payload.get("object_name") or payload.get("table_name") or "CUSTOMERS"
+        raw_rules = payload.get("rules", [])
+
+        rules: List[TransformationRule] = []
+        for r in raw_rules:
+            expr_str = r.get("expression") or r.get("expression_text")
+            ast = ExpressionCompiler.parse_simple_expression(expr_str) if expr_str else None
+            rules.append(
+                TransformationRule(
+                    rule_id=r.get("rule_id", f"rule-{r.get('column_name')}"),
+                    column_name=r.get("column_name"),
+                    rule_type=RuleType(r.get("rule_type", "EXPRESSION")),
+                    expression_ast=ast,
+                    expression_text=expr_str,
+                    default_value=r.get("default_value"),
+                    target_type=r.get("target_type"),
+                    priority=r.get("priority", 10),
+                )
+            )
+
+        definition = TransformationDefinition(object_name=object_name, rules=rules)
+        engine = TransformationEngine(definition)
+        compiled = engine.compile_transformation(object_name)
+
+        return {
+            "status": "SUCCESS",
+            "compiled_transformation": compiled.to_dict(),
+            "diagnostics": [],
+        }
+
+    def validate_transformation(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Validates transformation AST, rule dependencies, and cycle safety."""
+        try:
+            res = self.compile_transformation(payload)
+            return {
+                "status": "SUCCESS",
+                "is_valid": True,
+                "diagnostics": res.get("diagnostics", []),
+            }
+        except Exception as exc:
+            return {
+                "status": "BLOCKER",
+                "is_valid": False,
+                "diagnostics": [{"level": "BLOCKER", "code": "INVALID_TRANSFORMATION", "message": str(exc)}],
+            }
+
+    def preview_transformation(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Applies compiled TransformationEngine to source rows with ZERO target writes."""
+        from akaal.transformation.models import TransformationDefinition, TransformationRule, RuleType
+        from akaal.transformation.expression_compiler import ExpressionCompiler
+        from akaal.transformation.engine import TransformationEngine
+
+        object_name = payload.get("object_name") or payload.get("table_name") or "CUSTOMERS"
+        source_rows = payload.get("source_rows", [])
+        raw_rules = payload.get("rules", [])
+
+        rules: List[TransformationRule] = []
+        for r in raw_rules:
+            expr_str = r.get("expression") or r.get("expression_text")
+            ast = ExpressionCompiler.parse_simple_expression(expr_str) if expr_str else None
+            rules.append(
+                TransformationRule(
+                    rule_id=r.get("rule_id", f"rule-{r.get('column_name')}"),
+                    column_name=r.get("column_name"),
+                    rule_type=RuleType(r.get("rule_type", "EXPRESSION")),
+                    expression_ast=ast,
+                    expression_text=expr_str,
+                    default_value=r.get("default_value"),
+                    target_type=r.get("target_type"),
+                    priority=r.get("priority", 10),
+                )
+            )
+
+        definition = TransformationDefinition(object_name=object_name, rules=rules)
+        engine = TransformationEngine(definition)
+        transformed_rows, results = engine.transform_batch(source_rows, object_name)
+
+        return {
+            "status": "SUCCESS",
+            "object_name": object_name,
+            "transformed_rows": transformed_rows,
+            "total_transformed": len(transformed_rows),
+            "diagnostics": [],
+        }
+
+    def p5_compile_transformation(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        return self.compile_transformation(payload)
+
+    def p5_validate_transformation(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        return self.validate_transformation(payload)
+
+    def p5_preview_transformation(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        return self.preview_transformation(payload)
 
     def p5_preview_selection(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         object_id = payload.get("object_id") or payload.get("table_name") or "CUSTOMERS"
