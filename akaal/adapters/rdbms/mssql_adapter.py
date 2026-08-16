@@ -501,6 +501,8 @@ class MSSQLAdapter(BaseAdapter):
         limit: int,
         last_processed_primary_key: Optional[Dict[str, Any]] = None,
         incremental_filter: Optional[Dict[str, Any]] = None,
+        columns: Optional[List[str]] = None,
+        predicates: Optional[List[Dict[str, Any]]] = None,
     ) -> List[Dict[str, Any]]:
         self._ensure_connected()
         pk_cols = await self._unique_key_columns(table_name)
@@ -511,6 +513,23 @@ class MSSQLAdapter(BaseAdapter):
             and len(pk_cols) > 0
             and all(col in last_processed_primary_key for col in pk_cols)
         )
+
+        select_cols = ", ".join([f"[{c}]" for c in columns]) if columns else "*"
+        extra_where = []
+        extra_params = []
+
+        if predicates:
+            valid_ops = {"=", "!=", ">", ">=", "<", "<=", "IN", "NOT IN", "LIKE", "IS NULL", "IS NOT NULL"}
+            for p in predicates:
+                col = p.get("column")
+                op = str(p.get("operator", "=")).upper()
+                val = p.get("value")
+                if col and op in valid_ops:
+                    if op in ("IS NULL", "IS NOT NULL"):
+                        extra_where.append(f"[{col}] {op}")
+                    else:
+                        extra_where.append(f"[{col}] {op} ?")
+                        extra_params.append(val)
 
         if use_cursor:
             conditions = []
@@ -526,14 +545,18 @@ class MSSQLAdapter(BaseAdapter):
                 conditions.append("(" + " AND ".join(eq_parts) + ")")
 
             where_clause = " OR ".join(conditions)
+            if extra_where:
+                where_clause = f"({where_clause}) AND " + " AND ".join(extra_where)
+                params.extend(extra_params)
             order_by = ", ".join([f"[{col}] ASC" for col in pk_cols])
-            sql = f"SELECT * FROM [{table_name}] WHERE {where_clause} ORDER BY {order_by} OFFSET 0 ROWS FETCH NEXT ? ROWS ONLY"
+            sql = f"SELECT {select_cols} FROM [{table_name}] WHERE {where_clause} ORDER BY {order_by} OFFSET 0 ROWS FETCH NEXT ? ROWS ONLY"
             params.append(limit)
             bind_vals = tuple(params)
         else:
             order_by = ", ".join([f"[{col}] ASC" for col in pk_cols]) if pk_cols else "(SELECT 1)"
-            sql = f"SELECT * FROM [{table_name}] ORDER BY {order_by} OFFSET ? ROWS FETCH NEXT ? ROWS ONLY"
-            bind_vals = (offset, limit)
+            where_str = (" WHERE " + " AND ".join(extra_where)) if extra_where else ""
+            sql = f"SELECT {select_cols} FROM [{table_name}]{where_str} ORDER BY {order_by} OFFSET ? ROWS FETCH NEXT ? ROWS ONLY"
+            bind_vals = tuple(extra_params + [offset, limit])
 
         async with self._connection() as conn_ctx:
             if conn_ctx.is_async:

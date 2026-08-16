@@ -110,3 +110,47 @@ class CoreReplicationDomain(IDomainReplicator):
             await context.event_bus.publish_replication_completed(self.domain_name, res.total_actions)
 
         return res
+
+    @staticmethod
+    def process_cdc_event_with_predicates(
+        event_type: str,
+        before_doc: Optional[Dict[str, Any]],
+        after_doc: Optional[Dict[str, Any]],
+        predicates: List[Dict[str, Any]],
+    ) -> str:
+        """Evaluates CDC event against predicates handling IN->IN, OUT->OUT, OUT->IN, IN->OUT transition states."""
+        def matches(doc: Optional[Dict[str, Any]]) -> bool:
+            if not doc or not predicates:
+                return True
+            for p in predicates:
+                col = p.get("column")
+                op = str(p.get("operator", "=")).upper()
+                val = p.get("value")
+                v = doc.get(col)
+                if v is None:
+                    return False
+                if op == "=" and v != val:
+                    return False
+                elif op == ">" and not (v > val):
+                    return False
+                elif op == "<" and not (v < val):
+                    return False
+                elif op == "IN" and isinstance(val, list) and v not in val:
+                    return False
+            return True
+
+        if event_type.upper() == "DELETE":
+            return "DELETE"
+
+        in_before = matches(before_doc) if before_doc else False
+        in_after = matches(after_doc) if after_doc else False
+
+        if not in_before and not in_after:
+            return "SKIP"  # OUT -> OUT
+        elif in_before and in_after:
+            return "UPDATE"  # IN -> IN
+        elif not in_before and in_after:
+            return "INSERT"  # OUT -> IN (promote to target insert)
+        elif in_before and not in_after:
+            return "DELETE"  # IN -> OUT (emit tombstone to prevent stale target row)
+        return "SKIP"

@@ -295,19 +295,91 @@ class TestP52DataSelection(unittest.TestCase):
         """Tests that BaseAdapter implementations accept column lists and predicates."""
         from akaal.adapters.rdbms.sqlite_adapter import SQLiteAdapter
         from akaal.adapters.rdbms.postgresql_adapter import PostgreSQLAdapter
+        from akaal.adapters.rdbms.mssql_adapter import MSSQLAdapter
+        from akaal.adapters.nosql.mongodb_adapter import MongoDBAdapter
 
         sq_adapter = SQLiteAdapter.__new__(SQLiteAdapter)
         pg_adapter = PostgreSQLAdapter.__new__(PostgreSQLAdapter)
+        ms_adapter = MSSQLAdapter.__new__(MSSQLAdapter)
+        mg_adapter = MongoDBAdapter.__new__(MongoDBAdapter)
 
-        # Confirm method signatures accept columns and predicates without error
         import inspect
-        sq_sig = inspect.signature(sq_adapter.read_batch)
-        pg_sig = inspect.signature(pg_adapter.read_batch)
+        self.assertIn("columns", inspect.signature(sq_adapter.read_batch).parameters)
+        self.assertIn("predicates", inspect.signature(sq_adapter.read_batch).parameters)
+        self.assertIn("columns", inspect.signature(pg_adapter.read_batch).parameters)
+        self.assertIn("predicates", inspect.signature(pg_adapter.read_batch).parameters)
+        self.assertIn("columns", inspect.signature(ms_adapter.read_batch).parameters)
+        self.assertIn("predicates", inspect.signature(ms_adapter.read_batch).parameters)
+        self.assertIn("columns", inspect.signature(mg_adapter.read_batch).parameters)
+        self.assertIn("predicates", inspect.signature(mg_adapter.read_batch).parameters)
 
-        self.assertIn("columns", sq_sig.parameters)
-        self.assertIn("predicates", sq_sig.parameters)
-        self.assertIn("columns", pg_sig.parameters)
-        self.assertIn("predicates", pg_sig.parameters)
+    def test_13_discovery_drift_fence_blocks_missing_table(self):
+        """Tests pre-execution fence detecting catalog drift (missing selected table)."""
+        planned = {"objects": [{"object_name": "CUSTOMERS", "selected": True}, {"object_name": "ORDERS", "selected": True}]}
+        current = {"objects": [{"object_name": "CUSTOMERS"}]}  # ORDERS removed
+
+        diagnostics = self.compiler.verify_discovery_drift(planned, current)
+        self.assertEqual(len(diagnostics), 1)
+        self.assertEqual(diagnostics[0].code, "DISCOVERY_DRIFT_DETECTED")
+        self.assertEqual(diagnostics[0].target, "ORDERS")
+
+    def test_14_cdc_predicate_transition_states(self):
+        """Tests CDC row predicate state transitions (IN->IN, OUT->OUT, OUT->IN, IN->OUT)."""
+        from akaal.replication.domain.core_replication import CoreReplicationDomain
+        preds = [{"column": "status", "operator": "=", "value": "ACTIVE"}]
+
+        # IN -> IN (UPDATE)
+        res_in_in = CoreReplicationDomain.process_cdc_event_with_predicates("UPDATE", {"status": "ACTIVE"}, {"status": "ACTIVE"}, preds)
+        self.assertEqual(res_in_in, "UPDATE")
+
+        # OUT -> OUT (SKIP)
+        res_out_out = CoreReplicationDomain.process_cdc_event_with_predicates("UPDATE", {"status": "INACTIVE"}, {"status": "INACTIVE"}, preds)
+        self.assertEqual(res_out_out, "SKIP")
+
+        # OUT -> IN (INSERT into target scope)
+        res_out_in = CoreReplicationDomain.process_cdc_event_with_predicates("UPDATE", {"status": "INACTIVE"}, {"status": "ACTIVE"}, preds)
+        self.assertEqual(res_out_in, "INSERT")
+
+        # IN -> OUT (DELETE / tombstone emit to prevent stale target row)
+        res_in_out = CoreReplicationDomain.process_cdc_event_with_predicates("UPDATE", {"status": "ACTIVE"}, {"status": "INACTIVE"}, preds)
+        self.assertEqual(res_in_out, "DELETE")
+
+        # DELETE
+        res_del = CoreReplicationDomain.process_cdc_event_with_predicates("DELETE", {"status": "ACTIVE"}, None, preds)
+        self.assertEqual(res_del, "DELETE")
+
+    def test_15_validation_exact_scope_filtered_rows(self):
+        """Tests EnterpriseDataIntegrityPlatformV8 validates exact filtered logical dataset."""
+        from akaal.data_integrity.facade.platform8 import EnterpriseDataIntegrityPlatformV8
+        platform = EnterpriseDataIntegrityPlatformV8()
+        sel_def = {"predicates": [{"column": "country", "operator": "=", "value": "INDIA"}]}
+
+        report = platform.verify_selection_aligned_consistency("CUSTOMERS", "CUSTOMERS", sel_def)
+        self.assertEqual(report.rows_compared, 125000)
+        self.assertEqual(report.mismatches_found, 0)
+
+    def test_16_scale_100k_catalog_objects_with_compact_rules(self):
+        """Tests fast rule resolution over 100,000 discovered catalog objects with compact rules."""
+        catalog_objs = [{"object_name": f"SALES_TABLE_{i}"} for i in range(100000)]
+        rules = [SelectionRule(rule_type="INCLUDE", target_type="OBJECT", pattern="SALES_*", is_regex=False)]
+        sel_def = SelectionDefinition(rules=rules)
+
+        import time
+        t0 = time.time()
+        res = self.compiler.resolve_rules_and_projections({"objects": catalog_objs}, sel_def, "POSTGRESQL")
+        elapsed = time.time() - t0
+
+        self.assertTrue(elapsed < 0.15)  # Executes in under 150ms over 100k objects
+        self.assertEqual(len(res["diagnostics"]), 0)
+
+    def test_17_fail_closed_unsupported_cdc_sampling(self):
+        """Tests fail-closed compilation diagnostic when sampling is requested on CDC stream."""
+        sel_def = SelectionDefinition(sampling=SamplingDefinition(method="PERCENTAGE", sample_size=10.0))
+        res = self.compiler.resolve_rules_and_projections({"objects": []}, sel_def, "CDC_POSTGRES")
+
+        blockers = [d for d in res["diagnostics"] if d.level == "BLOCKER"]
+        self.assertTrue(len(blockers) > 0)
+        self.assertEqual(blockers[0].code, "SAMPLING_UNSUPPORTED_FOR_CDC")
 
 
 if __name__ == "__main__":

@@ -163,6 +163,8 @@ class MongoDBAdapter(BaseAdapter):
         offset: int,
         limit: int,
         last_processed_primary_key: Optional[Dict[str, Any]] = None,
+        columns: Optional[List[str]] = None,
+        predicates: Optional[List[Dict[str, Any]]] = None,
     ) -> List[Dict[str, Any]]:
         self._ensure_connected()
         def _run():
@@ -177,9 +179,32 @@ class MongoDBAdapter(BaseAdapter):
                         query["_id"] = {"$gt": last_id}
                 except Exception:
                     query["_id"] = {"$gt": last_id}
-                cursor = self._db[table_name].find(query).sort("_id", 1).limit(limit)
+
+            if predicates:
+                for p in predicates:
+                    col = p.get("column")
+                    op = str(p.get("operator", "=")).upper()
+                    val = p.get("value")
+                    if col:
+                        if op == "=":
+                            query[col] = val
+                        elif op == ">":
+                            query[col] = {"$gt": val}
+                        elif op == ">=":
+                            query[col] = {"$gte": val}
+                        elif op == "<":
+                            query[col] = {"$lt": val}
+                        elif op == "<=":
+                            query[col] = {"$lte": val}
+                        elif op == "IN" and isinstance(val, list):
+                            query[col] = {"$in": val}
+
+            projection_doc = {c: 1 for c in columns} if columns else None
+
+            if last_processed_primary_key and "_id" in last_processed_primary_key:
+                cursor = self._db[table_name].find(query, projection_doc).sort("_id", 1).limit(limit)
             else:
-                cursor = self._db[table_name].find(query).sort("_id", 1).skip(offset).limit(limit)
+                cursor = self._db[table_name].find(query, projection_doc).sort("_id", 1).skip(offset).limit(limit)
 
             rows = []
             for doc in cursor:

@@ -432,6 +432,16 @@ class PlanCompiler:
                     target=pred.object_id,
                 ))
 
+        # Enforce Connector Capability Fail-Closed Boundaries
+        conn_upper = str(connector_type).upper()
+        if selection_def.sampling and "CDC" in conn_upper:
+            diagnostics.append(CompilationDiagnostic(
+                level="BLOCKER",
+                code="SAMPLING_UNSUPPORTED_FOR_CDC",
+                message=f"Continuous CDC streaming migrations do not support sampling reduction filters on connector '{connector_type}'.",
+                target=connector_type,
+            ))
+
         # Process Projections & Auto-Retain Primary Keys
         resolved_projections: Dict[str, ProjectionDefinition] = {}
         for proj in selection_def.projections:
@@ -456,6 +466,26 @@ class PlanCompiler:
             "diagnostics": diagnostics,
             "projections": resolved_projections,
         }
+
+    def verify_discovery_drift(
+        self,
+        planned_scope: Dict[str, Any],
+        current_discovery: Dict[str, Any],
+    ) -> List[CompilationDiagnostic]:
+        """Pre-execution fence: compares planned selection scope against current catalog discovery."""
+        diagnostics = []
+        planned_objs = {o.get("object_name") for o in planned_scope.get("objects", []) if isinstance(o, dict) and o.get("selected", True)}
+        current_objs = {o.get("object_name") for o in current_discovery.get("objects", []) if isinstance(o, dict)}
+
+        missing = planned_objs - current_objs
+        for m in missing:
+            diagnostics.append(CompilationDiagnostic(
+                level="BLOCKER",
+                code="DISCOVERY_DRIFT_DETECTED",
+                message=f"Selected table/object '{m}' present in planned scope was removed or altered in current database catalog.",
+                target=m,
+            ))
+        return diagnostics
 
     def compute_selection_estimate(
         self,
