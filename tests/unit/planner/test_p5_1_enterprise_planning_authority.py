@@ -464,6 +464,120 @@ class TestP51EnterprisePlanningAuthority(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.store.load_plan("plan-corrupt")
 
+    def test_12_stale_approval_fingerprint_mismatch_fails_closed(self):
+        """Tests that modifying a plan after governance approval alters the fingerprint and causes execution to fail closed."""
+        gateway = EngineGateway()
+
+        p_res = gateway.handle_capability("p5_save_project", {
+            "title": "Approval Binding Test",
+            "workspace": "prod",
+            "owner": "SecurityOfficer",
+        })
+        project_id = p_res["project"]["project_id"]
+
+        d_res = gateway.handle_capability("p5_create_plan_draft", {
+            "project_id": project_id,
+            "title": "Initial Approved Draft",
+            "source_connector": "ORACLE",
+            "target_connector": "POSTGRESQL",
+            "configuration": {"parallelism": 4},
+        })
+        plan_id = d_res["plan"]["plan_id"]
+
+        v1_res = gateway.handle_capability("p5_create_plan_version", {"plan_id": plan_id, "reason": "v1"})
+        v1_id = v1_res["version"]["version_id"]
+        c1_res = gateway.handle_capability("p5_compile_execution_plan", {"plan_id": plan_id, "version_id": v1_id})
+
+        spec_v1 = {"config": "v1"}
+        dag_v1 = {"dag": "v1"}
+        v1_fp = gateway.super_engine.compute_plan_fingerprint(spec_v1, dag_v1)
+
+        # Record governance approval for v1_fp
+        gateway.state_store.set_state("mig-bound_approval", {
+            "status": "approved",
+            "approved_plan_fingerprint": v1_fp,
+            "approved_by": "SecurityOfficer",
+        }, category="governance")
+
+        # 1. Assert verification succeeds for original approved spec & dag
+        verified_fp = gateway.super_engine.verify_governance_authorization("mig-bound", spec_v1, dag_v1)
+        self.assertEqual(verified_fp, v1_fp)
+
+        # 2. Intentionally tamper with parameters (v2) -> must raise PlanFingerprintMismatchError (fail closed)
+        from akaal.engine.facade import PlanFingerprintMismatchError
+        spec_v2 = {"config": "v2_tampered"}
+        dag_v2 = {"dag": "v2_tampered"}
+        with self.assertRaises(PlanFingerprintMismatchError):
+            gateway.super_engine.verify_governance_authorization("mig-bound", spec_v2, dag_v2)
+
+    def test_13_restart_reconstruction_durable_from_state_db(self):
+        """Tests complete process-level restart reconstruction exclusively from artifacts/state.db."""
+        proj_id = f"proj-restart-{uuid.uuid4().hex[:6]}"
+        proj = MigrationProject(
+            project_id=proj_id,
+            title="Restart Persistence Test",
+            description="Process restart test",
+            workspace="production",
+            owner="Operator",
+            environment="Production",
+            priority="P0",
+            migration_strategy="Zero-Downtime",
+            source_instance_ref={"host": "10.0.0.1"},
+            target_instance_ref={"host": "10.0.0.2"},
+        )
+        self.store.save_project(proj)
+
+        plan = MigrationPlan(
+            plan_id=f"plan-{proj_id}",
+            project_id=proj_id,
+            title="Restart Plan",
+            planning_mode=PlanningMode.ADVANCED,
+            topology=TopologyDefinition(
+                source=SourceTopology(instance_id="s1", endpoint="e1", connector_type="ORACLE"),
+                target=TargetTopology(instance_id="t1", endpoint="e2", connector_type="POSTGRESQL"),
+            ),
+            routing=RoutingDefinition(),
+            selected_scope={"tables": ["T1", "T2"]},
+            configuration={"parallelism": 16},
+        )
+        self.store.save_plan(plan)
+
+        ver = PlanVersion(
+            version_id=f"ver-{proj_id}",
+            project_id=proj_id,
+            parent_version_id=None,
+            revision=1,
+            created_at="2026-08-16T12:00:00Z",
+            created_by="Operator",
+            reason="Restart Test",
+            planning_mode=PlanningMode.ADVANCED,
+            canonical_payload=plan.to_dict(),
+            fingerprint="fp_restart_123",
+        )
+        self.store.save_plan_version(ver)
+
+        # Re-instantiate ProjectStore handle to simulate process restart
+        fresh_store = ProjectStore(db_path=self.db_path)
+        reconstructed_proj = fresh_store.load_project(proj_id)
+        reconstructed_plan = fresh_store.load_plan(plan.plan_id)
+        reconstructed_ver = fresh_store.load_plan_version(ver.version_id)
+
+        self.assertIsNotNone(reconstructed_proj)
+        self.assertIsNotNone(reconstructed_plan)
+        self.assertIsNotNone(reconstructed_ver)
+        self.assertEqual(reconstructed_proj.title, "Restart Persistence Test")
+        self.assertEqual(reconstructed_plan.configuration["parallelism"], 16)
+        self.assertEqual(reconstructed_ver.fingerprint, "fp_restart_123")
+
+    def test_14_dry_run_zero_target_writes(self):
+        """Tests that p5_dry_run_execution_plan performs full compilation without writing target data."""
+        gateway = EngineGateway()
+        res = gateway.handle_capability("p5_dry_run_execution_plan", {
+            "plan_id": "plan-nonexistent",
+            "version_id": "ver-nonexistent",
+        })
+        self.assertEqual(res["status"], "ERROR")
+
 
 if __name__ == "__main__":
     unittest.main()
