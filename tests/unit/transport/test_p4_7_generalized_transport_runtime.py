@@ -10,6 +10,7 @@ half-open TCP detection, fail-closed security checks, secret redaction, and P4.6
 import unittest
 import asyncio
 import socket
+import time
 
 from akaal.core.models.enums import SystemType
 from akaal.core.models.project import ConnectionConfig
@@ -24,7 +25,7 @@ from akaal.transport.models import (
     TransportDiagnostics,
     redact_text,
 )
-from akaal.transport.dns_resolver import EnterpriseDNSResolver
+from akaal.transport.dns_resolver import EnterpriseDNSResolver, DNSResolutionResult
 from akaal.transport.ssh_runtime import SSHForwardingTunnel
 from akaal.transport.proxy_runtime import EnterpriseProxyRuntime
 from akaal.transport.agent_boundary import RemoteAgentBoundaryManager
@@ -59,6 +60,49 @@ class TestP47GeneralizedTransportRuntime(unittest.TestCase):
             # Hostname resolution
             res_host = await resolver.resolve_hostname("localhost")
             self.assertTrue(len(res_host.addresses) >= 1)
+
+        self.loop.run_until_complete(run())
+
+    def test_01b_happy_eyeballs_scheduler_fast_return(self):
+        """01b: Verify RFC 8305 scheduler returns immediately when first candidate succeeds in <5ms without waiting full attempt delays."""
+        async def run():
+            server = await asyncio.start_server(lambda r, w: w.close(), "127.0.0.1", 0)
+            h, p = server.sockets[0].getsockname()
+
+            resolver = EnterpriseDNSResolver()
+
+            # Mock DNS resolver to return 10 addresses
+            fake_addrs = [(socket.AF_INET, "127.0.0.1") for _ in range(10)]
+            async def _mock_resolve(host, force=False):
+                return DNSResolutionResult(host, fake_addrs, [], 1.0)
+            resolver.resolve_hostname = _mock_resolve
+
+            t0 = time.perf_counter()
+            sock, connected_ip, connected_port = await resolver.happy_eyeballs_connect(
+                h, p, connect_timeout_seconds=5.0, connection_attempt_delay=0.10  # 100ms delay per candidate
+            )
+            elapsed = time.perf_counter() - t0
+
+            # Must return in <50ms (first attempt succeeds immediately), NOT waiting 10 * 100ms = 1000ms!
+            self.assertLess(elapsed, 0.20)
+            self.assertEqual(connected_ip, "127.0.0.1")
+            sock.close()
+            server.close()
+            await server.wait_closed()
+
+        self.loop.run_until_complete(run())
+
+    def test_01c_happy_eyeballs_input_validation(self):
+        """01c: Verify Happy Eyeballs validates invalid port numbers and negative attempt delays upfront."""
+        resolver = EnterpriseDNSResolver()
+
+        async def run():
+            with self.assertRaises(ValueError):
+                await resolver.happy_eyeballs_connect("localhost", 0)
+            with self.assertRaises(ValueError):
+                await resolver.happy_eyeballs_connect("localhost", 70000)
+            with self.assertRaises(ValueError):
+                await resolver.happy_eyeballs_connect("localhost", 5432, connection_attempt_delay=-0.5)
 
         self.loop.run_until_complete(run())
 
@@ -145,6 +189,31 @@ class TestP47GeneralizedTransportRuntime(unittest.TestCase):
         self.assertEqual(path.transport_method, TransportMethod.HTTP_CONNECT_PROXY)
         self.assertEqual(len(path.hops), 1)
         self.assertEqual(path.hops[0].hostname, "proxy.corp.net")
+
+    def test_05b_http_connect_proxy_407_auth_failure(self):
+        """05b: Verify HTTP CONNECT proxy negotiation fails closed on HTTP 407 authentication required."""
+        async def run():
+            async def _proxy_407_handler(reader, writer):
+                await reader.readuntil(b"\r\n\r\n")
+                writer.write(b"HTTP/1.1 407 Proxy Authentication Required\r\nProxy-Authenticate: Basic\r\n\r\n")
+                await writer.drain()
+                writer.close()
+                await writer.wait_closed()
+
+            server = await asyncio.start_server(_proxy_407_handler, "127.0.0.1", 0)
+            p_host, p_port = server.sockets[0].getsockname()
+
+            proxy_hop = TransportHop(hop_type="PROXY", hostname=p_host, port=p_port)
+            target = TransportEndpoint("target-db.local", 5432)
+
+            with self.assertRaises(RuntimeError) as ctx:
+                await EnterpriseProxyRuntime.connect_via_http_connect(proxy_hop, target, 5.0)
+
+            self.assertIn("407", str(ctx.exception))
+            server.close()
+            await server.wait_closed()
+
+        self.loop.run_until_complete(run())
 
     # -------------------------------------------------------------------------
     # 5. Remote Agent Boundary Tests

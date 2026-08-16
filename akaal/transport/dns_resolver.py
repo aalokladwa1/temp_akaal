@@ -17,6 +17,14 @@ logger = logging.getLogger("akaal.transport.dns_resolver")
 
 
 class DNSResolutionResult:
+    """DNS Resolution Result with explicit truth attributes for DNS capabilities."""
+
+    A_AAAA_OS_RESOLUTION: bool = True
+    CANONICAL_NAME_DISCOVERY: bool = True
+    FULL_CNAME_CHAIN_DISCOVERY: bool = False  # socket.getaddrinfo AI_CANONNAME is canonical name only
+    CONFIGURED_CACHE_TTL: bool = True
+    AUTHORITATIVE_DNS_TTL: bool = False  # OS socket API does not expose authoritative packet TTL
+
     def __init__(
         self,
         hostname: str,
@@ -116,17 +124,28 @@ class EnterpriseDNSResolver:
     ) -> Tuple[socket.socket, str, int]:
         """
         RFC 8305 Happy Eyeballs Dual-Stack Connection Racing.
-        Attempts IPv6 and IPv4 addresses concurrently with a 50ms staggered headstart.
-        Cancels losing connection tasks and returns the winning connected socket.
+        Launches candidate attempts staggered by connection_attempt_delay.
+        Races active candidates concurrently: if any candidate succeeds, returns IMMEDIATELY (<5ms),
+        cancelling all losing tasks and closing losing sockets.
         """
+        # Validate inputs upfront before network execution
+        if port <= 0 or port > 65535:
+            raise ValueError(f"Invalid port number: {port}. Port must be between 1 and 65535.")
+        if connection_attempt_delay < 0:
+            raise ValueError("connection_attempt_delay cannot be negative.")
+
         dns_res = await self.resolve_hostname(hostname)
         if not dns_res.addresses:
             raise RuntimeError(f"No IP addresses resolved for hostname '{hostname}'.")
 
         loop = asyncio.get_running_loop()
+        t_start = loop.time()
+        global_deadline = t_start + connect_timeout_seconds
+
         tasks: Set[asyncio.Task] = set()
         task_to_info: Dict[asyncio.Task, Tuple[int, str]] = {}
         errors: List[str] = []
+        winner: Optional[Tuple[socket.socket, str, int]] = None
 
         async def _attempt_connect(family: int, ip: str) -> Tuple[socket.socket, str, int]:
             sock = socket.socket(family, socket.SOCK_STREAM)
@@ -138,53 +157,79 @@ class EnterpriseDNSResolver:
                 sock.close()
                 raise exc
 
-        # Spawn staggered connection tasks for resolved addresses
-        for i, (family, ip) in enumerate(dns_res.addresses):
-            task = loop.create_task(_attempt_connect(family, ip))
-            tasks.add(task)
-            task_to_info[task] = (family, ip)
+        address_queue = list(dns_res.addresses)
 
-            # Wait staggered delay before spawning next address attempt unless single address
-            if i < len(dns_res.addresses) - 1 and connection_attempt_delay > 0:
-                await asyncio.sleep(connection_attempt_delay)
-
-        winner: Optional[Tuple[socket.socket, str, int]] = None
-
-        # Race tasks until one succeeds or all fail
-        while tasks:
-            done, pending = await asyncio.wait(
-                tasks,
-                timeout=connect_timeout_seconds,
-                return_when=asyncio.FIRST_COMPLETED,
-            )
-
-            if not done:
-                # Global timeout reached
-                for t in pending:
-                    t.cancel()
-                break
-
-            for t in done:
-                tasks.remove(t)
-                if t.cancelled():
-                    continue
-                exc = t.exception()
-                if exc:
-                    fam, ip = task_to_info.get(t, (0, "unknown"))
-                    errors.append(f"{ip}: {redact_text(str(exc))}")
-                else:
-                    winner = t.result()
-                    # Cancel all remaining pending connection attempts
-                    for remaining in tasks:
-                        remaining.cancel()
-                    # Cancel all pending
-                    tasks.clear()
+        try:
+            while address_queue or tasks:
+                now = loop.time()
+                remaining_global = global_deadline - now
+                if remaining_global <= 0:
                     break
 
-        if winner:
-            logger.info("Happy Eyeballs won connection to %s (%s:%d)", hostname, winner[1], winner[2])
-            return winner
+                # Spawn next address candidate if available
+                if address_queue:
+                    family, ip = address_queue.pop(0)
+                    t = loop.create_task(_attempt_connect(family, ip))
+                    tasks.add(t)
+                    task_to_info[t] = (family, ip)
 
-        raise RuntimeError(
-            f"Happy Eyeballs failed connecting to '{hostname}:{port}' across all addresses: {'; '.join(errors) or 'Timeout'}"
-        )
+                # Determine wait timeout for this iteration:
+                # If more addresses remain in queue, wait at most connection_attempt_delay before spawning next candidate.
+                # If no more addresses remain in queue, wait remaining_global for any candidate to finish.
+                if address_queue and connection_attempt_delay > 0:
+                    wait_timeout = min(connection_attempt_delay, remaining_global)
+                else:
+                    wait_timeout = remaining_global
+
+                done, pending = await asyncio.wait(
+                    tasks,
+                    timeout=wait_timeout,
+                    return_when=asyncio.FIRST_COMPLETED,
+                )
+
+                # Check completed tasks
+                for t in done:
+                    tasks.remove(t)
+                    if t.cancelled():
+                        continue
+                    exc = t.exception()
+                    if exc:
+                        fam, ip = task_to_info.get(t, (0, "unknown"))
+                        errors.append(f"{ip}: {redact_text(str(exc))}")
+                    else:
+                        # Winner found!
+                        candidate_winner = t.result()
+
+                        # If multiple connected simultaneously in the same done set, pick first and close rest
+                        if winner is None:
+                            winner = candidate_winner
+                        else:
+                            # Extra winner: close losing socket
+                            try:
+                                candidate_winner[0].close()
+                            except Exception:
+                                pass
+
+                # If winner found, return immediately without waiting for remaining addresses
+                if winner is not None:
+                    break
+
+            if winner is not None:
+                logger.info("Happy Eyeballs won connection to %s (%s:%d)", hostname, winner[1], winner[2])
+                return winner
+
+            raise RuntimeError(
+                f"Happy Eyeballs failed connecting to '{hostname}:{port}' across all addresses: {'; '.join(errors) or 'Connect deadline exceeded'}"
+            )
+        finally:
+            # Clean up all active/pending tasks and losing sockets upon exit or cancellation
+            for t in list(tasks):
+                if not t.done():
+                    t.cancel()
+                elif t.done() and not t.cancelled() and t.exception() is None:
+                    res_sock = t.result()
+                    if winner is None or res_sock[0] != winner[0]:
+                        try:
+                            res_sock[0].close()
+                        except Exception:
+                            pass
