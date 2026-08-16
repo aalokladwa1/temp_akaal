@@ -30,6 +30,7 @@ import type { MigrationPipeline, DatabaseEngine, DiscoveryProfileType } from '..
 import { notificationService } from '../../services/notificationService';
 import { ipcService } from '../../services/ipcService';
 import styles from './MigrationModule.module.css';
+import { MappingStudio } from './components/MappingStudio';
 
 export interface NewMigrationWizardProps {
   onClose: () => void;
@@ -2239,13 +2240,8 @@ export const NewMigrationWizard: FC<NewMigrationWizardProps> = ({ onClose, onLau
                         </div>
                       </div>
 
-                      {/* P5.2 ROW PREDICATE BUILDER */}
-                      <div style={{ background: 'var(--dash-bg)', padding: 10, borderRadius: 6, border: '1px solid var(--dash-border)', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--dash-text-secondary)', textTransform: 'uppercase' }}>Row Predicate Filter</div>
-                        <div style={{ display: 'flex', gap: 4 }}>
-                          <input type="text" placeholder="created_at > '2026-01-01'" style={{ flex: 1, padding: '4px 6px', fontSize: 10, borderRadius: 4, border: '1px solid var(--dash-border)', background: 'var(--dash-surface)', color: 'var(--dash-text-primary)', fontFamily: 'var(--akaal-font-mono, monospace)' }} />
-                        </div>
-                      </div>
+                      {/* P5.3 MAPPING STUDIO COMPONENT */}
+                      <MappingStudio selectedObjectDetail={selectedObjectDetail} selectedScope={session.discovery.raw || {}} />
 
                       {/* P5.2 REAL PREVIEW BUTTON */}
                       <button type="button" onClick={async () => {
