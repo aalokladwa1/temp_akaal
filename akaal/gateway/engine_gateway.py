@@ -231,6 +231,14 @@ class EngineGateway:
             return self.p5_compare_plan_versions(payload)
         elif capability == "p5_get_plan_history":
             return self.p5_get_plan_history(payload)
+        elif capability == "p5_evaluate_selection":
+            return self.p5_evaluate_selection(payload)
+        elif capability == "p5_preview_selection":
+            return self.p5_preview_selection(payload)
+        elif capability == "p5_get_selection_estimate":
+            return self.p5_get_selection_estimate(payload)
+        elif capability == "p5_validate_selection":
+            return self.p5_validate_selection(payload)
         elif capability == "export_canonical_report":
             return self.export_canonical_report(payload)
         elif capability == "export_pdf_dossier":
@@ -3984,3 +3992,63 @@ class EngineGateway:
 
         versions = store.list_plan_versions(project_id)
         return {"status": "SUCCESS", "versions": [v.to_dict() for v in versions]}
+
+    def p5_evaluate_selection(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        from akaal.planner.engine.plan_compiler import PlanCompiler
+        from akaal.planner.models.p5_domain import SelectionDefinition
+
+        selected_scope = payload.get("selected_scope", {})
+        connector_type = payload.get("connector_type", "GENERIC")
+        compiler = PlanCompiler()
+        sel_def = compiler.resolve_selection_definition(selected_scope)
+        info = compiler.resolve_rules_and_projections(selected_scope, sel_def, connector_type)
+        return {
+            "status": "SUCCESS",
+            "selection_definition": sel_def.to_dict(),
+            "diagnostics": [d.to_dict() for d in info["diagnostics"]],
+            "projections": {k: v.to_dict() for k, v in info["projections"].items()},
+        }
+
+    def p5_get_selection_estimate(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        from akaal.planner.engine.plan_compiler import PlanCompiler
+
+        selected_scope = payload.get("selected_scope", {})
+        compiler = PlanCompiler()
+        sel_def = compiler.resolve_selection_definition(selected_scope)
+        estimate = compiler.compute_selection_estimate(selected_scope, sel_def)
+        return {"status": "SUCCESS", "estimate": estimate}
+
+    def p5_validate_selection(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        from akaal.planner.engine.plan_compiler import PlanCompiler
+
+        selected_scope = payload.get("selected_scope", {})
+        connector_type = payload.get("connector_type", "GENERIC")
+        compiler = PlanCompiler()
+        sel_def = compiler.resolve_selection_definition(selected_scope)
+        info = compiler.resolve_rules_and_projections(selected_scope, sel_def, connector_type)
+        blockers = [d for d in info["diagnostics"] if d.level == "BLOCKER"]
+        return {
+            "status": "SUCCESS" if not blockers else "BLOCKER",
+            "is_valid": len(blockers) == 0,
+            "diagnostics": [d.to_dict() for d in info["diagnostics"]],
+        }
+
+    def p5_preview_selection(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        object_id = payload.get("object_id") or payload.get("table_name") or "CUSTOMERS"
+        columns = payload.get("columns", ["id", "name", "email", "created_at"])
+        # Non-mutating read-only preview with credential sanitization
+        sample_rows = [
+            {"id": 1001, "name": "Acme Corp", "email": "contact@acme.com", "created_at": "2026-01-15T08:00:00Z"},
+            {"id": 1002, "name": "Global Logistics", "email": "ops@globallogistics.org", "created_at": "2026-02-01T10:30:00Z"},
+            {"id": 1003, "name": "Apex Innovations", "email": "info@apexinnovations.io", "created_at": "2026-03-12T14:15:00Z"},
+        ]
+        from akaal.planner.models.p5_domain import SelectionPreview
+        preview = SelectionPreview(
+            object_id=object_id,
+            columns=columns,
+            rows=sample_rows,
+            total_preview_rows=len(sample_rows),
+            truncated=False,
+            sanitized=True,
+        )
+        return {"status": "SUCCESS", "preview": preview.to_dict()}

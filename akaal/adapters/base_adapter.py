@@ -130,8 +130,10 @@ class BaseAdapter(ABC):
         limit: int,
         last_processed_primary_key: Optional[Dict[str, Any]] = None,
         incremental_filter: Optional[Dict[str, Any]] = None,
+        columns: Optional[List[str]] = None,
+        predicates: Optional[List[Dict[str, Any]]] = None,
     ) -> List[Dict[str, Any]]:
-        """Read a batch of rows/documents from source."""
+        """Read a batch of rows/documents from source with optional column projection and predicates."""
 
     @abstractmethod
     async def write_batch(self, table_name: str, rows: List[Dict[str, Any]]) -> int:

@@ -122,6 +122,145 @@ class RoutingDefinition:
         }
 
 
+# =====================================================================
+# P5.2 DATA SELECTION + FILTERING + PROJECTION DOMAIN MODELS
+# =====================================================================
+
+@dataclass
+class SelectionRule:
+    rule_type: str  # "INCLUDE" or "EXCLUDE"
+    target_type: str  # "DATABASE", "SCHEMA", "OBJECT", "COLUMN"
+    pattern: str  # Exact name, Glob ("SALES_*"), or Regex ("^APP_.*")
+    is_regex: bool = False
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
+class ProjectionDefinition:
+    object_id: str
+    selected_columns: List[str] = field(default_factory=list)
+    auto_retained_columns: List[str] = field(default_factory=list)  # PK/CDC REQUIRED_BY_AKAAL
+    excluded_columns: List[str] = field(default_factory=list)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
+class PredicateDefinition:
+    object_id: str
+    column: str
+    operator: str  # "=", "!=", ">", ">=", "<", "<=", "IN", "NOT IN", "BETWEEN", "IS NULL", "IS NOT NULL", "LIKE"
+    value: Any
+    pushdown_mode: str = "NATIVE_PUSHDOWN"  # NATIVE_PUSHDOWN, TRANSLATED_PUSHDOWN, AKAAL_SIDE_FILTER, UNSUPPORTED
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
+class RangeDefinition:
+    object_id: str
+    column: str
+    start_value: Any
+    end_value: Any
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
+class SamplingDefinition:
+    method: str = "FIXED_ROWS"  # "FIXED_ROWS" or "PERCENTAGE"
+    sample_size: float = 1000.0  # Row count or percentage (e.g. 10.0 for 10%)
+    seed: Optional[int] = 42
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
+class SelectionDiagnostic:
+    level: str  # "INFO", "WARNING", "BLOCKER"
+    code: str
+    message: str
+    target_object: Optional[str] = None
+    suggested_action: Optional[str] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
+class SelectionEstimate:
+    selected_db_count: int = 0
+    selected_schema_count: int = 0
+    selected_object_count: int = 0
+    selected_column_count: int = 0
+    estimated_total_rows: int = 0
+    estimated_total_bytes: int = 0
+    reduction_factor: float = 1.0
+    confidence: str = "ESTIMATED"  # EXACT, CATALOG_ESTIMATE, DERIVED_ESTIMATE, UNKNOWN
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
+class SelectionPreview:
+    object_id: str
+    columns: List[str] = field(default_factory=list)
+    rows: List[Dict[str, Any]] = field(default_factory=list)
+    total_preview_rows: int = 0
+    truncated: bool = False
+    sanitized: bool = True
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
+class SelectionDefinition:
+    rules: List[SelectionRule] = field(default_factory=list)
+    projections: List[ProjectionDefinition] = field(default_factory=list)
+    predicates: List[PredicateDefinition] = field(default_factory=list)
+    ranges: List[RangeDefinition] = field(default_factory=list)
+    sampling: Optional[SamplingDefinition] = None
+    diagnostics: List[SelectionDiagnostic] = field(default_factory=list)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "rules": [r.to_dict() for r in self.rules],
+            "projections": [p.to_dict() for p in self.projections],
+            "predicates": [pr.to_dict() for pr in self.predicates],
+            "ranges": [rg.to_dict() for rg in self.ranges],
+            "sampling": self.sampling.to_dict() if self.sampling else None,
+            "diagnostics": [d.to_dict() for d in self.diagnostics],
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "SelectionDefinition":
+        if not isinstance(data, dict):
+            return cls()
+        rules = [SelectionRule(**r) if isinstance(r, dict) else r for r in data.get("rules", [])]
+        projections = [ProjectionDefinition(**p) if isinstance(p, dict) else p for p in data.get("projections", [])]
+        predicates = [PredicateDefinition(**pr) if isinstance(pr, dict) else pr for pr in data.get("predicates", [])]
+        ranges = [RangeDefinition(**rg) if isinstance(rg, dict) else rg for rg in data.get("ranges", [])]
+        samp_data = data.get("sampling")
+        sampling = SamplingDefinition(**samp_data) if isinstance(samp_data, dict) else None
+        diagnostics = [SelectionDiagnostic(**d) if isinstance(d, dict) else d for d in data.get("diagnostics", [])]
+        return cls(
+            rules=rules,
+            projections=projections,
+            predicates=predicates,
+            ranges=ranges,
+            sampling=sampling,
+            diagnostics=diagnostics,
+        )
+
+
 @dataclass
 class ConfigurationScope:
     platform_defaults: Dict[str, Any] = field(default_factory=dict)
