@@ -1450,52 +1450,59 @@ class EngineGateway:
             canon = CanonicalMigrationModel()
             risk_model = RiskPlatform.assess_risk(canon)
 
-        from akaal.planner.models.planning_strategy import PlanningStrategy, StrategyType
-        from akaal.planner.models.execution_constraint import ExecutionConstraints
-        from akaal.planner.api.planner_platform import PlannerPlatform
-
-        enable_cdc = payload.get("enable_cdc", True)
-        strat_type = StrategyType.ZERO_DOWNTIME_MIGRATION if enable_cdc else StrategyType.BULK_CUTOVER
-
-        strategy = PlanningStrategy(strategy_type=strat_type)
-        workers_count = int(payload.get("parallelism", payload.get("worker_allocation", 8)))
-        ram_gb = float(payload.get("ram_limit_gb", 4.0))
-        constraints = ExecutionConstraints(
-            max_parallelism=workers_count,
-            max_workers=workers_count,
-            memory_limit_gb=ram_gb,
+        from akaal.planner.persistence.project_store import ProjectStore
+        from akaal.planner.engine.plan_compiler import PlanCompiler
+        from akaal.planner.models.p5_domain import (
+            MigrationProject,
+            MigrationPlan,
+            PlanningMode,
+            PlanStatus,
+            TopologyDefinition,
+            SourceTopology,
+            TargetTopology,
+            RoutingDefinition,
         )
 
-        plan_obj = PlannerPlatform.build_execution_plan(
-            risk_model=risk_model,
-            strategy=strategy,
-            constraints=constraints,
-            configuration=payload
+        store = ProjectStore()
+        proj_id = payload.get("project_id") or "proj-default"
+        proj = store.load_project(proj_id)
+        if not proj:
+            proj = MigrationProject(
+                project_id=proj_id,
+                title=payload.get("migration_name", "Core Database Migration"),
+                description=payload.get("description", ""),
+                workspace=payload.get("project_name", "default"),
+                owner=payload.get("business_owner", "Operator"),
+                environment=payload.get("environment", "Production"),
+                priority=payload.get("priority", "P0 - Critical"),
+                migration_strategy=payload.get("execution_strategy", "Zero-Downtime Replication"),
+                source_instance_ref={"engine": payload.get("source_engine", "Oracle 19c")},
+                target_instance_ref={"engine": payload.get("target_engine", "PostgreSQL 16")},
+            )
+            store.save_project(proj)
+
+        src_top = SourceTopology(instance_id="src-inst-1", endpoint="loc:1521", connector_type=payload.get("source_engine", "ORACLE"))
+        tgt_top = TargetTopology(instance_id="tgt-inst-1", endpoint="loc:5432", connector_type=payload.get("target_engine", "POSTGRESQL"))
+        plan = MigrationPlan(
+            plan_id=f"plan-{uuid.uuid4().hex[:8]}",
+            project_id=proj.project_id,
+            title=proj.title,
+            planning_mode=PlanningMode.SIMPLE,
+            topology=TopologyDefinition(source=src_top, target=tgt_top),
+            routing=RoutingDefinition(),
+            selected_scope=payload.get("selected_scope", {}),
+            configuration=payload,
         )
-        plan_dict = plan_obj.to_dict()
+        store.save_plan(plan)
 
-        plan_id = f"plan-{plan_obj.sha256_checksum[:12]}"
+        v_res = self.p5_create_plan_version({"plan_id": plan.plan_id, "created_by": proj.owner})
+        version_id = v_res["version"]["version_id"]
+        c_res = self.p5_compile_execution_plan({"plan_id": plan.plan_id, "version_id": version_id})
 
-        raw_stages = plan_dict.get("execution_stages", [])
-        formatted_stages = []
-        for idx, stg in enumerate(raw_stages, 1):
-            s_name = stg.get("stage_name", stg.get("name", f"Stage {idx}"))
-            s_cat = stg.get("category", stg.get("type", "Execution"))
-            formatted_stages.append({
-                "stage": idx,
-                "name": s_name,
-                "category": s_cat,
-                "details": stg.get("description", ""),
-                "tasks": stg.get("tasks", [])
-            })
-
-        if not formatted_stages:
-            formatted_stages = [
-                {"stage": 1, "name": "Catalog & Schema Barrier", "category": "DDL"},
-                {"stage": 2, "name": "DAG Topological Sorting", "category": "Planner"},
-                {"stage": 3, "name": "Parallel Stream Data Transport", "category": "Transport"},
-                {"stage": 4, "name": "Validation & Reconciliation", "category": "Audit"}
-            ]
+        exec_plan_dict = c_res["compilation"]["execution_plan"]
+        sha256_chk = c_res["compilation"]["fingerprint"]
+        plan_id = exec_plan_dict["execution_plan_id"]
+        formatted_stages = exec_plan_dict.get("dag_stages", [])
 
         src_engine = payload.get("source_engine", "Oracle 19c")
         tgt_engine = payload.get("target_engine", "PostgreSQL 16")
@@ -1503,15 +1510,15 @@ class EngineGateway:
         plan_payload = {
             "plan_id": plan_id,
             "execution_plan_id": plan_id,
-            "sha256_checksum": plan_obj.sha256_checksum,
+            "sha256_checksum": sha256_chk,
             "migration_id": payload.get("migration_id", "mig-default"),
             "execution_plan_name": f"Topological DAG Execution Plan ({src_engine} → {tgt_engine})",
-            "worker_allocation": constraints.max_workers,
+            "worker_allocation": int(payload.get("parallelism", 8)),
             "batch_size": int(payload.get("batch_size", 10000)),
-            "ram_limit_gb": constraints.memory_limit_gb,
+            "ram_limit_gb": float(payload.get("ram_limit_gb", 4.0)),
             "stages": formatted_stages,
-            "execution_graph": plan_dict.get("execution_graph", {}),
-            "dependency_graph": plan_dict.get("dependency_graph", {}),
+            "execution_graph": exec_plan_dict.get("stage1_plan", {}),
+            "dependency_graph": {},
             "status": "generated"
         }
         mig_id_plan = payload.get("migration_id", "mig-default")
