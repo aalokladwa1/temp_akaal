@@ -487,6 +487,200 @@ class PlanCompiler:
             ))
         return diagnostics
 
+    def compile_mapping(
+        self,
+        selected_scope: Dict[str, Any],
+        routing_def: Optional[Dict[str, Any]] = None,
+        connector_type: str = "GENERIC",
+    ) -> Dict[str, Any]:
+        """Compiles canonical P5.3 structural mapping, evaluating schema routing, object/column renames, bulk rules, and datatype compatibility."""
+        from akaal.planner.models.p5_domain import RoutingDefinition, CompiledMapping, SchemaRoute, ObjectRoute, ColumnMapping, BulkMappingRule
+        from akaal.schema.domain.type_registry import CanonicalTypeRegistry
+        from akaal.migration.target_identifier import validate_operator_configured_identifier
+
+        diagnostics: List[CompilationDiagnostic] = []
+        r_def = RoutingDefinition()
+        if routing_def and isinstance(routing_def, dict):
+            # Parse routing configuration
+            for sr in routing_def.get("schema_routes", []):
+                if isinstance(sr, dict):
+                    r_def.schema_routes.append(SchemaRoute(**sr))
+            for ob in routing_def.get("object_routes", []):
+                if isinstance(ob, dict):
+                    r_def.object_routes.append(ObjectRoute(**ob))
+            for cm in routing_def.get("column_mappings", []):
+                if isinstance(cm, dict):
+                    r_def.column_mappings.append(ColumnMapping(**cm))
+            for br in routing_def.get("bulk_rules", []):
+                if isinstance(br, dict):
+                    r_def.bulk_rules.append(BulkMappingRule(**br))
+
+        # 1. Resolve Schema Mapping
+        schema_map: Dict[str, str] = {}
+        for sr in r_def.schema_routes:
+            schema_map[sr.source_schema] = sr.target_schema
+
+        # 2. Resolve Object Mapping
+        object_map: Dict[str, str] = {}
+        target_obj_provenance: Dict[str, str] = {}
+        objects = selected_scope.get("objects", []) if isinstance(selected_scope, dict) else []
+
+        explicit_obj_routes = {(r.source_schema, r.source_object): r.target_object for r in r_def.object_routes}
+
+        for obj in objects:
+            if not isinstance(obj, dict) or not obj.get("selected", True):
+                continue
+            s_name = obj.get("schema_name", "public")
+            t_name = obj.get("object_name") or obj.get("table_name")
+            if not t_name:
+                continue
+
+            src_key = f"{s_name}.{t_name}"
+
+            # Check explicit object rename first
+            if (s_name, t_name) in explicit_obj_routes:
+                target_t = explicit_obj_routes[(s_name, t_name)]
+            else:
+                target_t = t_name
+                # Apply bulk object rename rules
+                for rule in sorted(r_def.bulk_rules, key=lambda x: x.priority):
+                    if rule.rule_type == "OBJECT_RENAME" and rule.pattern in target_t:
+                        target_t = target_t.replace(rule.pattern, rule.replacement)
+
+            target_s = schema_map.get(s_name, s_name)
+            tgt_key = f"{target_s}.{target_t}"
+
+            # Validate reserved identifier fencing
+            val_res = validate_operator_configured_identifier(target_t, "table")
+            if not val_res["valid"]:
+                diagnostics.append(CompilationDiagnostic(
+                    level="BLOCKER",
+                    code="RESERVED_IDENTIFIER_COLLISION",
+                    message=f"Target object identifier '{target_t}' for source '{src_key}' is invalid: {val_res['error_message']}",
+                    target=src_key,
+                ))
+
+            # Conflict check: Duplicate target object mapping without merge spec
+            if tgt_key in target_obj_provenance and target_obj_provenance[tgt_key] != src_key:
+                diagnostics.append(CompilationDiagnostic(
+                    level="BLOCKER",
+                    code="DUPLICATE_TARGET_OBJECT",
+                    message=f"Source objects '{src_key}' and '{target_obj_provenance[tgt_key]}' both map to target object '{tgt_key}'. Unintended collisions block execution.",
+                    target=tgt_key,
+                ))
+            else:
+                target_obj_provenance[tgt_key] = src_key
+
+            object_map[src_key] = tgt_key
+
+        # 3. Resolve Column Mappings & Reordering
+        column_map: Dict[str, Dict[str, str]] = {}
+        column_order: Dict[str, List[str]] = {}
+        ignored_columns: Dict[str, List[str]] = {}
+        target_defaults: Dict[str, Dict[str, str]] = {}
+        generated_columns: Dict[str, List[str]] = {}
+
+        explicit_col_map: Dict[str, Dict[str, ColumnMapping]] = {}
+        for cm in r_def.column_mappings:
+            explicit_col_map.setdefault(cm.source_object, {})[cm.source_column] = cm
+
+        for obj in objects:
+            if not isinstance(obj, dict) or not obj.get("selected", True):
+                continue
+            src_name = obj.get("object_name") or obj.get("table_name")
+            if not src_name:
+                continue
+
+            cols = obj.get("columns", ["id", "name", "email", "created_at"])
+            pk_cols = set(obj.get("pk_columns", ["id"]))
+
+            col_sub_map: Dict[str, str] = {}
+            target_cols: List[str] = []
+            target_col_provenance: Dict[str, str] = {}
+            ignored_list: List[str] = []
+            default_sub_map: Dict[str, str] = {}
+            gen_list: List[str] = []
+
+            for c in cols:
+                cm_entry = explicit_col_map.get(src_name, {}).get(c)
+                if cm_entry and cm_entry.is_ignored:
+                    if c in pk_cols:
+                        diagnostics.append(CompilationDiagnostic(
+                            level="BLOCKER",
+                            code="MISSING_REQUIRED_KEY_MAPPING",
+                            message=f"Primary key column '{c}' on object '{src_name}' cannot be marked as ignored.",
+                            target=src_name,
+                        ))
+                    ignored_list.append(c)
+                    continue
+
+                if cm_entry and cm_entry.target_column:
+                    tgt_c = cm_entry.target_column
+                else:
+                    tgt_c = c
+                    # Apply bulk column rename rules
+                    for rule in sorted(r_def.bulk_rules, key=lambda x: x.priority):
+                        if rule.rule_type == "COLUMN_RENAME" and rule.pattern in tgt_c:
+                            tgt_c = tgt_c.replace(rule.pattern, rule.replacement)
+
+                if cm_entry and cm_entry.target_default:
+                    default_sub_map[tgt_c] = cm_entry.target_default
+
+                if cm_entry and cm_entry.is_generated:
+                    gen_list.append(tgt_c)
+
+                # Column collision check
+                if tgt_c in target_col_provenance and target_col_provenance[tgt_c] != c:
+                    diagnostics.append(CompilationDiagnostic(
+                        level="BLOCKER",
+                        code="DUPLICATE_TARGET_COLUMN",
+                        message=f"Source columns '{c}' and '{target_col_provenance[tgt_c]}' in object '{src_name}' both map to target column '{tgt_c}'.",
+                        target=src_name,
+                    ))
+                else:
+                    target_col_provenance[tgt_c] = c
+
+                col_sub_map[c] = tgt_c
+                target_cols.append(tgt_c)
+
+            column_map[src_name] = col_sub_map
+            column_order[src_name] = target_cols
+            if ignored_list:
+                ignored_columns[src_name] = ignored_list
+            if default_sub_map:
+                target_defaults[src_name] = default_sub_map
+            if gen_list:
+                generated_columns[src_name] = gen_list
+
+        # Compute deterministic CompiledMapping fingerprint
+        canon_bytes = json.dumps({
+            "schema_map": schema_map,
+            "object_map": object_map,
+            "column_map": column_map,
+            "column_order": column_order,
+            "ignored_columns": ignored_columns,
+            "target_defaults": target_defaults,
+            "generated_columns": generated_columns,
+        }, sort_keys=True).encode("utf-8")
+        fp = hashlib.sha256(canon_bytes).hexdigest()
+
+        compiled = CompiledMapping(
+            schema_map=schema_map,
+            object_map=object_map,
+            column_map=column_map,
+            column_order=column_order,
+            ignored_columns=ignored_columns,
+            target_defaults=target_defaults,
+            generated_columns=generated_columns,
+            fingerprint=fp,
+        )
+
+        return {
+            "status": "SUCCESS" if not any(d.level == "BLOCKER" for d in diagnostics) else "BLOCKER",
+            "compiled_mapping": compiled.to_dict(),
+            "diagnostics": [d.to_dict() for d in diagnostics],
+        }
+
     def compute_selection_estimate(
         self,
         selected_scope: Dict[str, Any],

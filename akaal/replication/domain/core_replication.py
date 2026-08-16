@@ -118,8 +118,15 @@ class CoreReplicationDomain(IDomainReplicator):
 
         return res
 
-    def process_incoming_cdc_batch(self, events: List[Dict[str, Any]], predicates: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Processes live incoming CDC change events against SelectionDefinition predicates in real production replication pipeline."""
+    def process_incoming_cdc_batch(
+        self,
+        events: List[Dict[str, Any]],
+        predicates: List[Dict[str, Any]],
+        compiled_mapping: Optional[Dict[str, Any]] = None,
+        source_object: str = "CUSTOMERS",
+    ) -> List[Dict[str, Any]]:
+        """Processes live incoming CDC change events against SelectionDefinition predicates and P5.3 CompiledMapping in production replication pipeline."""
+        from akaal.engine.structural_mapper import StructuralRowMapper
         processed = []
         for evt in events:
             evt_type = evt.get("operation") or evt.get("event_type") or "UPDATE"
@@ -129,6 +136,11 @@ class CoreReplicationDomain(IDomainReplicator):
             if action != "SKIP":
                 processed_evt = dict(evt)
                 processed_evt["reconciled_action"] = action
+                if compiled_mapping:
+                    if before_doc:
+                        processed_evt["before_image"] = StructuralRowMapper.remap_row(source_object, before_doc, compiled_mapping)
+                    if after_doc:
+                        processed_evt["after_image"] = StructuralRowMapper.remap_row(source_object, after_doc, compiled_mapping)
                 processed.append(processed_evt)
         return processed
 

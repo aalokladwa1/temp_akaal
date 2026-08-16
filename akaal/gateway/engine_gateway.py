@@ -4062,8 +4062,60 @@ class EngineGateway:
                 f"[EXECUTION BLOCKED] Discovery drift detected on planned catalog selection scope: "
                 f"{[d['message'] for d in fence_res.get('diagnostics', [])]}"
             )
-        # Proceed with canonical execution
-        return {"status": "SUCCESS", "outcome": "EXECUTED", "actions_performed": 1}
+    def p5_compile_mapping(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        from akaal.planner.engine.plan_compiler import PlanCompiler
+
+        selected_scope = payload.get("selected_scope", {})
+        routing_def = payload.get("routing_definition", {})
+        connector_type = payload.get("connector_type", "GENERIC")
+        compiler = PlanCompiler()
+        return compiler.compile_mapping(selected_scope, routing_def, connector_type)
+
+    def p5_validate_mapping(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        res = self.p5_compile_mapping(payload)
+        blockers = [d for d in res.get("diagnostics", []) if d.get("level") == "BLOCKER"]
+        return {
+            "status": "SUCCESS" if not blockers else "BLOCKER",
+            "is_valid": len(blockers) == 0,
+            "diagnostics": res.get("diagnostics", []),
+        }
+
+    def p5_preview_mapping(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        from akaal.engine.structural_mapper import StructuralRowMapper
+        source_object = payload.get("object_id") or payload.get("table_name") or "CUSTOMERS"
+        source_rows = payload.get("source_rows", [])
+        compiled_mapping = payload.get("compiled_mapping", {})
+
+        mapped_rows = StructuralRowMapper.remap_batch(source_object, source_rows, compiled_mapping)
+        return {
+            "status": "SUCCESS",
+            "source_object": source_object,
+            "mapped_rows": mapped_rows,
+            "total_mapped": len(mapped_rows),
+        }
+
+    def p5_export_mapping_template(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        import time, uuid
+        from akaal.planner.models.p5_domain import MappingTemplate, RoutingDefinition
+        routing_def = payload.get("routing_definition", {})
+        name = payload.get("name", "Standard Mapping Template")
+        tmpl = MappingTemplate(
+            template_id=f"tmpl-{uuid.uuid4().hex[:8]}",
+            name=name,
+            version="1.0.0",
+            description="Canonical P5.3 Structural Mapping Template",
+            routing=RoutingDefinition(),
+            created_at=str(time.time()),
+        )
+        return {"status": "SUCCESS", "template": tmpl.to_dict()}
+
+    def p5_import_mapping_template(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        template = payload.get("template", {})
+        selected_scope = payload.get("selected_scope", {})
+        if not isinstance(template, dict) or "routing" not in template:
+            return {"status": "BLOCKER", "message": "Invalid template format: missing routing definition."}
+        routing_def = template.get("routing", {})
+        return self.p5_compile_mapping({"selected_scope": selected_scope, "routing_definition": routing_def})
 
     def p5_preview_selection(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         object_id = payload.get("object_id") or payload.get("table_name") or "CUSTOMERS"

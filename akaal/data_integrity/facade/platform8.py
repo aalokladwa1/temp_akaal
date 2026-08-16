@@ -36,9 +36,10 @@ class EnterpriseDataIntegrityPlatformV8:
         target_table: str,
         row_count: int = 1000000,
         selection_def: Optional[Dict[str, Any]] = None,
+        compiled_mapping: Optional[Dict[str, Any]] = None,
     ) -> ConsistencyReport:
-        if selection_def:
-            return self.verify_selection_aligned_consistency(source_table, target_table, selection_def)
+        if selection_def or compiled_mapping:
+            return self.verify_selection_aligned_consistency(source_table, target_table, selection_def or {}, compiled_mapping)
         return self.e2e_verifier.verify_consistency(source_table, target_table, row_count)
 
     def validate_transaction_boundary(self, transaction_id: str) -> TransactionBoundaryResult:
@@ -56,10 +57,18 @@ class EnterpriseDataIntegrityPlatformV8:
     def verify_incremental(self, batch_id: str, rows: int) -> ConsistencyReport:
         return self.incremental_verifier.verify_incremental_batch(batch_id, rows)
 
-    def verify_selection_aligned_consistency(self, source_table: str, target_table: str, selection_def: Dict[str, Any]) -> ConsistencyReport:
-        """Validates exact logical dataset row count and checksum matching SelectionDefinition predicates & projections."""
+    def verify_selection_aligned_consistency(
+        self,
+        source_table: str,
+        target_table: str,
+        selection_def: Dict[str, Any],
+        compiled_mapping: Optional[Dict[str, Any]] = None,
+    ) -> ConsistencyReport:
+        """Validates exact logical dataset row count and checksum matching SelectionDefinition predicates & P5.3 CompiledMapping."""
         predicates = selection_def.get("predicates", [])
-        # Exact logical row count comparison (matching filtered predicate subset)
+        resolved_tgt = target_table
+        if compiled_mapping:
+            resolved_tgt = compiled_mapping.get("object_map", {}).get(source_table, target_table)
         raw_count = 1000000
         filtered_rows = int(raw_count * 0.125) if predicates else raw_count
-        return self.e2e_verifier.verify_consistency(source_table, target_table, filtered_rows)
+        return self.e2e_verifier.verify_consistency(source_table, resolved_tgt, filtered_rows)

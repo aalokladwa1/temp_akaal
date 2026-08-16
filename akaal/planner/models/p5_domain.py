@@ -105,9 +105,78 @@ class ObjectRoute:
 
 
 @dataclass
+class ColumnMapping:
+    source_column: str
+    target_column: str
+    source_object: str
+    target_object: str
+    is_ignored: bool = False
+    target_default: Optional[str] = None
+    is_generated: bool = False
+    datatype_override: Optional[str] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
+class BulkMappingRule:
+    rule_id: str
+    rule_type: str  # "SCHEMA_RENAME", "OBJECT_RENAME", "COLUMN_RENAME", "CASE_CONVERT"
+    pattern: str
+    replacement: str
+    is_regex: bool = False
+    priority: int = 100
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
+class MergeMappingSpec:
+    target_object: str
+    target_schema: str
+    source_objects: List[str] = field(default_factory=list)
+    merge_strategy: str = "FOUNDATION_UNION"
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
+class SplitMappingSpec:
+    source_object: str
+    source_schema: str
+    target_objects: List[str] = field(default_factory=list)
+    split_strategy: str = "FOUNDATION_BY_KEY"
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
+class CompiledMapping:
+    schema_map: Dict[str, str] = field(default_factory=dict)
+    object_map: Dict[str, str] = field(default_factory=dict)
+    column_map: Dict[str, Dict[str, str]] = field(default_factory=dict)
+    column_order: Dict[str, List[str]] = field(default_factory=dict)
+    ignored_columns: Dict[str, List[str]] = field(default_factory=dict)
+    target_defaults: Dict[str, Dict[str, str]] = field(default_factory=dict)
+    generated_columns: Dict[str, List[str]] = field(default_factory=dict)
+    fingerprint: str = ""
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
 class RoutingDefinition:
     schema_routes: List[SchemaRoute] = field(default_factory=list)
     object_routes: List[ObjectRoute] = field(default_factory=list)
+    column_mappings: List[ColumnMapping] = field(default_factory=list)
+    bulk_rules: List[BulkMappingRule] = field(default_factory=list)
+    merge_foundation: List[MergeMappingSpec] = field(default_factory=list)
+    split_foundation: List[SplitMappingSpec] = field(default_factory=list)
     allow_many_to_one: bool = True
     allow_one_to_many: bool = False
     allow_many_to_many: bool = False
@@ -116,9 +185,33 @@ class RoutingDefinition:
         return {
             "schema_routes": [sr.to_dict() for sr in self.schema_routes],
             "object_routes": [orr.to_dict() for orr in self.object_routes],
+            "column_mappings": [cm.to_dict() for cm in self.column_mappings],
+            "bulk_rules": [br.to_dict() for br in self.bulk_rules],
+            "merge_foundation": [mf.to_dict() for mf in self.merge_foundation],
+            "split_foundation": [sf.to_dict() for sf in self.split_foundation],
             "allow_many_to_one": self.allow_many_to_one,
             "allow_one_to_many": self.allow_one_to_many,
             "allow_many_to_many": self.allow_many_to_many,
+        }
+
+
+@dataclass
+class MappingTemplate:
+    template_id: str
+    name: str
+    version: str
+    description: str
+    routing: RoutingDefinition
+    created_at: str
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "template_id": self.template_id,
+            "name": self.name,
+            "version": self.version,
+            "description": self.description,
+            "routing": self.routing.to_dict(),
+            "created_at": self.created_at,
         }
 
 
