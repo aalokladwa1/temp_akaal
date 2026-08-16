@@ -211,6 +211,26 @@ class EngineGateway:
             return self.move_migration_to_project(payload)
         elif capability == "supported_engines":
             return self.supported_engines()
+        elif capability == "p5_save_project":
+            return self.p5_save_project(payload)
+        elif capability == "p5_load_project":
+            return self.p5_load_project(payload)
+        elif capability == "p5_create_plan_draft":
+            return self.p5_create_plan_draft(payload)
+        elif capability == "p5_save_plan_draft":
+            return self.p5_save_plan_draft(payload)
+        elif capability == "p5_load_plan_draft":
+            return self.p5_load_plan_draft(payload)
+        elif capability == "p5_create_plan_version":
+            return self.p5_create_plan_version(payload)
+        elif capability == "p5_compile_execution_plan":
+            return self.p5_compile_execution_plan(payload)
+        elif capability == "p5_dry_run_execution_plan":
+            return self.p5_dry_run_execution_plan(payload)
+        elif capability == "p5_compare_plan_versions":
+            return self.p5_compare_plan_versions(payload)
+        elif capability == "p5_get_plan_history":
+            return self.p5_get_plan_history(payload)
         elif capability == "export_canonical_report":
             return self.export_canonical_report(payload)
         elif capability == "export_pdf_dossier":
@@ -3677,3 +3697,283 @@ class EngineGateway:
             ))
 
         return gen.generate_matrix()
+
+    # ---------------------------------------------------------------------------
+    # P5.1 Enterprise Migration Planning & Control Capability Handlers
+    # ---------------------------------------------------------------------------
+
+    def p5_save_project(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        from akaal.planner.persistence.project_store import ProjectStore
+        from akaal.planner.models.p5_domain import MigrationProject
+
+        store = ProjectStore()
+        proj = MigrationProject(
+            project_id=payload.get("project_id") or f"proj-{uuid.uuid4().hex[:8]}",
+            title=payload.get("title", "Untitled Migration"),
+            description=payload.get("description", ""),
+            workspace=payload.get("workspace", "default"),
+            owner=payload.get("owner", "Operator"),
+            environment=payload.get("environment", "Production"),
+            priority=payload.get("priority", "P0 - Critical"),
+            migration_strategy=payload.get("migration_strategy", "Zero-Downtime Replication"),
+            source_instance_ref=payload.get("source_instance_ref", {}),
+            target_instance_ref=payload.get("target_instance_ref", {}),
+            current_draft_id=payload.get("current_draft_id"),
+            active_version_id=payload.get("active_version_id"),
+            compiled_execution_plan_id=payload.get("compiled_execution_plan_id"),
+        )
+        store.save_project(proj)
+        return {"status": "SUCCESS", "project": proj.to_dict()}
+
+    def p5_load_project(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        from akaal.planner.persistence.project_store import ProjectStore
+
+        store = ProjectStore()
+        project_id = payload.get("project_id")
+        if not project_id:
+            return {"status": "ERROR", "message": "project_id is required"}
+        proj = store.load_project(project_id)
+        if not proj:
+            return {"status": "ERROR", "message": f"Project '{project_id}' not found"}
+        return {"status": "SUCCESS", "project": proj.to_dict()}
+
+    def p5_create_plan_draft(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        from akaal.planner.persistence.project_store import ProjectStore
+        from akaal.planner.models.p5_domain import (
+            MigrationPlan,
+            PlanningMode,
+            PlanStatus,
+            TopologyDefinition,
+            SourceTopology,
+            TargetTopology,
+            RoutingDefinition,
+        )
+
+        store = ProjectStore()
+        project_id = payload.get("project_id")
+        if not project_id:
+            return {"status": "ERROR", "message": "project_id is required"}
+
+        src_top = SourceTopology(
+            instance_id=payload.get("source_instance_id", "src-inst-1"),
+            endpoint=payload.get("source_endpoint", "localhost:1521"),
+            connector_type=payload.get("source_connector", "ORACLE"),
+        )
+        tgt_top = TargetTopology(
+            instance_id=payload.get("target_instance_id", "tgt-inst-1"),
+            endpoint=payload.get("target_endpoint", "localhost:5432"),
+            connector_type=payload.get("target_connector", "POSTGRESQL"),
+        )
+        topology = TopologyDefinition(source=src_top, target=tgt_top, topology_type=payload.get("topology_type", "1:1"))
+
+        plan = MigrationPlan(
+            plan_id=payload.get("plan_id") or f"plan-{uuid.uuid4().hex[:8]}",
+            project_id=project_id,
+            title=payload.get("title", "Draft Migration Plan"),
+            planning_mode=PlanningMode(payload.get("planning_mode", "SIMPLE")),
+            topology=topology,
+            routing=RoutingDefinition(),
+            selected_scope=payload.get("selected_scope", {}),
+            configuration=payload.get("configuration", {}),
+            status=PlanStatus.DRAFT,
+        )
+        store.save_plan(plan)
+
+        # Update Project draft link
+        proj = store.load_project(project_id)
+        if proj:
+            proj.current_draft_id = plan.plan_id
+            store.save_project(proj)
+
+        return {"status": "SUCCESS", "plan": plan.to_dict()}
+
+    def p5_save_plan_draft(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        from akaal.planner.persistence.project_store import ProjectStore
+
+        store = ProjectStore()
+        plan_id = payload.get("plan_id")
+        if not plan_id:
+            return {"status": "ERROR", "message": "plan_id is required"}
+
+        plan = store.load_plan(plan_id)
+        if not plan:
+            return {"status": "ERROR", "message": f"Plan '{plan_id}' not found"}
+
+        if payload.get("title"):
+            plan.title = payload["title"]
+        if payload.get("planning_mode"):
+            plan.planning_mode = payload["planning_mode"]
+        if payload.get("selected_scope"):
+            plan.selected_scope = payload["selected_scope"]
+        if payload.get("configuration"):
+            plan.configuration = payload["configuration"]
+
+        store.save_plan(plan)
+        return {"status": "SUCCESS", "plan": plan.to_dict()}
+
+    def p5_load_plan_draft(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        from akaal.planner.persistence.project_store import ProjectStore
+
+        store = ProjectStore()
+        plan_id = payload.get("plan_id")
+        if not plan_id:
+            return {"status": "ERROR", "message": "plan_id is required"}
+        plan = store.load_plan(plan_id)
+        if not plan:
+            return {"status": "ERROR", "message": f"Plan '{plan_id}' not found"}
+        return {"status": "SUCCESS", "plan": plan.to_dict()}
+
+    def p5_create_plan_version(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        from akaal.planner.persistence.project_store import ProjectStore
+        from akaal.planner.models.p5_domain import PlanVersion, PlanningMode
+        from akaal.planner.engine.plan_compiler import PlanCompiler
+
+        store = ProjectStore()
+        plan_id = payload.get("plan_id")
+        if not plan_id:
+            return {"status": "ERROR", "message": "plan_id is required"}
+
+        plan = store.load_plan(plan_id)
+        if not plan:
+            return {"status": "ERROR", "message": f"Plan '{plan_id}' not found"}
+
+        existing_versions = store.list_plan_versions(plan.project_id)
+        revision = len(existing_versions) + 1
+        parent_id = existing_versions[-1].version_id if existing_versions else None
+
+        canonical_payload = plan.to_dict()
+        compiler = PlanCompiler()
+
+        # Temporary version for compiling fingerprint
+        temp_version = PlanVersion(
+            version_id=f"ver-{uuid.uuid4().hex[:8]}",
+            project_id=plan.project_id,
+            parent_version_id=parent_id,
+            revision=revision,
+            created_at=datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            created_by=payload.get("created_by", "Operator"),
+            reason=payload.get("reason", f"Plan Revision v{revision}"),
+            planning_mode=plan.planning_mode,
+            canonical_payload=canonical_payload,
+            fingerprint="",
+        )
+
+        comp_result = compiler.compile(plan=plan, version=temp_version, dry_run=True)
+        temp_version.fingerprint = comp_result.fingerprint
+
+        store.save_plan_version(temp_version)
+
+        # Update active version references
+        plan.active_version_id = temp_version.version_id
+        store.save_plan(plan)
+
+        proj = store.load_project(plan.project_id)
+        if proj:
+            proj.active_version_id = temp_version.version_id
+            store.save_project(proj)
+
+        return {"status": "SUCCESS", "version": temp_version.to_dict(), "compilation": comp_result.to_dict()}
+
+    def p5_compile_execution_plan(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        from akaal.planner.persistence.project_store import ProjectStore
+        from akaal.planner.engine.plan_compiler import PlanCompiler
+
+        store = ProjectStore()
+        plan_id = payload.get("plan_id")
+        version_id = payload.get("version_id")
+
+        if not plan_id or not version_id:
+            return {"status": "ERROR", "message": "plan_id and version_id are required"}
+
+        plan = store.load_plan(plan_id)
+        version = store.load_plan_version(version_id)
+
+        if not plan or not version:
+            return {"status": "ERROR", "message": "Plan or PlanVersion not found"}
+
+        compiler = PlanCompiler()
+        comp_result = compiler.compile(plan=plan, version=version, dry_run=False)
+
+        if comp_result.success and comp_result.execution_plan:
+            from akaal.planner.models.p5_domain import ExecutionPlan
+            ep_d = comp_result.execution_plan
+            exec_plan = ExecutionPlan(
+                execution_plan_id=ep_d["execution_plan_id"],
+                project_id=ep_d["project_id"],
+                plan_version_id=ep_d["plan_version_id"],
+                fingerprint=ep_d["fingerprint"],
+                compiled_at=ep_d["compiled_at"],
+                resolved_topology=ep_d["resolved_topology"],
+                resolved_routing=ep_d["resolved_routing"],
+                resolved_configuration=ep_d["resolved_configuration"],
+                stage1_plan=ep_d["stage1_plan"],
+                dag_stages=ep_d["dag_stages"],
+                is_immutable=True,
+            )
+            store.save_execution_plan(exec_plan)
+
+            # Update Project compiled execution plan ref
+            proj = store.load_project(plan.project_id)
+            if proj:
+                proj.compiled_execution_plan_id = exec_plan.execution_plan_id
+                store.save_project(proj)
+
+        return {"status": "SUCCESS", "compilation": comp_result.to_dict()}
+
+    def p5_dry_run_execution_plan(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        from akaal.planner.persistence.project_store import ProjectStore
+        from akaal.planner.engine.plan_compiler import PlanCompiler
+
+        store = ProjectStore()
+        plan_id = payload.get("plan_id")
+        version_id = payload.get("version_id")
+
+        if not plan_id or not version_id:
+            return {"status": "ERROR", "message": "plan_id and version_id are required"}
+
+        plan = store.load_plan(plan_id)
+        version = store.load_plan_version(version_id)
+
+        if not plan or not version:
+            return {"status": "ERROR", "message": "Plan or PlanVersion not found"}
+
+        compiler = PlanCompiler()
+        comp_result = compiler.compile(plan=plan, version=version, dry_run=True)
+        return {"status": "SUCCESS", "compilation": comp_result.to_dict()}
+
+    def p5_compare_plan_versions(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        from akaal.planner.persistence.project_store import ProjectStore
+        from akaal.planner.engine.plan_compiler import PlanCompiler
+
+        store = ProjectStore()
+        version_a_id = payload.get("version_a_id")
+        version_b_id = payload.get("version_b_id")
+
+        if not version_a_id or not version_b_id:
+            return {"status": "ERROR", "message": "version_a_id and version_b_id are required"}
+
+        ver_a = store.load_plan_version(version_a_id)
+        ver_b = store.load_plan_version(version_b_id)
+
+        if not ver_a or not ver_b:
+            return {"status": "ERROR", "message": "PlanVersion(s) not found"}
+
+        compiler = PlanCompiler()
+        diff = compiler.compute_diff(
+            payload_a=ver_a.canonical_payload,
+            payload_b=ver_b.canonical_payload,
+            version_a_id=version_a_id,
+            version_b_id=version_b_id,
+        )
+        return {"status": "SUCCESS", "diff": diff.to_dict()}
+
+    def p5_get_plan_history(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        from akaal.planner.persistence.project_store import ProjectStore
+
+        store = ProjectStore()
+        project_id = payload.get("project_id")
+        if not project_id:
+            return {"status": "ERROR", "message": "project_id is required"}
+
+        versions = store.list_plan_versions(project_id)
+        return {"status": "SUCCESS", "versions": [v.to_dict() for v in versions]}
