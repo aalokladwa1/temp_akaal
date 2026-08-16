@@ -72,6 +72,20 @@ class TestP51EnterprisePlanningAuthority(unittest.TestCase):
 
     def test_02_plan_draft_creation_and_update(self):
         """Tests draft plan creation, persistence, and state update."""
+        proj = MigrationProject(
+            project_id="proj-p51-001",
+            title="Parent Proj",
+            description="",
+            workspace="w",
+            owner="o",
+            environment="e",
+            priority="p",
+            migration_strategy="s",
+            source_instance_ref={"host": "1.1.1.1"},
+            target_instance_ref={"host": "2.2.2.2"},
+        )
+        self.store.save_project(proj)
+
         src_top = SourceTopology(instance_id="src-oracle-prod", endpoint="10.0.0.1:1521", connector_type="ORACLE")
         tgt_top = TargetTopology(instance_id="tgt-pg-prod", endpoint="10.0.0.2:5432", connector_type="POSTGRESQL")
         topo = TopologyDefinition(source=src_top, target=tgt_top, topology_type="1:1")
@@ -95,6 +109,20 @@ class TestP51EnterprisePlanningAuthority(unittest.TestCase):
 
     def test_03_plan_versioning_and_lineage(self):
         """Tests deterministic PlanVersion creation, revision increment, and parent lineage."""
+        proj = MigrationProject(
+            project_id="proj-lineage-001",
+            title="Lineage Proj",
+            description="",
+            workspace="w",
+            owner="o",
+            environment="e",
+            priority="p",
+            migration_strategy="s",
+            source_instance_ref={"host": "1.1.1.1"},
+            target_instance_ref={"host": "2.2.2.2"},
+        )
+        self.store.save_project(proj)
+
         src_top = SourceTopology(instance_id="src-1", endpoint="1.1.1.1", connector_type="ORACLE")
         tgt_top = TargetTopology(instance_id="tgt-1", endpoint="2.2.2.2", connector_type="POSTGRESQL")
         plan = MigrationPlan(
@@ -334,6 +362,107 @@ class TestP51EnterprisePlanningAuthority(unittest.TestCase):
         self.assertEqual(c_res["status"], "SUCCESS")
         self.assertTrue(c_res["compilation"]["success"])
         self.assertIsNotNone(c_res["compilation"]["execution_plan"])
+
+    def test_10_execution_plan_immutability_enforced(self):
+        """Tests that attempting to overwrite an existing ExecutionPlan raises ValueError (immutability rejection)."""
+        proj = MigrationProject(
+            project_id="proj-imm",
+            title="Imm Proj",
+            description="",
+            workspace="w",
+            owner="o",
+            environment="e",
+            priority="p",
+            migration_strategy="s",
+            source_instance_ref={"host": "1.1.1.1"},
+            target_instance_ref={"host": "2.2.2.2"},
+        )
+        self.store.save_project(proj)
+
+        src_top = SourceTopology(instance_id="src-imm", endpoint="loc:1521", connector_type="ORACLE")
+        tgt_top = TargetTopology(instance_id="tgt-imm", endpoint="loc:5432", connector_type="POSTGRESQL")
+        plan = MigrationPlan(
+            plan_id="plan-imm",
+            project_id="proj-imm",
+            title="Imm Plan",
+            planning_mode=PlanningMode.SIMPLE,
+            topology=TopologyDefinition(source=src_top, target=tgt_top),
+            routing=RoutingDefinition(),
+            selected_scope={},
+            configuration={},
+        )
+        self.store.save_plan(plan)
+
+        ver = PlanVersion(
+            version_id="ver-imm",
+            project_id="proj-imm",
+            parent_version_id=None,
+            revision=1,
+            created_at="2026-08-16T12:00:00Z",
+            created_by="Admin",
+            reason="Imm Test",
+            planning_mode=PlanningMode.SIMPLE,
+            canonical_payload=plan.to_dict(),
+            fingerprint="fp123",
+        )
+        self.store.save_plan_version(ver)
+
+        exec_plan = ExecutionPlan(
+            execution_plan_id="exec-plan-imm-1",
+            project_id="proj-imm",
+            plan_version_id="ver-imm",
+            fingerprint="fp123",
+            compiled_at="2026-08-16T12:00:00Z",
+            resolved_topology=plan.topology.to_dict(),
+            resolved_routing=plan.routing.to_dict(),
+            resolved_configuration={},
+            stage1_plan={},
+            dag_stages=[],
+            is_immutable=True,
+        )
+        self.store.save_execution_plan(exec_plan)
+
+        # Attempting to save another execution plan with the same execution_plan_id must fail closed
+        exec_plan_mutated = ExecutionPlan(
+            execution_plan_id="exec-plan-imm-1",
+            project_id="proj-imm",
+            plan_version_id="ver-imm",
+            fingerprint="fp_MUTATED",
+            compiled_at="2026-08-16T12:05:00Z",
+            resolved_topology=plan.topology.to_dict(),
+            resolved_routing=plan.routing.to_dict(),
+            resolved_configuration={"mutated": True},
+            stage1_plan={},
+            dag_stages=[],
+            is_immutable=True,
+        )
+        with self.assertRaises(ValueError):
+            self.store.save_execution_plan(exec_plan_mutated)
+
+    def test_11_fail_closed_deserialization(self):
+        """Tests that loading corrupted plan state fails closed rather than returning dummy fallbacks."""
+        with self.store._get_connection() as conn:
+            conn.execute(
+                """
+                INSERT INTO projects (
+                    project_id, title, description, workspace, owner, environment,
+                    priority, migration_strategy, source_instance_ref, target_instance_ref,
+                    created_at, updated_at
+                ) VALUES ('proj-bad', 'Bad Proj', '', 'w', 'o', 'e', 'p', 's', '{}', '{}', 'now', 'now')
+                """
+            )
+            # Insert plan with corrupted topology missing source/target
+            conn.execute(
+                """
+                INSERT INTO plans (
+                    plan_id, project_id, title, planning_mode, topology, routing,
+                    selected_scope, configuration, status
+                ) VALUES ('plan-corrupt', 'proj-bad', 'Bad Plan', 'SIMPLE', '{}', '{}', '{}', '{}', 'DRAFT')
+                """
+            )
+
+        with self.assertRaises(ValueError):
+            self.store.load_plan("plan-corrupt")
 
 
 if __name__ == "__main__":

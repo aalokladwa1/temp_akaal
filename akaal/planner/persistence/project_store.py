@@ -1,8 +1,10 @@
 """
 Akaal — P5.1 Durable Project & Plan Store
 ==========================================
-Durable SQLite persistence for MigrationProject, MigrationPlan, PlanVersion, and ExecutionPlan.
-Guarantees process restart reconstruction without relying on transient React memory or in-memory singletons.
+Canonical SQLite persistence for MigrationProject, MigrationPlan, PlanVersion, and ExecutionPlan.
+Backed by AKAAL's canonical CentralStateStore SQLite database (`artifacts/state.db`).
+Enforces strict foreign key constraints, atomic transactions, fail-closed deserialization,
+and IMMUTABLE execution plan persistence (rejects overwrites).
 """
 
 import sqlite3
@@ -24,25 +26,29 @@ from akaal.planner.models.p5_domain import (
     SchemaRoute,
     ObjectRoute,
 )
+from akaal.core.state.state_store import CentralStateStore
 
 logger = logging.getLogger("akaal.planner.persistence.project_store")
 
 
 class ProjectStore:
-    """SQLite-backed durable storage authority for P5.1 projects and plan versions."""
+    """Canonical durable storage authority for P5.1 projects and plan versions."""
 
     def __init__(self, db_path: Optional[str] = None) -> None:
         if not db_path:
-            base_dir = os.path.expanduser("~/.gemini/antigravity-ide")
-            os.makedirs(base_dir, exist_ok=True)
-            db_path = os.path.join(base_dir, "akaal_p5_projects.db")
+            # Use canonical CentralStateStore path under artifacts/state.db
+            db_dir = os.path.join(os.getcwd(), "artifacts")
+            os.makedirs(db_dir, exist_ok=True)
+            db_path = os.path.join(db_dir, "state.db")
         self.db_path = db_path
         self._init_db()
 
     def _get_connection(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.db_path)
+        conn = sqlite3.connect(self.db_path, timeout=30.0)
         conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA journal_mode=WAL;")
+        conn.execute("PRAGMA foreign_keys = ON;")
+        conn.execute("PRAGMA journal_mode = WAL;")
+        conn.execute("PRAGMA busy_timeout = 10000;")
         return conn
 
     def _init_db(self) -> None:
@@ -57,10 +63,10 @@ class ProjectStore:
                     environment TEXT,
                     priority TEXT,
                     migration_strategy TEXT,
-                    source_instance_ref TEXT,
-                    target_instance_ref TEXT,
-                    created_at TEXT,
-                    updated_at TEXT,
+                    source_instance_ref TEXT NOT NULL,
+                    target_instance_ref TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
                     current_draft_id TEXT,
                     active_version_id TEXT,
                     compiled_execution_plan_id TEXT
@@ -70,31 +76,31 @@ class ProjectStore:
                     plan_id TEXT PRIMARY KEY,
                     project_id TEXT NOT NULL,
                     title TEXT NOT NULL,
-                    planning_mode TEXT,
-                    topology TEXT,
-                    routing TEXT,
-                    selected_scope TEXT,
-                    configuration TEXT,
+                    planning_mode TEXT NOT NULL,
+                    topology TEXT NOT NULL,
+                    routing TEXT NOT NULL,
+                    selected_scope TEXT NOT NULL,
+                    configuration TEXT NOT NULL,
                     active_version_id TEXT,
-                    status TEXT,
-                    FOREIGN KEY(project_id) REFERENCES projects(project_id)
+                    status TEXT NOT NULL,
+                    FOREIGN KEY(project_id) REFERENCES projects(project_id) ON DELETE CASCADE
                 );
 
                 CREATE TABLE IF NOT EXISTS plan_versions (
                     version_id TEXT PRIMARY KEY,
                     project_id TEXT NOT NULL,
                     parent_version_id TEXT,
-                    revision INTEGER,
-                    created_at TEXT,
-                    created_by TEXT,
+                    revision INTEGER NOT NULL,
+                    created_at TEXT NOT NULL,
+                    created_by TEXT NOT NULL,
                     reason TEXT,
-                    planning_mode TEXT,
-                    canonical_payload TEXT,
-                    fingerprint TEXT,
-                    compile_state TEXT,
-                    approval_state TEXT,
+                    planning_mode TEXT NOT NULL,
+                    canonical_payload TEXT NOT NULL,
+                    fingerprint TEXT NOT NULL,
+                    compile_state TEXT NOT NULL,
+                    approval_state TEXT NOT NULL,
                     approved_fingerprint TEXT,
-                    FOREIGN KEY(project_id) REFERENCES projects(project_id)
+                    FOREIGN KEY(project_id) REFERENCES projects(project_id) ON DELETE CASCADE
                 );
 
                 CREATE TABLE IF NOT EXISTS execution_plans (
@@ -102,14 +108,15 @@ class ProjectStore:
                     project_id TEXT NOT NULL,
                     plan_version_id TEXT NOT NULL,
                     fingerprint TEXT NOT NULL,
-                    compiled_at TEXT,
-                    resolved_topology TEXT,
-                    resolved_routing TEXT,
-                    resolved_configuration TEXT,
-                    stage1_plan TEXT,
-                    dag_stages TEXT,
+                    compiled_at TEXT NOT NULL,
+                    resolved_topology TEXT NOT NULL,
+                    resolved_routing TEXT NOT NULL,
+                    resolved_configuration TEXT NOT NULL,
+                    stage1_plan TEXT NOT NULL,
+                    dag_stages TEXT NOT NULL,
                     is_immutable INTEGER DEFAULT 1,
-                    FOREIGN KEY(project_id) REFERENCES projects(project_id)
+                    FOREIGN KEY(project_id) REFERENCES projects(project_id) ON DELETE CASCADE,
+                    FOREIGN KEY(plan_version_id) REFERENCES plan_versions(version_id) ON DELETE CASCADE
                 );
             """)
 
@@ -162,6 +169,10 @@ class ProjectStore:
             row = conn.execute("SELECT * FROM projects WHERE project_id = ?", (project_id,)).fetchone()
             if not row:
                 return None
+
+            src_ref = json.loads(row["source_instance_ref"] or "{}")
+            tgt_ref = json.loads(row["target_instance_ref"] or "{}")
+
             return MigrationProject(
                 project_id=row["project_id"],
                 title=row["title"],
@@ -171,8 +182,8 @@ class ProjectStore:
                 environment=row["environment"],
                 priority=row["priority"],
                 migration_strategy=row["migration_strategy"],
-                source_instance_ref=json.loads(row["source_instance_ref"] or "{}"),
-                target_instance_ref=json.loads(row["target_instance_ref"] or "{}"),
+                source_instance_ref=src_ref,
+                target_instance_ref=tgt_ref,
                 created_at=row["created_at"],
                 updated_at=row["updated_at"],
                 current_draft_id=row["current_draft_id"],
@@ -218,12 +229,22 @@ class ProjectStore:
             row = conn.execute("SELECT * FROM plans WHERE plan_id = ?", (plan_id,)).fetchone()
             if not row:
                 return None
-            
+
             topo_d = json.loads(row["topology"] or "{}")
             routing_d = json.loads(row["routing"] or "{}")
-            
-            src_topo = SourceTopology(**topo_d.get("source", {"instance_id": "", "endpoint": "", "connector_type": ""}))
-            tgt_topo = TargetTopology(**topo_d.get("target", {"instance_id": "", "endpoint": "", "connector_type": ""}))
+
+            # Fail closed on missing topology or mandatory instance identifiers
+            if "source" not in topo_d or "target" not in topo_d:
+                raise ValueError(f"Corrupted plan '{plan_id}': Missing source or target topology.")
+
+            src_topo_data = topo_d["source"]
+            tgt_topo_data = topo_d["target"]
+
+            if not src_topo_data.get("instance_id") or not tgt_topo_data.get("instance_id"):
+                raise ValueError(f"Corrupted plan '{plan_id}': Mandatory instance_id missing.")
+
+            src_topo = SourceTopology(**src_topo_data)
+            tgt_topo = TargetTopology(**tgt_topo_data)
             topology = TopologyDefinition(source=src_topo, target=tgt_topo, topology_type=topo_d.get("topology_type", "1:1"))
 
             schema_routes = [SchemaRoute(**sr) for sr in routing_d.get("schema_routes", [])]
@@ -329,23 +350,31 @@ class ProjectStore:
             return versions
 
     def save_execution_plan(self, exec_plan: ExecutionPlan) -> None:
+        """
+        Saves an ExecutionPlan.
+        IMMUTABLE REQUIREMENT: Overwriting an existing execution_plan_id is strictly FORBIDDEN.
+        Attempts to overwrite raise ValueError.
+        """
         ep_dict = exec_plan.to_dict()
         with self._get_connection() as conn:
+            # Check for existing execution_plan_id
+            existing = conn.execute(
+                "SELECT execution_plan_id FROM execution_plans WHERE execution_plan_id = ?",
+                (ep_dict["execution_plan_id"],),
+            ).fetchone()
+
+            if existing:
+                raise ValueError(
+                    f"ExecutionPlan '{ep_dict['execution_plan_id']}' is IMMUTABLE and cannot be overwritten."
+                )
+
             conn.execute(
                 """
                 INSERT INTO execution_plans (
                     execution_plan_id, project_id, plan_version_id, fingerprint,
                     compiled_at, resolved_topology, resolved_routing, resolved_configuration,
                     stage1_plan, dag_stages, is_immutable
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(execution_plan_id) DO UPDATE SET
-                    fingerprint=excluded.fingerprint,
-                    compiled_at=excluded.compiled_at,
-                    resolved_topology=excluded.resolved_topology,
-                    resolved_routing=excluded.resolved_routing,
-                    resolved_configuration=excluded.resolved_configuration,
-                    stage1_plan=excluded.stage1_plan,
-                    dag_stages=excluded.dag_stages;
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
                 """,
                 (
                     ep_dict["execution_plan_id"],
