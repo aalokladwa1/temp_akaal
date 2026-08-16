@@ -3632,3 +3632,48 @@ class EngineGateway:
             raise ValueError("close_transport_session requires explicit 'session_id' in payload.")
         asyncio.run(tm.close_transport_session(session_id))
         return {"session_id": session_id, "status": "CLOSED"}
+
+    # -------------------------------------------------------------------------
+    # P4.8 Universal Cross-System Compatibility Methods
+    # -------------------------------------------------------------------------
+    def evaluate_cross_system_compatibility(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        from akaal.connectors.compatibility_engine import UniversalCompatibilityEngine
+        from akaal.connectors.contracts.capability_contract import ConnectorCapabilityContract, SourceCapabilitySpec, TargetCapabilitySpec
+        from akaal.connectors.taxonomy import ConnectorFamily
+        engine = UniversalCompatibilityEngine()
+
+        # Seed standard capability contracts
+        for sys_name in ["ORACLE", "POSTGRESQL", "MYSQL", "MSSQL", "SNOWFLAKE", "MONGODB", "KAFKA", "S3"]:
+            engine.register_capability_contract(ConnectorCapabilityContract(
+                connector_id=f"conn-{sys_name.lower()}",
+                system_type=sys_name,
+                family=ConnectorFamily.RELATIONAL_DATABASE if sys_name in ["ORACLE", "POSTGRESQL", "MYSQL", "MSSQL"] else (
+                    ConnectorFamily.CLOUD_DATA_WAREHOUSE if sys_name == "SNOWFLAKE" else (
+                        ConnectorFamily.DOCUMENT_DATABASE if sys_name == "MONGODB" else (
+                            ConnectorFamily.STREAM_EVENT_PLATFORM if sys_name == "KAFKA" else ConnectorFamily.OBJECT_STORAGE
+                        )
+                    )
+                ),
+                source_spec=SourceCapabilitySpec(cdc_available=True if sys_name in ["POSTGRESQL", "ORACLE", "MYSQL", "KAFKA"] else False),
+                target_spec=TargetCapabilitySpec(cdc_event_application=True if sys_name in ["POSTGRESQL", "MYSQL", "ORACLE"] else False),
+            ))
+
+        src = payload.get("source_system", "ORACLE")
+        tgt = payload.get("target_system", "POSTGRESQL")
+        return engine.evaluate_cross_system_compatibility(src, tgt)
+
+    def generate_compatibility_matrix(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        from akaal.connectors.compatibility_engine import UniversalCompatibilityEngine
+        from akaal.connectors.contracts.capability_contract import ConnectorCapabilityContract
+        from akaal.connectors.taxonomy import ConnectorFamily
+        from akaal.connectors.matrix_generator import DynamicCompatibilityMatrixGenerator
+        engine = UniversalCompatibilityEngine()
+
+        for sys_name in ["ORACLE", "POSTGRESQL", "MYSQL", "MSSQL", "SNOWFLAKE", "MONGODB"]:
+            engine.register_capability_contract(ConnectorCapabilityContract(
+                connector_id=f"conn-{sys_name.lower()}",
+                system_type=sys_name,
+                family=ConnectorFamily.RELATIONAL_DATABASE if sys_name in ["ORACLE", "POSTGRESQL", "MYSQL", "MSSQL"] else ConnectorFamily.CLOUD_DATA_WAREHOUSE,
+            ))
+
+        return gen.generate_matrix()
