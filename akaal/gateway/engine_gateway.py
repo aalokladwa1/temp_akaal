@@ -3538,4 +3538,97 @@ class EngineGateway:
     def get_cdc_migration_history(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         return self.get_migration_lifecycle_history(payload)
 
+    # -------------------------------------------------------------------------
+    # P4.7 Generalized Transport Runtime Methods
+    # -------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
+    # P4.7 Generalized Transport Runtime Methods (Dynamic Plug-and-Play)
+    # -------------------------------------------------------------------------
+    def _build_connection_config_from_payload(self, payload: Dict[str, Any]) -> ConnectionConfig:
+        """Dynamically constructs ConnectionConfig from payload or CloudManagedDatabaseProfile."""
+        if "cloud_profile" in payload and isinstance(payload["cloud_profile"], dict):
+            from akaal.cloud.models import CloudManagedDatabaseProfile
+            from akaal.cloud.resolver import resolve_cloud_profile_to_connection_config
+            profile = CloudManagedDatabaseProfile.from_dict(payload["cloud_profile"])
+            return resolve_cloud_profile_to_connection_config(profile)
 
+        if "connection_config" in payload and isinstance(payload["connection_config"], dict):
+            cfg_dict = payload["connection_config"]
+            sys_str = cfg_dict.get("system_type", "POSTGRESQL")
+            sys_type = SystemType[sys_str] if sys_str in SystemType.__members__ else SystemType.POSTGRESQL
+            return ConnectionConfig(
+                system_type=sys_type,
+                host=cfg_dict.get("host", ""),
+                port=int(cfg_dict.get("port", 0)),
+                database_name=cfg_dict.get("database_name", ""),
+                credentials_ref=cfg_dict.get("credentials_ref", ""),
+                extra=dict(cfg_dict.get("extra", {})),
+            )
+
+        host = payload.get("host")
+        port = payload.get("port")
+        if not host or not port:
+            raise ValueError("Dynamic transport resolution requires explicit 'host' and 'port' parameters or a valid 'cloud_profile' payload.")
+
+        sys_str = payload.get("system_type", "POSTGRESQL")
+        sys_type = SystemType[sys_str] if sys_str in SystemType.__members__ else SystemType.POSTGRESQL
+
+        return ConnectionConfig(
+            system_type=sys_type,
+            host=str(host),
+            port=int(port),
+            database_name=payload.get("database_name", ""),
+            credentials_ref=payload.get("credentials_ref", ""),
+            extra=dict(payload.get("extra", {})),
+        )
+
+    def resolve_transport_path(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        from akaal.transport.transport_manager import get_global_transport_manager
+        tm = get_global_transport_manager()
+        cfg = self._build_connection_config_from_payload(payload)
+        path = tm.resolve_transport_path(cfg)
+        return path.to_sanitized_dict()
+
+    def preflight_transport_path(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        from akaal.transport.transport_manager import get_global_transport_manager
+        tm = get_global_transport_manager()
+        cfg = self._build_connection_config_from_payload(payload)
+        path = tm.resolve_transport_path(cfg)
+        diag = asyncio.run(tm.preflight_transport_path(path))
+        return diag.to_sanitized_dict()
+
+    def open_transport_session(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        from akaal.transport.transport_manager import get_global_transport_manager
+        tm = get_global_transport_manager()
+        cfg = self._build_connection_config_from_payload(payload)
+        path = tm.resolve_transport_path(cfg)
+        job_id = payload.get("job_id", "default-job")
+        session = asyncio.run(tm.open_transport_session(path, job_id=job_id))
+        return session.to_sanitized_dict()
+
+    def get_transport_health(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        from akaal.transport.transport_manager import get_global_transport_manager
+        tm = get_global_transport_manager()
+        session_id = payload.get("session_id")
+        if not session_id:
+            raise ValueError("get_transport_health requires explicit 'session_id' in payload.")
+        diag = asyncio.run(tm.get_transport_health(session_id))
+        return diag.to_sanitized_dict()
+
+    def reconnect_transport_session(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        from akaal.transport.transport_manager import get_global_transport_manager
+        tm = get_global_transport_manager()
+        session_id = payload.get("session_id")
+        if not session_id:
+            raise ValueError("reconnect_transport_session requires explicit 'session_id' in payload.")
+        session = asyncio.run(tm.reconnect_transport_session(session_id))
+        return session.to_sanitized_dict()
+
+    def close_transport_session(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        from akaal.transport.transport_manager import get_global_transport_manager
+        tm = get_global_transport_manager()
+        session_id = payload.get("session_id")
+        if not session_id:
+            raise ValueError("close_transport_session requires explicit 'session_id' in payload.")
+        asyncio.run(tm.close_transport_session(session_id))
+        return {"session_id": session_id, "status": "CLOSED"}

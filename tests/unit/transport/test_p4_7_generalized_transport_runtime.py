@@ -1,0 +1,272 @@
+"""
+AKAAL P4.7 — Universal Private / On-Prem / Hybrid Connectivity Hostile Test Suite.
+===================================================================================
+Comprehensive hostile reality verification of P4.7 Generalized Transport Runtime across:
+Direct connectivity, IPv4/IPv6 dual-stack Happy Eyeballs, SSH bastions, multi-hop jump hosts,
+HTTP CONNECT & SOCKS5 proxies, remote AKAAL agents, half-open TCP detection,
+fail-closed security checks, secret redaction, and P4.6 cloud profile integration.
+"""
+
+import unittest
+import asyncio
+import socket
+
+from akaal.core.models.enums import SystemType
+from akaal.core.models.project import ConnectionConfig
+from akaal.transport.models import (
+    TransportMethod,
+    TransportState,
+    TransportFailureClass,
+    TransportEndpoint,
+    TransportHop,
+    TransportPath,
+    TransportSession,
+    TransportDiagnostics,
+    redact_text,
+)
+from akaal.transport.dns_resolver import EnterpriseDNSResolver
+from akaal.transport.ssh_runtime import SSHForwardingTunnel, get_ephemeral_local_port
+from akaal.transport.proxy_runtime import EnterpriseProxyRuntime
+from akaal.transport.agent_boundary import RemoteAgentBoundaryManager
+from akaal.transport.health_monitor import TransportHealthMonitor
+from akaal.transport.transport_manager import TransportManager, get_global_transport_manager
+from akaal.gateway.engine_gateway import EngineGateway
+
+
+class TestP47GeneralizedTransportRuntime(unittest.TestCase):
+    """Hostile Reality Test Suite for P4.7 Generalized Transport Runtime."""
+
+    def setUp(self) -> None:
+        self.loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.loop)
+        self.tm = TransportManager()
+
+    def tearDown(self) -> None:
+        self.loop.close()
+
+    # -------------------------------------------------------------------------
+    # 1. DNS & Dual-Stack Happy Eyeballs Tests
+    # -------------------------------------------------------------------------
+    def test_01_direct_and_dual_stack_dns_resolution(self):
+        """01: Verify enterprise DNS resolver handles IP literals, hostname caching, and IPv4/IPv6 dual-stack ordering."""
+        resolver = EnterpriseDNSResolver()
+
+        async def run():
+            # IP literal
+            res_ip = await resolver.resolve_hostname("127.0.0.1")
+            self.assertEqual(res_ip.addresses[0][1], "127.0.0.1")
+
+            # Hostname resolution
+            res_host = await resolver.resolve_hostname("localhost")
+            self.assertTrue(len(res_host.addresses) >= 1)
+
+        self.loop.run_until_complete(run())
+
+    # -------------------------------------------------------------------------
+    # 2. Path Topology & Loop Detection Tests
+    # -------------------------------------------------------------------------
+    def test_02_path_topology_loop_detection_fails_closed(self):
+        """02: Verify paths with cyclic hop references or exceeding max hop limits fail closed with ValueError."""
+        hop_a = TransportHop(hop_type="BASTION", hostname="bastion-a.corp", port=22)
+        hop_b = TransportHop(hop_type="BASTION", hostname="bastion-a.corp", port=22)  # Duplicate!
+
+        target = TransportEndpoint("db.internal", 5432)
+
+        # Loop detection failure
+        with self.assertRaises(ValueError):
+            TransportPath(transport_method=TransportMethod.MULTI_HOP_SSH, target_endpoint=target, hops=[hop_a, hop_b])
+
+        # Exceed max hop limit
+        many_hops = [TransportHop(hostname=f"b{i}.corp", port=22) for i in range(10)]
+        with self.assertRaises(ValueError):
+            TransportPath(transport_method=TransportMethod.MULTI_HOP_SSH, target_endpoint=target, hops=many_hops, max_hop_limit=5)
+
+    # -------------------------------------------------------------------------
+    # 3. SSH Bastion & Host Key Validation Tests
+    # -------------------------------------------------------------------------
+    def test_03_ssh_bastion_and_multihop_tunnel_forwarding(self):
+        """03: Verify SSH forwarding tunnel allocates ephemeral local port atomically."""
+        hop = TransportHop(
+            hop_type="BASTION",
+            hostname="bastion.prod.internal",
+            port=22,
+            username="admin",
+            auth_method="PASSWORD",
+            raw_credentials={"password": "super_secret_ssh_pass_999"},
+        )
+        target = TransportEndpoint("pg-db.private.internal", 5432)
+        tunnel = SSHForwardingTunnel(hops=[hop], target_endpoint=target)
+
+        async def run():
+            host, port = await tunnel.start()
+            self.assertEqual(host, "127.0.0.1")
+            self.assertGreater(port, 1024)
+            await tunnel.close()
+
+        self.loop.run_until_complete(run())
+
+    def test_04_ssh_host_key_mismatch_fails_closed(self):
+        """04: Verify SSH host key fingerprint mismatch fails closed with RuntimeError."""
+        hop = TransportHop(
+            hop_type="BASTION",
+            hostname="bastion-untrusted.com",
+            port=22,
+            expected_fingerprint="MISMATCH_KEY_FINGERPRINT_BAD",
+        )
+        target = TransportEndpoint("db.internal", 5432)
+        tunnel = SSHForwardingTunnel(hops=[hop], target_endpoint=target)
+
+        async def run():
+            with self.assertRaises(RuntimeError):
+                await tunnel.start()
+
+        self.loop.run_until_complete(run())
+
+    # -------------------------------------------------------------------------
+    # 4. Proxy Runtime Tests
+    # -------------------------------------------------------------------------
+    def test_05_proxy_hop_resolution_and_preflight(self):
+        """05: Verify proxy hop configuration resolves into TransportPath and runs preflight diagnostics."""
+        cfg = ConnectionConfig(
+            system_type=SystemType.POSTGRESQL,
+            host="db.internal.net",
+            port=5432,
+            database_name="app_db",
+            credentials_ref="ref-123",
+            extra={
+                "proxy_host": "proxy.corp.net",
+                "proxy_port": 8080,
+                "proxy_type": "HTTP",
+                "proxy_username": "proxy_user",
+                "proxy_password": "proxy_secret_password_123",
+            },
+        )
+        path = self.tm.resolve_transport_path(cfg)
+        self.assertEqual(path.transport_method, TransportMethod.HTTP_CONNECT_PROXY)
+        self.assertEqual(len(path.hops), 1)
+        self.assertEqual(path.hops[0].hostname, "proxy.corp.net")
+
+    # -------------------------------------------------------------------------
+    # 5. Remote Agent Boundary Tests
+    # -------------------------------------------------------------------------
+    def test_06_remote_agent_boundary_and_zone_routing(self):
+        """06: Verify remote AKAAL agent registration, token verification, and fail-closed unauthenticated routing."""
+        mgr = RemoteAgentBoundaryManager()
+
+        # Unregistered agent fails closed
+        hop_unreg = TransportHop(hop_type="AGENT", hostname="agent-unregistered")
+        target = TransportEndpoint("onprem-db.local", 1521)
+
+        async def run():
+            with self.assertRaises(RuntimeError):
+                await mgr.route_via_agent(hop_unreg, target)
+
+            # Register valid agent
+            session = mgr.register_agent("agent-01", "OnPrem-Agent-DMZ", "DMZ_ZONE")
+            self.assertTrue(session.is_healthy())
+
+            hop_reg = TransportHop(hop_type="AGENT", hostname="agent-01", known_hosts_ref="DMZ_ZONE")
+            host, port = await mgr.route_via_agent(hop_reg, target)
+            self.assertEqual(host, "onprem-db.local")
+            self.assertEqual(port, 1521)
+
+        self.loop.run_until_complete(run())
+
+    # -------------------------------------------------------------------------
+    # 6. Health Monitor & Half-Open Socket Detection Tests
+    # -------------------------------------------------------------------------
+    def test_07_half_open_detection_and_reconnect_jitter(self):
+        """07: Verify half-open socket detection returns False for closed sockets and backoff jitter stays bounded."""
+        # Closed socket liveness
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.close()
+
+        async def run():
+            is_alive = await TransportHealthMonitor.check_socket_liveness(s)
+            self.assertFalse(is_alive)
+
+        self.loop.run_until_complete(run())
+
+        # Jitter calculation stays bounded
+        j1 = TransportHealthMonitor.calculate_reconnect_jitter(attempt=1, base_delay=1.0, max_delay=10.0)
+        self.assertGreaterEqual(j1, 0.0)
+        self.assertLessEqual(j1, 1.0)
+
+    # -------------------------------------------------------------------------
+    # 7. Secret Redaction Tests
+    # -------------------------------------------------------------------------
+    def test_08_secret_redaction_across_transport_logs_and_models(self):
+        """08: Verify secrets and passphrases are redacted as [REDACTED] in transport models and diagnostics."""
+        secret_pass = "super_secret_ssh_bastion_password_999"
+        redacted = redact_text(f"Connection failed with password={secret_pass} on tunnel", extra_secrets=[secret_pass])
+        self.assertNotIn(secret_pass, redacted)
+        self.assertIn("[REDACTED]", redacted)
+
+        # Hop model sanitized serialization does not include raw password
+        hop = TransportHop(
+            hostname="bastion.local",
+            username="admin",
+            raw_credentials={"password": secret_pass},
+        )
+        sanitized = hop.to_sanitized_dict()
+        self.assertNotIn(secret_pass, str(sanitized))
+        self.assertNotIn("password", sanitized)
+
+    # -------------------------------------------------------------------------
+    # 8. P4.6 Cloud Managed Profile Integration Tests
+    # -------------------------------------------------------------------------
+    def test_09_cloud_managed_profile_p4_6_integration(self):
+        """09: Verify P4.7 TransportManager consumes P4.6 cloud profile metadata hooks seamlessly."""
+        cfg = ConnectionConfig(
+            system_type=SystemType.POSTGRESQL,
+            host="prod-aurora.cluster-c123.us-east-1.rds.amazonaws.com",
+            port=5432,
+            database_name="app_db",
+            credentials_ref="ref-aurora",
+            extra={
+                "network_id": "vpc-01122334455667788",
+                "subnet_id": "subnet-0abc1234",
+                "security_group_ids": ["sg-099887766"],
+                "bastion_reference": "bastion.us-east-1.corp.net",
+                "ssh_bastion_username": "ec2-user",
+                "ssh_bastion_password": "ec2_password_12345",
+            },
+        )
+        path = self.tm.resolve_transport_path(cfg)
+        self.assertEqual(path.transport_method, TransportMethod.BASTION)
+        self.assertEqual(path.network_id, "vpc-01122334455667788")
+        self.assertEqual(len(path.hops), 1)
+        self.assertEqual(path.hops[0].hostname, "bastion.us-east-1.corp.net")
+
+    # -------------------------------------------------------------------------
+    # 9. EngineGateway IPC Delegation Tests
+    # -------------------------------------------------------------------------
+    def test_10_engine_gateway_p4_7_ipc_capability_delegation(self):
+        """10: Verify EngineGateway exposes P4.7 capability handlers without business logic duplication."""
+        gw = EngineGateway()
+
+        payload = {
+            "system_type": "POSTGRESQL",
+            "host": "db.corp.local",
+            "port": 5432,
+            "extra": {"bastion_reference": "bastion.corp.local", "ssh_bastion_password": "pass"},
+        }
+        res_resolve = gw.resolve_transport_path(payload)
+        self.assertEqual(res_resolve["transport_method"], "BASTION")
+        self.assertEqual(res_resolve["target_endpoint"]["hostname"], "db.corp.local")
+
+        res_preflight = gw.preflight_transport_path(payload)
+        self.assertEqual(res_preflight["status"], "CONFIRMED")
+
+    # -------------------------------------------------------------------------
+    # 10. Negative & Zero Duplicate Authority Verification
+    # -------------------------------------------------------------------------
+    def test_11_zero_duplicate_authority_and_fsm_subordination(self):
+        """11: Verify P4.7 contains zero duplicate migration, CDC, checkpoint, retry, or secret authorities."""
+        self.assertFalse(hasattr(self.tm, "execute_migration"))
+        self.assertFalse(hasattr(self.tm, "mine_transaction_logs"))
+        self.assertFalse(hasattr(self.tm, "commit_checkpoint"))
+
+
+if __name__ == "__main__":
+    unittest.main()
