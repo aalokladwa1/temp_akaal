@@ -36,19 +36,20 @@ class PipelineError(Exception):
             PipelineErrorCode.IDEMPOTENCY_CONFLICT: IPCErrorCategory.IDEMPOTENCY_CONFLICT,
             PipelineErrorCode.INVALID_TRANSITION: IPCErrorCategory.INVALID_REQUEST,
             PipelineErrorCode.UNBOUND: IPCErrorCategory.UNBOUND,
-            PipelineErrorCode.UNAVAILABLE: IPCErrorCategory.CAPABILITY_UNAVAILABLE,
+            PipelineErrorCode.UNAVAILABLE: IPCErrorCategory.UNAVAILABLE,
             PipelineErrorCode.UNSUPPORTED: IPCErrorCategory.UNSUPPORTED,
-            PipelineErrorCode.INELIGIBLE: IPCErrorCategory.CAPABILITY_UNAVAILABLE,
-            PipelineErrorCode.NOT_READY: IPCErrorCategory.CAPABILITY_UNAVAILABLE,
-            PipelineErrorCode.POLICY_DENIED: IPCErrorCategory.UNAUTHORIZED,
+            PipelineErrorCode.INELIGIBLE: IPCErrorCategory.INELIGIBLE,
+            PipelineErrorCode.NOT_READY: IPCErrorCategory.NOT_READY,
+            PipelineErrorCode.POLICY_DENIED: IPCErrorCategory.FORBIDDEN,
             PipelineErrorCode.LEASE_CONFLICT: IPCErrorCategory.INVALID_REQUEST,
             PipelineErrorCode.UNABLE_TO_ACQUIRE_LEASE: IPCErrorCategory.INVALID_REQUEST,
-            PipelineErrorCode.STALE_RESULT: IPCErrorCategory.INVALID_REQUEST,
+            PipelineErrorCode.STALE_RESULT: IPCErrorCategory.STALE_RESULT,
             PipelineErrorCode.CHECKPOINT_REJECTED: IPCErrorCategory.INVALID_REQUEST,
             PipelineErrorCode.CONTRACT_INCOMPATIBLE: IPCErrorCategory.PROTOCOL_INCOMPATIBLE,
             PipelineErrorCode.PERSISTENCE_FAILURE: IPCErrorCategory.INTERNAL_ERROR,
             PipelineErrorCode.INTERNAL_ERROR: IPCErrorCategory.INTERNAL_ERROR,
         }
+
         cat = category_map.get(self.code, IPCErrorCategory.INTERNAL_ERROR)
         return make_error(
             cat,

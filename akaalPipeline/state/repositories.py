@@ -57,6 +57,7 @@ class SQLiteMigrationRepository(MigrationRepositoryPort):
                     workspace_id TEXT,
                     project_id TEXT,
                     configuration TEXT NOT NULL,
+                    plan_id TEXT,
                     initialization_id TEXT,
                     active_attempt_id TEXT,
                     active_schedule_id TEXT,
@@ -90,7 +91,7 @@ class SQLiteMigrationRepository(MigrationRepositoryPort):
                     UPDATE migrations SET
                         revision = ?, name = ?, mode = ?, state = ?, tenant_id = ?,
                         workspace_id = ?, project_id = ?, configuration = ?,
-                        initialization_id = ?, active_attempt_id = ?, active_schedule_id = ?,
+                        plan_id = ?, initialization_id = ?, active_attempt_id = ?, active_schedule_id = ?,
                         lineage = ?, updated_at = ?
                     WHERE migration_id = ? AND revision = ?
                     """,
@@ -103,6 +104,7 @@ class SQLiteMigrationRepository(MigrationRepositoryPort):
                         aggregate.workspace_id,
                         aggregate.project_id,
                         json.dumps(aggregate.configuration),
+                        aggregate.plan_id,
                         aggregate.initialization_id,
                         aggregate.active_attempt_id,
                         aggregate.active_schedule_id,
@@ -117,9 +119,9 @@ class SQLiteMigrationRepository(MigrationRepositoryPort):
                     """
                     INSERT INTO migrations (
                         migration_id, revision, name, mode, state, tenant_id, workspace_id,
-                        project_id, configuration, initialization_id, active_attempt_id,
+                        project_id, configuration, plan_id, initialization_id, active_attempt_id,
                         active_schedule_id, lineage, created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         aggregate.migration_id,
@@ -131,6 +133,7 @@ class SQLiteMigrationRepository(MigrationRepositoryPort):
                         aggregate.workspace_id,
                         aggregate.project_id,
                         json.dumps(aggregate.configuration),
+                        aggregate.plan_id,
                         aggregate.initialization_id,
                         aggregate.active_attempt_id,
                         aggregate.active_schedule_id,
@@ -171,6 +174,7 @@ class SQLiteMigrationRepository(MigrationRepositoryPort):
                 "workspace_id": row["workspace_id"],
                 "project_id": row["project_id"],
                 "configuration": json.loads(row["configuration"]),
+                "plan_id": row["plan_id"] if "plan_id" in row.keys() else None,
                 "initialization_id": row["initialization_id"],
                 "active_attempt_id": row["active_attempt_id"],
                 "active_schedule_id": row["active_schedule_id"],
@@ -179,6 +183,7 @@ class SQLiteMigrationRepository(MigrationRepositoryPort):
                 "updated_at": row["updated_at"],
             }
             return MigrationAggregate.from_dict(data)
+
         finally:
             if owns_conn:
                 conn.close()

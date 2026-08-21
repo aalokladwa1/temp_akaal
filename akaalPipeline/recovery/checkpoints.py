@@ -115,3 +115,61 @@ class CheckpointManager:
                 candidate.created_at,
             ),
         )
+
+    def get_checkpoint(
+        self,
+        checkpoint_id: str,
+        conn: sqlite3.Connection,
+        actor: Optional[Any] = None,
+    ) -> Optional[CheckpointCandidate]:
+        cur = conn.execute("SELECT * FROM checkpoints WHERE checkpoint_id = ?", (checkpoint_id,))
+        row = cur.fetchone()
+        if row is None:
+            return None
+
+        if actor is not None:
+            lease = self.lease_manager.get_lease(row["attempt_id"], conn)
+            org_id = getattr(actor, "organization_id", None)
+            actor_id = getattr(actor, "actor_id", None)
+            if lease is not None and org_id and lease.owner_id not in (actor_id, org_id, f"org-{org_id}"):
+                from akaalPipeline.contracts.errors import PolicyDeniedError
+                raise PolicyDeniedError(f"Access denied: Checkpoint {checkpoint_id!r} belongs to a different tenant/owner.")
+
+        return CheckpointCandidate(
+            checkpoint_id=row["checkpoint_id"],
+            attempt_id=row["attempt_id"],
+            engine_invocation_id=row["invocation_id"],
+            lease_id=row["lease_id"],
+            fence_epoch=row["fence_epoch"],
+            graph_node_id=row["graph_node_id"],
+            initialization_fingerprint=row["initialization_fingerprint"],
+            engine_binding=row["binding_id"],
+            checkpoint_payload_reference=row["payload_reference"],
+            created_at=row["created_at"],
+        )
+
+    def get_latest_checkpoint_for_attempt(
+        self,
+        attempt_id: str,
+        conn: sqlite3.Connection,
+        actor: Optional[Any] = None,
+    ) -> Optional[CheckpointCandidate]:
+        cur = conn.execute(
+            "SELECT * FROM checkpoints WHERE attempt_id = ? ORDER BY created_at DESC LIMIT 1",
+            (attempt_id,),
+        )
+        row = cur.fetchone()
+        if row is None:
+            return None
+        return CheckpointCandidate(
+            checkpoint_id=row["checkpoint_id"],
+            attempt_id=row["attempt_id"],
+            engine_invocation_id=row["invocation_id"],
+            lease_id=row["lease_id"],
+            fence_epoch=row["fence_epoch"],
+            graph_node_id=row["graph_node_id"],
+            initialization_fingerprint=row["initialization_fingerprint"],
+            engine_binding=row["binding_id"],
+            checkpoint_payload_reference=row["payload_reference"],
+            created_at=row["created_at"],
+        )

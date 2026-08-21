@@ -23,7 +23,9 @@ class EngineInvocationRequest:
     graph_node_id: str
     initialization_fingerprint: str
     payload: Mapping[str, Any]
+    checkpoint_id: Optional[str] = None
     timeout_seconds: int = 300
+
 
 
 @dataclass(frozen=True)
@@ -35,10 +37,15 @@ class EngineInvocationResult:
     is_success: bool
     initialization_fingerprint: Optional[str] = None
     graph_node_id: Optional[str] = None
+    binding_id: Optional[str] = None
+    contract_version: Optional[str] = "1.0.0"
     result_payload: Mapping[str, Any] = field(default_factory=dict)
     error_code: Optional[str] = None
     error_message: Optional[str] = None
+    is_in_progress: bool = False
     timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+
 
 
 

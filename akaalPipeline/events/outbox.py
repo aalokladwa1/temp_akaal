@@ -23,6 +23,9 @@ class OutboxEvent:
     created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
+from akaalPipeline.contracts.serialization import _to_json_safe
+
+
 class OutboxService:
     def stage_event(self, event: DomainEvent, conn: sqlite3.Connection) -> None:
         conn.execute(
@@ -34,11 +37,12 @@ class OutboxService:
                 event.event_id,
                 event.aggregate_id,
                 event.event_type,
-                json.dumps(dict(event.payload)),
+                json.dumps(_to_json_safe(event.payload)),
                 "PENDING",
                 event.timestamp,
             ),
         )
+
 
     def fetch_pending(self, conn: sqlite3.Connection, limit: int = 50) -> List[OutboxEvent]:
         cur = conn.execute(

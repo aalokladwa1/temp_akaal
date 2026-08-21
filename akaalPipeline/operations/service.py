@@ -78,3 +78,5 @@ class OperationService:
             "updated_at": row["updated_at"],
         }
         return OperationRecord.from_dict(data)
+
+    get_operation = get_by_id

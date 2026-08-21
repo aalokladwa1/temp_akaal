@@ -15,6 +15,9 @@ from akaalPipeline.security.context import PipelineActorContext
 from akaalPipeline.state.lifecycle import MigrationLifecycleMachine
 
 
+from akaalPipeline.configuration.invalidation import ConfigurationInvalidator
+
+
 @dataclass
 class MigrationAggregate:
     migration_id: str
@@ -26,6 +29,7 @@ class MigrationAggregate:
     workspace_id: Optional[str] = None
     project_id: Optional[str] = None
     configuration: Mapping[str, Any] = field(default_factory=dict)
+    plan_id: Optional[str] = None
     initialization_id: Optional[str] = None
     active_attempt_id: Optional[str] = None
     active_schedule_id: Optional[str] = None
@@ -52,9 +56,28 @@ class MigrationAggregate:
                 expected_revision=expected_revision,
                 actual_revision=self.revision,
             )
+        effect = ConfigurationInvalidator.classify_change(self.configuration, new_config)
         self.configuration = dict(new_config)
-        if self.state in (MigrationLifecycleState.DRAFT, MigrationLifecycleState.DISCOVERED, MigrationLifecycleState.PLANNED):
+        if effect.invalidates_initialization or effect.invalidates_plan:
+            self.initialization_id = None
+            self.plan_id = None
+            self.active_schedule_id = None
             self.state = MigrationLifecycleState.CONFIGURING
+        elif self.state in (MigrationLifecycleState.DRAFT, MigrationLifecycleState.DISCOVERED, MigrationLifecycleState.PLANNED):
+            self.state = MigrationLifecycleState.CONFIGURING
+        self.revision += 1
+        self.updated_at = datetime.now(timezone.utc).isoformat()
+
+    def set_plan(self, plan_id: str, expected_revision: int) -> None:
+        if self.revision != expected_revision:
+            raise RevisionConflictError(
+                f"Revision conflict setting plan for migration {self.migration_id!r}",
+                expected_revision=expected_revision,
+                actual_revision=self.revision,
+            )
+        self.plan_id = plan_id
+        MigrationLifecycleMachine.validate_transition(self.state, MigrationLifecycleState.PLANNED)
+        self.state = MigrationLifecycleState.PLANNED
         self.revision += 1
         self.updated_at = datetime.now(timezone.utc).isoformat()
 
@@ -82,6 +105,7 @@ class MigrationAggregate:
             "workspace_id": self.workspace_id,
             "project_id": self.project_id,
             "configuration": dict(self.configuration),
+            "plan_id": self.plan_id,
             "initialization_id": self.initialization_id,
             "active_attempt_id": self.active_attempt_id,
             "active_schedule_id": self.active_schedule_id,
@@ -102,6 +126,7 @@ class MigrationAggregate:
             workspace_id=data.get("workspace_id"),
             project_id=data.get("project_id"),
             configuration=data.get("configuration", {}),
+            plan_id=data.get("plan_id"),
             initialization_id=data.get("initialization_id"),
             active_attempt_id=data.get("active_attempt_id"),
             active_schedule_id=data.get("active_schedule_id"),

@@ -19,7 +19,9 @@ class MigrationLifecycleState(str, Enum):
     ACTIVE = "ACTIVE"
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
     ARCHIVED = "ARCHIVED"
+
 
 
 class AttemptLifecycleState(str, Enum):
@@ -54,6 +56,25 @@ class OperationStatus(str, Enum):
     SUCCEEDED = "SUCCEEDED"
     FAILED = "FAILED"
     CANCELLED = "CANCELLED"
+
+
+class PlanExecutionStatus(str, Enum):
+    ACCEPTED = "ACCEPTED"
+    RUNNING = "RUNNING"
+    SUCCEEDED = "SUCCEEDED"
+    FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
+
+
+class NodeExecutionState(str, Enum):
+    BLOCKED = "BLOCKED"
+    READY = "READY"
+    ACCEPTED = "ACCEPTED"
+    DISPATCHED = "DISPATCHED"
+    SUCCEEDED = "SUCCEEDED"
+    FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
+
 
 
 class MigrationMode(str, Enum):

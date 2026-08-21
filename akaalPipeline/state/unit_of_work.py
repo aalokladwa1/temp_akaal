@@ -75,6 +75,7 @@ class SQLiteUnitOfWork(UnitOfWorkPort):
                 workspace_id TEXT,
                 project_id TEXT,
                 configuration TEXT NOT NULL,
+                plan_id TEXT,
                 initialization_id TEXT,
                 active_attempt_id TEXT,
                 active_schedule_id TEXT,
@@ -82,6 +83,7 @@ class SQLiteUnitOfWork(UnitOfWorkPort):
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             );
+
 
             CREATE TABLE IF NOT EXISTS lifecycle_history (
                 history_id TEXT PRIMARY KEY,
@@ -117,12 +119,19 @@ class SQLiteUnitOfWork(UnitOfWorkPort):
             );
 
             CREATE TABLE IF NOT EXISTS idempotency_records (
-                idempotency_key TEXT PRIMARY KEY,
-                command_id TEXT NOT NULL,
+                record_id TEXT PRIMARY KEY,
+                idempotency_key TEXT NOT NULL,
+                tenant_id TEXT NOT NULL DEFAULT 'default-tenant',
+                workspace_id TEXT NOT NULL DEFAULT 'default-workspace',
+                project_id TEXT,
+                command_name TEXT NOT NULL DEFAULT 'command',
+                command_id TEXT NOT NULL DEFAULT 'cmd',
                 payload_fingerprint TEXT NOT NULL,
                 result_payload TEXT NOT NULL,
                 created_at TEXT NOT NULL
             );
+
+
 
             CREATE TABLE IF NOT EXISTS schedules (
                 schedule_id TEXT PRIMARY KEY,
@@ -180,11 +189,56 @@ class SQLiteUnitOfWork(UnitOfWorkPort):
             CREATE TABLE IF NOT EXISTS projection_views (
                 view_name TEXT NOT NULL,
                 entity_id TEXT NOT NULL,
+                tenant_id TEXT NOT NULL DEFAULT 'default-tenant',
+                workspace_id TEXT NOT NULL DEFAULT 'default-workspace',
+                project_id TEXT NOT NULL DEFAULT '',
                 data TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
-                PRIMARY KEY (view_name, entity_id)
+                PRIMARY KEY (view_name, entity_id, tenant_id, workspace_id, project_id)
             );
+
+            CREATE TABLE IF NOT EXISTS plan_executions (
+                execution_id TEXT PRIMARY KEY,
+                migration_id TEXT NOT NULL,
+                plan_id TEXT NOT NULL,
+                plan_fingerprint TEXT NOT NULL,
+                initialization_fingerprint TEXT NOT NULL,
+                tenant_id TEXT NOT NULL,
+                workspace_id TEXT NOT NULL,
+                project_id TEXT NOT NULL,
+                status TEXT NOT NULL,
+                start_operation_id TEXT,
+                checkpoint_id TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS node_executions (
+                node_execution_id TEXT PRIMARY KEY,
+                execution_id TEXT NOT NULL,
+                migration_id TEXT NOT NULL,
+                graph_node_id TEXT NOT NULL,
+                capability_contract TEXT NOT NULL,
+                side_effect TEXT NOT NULL,
+                state TEXT NOT NULL,
+                current_attempt_id TEXT,
+                current_invocation_id TEXT,
+                binding_id TEXT,
+                contract_version TEXT,
+                lease_id TEXT,
+                fence_epoch INTEGER,
+                checkpoint_id TEXT,
+                result_payload TEXT,
+                error TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                UNIQUE (execution_id, graph_node_id)
+            );
+
         """)
+
+
+
         if not self._shared_conn:
             conn.commit()
 

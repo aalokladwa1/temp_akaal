@@ -17,6 +17,8 @@ from akaalPipeline.contracts.enums import CapabilityDimension, MigrationMode
 class CapabilityEvaluationResult:
     capability_id: str
     is_available: bool
+    selected_binding_id: Optional[str] = None
+    selected_binding: Optional[EngineBindingDescriptor] = None
     blockers: List[str] = field(default_factory=list)
     dimension_status: Dict[CapabilityDimension, bool] = field(default_factory=dict)
 
@@ -37,11 +39,13 @@ class CapabilityResolver:
         mode: MigrationMode,
         *,
         active_binding_id: Optional[str] = None,
+        contract_version: Optional[str] = None,
         is_authorized: bool = True,
         is_ready: bool = True,
     ) -> CapabilityEvaluationResult:
         blockers: List[str] = []
         dim_status: Dict[CapabilityDimension, bool] = {}
+        selected_binding: Optional[EngineBindingDescriptor] = None
 
         # 1. CATALOG check
         desc = self.catalog.get(capability_id)
@@ -63,26 +67,35 @@ class CapabilityResolver:
         else:
             dim_status[CapabilityDimension.ELIGIBILITY] = True
 
-        # 3. BINDING check (truthful check for physical engine binding)
+        # 3. BINDING check (truthful check for capability-specific physical engine binding)
         all_bindings = self.binding_registry.list_all()
         if active_binding_id:
             binding = self.binding_registry.get(active_binding_id)
-            bindings_to_check = [binding] if binding else []
-        else:
-            bindings_to_check = all_bindings
+            all_bindings = [binding] if binding else []
 
-        if not bindings_to_check:
+        # Filter bindings by capability contract, mode, and contract version compatibility
+        matching_bindings = [
+            b for b in all_bindings
+            if b is not None
+            and capability_id in b.supported_capabilities
+            and (mode is None or mode in b.supported_modes)
+            and (not contract_version or b.contract_version == contract_version)
+        ]
+
+
+        if not matching_bindings:
             blockers.append(f"No physical engine binding registered for capability {capability_id!r} (UNBOUND).")
             dim_status[CapabilityDimension.BINDING] = False
             dim_status[CapabilityDimension.HEALTH] = False
         else:
             dim_status[CapabilityDimension.BINDING] = True
-            healthy_bindings = [b for b in bindings_to_check if b and b.is_healthy]
+            healthy_bindings = [b for b in matching_bindings if b.is_healthy]
             if not healthy_bindings:
                 blockers.append(f"Registered engine binding for capability {capability_id!r} is unhealthy (UNAVAILABLE).")
                 dim_status[CapabilityDimension.HEALTH] = False
             else:
                 dim_status[CapabilityDimension.HEALTH] = True
+                selected_binding = healthy_bindings[0]
 
         # 4. DEPENDENCY check
         deps_satisfied, missing_deps = self.dependency_evaluator.evaluate_dependencies([capability_id])
@@ -106,6 +119,8 @@ class CapabilityResolver:
         return CapabilityEvaluationResult(
             capability_id=capability_id,
             is_available=is_available,
+            selected_binding_id=selected_binding.binding_id if selected_binding and is_available else None,
+            selected_binding=selected_binding if is_available else None,
             blockers=blockers,
             dimension_status=dim_status,
         )

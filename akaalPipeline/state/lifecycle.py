@@ -12,18 +12,21 @@ from akaalPipeline.contracts.errors import PipelineError, PipelineErrorCode
 # Allowed Migration Lifecycle transitions:
 # DRAFT -> CONFIGURING -> DISCOVERED -> PLANNED -> GOVERNANCE_PENDING -> AUTHORIZED -> INITIALIZED -> ACTIVE -> COMPLETED / FAILED / ARCHIVED
 _VALID_MIGRATION_TRANSITIONS: dict[MigrationLifecycleState, Set[MigrationLifecycleState]] = {
-    MigrationLifecycleState.DRAFT: {MigrationLifecycleState.CONFIGURING, MigrationLifecycleState.ARCHIVED},
-    MigrationLifecycleState.CONFIGURING: {MigrationLifecycleState.DISCOVERED, MigrationLifecycleState.DRAFT, MigrationLifecycleState.ARCHIVED},
-    MigrationLifecycleState.DISCOVERED: {MigrationLifecycleState.PLANNED, MigrationLifecycleState.CONFIGURING, MigrationLifecycleState.ARCHIVED},
-    MigrationLifecycleState.PLANNED: {MigrationLifecycleState.GOVERNANCE_PENDING, MigrationLifecycleState.AUTHORIZED, MigrationLifecycleState.CONFIGURING, MigrationLifecycleState.ARCHIVED},
-    MigrationLifecycleState.GOVERNANCE_PENDING: {MigrationLifecycleState.AUTHORIZED, MigrationLifecycleState.PLANNED, MigrationLifecycleState.FAILED, MigrationLifecycleState.ARCHIVED},
-    MigrationLifecycleState.AUTHORIZED: {MigrationLifecycleState.INITIALIZED, MigrationLifecycleState.CONFIGURING, MigrationLifecycleState.ARCHIVED},
-    MigrationLifecycleState.INITIALIZED: {MigrationLifecycleState.ACTIVE, MigrationLifecycleState.FAILED, MigrationLifecycleState.ARCHIVED},
-    MigrationLifecycleState.ACTIVE: {MigrationLifecycleState.COMPLETED, MigrationLifecycleState.FAILED, MigrationLifecycleState.INITIALIZED, MigrationLifecycleState.ARCHIVED},
+    MigrationLifecycleState.DRAFT: {MigrationLifecycleState.CONFIGURING, MigrationLifecycleState.PLANNED, MigrationLifecycleState.INITIALIZED, MigrationLifecycleState.CANCELLED, MigrationLifecycleState.ARCHIVED},
+    MigrationLifecycleState.CONFIGURING: {MigrationLifecycleState.DISCOVERED, MigrationLifecycleState.PLANNED, MigrationLifecycleState.INITIALIZED, MigrationLifecycleState.DRAFT, MigrationLifecycleState.CANCELLED, MigrationLifecycleState.ARCHIVED},
+    MigrationLifecycleState.DISCOVERED: {MigrationLifecycleState.PLANNED, MigrationLifecycleState.CONFIGURING, MigrationLifecycleState.CANCELLED, MigrationLifecycleState.ARCHIVED},
+    MigrationLifecycleState.PLANNED: {MigrationLifecycleState.GOVERNANCE_PENDING, MigrationLifecycleState.AUTHORIZED, MigrationLifecycleState.INITIALIZED, MigrationLifecycleState.CONFIGURING, MigrationLifecycleState.CANCELLED, MigrationLifecycleState.ARCHIVED},
+    MigrationLifecycleState.GOVERNANCE_PENDING: {MigrationLifecycleState.AUTHORIZED, MigrationLifecycleState.PLANNED, MigrationLifecycleState.INITIALIZED, MigrationLifecycleState.FAILED, MigrationLifecycleState.CANCELLED, MigrationLifecycleState.ARCHIVED},
+    MigrationLifecycleState.AUTHORIZED: {MigrationLifecycleState.INITIALIZED, MigrationLifecycleState.CONFIGURING, MigrationLifecycleState.CANCELLED, MigrationLifecycleState.ARCHIVED},
+    MigrationLifecycleState.INITIALIZED: {MigrationLifecycleState.ACTIVE, MigrationLifecycleState.CONFIGURING, MigrationLifecycleState.FAILED, MigrationLifecycleState.CANCELLED, MigrationLifecycleState.ARCHIVED},
+    MigrationLifecycleState.ACTIVE: {MigrationLifecycleState.COMPLETED, MigrationLifecycleState.FAILED, MigrationLifecycleState.INITIALIZED, MigrationLifecycleState.CANCELLED, MigrationLifecycleState.ARCHIVED},
     MigrationLifecycleState.COMPLETED: {MigrationLifecycleState.ARCHIVED},
-    MigrationLifecycleState.FAILED: {MigrationLifecycleState.INITIALIZED, MigrationLifecycleState.CONFIGURING, MigrationLifecycleState.ARCHIVED},
+    MigrationLifecycleState.FAILED: {MigrationLifecycleState.INITIALIZED, MigrationLifecycleState.CONFIGURING, MigrationLifecycleState.CANCELLED, MigrationLifecycleState.ARCHIVED},
+    MigrationLifecycleState.CANCELLED: {MigrationLifecycleState.INITIALIZED, MigrationLifecycleState.CONFIGURING, MigrationLifecycleState.ARCHIVED},
     MigrationLifecycleState.ARCHIVED: set(),
 }
+
+
 
 # Allowed Attempt Lifecycle transitions:
 _VALID_ATTEMPT_TRANSITIONS: dict[AttemptLifecycleState, Set[AttemptLifecycleState]] = {

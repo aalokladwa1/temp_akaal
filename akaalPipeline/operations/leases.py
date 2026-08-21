@@ -120,8 +120,30 @@ class LeaseManager:
             initialization_fingerprint=row["initialization_fingerprint"],
         )
 
+    def revoke_lease(self, attempt_id: str, conn: sqlite3.Connection) -> None:
+        """Revoke active lease and advance fence epoch so in-flight engine execution cannot reconcile."""
+        now = datetime.now(timezone.utc).isoformat()
+        cur = conn.execute("SELECT fence_epoch FROM leases WHERE attempt_id = ?", (attempt_id,))
+        row = cur.fetchone()
+        if row is not None:
+            new_epoch = row["fence_epoch"] + 1
+            past_iso = "1970-01-01T00:00:00Z"
+            conn.execute(
+                """
+                UPDATE leases SET expires_at = ?, fence_epoch = ?, renewed_at = ?
+                WHERE attempt_id = ?
+                """,
+                (past_iso, new_epoch, now, attempt_id),
+            )
+
     def get_lease(self, attempt_id: str, conn: sqlite3.Connection) -> Optional[ExecutionLease]:
-        cur = conn.execute("SELECT * FROM leases WHERE attempt_id = ?", (attempt_id,))
+        cur = conn.execute(
+            """
+            SELECT lease_id, attempt_id, owner_id, fence_epoch, issued_at, expires_at, renewed_at, initialization_fingerprint
+            FROM leases WHERE attempt_id = ?
+            """,
+            (attempt_id,),
+        )
         row = cur.fetchone()
         if row is None:
             return None

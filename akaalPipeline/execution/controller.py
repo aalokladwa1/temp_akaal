@@ -40,14 +40,18 @@ class PipelineExecutionController:
         initialization_fingerprint: str,
         graph_node_id: str,
         conn: sqlite3.Connection,
+        capability_contract: Optional[str] = None,
         owner_id: str = "pipeline-controller-1",
         timeout_seconds: int = 300,
     ) -> EngineInvocationResult:
         """Admit attempt, acquire lease, check physical engine binding. Fail closed if unbound or engine error."""
+        target_capability = capability_contract or "data_transport"
+
         # 1. Evaluate capability truth
         eval_res = self.capability_resolver.evaluate_capability(
-            capability_id="data_transport",
+            capability_id=target_capability,
             mode=mode,
+            contract_version="1.0.0",
         )
 
         # 2. Acquire execution lease & fence epoch
@@ -82,12 +86,10 @@ class PipelineExecutionController:
                 error_message=error_msg,
             )
 
-        # 4. If engine binding exists, dispatch to physical ExecutionPort
-        bindings = self.binding_registry.list_all()
-        healthy_binding = next((b for b in bindings if b.is_healthy and isinstance(b.port_instance, ExecutionPort)), None)
-
-        if healthy_binding is None:
-            error_msg = "No healthy ExecutionPort engine binding registered (UNBOUND)."
+        # 4. Dispatch ONLY to the exact resolver-selected binding authority
+        matching_binding = eval_res.selected_binding
+        if matching_binding is None or not isinstance(matching_binding.port_instance, ExecutionPort):
+            error_msg = f"No healthy ExecutionPort engine binding registered for capability {target_capability!r} (UNBOUND)."
             self.operation_service.update_status(
                 operation_id,
                 OperationStatus.FAILED,
@@ -109,7 +111,7 @@ class PipelineExecutionController:
 
         req = EngineInvocationRequest(
             contract_version="1.0.0",
-            binding_id=healthy_binding.binding_id,
+            binding_id=matching_binding.binding_id,
             correlation_id=operation_id,
             operation_id=operation_id,
             attempt_id=attempt_id,
@@ -122,8 +124,25 @@ class PipelineExecutionController:
             timeout_seconds=timeout_seconds,
         )
 
-        exec_port: ExecutionPort = healthy_binding.port_instance
-        res = exec_port.execute_task(req)
+        exec_port: ExecutionPort = matching_binding.port_instance
+        try:
+            res = exec_port.execute_task(req)
+        except Exception as exc:
+            self.operation_service.update_status(
+                operation_id,
+                OperationStatus.FAILED,
+                conn,
+                error={"code": "ENGINE_DISPATCH_ERROR", "message": str(exc)},
+            )
+            return EngineInvocationResult(
+                invocation_id=inv_id,
+                attempt_id=attempt_id,
+                lease_id=lease.lease_id,
+                fence_epoch=lease.fence_epoch,
+                is_success=False,
+                error_code="ENGINE_DISPATCH_ERROR",
+                error_message=f"Engine port failed: {exc}",
+            )
 
         if res.is_success:
             self.operation_service.update_status(
@@ -139,5 +158,4 @@ class PipelineExecutionController:
                 conn,
                 error={"code": res.error_code or "ENGINE_ERROR", "message": res.error_message or "Engine execution failed"},
             )
-
         return res

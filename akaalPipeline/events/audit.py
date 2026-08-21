@@ -32,6 +32,8 @@ class AuditTrailService:
         correlation_id: Optional[str] = None,
         causation_id: Optional[str] = None,
         evidence_fingerprint: Optional[str] = None,
+        details: Optional[Any] = None,
+        **kwargs: Any,
     ) -> AuditRecord:
         audit_id = f"aud-{uuid.uuid4().hex}"
 
@@ -53,3 +55,23 @@ class AuditTrailService:
             (rec.audit_id, rec.actor_id, rec.action, rec.correlation_id, rec.causation_id, rec.evidence_fingerprint, rec.created_at),
         )
         return rec
+
+    def record_event(
+        self,
+        actor: Any,
+        action: str,
+        resource_id: str,
+        conn: sqlite3.Connection,
+        correlation_id: Optional[str] = None,
+        details: Optional[Any] = None,
+        **kwargs: Any,
+    ) -> AuditRecord:
+        actor_id = getattr(actor, "actor_id", str(actor))
+        return self.record_audit(
+            actor_id=actor_id,
+            action=action,
+            conn=conn,
+            correlation_id=correlation_id,
+            causation_id=resource_id,
+            details=details,
+        )

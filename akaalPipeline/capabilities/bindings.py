@@ -5,8 +5,9 @@ Engine binding descriptors & registry for physical engine ports.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any, List, Optional
+from dataclasses import dataclass, field
+from typing import Any, List, Optional, Set
+from akaalPipeline.contracts.enums import MigrationMode
 
 
 @dataclass(frozen=True)
@@ -14,8 +15,13 @@ class EngineBindingDescriptor:
     binding_id: str
     engine_name: str
     version: str
-    is_healthy: bool
     port_instance: Any  # Port implementation object satisfying engine port protocols
+    is_healthy: bool = True
+    supported_capabilities: Set[str] = field(default_factory=set)
+    supported_modes: Set[MigrationMode] = field(default_factory=set)
+    contract_version: str = "1.0.0"
+
+
 
 
 class BindingRegistry:
