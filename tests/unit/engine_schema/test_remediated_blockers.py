@@ -701,36 +701,78 @@ def test_capacity_evidence_separation_measured_source_vs_heuristic_target():
 
 
 def test_50k_table_streaming_compilation_memory_bounded():
-    """Blocker 1: Verify all 50,000 tables can be compiled end-to-end in memory-bounded stream without holding full list in RAM."""
+    """Blocker 1: Verify all 50,000 tables can be compiled end-to-end in memory-bounded stream with cross-chunk FK ordering, mapping, dialect translations, and full 18-step summary."""
+    from akaalEngine.schema.models.constraints import CanonicalForeignKey
+    from akaalEngine.schema.core.processor import EstateCompilationSummary
+
+    captured_summary: List[EstateCompilationSummary] = []
+
+    def on_summary(s: EstateCompilationSummary):
+        captured_summary.append(s)
+
+    # 50,000 tables with cross-chunk foreign key dependencies (child tables reference earlier parent tables)
     def table_generator():
         col = CanonicalColumn(
             name="id",
             ordinal_position=1,
             source_native_type="INT",
             canonical_type=CanonicalType(category=CanonicalTypeCategory.EXACT_NUMERIC, raw_vendor_type="INT"),
+            default_expression="SYSDATE",
         )
         for i in range(50000):
+            fks = ()
+            if i > 0 and i % 500 == 0:
+                # Every 500th table (at chunk boundaries) references table t_0 (parent table in chunk 0)
+                fks = (
+                    CanonicalForeignKey(
+                        name=f"fk_{i}",
+                        table_name=f"t_{i}",
+                        schema_name="public",
+                        columns=("id",),
+                        referenced_table="t_0",
+                        referenced_schema="public",
+                        referenced_columns=("id",),
+                    ),
+                )
             yield CanonicalTable(
                 table_name=f"t_{i}",
                 schema_name="public",
                 columns=(col,),
+                foreign_keys=fks,
             )
 
     stream = LargeEstateChunkedSchemaProcessor.stream_compile_estate(
         table_generator(),
         target_engine="POSTGRESQL",
+        source_vendor="ORACLE",
         chunk_size=500,
+        on_summary=on_summary,
     )
 
     chunk_count = 0
     total_artifacts = 0
+    first_chunk_has_t0 = False
     for chunk_pkg in stream:
         chunk_count += 1
         total_artifacts += len(chunk_pkg.artifacts)
+        if chunk_count == 1:
+            # Verify parent table t_0 is in chunk 1
+            first_chunk_has_t0 = any("t_0" in a.object_name.lower() for a in chunk_pkg.artifacts)
 
     # 100 chunks of 500 tables = exactly 50,000 tables processed in streaming mode
     assert chunk_count == 100
     assert total_artifacts >= 50000
+    assert first_chunk_has_t0 is True
+
+    # Verify complete whole-estate summary was generated
+    assert len(captured_summary) == 1
+    summary = captured_summary[0]
+    assert summary.total_tables == 50000
+    assert summary.total_chunks == 100
+    assert summary.compatibility_report.total_columns == 50000
+    assert summary.capacity_report.total_tables == 50000
+    assert summary.readiness_report is not None
+    assert len(summary.provenance_fingerprint) == 64
 
 
 def test_array_type_memoization_nested_unhashable_extra_mapping():

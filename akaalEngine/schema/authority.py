@@ -331,32 +331,37 @@ class SchemaAuthority:
 
             from akaalEngine.schema.core.processor import LargeEstateChunkedSchemaProcessor
 
-            if hasattr(request.source_snapshot, "__iter__") and not isinstance(request.source_snapshot, (CanonicalSchemaModel, dict)):
+            if hasattr(request.source_snapshot, "__iter__") and not isinstance(request.source_snapshot, (CanonicalSchemaModel, dict, DiscoverySnapshot)):
                 # Pure lazy table stream
                 yield from LargeEstateChunkedSchemaProcessor.stream_compile_estate(
-                    request.source_snapshot,
+                    tables_stream=request.source_snapshot,
                     target_engine=target_eng,
                     target_version=target_ver,
                     chunk_size=chunk_size,
                     mapping=request.mapping,
+                    on_summary=request.options.get("on_summary"),
                 )
                 return
 
             canonical_model = self._canonicalize_input(request.source_snapshot)
             source_eng = canonical_model.source_vendor.upper()
 
-            if request.mapping:
-                mapped_model = MappingEngine.apply_mapping(canonical_model, request.mapping, target_vendor=target_eng)
-            else:
-                mapped_model = canonical_model
-
-            mapped_model = self._apply_dialect_translations(mapped_model, source_eng, target_eng)
-
-            yield from LargeEstateChunkedSchemaProcessor.process_chunked_compilation(
-                mapped_model,
-                target_eng,
-                target_ver,
+            yield from LargeEstateChunkedSchemaProcessor.stream_compile_estate(
+                tables_stream=canonical_model.tables,
+                target_engine=target_eng,
+                target_version=target_ver,
                 chunk_size=chunk_size,
+                source_vendor=source_eng,
+                mapping=request.mapping,
+                schemas=canonical_model.schemas,
+                views=canonical_model.views,
+                routines=canonical_model.routines,
+                packages=canonical_model.packages,
+                triggers=canonical_model.triggers,
+                sequences=canonical_model.sequences,
+                udts=canonical_model.udts,
+                synonyms=canonical_model.synonyms,
+                on_summary=request.options.get("on_summary"),
             )
 
     def _apply_dialect_translations(
