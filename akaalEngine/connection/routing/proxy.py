@@ -229,6 +229,251 @@ class ProxyTunnel:
                 except Exception:
                     break
 
+        tunnel_lease._forward_thread = f_thread
+        f_thread.start()
+
+        logger.info(
+            f"[ProxyTunnel] HTTP CONNECT Proxy tunnel established: 127.0.0.1:{local_port} -> {route_spec.proxy_host}:{route_spec.proxy_port} -> {target_host}:{target_port}"
+        )
+        return tunnel_lease
+
+    @staticmethod
+    def _recv_exact(sock: socket.socket, num_bytes: int) -> bytes:
+        """Reads exactly num_bytes from socket handling TCP fragmentation, raising ConnectionError on EOF."""
+        buf = bytearray()
+        while len(buf) < num_bytes:
+            chunk = sock.recv(num_bytes - len(buf))
+            if not chunk:
+                raise ConnectionError(f"Unexpected EOF while reading {num_bytes} bytes from proxy socket (read {len(buf)} bytes)")
+            buf.extend(chunk)
+        return bytes(buf)
+
+    def open_socks5_tunnel(
+        self,
+        proxy_host: str,
+        proxy_port: int,
+        target_host: str,
+        target_port: int,
+        timeout_seconds: float = 15.0,
+        auth_spec: Optional[Any] = None,
+    ) -> socket.socket:
+        """
+        Connects to a SOCKS5 proxy server with ATYP 0x03 remote domain resolution and optional user/pass auth.
+        Wipes resolved authentication material in a finally block. Fails closed on negotiation errors.
+        """
+        import struct
+
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(timeout_seconds)
+        resolved_secret = None
+        try:
+            sock.connect((proxy_host, proxy_port))
+
+            username = getattr(auth_spec, "username", None) if auth_spec else None
+            password = ""
+            if auth_spec:
+                secret_ref = getattr(auth_spec, "secret_ref", None)
+                if secret_ref:
+                    resolved_secret = self.secret_consumer.resolve(secret_ref)
+                    if resolved_secret:
+                        password = resolved_secret.get_value()
+
+            # 1. Greeting (Method selection)
+            offered_methods = {0}
+            if username and password:
+                offered_methods.add(2)
+                sock.sendall(b"\x05\x02\x00\x02")  # NO AUTH (0), USER/PASS (2)
+            else:
+                sock.sendall(b"\x05\x01\x00")  # NO AUTH (0)
+
+            greet_resp = self._recv_exact(sock, 2)
+            if greet_resp[0] != 5:
+                sock.close()
+                msg = f"Invalid SOCKS5 proxy protocol response version {greet_resp[0]} from {proxy_host}:{proxy_port}"
+                failure = ConnectionFailure(
+                    error_code="PROXY_PROTOCOL_ERROR",
+                    category=FailureCategory.PROXY_FAILURE,
+                    message=msg,
+                    retryable=False,
+                    provider_id="proxy",
+                )
+                raise RouteResolutionError(failure)
+
+            method = greet_resp[1]
+            if method not in offered_methods:
+                sock.close()
+                if method == 255:
+                    msg = f"SOCKS5 proxy at {proxy_host}:{proxy_port} requires authentication method not supported by client."
+                else:
+                    msg = f"SOCKS5 proxy selected unoffered authentication method 0x{method:02X}."
+                failure = ConnectionFailure(
+                    error_code="PROXY_AUTH_UNSUPPORTED",
+                    category=FailureCategory.AUTHENTICATION_FAILURE,
+                    message=msg,
+                    retryable=False,
+                    provider_id="proxy",
+                )
+                raise RouteResolutionError(failure)
+
+            if method == 2:
+                # Subnegotiation
+                u_bytes = username.encode("utf-8") if username else b""
+                p_bytes = password.encode("utf-8") if password else b""
+                auth_req = b"\x01" + bytes([len(u_bytes)]) + u_bytes + bytes([len(p_bytes)]) + p_bytes
+                sock.sendall(auth_req)
+                auth_resp = self._recv_exact(sock, 2)
+                if auth_resp[1] != 0:
+                    sock.close()
+                    msg = f"SOCKS5 proxy authentication failed for user '{username}' at {proxy_host}:{proxy_port}"
+                    failure = ConnectionFailure(
+                        error_code="PROXY_AUTH_FAILED",
+                        category=FailureCategory.AUTHENTICATION_FAILURE,
+                        message=msg,
+                        retryable=False,
+                        provider_id="proxy",
+                    )
+                    raise RouteResolutionError(failure)
+
+            # 2. Connect Command with Remote Domain Name Resolution (ATYP 0x03)
+            host_bytes = target_host.encode("utf-8")
+            req = b"\x05\x01\x00\x03" + bytes([len(host_bytes)]) + host_bytes + struct.pack("!H", target_port)
+            sock.sendall(req)
+
+            header = self._recv_exact(sock, 4)
+            if header[0] != 5 or header[1] != 0:
+                status_code = header[1]
+                sock.close()
+                msg = f"SOCKS5 proxy route rejected connection to {target_host}:{target_port} with status code {status_code}"
+                failure = ConnectionFailure(
+                    error_code="PROXY_CONNECT_REFUSED",
+                    category=FailureCategory.PROXY_FAILURE,
+                    message=msg,
+                    retryable=False,
+                    provider_id="proxy",
+                )
+                raise RouteResolutionError(failure)
+
+            # Drain bound address bytes based on ATYP
+            atyp = header[3]
+            if atyp == 1:
+                self._recv_exact(sock, 6)  # IPv4 (4) + Port (2)
+            elif atyp == 3:
+                d_len = self._recv_exact(sock, 1)[0]
+                self._recv_exact(sock, d_len + 2)  # Domain + Port
+            elif atyp == 4:
+                self._recv_exact(sock, 18)  # IPv6 (16) + Port (2)
+            else:
+                sock.close()
+                msg = f"Unsupported address type (ATYP 0x{atyp:02X}) in SOCKS5 response from {proxy_host}:{proxy_port}"
+                failure = ConnectionFailure(
+                    error_code="PROXY_PROTOCOL_ERROR",
+                    category=FailureCategory.PROXY_FAILURE,
+                    message=msg,
+                    retryable=False,
+                    provider_id="proxy",
+                )
+                raise RouteResolutionError(failure)
+
+            return sock
+
+        except Exception as exc:
+            sock.close()
+            if isinstance(exc, RouteResolutionError):
+                raise
+            msg = f"Failed to establish SOCKS5 proxy tunnel via {proxy_host}:{proxy_port}: {redact_text(str(exc))}"
+            failure = ConnectionFailure(
+                error_code="PROXY_TUNNEL_FAILED",
+                category=FailureCategory.PROXY_FAILURE,
+                message=msg,
+                retryable=True,
+                provider_id="proxy",
+            )
+            raise RouteResolutionError(failure) from exc
+        finally:
+            if resolved_secret is not None:
+                resolved_secret.wipe()
+
+    def establish_socks5_tunnel(
+        self,
+        route_spec: RouteSpec,
+        target_host: str,
+        target_port: int,
+    ) -> ProxyTunnelLease:
+        """
+        Establishes a local port forwarding lease that routes incoming TCP connections
+        through a SOCKS5 proxy tunnel to the remote target.
+        """
+        if not route_spec.proxy_host or not route_spec.proxy_port:
+            failure = ConnectionFailure(
+                error_code="PROXY_HOST_PORT_REQUIRED",
+                category=FailureCategory.PROXY_FAILURE,
+                message="SOCKS5 Proxy routing requires proxy_host and proxy_port in RouteSpec.",
+                retryable=False,
+                provider_id="proxy",
+            )
+            raise RouteResolutionError(failure)
+
+        local_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        local_sock.bind(("127.0.0.1", 0))
+        local_port = local_sock.getsockname()[1]
+        local_sock.listen(5)
+
+        tunnel_lease = ProxyTunnelLease(
+            tunnel_id=f"proxy-socks5-{route_spec.proxy_host}:{local_port}",
+            proxy_host=route_spec.proxy_host,
+            proxy_port=route_spec.proxy_port,
+            local_bind_host="127.0.0.1",
+            local_bind_port=local_port,
+            remote_target_host=target_host,
+            remote_target_port=target_port,
+            is_active=True,
+            _server_socket=local_sock,
+        )
+
+        def _forward_loop(server_s: socket.socket, lease: ProxyTunnelLease, spec: RouteSpec, rem_h: str, rem_p: int):
+            while lease.is_active:
+                try:
+                    client_s, _ = server_s.accept()
+                    try:
+                        proxy_sock = self.open_socks5_tunnel(
+                            proxy_host=spec.proxy_host or "",
+                            proxy_port=spec.proxy_port or 0,
+                            target_host=rem_h,
+                            target_port=rem_p,
+                            timeout_seconds=spec.connect_timeout_ms / 1000.0,
+                            auth_spec=spec.proxy_auth_spec,
+                        )
+                    except Exception as e:
+                        logger.error(f"[ProxyTunnel] Error opening SOCKS5 tunnel: {e}")
+                        client_s.close()
+                        continue
+
+                    def _pipe(src: socket.socket, dst: socket.socket):
+                        try:
+                            while True:
+                                data = src.recv(4096)
+                                if not data:
+                                    break
+                                dst.sendall(data)
+                        except Exception:
+                            pass
+                        finally:
+                            try:
+                                src.close()
+                            except Exception:
+                                pass
+                            try:
+                                dst.close()
+                            except Exception:
+                                pass
+
+                    t1 = threading.Thread(target=_pipe, args=(client_s, proxy_sock), daemon=True)
+                    t2 = threading.Thread(target=_pipe, args=(proxy_sock, client_s), daemon=True)
+                    t1.start()
+                    t2.start()
+                except Exception:
+                    break
+
         f_thread = threading.Thread(
             target=_forward_loop,
             args=(local_sock, tunnel_lease, route_spec, target_host, target_port),
@@ -238,7 +483,6 @@ class ProxyTunnel:
         f_thread.start()
 
         logger.info(
-            f"[ProxyTunnel] HTTP Proxy tunnel established: 127.0.0.1:{local_port} -> {route_spec.proxy_host}:{route_spec.proxy_port} -> {target_host}:{target_port}"
+            f"[ProxyTunnel] SOCKS5 Proxy tunnel established: 127.0.0.1:{local_port} -> {route_spec.proxy_host}:{route_spec.proxy_port} -> {target_host}:{target_port}"
         )
         return tunnel_lease
-

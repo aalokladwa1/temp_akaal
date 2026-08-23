@@ -65,8 +65,8 @@ from akaalEngine.connection.sessions.reset import SessionResetManager
 # CORRECTION 1: ROUTING & SSH VERIFICATION & LIFECYCLE
 # =============================================================================
 
-def test_socks_proxy_fails_closed():
-    """SOCKS5 proxy routing must fail closed as unsupported."""
+def test_socks_proxy_missing_host_fails_closed():
+    """SOCKS5 proxy routing without proxy_host/proxy_port must fail closed with PROXY_HOST_PORT_REQUIRED."""
     resolver = RouteResolver()
     spec = EndpointSpec(
         provider_id="postgresql",
@@ -74,13 +74,13 @@ def test_socks_proxy_fails_closed():
         port=5432,
         route_spec=RouteSpec(
             route_type=RouteType.SOCKS5_PROXY,
-            proxy_host="proxy.corp",
-            proxy_port=1080,
+            proxy_host=None,
+            proxy_port=None,
         ),
     )
     with pytest.raises(RouteResolutionError) as exc_info:
         resolver.resolve_route(spec)
-    assert exc_info.value.failure.error_code == "SOCKS_PROXY_UNSUPPORTED"
+    assert exc_info.value.failure.error_code == "PROXY_HOST_PORT_REQUIRED"
     assert exc_info.value.failure.category == FailureCategory.PROXY_FAILURE
 
 

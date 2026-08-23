@@ -19,6 +19,7 @@ from akaalEngine.discovery.core.cache import ProcessLocalDiscoveryCache, default
 from akaalEngine.discovery.core.coordinator import DiscoverySessionCoordinator
 from akaalEngine.discovery.core.drift import DiscoveryDriftReport, MetadataDriftDetector
 from akaalEngine.discovery.core.executor import DiscoveryPipelineExecutor
+from akaalEngine.discovery.errors.exceptions import DiscoveryTimeoutError
 from akaalEngine.discovery.models.context import DiscoveryContext, DiscoveryDepth, DiscoveryScope
 from akaalEngine.discovery.models.sampling import SampledRecordSet
 from akaalEngine.discovery.models.snapshot import DiscoverySnapshot

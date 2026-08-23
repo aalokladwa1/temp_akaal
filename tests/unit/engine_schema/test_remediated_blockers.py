@@ -1010,3 +1010,121 @@ def test_truthful_risk_and_compatibility_aggregation():
     assert summary.risk_report.total_risk_score >= 10
     assert summary.capacity_report.is_truncated is False
     assert summary.capacity_report.total_projected_count == 1
+
+
+def test_table_with_check_constraints_indexes_and_partitioning_streaming():
+    """Verify streaming compilation and Pass 1 semantic hashing on tables containing check constraints, indexes, unique constraints, and partitioning."""
+    from akaalEngine.schema.models.constraints import CanonicalCheckConstraint, CanonicalUniqueConstraint
+    from akaalEngine.schema.models.indexes import CanonicalIndex
+    from akaalEngine.schema.models.partitioning import CanonicalPartitioning, PartitionStrategy
+
+    col_id = CanonicalColumn(
+        name="id",
+        ordinal_position=1,
+        source_native_type="INT",
+        canonical_type=CanonicalType(category=CanonicalTypeCategory.EXACT_NUMERIC, raw_vendor_type="INT"),
+    )
+    col_val = CanonicalColumn(
+        name="val",
+        ordinal_position=2,
+        source_native_type="INT",
+        canonical_type=CanonicalType(category=CanonicalTypeCategory.EXACT_NUMERIC, raw_vendor_type="INT"),
+    )
+
+    t = CanonicalTable(
+        table_name="t_full",
+        schema_name="public",
+        columns=(col_id, col_val),
+        check_constraints=(
+            CanonicalCheckConstraint(
+                name="chk_val_positive",
+                table_name="t_full",
+                check_clause="val > 0",
+            ),
+        ),
+        unique_constraints=(
+            CanonicalUniqueConstraint(
+                name="uq_val",
+                table_name="t_full",
+                columns=("val",),
+            ),
+        ),
+        indexes=(
+            CanonicalIndex(
+                name="idx_val",
+                table_name="t_full",
+                columns=("val",),
+            ),
+        ),
+        partitioning=CanonicalPartitioning(
+            strategy=PartitionStrategy.RANGE,
+            partition_columns=("id",),
+        ),
+    )
+
+    captured = []
+    packages = list(LargeEstateChunkedSchemaProcessor.stream_compile_estate(
+        [t],
+        target_engine="POSTGRESQL",
+        on_summary=captured.append,
+    ))
+
+    assert len(packages) == 1
+    assert len(captured) == 1
+    pkg = packages[0]
+    sql = "\n".join(a.sql for a in pkg.artifacts)
+    assert "t_full" in sql
+    assert "chk_val_positive" in sql
+    assert len(captured[0].provenance_fingerprint) == 64
+
+
+def test_partition_bounds_alter_source_semantic_hash_and_provenance():
+    """Verify that altering partition boundary values changes the table semantic hash and whole-estate streaming provenance."""
+    from akaalEngine.schema.models.partitioning import CanonicalPartitionBound, CanonicalPartitioning, PartitionStrategy
+
+    col_id = CanonicalColumn(
+        name="id",
+        ordinal_position=1,
+        source_native_type="INT",
+        canonical_type=CanonicalType(category=CanonicalTypeCategory.EXACT_NUMERIC, raw_vendor_type="INT"),
+    )
+
+    part1 = CanonicalPartitioning(
+        strategy=PartitionStrategy.RANGE,
+        partition_columns=("id",),
+        partitions=(
+            CanonicalPartitionBound(
+                partition_name="p1",
+                strategy=PartitionStrategy.RANGE,
+                lower_bound="1",
+                upper_bound="100",
+            ),
+        ),
+    )
+    part2 = CanonicalPartitioning(
+        strategy=PartitionStrategy.RANGE,
+        partition_columns=("id",),
+        partitions=(
+            CanonicalPartitionBound(
+                partition_name="p1",
+                strategy=PartitionStrategy.RANGE,
+                lower_bound="1",
+                upper_bound="200",
+            ),
+        ),
+    )
+
+    t1 = CanonicalTable(table_name="t_part", schema_name="public", columns=(col_id,), partitioning=part1)
+    t2 = CanonicalTable(table_name="t_part", schema_name="public", columns=(col_id,), partitioning=part2)
+
+    h1 = LargeEstateChunkedSchemaProcessor.compute_table_semantic_hash(t1)
+    h2 = LargeEstateChunkedSchemaProcessor.compute_table_semantic_hash(t2)
+    assert h1 != h2
+
+    sum1 = []
+    list(LargeEstateChunkedSchemaProcessor.stream_compile_estate([t1], target_engine="POSTGRESQL", on_summary=sum1.append))
+
+    sum2 = []
+    list(LargeEstateChunkedSchemaProcessor.stream_compile_estate([t2], target_engine="POSTGRESQL", on_summary=sum2.append))
+
+    assert sum1[0].provenance_fingerprint != sum2[0].provenance_fingerprint

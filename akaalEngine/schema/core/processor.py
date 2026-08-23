@@ -122,55 +122,8 @@ class LargeEstateChunkedSchemaProcessor:
 
     @classmethod
     def compute_table_semantic_hash(cls, tbl: CanonicalTable) -> str:
-        """Computes deterministic SHA-256 over source columns, types, nullability, defaults, identities, and constraints."""
-        h = hashlib.sha256()
-        h.update(tbl.qualified_name.lower().encode("utf-8"))
-        for col in sorted(tbl.columns, key=lambda c: c.ordinal_position):
-            h.update(b"|col:")
-            h.update(col.name.lower().encode("utf-8"))
-            h.update(b"|pos:")
-            h.update(str(col.ordinal_position).encode("utf-8"))
-            h.update(b"|type:")
-            h.update((col.source_native_type or "").upper().encode("utf-8"))
-            if col.canonical_type:
-                h.update(b"|cat:")
-                h.update(col.canonical_type.category.value.encode("utf-8"))
-            h.update(b"|null:")
-            h.update(str(col.nullable).encode("utf-8"))
-            if col.default_expression:
-                h.update(b"|def:")
-                h.update(col.default_expression.encode("utf-8"))
-            if col.is_identity:
-                h.update(b"|ident:")
-                h.update(str(col.is_identity).encode("utf-8"))
-            if col.is_computed and col.computed_expression:
-                h.update(b"|comp:")
-                h.update(col.computed_expression.encode("utf-8"))
-            if col.is_lob:
-                h.update(b"|lob:1")
-        if tbl.primary_key:
-            h.update(b"|pk:")
-            h.update(",".join(c.lower() for c in tbl.primary_key.columns).encode("utf-8"))
-        for fk in sorted(tbl.foreign_keys, key=lambda f: f.name):
-            h.update(b"|fk:")
-            h.update(fk.name.lower().encode("utf-8"))
-            h.update(b":")
-            h.update(",".join(c.lower() for c in fk.columns).encode("utf-8"))
-            h.update(b"->")
-            h.update(f"{fk.referenced_schema}.{fk.referenced_table}".lower().encode("utf-8"))
-            h.update(b":")
-            h.update(",".join(c.lower() for c in fk.referenced_columns).encode("utf-8"))
-        for u in sorted(tbl.unique_constraints, key=lambda x: x.name):
-            h.update(b"|uq:")
-            h.update(u.name.lower().encode("utf-8"))
-            h.update(b":")
-            h.update(",".join(c.lower() for c in u.columns).encode("utf-8"))
-        for chk in sorted(tbl.check_constraints, key=lambda x: x.name):
-            h.update(b"|chk:")
-            h.update(chk.name.lower().encode("utf-8"))
-            h.update(b":")
-            h.update((chk.expression or "").encode("utf-8"))
-        return h.hexdigest()
+        """Computes deterministic SHA-256 across all source columns, types, constraints, indexes, and partition bounds."""
+        return DeterministicSchemaProvenanceHasher.hash_dict(tbl.to_dict())
 
     @classmethod
     def build_lightweight_table_order_from_headers(cls, headers: Sequence[TableHeader]) -> List[str]:

@@ -229,6 +229,11 @@ class CanonicalSchemaModel:
                 return r
         return None
 
+    def compute_schema_fingerprint(self) -> str:
+        """Computes deterministic fingerprint for CanonicalSchemaModel."""
+        from akaalEngine.schema.core.provenance import DeterministicSchemaProvenanceHasher
+        return DeterministicSchemaProvenanceHasher.compute_model_fingerprint(self)
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "model_id": self.model_id,

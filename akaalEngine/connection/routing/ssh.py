@@ -42,11 +42,12 @@ class SSHTunnelLease(SafeReprMixin):
     is_active: bool = True
     created_at: float = field(default_factory=time.time)
     _client: Any = None
+    _clients: list = field(default_factory=list)
     _server_socket: Optional[socket.socket] = None
     _forward_thread: Optional[threading.Thread] = None
 
     def close(self) -> None:
-        """Closes local forwarded port listener and SSH client connection."""
+        """Closes local forwarded port listener and all chained SSH client connections."""
         self.is_active = False
         if self._server_socket:
             try:
@@ -54,6 +55,12 @@ class SSHTunnelLease(SafeReprMixin):
             except Exception:
                 pass
             self._server_socket = None
+        for cli in reversed(self._clients):
+            try:
+                cli.close()
+            except Exception:
+                pass
+        self._clients.clear()
         if self._client:
             try:
                 self._client.close()
@@ -148,6 +155,7 @@ class SSHTunnelRuntime:
                 )
                 raise SSHTunnelError(failure)
 
+            resolved_secrets = []
             password = None
             key_filename = None
             if route_spec.ssh_auth_spec:
@@ -156,7 +164,16 @@ class SSHTunnelRuntime:
                 elif route_spec.ssh_auth_spec.secret_ref:
                     resolved_secret = self.secret_consumer.resolve(route_spec.ssh_auth_spec.secret_ref)
                     if resolved_secret:
+                        resolved_secrets.append(resolved_secret)
                         password = resolved_secret.get_value()
+
+            # Handle multi-hop jump hosts if specified in ssh_auth_spec.additional_params["jump_hosts"]
+            jump_hosts = []
+            if route_spec.ssh_auth_spec and isinstance(route_spec.ssh_auth_spec.additional_params, dict):
+                jump_hosts = route_spec.ssh_auth_spec.additional_params.get("jump_hosts", [])
+
+            active_clients = [ssh_client]
+            current_transport = None
 
             ssh_client.connect(
                 hostname=route_spec.ssh_host,
@@ -166,6 +183,81 @@ class SSHTunnelRuntime:
                 key_filename=key_filename,
                 timeout=route_spec.connect_timeout_ms / 1000.0,
             )
+            current_transport = ssh_client.get_transport()
+
+            # Chain through intermediate jump hosts if provided
+            for hop in jump_hosts:
+                hop_host = hop.get("host") or hop.get("hostname")
+                hop_port = hop.get("port", 22)
+                hop_user = hop.get("user") or hop.get("username") or "root"
+                hop_pass = None
+                if hop.get("password"):
+                    failure = ConnectionFailure(
+                        error_code="PLAINTEXT_SECRET_PROHIBITED",
+                        category=FailureCategory.INVALID_CONFIGURATION,
+                        message=f"SSH jump host '{hop_host}' configured with plaintext password. Plaintext credentials are prohibited; use secret_ref.",
+                        retryable=False,
+                        provider_id="ssh",
+                        remediation="Replace plaintext 'password' in jump_hosts configuration with a valid 'secret_ref' locator.",
+                    )
+                    raise SSHTunnelError(failure)
+                elif hop.get("secret_ref"):
+                    hop_secret = self.secret_consumer.resolve(hop["secret_ref"])
+                    if hop_secret:
+                        resolved_secrets.append(hop_secret)
+                        hop_pass = hop_secret.get_value()
+                else:
+                    failure = ConnectionFailure(
+                        error_code="SECRET_REFERENCE_REQUIRED",
+                        category=FailureCategory.INVALID_CONFIGURATION,
+                        message=f"SSH jump host '{hop_host}' missing secret_ref authentication parameter.",
+                        retryable=False,
+                        provider_id="ssh",
+                        remediation="Specify a valid 'secret_ref' locator for each SSH jump host.",
+                    )
+                    raise SSHTunnelError(failure)
+
+                if current_transport is None:
+                    raise RuntimeError("Current SSH Transport is None when attempting jump host connection.")
+
+                chan = current_transport.open_channel("direct-tcpip", (hop_host, hop_port), ("127.0.0.1", 0))
+                hop_client = paramiko.SSHClient()
+
+                # Apply host key policy to jump host
+                hop_known_hosts = hop.get("known_hosts_path") or route_spec.ssh_known_hosts_path
+                hop_fp = hop.get("host_key_fingerprint") or route_spec.ssh_host_key_fingerprint
+
+                if hop_known_hosts:
+                    hop_client.load_host_keys(hop_known_hosts)
+                    hop_client.set_missing_host_key_policy(paramiko.RejectPolicy())
+                elif hop_fp:
+                    expected_hop_fp = hop_fp.lower().replace(":", "").strip()
+
+                    class HopPinnedFingerprintPolicy(paramiko.MissingHostKeyPolicy):
+                        def missing_host_key(self, client: Any, hostname: str, key: Any) -> None:
+                            import hashlib
+                            raw_fp = hashlib.sha256(key.asbytes()).hexdigest().lower()
+                            if raw_fp != expected_hop_fp:
+                                raise paramiko.SSHException(
+                                    f"SSH host key fingerprint mismatch for jump host {hostname}: expected {expected_hop_fp}, got {raw_fp}"
+                                )
+
+                    hop_client.set_missing_host_key_policy(HopPinnedFingerprintPolicy())
+                elif route_spec.allow_unverified_ssh:
+                    hop_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+                else:
+                    hop_client.set_missing_host_key_policy(paramiko.RejectPolicy())
+
+                hop_client.connect(
+                    hostname=hop_host,
+                    port=hop_port,
+                    username=hop_user,
+                    password=hop_pass,
+                    sock=chan,
+                    timeout=route_spec.connect_timeout_ms / 1000.0,
+                )
+                active_clients.append(hop_client)
+                current_transport = hop_client.get_transport()
 
             # 3. Find an available local port
             local_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -173,7 +265,7 @@ class SSHTunnelRuntime:
             local_port = local_sock.getsockname()[1]
             local_sock.listen(5)
 
-            transport = ssh_client.get_transport()
+            transport = current_transport
             if transport is None:
                 raise RuntimeError("SSH Transport is None after successful connect.")
 
@@ -186,7 +278,8 @@ class SSHTunnelRuntime:
                 remote_target_host=target_host,
                 remote_target_port=target_port,
                 is_active=True,
-                _client=ssh_client,
+                _clients=active_clients,
+                _client=active_clients[-1],
                 _server_socket=local_sock,
             )
 
@@ -240,6 +333,15 @@ class SSHTunnelRuntime:
             return tunnel_lease
 
         except Exception as exc:
+            # Clean up all opened clients on failure
+            if 'active_clients' in locals():
+                for cli in reversed(active_clients):
+                    try:
+                        cli.close()
+                    except Exception:
+                        pass
+                active_clients.clear()
+
             if isinstance(exc, (DependencyMissingError, SSHTunnelError)):
                 raise
             msg = f"Failed to establish SSH bastion connection to {route_spec.ssh_host}:{route_spec.ssh_port}: {redact_text(str(exc))}"
@@ -253,5 +355,9 @@ class SSHTunnelRuntime:
             )
             raise SSHTunnelError(failure) from exc
         finally:
-            if resolved_secret is not None:
-                resolved_secret.wipe()
+            if 'resolved_secrets' in locals():
+                for s in resolved_secrets:
+                    try:
+                        s.wipe()
+                    except Exception:
+                        pass

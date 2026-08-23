@@ -16,7 +16,7 @@ from typing import Any, Mapping, Optional, Sequence
 from akaalEngine.connection.models.endpoint import EndpointSpec
 from akaalEngine.connection.routing.resolver import ResolvedRoute
 from akaalEngine.discovery.core.fingerprint import DiscoveryFingerprintCalculator
-from akaalEngine.discovery.core.sampling import RedactionGuard
+from akaalEngine.discovery.core.sampling import DeterministicSampler, RedactionGuard
 from akaalEngine.discovery.errors.exceptions import DiscoveryEngineException, DiscoveryTimeoutError
 from akaalEngine.discovery.models.context import DiscoveryContext, DiscoveryDepth
 from akaalEngine.discovery.models.inventory import ObjectInventory, TableFacts, ViewFacts

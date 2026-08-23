@@ -182,18 +182,7 @@ class RouteResolver:
             )
             raise RouteResolutionError(failure)
 
-        # Reject unsupported SOCKS5 proxy fail-closed
-        if route_spec.route_type == RouteType.SOCKS5_PROXY:
-            msg = "SOCKS5 proxy routing is currently unsupported. Use HTTP_PROXY or DIRECT routing."
-            failure = ConnectionFailure(
-                error_code="SOCKS_PROXY_UNSUPPORTED",
-                category=FailureCategory.PROXY_FAILURE,
-                message=msg,
-                retryable=False,
-                provider_id=provider_id,
-                remediation="Configure route_type as HTTP_PROXY with an HTTP CONNECT proxy server or use DIRECT.",
-            )
-            raise RouteResolutionError(failure)
+
 
         # Collect raw endpoint list to resolve
         raw_endpoints: List[str] = []
@@ -269,6 +258,22 @@ class RouteResolver:
             # 4. HTTP Proxy Routing (HTTP CONNECT)
             if route_spec.route_type == RouteType.HTTP_PROXY:
                 proxy_lease = self.proxy_tunnel.establish_http_connect_tunnel(route_spec, raw_host, raw_port)
+                tunnel_leases.append(proxy_lease)
+                resolved_targets.append(
+                    ResolvedEndpointTarget(
+                        effective_host=proxy_lease.local_bind_host,
+                        effective_port=proxy_lease.local_bind_port,
+                        resolved_ip="127.0.0.1",
+                        dns_time_ms=dns_time_ms,
+                        scheme=scheme,
+                        raw_endpoint=raw_ep,
+                    )
+                )
+                continue
+
+            # 4b. SOCKS5 Proxy Routing
+            if route_spec.route_type == RouteType.SOCKS5_PROXY:
+                proxy_lease = self.proxy_tunnel.establish_socks5_tunnel(route_spec, raw_host, raw_port)
                 tunnel_leases.append(proxy_lease)
                 resolved_targets.append(
                     ResolvedEndpointTarget(
