@@ -47,7 +47,14 @@ class DeterministicSchemaProvenanceHasher:
         ddl_package_hash: str,
         target_engine: str,
         target_version: str = "default",
+        rule_set_version: str = "1.0.0",
+        procedural_hash: str = "",
+        readiness_hash: str = "",
     ) -> str:
         """Computes composite provenance signature for an entire compilation run."""
-        combined = f"{source_model_hash}:{mapping_hash}:{ddl_package_hash}:{target_engine.upper()}:{target_version}"
+        combined = (
+            f"{source_model_hash}:{mapping_hash}:{ddl_package_hash}:"
+            f"{target_engine.upper()}:{target_version}:{rule_set_version}:"
+            f"{procedural_hash}:{readiness_hash}"
+        )
         return hashlib.sha256(combined.encode("utf-8")).hexdigest()

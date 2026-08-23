@@ -20,7 +20,7 @@ from akaalEngine.schema.models.constraints import (
 )
 from akaalEngine.schema.models.indexes import CanonicalIndex
 from akaalEngine.schema.models.partitioning import CanonicalPartitioning
-from akaalEngine.schema.models.types import CanonicalType, CanonicalTypeCategory
+from akaalEngine.schema.models.types import CanonicalType, CanonicalTypeCategory, freeze_deep
 
 
 class TablePhysicalType(str, Enum):
@@ -74,10 +74,8 @@ class CanonicalColumn:
     extra: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
 
     def __post_init__(self) -> None:
-        if not isinstance(self.raw_metadata, MappingProxyType):
-            object.__setattr__(self, "raw_metadata", MappingProxyType(dict(self.raw_metadata)))
-        if not isinstance(self.extra, MappingProxyType):
-            object.__setattr__(self, "extra", MappingProxyType(dict(self.extra)))
+        object.__setattr__(self, "raw_metadata", freeze_deep(self.raw_metadata))
+        object.__setattr__(self, "extra", freeze_deep(self.extra))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -132,10 +130,8 @@ class CanonicalTable:
             val = getattr(self, attr)
             if not isinstance(val, tuple):
                 object.__setattr__(self, attr, tuple(val))
-        if not isinstance(self.raw_source_properties, MappingProxyType):
-            object.__setattr__(self, "raw_source_properties", MappingProxyType(dict(self.raw_source_properties)))
-        if not isinstance(self.extra, MappingProxyType):
-            object.__setattr__(self, "extra", MappingProxyType(dict(self.extra)))
+        object.__setattr__(self, "raw_source_properties", freeze_deep(self.raw_source_properties))
+        object.__setattr__(self, "extra", freeze_deep(self.extra))
 
     @property
     def qualified_name(self) -> str:

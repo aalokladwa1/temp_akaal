@@ -12,6 +12,9 @@ from types import MappingProxyType
 from typing import Any, Mapping, Optional, Tuple
 
 
+from akaalEngine.schema.models.types import freeze_deep
+
+
 class IndexAccessMethod(str, Enum):
     """Index access methods and physical algorithms."""
     BTREE = "BTREE"
@@ -25,6 +28,7 @@ class IndexAccessMethod(str, Enum):
     HNSW = "HNSW"
     IVFFLAT = "IVFFLAT"
     CUSTOM = "CUSTOM"
+    UNKNOWN = "UNKNOWN"
 
 
 @dataclass(frozen=True)
@@ -50,8 +54,7 @@ class CanonicalIndex:
             object.__setattr__(self, "columns", tuple(self.columns))
         if not isinstance(self.included_columns, tuple):
             object.__setattr__(self, "included_columns", tuple(self.included_columns))
-        if not isinstance(self.extra, MappingProxyType):
-            object.__setattr__(self, "extra", MappingProxyType(dict(self.extra)))
+        object.__setattr__(self, "extra", freeze_deep(self.extra))
 
     def to_dict(self) -> dict[str, Any]:
         return {

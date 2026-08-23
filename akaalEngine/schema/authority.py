@@ -46,8 +46,14 @@ from akaalEngine.schema.dependency.cycle_breaker import CycleBreaker
 from akaalEngine.schema.dependency.graph import MultiDomainDependencyGraph
 from akaalEngine.schema.dependency.sorter import TopologicalSorter
 from akaalEngine.schema.mapping.engine import MappingEngine
+from akaalEngine.schema.dialect import (
+    DateTimeDialectTranslator,
+    FunctionDialectTranslator,
+    SequenceDialectTranslator,
+)
 from akaalEngine.schema.models.constraints import (
     CanonicalCheckConstraint,
+    CanonicalExclusionConstraint,
     CanonicalForeignKey,
     CanonicalPrimaryKey,
     CanonicalUniqueConstraint,
@@ -56,8 +62,10 @@ from akaalEngine.schema.models.indexes import CanonicalIndex, IndexAccessMethod
 from akaalEngine.schema.models.mapping import CompiledSchemaMapping
 from akaalEngine.schema.models.partitioning import CanonicalPartitioning, PartitionStrategy
 from akaalEngine.schema.models.programmables import (
+    CanonicalPackage,
     CanonicalRoutine,
     CanonicalSequence,
+    CanonicalTrigger,
     CanonicalUDT,
     RoutineKind,
 )
@@ -65,6 +73,7 @@ from akaalEngine.schema.models.schema import (
     CanonicalCatalog,
     CanonicalSchema,
     CanonicalSchemaModel,
+    CanonicalSynonym,
     CanonicalView,
 )
 from akaalEngine.schema.models.table import (
@@ -73,8 +82,12 @@ from akaalEngine.schema.models.table import (
     StorageFormat,
     TablePhysicalType,
 )
-from akaalEngine.schema.models.types import CanonicalType, CanonicalTypeCategory
-from akaalEngine.schema.procedural.diagnostics import ProceduralConversionResult
+from akaalEngine.schema.models.types import CanonicalType, CanonicalTypeCategory, freeze_deep
+from akaalEngine.schema.procedural.diagnostics import (
+    ConversionState,
+    ProceduralConversionResult,
+    ProceduralDiagnostic,
+)
 from akaalEngine.schema.procedural.emitters.plpgsql import PLpgSQLEmitter
 from akaalEngine.schema.procedural.parsers.plsql import PLSQLParser
 from akaalEngine.schema.procedural.parsers.tsql import TSQLParser
@@ -93,8 +106,7 @@ class SchemaCompilationRequest:
     options: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
 
     def __post_init__(self) -> None:
-        if not isinstance(self.options, MappingProxyType):
-            object.__setattr__(self, "options", MappingProxyType(dict(self.options)))
+        object.__setattr__(self, "options", freeze_deep(self.options))
 
 
 @dataclass(frozen=True)
@@ -121,8 +133,7 @@ class SchemaCompilationResult:
             object.__setattr__(self, "procedural_results", tuple(self.procedural_results))
         if not isinstance(self.topologically_ordered_nodes, tuple):
             object.__setattr__(self, "topologically_ordered_nodes", tuple(self.topologically_ordered_nodes))
-        if not isinstance(self.extra, MappingProxyType):
-            object.__setattr__(self, "extra", MappingProxyType(dict(self.extra)))
+        object.__setattr__(self, "extra", freeze_deep(self.extra))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -162,54 +173,84 @@ class SchemaAuthority:
         target_eng = request.target_engine.strip().upper()
         target_ver = request.target_version
 
-        # 1. Canonicalize Discovery Snapshot into CanonicalSchemaModel
+        # Step 1: Canonicalize Discovery Snapshot into CanonicalSchemaModel
         canonical_model = self._canonicalize_input(request.source_snapshot)
         source_eng = canonical_model.source_vendor.upper()
 
-        # 2. Apply Structural Mapping (if provided)
+        # Step 2: Apply Structural Mapping (if provided)
         if request.mapping:
             mapped_model = MappingEngine.apply_mapping(canonical_model, request.mapping, target_vendor=target_eng)
         else:
             mapped_model = canonical_model
 
-        # 3. Assess Datatype Compatibility & Lossiness
+        # Step 3: Apply SQL Dialect Translation to Default Expressions, Views, and Check Constraints
+        mapped_model = self._apply_dialect_translations(mapped_model, source_eng, target_eng)
+
+        # Step 4: Assess Datatype Compatibility & Lossiness
         compat_breakdown = PreMigrationCompatibilityAssessor.assess_model(mapped_model, target_eng)
 
-        # 4. Assess Structural Risk
+        # Step 5: Assess Structural Risk & Complexity Scoring
         risk_report = StructuralRiskScorer.score_risk(mapped_model, compat_breakdown)
 
-        # 5. Evaluate Readiness Gate
+        # Step 6: Evaluate Readiness Gate
         readiness_report = SchemaReadinessGateProvider.evaluate_readiness(compat_breakdown, risk_report)
 
-        # 6. Calculate Capacity Projections
+        # Step 7: Calculate Capacity & Storage Projections
         capacity_report = TargetCapacitySchemaProjection.calculate_projection(mapped_model, target_eng)
 
-        # 7. Procedural AST Parsing and Transpilation
+        # Step 8: Procedural AST Parsing, Transpilation, and Diagnostics Capture
         procedural_results = self._transpile_routines(mapped_model, source_eng, target_eng)
 
-        # 8. Staged DDL Generation
-        ddl_package = DDLGenerator.generate_ddl_package(mapped_model, target_eng, target_ver)
-
-        # 9. Track Compatibility Helper Requirements
+        # Step 9: Track Compatibility Helper Requirements
         tracker = CompatibilityRequirementTracker()
         for r in procedural_results:
             for helper in r.required_compat_helpers:
                 tracker.record_requirement(helper, r.routine_name, target_eng)
         compat_pack_report = tracker.build_report()
 
-        # 10. Multi-Domain Dependency Graph & Cycle Breaking
-        dep_graph = MultiDomainDependencyGraph.build_from_model(mapped_model)
+        # Step 10: Multi-Domain Dependency Graph Construction
+        dep_graph = MultiDomainDependencyGraph.build(mapped_model)
+
+        # Step 11: Cycle Detection and Pruning
         pruned_graph = CycleBreaker.break_fk_cycles(dep_graph)
 
-        # 11. Topological Sort
+        # Step 12: Topological Sorter
         ordered_nodes = TopologicalSorter.sort(pruned_graph)
 
-        # 12. Compute SHA-256 Provenance Fingerprint
+        # Step 13: Procedural DDL Artifact Synthesis
+        procedural_ddl_artifacts = []
+        emitter = DDLGenerator.get_emitter(target_eng, target_ver)
+        for r in mapped_model.routines:
+            matching_res = next((res for res in procedural_results if res.routine_name == r.name), None)
+            converted_sql = matching_res.emitted_sql if matching_res and matching_res.conversion_state == ConversionState.CONVERTED else None
+            procedural_ddl_artifacts.extend(emitter.emit_routine_artifacts(r, converted_sql=converted_sql))
+        for tr in mapped_model.triggers:
+            procedural_ddl_artifacts.extend(emitter.emit_trigger_artifacts(tr))
+
+        # Step 14: Staged DDL Generation
+        ddl_package = DDLGenerator.generate_ddl_package(
+            mapped_model,
+            target_eng,
+            target_ver,
+            procedural_artifacts=procedural_ddl_artifacts,
+        )
+
+        # Step 15: Compute SHA-256 Provenance Fingerprint
         src_hash = DeterministicSchemaProvenanceHasher.compute_model_fingerprint(canonical_model)
         map_hash = DeterministicSchemaProvenanceHasher.compute_mapping_fingerprint(request.mapping) if request.mapping else "NO_MAPPING"
         ddl_hash = DeterministicSchemaProvenanceHasher.compute_ddl_fingerprint(ddl_package)
+        proc_hash = DeterministicSchemaProvenanceHasher.hash_dict({"results": [r.to_dict() for r in procedural_results]})
+        read_hash = DeterministicSchemaProvenanceHasher.hash_dict(readiness_report.to_dict())
+
         provenance = DeterministicSchemaProvenanceHasher.compute_compilation_provenance(
-            src_hash, map_hash, ddl_hash, target_eng, target_ver or "default"
+            source_model_hash=src_hash,
+            mapping_hash=map_hash,
+            ddl_package_hash=ddl_hash,
+            target_engine=target_eng,
+            target_version=target_ver or "default",
+            rule_set_version=str(self._memo.rule_generation),
+            procedural_hash=proc_hash,
+            readiness_hash=read_hash,
         )
 
         return SchemaCompilationResult(
@@ -229,6 +270,133 @@ class SchemaAuthority:
             provenance_fingerprint=provenance,
         )
 
+    def _apply_dialect_translations(
+        self,
+        model: CanonicalSchemaModel,
+        source_dialect: str,
+        target_dialect: str,
+    ) -> CanonicalSchemaModel:
+        """Translates SQL expressions inside columns, check constraints, and views."""
+        if source_dialect == target_dialect:
+            return model
+
+        mapped_tables = []
+        for tbl in model.tables:
+            mapped_cols = []
+            for col in tbl.columns:
+                def_expr = col.default_expression
+                if def_expr:
+                    def_expr = FunctionDialectTranslator.translate_expression(def_expr, source_dialect, target_dialect)
+                    def_expr = DateTimeDialectTranslator.translate_datetime_expression(def_expr, source_dialect, target_dialect)
+                    def_expr = SequenceDialectTranslator.translate_sequence_expression(def_expr, source_dialect, target_dialect)
+                mapped_cols.append(
+                    CanonicalColumn(
+                        name=col.name,
+                        ordinal_position=col.ordinal_position,
+                        source_native_type=col.source_native_type,
+                        canonical_type=col.canonical_type,
+                        length=col.length,
+                        precision=col.precision,
+                        scale=col.scale,
+                        byte_semantics=col.byte_semantics,
+                        nullable=col.nullable,
+                        default_expression=def_expr,
+                        is_identity=col.is_identity,
+                        identity_generation=col.identity_generation,
+                        is_computed=col.is_computed,
+                        computed_expression=col.computed_expression,
+                        is_lob=col.is_lob,
+                        is_array=col.is_array,
+                        array_element_type=col.array_element_type,
+                        comment=col.comment,
+                        raw_metadata=col.raw_metadata,
+                        extra=col.extra,
+                    )
+                )
+
+            mapped_checks = []
+            for ck in tbl.check_constraints:
+                ck_clause = ck.check_clause
+                if ck_clause:
+                    ck_clause = FunctionDialectTranslator.translate_expression(ck_clause, source_dialect, target_dialect)
+                    ck_clause = DateTimeDialectTranslator.translate_datetime_expression(ck_clause, source_dialect, target_dialect)
+                mapped_checks.append(
+                    CanonicalCheckConstraint(
+                        name=ck.name,
+                        table_name=ck.table_name,
+                        schema_name=ck.schema_name,
+                        check_clause=ck_clause,
+                        is_enforced=ck.is_enforced,
+                        is_not_null=ck.is_not_null,
+                        not_null_column=ck.not_null_column,
+                        extra=ck.extra,
+                    )
+                )
+
+            mapped_tables.append(
+                CanonicalTable(
+                    table_name=tbl.table_name,
+                    schema_name=tbl.schema_name,
+                    catalog_name=tbl.catalog_name,
+                    table_type=tbl.table_type,
+                    storage_format=tbl.storage_format,
+                    columns=tuple(mapped_cols),
+                    primary_key=tbl.primary_key,
+                    foreign_keys=tbl.foreign_keys,
+                    unique_constraints=tbl.unique_constraints,
+                    check_constraints=tuple(mapped_checks),
+                    exclusion_constraints=tbl.exclusion_constraints,
+                    indexes=tbl.indexes,
+                    partitioning=tbl.partitioning,
+                    row_format=tbl.row_format,
+                    compression=tbl.compression,
+                    tablespace=tbl.tablespace,
+                    comment=tbl.comment,
+                    raw_source_properties=tbl.raw_source_properties,
+                    extra=tbl.extra,
+                )
+            )
+
+        mapped_views = []
+        for v in model.views:
+            v_def = v.view_definition
+            if v_def:
+                v_def = FunctionDialectTranslator.translate_expression(v_def, source_dialect, target_dialect)
+                v_def = DateTimeDialectTranslator.translate_datetime_expression(v_def, source_dialect, target_dialect)
+                v_def = SequenceDialectTranslator.translate_sequence_expression(v_def, source_dialect, target_dialect)
+            mapped_views.append(
+                CanonicalView(
+                    view_name=v.view_name,
+                    schema_name=v.schema_name,
+                    view_definition=v_def,
+                    is_materialized=v.is_materialized,
+                    materialized_refresh_mode=v.materialized_refresh_mode,
+                    check_option=v.check_option,
+                    is_read_only=v.is_read_only,
+                    columns=v.columns,
+                    dependencies=v.dependencies,
+                    extra=v.extra,
+                )
+            )
+
+        return CanonicalSchemaModel(
+            model_id=model.model_id,
+            source_vendor=model.source_vendor,
+            source_version=model.source_version,
+            schemas=model.schemas,
+            catalogs=model.catalogs,
+            tables=tuple(mapped_tables),
+            views=tuple(mapped_views),
+            routines=model.routines,
+            packages=model.packages,
+            triggers=model.triggers,
+            sequences=model.sequences,
+            udts=model.udts,
+            synonyms=model.synonyms,
+            raw_discovery_facts=model.raw_discovery_facts,
+            extra=model.extra,
+        )
+
     def _canonicalize_input(self, src: Union[DiscoverySnapshot, CanonicalSchemaModel, Mapping[str, Any]]) -> CanonicalSchemaModel:
         if isinstance(src, CanonicalSchemaModel):
             return src
@@ -245,20 +413,21 @@ class SchemaAuthority:
         identity = snapshot.engine_identity or getattr(snapshot, "identity", None)
         vendor = "GENERIC"
         version = None
-        edition = None
         if identity:
             vendor = identity.provider_id or identity.vendor_name
             version = identity.version.raw_version_string if hasattr(identity.version, "raw_version_string") else str(identity.version)
-            edition = identity.edition.edition_name if hasattr(identity.edition, "edition_name") else str(identity.edition)
 
         snap_id = getattr(snapshot, "snapshot_id", None) or getattr(snapshot, "endpoint_id", "ep_default")
 
         tables: List[CanonicalTable] = []
+        seen_tables = set()
+
         for obj_name, facts in snapshot.structures.items():
-            # Parse schema and table name
+            # Parse schema and table name losslessly
             parts = obj_name.split(".")
-            s_name = parts[0] if len(parts) > 1 else "public"
+            s_name = parts[0] if len(parts) > 1 else (getattr(facts, "schema_name", None) or "public")
             t_name = parts[-1]
+            seen_tables.add(f"{s_name}.{t_name}".lower())
 
             # Columns
             cols: List[CanonicalColumn] = []
@@ -365,7 +534,7 @@ class SchemaAuthority:
                 try:
                     access_m = IndexAccessMethod(str(raw_m).upper())
                 except (ValueError, AttributeError):
-                    access_m = IndexAccessMethod.BTREE
+                    access_m = IndexAccessMethod.UNKNOWN
 
                 idxs.append(
                     CanonicalIndex(
@@ -391,7 +560,7 @@ class SchemaAuthority:
                     strat_val = facts_part.strategy.value if hasattr(facts_part.strategy, "value") else str(facts_part.strategy)
                     part_strat = PartitionStrategy(strat_val.upper())
                 except (ValueError, AttributeError):
-                    part_strat = PartitionStrategy.NONE
+                    part_strat = PartitionStrategy.UNKNOWN
 
             partitioning = CanonicalPartitioning(
                 strategy=part_strat,
@@ -412,6 +581,20 @@ class SchemaAuthority:
                 )
             )
 
+        # Inventory-only tables from objects.tables
+        if snapshot.objects and snapshot.objects.tables:
+            for ot in snapshot.objects.tables:
+                ot_name = getattr(ot, "name", str(ot))
+                ot_schema = getattr(ot, "schema_name", "public")
+                if "." in ot_name:
+                    parts = ot_name.split(".")
+                    ot_schema = parts[0]
+                    ot_name = parts[-1]
+                qual = f"{ot_schema}.{ot_name}".lower()
+                if qual not in seen_tables:
+                    tables.append(CanonicalTable(table_name=ot_name, schema_name=ot_schema))
+                    seen_tables.add(qual)
+
         # Routines
         routines = []
         if snapshot.programmables and snapshot.programmables.routines:
@@ -425,6 +608,32 @@ class SchemaAuthority:
                         routine_type=r_kind,
                         language=r_facts.language,
                         definition_sql=r_facts.definition_sql,
+                    )
+                )
+
+        # Packages
+        packages = []
+        if snapshot.programmables and hasattr(snapshot.programmables, "packages") and snapshot.programmables.packages:
+            for p_facts in snapshot.programmables.packages:
+                packages.append(
+                    CanonicalPackage(
+                        name=p_facts.name,
+                        schema_name=getattr(p_facts, "schema_name", "public"),
+                        spec_sql=getattr(p_facts, "spec_sql", None),
+                        body_sql=getattr(p_facts, "body_sql", None),
+                    )
+                )
+
+        # Triggers
+        triggers = []
+        if snapshot.programmables and hasattr(snapshot.programmables, "triggers") and snapshot.programmables.triggers:
+            for tr_facts in snapshot.programmables.triggers:
+                triggers.append(
+                    CanonicalTrigger(
+                        name=tr_facts.name,
+                        table_name=tr_facts.table_name,
+                        schema_name=getattr(tr_facts, "schema_name", "public"),
+                        definition_sql=getattr(tr_facts, "definition_sql", None),
                     )
                 )
 
@@ -473,7 +682,24 @@ class SchemaAuthority:
                 v_name = parts[-1]
             views.append(CanonicalView(view_name=v_name, schema_name=v_schema))
 
-        unique_schemas = {t.schema_name for t in tables}
+        # Synonyms
+        synonyms = []
+        if snapshot.objects and hasattr(snapshot.objects, "synonyms") and snapshot.objects.synonyms:
+            for syn in snapshot.objects.synonyms:
+                syn_name = getattr(syn, "name", str(syn))
+                syn_schema = getattr(syn, "schema_name", "public")
+                target_obj = getattr(syn, "target_object", "")
+                target_sch = getattr(syn, "target_schema", "public")
+                synonyms.append(
+                    CanonicalSynonym(
+                        synonym_name=syn_name,
+                        schema_name=syn_schema,
+                        target_object_name=target_obj,
+                        target_schema_name=target_sch,
+                    )
+                )
+
+        unique_schemas = {t.schema_name for t in tables} | {v.schema_name for v in views} | {r.schema_name for r in routines}
         schema_objs = [CanonicalSchema(schema_name=s) for s in unique_schemas]
 
         return CanonicalSchemaModel(
@@ -484,8 +710,11 @@ class SchemaAuthority:
             tables=tuple(tables),
             views=tuple(views),
             routines=tuple(routines),
+            packages=tuple(packages),
+            triggers=tuple(triggers),
             sequences=tuple(sequences),
             udts=tuple(udts),
+            synonyms=tuple(synonyms),
             raw_discovery_facts=snapshot.to_dict(),
         )
 
@@ -517,19 +746,68 @@ class SchemaAuthority:
                     parser = TSQLParser(r.definition_sql)
                     ast = parser.parse()
                 else:
-                    # Fallback PL/SQL parser
                     parser = PLSQLParser(r.definition_sql)
                     ast = parser.parse()
 
                 # Target Procedural SQL Emission
                 if target_engine in ("POSTGRESQL", "POSTGRES"):
                     res = PLpgSQLEmitter.emit_routine(ast, schema_name=r.schema_name)
+                    if res.routine_name != r.name and r.name:
+                        res = ProceduralConversionResult(
+                            routine_name=r.name,
+                            source_dialect=res.source_dialect,
+                            target_dialect=res.target_dialect,
+                            conversion_state=res.conversion_state,
+                            emitted_sql=res.emitted_sql,
+                            diagnostics=res.diagnostics,
+                            required_compat_helpers=res.required_compat_helpers,
+                            warnings=res.warnings,
+                            extra=res.extra,
+                        )
                     results.append(res)
+                else:
+                    # Non-PostgreSQL procedural targets require dialect rewrite
+                    results.append(
+                        ProceduralConversionResult(
+                            routine_name=r.name,
+                            source_dialect=source_engine,
+                            target_dialect=target_engine,
+                            conversion_state=ConversionState.MANUAL_REWRITE_REQUIRED,
+                            diagnostics=(
+                                ProceduralDiagnostic(
+                                    severity="WARNING",
+                                    rule="TARGET_PROCEDURAL_DIALECT_MANUAL_REWRITE",
+                                    message=f"Target engine '{target_engine}' procedural dialect requires manual review or PL/pgSQL adaptation",
+                                    line=1,
+                                    column=1,
+                                ),
+                            ),
+                            warnings=(f"Target procedural runtime for {target_engine} is not automated PL/pgSQL",),
+                        )
+                    )
             except Exception as e:
-                logger.warning("Procedural transpilation encountered syntax/parsing exception: %s", e)
+                logger.warning("Procedural transpilation encountered syntax/parsing exception for routine '%s': %s", r.name, e)
+                results.append(
+                    ProceduralConversionResult(
+                        routine_name=r.name,
+                        source_dialect=source_engine,
+                        target_dialect=target_engine,
+                        conversion_state=ConversionState.FAILED,
+                        diagnostics=(
+                            ProceduralDiagnostic(
+                                severity="ERROR",
+                                rule="ROUTINE_TRANSPILATION_ERROR",
+                                message=str(e),
+                                line=1,
+                                column=1,
+                            ),
+                        ),
+                    )
+                )
 
         return results
 
 
 # Default singleton Schema authority
 default_schema_authority = SchemaAuthority()
+

@@ -11,6 +11,9 @@ from types import MappingProxyType
 from typing import Any, Mapping, Optional, Sequence, Tuple
 
 
+from akaalEngine.schema.models.types import freeze_deep
+
+
 @dataclass(frozen=True)
 class DataTypeOverride:
     """Explicit operator override for a specific column's target data type."""
@@ -22,8 +25,7 @@ class DataTypeOverride:
     extra: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
 
     def __post_init__(self) -> None:
-        if not isinstance(self.extra, MappingProxyType):
-            object.__setattr__(self, "extra", MappingProxyType(dict(self.extra)))
+        object.__setattr__(self, "extra", freeze_deep(self.extra))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -49,8 +51,7 @@ class ColumnMapping:
     extra: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
 
     def __post_init__(self) -> None:
-        if not isinstance(self.extra, MappingProxyType):
-            object.__setattr__(self, "extra", MappingProxyType(dict(self.extra)))
+        object.__setattr__(self, "extra", freeze_deep(self.extra))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -80,8 +81,7 @@ class TableMapping:
     def __post_init__(self) -> None:
         if not isinstance(self.column_mappings, tuple):
             object.__setattr__(self, "column_mappings", tuple(self.column_mappings))
-        if not isinstance(self.extra, MappingProxyType):
-            object.__setattr__(self, "extra", MappingProxyType(dict(self.extra)))
+        object.__setattr__(self, "extra", freeze_deep(self.extra))
 
     @property
     def source_qualified_name(self) -> str:
@@ -123,8 +123,7 @@ class SchemaMappingRule:
     extra: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
 
     def __post_init__(self) -> None:
-        if not isinstance(self.extra, MappingProxyType):
-            object.__setattr__(self, "extra", MappingProxyType(dict(self.extra)))
+        object.__setattr__(self, "extra", freeze_deep(self.extra))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -152,8 +151,7 @@ class CompiledSchemaMapping:
             val = getattr(self, attr)
             if not isinstance(val, tuple):
                 object.__setattr__(self, attr, tuple(val))
-        if not isinstance(self.extra, MappingProxyType):
-            object.__setattr__(self, "extra", MappingProxyType(dict(self.extra)))
+        object.__setattr__(self, "extra", freeze_deep(self.extra))
 
     def get_table_mapping(self, src_schema: str, src_table: str) -> Optional[TableMapping]:
         src_s = src_schema.lower()

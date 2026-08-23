@@ -9,6 +9,7 @@ from akaalEngine.schema.models.types import (
     CanonicalTypeCategory,
     ConversionSafety,
     TargetTypeEmission,
+    freeze_deep,
 )
 
 from akaalEngine.schema.models.constraints import (
@@ -72,6 +73,7 @@ __all__ = [
     "CanonicalTypeCategory",
     "ConversionSafety",
     "TargetTypeEmission",
+    "freeze_deep",
     "CanonicalPrimaryKey",
     "CanonicalForeignKey",
     "CanonicalUniqueConstraint",

@@ -11,7 +11,7 @@ from enum import Enum
 from types import MappingProxyType
 from typing import Any, Mapping, Optional, Sequence, Tuple
 
-from akaalEngine.schema.models.types import CanonicalType
+from akaalEngine.schema.models.types import CanonicalType, freeze_deep
 
 
 class RoutineKind(str, Enum):
@@ -51,8 +51,7 @@ class CanonicalRoutineParameter:
     extra: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
 
     def __post_init__(self) -> None:
-        if not isinstance(self.extra, MappingProxyType):
-            object.__setattr__(self, "extra", MappingProxyType(dict(self.extra)))
+        object.__setattr__(self, "extra", freeze_deep(self.extra))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -91,10 +90,8 @@ class CanonicalRoutine:
             object.__setattr__(self, "parameters", tuple(self.parameters))
         if not isinstance(self.dependencies, tuple):
             object.__setattr__(self, "dependencies", tuple(self.dependencies))
-        if not isinstance(self.properties, MappingProxyType):
-            object.__setattr__(self, "properties", MappingProxyType(dict(self.properties)))
-        if not isinstance(self.extra, MappingProxyType):
-            object.__setattr__(self, "extra", MappingProxyType(dict(self.extra)))
+        object.__setattr__(self, "properties", freeze_deep(self.properties))
+        object.__setattr__(self, "extra", freeze_deep(self.extra))
 
     @property
     def qualified_name(self) -> str:
@@ -142,10 +139,8 @@ class CanonicalPackage:
             val = getattr(self, attr)
             if not isinstance(val, tuple):
                 object.__setattr__(self, attr, tuple(val))
-        if not isinstance(self.properties, MappingProxyType):
-            object.__setattr__(self, "properties", MappingProxyType(dict(self.properties)))
-        if not isinstance(self.extra, MappingProxyType):
-            object.__setattr__(self, "extra", MappingProxyType(dict(self.extra)))
+        object.__setattr__(self, "properties", freeze_deep(self.properties))
+        object.__setattr__(self, "extra", freeze_deep(self.extra))
 
     @property
     def qualified_name(self) -> str:
@@ -184,8 +179,7 @@ class CanonicalTrigger:
     def __post_init__(self) -> None:
         if not isinstance(self.events, tuple):
             object.__setattr__(self, "events", tuple(self.events))
-        if not isinstance(self.extra, MappingProxyType):
-            object.__setattr__(self, "extra", MappingProxyType(dict(self.extra)))
+        object.__setattr__(self, "extra", freeze_deep(self.extra))
 
     @property
     def qualified_name(self) -> str:
@@ -222,8 +216,7 @@ class CanonicalSequence:
     extra: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
 
     def __post_init__(self) -> None:
-        if not isinstance(self.extra, MappingProxyType):
-            object.__setattr__(self, "extra", MappingProxyType(dict(self.extra)))
+        object.__setattr__(self, "extra", freeze_deep(self.extra))
 
     @property
     def qualified_name(self) -> str:
@@ -259,10 +252,8 @@ class CanonicalUDT:
     def __post_init__(self) -> None:
         if not isinstance(self.enum_values, tuple):
             object.__setattr__(self, "enum_values", tuple(self.enum_values))
-        if not isinstance(self.attributes, MappingProxyType):
-            object.__setattr__(self, "attributes", MappingProxyType(dict(self.attributes)))
-        if not isinstance(self.extra, MappingProxyType):
-            object.__setattr__(self, "extra", MappingProxyType(dict(self.extra)))
+        object.__setattr__(self, "attributes", freeze_deep(self.attributes))
+        object.__setattr__(self, "extra", freeze_deep(self.extra))
 
     @property
     def qualified_name(self) -> str:

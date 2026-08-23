@@ -43,6 +43,17 @@ class ConversionSafety(str, Enum):
     USER_DECISION_REQUIRED = "USER_DECISION_REQUIRED"
 
 
+def freeze_deep(val: Any) -> Any:
+    """Recursively converts dictionaries to MappingProxyType and lists/sets to immutable tuples."""
+    if isinstance(val, (dict, MappingProxyType)):
+        return MappingProxyType({k: freeze_deep(v) for k, v in val.items()})
+    elif isinstance(val, (list, set)):
+        return tuple(freeze_deep(item) for item in val)
+    elif isinstance(val, tuple):
+        return tuple(freeze_deep(item) for item in val)
+    return val
+
+
 @dataclass(frozen=True)
 class CanonicalType:
     """
@@ -66,8 +77,7 @@ class CanonicalType:
     extra: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
 
     def __post_init__(self) -> None:
-        if not isinstance(self.extra, MappingProxyType):
-            object.__setattr__(self, "extra", MappingProxyType(dict(self.extra)))
+        object.__setattr__(self, "extra", freeze_deep(self.extra))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -127,8 +137,7 @@ class TargetTypeEmission:
     def __post_init__(self) -> None:
         if not isinstance(self.lossiness_reasons, tuple):
             object.__setattr__(self, "lossiness_reasons", tuple(self.lossiness_reasons))
-        if not isinstance(self.extra, MappingProxyType):
-            object.__setattr__(self, "extra", MappingProxyType(dict(self.extra)))
+        object.__setattr__(self, "extra", freeze_deep(self.extra))
 
     def to_dict(self) -> dict[str, Any]:
         return {

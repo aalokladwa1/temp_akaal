@@ -120,6 +120,38 @@ class ProceduralLexer:
                 tokens.append(Token(TokenType.COMMENT, val, loc))
                 continue
 
+            # 3.5. Oracle Alternative Quote String: q'[...]' or Q'(...)'
+            if (char in ('q', 'Q')) and i + 2 < length and sql[i + 1] == "'":
+                start = i
+                open_delim = sql[i + 2]
+                close_delim = open_delim
+                if open_delim == '[':
+                    close_delim = ']'
+                elif open_delim == '(':
+                    close_delim = ')'
+                elif open_delim == '{':
+                    close_delim = '}'
+                elif open_delim == '<':
+                    close_delim = '>'
+
+                i += 3
+                col += 3
+                while i + 1 < length:
+                    if sql[i] == close_delim and sql[i + 1] == "'":
+                        i += 2
+                        col += 2
+                        break
+                    if sql[i] == '\n':
+                        line += 1
+                        col = 1
+                        i += 1
+                    else:
+                        col += 1
+                        i += 1
+                val = sql[start:i]
+                tokens.append(Token(TokenType.STRING_LITERAL, val, loc))
+                continue
+
             # 4. Single-Quoted String Literal: '...'
             if char == "'":
                 start = i

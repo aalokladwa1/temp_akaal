@@ -22,7 +22,12 @@ from akaalEngine.schema.models.programmables import (
 )
 from akaalEngine.schema.models.schema import CanonicalSchema, CanonicalView
 from akaalEngine.schema.models.table import CanonicalColumn, CanonicalTable
-from akaalEngine.schema.models.types import ConversionSafety
+from akaalEngine.schema.models.types import ConversionSafety, freeze_deep
+
+
+class UnsupportedTargetEngineError(ValueError):
+    """Raised when target database engine is unsupported or incapable of relational DDL generation."""
+    pass
 
 
 class DDLStage(str, Enum):
@@ -60,8 +65,7 @@ class StructuredDDLArtifact:
             object.__setattr__(self, "dependencies", tuple(self.dependencies))
         if not isinstance(self.warnings, tuple):
             object.__setattr__(self, "warnings", tuple(self.warnings))
-        if not isinstance(self.extra, MappingProxyType):
-            object.__setattr__(self, "extra", MappingProxyType(dict(self.extra)))
+        object.__setattr__(self, "extra", freeze_deep(self.extra))
         if not self.source_fingerprint and self.sql:
             h = hashlib.sha256(self.sql.strip().encode("utf-8")).hexdigest()
             object.__setattr__(self, "source_fingerprint", h)
@@ -99,8 +103,7 @@ class StagedDDLPackage:
     def __post_init__(self) -> None:
         if not isinstance(self.artifacts, tuple):
             object.__setattr__(self, "artifacts", tuple(self.artifacts))
-        if not isinstance(self.extra, MappingProxyType):
-            object.__setattr__(self, "extra", MappingProxyType(dict(self.extra)))
+        object.__setattr__(self, "extra", freeze_deep(self.extra))
 
     def get_stage_artifacts(self, stage: DDLStage) -> List[StructuredDDLArtifact]:
         return [a for a in self.artifacts if a.stage == stage]
@@ -172,3 +175,35 @@ class BaseTargetDDLEmitter(ABC):
     def emit_udt_artifacts(self, udt: CanonicalUDT) -> List[StructuredDDLArtifact]:
         """Emit DDL for a User-Defined Type or enum."""
         pass
+
+    def emit_routine_artifacts(self, routine: CanonicalRoutine, converted_sql: Optional[str] = None) -> List[StructuredDDLArtifact]:
+        """Emit DDL for a stored procedure or function."""
+        sql = converted_sql or routine.definition_sql or ""
+        if not sql:
+            return []
+        return [
+            StructuredDDLArtifact(
+                object_type="ROUTINE",
+                object_name=routine.name,
+                schema_name=routine.schema_name,
+                sql=sql,
+                target_engine=self.target_engine,
+                stage=DDLStage.ROUTINES,
+            )
+        ]
+
+    def emit_trigger_artifacts(self, trigger: CanonicalTrigger, converted_sql: Optional[str] = None) -> List[StructuredDDLArtifact]:
+        """Emit DDL for a trigger."""
+        sql = converted_sql or trigger.definition_sql or ""
+        if not sql:
+            return []
+        return [
+            StructuredDDLArtifact(
+                object_type="TRIGGER",
+                object_name=trigger.name,
+                schema_name=trigger.schema_name,
+                sql=sql,
+                target_engine=self.target_engine,
+                stage=DDLStage.TRIGGERS,
+            )
+        ]

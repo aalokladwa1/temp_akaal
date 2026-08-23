@@ -63,6 +63,10 @@ class MultiDomainDependencyGraph:
             self.reverse_adj[target_id].add(source_id)
 
     @classmethod
+    def build(cls, model: CanonicalSchemaModel) -> MultiDomainDependencyGraph:
+        return cls.build_from_model(model)
+
+    @classmethod
     def build_from_model(cls, model: CanonicalSchemaModel) -> MultiDomainDependencyGraph:
         graph = cls()
 

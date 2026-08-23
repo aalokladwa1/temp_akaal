@@ -18,6 +18,7 @@ from akaalEngine.schema.models.constraints import (
     CanonicalUniqueConstraint,
 )
 from akaalEngine.schema.models.indexes import CanonicalIndex
+from akaalEngine.schema.models.partitioning import CanonicalPartitioning
 from akaalEngine.schema.models.mapping import (
     ColumnMapping,
     CompiledSchemaMapping,
@@ -99,15 +100,24 @@ class MappingEngine:
 
                 # Apply datatype override if present
                 ctype = col.canonical_type
+                src_native = col.source_native_type
                 if cm and cm.datatype_override:
-                    # Keep canonical type category but annotate override
-                    ctype = ctype  # Override handled during target emission
+                    ovr = cm.datatype_override
+                    src_native = ovr.target_data_type
+                    from akaalEngine.schema.types.registry import CanonicalTypeRegistry
+                    ctype = CanonicalTypeRegistry.normalize_source_type(
+                        provider=target_vendor or source_model.source_vendor or "GENERIC",
+                        raw_type=ovr.target_data_type,
+                        precision=ovr.target_precision,
+                        scale=ovr.target_scale,
+                        length=ovr.target_length,
+                    )
 
                 mapped_cols.append(
                     CanonicalColumn(
                         name=tgt_c,
                         ordinal_position=cm.ordinal_position if (cm and cm.ordinal_position) else col.ordinal_position,
-                        source_native_type=col.source_native_type,
+                        source_native_type=src_native,
                         canonical_type=ctype,
                         length=cm.datatype_override.target_length if (cm and cm.datatype_override and cm.datatype_override.target_length) else col.length,
                         precision=cm.datatype_override.target_precision if (cm and cm.datatype_override and cm.datatype_override.target_precision) else col.precision,
@@ -196,6 +206,23 @@ class MappingEngine:
                         )
                     )
 
+            # Transform Check Constraints
+            mapped_cks: List[CanonicalCheckConstraint] = []
+            for ck in tbl.check_constraints:
+                mapped_nn = column_rename_map.get((src_s_lower, src_t_lower, ck.not_null_column.lower()), ck.not_null_column) if ck.not_null_column else None
+                mapped_cks.append(
+                    CanonicalCheckConstraint(
+                        name=ck.name,
+                        table_name=tgt_t,
+                        schema_name=tgt_s,
+                        check_clause=ck.check_clause,
+                        is_enforced=ck.is_enforced,
+                        is_not_null=ck.is_not_null,
+                        not_null_column=mapped_nn,
+                        extra=ck.extra,
+                    )
+                )
+
             # Transform Indexes
             mapped_indexes: List[CanonicalIndex] = []
             for idx in tbl.indexes:
@@ -219,6 +246,23 @@ class MappingEngine:
                         )
                     )
 
+            # Transform Partitioning
+            mapped_part_cols = [column_rename_map.get((src_s_lower, src_t_lower, c.lower()), c) for c in tbl.partitioning.partition_columns]
+            mapped_subpart_cols = [column_rename_map.get((src_s_lower, src_t_lower, c.lower()), c) for c in tbl.partitioning.subpartition_columns]
+            mapped_shard_cols = [column_rename_map.get((src_s_lower, src_t_lower, c.lower()), c) for c in tbl.partitioning.shard_key_columns]
+            mapped_part = CanonicalPartitioning(
+                strategy=tbl.partitioning.strategy,
+                partition_columns=tuple(mapped_part_cols),
+                subpartition_strategy=tbl.partitioning.subpartition_strategy,
+                subpartition_columns=tuple(mapped_subpart_cols),
+                partitions=tbl.partitioning.partitions,
+                subpartitions=tbl.partitioning.subpartitions,
+                token_ranges=tbl.partitioning.token_ranges,
+                shard_key_columns=tuple(mapped_shard_cols),
+                distribution_style=tbl.partitioning.distribution_style,
+                extra=tbl.partitioning.extra,
+            )
+
             mapped_tables.append(
                 CanonicalTable(
                     table_name=tgt_t,
@@ -230,10 +274,10 @@ class MappingEngine:
                     primary_key=mapped_pk,
                     foreign_keys=tuple(mapped_fks),
                     unique_constraints=tuple(mapped_ucs),
-                    check_constraints=tbl.check_constraints,
+                    check_constraints=tuple(mapped_cks),
                     exclusion_constraints=tbl.exclusion_constraints,
                     indexes=tuple(mapped_indexes),
-                    partitioning=tbl.partitioning,
+                    partitioning=mapped_part,
                     row_format=tbl.row_format,
                     compression=tbl.compression,
                     tablespace=tbl.tablespace,

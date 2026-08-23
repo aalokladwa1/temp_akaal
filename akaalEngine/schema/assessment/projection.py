@@ -7,11 +7,19 @@ Target capacity and structural storage projection models.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import Enum
 from types import MappingProxyType
 from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 from akaalEngine.schema.models.schema import CanonicalSchemaModel
-from akaalEngine.schema.models.types import CanonicalTypeCategory
+from akaalEngine.schema.models.types import CanonicalTypeCategory, freeze_deep
+
+
+class CapacityEvidenceKind(str, Enum):
+    """Evidence basis for capacity projections."""
+    MEASURED = "MEASURED"
+    ESTIMATED = "ESTIMATED"
+    UNKNOWN = "UNKNOWN"
 
 
 @dataclass(frozen=True)
@@ -19,10 +27,11 @@ class TableCapacityProjection:
     """Projected storage metrics for a single table."""
     table_name: str
     schema_name: str
-    estimated_row_count: int
-    estimated_bytes_source: int
-    estimated_bytes_target: int
+    estimated_row_count: Optional[int]
+    estimated_bytes_source: Optional[int]
+    estimated_bytes_target: Optional[int]
     estimated_compression_ratio: float = 1.0
+    evidence_kind: CapacityEvidenceKind = CapacityEvidenceKind.ESTIMATED
 
 
 @dataclass(frozen=True)
@@ -38,8 +47,7 @@ class TargetCapacityReport:
     def __post_init__(self) -> None:
         if not isinstance(self.table_projections, tuple):
             object.__setattr__(self, "table_projections", tuple(self.table_projections))
-        if not isinstance(self.extra, MappingProxyType):
-            object.__setattr__(self, "extra", MappingProxyType(dict(self.extra)))
+        object.__setattr__(self, "extra", freeze_deep(self.extra))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -55,6 +63,7 @@ class TargetCapacityReport:
                     "estimated_bytes_source": tp.estimated_bytes_source,
                     "estimated_bytes_target": tp.estimated_bytes_target,
                     "estimated_compression_ratio": tp.estimated_compression_ratio,
+                    "evidence_kind": tp.evidence_kind.value,
                 }
                 for tp in self.table_projections
             ],
@@ -94,11 +103,24 @@ class TargetCapacitySchemaProjection:
         for tbl in model.tables:
             # Calculate estimated row width
             row_width = sum(CATEGORY_BYTE_WEIGHTS.get(c.canonical_type.category, 32) for c in tbl.columns)
-            est_rows = tbl.raw_source_properties.get("estimated_rows", 1000)
-            src_bytes = est_rows * row_width
+            
+            raw_rows = tbl.raw_source_properties.get("estimated_rows") or tbl.raw_source_properties.get("row_count")
+            if raw_rows is not None:
+                est_rows = int(raw_rows)
+                evidence = CapacityEvidenceKind.MEASURED if tbl.raw_source_properties.get("is_exact_count") else CapacityEvidenceKind.ESTIMATED
+                src_bytes = est_rows * row_width
+            else:
+                est_rows = 0
+                evidence = CapacityEvidenceKind.UNKNOWN
+                src_bytes = 0
 
-            # Columnar warehouses (Snowflake, BigQuery, Redshift) achieve ~3x compression
-            comp_ratio = 0.35 if target_engine.upper() in ("SNOWFLAKE", "BIGQUERY", "REDSHIFT") else 1.0
+            # Columnar warehouses (Snowflake, BigQuery, Redshift, Databricks) achieve ~3x compression
+            comp_ratio = 1.0
+            if target_engine.upper() in ("SNOWFLAKE", "BIGQUERY", "REDSHIFT", "DATABRICKS"):
+                comp_ratio = 0.35
+            elif target_engine.upper() in ("POSTGRESQL", "ORACLE", "MYSQL", "MSSQL", "DB2"):
+                comp_ratio = 0.90
+
             tgt_bytes = int(src_bytes * comp_ratio)
 
             total_rows += est_rows
@@ -109,10 +131,11 @@ class TargetCapacitySchemaProjection:
                 TableCapacityProjection(
                     table_name=tbl.table_name,
                     schema_name=tbl.schema_name,
-                    estimated_row_count=est_rows,
-                    estimated_bytes_source=src_bytes,
-                    estimated_bytes_target=tgt_bytes,
+                    estimated_row_count=est_rows if est_rows > 0 else None,
+                    estimated_bytes_source=src_bytes if src_bytes > 0 else None,
+                    estimated_bytes_target=tgt_bytes if tgt_bytes > 0 else None,
                     estimated_compression_ratio=comp_ratio,
+                    evidence_kind=evidence,
                 )
             )
 

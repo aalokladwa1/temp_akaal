@@ -10,6 +10,8 @@ from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Any, Mapping, Optional, Tuple
 
+from akaalEngine.schema.models.types import freeze_deep
+
 
 @dataclass(frozen=True)
 class CanonicalPrimaryKey:
@@ -24,8 +26,7 @@ class CanonicalPrimaryKey:
     def __post_init__(self) -> None:
         if not isinstance(self.columns, tuple):
             object.__setattr__(self, "columns", tuple(self.columns))
-        if not isinstance(self.extra, MappingProxyType):
-            object.__setattr__(self, "extra", MappingProxyType(dict(self.extra)))
+        object.__setattr__(self, "extra", freeze_deep(self.extra))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -61,8 +62,7 @@ class CanonicalForeignKey:
             object.__setattr__(self, "columns", tuple(self.columns))
         if not isinstance(self.referenced_columns, tuple):
             object.__setattr__(self, "referenced_columns", tuple(self.referenced_columns))
-        if not isinstance(self.extra, MappingProxyType):
-            object.__setattr__(self, "extra", MappingProxyType(dict(self.extra)))
+        object.__setattr__(self, "extra", freeze_deep(self.extra))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -98,8 +98,7 @@ class CanonicalUniqueConstraint:
     def __post_init__(self) -> None:
         if not isinstance(self.columns, tuple):
             object.__setattr__(self, "columns", tuple(self.columns))
-        if not isinstance(self.extra, MappingProxyType):
-            object.__setattr__(self, "extra", MappingProxyType(dict(self.extra)))
+        object.__setattr__(self, "extra", freeze_deep(self.extra))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -127,8 +126,7 @@ class CanonicalCheckConstraint:
     extra: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
 
     def __post_init__(self) -> None:
-        if not isinstance(self.extra, MappingProxyType):
-            object.__setattr__(self, "extra", MappingProxyType(dict(self.extra)))
+        object.__setattr__(self, "extra", freeze_deep(self.extra))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -157,8 +155,7 @@ class CanonicalExclusionConstraint:
     def __post_init__(self) -> None:
         if not isinstance(self.elements, tuple):
             object.__setattr__(self, "elements", tuple(self.elements))
-        if not isinstance(self.extra, MappingProxyType):
-            object.__setattr__(self, "extra", MappingProxyType(dict(self.extra)))
+        object.__setattr__(self, "extra", freeze_deep(self.extra))
 
     def to_dict(self) -> dict[str, Any]:
         return {

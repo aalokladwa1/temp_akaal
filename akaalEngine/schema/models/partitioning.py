@@ -12,6 +12,9 @@ from types import MappingProxyType
 from typing import Any, Mapping, Optional, Tuple
 
 
+from akaalEngine.schema.models.types import freeze_deep
+
+
 class PartitionStrategy(str, Enum):
     """Partitioning and physical distribution strategies."""
     NONE = "NONE"
@@ -24,6 +27,7 @@ class PartitionStrategy(str, Enum):
     SHARD_KEY = "SHARD_KEY"
     TOPIC_PARTITIONS = "TOPIC_PARTITIONS"
     DIRECTORY_PREFIX = "DIRECTORY_PREFIX"
+    UNKNOWN = "UNKNOWN"
 
 
 @dataclass(frozen=True)
@@ -39,8 +43,7 @@ class CanonicalPartitionBound:
     properties: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
 
     def __post_init__(self) -> None:
-        if not isinstance(self.properties, MappingProxyType):
-            object.__setattr__(self, "properties", MappingProxyType(dict(self.properties)))
+        object.__setattr__(self, "properties", freeze_deep(self.properties))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -118,8 +121,7 @@ class CanonicalPartitioning:
             val = getattr(self, attr)
             if not isinstance(val, tuple):
                 object.__setattr__(self, attr, tuple(val))
-        if not isinstance(self.extra, MappingProxyType):
-            object.__setattr__(self, "extra", MappingProxyType(dict(self.extra)))
+        object.__setattr__(self, "extra", freeze_deep(self.extra))
 
     def to_dict(self) -> dict[str, Any]:
         return {

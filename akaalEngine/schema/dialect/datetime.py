@@ -9,6 +9,9 @@ from __future__ import annotations
 import re
 
 
+from akaalEngine.schema.procedural.lexer import ProceduralLexer, Token, TokenType
+
+
 class DateTimeDialectTranslator:
     """Translates temporal expressions, date arithmetic, and interval syntax."""
 
@@ -20,31 +23,49 @@ class DateTimeDialectTranslator:
         if not expr or src == tgt:
             return expr
 
-        result = expr
+        tokens = ProceduralLexer.tokenize(expr)
+        result_parts: List[str] = []
+        i = 0
+        length = len(tokens)
 
-        # 1. SYSDATE & SYSTIMESTAMP (Oracle -> PostgreSQL / others)
-        if src == "ORACLE":
-            if tgt in ("POSTGRESQL", "POSTGRES"):
-                # Handle SYSDATE + <num> (Oracle day arithmetic)
-                result = re.sub(r"\bSYSDATE\s*\+\s*(\d+)", r"CURRENT_TIMESTAMP + INTERVAL '\1 DAY'", result, flags=re.IGNORECASE)
-                result = re.sub(r"\bSYSDATE\s*\-\s*(\d+)", r"CURRENT_TIMESTAMP - INTERVAL '\1 DAY'", result, flags=re.IGNORECASE)
-                result = re.sub(r"\bSYSDATE\b", "CURRENT_TIMESTAMP", result, flags=re.IGNORECASE)
-                result = re.sub(r"\bSYSTIMESTAMP\b", "CURRENT_TIMESTAMP", result, flags=re.IGNORECASE)
+        while i < length:
+            tok = tokens[i]
+            if tok.token_type in (TokenType.STRING_LITERAL, TokenType.COMMENT):
+                result_parts.append(tok.value)
+                i += 1
+                continue
 
-        # 2. GETDATE() / SYSDATETIME() (MSSQL -> PostgreSQL / others)
-        elif src in ("MSSQL", "SQLSERVER"):
-            if tgt in ("POSTGRESQL", "POSTGRES"):
-                result = re.sub(r"\bGETDATE\(\)", "CURRENT_TIMESTAMP", result, flags=re.IGNORECASE)
-                result = re.sub(r"\bSYSDATETIME\(\)", "CURRENT_TIMESTAMP", result, flags=re.IGNORECASE)
-                # DATEADD(day, n, date)
-                match_add = re.search(r"DATEADD\s*\(\s*(day|month|year|hour|minute|second)\s*,\s*(\d+)\s*,\s*([^)]+)\)", result, re.IGNORECASE)
-                if match_add:
-                    unit, amount, base = match_add.groups()
-                    result = result.replace(match_add.group(0), f"{base.strip()} + INTERVAL '{amount} {unit.upper()}'")
+            # Oracle SYSDATE +/- N
+            if src == "ORACLE" and tok.value.upper() in ("SYSDATE", "SYSTIMESTAMP"):
+                if tgt in ("POSTGRESQL", "POSTGRES"):
+                    if i + 2 < length and tokens[i + 1].value in ("+", "-") and tokens[i + 2].token_type == TokenType.NUMERIC_LITERAL:
+                        op = tokens[i + 1].value
+                        num = tokens[i + 2].value
+                        result_parts.append(f"CURRENT_TIMESTAMP {op} INTERVAL '{num} DAY'")
+                        i += 3
+                        continue
+                    else:
+                        result_parts.append("CURRENT_TIMESTAMP")
+                        i += 1
+                        continue
 
-        # 3. NOW() (MySQL -> PostgreSQL / Snowflake / others)
-        elif src in ("MYSQL", "MARIADB"):
-            if tgt == "SNOWFLAKE":
-                result = re.sub(r"\bNOW\(\)", "CURRENT_TIMESTAMP()", result, flags=re.IGNORECASE)
+            # MSSQL GETDATE() / SYSDATETIME()
+            if src in ("MSSQL", "SQLSERVER") and tok.value.upper() in ("GETDATE", "SYSDATETIME"):
+                if tgt in ("POSTGRESQL", "POSTGRES"):
+                    if i + 2 < length and tokens[i + 1].value == "(" and tokens[i + 2].value == ")":
+                        result_parts.append("CURRENT_TIMESTAMP")
+                        i += 3
+                        continue
 
-        return result
+            # MySQL NOW()
+            if src in ("MYSQL", "MARIADB") and tok.value.upper() == "NOW":
+                if tgt == "SNOWFLAKE":
+                    if i + 2 < length and tokens[i + 1].value == "(" and tokens[i + 2].value == ")":
+                        result_parts.append("CURRENT_TIMESTAMP()")
+                        i += 3
+                        continue
+
+            result_parts.append(tok.value)
+            i += 1
+
+        return " ".join(result_parts)

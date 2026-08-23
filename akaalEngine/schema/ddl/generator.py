@@ -13,16 +13,20 @@ from akaalEngine.schema.ddl.emitter import (
     DDLStage,
     StagedDDLPackage,
     StructuredDDLArtifact,
+    UnsupportedTargetEngineError,
 )
 from akaalEngine.schema.ddl.providers import (
     BigQueryDDLEmitter,
     CQLDDLEmitter,
+    DatabricksDDLEmitter,
+    Db2DDLEmitter,
     MSSQLDDLEmitter,
     MySQLDDLEmitter,
     OracleDDLEmitter,
     PostgreSQLDDLEmitter,
     RedshiftDDLEmitter,
     SnowflakeDDLEmitter,
+    SQLiteDDLEmitter,
 )
 from akaalEngine.schema.models.schema import CanonicalSchemaModel
 
@@ -43,6 +47,12 @@ class DDLGenerator:
         "REDSHIFT": RedshiftDDLEmitter,
         "CASSANDRA": CQLDDLEmitter,
         "SCYLLADB": CQLDDLEmitter,
+        "SQLITE": SQLiteDDLEmitter,
+        "SQLITE3": SQLiteDDLEmitter,
+        "DB2": Db2DDLEmitter,
+        "IBM_DB2": Db2DDLEmitter,
+        "DATABRICKS": DatabricksDDLEmitter,
+        "SPARK": DatabricksDDLEmitter,
     }
 
     @classmethod
@@ -58,8 +68,7 @@ class DDLGenerator:
             elif eng in ("CASSANDRA", "SCYLLADB"):
                 return CQLDDLEmitter(target_engine=eng)
             return emitter_cls()
-        # Fallback to PostgreSQL emitter
-        return PostgreSQLDDLEmitter()
+        raise UnsupportedTargetEngineError(f"Target engine '{target_engine}' is not supported for relational DDL generation.")
 
     @classmethod
     def generate_ddl_package(
@@ -67,6 +76,7 @@ class DDLGenerator:
         model: CanonicalSchemaModel,
         target_engine: str,
         target_version: Optional[str] = None,
+        procedural_artifacts: Optional[List[StructuredDDLArtifact]] = None,
     ) -> StagedDDLPackage:
         """Generates staged DDL package from CanonicalSchemaModel."""
         emitter = cls.get_emitter(target_engine, target_version)
@@ -100,6 +110,15 @@ class DDLGenerator:
         # 5. Views
         for v in model.views:
             all_artifacts.extend(emitter.emit_view_artifacts(v, source_engine=model.source_vendor))
+
+        # 6. Routines and Triggers
+        if procedural_artifacts:
+            all_artifacts.extend(procedural_artifacts)
+        else:
+            for r in model.routines:
+                all_artifacts.extend(emitter.emit_routine_artifacts(r))
+            for tr in model.triggers:
+                all_artifacts.extend(emitter.emit_trigger_artifacts(tr))
 
         return StagedDDLPackage(
             target_engine=target_engine.upper(),

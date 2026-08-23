@@ -104,11 +104,12 @@ class PLSQLParser:
         self.match_keyword("REPLACE")
 
         # 2. Determine Routine Type
-        routine_kind = RoutineKind.PROCEDURE
         if self.match_keyword("FUNCTION"):
             routine_kind = RoutineKind.FUNCTION
         elif self.match_keyword("PROCEDURE"):
             routine_kind = RoutineKind.PROCEDURE
+        else:
+            raise SyntaxError(f"Expected PROCEDURE or FUNCTION in PL/SQL source: '{self.raw_sql[:60]}...'")
 
         # 3. Routine Name
         name_tok = self.advance()

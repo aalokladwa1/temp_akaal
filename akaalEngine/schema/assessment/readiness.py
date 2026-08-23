@@ -14,6 +14,7 @@ from typing import Any, List, Mapping, Optional, Tuple
 
 from akaalEngine.schema.assessment.compatibility import CompatibilityBreakdown
 from akaalEngine.schema.assessment.risk import RiskLevel, StructuralRiskReport
+from akaalEngine.schema.models.types import freeze_deep
 
 
 class ReadinessStatus(str, Enum):
@@ -38,8 +39,7 @@ class ReadinessGateReport:
             val = getattr(self, attr)
             if not isinstance(val, tuple):
                 object.__setattr__(self, attr, tuple(val))
-        if not isinstance(self.extra, MappingProxyType):
-            object.__setattr__(self, "extra", MappingProxyType(dict(self.extra)))
+        object.__setattr__(self, "extra", freeze_deep(self.extra))
 
     @property
     def is_executable(self) -> bool:
@@ -73,14 +73,27 @@ class SchemaReadinessGateProvider:
         if compat_breakdown.unsupported_count > 0:
             blockers.append(f"{compat_breakdown.unsupported_count} unsupported column datatypes must be mapped or excluded before migration")
 
-        # 2. Check for Lossy Conversions (Waiver Required)
+        # 2. Check for User Decisions Required (Waiver / Blocker)
+        if getattr(compat_breakdown, "decision_required_count", 0) > 0:
+            count = compat_breakdown.decision_required_count
+            waivers.append(f"Explicit operator resolution required for {count} ambiguous column conversions")
+            warnings.append(f"{count} columns require explicit mapping decisions")
+
+        # 3. Check for Lossy Conversions (Waiver Required)
         if compat_breakdown.lossy_count > 0:
             waivers.append(f"Operator waiver required for {compat_breakdown.lossy_count} lossy column conversions")
             warnings.append(f"{compat_breakdown.lossy_count} columns have potential truncation or precision reduction")
 
-        # 3. Check Risk Level
+        # 4. Check for Compatibility Pack Requirement
+        if getattr(compat_breakdown, "compat_layer_count", 0) > 0:
+            count = compat_breakdown.compat_layer_count
+            warnings.append(f"{count} constructs require akaal_compat support layer deployment")
+
+        # 5. Check Risk Level
         if risk_report.risk_level == RiskLevel.CRITICAL and not blockers:
             waivers.append("Executive risk waiver required for CRITICAL structural complexity score")
+        elif risk_report.risk_level == RiskLevel.HIGH:
+            warnings.append("High structural complexity score detected across foreign keys, partitions, or LOBs")
 
         # Determine Final Status
         if blockers:
