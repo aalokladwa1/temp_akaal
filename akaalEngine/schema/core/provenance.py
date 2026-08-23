@@ -37,16 +37,37 @@ def _canonical_normalize(val: Any) -> Any:
     raise TypeError(f"Cannot deterministically serialize type '{type(val).__name__}' to canonical JSON.")
 
 
+import inspect
+
+
 def get_rule_implementation_version() -> str:
-    """Computes deterministic mechanical hash of loaded schema rule engines."""
+    """Computes deterministic mechanical hash of loaded schema rule engine bytecodes and constants."""
     from akaalEngine.schema.types.normalizers import ProviderTypeNormalizers
     from akaalEngine.schema.types.emitters import ProviderTypeEmitters
-    rule_signatures = [
-        sorted(m for m in dir(ProviderTypeNormalizers) if m.startswith("_normalize_")),
-        sorted(m for m in dir(ProviderTypeEmitters) if m.startswith("_emit_")),
-    ]
-    raw = json.dumps(rule_signatures, sort_keys=True)
-    return f"v4.0.0-{hashlib.sha256(raw.encode('utf-8')).hexdigest()[:8]}"
+    from akaalEngine.schema.dialect.datetime import DateTimeDialectTranslator
+    from akaalEngine.schema.dialect.sequences import SequenceDialectTranslator
+    from akaalEngine.schema.dialect.functions import FunctionDialectTranslator
+
+    rule_hashes = []
+    classes = (
+        ProviderTypeNormalizers,
+        ProviderTypeEmitters,
+        DateTimeDialectTranslator,
+        SequenceDialectTranslator,
+        FunctionDialectTranslator,
+    )
+    for cls in classes:
+        for name, member in inspect.getmembers(cls, predicate=callable):
+            func = getattr(member, "__func__", member)
+            if hasattr(func, "__code__"):
+                co = func.__code__
+                code_bytes = co.co_code
+                consts_repr = repr(co.co_consts).encode("utf-8")
+                member_hash = hashlib.sha256(code_bytes + consts_repr).hexdigest()
+                rule_hashes.append(f"{cls.__name__}.{name}:{member_hash}")
+
+    combined = ";".join(sorted(rule_hashes))
+    return f"v4.0.0-{hashlib.sha256(combined.encode('utf-8')).hexdigest()[:12]}"
 
 
 class DeterministicSchemaProvenanceHasher:

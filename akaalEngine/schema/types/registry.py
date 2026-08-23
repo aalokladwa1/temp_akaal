@@ -21,25 +21,54 @@ from akaalEngine.schema.types.normalizers import ProviderTypeNormalizers
 from akaalEngine.schema.types.safety import TypeSafetyEvaluator
 
 
-class CanonicalTypeRegistry:
-    """Universal Canonical Datatype Registry and Conversion Rulebook."""
+from contextlib import contextmanager
+from contextvars import ContextVar
 
+_active_memo_ctx: ContextVar[Optional[Any]] = ContextVar("_active_memo_ctx", default=None)
+
+
+class CanonicalTypeRegistry:
+    """Central registry and transformation facade for canonical database types."""
     _custom_normalizers: Dict[str, Callable[..., CanonicalType]] = {}
     _custom_emitters: Dict[str, Callable[[CanonicalType], TargetTypeEmission]] = {}
 
     @classmethod
     def register_normalizer(
-        cls, provider: str, func: Callable[..., CanonicalType]
+        cls,
+        provider: str,
+        func: Callable[..., CanonicalType],
     ) -> None:
         """Register a custom source type normalizer for a provider."""
         cls._custom_normalizers[provider.strip().lower()] = func
 
     @classmethod
     def register_emitter(
-        cls, provider: str, func: Callable[[CanonicalType], TargetTypeEmission]
+        cls,
+        provider: str,
+        func: Callable[[CanonicalType], TargetTypeEmission],
     ) -> None:
         """Register a custom target type emitter for a provider."""
         cls._custom_emitters[provider.strip().lower()] = func
+
+    @classmethod
+    @contextmanager
+    def scoped_memoization_engine(cls, engine: Optional[Any]):
+        """Context manager to safely bind a scoped memoization engine for thread/async safety."""
+        token = _active_memo_ctx.set(engine)
+        try:
+            yield
+        finally:
+            _active_memo_ctx.reset(token)
+
+    @classmethod
+    def get_active_memoization_engine(cls) -> Any:
+        from akaalEngine.schema.core.memoization import default_memoization_engine
+        return _active_memo_ctx.get() or default_memoization_engine
+
+    @classmethod
+    def set_memoization_engine(cls, engine: Optional[Any]) -> None:
+        """Sets active scoped memoization engine for current context."""
+        _active_memo_ctx.set(engine)
 
     @classmethod
     def normalize_source_type(
@@ -50,12 +79,13 @@ class CanonicalTypeRegistry:
         precision: Optional[int] = None,
         scale: Optional[int] = None,
         extra_metadata: Optional[Mapping[str, Any]] = None,
+        memoization_engine: Optional[Any] = None,
     ) -> CanonicalType:
-        """Normalizes source-native type into CanonicalType with memoization."""
+        """Normalizes source-native type into CanonicalType with thread-safe scoped memoization."""
         prov = str(provider).strip().lower()
-        from akaalEngine.schema.core.memoization import default_memoization_engine
+        memo = memoization_engine or cls.get_active_memoization_engine()
 
-        cached = default_memoization_engine.get_normalized_type(
+        cached = memo.get_normalized_type(
             prov, raw_type, length=length, precision=precision, scale=scale
         )
         if cached is not None and not extra_metadata:
@@ -67,17 +97,10 @@ class CanonicalTypeRegistry:
             res = ProviderTypeNormalizers.normalize(prov, raw_type, length, precision, scale, extra_metadata)
 
         if not extra_metadata:
-            default_memoization_engine.put_normalized_type(
+            memo.put_normalized_type(
                 prov, raw_type, res, length=length, precision=precision, scale=scale
             )
         return res
-
-    _active_memoization_engine: Optional[Any] = None
-
-    @classmethod
-    def set_memoization_engine(cls, engine: Optional[Any]) -> None:
-        """Sets active scoped memoization engine."""
-        cls._active_memoization_engine = engine
 
     @classmethod
     def emit_target_type(
@@ -86,10 +109,9 @@ class CanonicalTypeRegistry:
         canonical_type: CanonicalType,
         memoization_engine: Optional[Any] = None,
     ) -> TargetTypeEmission:
-        """Emits target-native DDL type string from CanonicalType with full semantic memoization."""
+        """Emits target-native DDL type string from CanonicalType with full thread-safe semantic memoization."""
         tgt = str(target_provider).strip().lower()
-        from akaalEngine.schema.core.memoization import default_memoization_engine
-        memo = memoization_engine or cls._active_memoization_engine or default_memoization_engine
+        memo = memoization_engine or cls.get_active_memoization_engine()
 
         cached = memo.get_emitted_type(canonical_type, tgt)
         if cached is not None:

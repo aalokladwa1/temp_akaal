@@ -303,22 +303,23 @@ class SchemaAuthority:
             rule_impl_version=get_rule_implementation_version(),
         )
 
-        return SchemaCompilationResult(
-            model_id=mapped_model.model_id,
-            source_engine=source_eng,
-            target_engine=target_eng,
-            canonical_model=canonical_model,
-            mapped_model=mapped_model,
-            ddl_package=ddl_package,
-            compatibility_report=compat_breakdown,
-            risk_report=risk_report,
-            readiness_report=readiness_report,
-            capacity_report=capacity_report,
-            compatibility_pack_report=compat_pack_report,
-            procedural_results=tuple(procedural_results),
-            topologically_ordered_nodes=tuple(ordered_nodes),
-            provenance_fingerprint=provenance,
-        )
+        with CanonicalTypeRegistry.scoped_memoization_engine(self._memo):
+            return SchemaCompilationResult(
+                model_id=mapped_model.model_id,
+                source_engine=source_eng,
+                target_engine=target_eng,
+                canonical_model=canonical_model,
+                mapped_model=mapped_model,
+                ddl_package=ddl_package,
+                compatibility_report=compat_breakdown,
+                risk_report=risk_report,
+                readiness_report=readiness_report,
+                capacity_report=capacity_report,
+                compatibility_pack_report=compat_pack_report,
+                procedural_results=tuple(procedural_results),
+                topologically_ordered_nodes=tuple(ordered_nodes),
+                provenance_fingerprint=provenance,
+            )
 
     def stream_compile(
         self,
@@ -331,25 +332,36 @@ class SchemaAuthority:
         """
         target_eng = request.target_engine.strip().upper()
         target_ver = request.target_version
-        CanonicalTypeRegistry.set_memoization_engine(self._memo)
 
-        canonical_model = self._canonicalize_input(request.source_snapshot)
-        source_eng = canonical_model.source_vendor.upper()
+        with CanonicalTypeRegistry.scoped_memoization_engine(self._memo):
+            from akaalEngine.schema.core.processor import LargeEstateChunkedSchemaProcessor
 
-        if request.mapping:
-            mapped_model = MappingEngine.apply_mapping(canonical_model, request.mapping, target_vendor=target_eng)
-        else:
-            mapped_model = canonical_model
+            if hasattr(request.source_snapshot, "__iter__") and not isinstance(request.source_snapshot, (CanonicalSchemaModel, dict)):
+                # Pure lazy table stream
+                return LargeEstateChunkedSchemaProcessor.stream_compile_estate(
+                    request.source_snapshot,
+                    target_engine=target_eng,
+                    target_version=target_ver,
+                    chunk_size=chunk_size,
+                    mapping=request.mapping,
+                )
 
-        mapped_model = self._apply_dialect_translations(mapped_model, source_eng, target_eng)
+            canonical_model = self._canonicalize_input(request.source_snapshot)
+            source_eng = canonical_model.source_vendor.upper()
 
-        from akaalEngine.schema.core.processor import LargeEstateChunkedSchemaProcessor
-        return LargeEstateChunkedSchemaProcessor.process_chunked_compilation(
-            mapped_model,
-            target_eng,
-            target_ver,
-            chunk_size=chunk_size,
-        )
+            if request.mapping:
+                mapped_model = MappingEngine.apply_mapping(canonical_model, request.mapping, target_vendor=target_eng)
+            else:
+                mapped_model = canonical_model
+
+            mapped_model = self._apply_dialect_translations(mapped_model, source_eng, target_eng)
+
+            return LargeEstateChunkedSchemaProcessor.process_chunked_compilation(
+                mapped_model,
+                target_eng,
+                target_ver,
+                chunk_size=chunk_size,
+            )
 
     def _apply_dialect_translations(
         self,

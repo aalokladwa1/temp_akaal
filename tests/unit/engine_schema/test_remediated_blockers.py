@@ -701,7 +701,7 @@ def test_capacity_evidence_separation_measured_source_vs_heuristic_target():
 
 
 def test_50k_table_streaming_compilation_memory_bounded():
-    """Blocker 1: Verify 50,000 tables can be compiled in memory-bounded stream without holding full list in RAM."""
+    """Blocker 1: Verify all 50,000 tables can be compiled end-to-end in memory-bounded stream without holding full list in RAM."""
     def table_generator():
         col = CanonicalColumn(
             name="id",
@@ -727,8 +727,61 @@ def test_50k_table_streaming_compilation_memory_bounded():
     for chunk_pkg in stream:
         chunk_count += 1
         total_artifacts += len(chunk_pkg.artifacts)
-        if chunk_count >= 10:  # Validate first 10 chunks (5,000 tables) in milliseconds
-            break
 
-    assert chunk_count == 10
-    assert total_artifacts >= 5000
+    # 100 chunks of 500 tables = exactly 50,000 tables processed in streaming mode
+    assert chunk_count == 100
+    assert total_artifacts >= 50000
+
+
+def test_array_type_memoization_nested_unhashable_extra_mapping():
+    """Blocker 2: Verify array type emission with nested CanonicalType and MappingProxyType does not fail on unhashable dict."""
+    default_memoization_engine.clear()
+
+    inner_type = CanonicalType(
+        category=CanonicalTypeCategory.CHARACTER,
+        raw_vendor_type="VARCHAR",
+        length=255,
+        extra={"custom_attr": "nested_val", "is_uuid": False},
+    )
+    array_type = CanonicalType(
+        category=CanonicalTypeCategory.ARRAY,
+        raw_vendor_type="VARCHAR[]",
+        array_element_type=inner_type,
+        extra={"array_dimension": 1},
+    )
+
+    # Must emit without raising TypeError: unhashable type: 'mappingproxy'
+    emission = CanonicalTypeRegistry.emit_target_type("POSTGRESQL", array_type)
+    assert "VARCHAR(255)[]" in emission.target_native_type or "TEXT[]" in emission.target_native_type
+
+    # Verify cached retrieval works identically
+    cached_emission = CanonicalTypeRegistry.emit_target_type("POSTGRESQL", array_type)
+    assert cached_emission.target_native_type == emission.target_native_type
+
+
+def test_scoped_memoization_engine_isolation():
+    """Blocker 3: Verify scoped memoization engine uses ContextVar and isolates cache across execution scopes."""
+    memo1 = CompiledRuleIndexMemoizationEngine(rule_generation=1)
+    memo2 = CompiledRuleIndexMemoizationEngine(rule_generation=2)
+
+    t = CanonicalType(category=CanonicalTypeCategory.EXACT_NUMERIC, raw_vendor_type="INT")
+
+    with CanonicalTypeRegistry.scoped_memoization_engine(memo1):
+        CanonicalTypeRegistry.emit_target_type("POSTGRESQL", t)
+        assert len(memo1._type_emit_cache) == 1
+        assert len(memo2._type_emit_cache) == 0
+
+    with CanonicalTypeRegistry.scoped_memoization_engine(memo2):
+        CanonicalTypeRegistry.emit_target_type("POSTGRESQL", t)
+        assert len(memo1._type_emit_cache) == 1
+        assert len(memo2._type_emit_cache) == 1
+
+
+def test_rule_implementation_version_is_deterministic_and_dynamic():
+    """Blocker 4: Verify rule implementation version is dynamically computed from bytecode and constants."""
+    from akaalEngine.schema.core.provenance import get_rule_implementation_version
+    v1 = get_rule_implementation_version()
+    v2 = get_rule_implementation_version()
+    assert v1 == v2
+    assert v1.startswith("v4.0.0-")
+    assert len(v1) == 19  # 'v4.0.0-' + 12 hex chars

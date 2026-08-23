@@ -14,26 +14,64 @@ from akaalEngine.schema.models.types import CanonicalType, TargetTypeEmission
 from akaalEngine.schema.procedural.ast_nodes import RoutineAST
 
 
-class CompiledRuleIndexMemoizationEngine:
-    """Thread-safe, process-local immutable memoization engine with clearable caches for isolation."""
+def _compute_type_signature(ctype: Any) -> Tuple[Any, ...]:
+    """Recursively computes a strictly hashable tuple signature for CanonicalType and nested types."""
+    if ctype is None:
+        return ()
+    if isinstance(ctype, str):
+        return ("RAW_STR", ctype.upper())
+    if hasattr(ctype, "category") and hasattr(ctype, "raw_vendor_type"):
+        extra_items = tuple(sorted((str(k), str(v)) for k, v in ctype.extra.items())) if ctype.extra else ()
+        elem_sig = _compute_type_signature(ctype.array_element_type) if ctype.array_element_type else ()
+        return (
+            ctype.category.value.upper(),
+            ctype.raw_vendor_type.upper(),
+            ctype.length,
+            ctype.precision,
+            ctype.scale,
+            ctype.bits,
+            ctype.byte_semantics,
+            ctype.is_signed,
+            ctype.is_timezone_aware,
+            ctype.dimensions,
+            ctype.srid,
+            elem_sig,
+            extra_items,
+        )
+    return ("OTHER", str(ctype))
 
-    def __init__(self):
+
+class CompiledRuleIndexMemoizationEngine:
+    """Thread-safe synchronized memoization engine with generation-based invalidation."""
+
+    def __init__(self, rule_generation: int = 1):
         self._lock = threading.RLock()
-        self._rule_generation: int = 1
-        self._type_norm_cache: Dict[Tuple[str, str, Optional[int], Optional[int], Optional[int], bool, bool, bool, int], CanonicalType] = {}
-        self._type_emit_cache: Dict[Tuple[str, str, str, Optional[int], Optional[int], Optional[int], int], TargetTypeEmission] = {}
-        self._dialect_cache: Dict[Tuple[str, str, str, int], str] = {}
-        self._ast_cache: Dict[Tuple[str, str, str, int], RoutineAST] = {}
+        self._rule_generation = rule_generation
+        self._type_norm_cache: Dict[Tuple, CanonicalType] = {}
+        self._type_emit_cache: Dict[Tuple, TargetTypeEmission] = {}
+        self._dialect_cache: Dict[Tuple, str] = {}
+        self._ast_cache: Dict[Tuple, RoutineAST] = {}
 
     @property
     def rule_generation(self) -> int:
         with self._lock:
             return self._rule_generation
 
-    def bump_generation(self) -> None:
+    def bump_generation(self) -> int:
         with self._lock:
             self._rule_generation += 1
-            self.clear()
+            self._type_norm_cache.clear()
+            self._type_emit_cache.clear()
+            self._dialect_cache.clear()
+            self._ast_cache.clear()
+            return self._rule_generation
+
+    def clear(self) -> None:
+        with self._lock:
+            self._type_norm_cache.clear()
+            self._type_emit_cache.clear()
+            self._dialect_cache.clear()
+            self._ast_cache.clear()
 
     def get_normalized_type(
         self,
@@ -47,7 +85,7 @@ class CompiledRuleIndexMemoizationEngine:
         is_timezone_aware: bool = False,
     ) -> Optional[CanonicalType]:
         key = (
-            provider.lower(),
+            provider.upper(),
             raw_type.upper(),
             length,
             precision,
@@ -73,7 +111,7 @@ class CompiledRuleIndexMemoizationEngine:
         is_timezone_aware: bool = False,
     ) -> None:
         key = (
-            provider.lower(),
+            provider.upper(),
             raw_type.upper(),
             length,
             precision,
@@ -87,24 +125,8 @@ class CompiledRuleIndexMemoizationEngine:
             self._type_norm_cache[key] = ctype
 
     def _compute_canonical_type_key(self, ctype: CanonicalType, target_engine: str) -> Tuple[Any, ...]:
-        extra_items = tuple(sorted((str(k), str(v)) for k, v in ctype.extra.items())) if ctype.extra else ()
-        return (
-            ctype.category.value.upper(),
-            ctype.raw_vendor_type.upper(),
-            target_engine.upper(),
-            ctype.length,
-            ctype.precision,
-            ctype.scale,
-            ctype.bits,
-            ctype.byte_semantics,
-            ctype.is_signed,
-            ctype.is_timezone_aware,
-            ctype.dimensions,
-            ctype.srid,
-            ctype.array_element_type,
-            extra_items,
-            self._rule_generation,
-        )
+        sig = _compute_type_signature(ctype)
+        return (target_engine.upper(), sig, self._rule_generation)
 
     def get_emitted_type(
         self,

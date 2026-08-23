@@ -7,13 +7,15 @@ Enables memory-bounded chunked conversion and staged DDL processing for estates 
 
 from __future__ import annotations
 
-from typing import Any, Callable, Generator, Iterator, List, Optional, Tuple
+from collections import deque
+from typing import Any, Callable, Dict, Generator, Iterator, List, Optional, Sequence, Set, Tuple
 
 from akaalEngine.schema.ddl.emitter import DDLStage, StagedDDLPackage, StructuredDDLArtifact
 from akaalEngine.schema.ddl.generator import DDLGenerator
 from akaalEngine.schema.dependency.cycle_breaker import CycleBreaker
 from akaalEngine.schema.dependency.graph import MultiDomainDependencyGraph
 from akaalEngine.schema.dependency.sorter import TopologicalSorter
+from akaalEngine.schema.mapping.engine import MappingEngine
 from akaalEngine.schema.models.mapping import CompiledSchemaMapping
 from akaalEngine.schema.models.schema import CanonicalSchema, CanonicalSchemaModel
 from akaalEngine.schema.models.table import CanonicalTable
@@ -49,19 +51,19 @@ class LargeEstateChunkedSchemaProcessor:
                         adj[ref_qname].add(qname)
                         in_degree[qname] = in_degree.get(qname, 0) + 1
 
-        # Kahn's algorithm
-        queue = [k for k, deg in in_degree.items() if deg == 0]
+        # Kahn's algorithm with O(1) popleft and deterministic initial order
+        queue = deque(sorted(k for k, deg in in_degree.items() if deg == 0))
         sorted_keys: List[str] = []
         while queue:
-            node = queue.pop(0)
+            node = queue.popleft()
             sorted_keys.append(node)
-            for neighbor in adj.get(node, ()):
+            for neighbor in sorted(adj.get(node, ())):
                 in_degree[neighbor] -= 1
                 if in_degree[neighbor] == 0:
                     queue.append(neighbor)
 
         seen = set(sorted_keys)
-        for k in in_degree:
+        for k in sorted(in_degree.keys()):
             if k not in seen:
                 sorted_keys.append(k)
 
@@ -91,6 +93,7 @@ class LargeEstateChunkedSchemaProcessor:
         target_version: Optional[str] = None,
         chunk_size: int = DEFAULT_CHUNK_SIZE,
         source_vendor: str = "GENERIC",
+        mapping: Optional[CompiledSchemaMapping] = None,
     ) -> Iterator[StagedDDLPackage]:
         """Streams DDL packages chunk by chunk directly from a lazy table generator without materializing all tables."""
         chunk_idx = 0
@@ -100,6 +103,8 @@ class LargeEstateChunkedSchemaProcessor:
                 source_vendor=source_vendor,
                 tables=table_chunk,
             )
+            if mapping:
+                chunk_model = MappingEngine.apply_mapping(chunk_model, mapping, target_vendor=target_engine)
             pkg = DDLGenerator.generate_ddl_package(chunk_model, target_engine, target_version)
             chunk_idx += 1
             yield pkg
