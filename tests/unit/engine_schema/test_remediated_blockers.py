@@ -785,3 +785,58 @@ def test_rule_implementation_version_is_deterministic_and_dynamic():
     assert v1 == v2
     assert v1.startswith("v4.0.0-")
     assert len(v1) == 19  # 'v4.0.0-' + 12 hex chars
+
+
+def test_authority_compile_restores_contextvar_memo_binding():
+    """Verify SchemaAuthority.compile cleans up ContextVar binding on exit without leaking to caller."""
+    import asyncio
+    from akaalEngine.schema.authority import SchemaAuthority, SchemaCompilationRequest
+    custom_memo = CompiledRuleIndexMemoizationEngine(rule_generation=42)
+    auth = SchemaAuthority(memoization_engine=custom_memo)
+
+    col = CanonicalColumn(
+        name="id",
+        ordinal_position=1,
+        source_native_type="INT",
+        canonical_type=CanonicalType(category=CanonicalTypeCategory.EXACT_NUMERIC, raw_vendor_type="INT"),
+    )
+    tbl = CanonicalTable(table_name="t", schema_name="public", columns=(col,))
+    model = CanonicalSchemaModel(model_id="m_ctx", source_vendor="POSTGRESQL", schemas=(CanonicalSchema(schema_name="public"),), tables=(tbl,))
+
+    req = SchemaCompilationRequest(source_snapshot=model, target_engine="POSTGRESQL")
+
+    assert CanonicalTypeRegistry.get_active_memoization_engine() == default_memoization_engine
+    result = asyncio.run(auth.compile(req))
+    assert result is not None
+    # Must be restored back to default
+    assert CanonicalTypeRegistry.get_active_memoization_engine() == default_memoization_engine
+    assert len(custom_memo._type_emit_cache) > 0
+
+
+def test_authority_stream_compile_maintains_scoped_memo_binding_during_iteration():
+    """Verify SchemaAuthority.stream_compile keeps ContextVar active during lazy generator iteration and restores afterwards."""
+    from akaalEngine.schema.authority import SchemaAuthority, SchemaCompilationRequest
+    custom_memo = CompiledRuleIndexMemoizationEngine(rule_generation=99)
+    auth = SchemaAuthority(memoization_engine=custom_memo)
+
+    col = CanonicalColumn(
+        name="id",
+        ordinal_position=1,
+        source_native_type="INT",
+        canonical_type=CanonicalType(category=CanonicalTypeCategory.EXACT_NUMERIC, raw_vendor_type="INT"),
+    )
+    tbl = CanonicalTable(table_name="t", schema_name="public", columns=(col,))
+    model = CanonicalSchemaModel(model_id="m_stream_ctx", source_vendor="POSTGRESQL", schemas=(CanonicalSchema(schema_name="public"),), tables=(tbl,))
+
+    req = SchemaCompilationRequest(source_snapshot=model, target_engine="POSTGRESQL")
+
+    assert CanonicalTypeRegistry.get_active_memoization_engine() == default_memoization_engine
+    stream = auth.stream_compile(req, chunk_size=1)
+
+    # During iteration, the active memo engine is custom_memo
+    for pkg in stream:
+        assert CanonicalTypeRegistry.get_active_memoization_engine() == custom_memo
+        assert len(pkg.artifacts) > 0
+
+    # After iteration completes, ContextVar is cleanly reset
+    assert CanonicalTypeRegistry.get_active_memoization_engine() == default_memoization_engine

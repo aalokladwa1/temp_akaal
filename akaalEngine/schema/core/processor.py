@@ -120,6 +120,7 @@ class LargeEstateChunkedSchemaProcessor:
     ) -> Iterator[StagedDDLPackage]:
         """
         Streams staged DDL packages chunk by chunk in deterministic topological dependency order.
+        Memory-bounded: processes table slices without duplicating full estate in DDL memory.
         """
         ordered_keys = cls.build_lightweight_table_order(model.tables)
         table_map = {t.qualified_name.lower(): t for t in model.tables}

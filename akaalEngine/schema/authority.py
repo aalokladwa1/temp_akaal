@@ -173,137 +173,132 @@ class SchemaAuthority:
         Executes the canonical 18-step schema compilation workflow.
         Returns immutable SchemaCompilationResult.
         """
-        # Stage 1: Request Pre-Validation & Parameter Normalization
-        if not request.target_engine or not request.target_engine.strip():
-            raise ValueError("Schema compilation request must specify a valid target_engine.")
-        target_eng = request.target_engine.strip().upper()
-        target_ver = request.target_version
-
-        # Bind active memoization engine for type normalization and emission
-        CanonicalTypeRegistry.set_memoization_engine(self._memo)
-
-        # Stage 2: Lossless Input Canonicalization
-        canonical_model = self._canonicalize_input(request.source_snapshot)
-        source_eng = canonical_model.source_vendor.upper()
-
-        # Stage 3: Structural Mapping & Schema Routing
-        if request.mapping:
-            mapped_model = MappingEngine.apply_mapping(canonical_model, request.mapping, target_vendor=target_eng)
-        else:
-            mapped_model = canonical_model
-
-        # Stage 4: Token-Aware SQL Dialect Translation (defaults, checks, view queries)
-        mapped_model = self._apply_dialect_translations(mapped_model, source_eng, target_eng)
-
-        # Stage 5: Heterogeneous Type Normalization (Memoized in registry)
-        # (Executed across columns in model and verified)
-
-        # Stage 6: Target Type Emission & Safety Evaluation (Memoized in registry)
-        # Stage 7: Lossiness & Truncation Reason-Code Evaluation (17 reason codes)
-        # Stage 8: Pre-Migration Compatibility Breakdown Calculation
-        compat_breakdown = PreMigrationCompatibilityAssessor.assess_model(mapped_model, target_eng)
-
-        # Stage 9: Structural Risk & Complexity Scoring
-        risk_report = StructuralRiskScorer.score_risk(mapped_model, compat_breakdown)
-
-        # Stage 10: Governance Readiness Gate Evaluation
-        readiness_report = SchemaReadinessGateProvider.evaluate_readiness(compat_breakdown, risk_report)
-
-        # Stage 11: Truthful Storage Capacity & Compression Projection
-        capacity_report = TargetCapacitySchemaProjection.calculate_projection(mapped_model, target_eng)
-
-        # Stage 12: Procedural AST Parsing & Transpilation (Memoized)
-        procedural_results = self._transpile_routines(mapped_model, source_eng, target_eng)
-
-        # Stage 13: Procedural Verification & Zero-Leakage DDL Guard
-        procedural_ddl_artifacts: List[StructuredDDLArtifact] = []
-        emitter = DDLGenerator.get_emitter(target_eng, target_ver)
-        for r in mapped_model.routines:
-            matching_res = next((res for res in procedural_results if res.routine_name == r.name), None)
-            conv_state = matching_res.conversion_state.value if matching_res else None
-            is_valid_conv = matching_res and matching_res.conversion_state in (
-                ConversionState.TRANSPILED,
-                ConversionState.CONVERTED,
-                ConversionState.SYNTACTICALLY_CHECKED,
-                ConversionState.COMPATIBILITY_WRAPPED,
-            )
-            converted_sql = matching_res.emitted_sql if is_valid_conv else None
-            procedural_ddl_artifacts.extend(
-                emitter.emit_routine_artifacts(
-                    r,
-                    converted_sql=converted_sql,
-                    conversion_state=conv_state,
-                    source_engine=source_eng,
-                )
-            )
-        for tr in mapped_model.triggers:
-            procedural_ddl_artifacts.extend(emitter.emit_trigger_artifacts(tr, source_engine=source_eng))
-
-        # Stage 14: Compatibility Pack Lifecycle Requirement Tracking
-        tracker = CompatibilityRequirementTracker()
-        for r in procedural_results:
-            for helper in r.required_compat_helpers:
-                tracker.record_requirement(helper, r.routine_name, target_eng)
-        compat_pack_report = tracker.build_report()
-
-        # Stage 15: Multi-Domain Dependency DAG Construction
-        dep_graph = MultiDomainDependencyGraph.build(mapped_model)
-
-        # Stage 16: Circular Foreign Key Cycle Breaking
-        pruned_graph = CycleBreaker.break_fk_cycles(dep_graph)
-
-        # Stage 17: Deterministic Topological Sorting (Kahn + Tarjan SCC)
-        ordered_nodes = TopologicalSorter.sort(pruned_graph)
-
-        # Stage 18: Staged Multi-Pass DDL Generation & Composite SHA-256 Fingerprinting
-        use_chunked = request.options.get("chunked_compilation", False) or len(mapped_model.tables) > request.options.get("chunk_size", 500)
-        if use_chunked:
-            from akaalEngine.schema.core.processor import LargeEstateChunkedSchemaProcessor
-            ddl_package = LargeEstateChunkedSchemaProcessor.compile_large_estate_package(
-                mapped_model,
-                target_eng,
-                target_ver,
-                chunk_size=request.options.get("chunk_size", 500),
-                procedural_artifacts=procedural_ddl_artifacts,
-            )
-        else:
-            ddl_package = DDLGenerator.generate_ddl_package(
-                mapped_model,
-                target_eng,
-                target_ver,
-                procedural_artifacts=procedural_ddl_artifacts,
-            )
-
-        # Full 18-stage composite provenance fingerprint
-        src_hash = DeterministicSchemaProvenanceHasher.compute_model_fingerprint(canonical_model)
-        map_hash = DeterministicSchemaProvenanceHasher.compute_mapping_fingerprint(request.mapping) if request.mapping else "NO_MAPPING"
-        ddl_hash = DeterministicSchemaProvenanceHasher.compute_ddl_fingerprint(ddl_package)
-        proc_hash = DeterministicSchemaProvenanceHasher.hash_dict({"results": [r.to_dict() for r in procedural_results]})
-        read_hash = DeterministicSchemaProvenanceHasher.hash_dict(readiness_report.to_dict())
-        compat_breakdown_hash = DeterministicSchemaProvenanceHasher.hash_dict(compat_breakdown.to_dict())
-        compat_pack_hash = DeterministicSchemaProvenanceHasher.hash_dict(compat_pack_report.to_dict())
-        risk_hash = DeterministicSchemaProvenanceHasher.hash_dict(risk_report.to_dict())
-        capacity_hash = DeterministicSchemaProvenanceHasher.hash_dict(capacity_report.to_dict())
-        opts_hash = DeterministicSchemaProvenanceHasher.hash_dict(dict(request.options))
-
-        provenance = DeterministicSchemaProvenanceHasher.compute_compilation_provenance(
-            source_model_hash=src_hash,
-            mapping_hash=map_hash,
-            ddl_package_hash=ddl_hash,
-            target_engine=target_eng,
-            target_version=target_ver or "default",
-            rule_set_version=str(self._memo.rule_generation),
-            procedural_hash=proc_hash,
-            readiness_hash=read_hash,
-            compatibility_breakdown_hash=compat_breakdown_hash,
-            compat_pack_hash=compat_pack_hash,
-            risk_hash=risk_hash,
-            capacity_hash=capacity_hash,
-            options_hash=opts_hash,
-            rule_impl_version=get_rule_implementation_version(),
-        )
-
         with CanonicalTypeRegistry.scoped_memoization_engine(self._memo):
+            # Stage 1: Request Pre-Validation & Parameter Normalization
+            if not request.target_engine or not request.target_engine.strip():
+                raise ValueError("Schema compilation request must specify a valid target_engine.")
+            target_eng = request.target_engine.strip().upper()
+            target_ver = request.target_version
+
+            # Stage 2: Lossless Input Canonicalization
+            canonical_model = self._canonicalize_input(request.source_snapshot)
+            source_eng = canonical_model.source_vendor.upper()
+
+            # Stage 3: Structural Mapping & Schema Routing
+            if request.mapping:
+                mapped_model = MappingEngine.apply_mapping(canonical_model, request.mapping, target_vendor=target_eng)
+            else:
+                mapped_model = canonical_model
+
+            # Stage 4: Token-Aware SQL Dialect Translation (defaults, checks, view queries)
+            mapped_model = self._apply_dialect_translations(mapped_model, source_eng, target_eng)
+
+            # Stage 5: Heterogeneous Type Normalization (Memoized in registry)
+            # Stage 6: Target Type Emission & Safety Evaluation (Memoized in registry)
+            # Stage 7: Lossiness & Truncation Reason-Code Evaluation (17 reason codes)
+            # Stage 8: Pre-Migration Compatibility Breakdown Calculation
+            compat_breakdown = PreMigrationCompatibilityAssessor.assess_model(mapped_model, target_eng)
+
+            # Stage 9: Structural Risk & Complexity Scoring
+            risk_report = StructuralRiskScorer.score_risk(mapped_model, compat_breakdown)
+
+            # Stage 10: Governance Readiness Gate Evaluation
+            readiness_report = SchemaReadinessGateProvider.evaluate_readiness(compat_breakdown, risk_report)
+
+            # Stage 11: Truthful Storage Capacity & Compression Projection
+            capacity_report = TargetCapacitySchemaProjection.calculate_projection(mapped_model, target_eng)
+
+            # Stage 12: Procedural AST Parsing & Transpilation (Memoized)
+            procedural_results = self._transpile_routines(mapped_model, source_eng, target_eng)
+
+            # Stage 13: Procedural Verification & Zero-Leakage DDL Guard
+            procedural_ddl_artifacts: List[StructuredDDLArtifact] = []
+            emitter = DDLGenerator.get_emitter(target_eng, target_ver)
+            for r in mapped_model.routines:
+                matching_res = next((res for res in procedural_results if res.routine_name == r.name), None)
+                conv_state = matching_res.conversion_state.value if matching_res else None
+                is_valid_conv = matching_res and matching_res.conversion_state in (
+                    ConversionState.TRANSPILED,
+                    ConversionState.CONVERTED,
+                    ConversionState.SYNTACTICALLY_CHECKED,
+                    ConversionState.COMPATIBILITY_WRAPPED,
+                )
+                converted_sql = matching_res.emitted_sql if is_valid_conv else None
+                procedural_ddl_artifacts.extend(
+                    emitter.emit_routine_artifacts(
+                        r,
+                        converted_sql=converted_sql,
+                        conversion_state=conv_state,
+                        source_engine=source_eng,
+                    )
+                )
+            for tr in mapped_model.triggers:
+                procedural_ddl_artifacts.extend(emitter.emit_trigger_artifacts(tr, source_engine=source_eng))
+
+            # Stage 14: Compatibility Pack Lifecycle Requirement Tracking
+            tracker = CompatibilityRequirementTracker()
+            for r in procedural_results:
+                for helper in r.required_compat_helpers:
+                    tracker.record_requirement(helper, r.routine_name, target_eng)
+            compat_pack_report = tracker.build_report()
+
+            # Stage 15: Multi-Domain Dependency DAG Construction
+            dep_graph = MultiDomainDependencyGraph.build(mapped_model)
+
+            # Stage 16: Circular Foreign Key Cycle Breaking
+            pruned_graph = CycleBreaker.break_fk_cycles(dep_graph)
+
+            # Stage 17: Deterministic Topological Sorting (Kahn + Tarjan SCC)
+            ordered_nodes = TopologicalSorter.sort(pruned_graph)
+
+            # Stage 18: Staged Multi-Pass DDL Generation & Composite SHA-256 Fingerprinting
+            use_chunked = request.options.get("chunked_compilation", False) or len(mapped_model.tables) > request.options.get("chunk_size", 500)
+            if use_chunked:
+                from akaalEngine.schema.core.processor import LargeEstateChunkedSchemaProcessor
+                ddl_package = LargeEstateChunkedSchemaProcessor.compile_large_estate_package(
+                    mapped_model,
+                    target_eng,
+                    target_ver,
+                    chunk_size=request.options.get("chunk_size", 500),
+                    procedural_artifacts=procedural_ddl_artifacts,
+                )
+            else:
+                ddl_package = DDLGenerator.generate_ddl_package(
+                    mapped_model,
+                    target_eng,
+                    target_ver,
+                    procedural_artifacts=procedural_ddl_artifacts,
+                )
+
+            # Full 18-stage composite provenance fingerprint
+            src_hash = DeterministicSchemaProvenanceHasher.compute_model_fingerprint(canonical_model)
+            map_hash = DeterministicSchemaProvenanceHasher.compute_mapping_fingerprint(request.mapping) if request.mapping else "NO_MAPPING"
+            ddl_hash = DeterministicSchemaProvenanceHasher.compute_ddl_fingerprint(ddl_package)
+            proc_hash = DeterministicSchemaProvenanceHasher.hash_dict({"results": [r.to_dict() for r in procedural_results]})
+            read_hash = DeterministicSchemaProvenanceHasher.hash_dict(readiness_report.to_dict())
+            compat_breakdown_hash = DeterministicSchemaProvenanceHasher.hash_dict(compat_breakdown.to_dict())
+            compat_pack_hash = DeterministicSchemaProvenanceHasher.hash_dict(compat_pack_report.to_dict())
+            risk_hash = DeterministicSchemaProvenanceHasher.hash_dict(risk_report.to_dict())
+            capacity_hash = DeterministicSchemaProvenanceHasher.hash_dict(capacity_report.to_dict())
+            opts_hash = DeterministicSchemaProvenanceHasher.hash_dict(dict(request.options))
+
+            provenance = DeterministicSchemaProvenanceHasher.compute_compilation_provenance(
+                source_model_hash=src_hash,
+                mapping_hash=map_hash,
+                ddl_package_hash=ddl_hash,
+                target_engine=target_eng,
+                target_version=target_ver or "default",
+                rule_set_version=str(self._memo.rule_generation),
+                procedural_hash=proc_hash,
+                readiness_hash=read_hash,
+                compatibility_breakdown_hash=compat_breakdown_hash,
+                compat_pack_hash=compat_pack_hash,
+                risk_hash=risk_hash,
+                capacity_hash=capacity_hash,
+                options_hash=opts_hash,
+                rule_impl_version=get_rule_implementation_version(),
+            )
+
             return SchemaCompilationResult(
                 model_id=mapped_model.model_id,
                 source_engine=source_eng,
@@ -330,21 +325,22 @@ class SchemaAuthority:
         Executes memory-bounded streaming compilation for large enterprise estates (SCH-069).
         Streams DDL packages chunk by chunk without materializing all artifacts into memory simultaneously.
         """
-        target_eng = request.target_engine.strip().upper()
-        target_ver = request.target_version
-
         with CanonicalTypeRegistry.scoped_memoization_engine(self._memo):
+            target_eng = request.target_engine.strip().upper()
+            target_ver = request.target_version
+
             from akaalEngine.schema.core.processor import LargeEstateChunkedSchemaProcessor
 
             if hasattr(request.source_snapshot, "__iter__") and not isinstance(request.source_snapshot, (CanonicalSchemaModel, dict)):
                 # Pure lazy table stream
-                return LargeEstateChunkedSchemaProcessor.stream_compile_estate(
+                yield from LargeEstateChunkedSchemaProcessor.stream_compile_estate(
                     request.source_snapshot,
                     target_engine=target_eng,
                     target_version=target_ver,
                     chunk_size=chunk_size,
                     mapping=request.mapping,
                 )
+                return
 
             canonical_model = self._canonicalize_input(request.source_snapshot)
             source_eng = canonical_model.source_vendor.upper()
@@ -356,7 +352,7 @@ class SchemaAuthority:
 
             mapped_model = self._apply_dialect_translations(mapped_model, source_eng, target_eng)
 
-            return LargeEstateChunkedSchemaProcessor.process_chunked_compilation(
+            yield from LargeEstateChunkedSchemaProcessor.process_chunked_compilation(
                 mapped_model,
                 target_eng,
                 target_ver,
