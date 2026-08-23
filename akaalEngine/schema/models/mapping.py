@@ -159,6 +159,10 @@ class CompiledSchemaMapping:
         for tm in self.table_mappings:
             if tm.source_schema.lower() == src_s and tm.source_table.lower() == src_t:
                 return tm
+        if "estate_mapping" in self.extra:
+            estate_map = self.extra["estate_mapping"]
+            if isinstance(estate_map, CompiledSchemaMapping):
+                return estate_map.get_table_mapping(src_schema, src_table)
         return None
 
     def resolve_target_schema(self, src_schema: str) -> str:

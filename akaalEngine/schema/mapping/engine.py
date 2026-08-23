@@ -208,14 +208,36 @@ class MappingEngine:
                 ref_s_lower = fk.referenced_schema.lower()
                 ref_t_lower = fk.referenced_table.lower()
 
-                # If referenced table was excluded or not included in target, track dropped FK
-                if (ref_s_lower, ref_t_lower) in excluded_tables or (ref_s_lower, ref_t_lower) not in table_rename_map:
+                # If referenced table was explicitly excluded, track dropped FK
+                if (ref_s_lower, ref_t_lower) in excluded_tables:
                     dropped_fks.append(fk)
                     continue
 
-                tgt_ref_s, tgt_ref_t = table_rename_map.get((ref_s_lower, ref_t_lower), (fk.referenced_schema, fk.referenced_table))
+                if (ref_s_lower, ref_t_lower) in table_rename_map:
+                    tgt_ref_s, tgt_ref_t = table_rename_map[(ref_s_lower, ref_t_lower)]
+                else:
+                    # In streaming / chunked mode, referenced table may reside in another chunk
+                    ref_tm = mapping.get_table_mapping(fk.referenced_schema, fk.referenced_table)
+                    if ref_tm and not ref_tm.is_included:
+                        dropped_fks.append(fk)
+                        continue
+                    tgt_ref_s = ref_tm.target_schema if ref_tm else mapping.resolve_target_schema(fk.referenced_schema)
+                    tgt_ref_t = ref_tm.target_table if ref_tm else fk.referenced_table
+                    if mapping.global_table_prefix and not (ref_tm and ref_tm.target_table != fk.referenced_table):
+                        tgt_ref_t = f"{mapping.global_table_prefix}{tgt_ref_t}"
+                    if mapping.global_table_suffix and not (ref_tm and ref_tm.target_table != fk.referenced_table):
+                        tgt_ref_t = f"{tgt_ref_t}{mapping.global_table_suffix}"
+
                 new_fk_cols = [column_rename_map.get((src_s_lower, src_t_lower, c.lower()), c) for c in fk.columns]
-                new_ref_cols = [column_rename_map.get((ref_s_lower, ref_t_lower, c.lower()), c) for c in fk.referenced_columns]
+                new_ref_cols = []
+                for c in fk.referenced_columns:
+                    col_k = (ref_s_lower, ref_t_lower, c.lower())
+                    if col_k in column_rename_map:
+                        new_ref_cols.append(column_rename_map[col_k])
+                    else:
+                        ref_tm = mapping.get_table_mapping(fk.referenced_schema, fk.referenced_table)
+                        cm = ref_tm.get_column_mapping(c) if ref_tm else None
+                        new_ref_cols.append(cm.target_column if cm else c)
 
                 # Check if all columns are included
                 if all(c.lower() in included_col_names for c in new_fk_cols):

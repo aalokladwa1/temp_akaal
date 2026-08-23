@@ -40,6 +40,56 @@ class MappingValidator:
     """Validates mapping consistency, conflict collisions, and referential integrity."""
 
     @classmethod
+    def validate_estate_mapping(
+        cls,
+        known_table_names: Set[str],
+        mapping: CompiledSchemaMapping,
+    ) -> MappingValidationResult:
+        """
+        Pre-validates whole-estate mapping against known table names from lightweight Pass 1 headers.
+        Checks for non-existent source tables and cross-chunk target table collisions.
+        """
+        diagnostics: List[MappingDiagnostic] = []
+        target_tables_seen: Set[str] = set()
+
+        for tm in mapping.table_mappings:
+            if not tm.is_included:
+                continue
+
+            src_key = tm.source_qualified_name.lower()
+            if src_key not in known_table_names:
+                diagnostics.append(
+                    MappingDiagnostic(
+                        severity="ERROR",
+                        rule="SOURCE_TABLE_NOT_FOUND",
+                        message=f"Table mapping references non-existent source table '{tm.source_qualified_name}'",
+                        source_path=tm.source_qualified_name,
+                        target_path=tm.target_qualified_name,
+                    )
+                )
+                continue
+
+            # Duplicate target table name collision check (cross-chunk)
+            tgt_key = f"{tm.target_schema.lower()}.{tm.target_table.lower()}"
+            if tgt_key in target_tables_seen:
+                diagnostics.append(
+                    MappingDiagnostic(
+                        severity="ERROR",
+                        rule="DUPLICATE_TARGET_TABLE",
+                        message=f"Multiple source tables mapped to identical target table '{tm.target_qualified_name}'",
+                        source_path=tm.source_qualified_name,
+                        target_path=tm.target_qualified_name,
+                    )
+                )
+            target_tables_seen.add(tgt_key)
+
+        has_errors = any(d.severity == "ERROR" for d in diagnostics)
+        return MappingValidationResult(
+            is_valid=not has_errors,
+            diagnostics=tuple(diagnostics),
+        )
+
+    @classmethod
     def validate(
         cls,
         source_model: CanonicalSchemaModel,

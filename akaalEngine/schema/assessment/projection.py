@@ -48,11 +48,15 @@ class TargetCapacityReport:
     total_source_bytes: int
     total_projected_target_bytes: int
     table_projections: Tuple[TableCapacityProjection, ...] = field(default_factory=tuple)
+    is_truncated: bool = False
+    total_projected_count: int = 0
     extra: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
 
     def __post_init__(self) -> None:
         if not isinstance(self.table_projections, tuple):
             object.__setattr__(self, "table_projections", tuple(self.table_projections))
+        if not self.total_projected_count:
+            object.__setattr__(self, "total_projected_count", self.total_tables)
         object.__setattr__(self, "extra", freeze_deep(self.extra))
 
     def to_dict(self) -> dict[str, Any]:
@@ -61,6 +65,8 @@ class TargetCapacityReport:
             "total_estimated_rows": self.total_estimated_rows,
             "total_source_bytes": self.total_source_bytes,
             "total_projected_target_bytes": self.total_projected_target_bytes,
+            "is_truncated": self.is_truncated,
+            "total_projected_count": self.total_projected_count,
             "table_projections": [
                 {
                     "table_name": tp.table_name,

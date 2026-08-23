@@ -882,3 +882,131 @@ def test_authority_stream_compile_maintains_scoped_memo_binding_during_iteration
 
     # After iteration completes, ContextVar is cleanly reset
     assert CanonicalTypeRegistry.get_active_memoization_engine() == default_memoization_engine
+
+
+def test_multi_chunk_mapping_cross_chunk_resolution():
+    """Verify multi-chunk CompiledSchemaMapping with cross-chunk foreign key rewriting and global pre-validation."""
+    from akaalEngine.schema.models.constraints import CanonicalForeignKey
+    from akaalEngine.schema.models.mapping import ColumnMapping, CompiledSchemaMapping, TableMapping
+    from akaalEngine.schema.core.processor import EstateCompilationSummary
+
+    col = CanonicalColumn(
+        name="id",
+        ordinal_position=1,
+        source_native_type="INT",
+        canonical_type=CanonicalType(category=CanonicalTypeCategory.EXACT_NUMERIC, raw_vendor_type="INT"),
+    )
+
+    t0 = CanonicalTable(table_name="t_parent", schema_name="public", columns=(col,))
+    t1 = CanonicalTable(table_name="t_other", schema_name="public", columns=(col,))
+    t2 = CanonicalTable(
+        table_name="t_child",
+        schema_name="public",
+        columns=(col,),
+        foreign_keys=(
+            CanonicalForeignKey(
+                name="fk_child_parent",
+                table_name="t_child",
+                schema_name="public",
+                columns=("id",),
+                referenced_schema="public",
+                referenced_table="t_parent",
+                referenced_columns=("id",),
+            ),
+        ),
+    )
+
+    # Mapping renames t_parent -> target_parent, and t_child -> target_child
+    mapping = CompiledSchemaMapping(
+        table_mappings=(
+            TableMapping(
+                source_schema="public",
+                source_table="t_parent",
+                target_schema="core",
+                target_table="target_parent",
+            ),
+            TableMapping(
+                source_schema="public",
+                source_table="t_child",
+                target_schema="core",
+                target_table="target_child",
+            ),
+        ),
+    )
+
+    captured_summary = []
+    stream = LargeEstateChunkedSchemaProcessor.stream_compile_estate(
+        [t0, t1, t2],
+        target_engine="POSTGRESQL",
+        chunk_size=1,  # Forces 3 separate 1-table chunks
+        mapping=mapping,
+        on_summary=lambda s: captured_summary.append(s),
+    )
+
+    packages = list(stream)
+    assert len(packages) == 3
+
+    # Check that t_parent was rendered as core.target_parent
+    p1_sql = "\n".join(a.sql for a in packages[1].artifacts)
+    assert "target_parent" in p1_sql
+
+    # Check that t_child was rendered as core.target_child and FK references core.target_parent
+    p2_sql = "\n".join(a.sql for a in packages[2].artifacts)
+    assert "target_child" in p2_sql
+    assert "target_parent" in p2_sql
+
+    assert len(captured_summary) == 1
+    assert captured_summary[0].total_tables == 3
+
+
+def test_source_semantic_provenance_sensitivity():
+    """Verify modifying a column type, default expression, or constraint changes whole-estate provenance."""
+    col1 = CanonicalColumn(
+        name="val",
+        ordinal_position=1,
+        source_native_type="INT",
+        canonical_type=CanonicalType(category=CanonicalTypeCategory.EXACT_NUMERIC, raw_vendor_type="INT"),
+        default_expression="0",
+    )
+    col2_modified = CanonicalColumn(
+        name="val",
+        ordinal_position=1,
+        source_native_type="BIGINT",
+        canonical_type=CanonicalType(category=CanonicalTypeCategory.EXACT_NUMERIC, raw_vendor_type="BIGINT"),
+        default_expression="100",
+    )
+
+    t_base = CanonicalTable(table_name="t_sens", schema_name="public", columns=(col1,))
+    t_mod = CanonicalTable(table_name="t_sens", schema_name="public", columns=(col2_modified,))
+
+    sum1 = []
+    list(LargeEstateChunkedSchemaProcessor.stream_compile_estate([t_base], target_engine="POSTGRESQL", on_summary=sum1.append))
+
+    sum2 = []
+    list(LargeEstateChunkedSchemaProcessor.stream_compile_estate([t_mod], target_engine="POSTGRESQL", on_summary=sum2.append))
+
+    assert sum1[0].provenance_fingerprint != sum2[0].provenance_fingerprint
+
+
+def test_truthful_risk_and_compatibility_aggregation():
+    """Verify truthful accumulation of risk factors and compatibility layers across chunked streaming."""
+    from akaalEngine.schema.assessment.risk import RiskLevel
+
+    col_lob = CanonicalColumn(
+        name="payload",
+        ordinal_position=1,
+        source_native_type="BLOB",
+        canonical_type=CanonicalType(category=CanonicalTypeCategory.BINARY, raw_vendor_type="BLOB"),
+        is_lob=True,
+    )
+    t = CanonicalTable(table_name="t_lob", schema_name="public", columns=(col_lob,))
+
+    sum_out = []
+    list(LargeEstateChunkedSchemaProcessor.stream_compile_estate([t], target_engine="POSTGRESQL", on_summary=sum_out.append))
+
+    summary = sum_out[0]
+    # LOB column produces LOB_COMPLEXITY risk factor
+    assert any(f.category == "LOB_COMPLEXITY" for f in summary.risk_report.risk_factors)
+    assert summary.risk_report.total_risk_score >= 10
+    assert summary.capacity_report.is_truncated is False
+    assert summary.capacity_report.total_projected_count == 1
