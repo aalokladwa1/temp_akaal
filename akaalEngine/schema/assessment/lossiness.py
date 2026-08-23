@@ -11,7 +11,7 @@ from enum import Enum
 from types import MappingProxyType
 from typing import Any, List, Mapping, Optional, Tuple
 
-from akaalEngine.schema.models.types import CanonicalType, ConversionSafety, TargetTypeEmission
+from akaalEngine.schema.models.types import CanonicalType, ConversionSafety, TargetTypeEmission, freeze_deep
 
 
 class LossinessReasonCode(str, Enum):
@@ -49,8 +49,7 @@ class LossinessAssessment:
     def __post_init__(self) -> None:
         if not isinstance(self.reasons, tuple):
             object.__setattr__(self, "reasons", tuple(self.reasons))
-        if not isinstance(self.extra, MappingProxyType):
-            object.__setattr__(self, "extra", MappingProxyType(dict(self.extra)))
+        object.__setattr__(self, "extra", freeze_deep(self.extra))
 
     def to_dict(self) -> dict[str, Any]:
         return {

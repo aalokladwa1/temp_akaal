@@ -51,11 +51,26 @@ class CanonicalTypeRegistry:
         scale: Optional[int] = None,
         extra_metadata: Optional[Mapping[str, Any]] = None,
     ) -> CanonicalType:
-        """Normalizes source-native type into CanonicalType."""
+        """Normalizes source-native type into CanonicalType with memoization."""
         prov = str(provider).strip().lower()
+        from akaalEngine.schema.core.memoization import default_memoization_engine
+
+        cached = default_memoization_engine.get_normalized_type(
+            prov, raw_type, length=length, precision=precision, scale=scale
+        )
+        if cached is not None and not extra_metadata:
+            return cached
+
         if prov in cls._custom_normalizers:
-            return cls._custom_normalizers[prov](raw_type, length, precision, scale, extra_metadata)
-        return ProviderTypeNormalizers.normalize(prov, raw_type, length, precision, scale, extra_metadata)
+            res = cls._custom_normalizers[prov](raw_type, length, precision, scale, extra_metadata)
+        else:
+            res = ProviderTypeNormalizers.normalize(prov, raw_type, length, precision, scale, extra_metadata)
+
+        if not extra_metadata:
+            default_memoization_engine.put_normalized_type(
+                prov, raw_type, res, length=length, precision=precision, scale=scale
+            )
+        return res
 
     @classmethod
     def emit_target_type(
@@ -63,13 +78,37 @@ class CanonicalTypeRegistry:
         target_provider: str,
         canonical_type: CanonicalType,
     ) -> TargetTypeEmission:
-        """Emits target-native DDL type string from CanonicalType."""
+        """Emits target-native DDL type string from CanonicalType with memoization."""
         tgt = str(target_provider).strip().lower()
+        from akaalEngine.schema.core.memoization import default_memoization_engine
+
+        cached = default_memoization_engine.get_emitted_type(
+            canonical_type.category.value,
+            canonical_type.raw_vendor_type,
+            tgt,
+            length=canonical_type.length,
+            precision=canonical_type.precision,
+            scale=canonical_type.scale,
+        )
+        if cached is not None:
+            return cached
+
         if tgt in cls._custom_emitters:
             raw_emission = cls._custom_emitters[tgt](canonical_type)
         else:
             raw_emission = ProviderTypeEmitters.emit(tgt, canonical_type)
-        return TypeSafetyEvaluator.evaluate_conversion(canonical_type, raw_emission)
+
+        evaluated = TypeSafetyEvaluator.evaluate_conversion(canonical_type, raw_emission)
+        default_memoization_engine.put_emitted_type(
+            canonical_type.category.value,
+            canonical_type.raw_vendor_type,
+            tgt,
+            evaluated,
+            length=canonical_type.length,
+            precision=canonical_type.precision,
+            scale=canonical_type.scale,
+        )
+        return evaluated
 
     @classmethod
     def convert_type(

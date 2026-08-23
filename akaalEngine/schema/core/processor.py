@@ -23,9 +23,26 @@ class LargeEstateChunkedSchemaProcessor:
     """
     Memory-bounded chunked schema compiler for enterprise estates (SCH-069).
     Splits large estates into deterministic batches (default: 500 tables) to prevent RAM explosion.
+    Supports both CanonicalSchemaModel and streaming lazy table iterators.
     """
 
     DEFAULT_CHUNK_SIZE = 500
+
+    @classmethod
+    def stream_chunked_tables(
+        cls,
+        tables_iter: Iterator[CanonicalTable],
+        chunk_size: int = DEFAULT_CHUNK_SIZE,
+    ) -> Iterator[Tuple[CanonicalTable, ...]]:
+        """Yields successive slices of tables from a generator or stream without materializing the whole estate."""
+        chunk: List[CanonicalTable] = []
+        for tbl in tables_iter:
+            chunk.append(tbl)
+            if len(chunk) >= chunk_size:
+                yield tuple(chunk)
+                chunk = []
+        if chunk:
+            yield tuple(chunk)
 
     @classmethod
     def process_chunked_compilation(
@@ -39,12 +56,12 @@ class LargeEstateChunkedSchemaProcessor:
         """
         Streams staged DDL packages chunk by chunk in deterministic topological dependency order.
         """
-        # 1. First resolve overall dependency ordering across tables
+        # 1. Dependency ordering across tables
         dep_graph = MultiDomainDependencyGraph.build(model)
         pruned_graph = CycleBreaker.break_fk_cycles(dep_graph)
         sorted_keys = TopologicalSorter.sort(pruned_graph)
 
-        # Build table index
+        # Build streaming table generator
         table_map = {t.qualified_name.lower(): t for t in model.tables}
         ordered_tables: List[CanonicalTable] = []
         for k in sorted_keys:
@@ -58,9 +75,8 @@ class LargeEstateChunkedSchemaProcessor:
                 ordered_tables.append(t)
 
         total_tables = len(ordered_tables)
-        emitter = DDLGenerator.get_emitter(target_engine, target_version)
 
-        # 2. Process in chunks
+        # 2. Process in memory-bounded chunks
         for start_idx in range(0, total_tables, chunk_size):
             end_idx = min(start_idx + chunk_size, total_tables)
             chunk_tables = ordered_tables[start_idx:end_idx]
@@ -86,3 +102,27 @@ class LargeEstateChunkedSchemaProcessor:
                 progress_callback(end_idx, total_tables)
 
             yield chunk_package
+
+    @classmethod
+    def compile_large_estate_package(
+        cls,
+        model: CanonicalSchemaModel,
+        target_engine: str,
+        target_version: Optional[str] = None,
+        chunk_size: int = DEFAULT_CHUNK_SIZE,
+        procedural_artifacts: Optional[List[StructuredDDLArtifact]] = None,
+    ) -> StagedDDLPackage:
+        """
+        Compiles large estate in chunks and merges resulting artifacts into a single StagedDDLPackage.
+        """
+        all_artifacts: List[StructuredDDLArtifact] = []
+        for pkg in cls.process_chunked_compilation(model, target_engine, target_version, chunk_size=chunk_size):
+            all_artifacts.extend(pkg.artifacts)
+
+        if procedural_artifacts:
+            all_artifacts.extend(procedural_artifacts)
+
+        return StagedDDLPackage(
+            target_engine=target_engine.upper(),
+            artifacts=tuple(all_artifacts),
+        )

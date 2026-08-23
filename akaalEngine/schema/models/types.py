@@ -44,10 +44,16 @@ class ConversionSafety(str, Enum):
 
 
 def freeze_deep(val: Any) -> Any:
-    """Recursively converts dictionaries to MappingProxyType and lists/sets to immutable tuples."""
+    """Recursively converts dictionaries to MappingProxyType, sets to deterministically sorted tuples, and sequences to immutable tuples."""
     if isinstance(val, (dict, MappingProxyType)):
         return MappingProxyType({k: freeze_deep(v) for k, v in val.items()})
-    elif isinstance(val, (list, set)):
+    elif isinstance(val, (set, frozenset)):
+        try:
+            sorted_items = sorted(val)
+        except TypeError:
+            sorted_items = sorted(val, key=lambda x: str(x))
+        return tuple(freeze_deep(item) for item in sorted_items)
+    elif isinstance(val, list):
         return tuple(freeze_deep(item) for item in val)
     elif isinstance(val, tuple):
         return tuple(freeze_deep(item) for item in val)

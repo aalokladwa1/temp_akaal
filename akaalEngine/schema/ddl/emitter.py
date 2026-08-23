@@ -176,34 +176,130 @@ class BaseTargetDDLEmitter(ABC):
         """Emit DDL for a User-Defined Type or enum."""
         pass
 
-    def emit_routine_artifacts(self, routine: CanonicalRoutine, converted_sql: Optional[str] = None) -> List[StructuredDDLArtifact]:
-        """Emit DDL for a stored procedure or function."""
-        sql = converted_sql or routine.definition_sql or ""
-        if not sql:
-            return []
-        return [
-            StructuredDDLArtifact(
-                object_type="ROUTINE",
-                object_name=routine.name,
-                schema_name=routine.schema_name,
-                sql=sql,
-                target_engine=self.target_engine,
-                stage=DDLStage.ROUTINES,
-            )
-        ]
+    def emit_routine_artifacts(
+        self,
+        routine: CanonicalRoutine,
+        converted_sql: Optional[str] = None,
+        conversion_state: Optional[str] = None,
+        source_engine: str = "GENERIC",
+    ) -> List[StructuredDDLArtifact]:
+        """Emit DDL for a stored procedure or function with strict zero-leakage safety."""
+        # 1. If successfully converted SQL is provided, emit it
+        valid_states = ("TRANSPILED", "CONVERTED", "SYNTACTICALLY_CHECKED", "COMPATIBILITY_WRAPPED")
+        if converted_sql and (conversion_state in valid_states or conversion_state is None):
+            return [
+                StructuredDDLArtifact(
+                    object_type="ROUTINE",
+                    object_name=routine.name,
+                    schema_name=routine.schema_name,
+                    sql=converted_sql,
+                    target_engine=self.target_engine,
+                    stage=DDLStage.ROUTINES,
+                    is_idempotent=True,
+                )
+            ]
 
-    def emit_trigger_artifacts(self, trigger: CanonicalTrigger, converted_sql: Optional[str] = None) -> List[StructuredDDLArtifact]:
-        """Emit DDL for a trigger."""
-        sql = converted_sql or trigger.definition_sql or ""
-        if not sql:
-            return []
-        return [
-            StructuredDDLArtifact(
-                object_type="TRIGGER",
-                object_name=trigger.name,
-                schema_name=trigger.schema_name,
-                sql=sql,
-                target_engine=self.target_engine,
-                stage=DDLStage.TRIGGERS,
+        # 2. If target engine matches source engine (same vendor), native definition_sql is valid
+        if source_engine.strip().upper() == self.target_engine.strip().upper() and routine.definition_sql:
+            return [
+                StructuredDDLArtifact(
+                    object_type="ROUTINE",
+                    object_name=routine.name,
+                    schema_name=routine.schema_name,
+                    sql=routine.definition_sql,
+                    target_engine=self.target_engine,
+                    stage=DDLStage.ROUTINES,
+                    is_idempotent=True,
+                )
+            ]
+
+        # 3. Target engine differs and routine failed or requires manual rewrite:
+        # DO NOT leak raw foreign SQL into executable target DDL! Emit safe commented diagnostic stub.
+        if routine.definition_sql:
+            state_str = conversion_state or "MANUAL_REWRITE_REQUIRED"
+            commented_stub = (
+                f"-- ==========================================================================\n"
+                f"-- [MANUAL REWRITE REQUIRED]: Routine '{routine.qualified_name}'\n"
+                f"-- Source Engine: {source_engine} -> Target Engine: {self.target_engine}\n"
+                f"-- Conversion State: {state_str}\n"
+                f"-- Incompatible procedural constructs require manual operator rewrite.\n"
+                f"-- Original source SQL preserved below for reference:\n"
+                f"-- ==========================================================================\n"
+                f"/*\n{routine.definition_sql}\n*/\n"
             )
-        ]
+            return [
+                StructuredDDLArtifact(
+                    object_type="ROUTINE",
+                    object_name=routine.name,
+                    schema_name=routine.schema_name,
+                    sql=commented_stub,
+                    target_engine=self.target_engine,
+                    stage=DDLStage.ROUTINES,
+                    is_idempotent=False,
+                    extra={"manual_rewrite_required": True, "conversion_state": state_str},
+                )
+            ]
+
+        return []
+
+    def emit_trigger_artifacts(
+        self,
+        trigger: CanonicalTrigger,
+        converted_sql: Optional[str] = None,
+        conversion_state: Optional[str] = None,
+        source_engine: str = "GENERIC",
+    ) -> List[StructuredDDLArtifact]:
+        """Emit DDL for a trigger with strict zero-leakage safety."""
+        valid_states = ("TRANSPILED", "CONVERTED", "SYNTACTICALLY_CHECKED", "COMPATIBILITY_WRAPPED")
+        if converted_sql and (conversion_state in valid_states or conversion_state is None):
+            return [
+                StructuredDDLArtifact(
+                    object_type="TRIGGER",
+                    object_name=trigger.name,
+                    schema_name=trigger.schema_name,
+                    sql=converted_sql,
+                    target_engine=self.target_engine,
+                    stage=DDLStage.TRIGGERS,
+                    is_idempotent=True,
+                )
+            ]
+
+        if source_engine.strip().upper() == self.target_engine.strip().upper() and trigger.definition_sql:
+            return [
+                StructuredDDLArtifact(
+                    object_type="TRIGGER",
+                    object_name=trigger.name,
+                    schema_name=trigger.schema_name,
+                    sql=trigger.definition_sql,
+                    target_engine=self.target_engine,
+                    stage=DDLStage.TRIGGERS,
+                    is_idempotent=True,
+                )
+            ]
+
+        if trigger.definition_sql:
+            state_str = conversion_state or "MANUAL_REWRITE_REQUIRED"
+            commented_stub = (
+                f"-- ==========================================================================\n"
+                f"-- [MANUAL REWRITE REQUIRED]: Trigger '{trigger.name}' on '{trigger.schema_name}.{trigger.table_name}'\n"
+                f"-- Source Engine: {source_engine} -> Target Engine: {self.target_engine}\n"
+                f"-- Conversion State: {state_str}\n"
+                f"-- Trigger definition requires manual adaptation for target engine.\n"
+                f"-- Original source trigger SQL preserved below for reference:\n"
+                f"-- ==========================================================================\n"
+                f"/*\n{trigger.definition_sql}\n*/\n"
+            )
+            return [
+                StructuredDDLArtifact(
+                    object_type="TRIGGER",
+                    object_name=trigger.name,
+                    schema_name=trigger.schema_name,
+                    sql=commented_stub,
+                    target_engine=self.target_engine,
+                    stage=DDLStage.TRIGGERS,
+                    is_idempotent=False,
+                    extra={"manual_rewrite_required": True, "conversion_state": state_str},
+                )
+            ]
+
+        return []

@@ -14,6 +14,7 @@ from typing import Any, List, Mapping, Optional, Tuple
 
 from akaalEngine.schema.assessment.compatibility import CompatibilityBreakdown
 from akaalEngine.schema.models.schema import CanonicalSchemaModel
+from akaalEngine.schema.models.types import freeze_deep
 
 
 class RiskLevel(str, Enum):
@@ -44,8 +45,7 @@ class StructuralRiskReport:
     def __post_init__(self) -> None:
         if not isinstance(self.risk_factors, tuple):
             object.__setattr__(self, "risk_factors", tuple(self.risk_factors))
-        if not isinstance(self.extra, MappingProxyType):
-            object.__setattr__(self, "extra", MappingProxyType(dict(self.extra)))
+        object.__setattr__(self, "extra", freeze_deep(self.extra))
 
     def to_dict(self) -> dict[str, Any]:
         return {

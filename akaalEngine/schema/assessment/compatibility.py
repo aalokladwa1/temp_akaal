@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 from akaalEngine.schema.assessment.lossiness import LossinessAssessment, LossinessEngine
 from akaalEngine.schema.models.schema import CanonicalSchemaModel
-from akaalEngine.schema.models.types import ConversionSafety
+from akaalEngine.schema.models.types import ConversionSafety, freeze_deep
 from akaalEngine.schema.types.registry import CanonicalTypeRegistry
 
 
@@ -33,8 +33,7 @@ class CompatibilityBreakdown:
     def __post_init__(self) -> None:
         if not isinstance(self.lossy_assessments, tuple):
             object.__setattr__(self, "lossy_assessments", tuple(self.lossy_assessments))
-        if not isinstance(self.extra, MappingProxyType):
-            object.__setattr__(self, "extra", MappingProxyType(dict(self.extra)))
+        object.__setattr__(self, "extra", freeze_deep(self.extra))
 
     def to_dict(self) -> dict[str, Any]:
         return {

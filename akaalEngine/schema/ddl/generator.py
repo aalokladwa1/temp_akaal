@@ -116,9 +116,9 @@ class DDLGenerator:
             all_artifacts.extend(procedural_artifacts)
         else:
             for r in model.routines:
-                all_artifacts.extend(emitter.emit_routine_artifacts(r))
+                all_artifacts.extend(emitter.emit_routine_artifacts(r, source_engine=model.source_vendor))
             for tr in model.triggers:
-                all_artifacts.extend(emitter.emit_trigger_artifacts(tr))
+                all_artifacts.extend(emitter.emit_trigger_artifacts(tr, source_engine=model.source_vendor))
 
         return StagedDDLPackage(
             target_engine=target_engine.upper(),

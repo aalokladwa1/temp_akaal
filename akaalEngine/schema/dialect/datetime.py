@@ -23,6 +23,11 @@ class DateTimeDialectTranslator:
         if not expr or src == tgt:
             return expr
 
+        from akaalEngine.schema.core.memoization import default_memoization_engine
+        cached = default_memoization_engine.get_translated_expression(expr, src, tgt)
+        if cached is not None:
+            return cached
+
         tokens = ProceduralLexer.tokenize(expr)
         result_parts: List[str] = []
         i = 0
@@ -68,4 +73,6 @@ class DateTimeDialectTranslator:
             result_parts.append(tok.value)
             i += 1
 
-        return " ".join(result_parts)
+        translated = " ".join(result_parts)
+        default_memoization_engine.put_translated_expression(expr, src, tgt, translated)
+        return translated

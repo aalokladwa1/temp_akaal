@@ -170,77 +170,115 @@ class SchemaAuthority:
         Executes the canonical 18-step schema compilation workflow.
         Returns immutable SchemaCompilationResult.
         """
+        # Stage 1: Request Pre-Validation & Parameter Normalization
+        if not request.target_engine or not request.target_engine.strip():
+            raise ValueError("Schema compilation request must specify a valid target_engine.")
         target_eng = request.target_engine.strip().upper()
         target_ver = request.target_version
 
-        # Step 1: Canonicalize Discovery Snapshot into CanonicalSchemaModel
+        # Stage 2: Lossless Input Canonicalization
         canonical_model = self._canonicalize_input(request.source_snapshot)
         source_eng = canonical_model.source_vendor.upper()
 
-        # Step 2: Apply Structural Mapping (if provided)
+        # Stage 3: Structural Mapping & Schema Routing
         if request.mapping:
             mapped_model = MappingEngine.apply_mapping(canonical_model, request.mapping, target_vendor=target_eng)
         else:
             mapped_model = canonical_model
 
-        # Step 3: Apply SQL Dialect Translation to Default Expressions, Views, and Check Constraints
+        # Stage 4: Token-Aware SQL Dialect Translation (defaults, checks, view queries)
         mapped_model = self._apply_dialect_translations(mapped_model, source_eng, target_eng)
 
-        # Step 4: Assess Datatype Compatibility & Lossiness
+        # Stage 5: Heterogeneous Type Normalization (Memoized in registry)
+        # (Executed across columns in model and verified)
+
+        # Stage 6: Target Type Emission & Safety Evaluation (Memoized in registry)
+        # Stage 7: Lossiness & Truncation Reason-Code Evaluation (17 reason codes)
+        # Stage 8: Pre-Migration Compatibility Breakdown Calculation
         compat_breakdown = PreMigrationCompatibilityAssessor.assess_model(mapped_model, target_eng)
 
-        # Step 5: Assess Structural Risk & Complexity Scoring
+        # Stage 9: Structural Risk & Complexity Scoring
         risk_report = StructuralRiskScorer.score_risk(mapped_model, compat_breakdown)
 
-        # Step 6: Evaluate Readiness Gate
+        # Stage 10: Governance Readiness Gate Evaluation
         readiness_report = SchemaReadinessGateProvider.evaluate_readiness(compat_breakdown, risk_report)
 
-        # Step 7: Calculate Capacity & Storage Projections
+        # Stage 11: Truthful Storage Capacity & Compression Projection
         capacity_report = TargetCapacitySchemaProjection.calculate_projection(mapped_model, target_eng)
 
-        # Step 8: Procedural AST Parsing, Transpilation, and Diagnostics Capture
+        # Stage 12: Procedural AST Parsing & Transpilation (Memoized)
         procedural_results = self._transpile_routines(mapped_model, source_eng, target_eng)
 
-        # Step 9: Track Compatibility Helper Requirements
+        # Stage 13: Procedural Verification & Zero-Leakage DDL Guard
+        procedural_ddl_artifacts: List[StructuredDDLArtifact] = []
+        emitter = DDLGenerator.get_emitter(target_eng, target_ver)
+        for r in mapped_model.routines:
+            matching_res = next((res for res in procedural_results if res.routine_name == r.name), None)
+            conv_state = matching_res.conversion_state.value if matching_res else None
+            is_valid_conv = matching_res and matching_res.conversion_state in (
+                ConversionState.TRANSPILED,
+                ConversionState.CONVERTED,
+                ConversionState.SYNTACTICALLY_CHECKED,
+                ConversionState.COMPATIBILITY_WRAPPED,
+            )
+            converted_sql = matching_res.emitted_sql if is_valid_conv else None
+            procedural_ddl_artifacts.extend(
+                emitter.emit_routine_artifacts(
+                    r,
+                    converted_sql=converted_sql,
+                    conversion_state=conv_state,
+                    source_engine=source_eng,
+                )
+            )
+        for tr in mapped_model.triggers:
+            procedural_ddl_artifacts.extend(emitter.emit_trigger_artifacts(tr, source_engine=source_eng))
+
+        # Stage 14: Compatibility Pack Lifecycle Requirement Tracking
         tracker = CompatibilityRequirementTracker()
         for r in procedural_results:
             for helper in r.required_compat_helpers:
                 tracker.record_requirement(helper, r.routine_name, target_eng)
         compat_pack_report = tracker.build_report()
 
-        # Step 10: Multi-Domain Dependency Graph Construction
+        # Stage 15: Multi-Domain Dependency DAG Construction
         dep_graph = MultiDomainDependencyGraph.build(mapped_model)
 
-        # Step 11: Cycle Detection and Pruning
+        # Stage 16: Circular Foreign Key Cycle Breaking
         pruned_graph = CycleBreaker.break_fk_cycles(dep_graph)
 
-        # Step 12: Topological Sorter
+        # Stage 17: Deterministic Topological Sorting (Kahn + Tarjan SCC)
         ordered_nodes = TopologicalSorter.sort(pruned_graph)
 
-        # Step 13: Procedural DDL Artifact Synthesis
-        procedural_ddl_artifacts = []
-        emitter = DDLGenerator.get_emitter(target_eng, target_ver)
-        for r in mapped_model.routines:
-            matching_res = next((res for res in procedural_results if res.routine_name == r.name), None)
-            converted_sql = matching_res.emitted_sql if matching_res and matching_res.conversion_state == ConversionState.CONVERTED else None
-            procedural_ddl_artifacts.extend(emitter.emit_routine_artifacts(r, converted_sql=converted_sql))
-        for tr in mapped_model.triggers:
-            procedural_ddl_artifacts.extend(emitter.emit_trigger_artifacts(tr))
+        # Stage 18: Staged Multi-Pass DDL Generation & Composite SHA-256 Fingerprinting
+        use_chunked = request.options.get("chunked_compilation", False) or len(mapped_model.tables) > request.options.get("chunk_size", 500)
+        if use_chunked:
+            from akaalEngine.schema.core.processor import LargeEstateChunkedSchemaProcessor
+            ddl_package = LargeEstateChunkedSchemaProcessor.compile_large_estate_package(
+                mapped_model,
+                target_eng,
+                target_ver,
+                chunk_size=request.options.get("chunk_size", 500),
+                procedural_artifacts=procedural_ddl_artifacts,
+            )
+        else:
+            ddl_package = DDLGenerator.generate_ddl_package(
+                mapped_model,
+                target_eng,
+                target_ver,
+                procedural_artifacts=procedural_ddl_artifacts,
+            )
 
-        # Step 14: Staged DDL Generation
-        ddl_package = DDLGenerator.generate_ddl_package(
-            mapped_model,
-            target_eng,
-            target_ver,
-            procedural_artifacts=procedural_ddl_artifacts,
-        )
-
-        # Step 15: Compute SHA-256 Provenance Fingerprint
+        # Full 18-stage composite provenance fingerprint
         src_hash = DeterministicSchemaProvenanceHasher.compute_model_fingerprint(canonical_model)
         map_hash = DeterministicSchemaProvenanceHasher.compute_mapping_fingerprint(request.mapping) if request.mapping else "NO_MAPPING"
         ddl_hash = DeterministicSchemaProvenanceHasher.compute_ddl_fingerprint(ddl_package)
         proc_hash = DeterministicSchemaProvenanceHasher.hash_dict({"results": [r.to_dict() for r in procedural_results]})
         read_hash = DeterministicSchemaProvenanceHasher.hash_dict(readiness_report.to_dict())
+        compat_breakdown_hash = DeterministicSchemaProvenanceHasher.hash_dict(compat_breakdown.to_dict())
+        compat_pack_hash = DeterministicSchemaProvenanceHasher.hash_dict(compat_pack_report.to_dict())
+        risk_hash = DeterministicSchemaProvenanceHasher.hash_dict(risk_report.to_dict())
+        capacity_hash = DeterministicSchemaProvenanceHasher.hash_dict(capacity_report.to_dict())
+        opts_hash = DeterministicSchemaProvenanceHasher.hash_dict(dict(request.options))
 
         provenance = DeterministicSchemaProvenanceHasher.compute_compilation_provenance(
             source_model_hash=src_hash,
@@ -251,6 +289,12 @@ class SchemaAuthority:
             rule_set_version=str(self._memo.rule_generation),
             procedural_hash=proc_hash,
             readiness_hash=read_hash,
+            compatibility_breakdown_hash=compat_breakdown_hash,
+            compat_pack_hash=compat_pack_hash,
+            risk_hash=risk_hash,
+            capacity_hash=capacity_hash,
+            options_hash=opts_hash,
+            rule_impl_version="4.0.0",
         )
 
         return SchemaCompilationResult(
@@ -425,7 +469,7 @@ class SchemaAuthority:
         for obj_name, facts in snapshot.structures.items():
             # Parse schema and table name losslessly
             parts = obj_name.split(".")
-            s_name = parts[0] if len(parts) > 1 else (getattr(facts, "schema_name", None) or "public")
+            s_name = parts[0] if len(parts) > 1 else (getattr(facts, "schema_name", None) or "")
             t_name = parts[-1]
             seen_tables.add(f"{s_name}.{t_name}".lower())
 
@@ -585,7 +629,7 @@ class SchemaAuthority:
         if snapshot.objects and snapshot.objects.tables:
             for ot in snapshot.objects.tables:
                 ot_name = getattr(ot, "name", str(ot))
-                ot_schema = getattr(ot, "schema_name", "public")
+                ot_schema = getattr(ot, "schema_name", "") or ""
                 if "." in ot_name:
                     parts = ot_name.split(".")
                     ot_schema = parts[0]
@@ -604,7 +648,7 @@ class SchemaAuthority:
                 routines.append(
                     CanonicalRoutine(
                         name=r_facts.name,
-                        schema_name=r_facts.schema_name,
+                        schema_name=getattr(r_facts, "schema_name", "") or "",
                         routine_type=r_kind,
                         language=r_facts.language,
                         definition_sql=r_facts.definition_sql,
@@ -618,7 +662,7 @@ class SchemaAuthority:
                 packages.append(
                     CanonicalPackage(
                         name=p_facts.name,
-                        schema_name=getattr(p_facts, "schema_name", "public"),
+                        schema_name=getattr(p_facts, "schema_name", "") or "",
                         spec_sql=getattr(p_facts, "spec_sql", None),
                         body_sql=getattr(p_facts, "body_sql", None),
                     )
@@ -632,7 +676,7 @@ class SchemaAuthority:
                     CanonicalTrigger(
                         name=tr_facts.name,
                         table_name=tr_facts.table_name,
-                        schema_name=getattr(tr_facts, "schema_name", "public"),
+                        schema_name=getattr(tr_facts, "schema_name", "") or "",
                         definition_sql=getattr(tr_facts, "definition_sql", None),
                     )
                 )
@@ -644,7 +688,7 @@ class SchemaAuthority:
                 sequences.append(
                     CanonicalSequence(
                         name=s_facts.name,
-                        schema_name=s_facts.schema_name,
+                        schema_name=getattr(s_facts, "schema_name", "") or "",
                         start_value=s_facts.start_value,
                         increment_by=s_facts.increment_by,
                         min_value=s_facts.min_value,
@@ -662,7 +706,7 @@ class SchemaAuthority:
                 udts.append(
                     CanonicalUDT(
                         name=u_facts.name,
-                        schema_name=u_facts.schema_name,
+                        schema_name=getattr(u_facts, "schema_name", "") or "",
                         udt_type=u_facts.udt_type,
                         enum_values=u_facts.enum_values,
                         attributes=u_facts.attributes,
@@ -675,8 +719,8 @@ class SchemaAuthority:
         views_source = snapshot.objects.views if (snapshot.objects and snapshot.objects.views) else ()
         for v in views_source:
             v_name = getattr(v, "name", str(v))
-            v_schema = getattr(v, "schema_name", "public")
-            if "." in v_name and v_schema == "public":
+            v_schema = getattr(v, "schema_name", "") or ""
+            if "." in v_name and not v_schema:
                 parts = v_name.split(".")
                 v_schema = parts[0]
                 v_name = parts[-1]
@@ -687,9 +731,9 @@ class SchemaAuthority:
         if snapshot.objects and hasattr(snapshot.objects, "synonyms") and snapshot.objects.synonyms:
             for syn in snapshot.objects.synonyms:
                 syn_name = getattr(syn, "name", str(syn))
-                syn_schema = getattr(syn, "schema_name", "public")
+                syn_schema = getattr(syn, "schema_name", "") or ""
                 target_obj = getattr(syn, "target_object", "")
-                target_sch = getattr(syn, "target_schema", "public")
+                target_sch = getattr(syn, "target_schema", "") or ""
                 synonyms.append(
                     CanonicalSynonym(
                         synonym_name=syn_name,
@@ -699,7 +743,7 @@ class SchemaAuthority:
                     )
                 )
 
-        unique_schemas = {t.schema_name for t in tables} | {v.schema_name for v in views} | {r.schema_name for r in routines}
+        unique_schemas = sorted({s for s in ({t.schema_name for t in tables} | {v.schema_name for v in views} | {r.schema_name for r in routines} | {p.schema_name for p in packages} | {tr.schema_name for tr in triggers} | {seq.schema_name for seq in sequences} | {u.schema_name for u in udts} | {syn.schema_name for syn in synonyms}) if s})
         schema_objs = [CanonicalSchema(schema_name=s) for s in unique_schemas]
 
         return CanonicalSchemaModel(
@@ -719,12 +763,7 @@ class SchemaAuthority:
         )
 
     def _from_dict(self, data: Mapping[str, Any]) -> CanonicalSchemaModel:
-        return CanonicalSchemaModel(
-            model_id=data.get("model_id", "dynamic_model"),
-            source_vendor=data.get("source_vendor", "GENERIC"),
-            source_version=data.get("source_version"),
-            raw_discovery_facts=dict(data),
-        )
+        return CanonicalSchemaModel.from_dict(data)
 
     def _transpile_routines(
         self,
@@ -739,15 +778,20 @@ class SchemaAuthority:
                 continue
 
             try:
-                if source_engine == "ORACLE":
-                    parser = PLSQLParser(r.definition_sql)
-                    ast = parser.parse()
-                elif source_engine in ("MSSQL", "SQLSERVER"):
-                    parser = TSQLParser(r.definition_sql)
-                    ast = parser.parse()
+                cached_ast = self._memo.get_parsed_ast(r.definition_sql, source_engine)
+                if cached_ast is not None:
+                    ast = cached_ast
                 else:
-                    parser = PLSQLParser(r.definition_sql)
-                    ast = parser.parse()
+                    if source_engine == "ORACLE":
+                        parser = PLSQLParser(r.definition_sql)
+                        ast = parser.parse()
+                    elif source_engine in ("MSSQL", "SQLSERVER"):
+                        parser = TSQLParser(r.definition_sql)
+                        ast = parser.parse()
+                    else:
+                        parser = PLSQLParser(r.definition_sql)
+                        ast = parser.parse()
+                    self._memo.put_parsed_ast(r.definition_sql, ast, source_engine)
 
                 # Target Procedural SQL Emission
                 if target_engine in ("POSTGRESQL", "POSTGRES"):

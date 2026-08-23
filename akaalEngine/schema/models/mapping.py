@@ -71,8 +71,8 @@ class TableMapping:
     """Structural table-level mapping rule."""
     source_schema: str
     source_table: str
-    target_schema: str
-    target_table: str
+    target_schema: str = ""
+    target_table: str = ""
     is_included: bool = True
     column_mappings: Tuple[ColumnMapping, ...] = field(default_factory=tuple)
     custom_filter_predicate: Optional[str] = None

@@ -26,6 +26,11 @@ class FunctionDialectTranslator:
         if not expr or src == tgt:
             return expr
 
+        from akaalEngine.schema.core.memoization import default_memoization_engine
+        cached = default_memoization_engine.get_translated_expression(expr, src, tgt)
+        if cached is not None:
+            return cached
+
         tokens = ProceduralLexer.tokenize(expr)
         result_parts: List[str] = []
         i = 0
@@ -53,7 +58,9 @@ class FunctionDialectTranslator:
             result_parts.append(tok.value)
             i += 1
 
-        return " ".join(result_parts)
+        final_translated = " ".join(result_parts)
+        default_memoization_engine.put_translated_expression(expr, src, tgt, final_translated)
+        return final_translated
 
     @classmethod
     def _extract_arguments(cls, tokens: List[Token], start_paren_idx: int) -> Tuple[List[str], int]:

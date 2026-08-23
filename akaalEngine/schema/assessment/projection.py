@@ -100,44 +100,59 @@ class TargetCapacitySchemaProjection:
             CanonicalTypeCategory.UNKNOWN: 32,
         }
 
+        has_unknown = False
+
         for tbl in model.tables:
             # Calculate estimated row width
             row_width = sum(CATEGORY_BYTE_WEIGHTS.get(c.canonical_type.category, 32) for c in tbl.columns)
             
-            raw_rows = tbl.raw_source_properties.get("estimated_rows") or tbl.raw_source_properties.get("row_count")
+            raw_rows = None
+            for key in ("row_count", "estimated_rows", "num_rows", "approximate_row_count"):
+                if key in tbl.raw_source_properties and tbl.raw_source_properties[key] is not None:
+                    raw_rows = tbl.raw_source_properties[key]
+                    break
+
             if raw_rows is not None:
                 est_rows = int(raw_rows)
-                evidence = CapacityEvidenceKind.MEASURED if tbl.raw_source_properties.get("is_exact_count") else CapacityEvidenceKind.ESTIMATED
+                is_exact = tbl.raw_source_properties.get("is_exact_count", False) or ("row_count" in tbl.raw_source_properties)
+                evidence = CapacityEvidenceKind.MEASURED if is_exact else CapacityEvidenceKind.ESTIMATED
                 src_bytes = est_rows * row_width
-            else:
-                est_rows = 0
-                evidence = CapacityEvidenceKind.UNKNOWN
-                src_bytes = 0
 
-            # Columnar warehouses (Snowflake, BigQuery, Redshift, Databricks) achieve ~3x compression
-            comp_ratio = 1.0
-            if target_engine.upper() in ("SNOWFLAKE", "BIGQUERY", "REDSHIFT", "DATABRICKS"):
-                comp_ratio = 0.35
-            elif target_engine.upper() in ("POSTGRESQL", "ORACLE", "MYSQL", "MSSQL", "DB2"):
-                comp_ratio = 0.90
+                comp_ratio = 1.0
+                if target_engine.upper() in ("SNOWFLAKE", "BIGQUERY", "REDSHIFT", "DATABRICKS"):
+                    comp_ratio = 0.35
+                elif target_engine.upper() in ("POSTGRESQL", "ORACLE", "MYSQL", "MSSQL", "DB2"):
+                    comp_ratio = 0.90
+                tgt_bytes = int(src_bytes * comp_ratio)
 
-            tgt_bytes = int(src_bytes * comp_ratio)
+                total_rows += est_rows
+                total_src_b += src_bytes
+                total_tgt_b += tgt_bytes
 
-            total_rows += est_rows
-            total_src_b += src_bytes
-            total_tgt_b += tgt_bytes
-
-            table_projs.append(
-                TableCapacityProjection(
-                    table_name=tbl.table_name,
-                    schema_name=tbl.schema_name,
-                    estimated_row_count=est_rows if est_rows > 0 else None,
-                    estimated_bytes_source=src_bytes if src_bytes > 0 else None,
-                    estimated_bytes_target=tgt_bytes if tgt_bytes > 0 else None,
-                    estimated_compression_ratio=comp_ratio,
-                    evidence_kind=evidence,
+                table_projs.append(
+                    TableCapacityProjection(
+                        table_name=tbl.table_name,
+                        schema_name=tbl.schema_name,
+                        estimated_row_count=est_rows,
+                        estimated_bytes_source=src_bytes,
+                        estimated_bytes_target=tgt_bytes,
+                        estimated_compression_ratio=comp_ratio,
+                        evidence_kind=evidence,
+                    )
                 )
-            )
+            else:
+                has_unknown = True
+                table_projs.append(
+                    TableCapacityProjection(
+                        table_name=tbl.table_name,
+                        schema_name=tbl.schema_name,
+                        estimated_row_count=None,
+                        estimated_bytes_source=None,
+                        estimated_bytes_target=None,
+                        estimated_compression_ratio=1.0,
+                        evidence_kind=CapacityEvidenceKind.UNKNOWN,
+                    )
+                )
 
         return TargetCapacityReport(
             total_tables=len(model.tables),
@@ -145,4 +160,5 @@ class TargetCapacitySchemaProjection:
             total_source_bytes=total_src_b,
             total_projected_target_bytes=total_tgt_b,
             table_projections=tuple(table_projs),
+            extra={"has_unknown_volumes": has_unknown},
         )
