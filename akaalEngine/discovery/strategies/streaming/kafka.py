@@ -296,3 +296,4 @@ class KafkaDiscoveryStrategy(StreamingDiscoveryStrategy):
             except Exception as exc:
                 logger.warning(f"Error consuming kafka sample for {table_name}: {exc}")
         return DeterministicSampler.package_sample(table_name, schema_name, ["key", "value", "partition", "offset"], rows)
+

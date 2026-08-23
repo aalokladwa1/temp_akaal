@@ -29,6 +29,45 @@ class LargeEstateChunkedSchemaProcessor:
     DEFAULT_CHUNK_SIZE = 500
 
     @classmethod
+    def build_lightweight_table_order(cls, tables: Sequence[CanonicalTable]) -> List[str]:
+        """Builds a lightweight O(V+E) adjacency graph using string IDs to determine dependency order with minimal RAM."""
+        adj: Dict[str, Set[str]] = {}
+        in_degree: Dict[str, int] = {}
+        for t in tables:
+            qname = t.qualified_name.lower()
+            if qname not in adj:
+                adj[qname] = set()
+            if qname not in in_degree:
+                in_degree[qname] = 0
+
+            for fk in t.foreign_keys:
+                ref_qname = f"{fk.referenced_schema}.{fk.referenced_table}".lower()
+                if ref_qname != qname:
+                    if ref_qname not in adj:
+                        adj[ref_qname] = set()
+                    if qname not in adj[ref_qname]:
+                        adj[ref_qname].add(qname)
+                        in_degree[qname] = in_degree.get(qname, 0) + 1
+
+        # Kahn's algorithm
+        queue = [k for k, deg in in_degree.items() if deg == 0]
+        sorted_keys: List[str] = []
+        while queue:
+            node = queue.pop(0)
+            sorted_keys.append(node)
+            for neighbor in adj.get(node, ()):
+                in_degree[neighbor] -= 1
+                if in_degree[neighbor] == 0:
+                    queue.append(neighbor)
+
+        seen = set(sorted_keys)
+        for k in in_degree:
+            if k not in seen:
+                sorted_keys.append(k)
+
+        return sorted_keys
+
+    @classmethod
     def stream_chunked_tables(
         cls,
         tables_iter: Iterator[CanonicalTable],
@@ -45,6 +84,27 @@ class LargeEstateChunkedSchemaProcessor:
             yield tuple(chunk)
 
     @classmethod
+    def stream_compile_estate(
+        cls,
+        tables_stream: Iterator[CanonicalTable],
+        target_engine: str,
+        target_version: Optional[str] = None,
+        chunk_size: int = DEFAULT_CHUNK_SIZE,
+        source_vendor: str = "GENERIC",
+    ) -> Iterator[StagedDDLPackage]:
+        """Streams DDL packages chunk by chunk directly from a lazy table generator without materializing all tables."""
+        chunk_idx = 0
+        for table_chunk in cls.stream_chunked_tables(tables_stream, chunk_size=chunk_size):
+            chunk_model = CanonicalSchemaModel(
+                model_id=f"stream_chunk_{chunk_idx}",
+                source_vendor=source_vendor,
+                tables=table_chunk,
+            )
+            pkg = DDLGenerator.generate_ddl_package(chunk_model, target_engine, target_version)
+            chunk_idx += 1
+            yield pkg
+
+    @classmethod
     def process_chunked_compilation(
         cls,
         model: CanonicalSchemaModel,
@@ -56,19 +116,14 @@ class LargeEstateChunkedSchemaProcessor:
         """
         Streams staged DDL packages chunk by chunk in deterministic topological dependency order.
         """
-        # 1. Dependency ordering across tables
-        dep_graph = MultiDomainDependencyGraph.build(model)
-        pruned_graph = CycleBreaker.break_fk_cycles(dep_graph)
-        sorted_keys = TopologicalSorter.sort(pruned_graph)
-
-        # Build streaming table generator
+        ordered_keys = cls.build_lightweight_table_order(model.tables)
         table_map = {t.qualified_name.lower(): t for t in model.tables}
+        
         ordered_tables: List[CanonicalTable] = []
-        for k in sorted_keys:
-            if k.startswith("table:") and k[6:] in table_map:
-                ordered_tables.append(table_map[k[6:]])
+        for k in ordered_keys:
+            if k in table_map:
+                ordered_tables.append(table_map[k])
 
-        # Include remaining unreferenced tables
         seen = {t.qualified_name.lower() for t in ordered_tables}
         for t in model.tables:
             if t.qualified_name.lower() not in seen:
@@ -76,7 +131,6 @@ class LargeEstateChunkedSchemaProcessor:
 
         total_tables = len(ordered_tables)
 
-        # 2. Process in memory-bounded chunks
         for start_idx in range(0, total_tables, chunk_size):
             end_idx = min(start_idx + chunk_size, total_tables)
             chunk_tables = ordered_tables[start_idx:end_idx]

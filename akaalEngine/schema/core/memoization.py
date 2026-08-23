@@ -86,46 +86,42 @@ class CompiledRuleIndexMemoizationEngine:
         with self._lock:
             self._type_norm_cache[key] = ctype
 
-    def get_emitted_type(
-        self,
-        canonical_category: str,
-        raw_vendor_type: str,
-        target_engine: str,
-        length: Optional[int] = None,
-        precision: Optional[int] = None,
-        scale: Optional[int] = None,
-    ) -> Optional[TargetTypeEmission]:
-        key = (
-            canonical_category.upper(),
-            raw_vendor_type.upper(),
+    def _compute_canonical_type_key(self, ctype: CanonicalType, target_engine: str) -> Tuple[Any, ...]:
+        extra_items = tuple(sorted((str(k), str(v)) for k, v in ctype.extra.items())) if ctype.extra else ()
+        return (
+            ctype.category.value.upper(),
+            ctype.raw_vendor_type.upper(),
             target_engine.upper(),
-            length,
-            precision,
-            scale,
+            ctype.length,
+            ctype.precision,
+            ctype.scale,
+            ctype.bits,
+            ctype.byte_semantics,
+            ctype.is_signed,
+            ctype.is_timezone_aware,
+            ctype.dimensions,
+            ctype.srid,
+            ctype.array_element_type,
+            extra_items,
             self._rule_generation,
         )
+
+    def get_emitted_type(
+        self,
+        canonical_type: CanonicalType,
+        target_engine: str,
+    ) -> Optional[TargetTypeEmission]:
+        key = self._compute_canonical_type_key(canonical_type, target_engine)
         with self._lock:
             return self._type_emit_cache.get(key)
 
     def put_emitted_type(
         self,
-        canonical_category: str,
-        raw_vendor_type: str,
+        canonical_type: CanonicalType,
         target_engine: str,
         emission: TargetTypeEmission,
-        length: Optional[int] = None,
-        precision: Optional[int] = None,
-        scale: Optional[int] = None,
     ) -> None:
-        key = (
-            canonical_category.upper(),
-            raw_vendor_type.upper(),
-            target_engine.upper(),
-            length,
-            precision,
-            scale,
-            self._rule_generation,
-        )
+        key = self._compute_canonical_type_key(canonical_type, target_engine)
         with self._lock:
             self._type_emit_cache[key] = emission
 

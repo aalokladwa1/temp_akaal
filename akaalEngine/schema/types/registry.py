@@ -72,24 +72,26 @@ class CanonicalTypeRegistry:
             )
         return res
 
+    _active_memoization_engine: Optional[Any] = None
+
+    @classmethod
+    def set_memoization_engine(cls, engine: Optional[Any]) -> None:
+        """Sets active scoped memoization engine."""
+        cls._active_memoization_engine = engine
+
     @classmethod
     def emit_target_type(
         cls,
         target_provider: str,
         canonical_type: CanonicalType,
+        memoization_engine: Optional[Any] = None,
     ) -> TargetTypeEmission:
-        """Emits target-native DDL type string from CanonicalType with memoization."""
+        """Emits target-native DDL type string from CanonicalType with full semantic memoization."""
         tgt = str(target_provider).strip().lower()
         from akaalEngine.schema.core.memoization import default_memoization_engine
+        memo = memoization_engine or cls._active_memoization_engine or default_memoization_engine
 
-        cached = default_memoization_engine.get_emitted_type(
-            canonical_type.category.value,
-            canonical_type.raw_vendor_type,
-            tgt,
-            length=canonical_type.length,
-            precision=canonical_type.precision,
-            scale=canonical_type.scale,
-        )
+        cached = memo.get_emitted_type(canonical_type, tgt)
         if cached is not None:
             return cached
 
@@ -99,15 +101,7 @@ class CanonicalTypeRegistry:
             raw_emission = ProviderTypeEmitters.emit(tgt, canonical_type)
 
         evaluated = TypeSafetyEvaluator.evaluate_conversion(canonical_type, raw_emission)
-        default_memoization_engine.put_emitted_type(
-            canonical_type.category.value,
-            canonical_type.raw_vendor_type,
-            tgt,
-            evaluated,
-            length=canonical_type.length,
-            precision=canonical_type.precision,
-            scale=canonical_type.scale,
-        )
+        memo.put_emitted_type(canonical_type, tgt, evaluated)
         return evaluated
 
     @classmethod

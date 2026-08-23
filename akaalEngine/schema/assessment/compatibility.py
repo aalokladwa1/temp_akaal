@@ -90,8 +90,12 @@ class PreMigrationCompatibilityAssessor:
                     unsupp += 1
                     assessment = LossinessEngine.assess_column(f"{tbl.qualified_name}.{col.name}", col.canonical_type, emission)
                     lossy_assessments.append(assessment)
-                elif emission.safety == ConversionSafety.USER_DECISION_REQUIRED:
-                    decision += 1
+        # Evaluate dropped foreign keys from mapping exclusions
+        dropped_fks = model.extra.get("dropped_foreign_keys", ())
+        extra_meta = dict(model.extra)
+        if dropped_fks:
+            decision += len(dropped_fks)
+            extra_meta["dropped_foreign_keys_count"] = len(dropped_fks)
 
         return CompatibilityBreakdown(
             total_columns=total_cols,
@@ -103,4 +107,5 @@ class PreMigrationCompatibilityAssessor:
             unsupported_count=unsupp,
             decision_required_count=decision,
             lossy_assessments=tuple(lossy_assessments),
+            extra=extra_meta,
         )

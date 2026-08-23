@@ -32,6 +32,12 @@ class TableCapacityProjection:
     estimated_bytes_target: Optional[int]
     estimated_compression_ratio: float = 1.0
     evidence_kind: CapacityEvidenceKind = CapacityEvidenceKind.ESTIMATED
+    source_row_evidence_kind: CapacityEvidenceKind = CapacityEvidenceKind.UNKNOWN
+    target_bytes_evidence_kind: CapacityEvidenceKind = CapacityEvidenceKind.UNKNOWN
+    extra: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "extra", freeze_deep(self.extra))
 
 
 @dataclass(frozen=True)
@@ -64,6 +70,9 @@ class TargetCapacityReport:
                     "estimated_bytes_target": tp.estimated_bytes_target,
                     "estimated_compression_ratio": tp.estimated_compression_ratio,
                     "evidence_kind": tp.evidence_kind.value,
+                    "source_row_evidence_kind": tp.source_row_evidence_kind.value,
+                    "target_bytes_evidence_kind": tp.target_bytes_evidence_kind.value,
+                    "extra": dict(tp.extra),
                 }
                 for tp in self.table_projections
             ],
@@ -115,15 +124,25 @@ class TargetCapacitySchemaProjection:
             if raw_rows is not None:
                 est_rows = int(raw_rows)
                 is_exact = tbl.raw_source_properties.get("is_exact_count", False) or ("row_count" in tbl.raw_source_properties)
-                evidence = CapacityEvidenceKind.MEASURED if is_exact else CapacityEvidenceKind.ESTIMATED
-                src_bytes = est_rows * row_width
-
-                comp_ratio = 1.0
-                if target_engine.upper() in ("SNOWFLAKE", "BIGQUERY", "REDSHIFT", "DATABRICKS"):
-                    comp_ratio = 0.35
-                elif target_engine.upper() in ("POSTGRESQL", "ORACLE", "MYSQL", "MSSQL", "DB2"):
-                    comp_ratio = 0.90
-                tgt_bytes = int(src_bytes * comp_ratio)
+                source_row_evidence = CapacityEvidenceKind.MEASURED if is_exact else CapacityEvidenceKind.ESTIMATED
+                
+                # For 0 rows, 0 bytes is physically exact (MEASURED). For > 0 rows, projected width and target compression are heuristic (ESTIMATED).
+                if est_rows == 0:
+                    src_bytes = 0
+                    tgt_bytes = 0
+                    comp_ratio = 1.0
+                    target_bytes_evidence = CapacityEvidenceKind.MEASURED if is_exact else CapacityEvidenceKind.ESTIMATED
+                    evidence = CapacityEvidenceKind.MEASURED if is_exact else CapacityEvidenceKind.ESTIMATED
+                else:
+                    src_bytes = est_rows * row_width
+                    comp_ratio = 1.0
+                    if target_engine.upper() in ("SNOWFLAKE", "BIGQUERY", "REDSHIFT", "DATABRICKS"):
+                        comp_ratio = 0.35
+                    elif target_engine.upper() in ("POSTGRESQL", "ORACLE", "MYSQL", "MSSQL", "DB2"):
+                        comp_ratio = 0.90
+                    tgt_bytes = int(src_bytes * comp_ratio)
+                    target_bytes_evidence = CapacityEvidenceKind.ESTIMATED
+                    evidence = CapacityEvidenceKind.ESTIMATED
 
                 total_rows += est_rows
                 total_src_b += src_bytes
@@ -138,6 +157,9 @@ class TargetCapacitySchemaProjection:
                         estimated_bytes_target=tgt_bytes,
                         estimated_compression_ratio=comp_ratio,
                         evidence_kind=evidence,
+                        source_row_evidence_kind=source_row_evidence,
+                        target_bytes_evidence_kind=target_bytes_evidence,
+                        extra={"is_heuristic_compression": comp_ratio != 1.0},
                     )
                 )
             else:
@@ -151,6 +173,9 @@ class TargetCapacitySchemaProjection:
                         estimated_bytes_target=None,
                         estimated_compression_ratio=1.0,
                         evidence_kind=CapacityEvidenceKind.UNKNOWN,
+                        source_row_evidence_kind=CapacityEvidenceKind.UNKNOWN,
+                        target_bytes_evidence_kind=CapacityEvidenceKind.UNKNOWN,
+                        extra={"is_heuristic_compression": False},
                     )
                 )
 

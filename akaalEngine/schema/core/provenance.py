@@ -32,7 +32,21 @@ def _canonical_normalize(val: Any) -> Any:
         except TypeError:
             sorted_items = sorted(val, key=lambda x: str(x))
         return [_canonical_normalize(item) for item in sorted_items]
-    return str(val)
+    elif hasattr(val, "__dict__"):
+        return {str(k): _canonical_normalize(v) for k, v in sorted(val.__dict__.items(), key=lambda x: str(x[0])) if not k.startswith("_")}
+    raise TypeError(f"Cannot deterministically serialize type '{type(val).__name__}' to canonical JSON.")
+
+
+def get_rule_implementation_version() -> str:
+    """Computes deterministic mechanical hash of loaded schema rule engines."""
+    from akaalEngine.schema.types.normalizers import ProviderTypeNormalizers
+    from akaalEngine.schema.types.emitters import ProviderTypeEmitters
+    rule_signatures = [
+        sorted(m for m in dir(ProviderTypeNormalizers) if m.startswith("_normalize_")),
+        sorted(m for m in dir(ProviderTypeEmitters) if m.startswith("_emit_")),
+    ]
+    raw = json.dumps(rule_signatures, sort_keys=True)
+    return f"v4.0.0-{hashlib.sha256(raw.encode('utf-8')).hexdigest()[:8]}"
 
 
 class DeterministicSchemaProvenanceHasher:
@@ -76,12 +90,13 @@ class DeterministicSchemaProvenanceHasher:
         risk_hash: str = "",
         capacity_hash: str = "",
         options_hash: str = "",
-        rule_impl_version: str = "4.0.0",
+        rule_impl_version: Optional[str] = None,
     ) -> str:
         """Computes composite provenance signature across all 18 compilation decisions and artifacts."""
+        impl_ver = rule_impl_version or get_rule_implementation_version()
         combined = (
             f"{source_model_hash}:{mapping_hash}:{ddl_package_hash}:"
-            f"{target_engine.upper()}:{target_version}:{rule_set_version}:{rule_impl_version}:"
+            f"{target_engine.upper()}:{target_version}:{rule_set_version}:{impl_ver}:"
             f"{procedural_hash}:{readiness_hash}:{compatibility_breakdown_hash}:"
             f"{compat_pack_hash}:{risk_hash}:{capacity_hash}:{options_hash}"
         )

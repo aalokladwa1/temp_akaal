@@ -73,11 +73,17 @@ class SchemaReadinessGateProvider:
         if compat_breakdown.unsupported_count > 0:
             blockers.append(f"{compat_breakdown.unsupported_count} unsupported column datatypes must be mapped or excluded before migration")
 
-        # 2. Check for User Decisions Required (Waiver / Blocker)
+        # 2. Check for User Decisions & Relational Integrity Breaks (Waiver / Blocker)
+        dropped_fk_count = compat_breakdown.extra.get("dropped_foreign_keys_count", 0)
+        if dropped_fk_count > 0:
+            waivers.append(f"Operator waiver required for {dropped_fk_count} dropped foreign key constraints referencing excluded tables")
+            warnings.append(f"{dropped_fk_count} foreign key constraints were dropped because referenced target tables were excluded")
+
         if getattr(compat_breakdown, "decision_required_count", 0) > 0:
-            count = compat_breakdown.decision_required_count
-            waivers.append(f"Explicit operator resolution required for {count} ambiguous column conversions")
-            warnings.append(f"{count} columns require explicit mapping decisions")
+            non_fk_decisions = compat_breakdown.decision_required_count - dropped_fk_count
+            if non_fk_decisions > 0:
+                waivers.append(f"Explicit operator resolution required for {non_fk_decisions} ambiguous column conversions")
+                warnings.append(f"{non_fk_decisions} columns require explicit mapping decisions")
 
         # 3. Check for Lossy Conversions (Waiver Required)
         if compat_breakdown.lossy_count > 0:

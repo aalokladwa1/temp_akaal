@@ -137,7 +137,7 @@ class EventHubsDiscoveryStrategy(StreamingDiscoveryStrategy):
             ColumnPhysicalMetadata(name="SequenceNumber", ordinal_position=4, native_type="INT64"),
             ColumnPhysicalMetadata(name="EnqueuedTime", ordinal_position=5, native_type="DATETIME"),
         ]
-        return ObjectStructureFacts(
+        return ObjectStructureFacts( 
             table_name=object_name,
             schema_name=schema_name or "",
             columns=tuple(cols),

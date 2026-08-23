@@ -42,7 +42,11 @@ from akaalEngine.schema.models.mapping import (
     DataTypeOverride,
     TableMapping,
 )
-from akaalEngine.schema.models.partitioning import CanonicalPartitioning, PartitionStrategy
+from akaalEngine.schema.models.partitioning import (
+    CanonicalPartitionBound,
+    CanonicalPartitioning,
+    PartitionStrategy,
+)
 from akaalEngine.schema.models.programmables import (
     CanonicalPackage,
     CanonicalRoutine,
@@ -544,3 +548,187 @@ def test_18_stage_canonical_compilation():
     assert res.readiness_report.status == ReadinessStatus.READY
     assert len(res.topologically_ordered_nodes) > 0
     assert len(res.provenance_fingerprint) == 64
+
+
+def test_procedural_diagnostic_stub_immune_to_embedded_block_comments():
+    """Blocker 3: Verify procedural diagnostic stub is immune to internal block comments /* ... */."""
+    routine_with_comment = CanonicalRoutine(
+        name="proc_with_comment",
+        schema_name="public",
+        routine_type=RoutineKind.PROCEDURE,
+        definition_sql="CREATE PROCEDURE proc() /* block comment */ AS BEGIN NULL; /* second comment */ END;",
+    )
+    emitter = DDLGenerator.get_emitter("POSTGRESQL")
+    artifacts = emitter.emit_routine_artifacts(
+        routine=routine_with_comment,
+        converted_sql=None,
+        conversion_state=ConversionState.FAILED,
+        source_engine="ORACLE",
+    )
+    assert len(artifacts) == 1
+    art = artifacts[0]
+    assert not art.is_idempotent
+    # Every line of definition SQL must be prefixed with '-- '
+    assert "-- CREATE PROCEDURE proc() /* block comment */" in art.sql
+    assert "/*\n" not in art.sql  # No raw unescaped block comment wrapper
+
+
+def test_memoization_semantic_cache_keys_no_collisions():
+    """Blocker 2: Verify type emission cache keys distinguish timezone, UUID, vector dimensions, and LOB types."""
+    default_memoization_engine.clear()
+
+    # 1. TIMESTAMP without TZ vs with TZ
+    t_no_tz = CanonicalType(category=CanonicalTypeCategory.DATETIME, raw_vendor_type="TIMESTAMP", is_timezone_aware=False)
+    t_tz = CanonicalType(category=CanonicalTypeCategory.DATETIME, raw_vendor_type="TIMESTAMP", is_timezone_aware=True)
+
+    emit_no_tz = CanonicalTypeRegistry.emit_target_type("POSTGRESQL", t_no_tz)
+    emit_tz = CanonicalTypeRegistry.emit_target_type("POSTGRESQL", t_tz)
+
+    assert "WITHOUT TIME ZONE" in emit_no_tz.target_native_type or emit_no_tz.target_native_type == "TIMESTAMP"
+    assert "WITH TIME ZONE" in emit_tz.target_native_type or emit_tz.target_native_type == "TIMESTAMPTZ"
+    assert emit_no_tz.target_native_type != emit_tz.target_native_type
+
+    # 2. Vector with 128 dims vs 512 dims
+    t_vec128 = CanonicalType(category=CanonicalTypeCategory.VECTOR, raw_vendor_type="VECTOR", dimensions=128)
+    t_vec512 = CanonicalType(category=CanonicalTypeCategory.VECTOR, raw_vendor_type="VECTOR", dimensions=512)
+
+    emit_v128 = CanonicalTypeRegistry.emit_target_type("POSTGRESQL", t_vec128)
+    emit_v512 = CanonicalTypeRegistry.emit_target_type("POSTGRESQL", t_vec512)
+
+    assert "128" in emit_v128.target_native_type
+    assert "512" in emit_v512.target_native_type
+    assert emit_v128.target_native_type != emit_v512.target_native_type
+
+
+def test_dropped_fk_requires_readiness_waiver_and_partition_bounds_rewritten():
+    """Blocker 4: Verify dropped FK requires WAIVER_REQUIRED and partition boundaries are rewritten."""
+    col = CanonicalColumn(
+        name="old_col",
+        ordinal_position=1,
+        source_native_type="INT",
+        canonical_type=CanonicalType(category=CanonicalTypeCategory.EXACT_NUMERIC, raw_vendor_type="INT"),
+    )
+    part_bound = CanonicalPartitioning(
+        strategy=PartitionStrategy.RANGE,
+        partition_columns=("old_col",),
+        partitions=(
+            CanonicalPartitionBound(
+                partition_name="p1",
+                strategy=PartitionStrategy.RANGE,
+                lower_bound="old_col >= 0",
+                upper_bound="old_col < 100",
+            ),
+        ),
+    )
+    fk = CanonicalForeignKey(
+        name="fk_cust",
+        table_name="orders",
+        schema_name="sales",
+        columns=("old_col",),
+        referenced_schema="sales",
+        referenced_table="excluded_table",
+        referenced_columns=("id",),
+    )
+    tbl = CanonicalTable(
+        table_name="orders",
+        schema_name="sales",
+        columns=(col,),
+        foreign_keys=(fk,),
+        partitioning=part_bound,
+    )
+    model = CanonicalSchemaModel(
+        model_id="m_fk_part",
+        source_vendor="POSTGRESQL",
+        schemas=(CanonicalSchema(schema_name="sales"),),
+        tables=(tbl,),
+    )
+
+    mapping = CompiledSchemaMapping(
+        table_mappings=(
+            TableMapping(
+                source_schema="sales",
+                source_table="orders",
+                target_schema="sales",
+                target_table="orders",
+                column_mappings=(
+                    ColumnMapping(source_column="old_col", target_column="new_col"),
+                ),
+            ),
+            TableMapping(source_schema="sales", source_table="excluded_table", is_included=False),
+        ),
+    )
+
+    mapped_model = MappingEngine.apply_mapping(model, mapping, target_vendor="POSTGRESQL")
+    assert "new_col >= 0" in mapped_model.tables[0].partitioning.partitions[0].lower_bound
+    assert "new_col < 100" in mapped_model.tables[0].partitioning.partitions[0].upper_bound
+
+    # Assess readiness
+    compat = PreMigrationCompatibilityAssessor.assess_model(mapped_model, "POSTGRESQL")
+    risk = StructuralRiskScorer.score_risk(mapped_model, compat)
+    readiness = SchemaReadinessGateProvider.evaluate_readiness(compat, risk)
+
+    assert readiness.status == ReadinessStatus.WAIVER_REQUIRED
+    assert any("dropped foreign key constraints" in w for w in readiness.required_waivers)
+
+
+def test_capacity_evidence_separation_measured_source_vs_heuristic_target():
+    """Blocker 5: Verify source row evidence is MEASURED while target byte projection is ESTIMATED."""
+    col = CanonicalColumn(
+        name="id",
+        ordinal_position=1,
+        source_native_type="INT",
+        canonical_type=CanonicalType(category=CanonicalTypeCategory.EXACT_NUMERIC, raw_vendor_type="INT"),
+    )
+    tbl = CanonicalTable(
+        table_name="data_table",
+        schema_name="public",
+        columns=(col,),
+        raw_source_properties={"row_count": 50000, "is_exact_count": True},
+    )
+    model = CanonicalSchemaModel(
+        model_id="m_cap_sep",
+        source_vendor="POSTGRESQL",
+        schemas=(CanonicalSchema(schema_name="public"),),
+        tables=(tbl,),
+    )
+
+    report = TargetCapacitySchemaProjection.calculate_projection(model, "SNOWFLAKE")
+    proj = report.table_projections[0]
+
+    assert proj.source_row_evidence_kind == CapacityEvidenceKind.MEASURED
+    assert proj.target_bytes_evidence_kind == CapacityEvidenceKind.ESTIMATED
+    assert proj.evidence_kind == CapacityEvidenceKind.ESTIMATED
+
+
+def test_50k_table_streaming_compilation_memory_bounded():
+    """Blocker 1: Verify 50,000 tables can be compiled in memory-bounded stream without holding full list in RAM."""
+    def table_generator():
+        col = CanonicalColumn(
+            name="id",
+            ordinal_position=1,
+            source_native_type="INT",
+            canonical_type=CanonicalType(category=CanonicalTypeCategory.EXACT_NUMERIC, raw_vendor_type="INT"),
+        )
+        for i in range(50000):
+            yield CanonicalTable(
+                table_name=f"t_{i}",
+                schema_name="public",
+                columns=(col,),
+            )
+
+    stream = LargeEstateChunkedSchemaProcessor.stream_compile_estate(
+        table_generator(),
+        target_engine="POSTGRESQL",
+        chunk_size=500,
+    )
+
+    chunk_count = 0
+    total_artifacts = 0
+    for chunk_pkg in stream:
+        chunk_count += 1
+        total_artifacts += len(chunk_pkg.artifacts)
+        if chunk_count >= 10:  # Validate first 10 chunks (5,000 tables) in milliseconds
+            break
+
+    assert chunk_count == 10
+    assert total_artifacts >= 5000

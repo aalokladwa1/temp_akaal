@@ -215,8 +215,10 @@ class BaseTargetDDLEmitter(ABC):
 
         # 3. Target engine differs and routine failed or requires manual rewrite:
         # DO NOT leak raw foreign SQL into executable target DDL! Emit safe commented diagnostic stub.
+        # Use single-line '-- ' prefix on every line so that internal '*/' cannot escape.
         if routine.definition_sql:
             state_str = conversion_state or "MANUAL_REWRITE_REQUIRED"
+            commented_src = "\n".join(f"-- {line}" for line in routine.definition_sql.splitlines())
             commented_stub = (
                 f"-- ==========================================================================\n"
                 f"-- [MANUAL REWRITE REQUIRED]: Routine '{routine.qualified_name}'\n"
@@ -225,7 +227,7 @@ class BaseTargetDDLEmitter(ABC):
                 f"-- Incompatible procedural constructs require manual operator rewrite.\n"
                 f"-- Original source SQL preserved below for reference:\n"
                 f"-- ==========================================================================\n"
-                f"/*\n{routine.definition_sql}\n*/\n"
+                f"{commented_src}\n"
             )
             return [
                 StructuredDDLArtifact(
@@ -279,6 +281,7 @@ class BaseTargetDDLEmitter(ABC):
 
         if trigger.definition_sql:
             state_str = conversion_state or "MANUAL_REWRITE_REQUIRED"
+            commented_src = "\n".join(f"-- {line}" for line in trigger.definition_sql.splitlines())
             commented_stub = (
                 f"-- ==========================================================================\n"
                 f"-- [MANUAL REWRITE REQUIRED]: Trigger '{trigger.name}' on '{trigger.schema_name}.{trigger.table_name}'\n"
@@ -287,7 +290,7 @@ class BaseTargetDDLEmitter(ABC):
                 f"-- Trigger definition requires manual adaptation for target engine.\n"
                 f"-- Original source trigger SQL preserved below for reference:\n"
                 f"-- ==========================================================================\n"
-                f"/*\n{trigger.definition_sql}\n*/\n"
+                f"{commented_src}\n"
             )
             return [
                 StructuredDDLArtifact(

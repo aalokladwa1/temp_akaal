@@ -87,6 +87,11 @@ class MappingEngine:
         excluded_tables: Set[Tuple[str, str]] = set()
         dropped_fks: List[CanonicalForeignKey] = []
 
+        # Populate excluded tables from both mapping and model
+        for tm in mapping.table_mappings:
+            if not tm.is_included:
+                excluded_tables.add((tm.source_schema.lower(), tm.source_table.lower()))
+
         # Build table lookup index
         for tbl in source_model.tables:
             src_s = tbl.schema_name
@@ -185,14 +190,10 @@ class MappingEngine:
                 )
 
             # Transform Primary Key
-            mapped_pk: Optional[CanonicalPrimaryKey] = None
+            mapped_pk = None
             if tbl.primary_key:
-                new_pk_cols = []
-                for c in tbl.primary_key.columns:
-                    mapped_c = column_rename_map.get((src_s_lower, src_t_lower, c.lower()), c)
-                    if mapped_c.lower() in included_col_names:
-                        new_pk_cols.append(mapped_c)
-                if new_pk_cols:
+                new_pk_cols = [column_rename_map.get((src_s_lower, src_t_lower, c.lower()), c) for c in tbl.primary_key.columns]
+                if all(c.lower() in included_col_names for c in new_pk_cols):
                     mapped_pk = CanonicalPrimaryKey(
                         name=tbl.primary_key.name,
                         table_name=tgt_t,
@@ -207,8 +208,8 @@ class MappingEngine:
                 ref_s_lower = fk.referenced_schema.lower()
                 ref_t_lower = fk.referenced_table.lower()
 
-                # If referenced table was excluded, track dropped FK for provenance and diagnostics
-                if (ref_s_lower, ref_t_lower) in excluded_tables:
+                # If referenced table was excluded or not included in target, track dropped FK
+                if (ref_s_lower, ref_t_lower) in excluded_tables or (ref_s_lower, ref_t_lower) not in table_rename_map:
                     dropped_fks.append(fk)
                     continue
 
@@ -298,17 +299,47 @@ class MappingEngine:
                         )
                     )
 
-            # Transform Partitioning with rewritten column identifiers
+            # Transform Partitioning with rewritten column identifiers and boundary expressions
             mapped_part_cols = [column_rename_map.get((src_s_lower, src_t_lower, c.lower()), c) for c in tbl.partitioning.partition_columns]
             mapped_subpart_cols = [column_rename_map.get((src_s_lower, src_t_lower, c.lower()), c) for c in tbl.partitioning.subpartition_columns]
             mapped_shard_cols = [column_rename_map.get((src_s_lower, src_t_lower, c.lower()), c) for c in tbl.partitioning.shard_key_columns]
+
+            from akaalEngine.schema.models.partitioning import CanonicalPartitionBound, CanonicalSubpartition
+            mapped_partitions = []
+            for pb in tbl.partitioning.partitions:
+                mapped_partitions.append(
+                    CanonicalPartitionBound(
+                        partition_name=pb.partition_name,
+                        strategy=pb.strategy,
+                        lower_bound=cls._rewrite_sql_identifiers(pb.lower_bound, table_col_rename_dict) if pb.lower_bound else None,
+                        upper_bound=cls._rewrite_sql_identifiers(pb.upper_bound, table_col_rename_dict) if pb.upper_bound else None,
+                        partition_ordinal=pb.partition_ordinal,
+                        estimated_rows=pb.estimated_rows,
+                        estimated_bytes=pb.estimated_bytes,
+                        properties=pb.properties,
+                    )
+                )
+
+            mapped_subpartitions = []
+            for sp in tbl.partitioning.subpartitions:
+                mapped_subpartitions.append(
+                    CanonicalSubpartition(
+                        subpartition_name=sp.subpartition_name,
+                        parent_partition_name=sp.parent_partition_name,
+                        strategy=sp.strategy,
+                        bound_value=cls._rewrite_sql_identifiers(sp.bound_value, table_col_rename_dict) if sp.bound_value else None,
+                        estimated_rows=sp.estimated_rows,
+                        estimated_bytes=sp.estimated_bytes,
+                    )
+                )
+
             mapped_part = CanonicalPartitioning(
                 strategy=tbl.partitioning.strategy,
                 partition_columns=tuple(mapped_part_cols),
                 subpartition_strategy=tbl.partitioning.subpartition_strategy,
                 subpartition_columns=tuple(mapped_subpart_cols),
-                partitions=tbl.partitioning.partitions,
-                subpartitions=tbl.partitioning.subpartitions,
+                partitions=tuple(mapped_partitions),
+                subpartitions=tuple(mapped_subpartitions),
                 token_ranges=tbl.partitioning.token_ranges,
                 shard_key_columns=tuple(mapped_shard_cols),
                 distribution_style=tbl.partitioning.distribution_style,
