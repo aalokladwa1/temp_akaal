@@ -1,0 +1,318 @@
+/* akaalUI Design Tokens & 10 Enterprise Themes Engine */
+
+:root {
+  /* Typography Scale */
+  --font-heading: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-body: 'Open Sauce Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-code: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+
+  /* Spacing Grid */
+  --spacing-xxs: 2px;
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-xxl: 48px;
+
+  /* Radii */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+
+  /* Default Primary Accent: Electric Blue */
+  --accent-primary: #0F62FE;
+  --accent-primary-hover: #0043CE;
+  --accent-primary-subtle: rgba(15, 98, 254, 0.12);
+  --accent-glow: rgba(15, 98, 254, 0.35);
+}
+
+/* ========================================================================= */
+/* 1. Enterprise Blue (Core Default Theme)                                   */
+/* ========================================================================= */
+[data-theme="enterprise-blue"], :root:not([data-theme]) {
+  --bg-app: #F4F7FB;
+  --bg-surface: #FFFFFF;
+  --bg-surface-elevated: #FFFFFF;
+  --bg-surface-glass: rgba(255, 255, 255, 0.85);
+
+  --border-subtle: #E2E8F0;
+  --border-strong: #CBD5E1;
+  --border-active: #0F62FE;
+
+  --text-primary: #0F172A;
+  --text-secondary: #475569;
+  --text-muted: #94A3B8;
+  --text-inverse: #FFFFFF;
+
+  --status-success: #059669;
+  --status-warning: #D97706;
+  --status-error: #DC2626;
+  --status-info: #0284C7;
+
+  --glass-blur: blur(8px);
+  --shadow-elevation-1: 0 1px 3px rgba(15, 23, 42, 0.08);
+  --shadow-elevation-2: 0 10px 25px rgba(15, 23, 42, 0.12);
+}
+
+/* ========================================================================= */
+/* 2. Midnight Blue-Gray (Dark Theme)                                        */
+/* ========================================================================= */
+[data-theme="midnight-blue-gray"] {
+  --bg-app: #0A0E17;
+  --bg-surface: #121824;
+  --bg-surface-elevated: #1A2234;
+  --bg-surface-glass: rgba(18, 24, 36, 0.75);
+
+  --border-subtle: #1F293D;
+  --border-strong: #2D3A54;
+  --border-active: #0F62FE;
+
+  --text-primary: #F4F7FB;
+  --text-secondary: #94A3B8;
+  --text-muted: #64748B;
+  --text-inverse: #0A0E17;
+
+  --status-success: #10B981;
+  --status-warning: #F59E0B;
+  --status-error: #EF4444;
+  --status-info: #0EA5E9;
+
+}
+
+/* ========================================================================= */
+/* 3. Onyx Pure Black (OLED Dark)                                            */
+/* ========================================================================= */
+[data-theme="onyx-oled"] {
+  --bg-app: #000000;
+  --bg-surface: #0A0A0A;
+  --bg-surface-elevated: #141414;
+  --bg-surface-glass: rgba(10, 10, 10, 0.85);
+
+  --border-subtle: #222222;
+  --border-strong: #333333;
+  --border-active: #3B82F6;
+
+  --text-primary: #FFFFFF;
+  --text-secondary: #A1A1AA;
+  --text-muted: #71717A;
+  --text-inverse: #000000;
+
+  --status-success: #22C55E;
+  --status-warning: #EAB308;
+  --status-error: #F43F5E;
+  --status-info: #38BDF8;
+
+  --glass-blur: blur(16px);
+  --shadow-elevation-1: 0 2px 8px rgba(0, 0, 0, 0.8);
+  --shadow-elevation-2: 0 12px 32px rgba(0, 0, 0, 0.9);
+}
+
+/* ========================================================================= */
+/* 4. Nord Slate (Cool Dark)                                                 */
+/* ========================================================================= */
+[data-theme="nord-slate"] {
+  --bg-app: #2E3440;
+  --bg-surface: #3B4252;
+  --bg-surface-elevated: #434C5E;
+  --bg-surface-glass: rgba(59, 66, 82, 0.8);
+
+  --border-subtle: #4C566A;
+  --border-strong: #616E88;
+  --border-active: #88C0D0;
+
+  --text-primary: #ECEFF4;
+  --text-secondary: #D8DEE9;
+  --text-muted: #9AA5B8;
+  --text-inverse: #2E3440;
+
+  --status-success: #A3BE8C;
+  --status-warning: #EBCB8B;
+  --status-error: #BF616A;
+  --status-info: #81A1C1;
+
+  --glass-blur: blur(10px);
+  --shadow-elevation-1: 0 2px 6px rgba(0, 0, 0, 0.3);
+  --shadow-elevation-2: 0 8px 20px rgba(0, 0, 0, 0.45);
+}
+
+/* ========================================================================= */
+/* 5. Warm Platinum (Titanium Light)                                         */
+/* ========================================================================= */
+[data-theme="warm-platinum"] {
+  --bg-app: #F5F3EF;
+  --bg-surface: #FAF9F6;
+  --bg-surface-elevated: #FFFFFF;
+  --bg-surface-glass: rgba(250, 249, 246, 0.9);
+
+  --border-subtle: #E6E2DA;
+  --border-strong: #D4CEBF;
+  --border-active: #2563EB;
+
+  --text-primary: #1C1917;
+  --text-secondary: #57534E;
+  --text-muted: #8F887E;
+  --text-inverse: #FFFFFF;
+
+  --status-success: #15803D;
+  --status-warning: #B45309;
+  --status-error: #B91C1C;
+  --status-info: #0369A1;
+
+  --glass-blur: blur(6px);
+  --shadow-elevation-1: 0 1px 3px rgba(28, 25, 23, 0.06);
+  --shadow-elevation-2: 0 8px 20px rgba(28, 25, 23, 0.1);
+}
+
+/* ========================================================================= */
+/* 6. Cyber Matrix (Developer Mode)                                          */
+/* ========================================================================= */
+[data-theme="cyber-matrix"] {
+  --bg-app: #080C0B;
+  --bg-surface: #0E1614;
+  --bg-surface-elevated: #15221F;
+  --bg-surface-glass: rgba(14, 22, 20, 0.85);
+
+  --border-subtle: #1C332E;
+  --border-strong: #284D45;
+  --border-active: #00FF66;
+
+  --text-primary: #E0FFF4;
+  --text-secondary: #7ED4BE;
+  --text-muted: #488E7D;
+  --text-inverse: #080C0B;
+
+  --status-success: #00FF66;
+  --status-warning: #FFB703;
+  --status-error: #FF3366;
+  --status-info: #00F0FF;
+
+  --glass-blur: blur(12px);
+  --shadow-elevation-1: 0 2px 8px rgba(0, 255, 102, 0.1);
+  --shadow-elevation-2: 0 10px 30px rgba(0, 255, 102, 0.15);
+}
+
+/* ========================================================================= */
+/* 7. Monokai Pro (DBA / Code Mode)                                          */
+/* ========================================================================= */
+[data-theme="monokai-pro"] {
+  --bg-app: #221F22;
+  --bg-surface: #2D2A2E;
+  --bg-surface-elevated: #363337;
+  --bg-surface-glass: rgba(45, 42, 46, 0.85);
+
+  --border-subtle: #403E41;
+  --border-strong: #525053;
+  --border-active: #FFD866;
+
+  --text-primary: #FCFCFA;
+  --text-secondary: #C1C0C0;
+  --text-muted: #787779;
+  --text-inverse: #221F22;
+
+  --status-success: #A9DC76;
+  --status-warning: #FFD866;
+  --status-error: #FF6188;
+  --status-info: #78DCE8;
+
+  --glass-blur: blur(12px);
+  --shadow-elevation-1: 0 2px 8px rgba(0, 0, 0, 0.5);
+  --shadow-elevation-2: 0 8px 24px rgba(0, 0, 0, 0.7);
+}
+
+/* ========================================================================= */
+/* 8. Color-Blind Safe (Deuteranopia)                                        */
+/* ========================================================================= */
+[data-theme="colorblind-deuteranopia"] {
+  --bg-app: #0F172A;
+  --bg-surface: #1E293B;
+  --bg-surface-elevated: #334155;
+  --bg-surface-glass: rgba(30, 41, 59, 0.85);
+
+  --border-subtle: #334155;
+  --border-strong: #475569;
+  --border-active: #38BDF8;
+
+  --text-primary: #F8FAFC;
+  --text-secondary: #CBD5E1;
+  --text-muted: #94A3B8;
+  --text-inverse: #0F172A;
+
+  --status-success: #06B6D4; /* Cyan */
+  --status-warning: #F59E0B; /* Amber */
+  --status-error: #D946EF;   /* Magenta */
+  --status-info: #3B82F6;    /* Blue */
+
+  --glass-blur: blur(12px);
+  --shadow-elevation-1: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-elevation-2: 0 8px 24px rgba(0, 0, 0, 0.6);
+}
+
+/* ========================================================================= */
+/* 9. Color-Blind Safe (Protanopia)                                          */
+/* ========================================================================= */
+[data-theme="colorblind-protanopia"] {
+  --bg-app: #0F172A;
+  --bg-surface: #1E293B;
+  --bg-surface-elevated: #334155;
+  --bg-surface-glass: rgba(30, 41, 59, 0.85);
+
+  --border-subtle: #334155;
+  --border-strong: #475569;
+  --border-active: #60A5FA;
+
+  --text-primary: #F8FAFC;
+  --text-secondary: #CBD5E1;
+  --text-muted: #94A3B8;
+  --text-inverse: #0F172A;
+
+  --status-success: #3B82F6; /* High-contrast Blue */
+  --status-warning: #EAB308; /* Vivid Yellow */
+  --status-error: #F43F5E;   /* Rose */
+  --status-info: #0284C7;
+
+  --glass-blur: blur(12px);
+  --shadow-elevation-1: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-elevation-2: 0 8px 24px rgba(0, 0, 0, 0.6);
+}
+
+/* ========================================================================= */
+/* 10. High-Contrast AAA                                                     */
+/* ========================================================================= */
+[data-theme="high-contrast-aaa"] {
+  --bg-app: #000000;
+  --bg-surface: #000000;
+  --bg-surface-elevated: #111111;
+  --bg-surface-glass: #000000;
+
+  --border-subtle: #FFFFFF;
+  --border-strong: #FFFFFF;
+  --border-active: #FFFF00;
+
+  --text-primary: #FFFFFF;
+  --text-secondary: #FFFF00;
+  --text-muted: #00FFFF;
+  --text-inverse: #000000;
+
+  --status-success: #00FF00;
+  --status-warning: #FFFF00;
+  --status-error: #FF0055;
+  --status-info: #00FFFF;
+
+  --glass-blur: none;
+  --shadow-elevation-1: 0 0 0 2px #FFFFFF;
+  --shadow-elevation-2: 0 0 0 4px #FFFFFF;
+}
+
+/* ========================================================================= */
+/* Custom Accent Overrides                                                   */
+/* ========================================================================= */
+[data-accent="electric-blue"] { --accent-primary: #0F62FE; --accent-primary-hover: #0043CE; --accent-glow: rgba(15, 98, 254, 0.35); }
+[data-accent="emerald-green"] { --accent-primary: #10B981; --accent-primary-hover: #059669; --accent-glow: rgba(16, 185, 129, 0.35); }
+[data-accent="vivid-cyan"]    { --accent-primary: #06B6D4; --accent-primary-hover: #0891B2; --accent-glow: rgba(6, 182, 212, 0.35); }
+[data-accent="amethyst-violet"]{ --accent-primary: #8B5CF6; --accent-primary-hover: #7C3AED; --accent-glow: rgba(139, 92, 246, 0.35); }
+[data-accent="solar-amber"]   { --accent-primary: #F59E0B; --accent-primary-hover: #D97706; --accent-glow: rgba(245, 158, 11, 0.35); }
+[data-accent="crimson-rose"]  { --accent-primary: #F43F5E; --accent-primary-hover: #E11D48; --accent-glow: rgba(244, 63, 94, 0.35); }
