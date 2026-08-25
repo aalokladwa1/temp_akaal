@@ -38,9 +38,15 @@ validation_workspace_resume/
 target/
 target_dev/
 target_build/
-akaal_software/src-tauri/target/
-akaal_software/src-tauri/target_dev/
-akaal_software/src-tauri/target_build/
+**/target/
+**/target_dev/
+**/target_build/
+
+# Node / Frontend build targets
+node_modules/
+**/node_modules/
+dist/
+**/dist/
 
 # OS
 Thumbs.db
