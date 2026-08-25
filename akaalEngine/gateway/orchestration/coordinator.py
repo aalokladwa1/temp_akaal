@@ -8,7 +8,7 @@ preserving identity, fencing tokens, cancellation context, proof classifications
 
 import logging
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Mapping, Optional
 
 from akaalEngine.connection.api import ConnectionAuthority, default_connection_authority
 from akaalEngine.extensions.authority import ExtensionsAuthority, default_extensions_authority
@@ -59,18 +59,24 @@ class GatewayCoordinator:
             from akaalEngine.durability.models import DurabilityConfig
             import tempfile
             import os
-            dur_dir = os.path.join(tempfile.gettempdir(), "akaal_gateway_durability")
+            import hashlib
+            dur_dir = tempfile.mkdtemp(prefix="akaal_gw_dur_")
+            sec_env = os.environ.get("AKAAL_GATEWAY_RECEIPT_SECRET", "akaal-fencing-secret-root-v1")
+            fencing_key = hashlib.sha256(sec_env.encode("utf-8") + b":fencing").digest()
+            journal_key = hashlib.sha256(sec_env.encode("utf-8") + b":journal").digest()
             durability_authority = DurabilityAuthority(
                 config=DurabilityConfig(
                     storage_dir=dur_dir,
-                    fencing_signing_key=b"gateway_fencing_signing_key_32b!",
-                    journal_anchor_key=b"gateway_journal_anchor_key_32b!!",
+                    fencing_signing_key=fencing_key,
+                    journal_anchor_key=journal_key,
                 )
             )
         self.durability_authority = durability_authority
         if runtime_authority is None:
-            runtime_authority = RuntimeAuthority()
+            runtime_authority = RuntimeAuthority(durability_authority=self.durability_authority)
             runtime_authority.start()
+        elif getattr(runtime_authority, "durability_authority", None) is None:
+            runtime_authority.durability_authority = self.durability_authority
         self.runtime_authority = runtime_authority
         self.telemetry_authority = telemetry_authority or TelemetryAuthority()
         self.data_processing_authority = data_processing_authority or DataProcessingAuthority()
@@ -118,29 +124,61 @@ class GatewayCoordinator:
             raise RuntimeEngineException(f"Operation '{context.operation_id}' cancelled before execution.")
 
     def check_fencing(self, context: GatewayRequestContext) -> None:
-        """Verifies fencing token with Durability authority if token/epoch is present."""
-        if context.fencing_epoch is not None:
-            if hasattr(self.durability_authority, "issue_fencing_token"):
-                token = self.durability_authority.issue_fencing_token(context.migration_id, "gateway")
-            else:
-                from akaalEngine.durability.models import FencingToken
-                token = FencingToken(
-                    resource_id=context.migration_id,
-                    worker_id="gateway",
-                    fencing_epoch=context.fencing_epoch,
-                    issued_at="2026-08-23T20:30:00Z",
-                    signature="gateway-fencing-sig",
-                )
-            valid = True
-            if hasattr(self.durability_authority, "validate_fencing_token"):
-                valid = self.durability_authority.validate_fencing_token(token)
-            elif hasattr(self.durability_authority, "verify_fencing_token"):
-                valid = self.durability_authority.verify_fencing_token(token)
+        """Verifies caller's fencing token envelope and epoch with canonical DurabilityAuthority in a fail-closed manner."""
+        from akaalEngine.durability.models import FencingViolationError
 
+        if context.fencing_epoch is not None and context.fencing_epoch <= 0:
+            raise FencingViolationError(
+                f"Caller fencing epoch {context.fencing_epoch} is invalid. Fencing epoch must be a positive integer."
+            )
+
+        canonical_resource_id = (
+            f"{context.migration_id}/{context.run_id}/{context.job_id}"
+            if context.job_id
+            else (f"{context.migration_id}/{context.run_id}" if context.run_id else context.migration_id)
+        )
+
+        envelope = getattr(context, "fencing_token_envelope", None)
+        if not envelope or not isinstance(envelope, Mapping):
+            raise FencingViolationError(
+                f"Admission rejected: Missing required authenticated fencing_token_envelope for operation '{context.operation_id}' on resource '{canonical_resource_id}'."
+            )
+
+        # 1. Directly validate custom or mock authority when verify_fencing_token is provided
+        if self.durability_authority and hasattr(self.durability_authority, "verify_fencing_token"):
+            valid = self.durability_authority.verify_fencing_token(envelope)
+            if valid is False:
+                raise FencingViolationError("Fencing token verification failed.")
+
+        # 2. Authenticate cryptographic HMAC signature on envelope
+        if hasattr(self.durability_authority, "validate_fencing_envelope"):
+            valid = self.durability_authority.validate_fencing_envelope(envelope)
             if not valid:
-                from akaalEngine.durability.models import FencingViolationError
+                raise FencingViolationError("Fencing token HMAC signature is invalid or unauthenticated.")
+
+        # 3. Strict exact canonical resource identity matching
+        env_res = envelope.get("resource_id") or envelope.get("canonical_resource_id")
+        if env_res != canonical_resource_id:
+            raise FencingViolationError(
+                f"Fencing token resource mismatch: token issued for exact resource '{env_res}' cannot execute request for '{canonical_resource_id}'."
+            )
+
+        # 4. Strict epoch matching against request context
+        env_epoch = envelope.get("fencing_epoch") or envelope.get("epoch")
+        if env_epoch is not None and context.fencing_epoch is not None and env_epoch != context.fencing_epoch:
+            raise FencingViolationError(
+                f"Envelope fencing epoch {env_epoch} does not match request fencing epoch {context.fencing_epoch}."
+            )
+
+        # 5. Verify active epoch in Durability Authority
+        if self.durability_authority and hasattr(self.durability_authority, "get_current_epoch"):
+            curr_epoch = self.durability_authority.get_current_epoch(canonical_resource_id)
+            if curr_epoch == 0:
+                curr_epoch = self.durability_authority.get_current_epoch(context.migration_id)
+
+            if curr_epoch > 0 and context.fencing_epoch is not None and context.fencing_epoch != curr_epoch:
                 raise FencingViolationError(
-                    f"Fencing epoch {context.fencing_epoch} is stale for migration '{context.migration_id}'."
+                    f"Caller fencing epoch {context.fencing_epoch} does not match active resource fencing epoch {curr_epoch} for '{canonical_resource_id}'."
                 )
 
     # -------------------------------------------------------------------------
@@ -152,11 +190,31 @@ class GatewayCoordinator:
     ) -> GatewayResponse[Dict[str, Any]]:
         """1. Connection + Extensions verification."""
         self.check_cancellation(context)
+        self.check_fencing(context)
 
+        from akaalEngine.connection.models import EndpointSpec
         provider_id = payload.get("provider_id") or payload.get("system_type") or "sqlite"
+        spec = EndpointSpec(
+            provider_id=provider_id,
+            host=payload.get("host"),
+            port=payload.get("port"),
+            options=payload,
+        )
 
-        # Record gateway metric observation via Telemetry #7
+        res = self.connection_authority.test_connectivity(spec)
         self.telemetry_authority.record_counter("gateway_test_connection_total", 1.0, {"provider": str(provider_id)})
+
+        is_connected = bool(getattr(res, "is_successful", getattr(res, "connected", False)))
+        if not is_connected:
+            return GatewayResponse.create_failure(
+                operation_id=context.operation_id,
+                operation_type=SemanticOperation.TEST_CONNECTION.value,
+                failure_category=GatewayFailureCategory.CONNECTIVITY_FAILURE,
+                error_message=f"Connectivity check failed for provider '{provider_id}': {res}",
+                migration_id=context.migration_id,
+                run_id=context.run_id,
+                fencing_epoch=context.fencing_epoch,
+            )
 
         return GatewayResponse.create_success(
             operation_id=context.operation_id,
@@ -165,9 +223,9 @@ class GatewayCoordinator:
             run_id=context.run_id,
             payload={
                 "connected": True,
-                "connection_id": f"conn-{context.operation_id}",
-                "message": f"Successfully connected to {provider_id}",
-                "details": f"Provider {provider_id} connection test verified.",
+                "connection_id": getattr(res, "connection_id", f"conn-{context.operation_id}"),
+                "message": getattr(res, "message", f"Successfully connected to {provider_id}"),
+                "details": str(res),
             },
             fencing_epoch=context.fencing_epoch,
             proof_classification="UNIT_PROVEN",
@@ -178,8 +236,12 @@ class GatewayCoordinator:
     ) -> GatewayResponse[Dict[str, Any]]:
         """2. Extensions + Connection capability resolution."""
         self.check_cancellation(context)
+        self.check_fencing(context)
         provider_id = payload.get("provider_id", "sqlite")
-        providers = self.extensions_authority.list_providers()
+        req_caps = payload.get("required_capabilities", [])
+
+        desc = self.extensions_authority.describe_provider(provider_id)
+        supported = desc is not None
 
         return GatewayResponse.create_success(
             operation_id=context.operation_id,
@@ -188,9 +250,8 @@ class GatewayCoordinator:
             run_id=context.run_id,
             payload={
                 "provider_id": provider_id,
-                "supported": True,
-                "manifest_count": len(providers),
-                "details": [str(p) for p in providers],
+                "supported": supported,
+                "manifest": str(desc) if desc else None,
             },
             fencing_epoch=context.fencing_epoch,
             proof_classification="UNIT_PROVEN",
@@ -201,16 +262,25 @@ class GatewayCoordinator:
     ) -> GatewayResponse[Dict[str, Any]]:
         """3. Connection -> Discovery catalog profiling."""
         self.check_cancellation(context)
+        self.check_fencing(context)
+        from akaalEngine.connection.models import EndpointSpec
+        provider_id = payload.get("provider_id", "sqlite")
+        spec = EndpointSpec(
+            provider_id=provider_id,
+            host=payload.get("host"),
+            port=payload.get("port"),
+            options=payload,
+        )
 
+        snapshot = self.discovery_authority.discover(spec)
         return GatewayResponse.create_success(
             operation_id=context.operation_id,
             operation_type=SemanticOperation.DISCOVER_CATALOG.value,
             migration_id=context.migration_id,
             run_id=context.run_id,
             payload={
-                "discovery_completeness": "COMPLETE",
-                "table_count": payload.get("table_count", 0),
-                "snapshot": "Discovery catalog snapshot verified.",
+                "snapshot": str(snapshot),
+                "tables_count": len(getattr(snapshot, "tables", [])) if hasattr(snapshot, "tables") else 0,
             },
             fencing_epoch=context.fencing_epoch,
             proof_classification="UNIT_PROVEN",
@@ -221,6 +291,24 @@ class GatewayCoordinator:
     ) -> GatewayResponse[Dict[str, Any]]:
         """4. Discovery -> Schema compilation & target DDL translation."""
         self.check_cancellation(context)
+        self.check_fencing(context)
+        source_snap = payload.get("source_discovery_snapshot", {})
+        target_dialect = payload.get("target_dialect", payload.get("target_engine", "postgresql"))
+
+        import asyncio
+        import inspect
+
+        from akaalEngine.schema.authority import SchemaCompilationRequest
+        req = SchemaCompilationRequest(
+            source_snapshot=source_snap,
+            target_engine=target_dialect,
+        )
+
+        res_or_coro = self.schema_authority.compile(req)
+        if inspect.isawaitable(res_or_coro):
+            compilation_result = asyncio.run(res_or_coro)
+        else:
+            compilation_result = res_or_coro
 
         return GatewayResponse.create_success(
             operation_id=context.operation_id,
@@ -228,9 +316,8 @@ class GatewayCoordinator:
             migration_id=context.migration_id,
             run_id=context.run_id,
             payload={
-                "target_dialect": payload.get("target_dialect", "postgresql"),
-                "compiled_table_count": len(payload.get("source_discovery_snapshot", {}).get("tables", [])),
-                "ddl_statements": ["CREATE TABLE sample (id INT);"],
+                "target_dialect": target_dialect,
+                "compilation_result": str(compilation_result),
             },
             fencing_epoch=context.fencing_epoch,
             proof_classification="UNIT_PROVEN",
@@ -242,6 +329,22 @@ class GatewayCoordinator:
         """7. Multi-authority orchestration: Runtime -> Transport -> Data Processing -> Durability -> Telemetry -> Evidence."""
         self.check_cancellation(context)
         self.check_fencing(context)
+
+        # In M2 protected boundary mode, verify active capture stream handle and boundary token
+        if payload.get("require_active_stream_boundary"):
+            stream_handle = payload.get("cdc_stream_handle")
+            boundary_token = payload.get("cdc_boundary_token") or payload.get("boundary_token")
+            if not stream_handle or not boundary_token:
+                from akaalEngine.cdc.models.errors import CDCCapabilityError
+                raise CDCCapabilityError(
+                    f"M2 Bulk transport execution requires active stream handle and boundary token. Missing from input context: stream_handle={stream_handle!r}, boundary_token={boundary_token!r}."
+                )
+            if hasattr(self.cdc_authority, "is_capture_active"):
+                if not self.cdc_authority.is_capture_active(context.migration_id):
+                    from akaalEngine.cdc.models.errors import CDCCapabilityError
+                    raise CDCCapabilityError(
+                        f"M2 Bulk transport execution rejected: CDC capture is not actively capturing for migration '{context.migration_id}'. Protected overlap invariant violated."
+                    )
 
         # Stage A: Record start in Telemetry (#7)
         self.telemetry_authority.record_counter("gateway_bulk_migration_started", 1.0, {"mig_id": context.migration_id})
@@ -258,17 +361,44 @@ class GatewayCoordinator:
         # Stage C: Execute Bulk Transport (#9) + Data Processing (#8)
         if hasattr(self.transport_authority, "execute_bulk_transport"):
             transport_snap = self.transport_authority.execute_bulk_transport(payload)
+        elif hasattr(self.transport_authority, "execute_partition_transport"):
+            reader = payload.get("source_reader") or payload.get("reader")
+            writer = payload.get("target_writer") or payload.get("writer")
+            partition = payload.get("partition")
+            if not reader or not writer or not partition:
+                from akaalEngine.transport.models.errors import TransportError
+                raise TransportError("Transport execution requires active SourceReader, TargetWriter, and TransportPartition instances.")
+            transport_snap = self.transport_authority.execute_partition_transport(
+                reader=reader,
+                writer=writer,
+                partition=partition,
+                migration_id=context.migration_id,
+                run_id=context.run_id,
+            )
         else:
-            transport_snap = self.transport_authority.get_snapshot()
+            from akaalEngine.transport.models.errors import TransportError
+            raise TransportError("TransportAuthority does not support bulk data transport execution.")
 
-        # Stage D: Create Durability checkpoint (#5)
-        from akaalEngine.durability.models import MigrationCheckpoint
-        checkpoint = MigrationCheckpoint(
+        # Stage D: Create Durability checkpoint (#5) - DO NOT SUPPRESS FAILURES
+        from akaalEngine.durability.models import MigrationCheckpoint, FencingToken
+        if hasattr(self.durability_authority, "issue_fencing_token"):
+            token = self.durability_authority.issue_fencing_token(context.migration_id, "gateway")
+        else:
+            token = FencingToken(
+                resource_id=context.migration_id,
+                worker_id="gateway",
+                fencing_epoch=context.fencing_epoch or 1,
+                issued_at="2026-08-23T20:30:00Z",
+                signature="gateway-fencing-sig",
+            )
+
+        ckpt = MigrationCheckpoint(
             migration_id=context.migration_id,
-            job_id=context.run_id,
-            fencing_epoch=context.fencing_epoch or 1,
+            job_id=context.run_id or "job-1",
+            fencing_epoch=token.fencing_epoch,
             status="COMPLETED",
         )
+        self.durability_authority.save_checkpoint(ckpt, token)
 
         # Stage E: Package machine execution evidence (#12)
         exec_art = self.evidence_authority.package_execution_evidence(
@@ -301,6 +431,22 @@ class GatewayCoordinator:
         self.check_cancellation(context)
         self.check_fencing(context)
 
+        events_fetched = False
+        events = []
+        if hasattr(self.cdc_authority, "fetch_events"):
+            events = self.cdc_authority.fetch_events(max_events=payload.get("batch_size", 1000))
+            events_fetched = True
+        elif hasattr(self.cdc_authority, "active_adapter") and hasattr(self.cdc_authority.active_adapter, "fetch_events"):
+            events = self.cdc_authority.active_adapter.fetch_events(max_events=payload.get("batch_size", 1000))
+            events_fetched = True
+
+        if not events_fetched:
+            from akaalEngine.cdc.models.errors import CDCCapabilityError
+            raise CDCCapabilityError("CDCAuthority does not support physical stream capture/apply orchestration.")
+
+        if hasattr(self.cdc_authority, "apply_events") and events:
+            self.cdc_authority.apply_events(events)
+
         cdc_snap = self.cdc_authority.get_snapshot()
         self.telemetry_authority.record_counter("gateway_cdc_started", 1.0, {"mig_id": context.migration_id})
 
@@ -310,6 +456,7 @@ class GatewayCoordinator:
             migration_id=context.migration_id,
             run_id=context.run_id,
             payload={
+                "events_processed": len(events),
                 "cdc_snapshot": str(cdc_snap),
                 "status": "SYNCING",
             },
@@ -322,8 +469,36 @@ class GatewayCoordinator:
     ) -> GatewayResponse[Dict[str, Any]]:
         """10. CDC readiness + Validation proof + Evidence proof context."""
         self.check_cancellation(context)
+        self.check_fencing(context)
         boundary_pos = payload.get("cdc_boundary_position", "0/200")
-        cdc_snap = self.cdc_authority.get_snapshot()
+
+        if hasattr(self.cdc_authority, "evaluate_cutover_readiness"):
+            readiness_report = self.cdc_authority.evaluate_cutover_readiness()
+            if isinstance(readiness_report, dict):
+                is_ready = bool(readiness_report.get("is_ready", readiness_report.get("technical_cutover_ready", False)))
+            else:
+                is_ready = bool(getattr(readiness_report, "is_ready", getattr(readiness_report, "technical_cutover_ready", False)))
+            cdc_snap = readiness_report
+        elif hasattr(self.cdc_authority, "cutover_coordinator"):
+            from akaalEngine.cdc.models.cutover import CutoverState
+            state = getattr(self.cdc_authority.cutover_coordinator, "state", None)
+            is_ready = (state == CutoverState.TECHNICAL_CUTOVER_READY or getattr(state, "value", str(state)) == CutoverState.TECHNICAL_CUTOVER_READY.value)
+            cdc_snap = self.cdc_authority.get_snapshot()
+        else:
+            is_ready = False
+            cdc_snap = self.cdc_authority.get_snapshot()
+
+        if not is_ready:
+            from akaalEngine.gateway.models.enums import GatewayFailureCategory
+            return GatewayResponse.create_failure(
+                operation_id=context.operation_id,
+                operation_type=SemanticOperation.EVALUATE_CUTOVER_READINESS.value,
+                migration_id=context.migration_id,
+                run_id=context.run_id,
+                failure_category=GatewayFailureCategory.CDC_FAILURE,
+                error_message="Cutover readiness evaluation failed: CDC state is not TECHNICAL_CUTOVER_READY.",
+                fencing_epoch=context.fencing_epoch,
+            )
 
         return GatewayResponse.create_success(
             operation_id=context.operation_id,
@@ -344,15 +519,50 @@ class GatewayCoordinator:
     ) -> GatewayResponse[Dict[str, Any]]:
         """11. Validation evaluation -> Disputed record reconciliation."""
         self.check_cancellation(context)
-        from akaalEngine.validation.models import ValidationResult, ValidationGateStatus, ProofScope
-        val_res = ValidationResult(
-            validation_run_id=f"val-{context.operation_id}",
+        self.check_fencing(context)
+
+        from akaalEngine.validation.models import ValidationPlan, ValidationMode, ProofScope, ValidationGateStatus
+        from akaalEngine.gateway.models.enums import GatewayFailureCategory
+
+        val_mode_str = payload.get("validation_mode") or payload.get("mode") or "FAST_FULL"
+        try:
+            val_mode = ValidationMode(val_mode_str)
+        except Exception:
+            val_mode = ValidationMode.FAST_FULL
+
+        plan = ValidationPlan(
+            plan_id=f"plan-{context.operation_id}",
             migration_id=context.migration_id,
+            source_identity="src",
+            target_identity="tgt",
             table_name=payload.get("table_name", "main"),
-            status="SUCCESS",
-            proof_scope=ProofScope.FULL.value,
-            validation_gate=ValidationGateStatus.PASSED,
+            mode=val_mode,
+            proof_scope=ProofScope.FULL,
         )
+
+        source_rows = payload.get("source_rows", [])
+        target_rows = payload.get("target_rows", [])
+        pk_columns = payload.get("pk_columns", ["id"])
+
+        val_res = self.validation_authority.execute_validation(
+            plan=plan,
+            source_rows=source_rows,
+            target_rows=target_rows,
+            pk_columns=pk_columns,
+        )
+
+        gate_status = getattr(val_res, "validation_gate", getattr(val_res, "gate_status", None))
+        if gate_status and str(gate_status) != str(ValidationGateStatus.PASSED) and str(gate_status) != "PASSED":
+            return GatewayResponse.create_failure(
+                operation_id=context.operation_id,
+                operation_type=SemanticOperation.RUN_FINAL_VALIDATION.value,
+                failure_category=GatewayFailureCategory.VALIDATION_MISMATCH,
+                error_message=f"Validation mismatch gate failed for migration '{context.migration_id}': {val_res}",
+                migration_id=context.migration_id,
+                run_id=context.run_id,
+                fencing_epoch=context.fencing_epoch,
+            )
+
         val_art = self.evidence_authority.package_validation_evidence(
             migration_id=context.migration_id,
             run_id=context.run_id,
@@ -366,9 +576,9 @@ class GatewayCoordinator:
             migration_id=context.migration_id,
             run_id=context.run_id,
             payload={
-                "is_valid": True,
                 "validation_result": str(val_res),
                 "evidence_artifact_id": val_art.artifact_id,
+                "gate_status": str(gate_status or "PASSED"),
             },
             fencing_epoch=context.fencing_epoch,
             proof_classification="UNIT_PROVEN",

@@ -129,6 +129,20 @@ class RuntimeAuthority:
         if self._is_shutting_down:
             raise RuntimeShuttingDownError()
 
+    def get_task_status(self, task_id: str) -> TaskState:
+        """Returns the current state of a task, or UNSPECIFIED if not found."""
+        with self._lock:
+            snap = self._snapshots.get(task_id)
+            if snap:
+                return snap.state
+            return TaskState.UNSPECIFIED
+
+    def restore_task(self, spec: TaskSpec) -> TaskSnapshot:
+        """Restores a task from a recovery snapshot / specification."""
+        with self._lock:
+            self._ensure_running()
+            return self.submit_task(spec)
+
     # --- Task Submission & Lifecycle ---
     def submit_task(self, spec: TaskSpec) -> TaskSnapshot:
         with self._lock:
@@ -217,6 +231,10 @@ class RuntimeAuthority:
 
                 fin_str = datetime.now(timezone.utc).isoformat()
                 current_snap = self._snapshots.get(t_id)
+
+                # Do not overwrite terminal task states (e.g. CANCELLED or FAILED)
+                if current_snap and current_snap.is_terminal:
+                    return
 
                 if current_snap and current_snap.state == TaskState.CANCELLING:
                     fin_state = TaskState.CANCELLED

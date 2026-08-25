@@ -96,11 +96,26 @@ class TelemetryAuthority:
         return self.metrics_registry.get_snapshot()
 
     # --- Operational Events & Subscriptions ---
+    def record_event(self, event_data: Mapping[str, Any]) -> None:
+        evt_name = str(event_data.get("event_type", event_data.get("event_name", "operational.event")))
+        corr_id = str(event_data.get("correlation_id", ""))
+        caus_id = str(event_data.get("causation_id", ""))
+        meta = EventMetadata(
+            event_type=evt_name,
+            correlation_id=corr_id,
+            causation_id=caus_id,
+            producer_id=str(event_data.get("producer_id", "akaalEngine.telemetry")),
+        )
+        op_evt = OperationalEvent(
+            name=evt_name,
+            metadata=meta,
+            attributes=dict(event_data),
+            severity=str(event_data.get("severity", "INFO")),
+        )
+        self.publish_event(op_evt)
+
     def publish_event(self, event: OperationalEvent) -> None:
-        try:
-            self.event_dispatcher.publish(event)
-        except Exception as exc:
-            logger.warning(f"[TelemetryAuthority] publish_event error on '{event.name}': {exc}")
+        self.event_dispatcher.publish(event)
 
     def subscribe(self, callback: Callable[[OperationalEvent], None], event_type: Optional[str] = None) -> str:
         return self.event_dispatcher.subscribe(callback, event_type=event_type)

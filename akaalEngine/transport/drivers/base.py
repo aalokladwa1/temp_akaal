@@ -47,6 +47,55 @@ class SourceReader(ABC):
 class TargetWriter(ABC):
     """Abstract interface for database and file target writing."""
 
+    def __init__(
+        self,
+        migration_id: Optional[str] = None,
+        batch_id: Optional[str] = None,
+        endpoint_identity: Optional[str] = None,
+    ) -> None:
+        self._migration_id = migration_id
+        self._batch_id = batch_id
+        self._endpoint_identity = endpoint_identity
+
+    @property
+    def migration_id(self) -> Optional[str]:
+        return self._migration_id
+
+    @migration_id.setter
+    def migration_id(self, val: Optional[str]) -> None:
+        if self._migration_id is not None and val is not None and self._migration_id != val:
+            raise ValueError(f"TargetWriter identity immutability violation: cannot rebind migration_id '{self._migration_id}' to '{val}'.")
+        self._migration_id = val
+
+    @property
+    def batch_id(self) -> Optional[str]:
+        return self._batch_id
+
+    @batch_id.setter
+    def batch_id(self, val: Optional[str]) -> None:
+        self._batch_id = val
+
+    @property
+    def endpoint_identity(self) -> Optional[str]:
+        return self._endpoint_identity
+
+    @endpoint_identity.setter
+    def endpoint_identity(self, val: Optional[str]) -> None:
+        self._endpoint_identity = val
+
+    def bind_identity(
+        self,
+        migration_id: str,
+        batch_id: Optional[str] = None,
+        endpoint_identity: Optional[str] = None,
+    ) -> None:
+        """Binds write-once execution migration identity, active batch ID, and endpoint identity to writer."""
+        self.migration_id = migration_id
+        if batch_id:
+            self.batch_id = batch_id
+        if endpoint_identity:
+            self.endpoint_identity = endpoint_identity
+
     @abstractmethod
     def get_capabilities(self) -> ProviderCapabilities:
         """Returns physical capability descriptor for this writer."""

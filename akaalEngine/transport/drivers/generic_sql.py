@@ -91,9 +91,16 @@ class GenericSQLTargetWriter(TargetWriter):
     """Generic SQL TargetWriter using executemany batch insertion."""
 
     def __init__(self, connection_params: dict):
+        super().__init__(
+            migration_id=connection_params.get("migration_id"),
+            batch_id=connection_params.get("batch_id") or connection_params.get("job_id"),
+            endpoint_identity=connection_params.get("endpoint_identity") or connection_params.get("host"),
+        )
         self.params = connection_params
         self.conn = connection_params.get("db_connection")
         self.cursor = self.conn.cursor() if self.conn else None
+        self._in_transaction: bool = False
+        self._active_tx_uncommitted_rows: int = 0
 
     def get_capabilities(self) -> ProviderCapabilities:
         return ProviderCapabilities(
@@ -116,17 +123,27 @@ class GenericSQLTargetWriter(TargetWriter):
     ) -> int:
         if not batch.rows:
             return 0
-        if not self.cursor and self.params.get("db_connection"):
-            self.conn = self.params["db_connection"]
-            self.cursor = self.conn.cursor()
+        if not self.cursor:
+            if self.params.get("db_connection"):
+                self.conn = self.params["db_connection"]
+                self.cursor = self.conn.cursor()
+            else:
+                from akaalEngine.transport.models.errors import TransportWriteError
+                raise TransportWriteError("GenericSQLTargetWriter has no active database connection or cursor.")
 
         cols = batch.column_names
         placeholders = ", ".join(["?"] * len(cols))
         sql = f'INSERT INTO "{target_schema}"."{table_name}" ({", ".join(cols)}) VALUES ({placeholders})'
         data_tuples = [tuple(r.get(c) for c in cols) for r in batch.rows]
-        if self.cursor:
+        self._in_transaction = True
+        try:
             self.cursor.executemany(sql, data_tuples)
-        return len(batch.rows)
+            written = self.cursor.rowcount if (hasattr(self.cursor, "rowcount") and self.cursor.rowcount >= 0) else len(batch.rows)
+            self._active_tx_uncommitted_rows += written
+            return written
+        except Exception:
+            self._in_transaction = True
+            raise
 
     def verify_uncertain_commit(
         self,
@@ -140,10 +157,19 @@ class GenericSQLTargetWriter(TargetWriter):
     def commit(self) -> None:
         if self.conn:
             self.conn.commit()
+        self._in_transaction = False
+        self._active_tx_uncommitted_rows = 0
 
     def rollback(self) -> None:
-        if self.conn:
-            self.conn.rollback()
+        if not self._in_transaction and self._active_tx_uncommitted_rows == 0:
+            from akaalEngine.transport.models.errors import TransportWriteError
+            raise TransportWriteError("Physical target rollback rejected: target writer has no active uncommitted transaction to roll back.")
+        if not self.conn:
+            from akaalEngine.transport.models.errors import TransportWriteError
+            raise TransportWriteError("Physical target rollback rejected: target writer database connection is not active or connected.")
+        self.conn.rollback()
+        self._in_transaction = False
+        self._active_tx_uncommitted_rows = 0
 
     def cancel(self) -> None:
         pass

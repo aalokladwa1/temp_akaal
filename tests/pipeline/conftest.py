@@ -5,9 +5,12 @@ Pytest fixtures and helpers for akaalPipeline test suite.
 
 from __future__ import annotations
 
+import os
 import tempfile
 import uuid
 import pytest
+
+os.environ.setdefault("AKAAL_GATEWAY_RECEIPT_SECRET", "akaal-test-provisioned-secret-v1")
 
 from akaalIPC.protocol.envelopes import CommandEnvelope, QueryEnvelope
 from akaalIPC.protocol.schemas import RequestKind

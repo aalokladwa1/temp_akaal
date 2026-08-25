@@ -19,8 +19,12 @@ class GatewayRequestContext:
     run_id: str
     job_id: Optional[str] = None
     tenant_id: Optional[str] = None
+    workspace_id: Optional[str] = None
+    project_id: Optional[str] = None
     operation_id: str = field(default_factory=lambda: f"op-{uuid.uuid4().hex[:12]}")
     fencing_epoch: Optional[int] = None
+    fencing_token_envelope: Optional[Mapping[str, Any]] = None
+    initialization_fingerprint: Optional[str] = None
     cancellation_event: Optional[threading.Event] = None
     execution_mode: Optional[str] = None
     request_timestamp: float = field(default_factory=time.time)

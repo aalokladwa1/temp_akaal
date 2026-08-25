@@ -49,6 +49,11 @@ class CompatibilityBreakdown:
             "extra": dict(self.extra),
         }
 
+    @property
+    def is_compatible(self) -> bool:
+        """True if there are zero unsupported, lossy, or decision-required column types."""
+        return self.unsupported_count == 0 and self.lossy_count == 0 and self.decision_required_count == 0
+
 
 class PreMigrationCompatibilityAssessor:
     """Assesses whole-schema compatibility against a target database engine."""

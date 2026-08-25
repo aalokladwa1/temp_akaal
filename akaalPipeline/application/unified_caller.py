@@ -1,6 +1,9 @@
+import logging
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Mapping, Optional
+
+logger = logging.getLogger("akaalPipeline.application.unified_caller")
 from akaalIPC.protocol.envelopes import CommandEnvelope, OperationReference, QueryEnvelope
 from akaalIPC.protocol.errors import IPCError, IPCErrorCategory, make_error, sanitize_unexpected_exception
 from akaalIPC.transport.ports import CallerResult, CallerResultStatus, UnifiedCallerPort
@@ -42,6 +45,7 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
         self,
         db_path: Optional[str] = None,
         shared_uow: Optional[SQLiteUnitOfWork] = None,
+        bind_gateway: bool = False,
     ) -> None:
         if db_path is None and shared_uow is None:
             raise ValueError("PipelineUnifiedCaller requires an explicit db_path or shared_uow.")
@@ -53,8 +57,10 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
         self.operation_service = OperationService()
         self.idempotency_service = IdempotencyService()
         self.catalog = CapabilityCatalog()
-        self._init_catalog()
         self.binding_registry = BindingRegistry()
+        self._init_catalog()
+        if bind_gateway:
+            self.bind_engine_gateway()
 
         self.artifact_registry = ArtifactRegistry()
         self.outbox_service = OutboxService()
@@ -94,6 +100,15 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
             self.repository,
             self.operation_service,
         )
+
+    def close(self) -> None:
+        """Closes bound EngineGateway resources cleanly."""
+        binding = self.binding_registry.get("gateway_engine_binding")
+        if binding and hasattr(binding.port_instance, "close"):
+            try:
+                binding.port_instance.close()
+            except Exception:
+                pass
 
     def _init_catalog(self) -> None:
         from akaalPipeline.capabilities.catalog import CapabilityDescriptor
@@ -148,7 +163,7 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
             CapabilityDescriptor(
                 capability_id="cdc_capture",
                 name="CDC Capture",
-                supported_modes={MigrationMode.M3_CDC},
+                supported_modes={MigrationMode.M2_BULK_CDC, MigrationMode.M3_CDC},
                 side_effect=SideEffectClassification.READ_ONLY,
             )
         )
@@ -156,7 +171,7 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
             CapabilityDescriptor(
                 capability_id="cdc_apply",
                 name="CDC Apply",
-                supported_modes={MigrationMode.M3_CDC},
+                supported_modes={MigrationMode.M2_BULK_CDC, MigrationMode.M3_CDC},
                 side_effect=SideEffectClassification.REVERSIBLE,
             )
         )
@@ -196,10 +211,39 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
             CapabilityDescriptor(
                 capability_id="validation_compare",
                 name="Validation Compare",
-                supported_modes={MigrationMode.M8_VALIDATION_ONLY},
+                supported_modes={MigrationMode.M1_BULK, MigrationMode.M2_BULK_CDC, MigrationMode.M3_CDC, MigrationMode.M5_STATE_SYNC, MigrationMode.M7_DATA_ONLY, MigrationMode.M8_VALIDATION_ONLY},
                 side_effect=SideEffectClassification.READ_ONLY,
             )
         )
+
+    def bind_engine_gateway(self, gateway: Optional[Any] = None) -> None:
+        from akaalPipeline.adapters.engine_gateway import PipelineEngineGatewayAdapter
+        from akaalEngine.gateway.api import EngineGateway
+        gw_instance = gateway or EngineGateway()
+        adapter = PipelineEngineGatewayAdapter(gateway=gw_instance)
+        binding_desc = EngineBindingDescriptor(
+            binding_id="gateway_engine_binding",
+            engine_name="akaalEngineGateway",
+            version="1.0.0",
+            port_instance=adapter,
+            is_healthy=True,
+            supported_capabilities={
+                "data_transport",
+                "schema_prep",
+                "schema_extract",
+                "schema_apply",
+                "cdc_sync",
+                "cdc_capture",
+                "cdc_apply",
+                "incremental_extract",
+                "incremental_apply",
+                "state_diff",
+                "state_reconcile",
+                "validation_compare",
+            },
+            supported_modes=set(MigrationMode),
+        )
+        self.binding_registry.register(binding_desc)
 
     def _create_uow(self) -> SQLiteUnitOfWork:
         if self._shared_uow:
@@ -633,6 +677,7 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
             return CallerResult(status=CallerResultStatus.ERROR, error=ipc_err)
 
         except Exception as unexpected:  # noqa: BLE001
+            logger.exception("Unexpected exception in handle_command: %s", unexpected)
             sanitized = sanitize_unexpected_exception(unexpected, correlation_id=correlation_id, request_id=request_id)
             return CallerResult(status=CallerResultStatus.ERROR, error=sanitized)
 

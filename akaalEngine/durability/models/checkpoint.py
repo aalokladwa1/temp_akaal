@@ -71,6 +71,7 @@ class MigrationCheckpoint:
     job_id: str
     fencing_epoch: int
     status: str  # PENDING, IN_PROGRESS, PAUSED, COMPLETED, FAILED
+    endpoint_identity: Optional[str] = None
     table_checkpoints: Dict[str, TableCheckpoint] = field(default_factory=dict)
     metadata: Dict[str, Any] = field(default_factory=dict)
     updated_at: Optional[str] = None

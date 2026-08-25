@@ -39,6 +39,12 @@ from akaalEngine.gateway.models.requests import (
     ValidateSchemaCompatibilityRequest,
     VerifyEvidenceRequest,
 )
+from akaalEngine.gateway.models.errors import (
+    GatewayAdmissionError,
+    GatewayConfigurationError,
+    GatewayError,
+    GatewaySecurityError,
+)
 from akaalEngine.gateway.models.responses import GatewayResponse
 from akaalEngine.gateway.orchestration.coordinator import GatewayCoordinator
 from akaalEngine.gateway.routing.dispatcher import GatewayDispatcher
@@ -51,6 +57,11 @@ __all__ = [
     "GatewayDispatcher",
     "GatewayCoordinator",
     "FailureTranslator",
+    # Gateway Exceptions
+    "GatewayError",
+    "GatewayConfigurationError",
+    "GatewaySecurityError",
+    "GatewayAdmissionError",
     # Models & Enums
     "SemanticOperation",
     "GatewayFailureCategory",

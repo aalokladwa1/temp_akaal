@@ -57,6 +57,31 @@ class RecordingExecutionPort(ExecutionPort):
     def execute_task(self, request: EngineInvocationRequest) -> EngineInvocationResult:
         self.call_count += 1
         self.last_request = request
+        from akaalEngine.gateway.models.responses import sign_receipt
+        mig_id = request.payload.get("migration_id", "mig-1") if isinstance(request.payload, dict) else "mig-1"
+        status_code = "SUCCESS" if self.should_succeed else "ERROR"
+        sig = sign_receipt(
+            migration_id=mig_id,
+            run_id=request.attempt_id,
+            operation_id=request.operation_id or f"op-{request.invocation_id}",
+            fencing_epoch=request.fence_epoch,
+            status_code=status_code,
+            initialization_fingerprint=request.initialization_fingerprint,
+            job_id=request.graph_node_id,
+        )
+        receipt = {
+            "gateway_migration_id": mig_id,
+            "gateway_run_id": request.attempt_id,
+            "gateway_operation_id": request.operation_id or f"op-{request.invocation_id}",
+            "gateway_job_id": request.graph_node_id,
+            "gateway_fencing_epoch": request.fence_epoch,
+            "graph_node_id": request.graph_node_id,
+            "initialization_fingerprint": request.initialization_fingerprint,
+            "gateway_status_code": status_code,
+            "receipt_signature": sig,
+        }
+        payload = dict(self.return_payload)
+        payload["engine_execution_receipt"] = receipt
         if self.should_succeed:
             return EngineInvocationResult(
                 invocation_id=request.invocation_id,
@@ -68,7 +93,7 @@ class RecordingExecutionPort(ExecutionPort):
                 graph_node_id=request.graph_node_id,
                 binding_id=request.binding_id,
                 contract_version=request.contract_version,
-                result_payload=self.return_payload,
+                result_payload=payload,
             )
         return EngineInvocationResult(
             invocation_id=request.invocation_id,
@@ -80,6 +105,7 @@ class RecordingExecutionPort(ExecutionPort):
             graph_node_id=request.graph_node_id,
             binding_id=request.binding_id,
             contract_version=request.contract_version,
+            result_payload={"engine_execution_receipt": receipt},
             error_code="ENGINE_EXEC_FAIL",
             error_message="Simulated physical failure",
         )

@@ -27,6 +27,7 @@ class ResultReconciler:
         expected_graph_node_id: Optional[str] = None,
         expected_binding_id: Optional[str] = None,
         expected_contract_version: Optional[str] = None,
+        expected_migration_id: Optional[str] = None,
     ) -> Mapping[str, Any]:
         """Reconciles result proposal. Throws StaleResultError on lease/epoch/fingerprint mismatch."""
         if not isinstance(result, EngineInvocationResult):
@@ -103,9 +104,77 @@ class ResultReconciler:
                 )
 
         if not isinstance(result.result_payload, Mapping):
-
             raise StaleResultError(
                 f"Result rejected: Malformed result_payload type {type(result.result_payload).__name__} for attempt {result.attempt_id!r}."
+            )
+
+        receipt = result.result_payload.get("engine_execution_receipt") or result.result_payload.get("execution_receipt")
+        if not receipt or not isinstance(receipt, dict):
+            raise StaleResultError(
+                f"Result rejected: Missing authoritative Engine execution receipt in result_payload for attempt {result.attempt_id!r}."
+            )
+
+        rcpt_run = receipt.get("gateway_run_id") or receipt.get("run_id")
+        if not rcpt_run or rcpt_run != result.attempt_id:
+            raise StaleResultError(
+                f"Result rejected: Execution receipt run ID mismatch: receipt {rcpt_run!r} != attempt {result.attempt_id!r}."
+            )
+
+        rcpt_epoch = receipt.get("gateway_fencing_epoch") if "gateway_fencing_epoch" in receipt else receipt.get("fencing_epoch")
+        if rcpt_epoch is None or rcpt_epoch != result.fence_epoch:
+            raise StaleResultError(
+                f"Result rejected: Execution receipt fencing epoch mismatch: receipt {rcpt_epoch} != fence epoch {result.fence_epoch}."
+            )
+
+        rcpt_mig = receipt.get("gateway_migration_id") or receipt.get("migration_id")
+        if not rcpt_mig:
+            raise StaleResultError(
+                f"Result rejected: Missing gateway_migration_id in execution receipt for attempt {result.attempt_id!r}."
+            )
+        if expected_migration_id and rcpt_mig != expected_migration_id:
+            raise StaleResultError(
+                f"Result rejected: Execution receipt migration ID mismatch: receipt {rcpt_mig!r} != expected migration {expected_migration_id!r}."
+            )
+        if result.result_payload.get("migration_id") and rcpt_mig != result.result_payload.get("migration_id"):
+            raise StaleResultError(
+                f"Result rejected: Execution receipt migration ID mismatch: receipt {rcpt_mig!r} != payload {result.result_payload.get('migration_id')!r}."
+            )
+
+        rcpt_node = receipt.get("gateway_job_id") or receipt.get("graph_node_id") or receipt.get("job_id")
+        if result.graph_node_id and (not rcpt_node or rcpt_node != result.graph_node_id):
+            raise StaleResultError(
+                f"Result rejected: Execution receipt node ID mismatch: receipt {rcpt_node!r} != node {result.graph_node_id!r}."
+            )
+
+        rcpt_fp = receipt.get("initialization_fingerprint") or receipt.get("fingerprint")
+        if not rcpt_fp or rcpt_fp != expected_initialization_fingerprint:
+            raise StaleResultError(
+                f"Result rejected: Execution receipt fingerprint mismatch: receipt {rcpt_fp!r} != expected fp {expected_initialization_fingerprint!r}."
+            )
+        if result.initialization_fingerprint and rcpt_fp != result.initialization_fingerprint:
+            raise StaleResultError(
+                f"Result rejected: Execution receipt fingerprint mismatch: receipt {rcpt_fp!r} != result fp {result.initialization_fingerprint!r}."
+            )
+
+        rcpt_status = receipt.get("gateway_status_code") or receipt.get("status_code") or receipt.get("status")
+        if not rcpt_status:
+            raise StaleResultError(
+                f"Result rejected: Missing gateway_status_code in execution receipt for attempt {result.attempt_id!r}."
+            )
+        if result.is_success and rcpt_status != "SUCCESS":
+            raise StaleResultError(
+                f"Result rejected: Execution receipt status mismatch: receipt {rcpt_status!r} != SUCCESS."
+            )
+
+        rcpt_sig = receipt.get("receipt_signature") or receipt.get("signature")
+        if not rcpt_sig:
+            raise StaleResultError(
+                f"Result rejected: Missing required cryptographic receipt_signature in execution receipt for attempt {result.attempt_id!r}."
+            )
+        from akaalPipeline.security.receipts import verify_execution_receipt
+        if not verify_execution_receipt(receipt):
+            raise StaleResultError(
+                f"Result rejected: Cryptographic signature on Engine execution receipt is invalid or forged for attempt {result.attempt_id!r}."
             )
 
 

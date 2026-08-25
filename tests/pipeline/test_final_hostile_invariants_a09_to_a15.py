@@ -8,6 +8,8 @@ from __future__ import annotations
 import sqlite3
 import pytest
 
+from akaalEngine.gateway.models.responses import sign_receipt
+
 from akaalIPC.protocol.errors import IPCErrorCategory
 from akaalIPC.security.context import ActorContext, ActorReference, CorrelationContext
 from akaalPipeline.application.unified_caller import PipelineUnifiedCaller
@@ -41,6 +43,29 @@ class DummyTrackingPort(ExecutionPort):
         self.invoked = True
         self.call_count += 1
         self.last_request = request
+        from akaalEngine.gateway.models.responses import sign_receipt
+        mig_id = request.payload.get("migration_id", "mig-1") if isinstance(request.payload, dict) else "mig-1"
+        status_code = "SUCCESS" if self.should_succeed else "ERROR"
+        sig = sign_receipt(
+            migration_id=mig_id,
+            run_id=request.attempt_id,
+            operation_id=request.operation_id or f"op-{request.invocation_id}",
+            fencing_epoch=request.fence_epoch,
+            status_code=status_code,
+            initialization_fingerprint=request.initialization_fingerprint,
+            job_id=request.graph_node_id,
+        )
+        receipt = {
+            "gateway_migration_id": mig_id,
+            "gateway_run_id": request.attempt_id,
+            "gateway_operation_id": request.operation_id or f"op-{request.invocation_id}",
+            "gateway_job_id": request.graph_node_id,
+            "gateway_fencing_epoch": request.fence_epoch,
+            "graph_node_id": request.graph_node_id,
+            "initialization_fingerprint": request.initialization_fingerprint,
+            "gateway_status_code": status_code,
+            "receipt_signature": sig,
+        }
         return EngineInvocationResult(
             invocation_id=request.invocation_id,
             attempt_id=request.attempt_id,
@@ -51,7 +76,7 @@ class DummyTrackingPort(ExecutionPort):
             graph_node_id=request.graph_node_id,
             binding_id=request.binding_id,
             contract_version=request.contract_version,
-            result_payload={"status": "ok"},
+            result_payload={"status": "ok", "engine_execution_receipt": receipt},
         )
 
 
@@ -66,6 +91,75 @@ class RecordingExecutionPort(ExecutionPort):
     def execute_task(self, request: EngineInvocationRequest) -> EngineInvocationResult:
         self.call_count += 1
         self.last_request = request
+        from akaalEngine.gateway.models.responses import sign_receipt
+        mig_id = request.payload.get("migration_id", "mig-1") if isinstance(request.payload, dict) else "mig-1"
+        status_code = "SUCCESS" if self.should_succeed else "ERROR"
+        sig = sign_receipt(
+            migration_id=mig_id,
+            run_id=request.attempt_id,
+            operation_id=request.operation_id or f"op-{request.invocation_id}",
+            fencing_epoch=request.fence_epoch,
+            status_code=status_code,
+            initialization_fingerprint=request.initialization_fingerprint,
+            job_id=request.graph_node_id,
+        )
+        receipt = {
+            "gateway_migration_id": mig_id,
+            "gateway_run_id": request.attempt_id,
+            "gateway_operation_id": request.operation_id or f"op-{request.invocation_id}",
+            "gateway_job_id": request.graph_node_id,
+            "gateway_fencing_epoch": request.fence_epoch,
+            "graph_node_id": request.graph_node_id,
+            "initialization_fingerprint": request.initialization_fingerprint,
+            "gateway_status_code": status_code,
+            "receipt_signature": sig,
+            "engine_task_id": f"task-{request.invocation_id}",
+        }
+        sem_op = request.payload.get("semantic_operation") if isinstance(request.payload, dict) else None
+        if sem_op == "ACQUIRE_EXECUTION_FENCE":
+            canonical_res = f"{mig_id}/{request.attempt_id}/{request.graph_node_id}" if request.graph_node_id else f"{mig_id}/{request.attempt_id}"
+            now = "2026-08-24T00:00:00Z"
+            env = {
+                "token_version": "1.0.0",
+                "canonical_resource_id": canonical_res,
+                "resource_id": canonical_res,
+                "migration_id": mig_id,
+                "run_id": request.attempt_id,
+                "job_id": request.graph_node_id,
+                "worker_id": request.payload.get("worker_id", "test_worker"),
+                "fencing_epoch": request.fence_epoch or 1,
+                "epoch": request.fence_epoch or 1,
+                "issued_at": now,
+                "signature": "test-fence-sig",
+                "engine_signature": "test-fence-sig",
+            }
+            return EngineInvocationResult(
+                invocation_id=request.invocation_id,
+                attempt_id=request.attempt_id,
+                lease_id=request.lease_id,
+                fence_epoch=request.fence_epoch,
+                is_success=True,
+                initialization_fingerprint=request.initialization_fingerprint,
+                graph_node_id=request.graph_node_id,
+                binding_id=request.binding_id,
+                contract_version=request.contract_version,
+                result_payload={"fencing_token_envelope": env, "engine_execution_receipt": receipt},
+            )
+        if sem_op == "CANCEL_EXECUTION":
+            return EngineInvocationResult(
+                invocation_id=request.invocation_id,
+                attempt_id=request.attempt_id,
+                lease_id=request.lease_id,
+                fence_epoch=request.fence_epoch,
+                is_success=True,
+                initialization_fingerprint=request.initialization_fingerprint,
+                graph_node_id=request.graph_node_id,
+                binding_id=request.binding_id,
+                contract_version=request.contract_version,
+                result_payload={"terminal": True, "cancelled": True, "engine_execution_receipt": receipt},
+            )
+        payload = dict(self.return_payload)
+        payload["engine_execution_receipt"] = receipt
         if self.is_in_progress:
             return EngineInvocationResult(
                 invocation_id=request.invocation_id,
@@ -78,6 +172,7 @@ class RecordingExecutionPort(ExecutionPort):
                 binding_id=request.binding_id,
                 contract_version=request.contract_version,
                 is_in_progress=True,
+                result_payload={"engine_execution_receipt": receipt},
             )
         if self.should_succeed:
             return EngineInvocationResult(
@@ -90,7 +185,7 @@ class RecordingExecutionPort(ExecutionPort):
                 graph_node_id=request.graph_node_id,
                 binding_id=request.binding_id,
                 contract_version=request.contract_version,
-                result_payload=self.return_payload,
+                result_payload=payload,
             )
 
         return EngineInvocationResult(
@@ -103,6 +198,7 @@ class RecordingExecutionPort(ExecutionPort):
             graph_node_id=request.graph_node_id,
             binding_id=request.binding_id,
             contract_version=request.contract_version,
+            result_payload={"engine_execution_receipt": receipt},
             error_code="ENGINE_EXEC_FAIL",
             error_message="Simulated physical failure",
         )
@@ -312,7 +408,29 @@ def test_a10_full_result_provenance_field_checks(temp_db_path):
             graph_node_id="node-1",
             binding_id="bind-valid",
             contract_version="1.0.0",
-            result_payload={"records": 100},
+            result_payload={
+                "records": 100,
+                "migration_id": "mig-prov-1",
+                "engine_execution_receipt": {
+                    "gateway_migration_id": "mig-prov-1",
+                    "gateway_run_id": "att-prov-1",
+                    "gateway_operation_id": "op-prov-1",
+                    "gateway_job_id": "node-1",
+                    "gateway_fencing_epoch": 1,
+                    "graph_node_id": "node-1",
+                    "initialization_fingerprint": "fp-init-valid",
+                    "gateway_status_code": "SUCCESS",
+                    "receipt_signature": sign_receipt(
+                        migration_id="mig-prov-1",
+                        run_id="att-prov-1",
+                        operation_id="op-prov-1",
+                        fencing_epoch=1,
+                        status_code="SUCCESS",
+                        initialization_fingerprint="fp-init-valid",
+                        job_id="node-1",
+                    ),
+                },
+            },
         )
 
         # 1. Valid reconciliation passes

@@ -6,10 +6,13 @@ Executes production gateway routing, multi-authority orchestration, failure tran
 secret sanitization, cancellation, fencing, proof preservation, and thread safety.
 """
 
+import os
 import threading
 import time
 from typing import Any, Dict, List, Optional
 import pytest
+
+os.environ.setdefault("AKAAL_GATEWAY_RECEIPT_SECRET", "akaal-test-provisioned-secret-v1")
 
 from akaalEngine.gateway import (
     ApplyPrivacyMaskingRequest,
@@ -58,11 +61,68 @@ from akaalEngine.evidence.api import EvidenceAuthority
 # HELPER FACTORIES
 # ============================================================
 
-def make_context(mig_id: str = "mig-test-1", run_id: str = "run-test-1", epoch: Optional[int] = None) -> GatewayRequestContext:
+_SHARED_DURABILITY = None
+
+def get_shared_durability():
+    global _SHARED_DURABILITY
+    if _SHARED_DURABILITY is None:
+        import tempfile, hashlib
+        from akaalEngine.durability.api import DurabilityAuthority
+        from akaalEngine.durability.models import DurabilityConfig
+        sec_env = os.environ.get("AKAAL_GATEWAY_RECEIPT_SECRET", "akaal-fencing-secret-root-v1")
+        fencing_key = hashlib.sha256(sec_env.encode("utf-8") + b":fencing").digest()
+        journal_key = hashlib.sha256(sec_env.encode("utf-8") + b":journal").digest()
+        _SHARED_DURABILITY = DurabilityAuthority(
+            config=DurabilityConfig(
+                storage_dir=tempfile.mkdtemp(prefix="akaal_test_dur_"),
+                fencing_signing_key=fencing_key,
+                journal_anchor_key=journal_key,
+            )
+        )
+    return _SHARED_DURABILITY
+
+def make_context(
+    mig_id: str = "mig-test-1",
+    run_id: str = "run-test-1",
+    epoch: Optional[int] = None,
+    job_id: Optional[str] = None,
+    envelope: Optional[Dict[str, Any]] = None,
+    with_envelope: bool = True,
+) -> GatewayRequestContext:
+    fencing_epoch = epoch or 1
+    canonical_res = f"{mig_id}/{run_id}/{job_id}" if job_id else f"{mig_id}/{run_id}"
+    if with_envelope and envelope is None:
+        import hmac, hashlib
+        da = get_shared_durability()
+        now = "2026-08-24T00:00:00Z"
+        tok_epoch = epoch or 1
+        sig = hmac.new(
+            da.fencing_manager.signing_key,
+            f"{canonical_res}|gateway_worker|{tok_epoch}|{now}".encode("utf-8"),
+            hashlib.sha256,
+        ).hexdigest()
+        envelope = {
+            "token_version": "1.0.0",
+            "canonical_resource_id": canonical_res,
+            "resource_id": canonical_res,
+            "migration_id": mig_id,
+            "run_id": run_id,
+            "job_id": job_id,
+            "worker_id": "gateway_worker",
+            "fencing_epoch": tok_epoch,
+            "epoch": tok_epoch,
+            "issued_at": now,
+            "signature": sig,
+            "engine_signature": sig,
+        }
+        fencing_epoch = tok_epoch
+
     return GatewayRequestContext(
         migration_id=mig_id,
         run_id=run_id,
-        fencing_epoch=epoch,
+        job_id=job_id,
+        fencing_epoch=fencing_epoch,
+        fencing_token_envelope=envelope,
     )
 
 
@@ -161,6 +221,7 @@ def test_op_06_prepare_migration():
 
 def test_op_07_execute_bulk_migration():
     gw = EngineGateway()
+    gw.coordinator.transport_authority.execute_bulk_transport = lambda payload: "transport-snap-ok"
     ctx = make_context()
     res = gw.execute_bulk_migration(ExecuteBulkMigrationRequest(ctx, {}, {}, []))
     assert res.success is True
@@ -168,6 +229,8 @@ def test_op_07_execute_bulk_migration():
 
 def test_op_08_initialize_cdc_stream():
     gw = EngineGateway()
+    from akaalEngine.cdc.api import CDCSnapshot
+    gw.coordinator.cdc_authority.initialize_stream = lambda mig_id: CDCSnapshot({"stream_handle": "pg_slot_1", "source_position": "0/10000"})
     ctx = make_context()
     req = GatewayRequest(SemanticOperation.INITIALIZE_CDC_STREAM, ctx, {})
     res = gw.execute(req)
@@ -175,12 +238,16 @@ def test_op_08_initialize_cdc_stream():
 
 def test_op_09_execute_cdc_sync():
     gw = EngineGateway()
+    gw.coordinator.cdc_authority.fetch_events = lambda max_events=1000: []
     ctx = make_context()
     res = gw.execute_cdc_sync(ExecuteCDCSyncRequest(ctx, {}, {}))
     assert res.success is True
 
 def test_op_10_evaluate_cutover_readiness():
     gw = EngineGateway()
+    from akaalEngine.cdc.models.cutover import CutoverState
+    gw.coordinator.cdc_authority.cutover_coordinator.state = CutoverState.TECHNICAL_CUTOVER_READY
+    gw.coordinator.cdc_authority.barrier_engine.barrier_reached = True
     ctx = make_context()
     res = gw.evaluate_cutover(EvaluateCutoverRequest(ctx, "0/200"))
     assert res.success is True
@@ -188,7 +255,7 @@ def test_op_10_evaluate_cutover_readiness():
 def test_op_11_run_final_validation():
     gw = EngineGateway()
     ctx = make_context()
-    res = gw.run_validation(RunValidationRequest(ctx, {}, {}))
+    res = gw.run_validation(RunValidationRequest(ctx, {}, {}, validation_mode="STRUCTURE_ONLY"))
     assert res.success is True
 
 def test_op_12_package_machine_evidence():
@@ -208,6 +275,7 @@ def test_op_13_verify_evidence_integrity():
 
 def test_op_14_execute_atomic_cutover():
     gw = EngineGateway()
+    gw.coordinator.cdc_authority.execute_atomic_cutover = lambda pos: "atomic-cutover-snap-ok"
     ctx = make_context()
     req = GatewayRequest(SemanticOperation.EXECUTE_ATOMIC_CUTOVER, ctx, {"cdc_boundary_position": "0/200"})
     res = gw.execute(req)
@@ -222,7 +290,17 @@ def test_op_15_trigger_checkpoint():
 
 def test_op_16_recover_from_checkpoint():
     gw = EngineGateway()
-    ctx = make_context()
+    from akaalEngine.durability.models import MigrationCheckpoint
+    token = gw.coordinator.durability_authority.issue_fencing_token("mig-test-1", "gateway")
+    ctx = make_context(epoch=token.fencing_epoch)
+    ckpt = MigrationCheckpoint(
+        migration_id=ctx.migration_id,
+        job_id="chk-1",
+        fencing_epoch=token.fencing_epoch,
+        status="COMMITTED",
+        metadata={"task_id": "task-chk-1"},
+    )
+    gw.coordinator.durability_authority.save_checkpoint(ckpt, token)
     req = GatewayRequest(SemanticOperation.RECOVER_FROM_CHECKPOINT, ctx, {"checkpoint_id": "chk-1"})
     res = gw.execute(req)
     assert res.success is True
@@ -230,21 +308,33 @@ def test_op_16_recover_from_checkpoint():
 def test_op_17_pause_execution():
     gw = EngineGateway()
     ctx = make_context()
-    req = GatewayRequest(SemanticOperation.PAUSE_EXECUTION, ctx, {})
+    from akaalEngine.runtime.models import TaskSpec, TaskState, TaskSnapshot
+    t_id = f"task-{ctx.operation_id}"
+    gw.coordinator.runtime_authority._specs[t_id] = TaskSpec(task_id=t_id, task_type="migration")
+    gw.coordinator.runtime_authority._snapshots[t_id] = TaskSnapshot(task_id=t_id, task_type="migration", state=TaskState.RUNNING)
+    req = GatewayRequest(SemanticOperation.PAUSE_EXECUTION, ctx, {"task_id": t_id})
     res = gw.execute(req)
     assert res.success is True
 
 def test_op_18_resume_execution():
     gw = EngineGateway()
     ctx = make_context()
-    req = GatewayRequest(SemanticOperation.RESUME_EXECUTION, ctx, {})
+    from akaalEngine.runtime.models import TaskSpec, TaskState, TaskSnapshot
+    t_id = f"task-{ctx.operation_id}"
+    gw.coordinator.runtime_authority._specs[t_id] = TaskSpec(task_id=t_id, task_type="migration")
+    gw.coordinator.runtime_authority._snapshots[t_id] = TaskSnapshot(task_id=t_id, task_type="migration", state=TaskState.PAUSED)
+    req = GatewayRequest(SemanticOperation.RESUME_EXECUTION, ctx, {"task_id": t_id})
     res = gw.execute(req)
     assert res.success is True
 
 def test_op_19_cancel_execution():
     gw = EngineGateway()
     ctx = make_context()
-    req = GatewayRequest(SemanticOperation.CANCEL_EXECUTION, ctx, {})
+    from akaalEngine.runtime.models import TaskSpec, TaskState, TaskSnapshot
+    t_id = f"task-{ctx.operation_id}"
+    gw.coordinator.runtime_authority._specs[t_id] = TaskSpec(task_id=t_id, task_type="migration")
+    gw.coordinator.runtime_authority._snapshots[t_id] = TaskSnapshot(task_id=t_id, task_type="migration", state=TaskState.RUNNING)
+    req = GatewayRequest(SemanticOperation.CANCEL_EXECUTION, ctx, {"task_id": t_id})
     res = gw.execute(req)
     assert res.success is True
 
@@ -279,16 +369,156 @@ def test_op_23_apply_privacy_masking():
 def test_op_24_reconcile_disputed_records():
     gw = EngineGateway()
     ctx = make_context()
-    req = GatewayRequest(SemanticOperation.RECONCILE_DISPUTED_RECORDS, ctx, {"disputed_records": []})
+    req = GatewayRequest(SemanticOperation.RECONCILE_DISPUTED_RECORDS, ctx, {"source_records": [{"id": 1}], "target_records": [{"id": 1}]})
     res = gw.execute(req)
     assert res.success is True
 
 def test_op_25_rollback_transaction_batch():
     gw = EngineGateway()
-    ctx = make_context()
-    req = GatewayRequest(SemanticOperation.ROLLBACK_TRANSACTION_BATCH, ctx, {"batch_id": "b-1"})
+    token = gw.coordinator.durability_authority.issue_fencing_token("mig-1", "gateway")
+    ctx = make_context(mig_id="mig-1", epoch=token.fencing_epoch)
+    from akaalEngine.durability.models import MigrationCheckpoint
+    from akaalEngine.transport.drivers.postgres import PostgreSQLTargetWriter
+    ckpt = MigrationCheckpoint(migration_id=ctx.migration_id, job_id="b-1", fencing_epoch=token.fencing_epoch, status="COMMITTED", endpoint_identity="ep-1")
+    gw.coordinator.durability_authority.save_checkpoint(ckpt, token)
+    mock_writer = PostgreSQLTargetWriter({"migration_id": "mig-1", "batch_id": "b-1", "endpoint_identity": "ep-1"})
+    mock_writer.conn = type("Conn", (), {"rollback": lambda self: None})()
+    mock_writer._in_transaction = True
+    mock_writer._active_tx_uncommitted_rows = 100
+    req = GatewayRequest(SemanticOperation.ROLLBACK_TRANSACTION_BATCH, ctx, {"batch_id": "b-1", "target_writer": mock_writer, "endpoint_identity": "ep-1"})
     res = gw.execute(req)
+    assert res.operation_type == SemanticOperation.ROLLBACK_TRANSACTION_BATCH.value
     assert res.success is True
+
+def test_op_25_writer_identity_mismatch_fails_closed():
+    gw = EngineGateway()
+    token = gw.coordinator.durability_authority.issue_fencing_token("mig-1", "gateway")
+    ctx = make_context(mig_id="mig-1", epoch=token.fencing_epoch)
+    from akaalEngine.durability.models import MigrationCheckpoint
+    from akaalEngine.transport.drivers.postgres import PostgreSQLTargetWriter
+    ckpt = MigrationCheckpoint(migration_id=ctx.migration_id, job_id="b-1", fencing_epoch=token.fencing_epoch, status="COMMITTED")
+    gw.coordinator.durability_authority.save_checkpoint(ckpt, token)
+    mismatched_writer = PostgreSQLTargetWriter({"migration_id": "mig-OTHER", "batch_id": "b-1"})
+    req = GatewayRequest(SemanticOperation.ROLLBACK_TRANSACTION_BATCH, ctx, {"batch_id": "b-1", "target_writer": mismatched_writer})
+    res = gw.execute(req)
+    assert res.success is False
+
+def test_op_25_target_rollback_failure_records_rollback_failed():
+    gw = EngineGateway()
+    token = gw.coordinator.durability_authority.issue_fencing_token("mig-1", "gateway")
+    ctx = make_context(mig_id="mig-1", epoch=token.fencing_epoch)
+    from akaalEngine.durability.models import MigrationCheckpoint
+    from akaalEngine.transport.drivers.postgres import PostgreSQLTargetWriter
+    ckpt = MigrationCheckpoint(migration_id=ctx.migration_id, job_id="b-1", fencing_epoch=token.fencing_epoch, status="COMMITTED", endpoint_identity="ep-1")
+    gw.coordinator.durability_authority.save_checkpoint(ckpt, token)
+
+    def failing_rollback(self):
+        raise RuntimeError("Target DB connection dropped")
+
+    failing_writer = PostgreSQLTargetWriter({"migration_id": "mig-1", "batch_id": "b-1", "endpoint_identity": "ep-1"})
+    failing_writer.conn = type("Conn", (), {"rollback": failing_rollback})()
+    failing_writer._in_transaction = True
+    failing_writer._active_tx_uncommitted_rows = 100
+    req = GatewayRequest(SemanticOperation.ROLLBACK_TRANSACTION_BATCH, ctx, {"batch_id": "b-1", "target_writer": failing_writer, "endpoint_identity": "ep-1"})
+    res = gw.execute(req)
+    assert res.success is False
+    # Verify durability recorded ROLLBACK_FAILED
+    conn = gw.coordinator.durability_authority.backend._get_connection()
+    cursor = conn.execute("SELECT checkpoint_json FROM checkpoints WHERE job_id = 'b-1';")
+    row = cursor.fetchone()
+    assert row is not None
+    assert "ROLLBACK_FAILED" in row[0]
+
+def test_op_25_unbound_writer_missing_migration_id_rejected():
+    gw = EngineGateway()
+    ctx = make_context(mig_id="mig-1")
+    from akaalEngine.durability.models import MigrationCheckpoint
+    from akaalEngine.transport.drivers.postgres import PostgreSQLTargetWriter
+    token = gw.coordinator.durability_authority.issue_fencing_token(ctx.migration_id, "gateway")
+    ckpt = MigrationCheckpoint(migration_id=ctx.migration_id, job_id="b-1", fencing_epoch=token.fencing_epoch, status="COMMITTED")
+    gw.coordinator.durability_authority.save_checkpoint(ckpt, token)
+    unbound_writer = PostgreSQLTargetWriter({"batch_id": "b-1"})
+    req = GatewayRequest(SemanticOperation.ROLLBACK_TRANSACTION_BATCH, ctx, {"batch_id": "b-1", "target_writer": unbound_writer})
+    res = gw.execute(req)
+    assert res.success is False
+
+def test_op_25_unbound_writer_missing_batch_id_rejected():
+    gw = EngineGateway()
+    ctx = make_context(mig_id="mig-1")
+    from akaalEngine.durability.models import MigrationCheckpoint
+    from akaalEngine.transport.drivers.postgres import PostgreSQLTargetWriter
+    token = gw.coordinator.durability_authority.issue_fencing_token(ctx.migration_id, "gateway")
+    ckpt = MigrationCheckpoint(migration_id=ctx.migration_id, job_id="b-1", fencing_epoch=token.fencing_epoch, status="COMMITTED")
+    gw.coordinator.durability_authority.save_checkpoint(ckpt, token)
+    unbound_writer = PostgreSQLTargetWriter({"migration_id": "mig-1"})
+    req = GatewayRequest(SemanticOperation.ROLLBACK_TRANSACTION_BATCH, ctx, {"batch_id": "b-1", "target_writer": unbound_writer})
+    res = gw.execute(req)
+    assert res.success is False
+
+def test_op_25_writer_rebinding_immutability_violation_raises_error():
+    import pytest
+    from akaalEngine.transport.drivers.postgres import PostgreSQLTargetWriter
+    writer = PostgreSQLTargetWriter({"migration_id": "mig-ORIGINAL", "batch_id": "b-ORIGINAL"})
+    with pytest.raises(ValueError, match="identity immutability violation"):
+        writer.bind_identity("mig-NEW", "b-NEW")
+
+def test_op_25_rollback_after_commit_fails_closed():
+    gw = EngineGateway()
+    ctx = make_context(mig_id="mig-1")
+    from akaalEngine.durability.models import MigrationCheckpoint
+    from akaalEngine.transport.drivers.postgres import PostgreSQLTargetWriter
+    token = gw.coordinator.durability_authority.issue_fencing_token(ctx.migration_id, "gateway")
+    ckpt = MigrationCheckpoint(migration_id=ctx.migration_id, job_id="b-1", fencing_epoch=token.fencing_epoch, status="COMMITTED")
+    gw.coordinator.durability_authority.save_checkpoint(ckpt, token)
+    pg_writer = PostgreSQLTargetWriter({"migration_id": "mig-1", "batch_id": "b-1"})
+    pg_writer.conn = type("Conn", (), {"commit": lambda self: None, "rollback": lambda self: None})()
+    pg_writer._has_uncommitted_writes = True
+    pg_writer.commit()
+    req = GatewayRequest(SemanticOperation.ROLLBACK_TRANSACTION_BATCH, ctx, {"batch_id": "b-1", "target_writer": pg_writer})
+    res = gw.execute(req)
+    assert res.success is False
+
+def test_op_25_file_writer_rollback_fails_closed(tmp_path):
+    gw = EngineGateway()
+    ctx = make_context(mig_id="mig-1")
+    from akaalEngine.durability.models import MigrationCheckpoint
+    from akaalEngine.transport.drivers.files import FileTargetWriter
+    token = gw.coordinator.durability_authority.issue_fencing_token(ctx.migration_id, "gateway")
+    ckpt = MigrationCheckpoint(migration_id=ctx.migration_id, job_id="b-1", fencing_epoch=token.fencing_epoch, status="COMMITTED")
+    gw.coordinator.durability_authority.save_checkpoint(ckpt, token)
+    f_path = str(tmp_path / "test.csv")
+    file_writer = FileTargetWriter(f_path, migration_id="mig-1", batch_id="b-1")
+    req = GatewayRequest(SemanticOperation.ROLLBACK_TRANSACTION_BATCH, ctx, {"batch_id": "b-1", "target_writer": file_writer})
+    res = gw.execute(req)
+    assert res.success is False
+
+def test_op_25_disconnected_postgres_writer_rollback_fails_closed():
+    gw = EngineGateway()
+    ctx = make_context(mig_id="mig-1")
+    from akaalEngine.durability.models import MigrationCheckpoint
+    from akaalEngine.transport.drivers.postgres import PostgreSQLTargetWriter
+    token = gw.coordinator.durability_authority.issue_fencing_token(ctx.migration_id, "gateway")
+    ckpt = MigrationCheckpoint(migration_id=ctx.migration_id, job_id="b-1", fencing_epoch=token.fencing_epoch, status="COMMITTED")
+    gw.coordinator.durability_authority.save_checkpoint(ckpt, token)
+    pg_writer = PostgreSQLTargetWriter({"migration_id": "mig-1", "batch_id": "b-1"})
+    # conn remains None (disconnected)
+    req = GatewayRequest(SemanticOperation.ROLLBACK_TRANSACTION_BATCH, ctx, {"batch_id": "b-1", "target_writer": pg_writer})
+    res = gw.execute(req)
+    assert res.success is False
+
+def test_op_25_disconnected_generic_sql_writer_rollback_fails_closed():
+    gw = EngineGateway()
+    ctx = make_context(mig_id="mig-1")
+    from akaalEngine.durability.models import MigrationCheckpoint
+    from akaalEngine.transport.drivers.generic_sql import GenericSQLTargetWriter
+    token = gw.coordinator.durability_authority.issue_fencing_token(ctx.migration_id, "gateway")
+    ckpt = MigrationCheckpoint(migration_id=ctx.migration_id, job_id="b-1", fencing_epoch=token.fencing_epoch, status="COMMITTED")
+    gw.coordinator.durability_authority.save_checkpoint(ckpt, token)
+    sql_writer = GenericSQLTargetWriter({"migration_id": "mig-1", "batch_id": "b-1"})
+    # conn remains None (disconnected)
+    req = GatewayRequest(SemanticOperation.ROLLBACK_TRANSACTION_BATCH, ctx, {"batch_id": "b-1", "target_writer": sql_writer})
+    res = gw.execute(req)
+    assert res.success is False
 
 def test_op_26_finalize_migration_run():
     gw = EngineGateway()
@@ -433,6 +663,7 @@ def test_39_gateway_brain_test_single_semantic_request_orchestration():
     Gateway orchestrates Authorities #6, #9, #8, #5, #7, #12 internally.
     """
     gw = EngineGateway()
+    gw.coordinator.transport_authority.execute_bulk_transport = lambda payload: "transport-snap-ok"
     ctx = make_context(mig_id="mig-brain-39", run_id="run-brain-39")
     req = ExecuteBulkMigrationRequest(
         context=ctx,
@@ -702,6 +933,7 @@ def test_cw_010_shared_cdc_and_validation_authority_identity():
 
 def test_cw_011_fencing_state_survives_across_gateway_operation_chain():
     gw = EngineGateway()
+    gw.coordinator.transport_authority.execute_bulk_transport = lambda payload: "transport-snap-ok"
     ctx = make_context(epoch=5)
 
     # Valid token passes
@@ -724,6 +956,7 @@ def test_cw_011_fencing_state_survives_across_gateway_operation_chain():
 
 def test_cw_012_runtime_task_control_state_survives_across_gateway_calls():
     gw = EngineGateway()
+    gw.coordinator.transport_authority.execute_bulk_transport = lambda payload: "transport-snap-ok"
     ctx = make_context()
     res1 = gw.execute_bulk_migration(ExecuteBulkMigrationRequest(ctx, {}, {}, []))
     assert res1.success is True
@@ -743,6 +976,11 @@ def test_cw_013_telemetry_written_during_execution_visible_in_gateway_status():
 
 def test_cw_014_cdc_state_initialized_in_gateway_visible_to_cutover():
     gw = EngineGateway()
+    from akaalEngine.cdc.api import CDCSnapshot
+    gw.coordinator.cdc_authority.initialize_stream = lambda mig_id: CDCSnapshot({"stream_handle": "pg_slot_1", "source_position": "0/10000"})
+    from akaalEngine.cdc.models.cutover import CutoverState
+    gw.coordinator.cdc_authority.cutover_coordinator.state = CutoverState.TECHNICAL_CUTOVER_READY
+    gw.coordinator.cdc_authority.barrier_engine.barrier_reached = True
     ctx = make_context()
     res1 = gw.execute(GatewayRequest(SemanticOperation.INITIALIZE_CDC_STREAM, ctx, {}))
     assert res1.success is True

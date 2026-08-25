@@ -53,18 +53,37 @@ class MSSQLCDCSourceAdapter(ICDCSourceAdapter):
 
     def validate_prerequisites(self, source_config: Dict[str, Any]) -> Dict[str, Any]:
         cdc_enabled = source_config.get("cdc_enabled", True)
-        if not cdc_enabled and not source_config.get("mock_mode"):
+        if not cdc_enabled:
             raise CDCPermissionError("SQL Server prerequisite check failed: sys.sp_cdc_enable_db must be enabled")
         return {"cdc_enabled": True, "status": "VALIDATED"}
 
     def start_capture(self, start_position: Optional[CDCSourcePosition] = None) -> None:
+        conn = self.params.get("connection") or self.params.get("raw_connection") or self.params.get("stream_handle")
+        if not conn and not self.params.get("event_stream"):
+            from akaalEngine.cdc.models.errors import CDCCapabilityError
+            raise CDCCapabilityError("SQL Server CDC physical stream cannot start: No physical database connection handle or stream reader provided in connection_params.")
         if isinstance(start_position, MSSQLChangePosition):
             self.lsn_hex = start_position.lsn_hex
+        self.stream_handle = conn
         self.is_active = True
 
     def fetch_events(self, max_events: int = 1000) -> List[ChangeEvent]:
         if not self.is_active:
             return []
+        if getattr(self, "event_stream", None):
+            evs = self.event_stream[:max_events]
+            self.event_stream = self.event_stream[max_events:]
+            return evs
+        handle = getattr(self, "stream_handle", None) or self.params.get("connection") or self.params.get("raw_connection")
+        if not handle:
+            from akaalEngine.cdc.models.errors import CDCCapabilityError
+            raise CDCCapabilityError("SQL Server CDC LSN physical stream reader is not connected.")
+        if hasattr(handle, "fetch_events"):
+            return handle.fetch_events(max_events)
+        elif hasattr(handle, "read_events"):
+            return handle.read_events(max_events)
+        elif hasattr(handle, "read"):
+            return handle.read(max_events)
         return []
 
     def get_current_position(self) -> CDCSourcePosition:

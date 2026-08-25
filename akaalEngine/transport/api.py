@@ -132,6 +132,20 @@ class TransportAuthority:
             strategy=strategy,
         )
 
+    def _validate_fencing(self, fencing_token: Optional[Any]) -> None:
+        """Validates fencing token using DurabilityAuthority contract or token validation methods."""
+        if fencing_token:
+            if self.durability_authority and hasattr(self.durability_authority, "validate_fencing_token"):
+                try:
+                    if not self.durability_authority.validate_fencing_token(fencing_token):
+                        raise TransportFencingError("Fencing token validation failed with DurabilityAuthority")
+                except Exception as exc:
+                    if isinstance(exc, TransportFencingError):
+                        raise exc
+                    raise TransportFencingError(f"Fencing token rejected: {exc}")
+            elif hasattr(fencing_token, "is_valid") and not fencing_token.is_valid():
+                raise TransportFencingError("Fencing token invalid")
+
     def execute_partition_transport(
         self,
         reader: SourceReader,
@@ -141,14 +155,21 @@ class TransportAuthority:
         fencing_token: Optional[Any] = None,
         cancellation_token: Optional[Any] = None,
         retry_max_attempts: int = 5,
+        migration_id: Optional[str] = None,
+        run_id: Optional[str] = None,
     ) -> int:
         """
         Executes full transport pipeline for a partition:
         SourceReader -> BoundedBuffer -> DataProcessing -> TargetWriter -> Durability Checkpoint.
         """
         # 1. Fencing Check before Source Fetch
-        if fencing_token and hasattr(fencing_token, "is_valid") and not fencing_token.is_valid():
-            raise TransportFencingError("Fencing token invalid before source fetch")
+        self._validate_fencing(fencing_token)
+
+        mig_id = migration_id or getattr(partition, "migration_id", None) or "mig-transport-canonical"
+        r_id = run_id or f"run-{partition.partition_id}"
+
+        if writer and hasattr(writer, "bind_identity"):
+            writer.bind_identity(migration_id=mig_id, batch_id=r_id)
 
         reader.open_partition(partition)
         total_written = 0
@@ -159,8 +180,7 @@ class TransportAuthority:
                     raise TransportCancelledError("Transport cancelled during read loop")
 
                 # Fencing Check
-                if fencing_token and hasattr(fencing_token, "is_valid") and not fencing_token.is_valid():
-                    raise TransportFencingError("Fencing token invalid during read loop")
+                self._validate_fencing(fencing_token)
 
                 # Read Batch from Source
                 batch = reader.read_batch(batch_size=self.tuning_policy.max_rows_per_batch)
@@ -180,6 +200,10 @@ class TransportAuthority:
 
                 if popped_batch is None:
                     break
+
+                batch_id_current = getattr(popped_batch.metadata, "batch_id", None) or f"{r_id}-b{popped_batch.metadata.sequence_number}"
+                if writer and hasattr(writer, "bind_identity"):
+                    writer.bind_identity(migration_id=mig_id, batch_id=batch_id_current)
 
                 # Apply Authority #8 Data Processing if configured
                 rows_to_write = popped_batch.rows
@@ -215,18 +239,28 @@ class TransportAuthority:
 
                 # Advance Durable Checkpoint ONLY after Target Write is Proven
                 if self.durability_authority and fencing_token and hasattr(self.durability_authority, "save_checkpoint"):
+                    from akaalEngine.durability.models import MigrationCheckpoint
+                    writer_ep = getattr(writer, "endpoint_identity", None)
+                    chk = MigrationCheckpoint(
+                        migration_id=mig_id,
+                        job_id=batch_id_current,
+                        fencing_epoch=getattr(fencing_token, "fencing_epoch", 1),
+                        status="COMMITTED",
+                        endpoint_identity=writer_ep,
+                        metadata={
+                            "table_name": partition.table_name,
+                            "last_sequence": popped_batch.metadata.sequence_number,
+                            "partition_id": partition.partition_id,
+                            "endpoint_identity": writer_ep,
+                        },
+                    )
                     try:
-                        from akaalEngine.durability.models import MigrationCheckpoint
-                        chk = MigrationCheckpoint(
-                            migration_id=partition.table_name,
-                            checkpoint_id=f"chk-{partition.partition_id}-{popped_batch.metadata.sequence_number}",
-                            status="COMMITTED",
-                            progress_percent=100.0,
-                            metadata={"last_sequence": popped_batch.metadata.sequence_number, "partition_id": partition.partition_id},
-                        )
                         self.durability_authority.save_checkpoint(chk, fencing_token)
                     except Exception as exc:
-                        logger.warning(f"[TransportAuthority] Checkpoint save skipped: {exc}")
+                        with self._lock:
+                            self.checkpoint_rejection_count += 1
+                        logger.error(f"[TransportAuthority] Checkpoint save failed for migration '{mig_id}': {exc}")
+                        raise TransportWriteError(f"Checkpoint persistence failed for migration '{mig_id}': {exc}")
 
             return total_written
 
@@ -261,7 +295,12 @@ class TransportAuthority:
                 )
                 # Fencing check before COMMIT
                 if fencing_token and hasattr(fencing_token, "is_valid") and not fencing_token.is_valid():
-                    writer.rollback()
+                    if writer and getattr(writer, "_in_transaction", False):
+                        try:
+                            writer.rollback()
+                        except Exception as rb_exc:
+                            logger.error(f"[TransportAuthority] Pre-commit fencing rollback failed: {rb_exc}")
+                            raise TransportFencingError(f"Fencing token invalid before commit and target rollback failed ({rb_exc}); target transaction state is UNKNOWN.") from rb_exc
                     raise TransportFencingError("Fencing token invalid before commit")
 
                 writer.commit()
@@ -274,10 +313,15 @@ class TransportAuthority:
                 if isinstance(exc, (TransportFencingError, TransportCancelledError)):
                     raise exc
 
-                writer.rollback()
+                if writer and getattr(writer, "_in_transaction", False):
+                    try:
+                        writer.rollback()
+                    except Exception as rb_exc:
+                        logger.error(f"[TransportAuthority] Rollback failed during retry handling: {rb_exc}")
+                        raise TransportWriteError(f"Target writer rollback failed ({rb_exc}); target transaction state is UNKNOWN.") from rb_exc
 
-                # Verify ambiguous commit outcome for non-idempotent writes
-                if capabilities.idempotency in (IdempotencyMode.NON_IDEMPOTENT, IdempotencyMode.UNKNOWN):
+                # Verify ambiguous commit outcome for non-idempotent, state-idempotent, unknown, or conditionally-idempotent writers
+                if capabilities.idempotency in (IdempotencyMode.NON_IDEMPOTENT, IdempotencyMode.STATE_IDEMPOTENT, IdempotencyMode.UNKNOWN, IdempotencyMode.CONDITIONALLY_IDEMPOTENT):
                     outcome = writer.verify_uncertain_commit(
                         table_name=partition.table_name,
                         target_schema=partition.target_schema,
@@ -290,7 +334,7 @@ class TransportAuthority:
                         with self._lock:
                             self.ambiguous_commit_count += 1
                         raise AmbiguousCommitError(
-                            f"Ambiguous commit outcome on batch '{batch.metadata.batch_id}'. Replay prohibited (FAIL CLOSED)."
+                            f"Uncertain commit outcome for partition '{partition.partition_id}' on table '{partition.table_name}'"
                         )
 
                 if attempt == max_attempts:

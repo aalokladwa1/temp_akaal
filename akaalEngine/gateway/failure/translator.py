@@ -72,6 +72,14 @@ class FailureTranslator:
         """
         exc_type_name = exc.__class__.__name__
 
+        # Gateway Core Exceptions
+        if "GatewayConfiguration" in exc_type_name or "Configuration" in exc_type_name:
+            return GatewayFailureCategory.INTERNAL_ENGINE_FAILURE, False, True
+        if "GatewaySecurity" in exc_type_name:
+            return GatewayFailureCategory.AUTHENTICATION_FAILURE, False, True
+        if "GatewayAdmission" in exc_type_name:
+            return GatewayFailureCategory.INVALID_REQUEST, False, True
+
         # Fencing Violations across Authorities #5, #6, #9, #10, #11, #12
         if "Fencing" in exc_type_name or "StaleGeneration" in exc_type_name or "LeaseExpired" in exc_type_name:
             return GatewayFailureCategory.STALE_FENCING, False, True

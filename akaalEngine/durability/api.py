@@ -3,7 +3,10 @@ Canonical Public Façade for Authority #5 — Durability (`DurabilityAuthority`)
 """
 
 import os
+import logging
 from typing import Dict, Any, Iterator, List, Optional
+
+logger = logging.getLogger("akaalEngine.durability.api")
 
 from akaalEngine.durability.models import (
     DurabilityConfig,
@@ -95,17 +98,186 @@ class DurabilityAuthority:
     def validate_fencing_token(self, token: FencingToken) -> bool:
         return self.fencing_manager.validate_token(token)
 
+    def validate_fencing_envelope(self, envelope: Dict[str, Any]) -> bool:
+        """Validates boundary-neutral fencing token envelope."""
+        if not isinstance(envelope, dict):
+            return False
+        res_id = envelope.get("resource_id") or envelope.get("canonical_resource_id")
+        worker_id = envelope.get("worker_id") or envelope.get("owner_id", "gateway")
+        epoch = envelope.get("fencing_epoch") or envelope.get("epoch", 0)
+        issued_at = envelope.get("issued_at") or envelope.get("timestamp", "")
+        sig = envelope.get("signature") or envelope.get("engine_signature", "")
+        if not res_id or not worker_id or not sig:
+            return False
+        token = FencingToken(
+            resource_id=res_id,
+            worker_id=worker_id,
+            fencing_epoch=int(epoch),
+            issued_at=issued_at,
+            signature=sig,
+        )
+        return self.validate_fencing_token(token)
+
+    def get_current_epoch(self, resource_id: str) -> int:
+        """Returns live fencing epoch for a resource without mutating state."""
+        conn = self.backend._get_connection()
+        cursor = conn.execute("SELECT current_epoch FROM fencing_tokens WHERE resource_id = ?;", (resource_id,))
+        row = cursor.fetchone()
+        return row["current_epoch"] if row else 0
+
     # --- Hierarchical Checkpoints & Positions (DUR-002, DUR-003) ---
     def save_checkpoint(self, checkpoint: MigrationCheckpoint, token: FencingToken) -> None:
         """Saves checkpoint. Requires an authenticated FencingToken — no bypass."""
         self.checkpoint_registry.save_checkpoint(checkpoint, token)
 
+    def get_checkpoint(self, checkpoint_id: str, migration_id: Optional[str] = None, run_id: Optional[str] = None) -> Optional[MigrationCheckpoint]:
+        return self.checkpoint_registry.get_checkpoint(checkpoint_id, migration_id=migration_id, run_id=run_id)
+
     def get_latest_checkpoint(self, migration_id: str) -> Optional[MigrationCheckpoint]:
         return self.checkpoint_registry.get_latest_checkpoint(migration_id)
+
+    def recover_checkpoint(self, checkpoint_id: str, migration_id: Optional[str] = None, run_id: Optional[str] = None) -> MigrationCheckpoint:
+        """Recovers exact durable checkpoint state. Fails closed if missing."""
+        chk = self.get_checkpoint(checkpoint_id, migration_id=migration_id, run_id=run_id)
+        if chk is None:
+            raise DurabilityError(f"Checkpoint recovery failed: Checkpoint '{checkpoint_id}' not found for migration '{migration_id}'.")
+        return chk
 
     def save_row_position(self, migration_id: str, table_name: str, position: RowPosition, token: FencingToken) -> None:
         """Advances table row position. Requires an authenticated FencingToken — no bypass."""
         self.checkpoint_registry.save_row_position(migration_id, table_name, position, token)
+
+    def _sanitize_text(self, text: str) -> str:
+        if not text:
+            return ""
+        import re
+        pattern = r'(password|secret|token|key|pwd|cred|credential)\s*[=:]\s*([^\s,;]+)'
+        return re.sub(pattern, r'\1=[REDACTED]', text, flags=re.IGNORECASE)
+
+    # --- Transaction Batch Rollback ---
+    def verify_batch_exists(self, batch_id: str) -> bool:
+        """Verifies if batch_id exists in checkpoints, idempotency records, or journal store."""
+        conn = self.backend._get_connection()
+        cursor = conn.execute(
+            "SELECT 1 FROM checkpoints WHERE job_id = ? "
+            "UNION SELECT 1 FROM idempotency_records WHERE idempotency_key = ? "
+            "UNION SELECT 1 FROM journal_records WHERE operation_id = ?;",
+            (batch_id, batch_id, batch_id),
+        )
+        return cursor.fetchone() is not None
+
+    def get_batch_migration_id(self, batch_id: str) -> Optional[str]:
+        """Fetches the bound migration_id for a given batch_id from durability store with deterministic ownership check."""
+        conn = self.backend._get_connection()
+        cursor = conn.execute(
+            "SELECT migration_id FROM checkpoints WHERE job_id = ? AND migration_id IS NOT NULL AND migration_id != '' "
+            "UNION SELECT migration_id FROM idempotency_records WHERE idempotency_key = ? AND migration_id IS NOT NULL AND migration_id != '' "
+            "UNION SELECT migration_id FROM journal_records WHERE operation_id = ? AND migration_id IS NOT NULL AND migration_id != '';",
+            (batch_id, batch_id, batch_id),
+        )
+        rows = cursor.fetchall()
+        distinct = {r[0] for r in rows if r and r[0]}
+        if len(distinct) > 1:
+            from akaalEngine.durability.models.errors import DurabilityError
+            raise DurabilityError(f"Ambiguous batch ownership: batch_id '{batch_id}' is associated with multiple distinct migration IDs: {sorted(list(distinct))}")
+        return next(iter(distinct)) if distinct else None
+
+    def get_batch_endpoint_identity(self, batch_id: str) -> Optional[str]:
+        """Fetches the bound target endpoint_identity for a given batch_id from durability store."""
+        conn = self.backend._get_connection()
+        cursor = conn.execute(
+            "SELECT json_extract(checkpoint_json, '$.endpoint_identity') FROM checkpoints WHERE job_id = ? AND json_extract(checkpoint_json, '$.endpoint_identity') IS NOT NULL;",
+            (batch_id,),
+        )
+        row = cursor.fetchone()
+        return row[0] if row and row[0] else None
+
+    def stage_pending_rollback(self, batch_id: str) -> None:
+        """Stages PENDING_ROLLBACK state in Durability store before physical target rollback is executed."""
+        import datetime
+        now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        mig_id = self.get_batch_migration_id(batch_id) or ""
+        conn = self.backend._get_connection()
+        with conn:
+            conn.execute(
+                "UPDATE checkpoints SET checkpoint_json = json_set(checkpoint_json, '$.status', 'PENDING_ROLLBACK'), updated_at = ? WHERE job_id = ?;",
+                (now, batch_id),
+            )
+            self.journal_store.append_record(
+                operation_id=f"pending-rollback-{batch_id}",
+                operation_type="PENDING_ROLLBACK",
+                payload={"batch_id": batch_id, "action": "STAGE_PENDING_ROLLBACK"},
+                migration_id=mig_id,
+                conn=conn,
+            )
+
+    def record_rollback_failure(self, batch_id: str, error_msg: str) -> None:
+        """Records ROLLBACK_FAILED state in Durability store if physical target rollback fails."""
+        import datetime
+        now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        mig_id = self.get_batch_migration_id(batch_id) or ""
+        safe_error = self._sanitize_text(error_msg)
+        conn = self.backend._get_connection()
+        with conn:
+            conn.execute(
+                "UPDATE checkpoints SET checkpoint_json = json_set(checkpoint_json, '$.status', 'ROLLBACK_FAILED'), updated_at = ? WHERE job_id = ?;",
+                (now, batch_id),
+            )
+            self.journal_store.append_record(
+                operation_id=f"rollback-failed-{batch_id}",
+                operation_type="ROLLBACK_FAILED",
+                payload={"batch_id": batch_id, "error": safe_error},
+                migration_id=mig_id,
+                conn=conn,
+            )
+
+    def rollback_batch(self, batch_id: str) -> Dict[str, Any]:
+        """
+        Executes physical transaction batch rollback for a given batch_id.
+        Verifies existence of batch_id in checkpoints/idempotency/journal records (fails closed if unknown),
+        appends a compensation tombstone record to operation_journal, updates matching checkpoint
+        status to ROLLED_BACK, and transitions idempotency state.
+        """
+        import datetime
+        now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+        if not self.verify_batch_exists(batch_id):
+            from akaalEngine.durability.models.errors import DurabilityError
+            raise DurabilityError(f"Rollback rejected: no checkpoint, idempotency record, or journal entry found for batch_id '{batch_id}'.")
+
+        mig_id = self.get_batch_migration_id(batch_id) or ""
+        conn = self.backend._get_connection()
+        with conn:
+            conn.execute(
+                "UPDATE checkpoints SET checkpoint_json = json_set(checkpoint_json, '$.status', 'ROLLED_BACK'), updated_at = ? WHERE job_id = ?;",
+                (now, batch_id),
+            )
+            conn.execute(
+                "UPDATE idempotency_records SET state = 'ABANDONED', updated_at = ? WHERE idempotency_key = ?;",
+                (now, batch_id),
+            )
+            tombstone = self.journal_store.append_record(
+                operation_id=f"rollback-{batch_id}",
+                operation_type="ROLLBACK_BATCH",
+                payload={"batch_id": batch_id, "action": "ROLLBACK_TOMBSTONE"},
+                migration_id=mig_id,
+                conn=conn,
+            )
+
+        return {
+            "batch_id": batch_id,
+            "status": "ROLLED_BACK",
+            "tombstone_id": getattr(tombstone, "journal_id", f"journal-{batch_id}"),
+            "timestamp": now,
+        }
+
+        logger.info(f"[DurabilityAuthority] Executed physical rollback for batch '{batch_id}'. Tombstone operation ID: '{tombstone.operation_id}'.")
+        return {
+            "batch_id": batch_id,
+            "status": "ROLLED_BACK",
+            "tombstone_operation_id": tombstone.operation_id,
+            "rolled_back": True,
+        }
 
     # --- Operation Journal & Retention (DUR-004, DUR-013) ---
     def append_journal_record(self, operation_id: str, operation_type: str, payload: Dict[str, Any], migration_id: str = "") -> OperationRecord:

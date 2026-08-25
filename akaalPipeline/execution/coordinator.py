@@ -148,9 +148,9 @@ class PlanExecutionCoordinator:
             plan_id=plan.plan_id,
             plan_fingerprint=plan.fingerprint,
             initialization_fingerprint=initialization_fingerprint,
-            tenant_id=migration.tenant_id,
-            workspace_id=migration.workspace_id or "",
-            project_id=migration.project_id or "",
+            tenant_id=migration.tenant_id or actor.organization_id or "default-tenant",
+            workspace_id=migration.workspace_id or actor.workspace_id or "default-workspace",
+            project_id=migration.project_id or actor.project_id or "default-project",
             status=PlanExecutionStatus.ACCEPTED,
             created_at=now_str,
             updated_at=now_str,
@@ -637,6 +637,34 @@ class PlanExecutionCoordinator:
 
             # Step C: Physical Dispatch to ExecutionPort
             dispatch_payload = dict(payload) if payload else {}
+            dispatch_payload["capability_contract"] = target_capability
+            dispatch_payload["capability_id"] = target_capability
+            dispatch_payload["graph_node_id"] = target_node_id
+            dispatch_payload["migration_id"] = plan.migration_id
+            dispatch_payload["mode"] = plan.mode.value
+            if hasattr(plan, "configuration") and plan.configuration:
+                dispatch_payload["configuration"] = dict(plan.configuration)
+
+            # Propagate output tokens and context from successfully completed predecessor nodes
+            cur_preds = uow_disp.connection.execute(
+                """
+                SELECT ne.graph_node_id, ne.result_payload
+                FROM node_executions ne
+                WHERE ne.execution_id = ? AND ne.state = 'SUCCEEDED'
+                """,
+                (execution_id,),
+            )
+            for pred_row in cur_preds.fetchall():
+                if pred_row["result_payload"]:
+                    try:
+                        p_res = json.loads(pred_row["result_payload"])
+                        if isinstance(p_res, dict):
+                            for prop_key in ("cdc_stream_handle", "cdc_boundary_token", "boundary_token", "extracted_watermark", "applied_records"):
+                                if prop_key in p_res and prop_key not in dispatch_payload:
+                                    dispatch_payload[prop_key] = p_res[prop_key]
+                    except Exception:
+                        pass
+
             if node_to_dispatch.checkpoint_id:
                 dispatch_payload["checkpoint_id"] = node_to_dispatch.checkpoint_id
                 cur_cp = uow_disp.connection.execute(
@@ -684,6 +712,21 @@ class PlanExecutionCoordinator:
 
             try:
                 engine_res = matching_binding.port_instance.execute_task(req)
+                eng_task_id = None
+                if isinstance(engine_res.result_payload, dict):
+                    rcpt = engine_res.result_payload.get("engine_execution_receipt")
+                    if isinstance(rcpt, dict) and rcpt.get("engine_task_id"):
+                        eng_task_id = rcpt["engine_task_id"]
+                    elif engine_res.result_payload.get("task_id"):
+                        eng_task_id = engine_res.result_payload["task_id"]
+                    elif engine_res.result_payload.get("runtime_task_id"):
+                        eng_task_id = engine_res.result_payload["runtime_task_id"]
+                if eng_task_id:
+                    with uow_factory() as uow_task:
+                        uow_task.connection.execute(
+                            "UPDATE node_executions SET current_engine_task_id = ? WHERE node_execution_id = ?",
+                            (eng_task_id, node_to_dispatch.node_execution_id)
+                        )
             except Exception as dispatch_exc:
                 err_code = "ENGINE_DISPATCH_ERROR"
                 err_msg = f"Engine port {matching_binding.binding_id!r} failed during task execution: {dispatch_exc}"

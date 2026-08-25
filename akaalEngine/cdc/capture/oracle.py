@@ -53,18 +53,37 @@ class OracleCDCSourceAdapter(ICDCSourceAdapter):
 
     def validate_prerequisites(self, source_config: Dict[str, Any]) -> Dict[str, Any]:
         archivelog = source_config.get("archivelog", True)
-        if not archivelog and not source_config.get("mock_mode"):
+        if not archivelog:
             raise CDCPermissionError("Oracle prerequisite check failed: ARCHIVELOG mode must be enabled")
         return {"archivelog": "ENABLED", "status": "VALIDATED"}
 
     def start_capture(self, start_position: Optional[CDCSourcePosition] = None) -> None:
+        conn = self.params.get("connection") or self.params.get("raw_connection") or self.params.get("stream_handle")
+        if not conn and not self.params.get("event_stream"):
+            from akaalEngine.cdc.models.errors import CDCCapabilityError
+            raise CDCCapabilityError("Oracle LogMiner CDC physical stream cannot start: No physical database connection handle or stream reader provided in connection_params.")
         if isinstance(start_position, OracleSCNPosition):
             self.current_scn = start_position.scn
+        self.stream_handle = conn
         self.is_active = True
 
     def fetch_events(self, max_events: int = 1000) -> List[ChangeEvent]:
         if not self.is_active:
             return []
+        if getattr(self, "event_stream", None):
+            evs = self.event_stream[:max_events]
+            self.event_stream = self.event_stream[max_events:]
+            return evs
+        handle = getattr(self, "stream_handle", None) or self.params.get("connection") or self.params.get("raw_connection")
+        if not handle:
+            from akaalEngine.cdc.models.errors import CDCCapabilityError
+            raise CDCCapabilityError("Oracle LogMiner CDC physical stream reader is not connected.")
+        if hasattr(handle, "fetch_events"):
+            return handle.fetch_events(max_events)
+        elif hasattr(handle, "read_events"):
+            return handle.read_events(max_events)
+        elif hasattr(handle, "read"):
+            return handle.read(max_events)
         return []
 
     def get_current_position(self) -> CDCSourcePosition:

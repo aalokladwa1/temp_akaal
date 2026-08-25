@@ -51,6 +51,7 @@ class MigrationCheckpointRegistry:
             "job_id": checkpoint.job_id,
             "fencing_epoch": checkpoint.fencing_epoch,
             "status": checkpoint.status,
+            "endpoint_identity": getattr(checkpoint, "endpoint_identity", None) or checkpoint.metadata.get("endpoint_identity"),
             "table_checkpoints": {
                 name: {
                     "table_name": tbl.table_name,
@@ -79,7 +80,7 @@ class MigrationCheckpointRegistry:
                 if own_tx:
                     use_conn.execute("BEGIN IMMEDIATE;")
 
-                if token.resource_id != checkpoint.migration_id:
+                if token.resource_id != checkpoint.migration_id and not token.resource_id.startswith(f"{checkpoint.migration_id}/"):
                     raise FencingViolationError(
                         f"Fencing violation: token resource_id '{token.resource_id}' does not match checkpoint migration_id '{checkpoint.migration_id}'."
                     )
@@ -131,6 +132,51 @@ class MigrationCheckpointRegistry:
             "SELECT migration_id, job_id, status, fencing_epoch, checkpoint_json, checksum, updated_at FROM checkpoints WHERE migration_id = ?;",
             (migration_id,)
         )
+        row = cursor.fetchone()
+        if not row:
+            return None
+
+        chk_dict = json.loads(row["checkpoint_json"])
+        StateIntegritySanitizer.verify_dict_checksum(chk_dict, row["checksum"])
+
+        tables = {}
+        for name, tbl_dict in chk_dict.get("table_checkpoints", {}).items():
+            pos = RowPositionTracker.from_dict(tbl_dict["last_position"]) if tbl_dict.get("last_position") else None
+            tables[name] = TableCheckpoint(
+                table_name=tbl_dict["table_name"],
+                schema_name=tbl_dict["schema_name"],
+                status=tbl_dict["status"],
+                rows_processed=tbl_dict.get("rows_processed", 0),
+                bytes_processed=tbl_dict.get("bytes_processed", 0),
+                last_position=pos,
+                partition_id=tbl_dict.get("partition_id"),
+                updated_at=tbl_dict.get("updated_at"),
+            )
+
+        return MigrationCheckpoint(
+            migration_id=row["migration_id"],
+            job_id=row["job_id"],
+            fencing_epoch=row["fencing_epoch"],
+            status=row["status"],
+            table_checkpoints=tables,
+            metadata=chk_dict.get("metadata", {}),
+            updated_at=row["updated_at"],
+            checksum=row["checksum"],
+        )
+
+    def get_checkpoint(self, checkpoint_id: str, migration_id: Optional[str] = None, run_id: Optional[str] = None, conn: Optional[sqlite3.Connection] = None) -> Optional[MigrationCheckpoint]:
+        """Retrieves exact checkpoint by checkpoint_id / job_id with optional migration filter."""
+        use_conn = conn or self.backend._get_connection()
+        if migration_id:
+            cursor = use_conn.execute(
+                "SELECT migration_id, job_id, status, fencing_epoch, checkpoint_json, checksum, updated_at FROM checkpoints WHERE job_id = ? AND migration_id = ?;",
+                (checkpoint_id, migration_id)
+            )
+        else:
+            cursor = use_conn.execute(
+                "SELECT migration_id, job_id, status, fencing_epoch, checkpoint_json, checksum, updated_at FROM checkpoints WHERE job_id = ?;",
+                (checkpoint_id,)
+            )
         row = cursor.fetchone()
         if not row:
             return None

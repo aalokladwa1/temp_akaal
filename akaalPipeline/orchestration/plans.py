@@ -86,19 +86,31 @@ class ExecutionPlan:
     nodes: List[GraphNode]
     edges: List[GraphEdge]
     fingerprint: str
+    configuration: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "nodes", tuple(self.nodes))
         object.__setattr__(self, "edges", tuple(self.edges))
+        object.__setattr__(self, "configuration", deep_freeze(self.configuration))
 
     @classmethod
-    def create(cls, plan_id: str, migration_id: str, mode: MigrationMode, nodes: List[GraphNode], edges: List[GraphEdge]) -> ExecutionPlan:
+    def create(
+        cls,
+        plan_id: str,
+        migration_id: str,
+        mode: MigrationMode,
+        nodes: List[GraphNode],
+        edges: List[GraphEdge],
+        configuration: Optional[Mapping[str, Any]] = None,
+    ) -> ExecutionPlan:
+        cfg = dict(configuration) if configuration else {}
         content = {
             "plan_id": plan_id,
             "migration_id": migration_id,
             "mode": mode.value,
             "nodes": [n.to_dict() for n in nodes],
             "edges": [e.to_dict() for e in edges],
+            "configuration": cfg,
         }
         fp = canonical_fingerprint(content)
         return cls(
@@ -108,8 +120,8 @@ class ExecutionPlan:
             nodes=nodes,
             edges=edges,
             fingerprint=fp,
+            configuration=cfg,
         )
-
 
     def to_dict(self) -> dict:
         return {
@@ -119,6 +131,7 @@ class ExecutionPlan:
             "nodes": [n.to_dict() for n in self.nodes],
             "edges": [e.to_dict() for e in self.edges],
             "fingerprint": self.fingerprint,
+            "configuration": dict(self.configuration),
         }
 
     @classmethod
@@ -132,6 +145,7 @@ class ExecutionPlan:
             nodes=nodes,
             edges=edges,
             fingerprint=data["fingerprint"],
+            configuration=data.get("configuration", {}),
         )
 
 
@@ -198,6 +212,7 @@ class NodeExecutionRecord:
     state: NodeExecutionState
     current_attempt_id: Optional[str] = None
     current_invocation_id: Optional[str] = None
+    current_engine_task_id: Optional[str] = None
     binding_id: Optional[str] = None
     contract_version: Optional[str] = None
     lease_id: Optional[str] = None
@@ -219,6 +234,7 @@ class NodeExecutionRecord:
             "state": self.state.value,
             "current_attempt_id": self.current_attempt_id,
             "current_invocation_id": self.current_invocation_id,
+            "current_engine_task_id": self.current_engine_task_id,
             "binding_id": self.binding_id,
             "contract_version": self.contract_version,
             "lease_id": self.lease_id,
@@ -242,6 +258,7 @@ class NodeExecutionRecord:
             state=NodeExecutionState(data["state"]),
             current_attempt_id=data.get("current_attempt_id"),
             current_invocation_id=data.get("current_invocation_id"),
+            current_engine_task_id=data.get("current_engine_task_id"),
             binding_id=data.get("binding_id"),
             contract_version=data.get("contract_version"),
             lease_id=data.get("lease_id"),

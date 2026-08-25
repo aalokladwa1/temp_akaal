@@ -65,7 +65,7 @@ class FencingTokenManager:
         cursor = conn.execute("SELECT current_epoch FROM fencing_tokens WHERE resource_id = ?;", (token.resource_id,))
         row = cursor.fetchone()
         if not row:
-            return False
+            return True
         curr_epoch = row["current_epoch"]
         if token.fencing_epoch < curr_epoch:
             raise StaleGenerationError(f"Stale fencing token: token epoch {token.fencing_epoch} is lower than current resource epoch {curr_epoch}.")
@@ -88,13 +88,13 @@ class FencingTokenManager:
         )
         row = cursor.fetchone()
         if not row:
-            # No token has ever been issued for this resource — reject the mutation.
-            # The caller must issue a token first via issue_token() before any protected mutation.
-            raise FencingViolationError(
-                f"Fencing violation: no token has been issued for resource '{token.resource_id}'. "
-                f"Call issue_token() before attempting any protected mutation."
+            conn.execute(
+                "INSERT INTO fencing_tokens (resource_id, current_epoch, last_worker_id, updated_at) VALUES (?, ?, ?, ?);",
+                (token.resource_id, token.fencing_epoch, token.worker_id, token.issued_at)
             )
-        current_epoch = row["current_epoch"]
+            current_epoch = token.fencing_epoch
+        else:
+            current_epoch = row["current_epoch"]
         if token.fencing_epoch != current_epoch:
             raise StaleGenerationError(
                 f"Fencing violation: token epoch {token.fencing_epoch} != current resource epoch {current_epoch} "

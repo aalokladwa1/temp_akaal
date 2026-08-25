@@ -120,7 +120,13 @@ class PipelineExecutionController:
             fence_epoch=lease.fence_epoch,
             graph_node_id=graph_node_id,
             initialization_fingerprint=initialization_fingerprint,
-            payload={"migration_id": migration_id, "mode": mode.value},
+            payload={
+                "migration_id": migration_id,
+                "mode": mode.value,
+                "capability_contract": target_capability,
+                "capability_id": target_capability,
+                "graph_node_id": graph_node_id,
+            },
             timeout_seconds=timeout_seconds,
         )
 

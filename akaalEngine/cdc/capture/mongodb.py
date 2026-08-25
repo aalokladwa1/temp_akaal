@@ -55,14 +55,32 @@ class MongoDBCDCSourceAdapter(ICDCSourceAdapter):
         return {"replica_set": "ENABLED", "status": "VALIDATED"}
 
     def start_capture(self, start_position: Optional[CDCSourcePosition] = None) -> None:
-        if isinstance(start_position, MongoDBOpLogPosition):
-            self.timestamp_sec = start_position.timestamp_sec
-            self.inc = start_position.inc
+        conn = self.params.get("connection") or self.params.get("raw_connection") or self.params.get("stream_handle")
+        if not conn and not self.params.get("event_stream"):
+            from akaalEngine.cdc.models.errors import CDCCapabilityError
+            raise CDCCapabilityError("MongoDB Change Stream physical oplog reader cannot start: No physical database connection handle or stream reader provided in connection_params.")
+        if isinstance(start_position, MongoResumeTokenPosition):
+            self.resume_token = start_position.resume_token
+        self.stream_handle = conn
         self.is_active = True
 
     def fetch_events(self, max_events: int = 1000) -> List[ChangeEvent]:
         if not self.is_active:
             return []
+        if getattr(self, "event_stream", None):
+            evs = self.event_stream[:max_events]
+            self.event_stream = self.event_stream[max_events:]
+            return evs
+        handle = getattr(self, "stream_handle", None) or self.params.get("connection") or self.params.get("raw_connection")
+        if not handle:
+            from akaalEngine.cdc.models.errors import CDCCapabilityError
+            raise CDCCapabilityError("MongoDB Change Stream physical oplog reader is not connected.")
+        if hasattr(handle, "fetch_events"):
+            return handle.fetch_events(max_events)
+        elif hasattr(handle, "read_events"):
+            return handle.read_events(max_events)
+        elif hasattr(handle, "read"):
+            return handle.read(max_events)
         return []
 
     def get_current_position(self) -> CDCSourcePosition:

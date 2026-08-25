@@ -71,6 +71,7 @@ class CDCAuthority:
         telemetry_authority: Optional[Any] = None,
         data_processing_authority: Optional[Any] = None,
         transport_authority: Optional[Any] = None,
+        active_adapter: Optional[Any] = None,
         capture_poll_interval_ms: int = 100,
         max_events_per_fetch: int = 1000,
         max_fetch_bytes_sec: int = 10 * 1024 * 1024,
@@ -81,6 +82,7 @@ class CDCAuthority:
         self.telemetry_authority = telemetry_authority
         self.data_processing_authority = data_processing_authority
         self.transport_authority = transport_authority
+        self.active_adapter = active_adapter
 
         self.capture_poll_interval_ms = capture_poll_interval_ms
         self.max_events_per_fetch = max_events_per_fetch
@@ -158,8 +160,13 @@ class CDCAuthority:
             if is_cancelled:
                 raise CDCCancelledError("CDC operation cancelled by Runtime Authority (#6) CancellationToken")
 
-        if fencing_token and self.durability_authority and hasattr(self.durability_authority, "verify_fencing_token"):
-            valid = self.durability_authority.verify_fencing_token(fencing_token)
+        if fencing_token and self.durability_authority:
+            valid = True
+            if hasattr(self.durability_authority, "validate_fencing_token"):
+                valid = self.durability_authority.validate_fencing_token(fencing_token)
+            elif hasattr(self.durability_authority, "verify_fencing_token"):
+                valid = self.durability_authority.verify_fencing_token(fencing_token)
+
             if not valid:
                 raise CDCFencingError("Stale or invalid fencing token rejected by Durability Authority (#5)")
 
@@ -182,6 +189,140 @@ class CDCAuthority:
         self.is_cdc_paused = False
         logger.info("Schema coordination complete. CDC Stream RESUMED.")
         return True
+
+    # --- Physical Stream Initialization, Event Capture/Apply & Cutover ---
+    def set_active_adapter(self, adapter: Any) -> None:
+        """Connects a physical CDC provider capture/apply adapter."""
+        with self._lock:
+            self.active_adapter = adapter
+
+    def initialize_stream(self, migration_id: str = "default", starting_position: Optional[CDCSourcePosition] = None) -> CDCSnapshot:
+        """Initializes CDC replication stream via active provider adapter."""
+        with self._lock:
+            self.is_cdc_paused = False
+            if self.active_adapter and hasattr(self.active_adapter, "initialize_stream"):
+                self.active_adapter.initialize_stream(migration_id)
+            elif self.active_adapter and hasattr(self.active_adapter, "start_stream"):
+                self.active_adapter.start_stream(migration_id)
+            elif self.active_adapter and hasattr(self.active_adapter, "get_current_position") and self.handshake_engine:
+                pos = starting_position or self.active_adapter.get_current_position()
+                self.handshake_engine.establish_handshake_boundary(pos)
+            else:
+                from akaalEngine.cdc.models.errors import CDCCapabilityError
+                raise CDCCapabilityError(f"No physical CDC provider adapter connected to initialize stream for migration '{migration_id}'.")
+
+            from akaalEngine.cdc.models.cutover import CutoverState
+            self.cutover_coordinator.transition_to(CutoverState.CAPTURE_STARTING)
+            logger.info(f"[CDCAuthority] Initialized physical CDC stream for migration '{migration_id}'.")
+            return self.get_snapshot()
+
+    def start_capture(self) -> CDCSnapshot:
+        """Starts physical change event capture loop via provider adapter."""
+        with self._lock:
+            self.is_cdc_paused = False
+            if self.active_adapter and hasattr(self.active_adapter, "start_capture"):
+                self.active_adapter.start_capture()
+            elif self.active_adapter and hasattr(self.active_adapter, "resume_capture"):
+                self.active_adapter.resume_capture()
+            elif not self.active_adapter:
+                from akaalEngine.cdc.models.errors import CDCCapabilityError
+                raise CDCCapabilityError("No physical CDC provider adapter connected to start event capture.")
+
+            from akaalEngine.cdc.models.cutover import CutoverState
+            self.cutover_coordinator.transition_to(CutoverState.SNAPSHOT_RUNNING)
+            logger.info("[CDCAuthority] Physical CDC event capture started.")
+            return self.get_snapshot()
+
+    def fetch_events(self, max_events: int = 1000) -> List[ChangeEvent]:
+        """Fetches active change events from physical provider adapter into backlog buffer."""
+        with self._lock:
+            if self.is_cdc_paused:
+                return []
+
+            if self.active_adapter and hasattr(self.active_adapter, "fetch_events"):
+                adapter_events = self.active_adapter.fetch_events(max_events=max_events)
+                for evt in adapter_events:
+                    self.backlog_buffer.append(evt)
+                    if hasattr(evt, "tx_id") and evt.tx_id:
+                        self.tx_engine.ingest_event(evt)
+            elif self.active_adapter and hasattr(self.active_adapter, "poll_events"):
+                adapter_events = self.active_adapter.poll_events(max_events=max_events)
+                for evt in adapter_events:
+                    self.backlog_buffer.append(evt)
+                    if hasattr(evt, "tx_id") and evt.tx_id:
+                        self.tx_engine.ingest_event(evt)
+            elif len(self.backlog_buffer._queue) == 0:
+                from akaalEngine.cdc.models.errors import CDCCapabilityError
+                raise CDCCapabilityError("No active physical CDC provider adapter connected to fetch events.")
+
+            fetched: List[ChangeEvent] = []
+            while len(fetched) < max_events and len(self.backlog_buffer._queue) > 0:
+                fetched.append(self.backlog_buffer._queue.popleft())
+            self.events_captured_total += len(fetched)
+            return self.enforce_capture_budget(fetched)
+
+    def apply_events(self, events: List[ChangeEvent]) -> int:
+        """Applies change events physically to target endpoint via provider adapter or transport authority."""
+        with self._lock:
+            if not events:
+                return 0
+
+            applied = False
+            if self.active_adapter and hasattr(self.active_adapter, "apply_events"):
+                self.active_adapter.apply_events(events)
+                applied = True
+            elif self.transport_authority and hasattr(self.transport_authority, "write_batch"):
+                self.transport_authority.write_batch(events)
+                applied = True
+
+            if not applied:
+                from akaalEngine.cdc.models.errors import CDCCapabilityError
+                raise CDCCapabilityError("No physical target writer or transport authority connected to execute CDC event apply.")
+
+            for evt in events:
+                if self.data_processing_authority and hasattr(self.data_processing_authority, "transform_event"):
+                    self.data_processing_authority.transform_event(evt)
+                if hasattr(evt, "tx_id") and evt.tx_id:
+                    self.tx_engine.commit_transaction(evt.tx_id)
+
+            self.events_applied_total += len(events)
+            self.record_telemetry_metrics()
+            return len(events)
+
+    def evaluate_cutover_readiness(self) -> Dict[str, Any]:
+        """Evaluates replication lag convergence state and technical cutover readiness."""
+        with self._lock:
+            from akaalEngine.cdc.models.cutover import CutoverState
+            is_ready = (
+                self.cutover_coordinator.state == CutoverState.TECHNICAL_CUTOVER_READY
+                and self.barrier_engine.barrier_reached
+                and self.backlog_buffer.get_backlog_stats()["backlog_events"] == 0
+            )
+            return {
+                "is_ready": is_ready,
+                "technical_cutover_ready": is_ready,
+                "cutover_state": self.cutover_coordinator.state.value,
+                "replication_lag_seconds": self.replication_lag_seconds,
+            }
+
+    def execute_atomic_cutover(self, cdc_boundary_position: str = "0/200") -> CDCSnapshot:
+        """Executes atomic technical cutover state transition via physical provider adapter."""
+        with self._lock:
+            readiness = self.evaluate_cutover_readiness()
+            if not readiness["is_ready"]:
+                from akaalEngine.cdc.models.errors import CDCCutoverNotReadyError
+                raise CDCCutoverNotReadyError(
+                    f"Atomic cutover rejected: CDC stream not ready for cutover. Cutover state: {self.cutover_coordinator.state.value}, lag: {self.replication_lag_seconds}s"
+                )
+            if not self.active_adapter or not hasattr(self.active_adapter, "execute_cutover"):
+                from akaalEngine.cdc.models.errors import CDCCutoverNotReadyError
+                raise CDCCutoverNotReadyError("Atomic cutover requires an active physical provider adapter with execute_cutover() capability.")
+
+            self.active_adapter.execute_cutover(cdc_boundary_position)
+            from akaalEngine.cdc.models.cutover import CutoverState
+            self.cutover_coordinator.transition_to(CutoverState.CUTOVER_COMPLETE)
+            logger.info(f"[CDCAuthority] Executed physical atomic cutover at boundary position '{cdc_boundary_position}'.")
+            return self.get_snapshot()
 
     def record_telemetry_metrics(self) -> None:
         """Physical integration with Authority #7 Telemetry metrics registry."""
@@ -222,38 +363,59 @@ class CDCAuthority:
         with self._lock:
             self.record_telemetry_metrics()
             stats = self.backlog_buffer.get_backlog_stats()
+            adapter_handle = None
+            pos_str = None
+            capture_strategy = None
+            apply_strategy = None
+            if self.active_adapter:
+                raw_h = getattr(self.active_adapter, "stream_handle", getattr(self.active_adapter, "slot_name", getattr(self.active_adapter, "stream_id", None)))
+                if raw_h is not None:
+                    adapter_handle = getattr(raw_h, "name", str(raw_h))
+                if hasattr(self.active_adapter, "get_current_position"):
+                    pos = self.active_adapter.get_current_position()
+                    pos_str = getattr(pos, "position_str", str(pos) if pos else None)
+                capture_strategy = getattr(self.active_adapter, "capture_strategy", getattr(self.active_adapter, "strategy_name", None))
+                apply_strategy = getattr(self.active_adapter, "apply_strategy", None)
+
+            retention_status = self.retention_monitor.assess_retention(self.active_adapter) if self.active_adapter else None
+            retention_state = retention_status.state.value if retention_status else RetentionState.HEALTHY.value
+            retention_remaining = retention_status.remaining_seconds if retention_status else 0.0
+
+            barrier_pos = getattr(self.barrier_engine, "barrier_position", None) or pos_str
+
             metrics = {
+                "stream_handle": adapter_handle,
                 "capture_state": "PAUSED" if self.is_cdc_paused else "RUNNING",
                 "apply_state": "RUNNING",
                 "cutover_state": self.cutover_coordinator.state.value,
                 "migration_mode": "ONLINE_NATIVE_CDC",
                 "handshake_mode": "CONSISTENT_SNAPSHOT_WITH_LOG_POSITION",
-                "source_position": "0/10000",
-                "durable_capture_position": "0/10000",
-                "target_applied_position": "0/10000",
-                "barrier_position": "0/10000",
+                "source_position": pos_str,
+                "durable_capture_position": pos_str,
+                "target_applied_position": pos_str,
+                "barrier_position": barrier_pos,
                 "events_captured_total": self.events_captured_total,
                 "events_applied_total": self.events_applied_total,
                 "events_deduplicated_total": self.events_deduplicated_total,
                 "events_failed_total": 0,
                 "backlog_events": stats["backlog_events"],
                 "backlog_bytes": stats["backlog_bytes"],
-                "source_change_rate_events_sec": 100.0,
-                "source_change_rate_bytes_sec": 10240.0,
-                "target_apply_rate_events_sec": 150.0,
-                "target_apply_rate_bytes_sec": 15360.0,
+                "source_change_rate_events_sec": float(self.events_captured_total),
+                "source_change_rate_bytes_sec": float(stats["backlog_bytes"]),
+                "target_apply_rate_events_sec": float(self.events_applied_total),
+                "target_apply_rate_bytes_sec": 0.0,
                 "replication_lag_seconds": self.replication_lag_seconds,
-                "convergence": ConvergenceState.CONVERGING.value,
-                "retention_state": RetentionState.HEALTHY.value,
-                "retention_remaining_sec": 86400.0,
+                "convergence": ConvergenceState.CONVERGING.value if self.replication_lag_seconds > 0 else ConvergenceState.STABLE.value,
+                "retention_state": retention_state,
+                "retention_remaining_sec": retention_remaining,
                 "open_transactions": len(self.tx_engine._active_txs),
                 "spilled_transactions": stats["spilled_count"],
                 "ambiguous_commit_count": self.ambiguous_commit_count,
                 "synchronization_barrier_reached": self.barrier_engine.barrier_reached,
                 "technical_cutover_ready": self.cutover_coordinator.state == CutoverState.TECHNICAL_CUTOVER_READY,
-                "estimated_cutover_downtime_sec": 5.0,
-                "selected_capture_strategy": "LOGICAL_REPLICATION_SLOT",
-                "selected_apply_strategy": "VECTOR_BULK_UPSERT",
+                "estimated_cutover_downtime_sec": getattr(self.cutover_coordinator, "estimated_downtime_sec", 0.0),
+                "selected_capture_strategy": capture_strategy,
+                "selected_apply_strategy": apply_strategy,
                 "delivery_semantics": DeliverySemantics.AT_LEAST_ONCE.value,
             }
             return CDCSnapshot(metrics)

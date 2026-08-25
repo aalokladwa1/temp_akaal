@@ -22,6 +22,7 @@ from akaalPipeline.operations.leases import LeaseManager
 from akaalPipeline.operations.models import OperationRecord
 from akaalPipeline.operations.service import OperationService
 from akaalPipeline.recovery.checkpoints import CheckpointManager
+from akaalPipeline.ports.engine import EngineInvocationRequest, ExecutionPort
 from akaalPipeline.security.context import PipelineActorContext
 from akaalPipeline.state.aggregates import MigrationAggregate
 from akaalPipeline.state.history import LifecycleHistoryRecord
@@ -83,9 +84,9 @@ class CommandHandlerRegistry:
             name=name,
             mode=mode,
             state=MigrationLifecycleState.DRAFT,
-            tenant_id=actor.organization_id,
-            workspace_id=actor.workspace_id,
-            project_id=actor.project_id,
+            tenant_id=actor.organization_id or "default-tenant",
+            workspace_id=actor.workspace_id or "default-workspace",
+            project_id=actor.project_id or "default-project",
             lineage=LineageTracker.root(),
         )
 
@@ -208,9 +209,105 @@ class CommandHandlerRegistry:
 
         # Invalidate active execution attempt and advance fence epoch
         cancelled_attempt_id = agg.active_attempt_id
+        cancel_epoch = 1
+        cancel_env = None
         if cancelled_attempt_id:
+            lease = self.execution_controller.lease_manager.get_lease(cancelled_attempt_id, uow.connection)
+            if lease:
+                cancel_epoch = lease.fence_epoch
             self.execution_controller.lease_manager.revoke_lease(cancelled_attempt_id, uow.connection)
             agg.active_attempt_id = None
+
+        # Step 1: Mark state CANCELLATION_PENDING during active runtime task termination
+        old_state = agg.state.value
+        agg.state = MigrationLifecycleState.CANCELLATION_PENDING
+        agg.revision += 1
+        self.repository.save(agg, connection=uow.connection)
+
+        # Step 2: Retrieve all actively running/dispatched Engine tasks
+        cur_running = uow.connection.execute(
+            "SELECT node_execution_id, current_engine_task_id, binding_id, state FROM node_executions WHERE migration_id = ? AND state IN ('RUNNING', 'DISPATCHED')",
+            (migration_id,),
+        )
+        running_nodes = cur_running.fetchall()
+        task_ids = [r["current_engine_task_id"] for r in running_nodes if r and r["current_engine_task_id"]]
+
+        binding = self.execution_controller.binding_registry.get("gateway_engine_binding")
+        if not binding:
+            for b in self.execution_controller.binding_registry.list_all():
+                if isinstance(getattr(b, "port_instance", None), ExecutionPort):
+                    binding = b
+                    break
+
+        cancellation_confirmed = True
+        if running_nodes:
+            # Running nodes without persisted engine task IDs cannot be authoritatively confirmed cancelled on Engine
+            if len(task_ids) < len(running_nodes) or not binding:
+                cancellation_confirmed = False
+
+            if task_ids and binding and isinstance(binding.port_instance, ExecutionPort):
+                # Acquire authenticated cancellation fencing envelope via ExecutionPort
+                fence_req = EngineInvocationRequest(
+                    contract_version="1.0.0",
+                    binding_id=binding.binding_id,
+                    correlation_id=f"cancel-fence-{migration_id}",
+                    operation_id=f"cancel-fence-op-{uuid.uuid4().hex}",
+                    attempt_id=cancelled_attempt_id or f"att-cancel-{uuid.uuid4().hex}",
+                    invocation_id=f"inv-cancel-fence-{uuid.uuid4().hex}",
+                    lease_id=f"lease-cancel-{uuid.uuid4().hex}",
+                    fence_epoch=cancel_epoch,
+                    graph_node_id="n-cancel",
+                    initialization_fingerprint="fp-cancel",
+                    payload={
+                        "migration_id": migration_id,
+                        "semantic_operation": "ACQUIRE_EXECUTION_FENCE",
+                        "worker_id": "cancel_controller",
+                        "run_id": cancelled_attempt_id,
+                    },
+                )
+                try:
+                    fence_res = binding.port_instance.execute_task(fence_req)
+                    if fence_res.is_success and isinstance(fence_res.result_payload, dict):
+                        cancel_env = fence_res.result_payload.get("fencing_token_envelope")
+                        if isinstance(cancel_env, dict):
+                            env_epoch = cancel_env.get("fencing_epoch") or cancel_env.get("epoch")
+                            if env_epoch is not None:
+                                cancel_epoch = int(env_epoch)
+                except Exception as fence_exc:
+                    logger.warning("Failed to acquire cancellation fence envelope via ExecutionPort: %s", fence_exc)
+
+                if not cancel_env:
+                    cancellation_confirmed = False
+
+                for t_id in task_ids:
+                    cancel_req = EngineInvocationRequest(
+                        contract_version="1.0.0",
+                        binding_id=binding.binding_id,
+                        correlation_id=f"cancel-{migration_id}",
+                        operation_id=f"cancel-op-{uuid.uuid4().hex}",
+                        attempt_id=cancelled_attempt_id or f"att-cancel-{uuid.uuid4().hex}",
+                        invocation_id=f"inv-cancel-{uuid.uuid4().hex}",
+                        lease_id=f"lease-cancel-{uuid.uuid4().hex}",
+                        fence_epoch=cancel_epoch,
+                        fencing_token_envelope=cancel_env,
+                        graph_node_id="n-cancel",
+                        initialization_fingerprint="fp-cancel",
+                        payload={
+                            "migration_id": migration_id,
+                            "semantic_operation": "CANCEL_EXECUTION",
+                            "task_id": t_id,
+                            "run_id": cancelled_attempt_id,
+                        },
+                    )
+                    try:
+                        c_res = binding.port_instance.execute_task(cancel_req)
+                        c_res_payload = c_res.result_payload if isinstance(c_res.result_payload, dict) else {}
+                        if not c_res.is_success or c_res_payload.get("terminal") is not True:
+                            if c_res.error_code not in ("TASK_NOT_FOUND", "ALREADY_CANCELLED", "TASK_NOT_RUNNING"):
+                                cancellation_confirmed = False
+                    except Exception as exc:
+                        logger.warning("Physical EngineGateway cancellation dispatch failed for task %s on migration %s: %s", t_id, migration_id, exc)
+                        cancellation_confirmed = False
 
         # Cancel any active plan executions and non-terminal node executions
         if self.plan_coordinator is not None:
@@ -225,9 +322,20 @@ class CommandHandlerRegistry:
                     actor,
                     uow.connection,
                 )
+        else:
+            uow.connection.execute(
+                "UPDATE node_executions SET state = 'CANCELLED' WHERE migration_id = ? AND state IN ('ACCEPTED', 'RUNNING', 'DISPATCHED', 'READY', 'BLOCKED')",
+                (migration_id,),
+            )
+            uow.connection.execute(
+                "UPDATE plan_executions SET status = 'CANCELLED' WHERE migration_id = ? AND status IN ('ACCEPTED', 'RUNNING')",
+                (migration_id,),
+            )
 
-        old_state = agg.state.value
-        agg.state = MigrationLifecycleState.CANCELLED
+        if cancellation_confirmed:
+            agg.state = MigrationLifecycleState.CANCELLED
+        else:
+            agg.state = MigrationLifecycleState.CANCELLATION_PENDING
         agg.revision += 1
         self.repository.save(agg, connection=uow.connection)
 
@@ -235,7 +343,7 @@ class CommandHandlerRegistry:
             history_id=f"hist-{uuid.uuid4().hex}",
             migration_id=migration_id,
             from_state=old_state,
-            to_state=MigrationLifecycleState.CANCELLED.value,
+            to_state=agg.state.value,
             actor=actor,
             reason=payload.get("reason", "Migration cancelled by user"),
         )
@@ -256,13 +364,14 @@ class CommandHandlerRegistry:
             ),
         )
 
+        event_name = "migration.cancelled" if agg.state == MigrationLifecycleState.CANCELLED else "migration.cancellation_pending"
         evt = DomainEvent.create(
             migration_id,
-            "migration.cancelled",
-            {"migration_id": migration_id, "cancelled_attempt_id": cancelled_attempt_id, "reason": hist.reason},
+            event_name,
+            {"migration_id": migration_id, "cancelled_attempt_id": cancelled_attempt_id, "reason": hist.reason, "state": agg.state.value},
         )
         self.outbox_service.stage_event(evt, uow.connection)
-        self.audit_service.record_event(actor, "migration.cancelled", migration_id, uow.connection)
+        self.audit_service.record_event(actor, event_name, migration_id, uow.connection)
 
         return agg.to_dict()
 

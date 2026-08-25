@@ -151,9 +151,20 @@ class FileSourceReader(SourceReader):
 class FileTargetWriter(TargetWriter):
     """FileTargetWriter writing CSV or JSONL files."""
 
-    def __init__(self, file_path: str, format_type: str = "CSV"):
+    def __init__(
+        self,
+        file_path: str,
+        format_type: str = "CSV",
+        migration_id: Optional[str] = None,
+        batch_id: Optional[str] = None,
+    ):
+        super().__init__(migration_id=migration_id, batch_id=batch_id, endpoint_identity=file_path)
         self.file_path = file_path
-        self.format_type = format_type.upper()
+        fmt = (format_type or "CSV").upper()
+        if fmt not in ("CSV", "JSONL"):
+            from akaalEngine.transport.models.errors import TransportCapabilityError
+            raise TransportCapabilityError(f"FileTargetWriter format '{format_type}' is not supported. Only 'CSV' and 'JSONL' formats are supported.")
+        self.format_type = fmt
         self.file_handle = open(self.file_path, "w", encoding="utf-8", newline="")
         self.writer = None
 
@@ -200,14 +211,15 @@ class FileTargetWriter(TargetWriter):
         pk_columns: None,
         batch: TransportBatch,
     ) -> CommitOutcomeState:
-        return CommitOutcomeState.COMMITTED
+        return CommitOutcomeState.UNKNOWN_COMMIT_OUTCOME
 
     def commit(self) -> None:
         if self.file_handle:
             self.file_handle.flush()
 
     def rollback(self) -> None:
-        pass
+        from akaalEngine.transport.models.errors import TransportCapabilityError
+        raise TransportCapabilityError("FileTargetWriter does not support physical transaction rollback for file target endpoint.")
 
     def cancel(self) -> None:
         pass

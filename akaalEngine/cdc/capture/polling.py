@@ -63,6 +63,15 @@ class IncrementalPollingCDCAdapter(ICDCSourceAdapter):
         self.is_active = True
 
     def fetch_events(self, max_events: int = 1000) -> List[ChangeEvent]:
+        if not self.is_active:
+            return []
+        if getattr(self, "event_stream", None):
+            evs = self.event_stream[:max_events]
+            self.event_stream = self.event_stream[max_events:]
+            return evs
+        if not getattr(self, "physical_stream_connected", False):
+            from akaalEngine.cdc.models.errors import CDCCapabilityError
+            raise CDCCapabilityError(f"Incremental polling query runner for {self.table_name} is not connected.")
         return []
 
     def get_current_position(self) -> CDCSourcePosition:

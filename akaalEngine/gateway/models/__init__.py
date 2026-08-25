@@ -35,9 +35,19 @@ from akaalEngine.gateway.models.requests import (
     ValidateSchemaCompatibilityRequest,
     VerifyEvidenceRequest,
 )
+from akaalEngine.gateway.models.errors import (
+    GatewayAdmissionError,
+    GatewayConfigurationError,
+    GatewayError,
+    GatewaySecurityError,
+)
 from akaalEngine.gateway.models.responses import GatewayResponse
 
 __all__ = [
+    "GatewayError",
+    "GatewayConfigurationError",
+    "GatewaySecurityError",
+    "GatewayAdmissionError",
     "SemanticOperation",
     "GatewayFailureCategory",
     "GatewayRequestContext",

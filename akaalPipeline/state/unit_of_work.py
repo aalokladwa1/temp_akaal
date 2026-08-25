@@ -223,6 +223,7 @@ class SQLiteUnitOfWork(UnitOfWorkPort):
                 state TEXT NOT NULL,
                 current_attempt_id TEXT,
                 current_invocation_id TEXT,
+                current_engine_task_id TEXT,
                 binding_id TEXT,
                 contract_version TEXT,
                 lease_id TEXT,
@@ -236,6 +237,11 @@ class SQLiteUnitOfWork(UnitOfWorkPort):
             );
 
         """)
+
+        # Idempotent schema migration for existing databases
+        columns = [row[1] for row in conn.execute("PRAGMA table_info(node_executions);").fetchall()]
+        if "current_engine_task_id" not in columns:
+            conn.execute("ALTER TABLE node_executions ADD COLUMN current_engine_task_id TEXT;")
 
 
 

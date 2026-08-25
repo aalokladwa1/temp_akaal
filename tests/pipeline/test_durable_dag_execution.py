@@ -24,6 +24,8 @@ import uuid
 from typing import Any, Dict, List, Mapping, Optional
 import pytest
 
+from akaalEngine.gateway.models.responses import sign_receipt
+
 
 
 from akaalIPC.protocol.errors import IPCErrorCategory
@@ -69,6 +71,30 @@ class MultiNodeTrackingPort(ExecutionPort):
             raise RuntimeError(f"Engine crash on node {request.graph_node_id}")
 
         is_fail = request.graph_node_id in self.failure_nodes
+        from akaalEngine.gateway.models.responses import sign_receipt
+        mig_id = request.payload.get("migration_id", "mig-1") if isinstance(request.payload, Mapping) else "mig-1"
+        status_code = "SUCCESS" if not is_fail else "ERROR"
+        sig = sign_receipt(
+            migration_id=mig_id,
+            run_id=request.attempt_id,
+            operation_id=request.operation_id or f"op-{request.invocation_id}",
+            fencing_epoch=request.fence_epoch,
+            status_code=status_code,
+            initialization_fingerprint=request.initialization_fingerprint,
+            job_id=request.graph_node_id,
+        )
+        receipt = {
+            "gateway_migration_id": mig_id,
+            "gateway_run_id": request.attempt_id,
+            "gateway_operation_id": request.operation_id or f"op-{request.invocation_id}",
+            "gateway_job_id": request.graph_node_id,
+            "gateway_fencing_epoch": request.fence_epoch,
+            "graph_node_id": request.graph_node_id,
+            "initialization_fingerprint": request.initialization_fingerprint,
+            "gateway_status_code": status_code,
+            "receipt_signature": sig,
+        }
+        payload = {"node": request.graph_node_id, "processed": 100, "engine_execution_receipt": receipt} if not is_fail else {"engine_execution_receipt": receipt}
         return EngineInvocationResult(
             invocation_id=request.invocation_id,
             attempt_id=request.attempt_id,
@@ -79,7 +105,7 @@ class MultiNodeTrackingPort(ExecutionPort):
             graph_node_id=request.graph_node_id,
             binding_id=request.binding_id,
             contract_version=request.contract_version,
-            result_payload={"node": request.graph_node_id, "processed": 100} if not is_fail else {},
+            result_payload=payload,
             error_code="NODE_EXEC_ERR" if is_fail else None,
             error_message="Physical node task failure" if is_fail else None,
         )
@@ -173,7 +199,7 @@ def test_m1_multi_node_execution_sequence(temp_db_path, ipc_actor, ipc_correlati
 
 
 def test_m2_three_node_execution_sequence(temp_db_path, ipc_actor, ipc_correlation):
-    """M2 executes schema_prep -> data_transport -> cdc_sync in exact sequence."""
+    """M2 executes schema_prep -> cdc_start -> data_transport -> cdc_sync -> val_compare in exact sequence."""
     caller = PipelineUnifiedCaller(db_path=temp_db_path)
     port = MultiNodeTrackingPort()
     _register_universal_binding(caller, port)
@@ -188,8 +214,8 @@ def test_m2_three_node_execution_sequence(temp_db_path, ipc_actor, ipc_correlati
         )
     )
     assert res.status.value == "ACCEPTED"
-    assert len(port.invocations) == 3
-    assert port.invoked_nodes == ["n-schema-prep", "n-data-transport", "n-cdc-sync"]
+    assert len(port.invocations) == 5
+    assert port.invoked_nodes == ["n-schema-prep", "n-cdc-start", "n-data-transport", "n-cdc-sync", "n-val-compare"]
 
 
 def test_m3_two_node_cdc_sequence(temp_db_path, ipc_actor, ipc_correlation):
@@ -445,16 +471,16 @@ def test_each_node_acquires_distinct_attempt_lease_fence(temp_db_path, ipc_actor
         )
     )
     assert res.status.value == "ACCEPTED"
-    assert len(port.invocations) == 3
+    assert len(port.invocations) == 5
 
     # All attempt IDs and lease IDs must be distinct
     attempt_ids = [inv.attempt_id for inv in port.invocations]
     lease_ids = [inv.lease_id for inv in port.invocations]
     invocation_ids = [inv.invocation_id for inv in port.invocations]
 
-    assert len(set(attempt_ids)) == 3
-    assert len(set(lease_ids)) == 3
-    assert len(set(invocation_ids)) == 3
+    assert len(set(attempt_ids)) == 5
+    assert len(set(lease_ids)) == 5
+    assert len(set(invocation_ids)) == 5
 
     uow = SQLiteUnitOfWork(db_path=temp_db_path)
     with uow:
@@ -464,18 +490,22 @@ def test_each_node_acquires_distinct_attempt_lease_fence(temp_db_path, ipc_actor
         rows = cur.fetchall()
         db_attempts = [r["current_attempt_id"] for r in rows]
         db_leases = [r["lease_id"] for r in rows]
-        assert len(set(db_attempts)) == 3
-        assert len(set(db_leases)) == 3
+        assert len(db_attempts) == 5
+        assert len(db_leases) == 5
+        assert len(set(db_attempts)) == 5
+        assert len(set(db_leases)) == 5
+        for r in rows:
+            assert r["fence_epoch"] == 1
 
 
 # ==============================================================================
-# 4. CRASH RESTART & RESUMPTION FROM DURABLE SQLITE STATE
+# 4. PARTIAL PROGRESS & CRASH RESUME INVARIANTS
 # ==============================================================================
 
 def test_crash_recovery_resumes_from_ready_nodes(temp_db_path, ipc_actor, ipc_correlation):
     """Prove that reopening the database reconstructs execution state without re-executing completed nodes."""
     caller1 = PipelineUnifiedCaller(db_path=temp_db_path)
-    # Simulate port that crashes on node 2 of M2
+    # Simulate port that crashes on node 3 of M2 (n-data-transport)
     port1 = MultiNodeTrackingPort(crash_nodes=["n-data-transport"])
     _register_universal_binding(caller1, port1)
     _setup_migration(caller1, "mig-resume", ipc_actor, ipc_correlation, "M2")
@@ -489,7 +519,7 @@ def test_crash_recovery_resumes_from_ready_nodes(temp_db_path, ipc_actor, ipc_co
         )
     )
     assert res1.status.value == "ERROR"
-    assert port1.invoked_nodes == ["n-schema-prep", "n-data-transport"]
+    assert port1.invoked_nodes == ["n-schema-prep", "n-cdc-start", "n-data-transport"]
 
     # Re-open database with a new caller instance (simulating full process restart)
     caller2 = PipelineUnifiedCaller(db_path=temp_db_path)
@@ -522,8 +552,8 @@ def test_crash_recovery_resumes_from_ready_nodes(temp_db_path, ipc_actor, ipc_co
     )
     assert outcome.is_success
 
-    # Node 1 (schema-prep) was ALREADY succeeded, so port2 must ONLY execute node 2 and node 3!
-    assert port2.invoked_nodes == ["n-data-transport", "n-cdc-sync"]
+    # Node 1 & 2 (schema-prep, cdc-start) were ALREADY succeeded, so port2 must execute the remaining nodes!
+    assert port2.invoked_nodes == ["n-data-transport", "n-cdc-sync", "n-val-compare"]
     assert "n-schema-prep" not in port2.invoked_nodes
 
 
@@ -789,9 +819,9 @@ def test_n03_recovery_preserves_succeeded_nodes_and_recovers_dag(temp_db_path, i
 
 
 
-        # Mark node 1 SUCCEEDED, node 2 CANCELLED, node 3 BLOCKED
+        # Mark node 1 & 2 SUCCEEDED, node 3 CANCELLED, node 4 BLOCKED
         uow.connection.execute(
-            "UPDATE node_executions SET state = 'SUCCEEDED' WHERE execution_id = ? AND graph_node_id = 'n-schema-prep'",
+            "UPDATE node_executions SET state = 'SUCCEEDED' WHERE execution_id = ? AND graph_node_id IN ('n-schema-prep', 'n-cdc-start')",
             (pe.execution_id,),
         )
         uow.connection.execute(
@@ -799,7 +829,7 @@ def test_n03_recovery_preserves_succeeded_nodes_and_recovers_dag(temp_db_path, i
             (pe.execution_id,),
         )
         uow.connection.execute(
-            "UPDATE node_executions SET state = 'BLOCKED' WHERE execution_id = ? AND graph_node_id = 'n-cdc-sync'",
+            "UPDATE node_executions SET state = 'BLOCKED' WHERE execution_id = ? AND graph_node_id IN ('n-cdc-sync', 'n-val-compare')",
             (pe.execution_id,),
         )
         uow.connection.execute(
@@ -839,8 +869,9 @@ def test_n03_recovery_preserves_succeeded_nodes_and_recovers_dag(temp_db_path, i
         assert rows["n-data-transport"]["state"] == "READY"
         assert rows["n-data-transport"]["current_attempt_id"] == recov_att
         assert rows["n-data-transport"]["lease_id"] == recov_lease
-        # Node 3 whose dependency (Node 2) is NOT yet succeeded remains BLOCKED
+        # Node 3 & 4 whose dependency (Node 2) is NOT yet succeeded remain BLOCKED
         assert rows["n-cdc-sync"]["state"] == "BLOCKED"
+        assert rows["n-val-compare"]["state"] == "BLOCKED"
 
     # Advance plan execution and prove it adopts the replacement attempt authority without creating another attempt
     outcome = caller.plan_coordinator.advance_plan_execution(
@@ -972,6 +1003,16 @@ def test_n05_and_n08_asynchronous_engine_completion_with_autonomous_redrive(temp
     assert req1.graph_node_id == "n-schema-prep"
 
     # 2. Reconcile Node 1 asynchronous completion -> Pipeline autonomously activates AND dispatches Node 2!
+    from akaalEngine.gateway.models.responses import sign_receipt
+    sig1 = sign_receipt(
+        migration_id="mig-n05-async",
+        run_id=req1.attempt_id,
+        operation_id=req1.operation_id or f"op-{req1.invocation_id}",
+        fencing_epoch=req1.fence_epoch,
+        status_code="SUCCESS",
+        initialization_fingerprint=req1.initialization_fingerprint,
+        job_id=req1.graph_node_id,
+    )
     comp1 = EngineInvocationResult(
         invocation_id=req1.invocation_id,
         attempt_id=req1.attempt_id,
@@ -982,7 +1023,21 @@ def test_n05_and_n08_asynchronous_engine_completion_with_autonomous_redrive(temp
         graph_node_id=req1.graph_node_id,
         binding_id=req1.binding_id,
         contract_version=req1.contract_version,
-        result_payload={"tables_prepared": 10},
+        result_payload={
+            "tables_prepared": 10,
+            "migration_id": "mig-n05-async",
+            "engine_execution_receipt": {
+                "gateway_migration_id": "mig-n05-async",
+                "gateway_run_id": req1.attempt_id,
+                "gateway_operation_id": req1.operation_id or f"op-{req1.invocation_id}",
+                "gateway_job_id": req1.graph_node_id,
+                "gateway_fencing_epoch": req1.fence_epoch,
+                "graph_node_id": req1.graph_node_id,
+                "initialization_fingerprint": req1.initialization_fingerprint,
+                "gateway_status_code": "SUCCESS",
+                "receipt_signature": sig1,
+            },
+        },
     )
     res_comp1 = caller.reconcile_node_completion(comp1, ipc_actor)
     assert res_comp1.status.value == "OK"
@@ -994,6 +1049,15 @@ def test_n05_and_n08_asynchronous_engine_completion_with_autonomous_redrive(temp
     assert req2.graph_node_id == "n-data-transport"
 
     # 3. Reconcile Node 2 asynchronous completion -> Whole finite plan SUCCEEDS & transitions to COMPLETED
+    sig2 = sign_receipt(
+        migration_id="mig-n05-async",
+        run_id=req2.attempt_id,
+        operation_id=req2.operation_id or f"op-{req2.invocation_id}",
+        fencing_epoch=req2.fence_epoch,
+        status_code="SUCCESS",
+        initialization_fingerprint=req2.initialization_fingerprint,
+        job_id=req2.graph_node_id,
+    )
     comp2 = EngineInvocationResult(
         invocation_id=req2.invocation_id,
         attempt_id=req2.attempt_id,
@@ -1004,7 +1068,21 @@ def test_n05_and_n08_asynchronous_engine_completion_with_autonomous_redrive(temp
         graph_node_id=req2.graph_node_id,
         binding_id=req2.binding_id,
         contract_version=req2.contract_version,
-        result_payload={"rows_transferred": 5000},
+        result_payload={
+            "rows_transferred": 5000,
+            "migration_id": "mig-n05-async",
+            "engine_execution_receipt": {
+                "gateway_migration_id": "mig-n05-async",
+                "gateway_run_id": req2.attempt_id,
+                "gateway_operation_id": req2.operation_id or f"op-{req2.invocation_id}",
+                "gateway_job_id": req2.graph_node_id,
+                "gateway_fencing_epoch": req2.fence_epoch,
+                "graph_node_id": req2.graph_node_id,
+                "initialization_fingerprint": req2.initialization_fingerprint,
+                "gateway_status_code": "SUCCESS",
+                "receipt_signature": sig2,
+            },
+        },
     )
     res_comp2 = caller.reconcile_node_completion(comp2, ipc_actor)
     assert res_comp2.status.value == "OK"
@@ -1129,6 +1207,15 @@ def test_n07_asynchronous_terminal_operation_reconciled_via_query(temp_db_path, 
     assert op_ref is not None
 
     req = async_port.last_req
+    sig_comp = sign_receipt(
+        migration_id="mig-n07-op",
+        run_id=req.attempt_id,
+        operation_id=req.operation_id or f"op-{req.invocation_id}",
+        fencing_epoch=req.fence_epoch,
+        status_code="SUCCESS",
+        initialization_fingerprint=req.initialization_fingerprint,
+        job_id=req.graph_node_id,
+    )
     comp = EngineInvocationResult(
         invocation_id=req.invocation_id,
         attempt_id=req.attempt_id,
@@ -1139,7 +1226,21 @@ def test_n07_asynchronous_terminal_operation_reconciled_via_query(temp_db_path, 
         graph_node_id=req.graph_node_id,
         binding_id=req.binding_id,
         contract_version=req.contract_version,
-        result_payload={"migrated_rows": 9999},
+        result_payload={
+            "migrated_rows": 9999,
+            "migration_id": "mig-n07-op",
+            "engine_execution_receipt": {
+                "gateway_migration_id": "mig-n07-op",
+                "gateway_run_id": req.attempt_id,
+                "gateway_operation_id": req.operation_id or f"op-{req.invocation_id}",
+                "gateway_job_id": req.graph_node_id,
+                "gateway_fencing_epoch": req.fence_epoch,
+                "graph_node_id": req.graph_node_id,
+                "initialization_fingerprint": req.initialization_fingerprint,
+                "gateway_status_code": "SUCCESS",
+                "receipt_signature": sig_comp,
+            },
+        },
     )
     res_comp = caller.reconcile_node_completion(comp, ipc_actor)
     assert res_comp.status.value == "OK"

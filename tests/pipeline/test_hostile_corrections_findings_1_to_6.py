@@ -407,9 +407,23 @@ def test_24_correct_provenance_accepted(temp_db_path):
         lm.acquire_lease("l-1", "att-24", "owner-1", "2099-01-01T00:00:00+00:00", "fp-1", uow.connection)
 
     rec = ResultReconciler(lm)
-    valid_res = EngineInvocationResult("inv-1", "att-24", "l-1", 1, True, initialization_fingerprint="fp-1", result_payload={"done": True})
+    from akaalEngine.gateway.models.responses import sign_receipt
+    rcpt = {
+        "gateway_migration_id": "mig-24",
+        "gateway_run_id": "att-24",
+        "gateway_operation_id": "op-24",
+        "gateway_job_id": "",
+        "gateway_fencing_epoch": 1,
+        "initialization_fingerprint": "fp-1",
+        "gateway_status_code": "SUCCESS",
+    }
+    rcpt["receipt_signature"] = sign_receipt(
+        migration_id="mig-24", run_id="att-24", operation_id="op-24",
+        fencing_epoch=1, status_code="SUCCESS", initialization_fingerprint="fp-1", job_id=""
+    )
+    valid_res = EngineInvocationResult("inv-1", "att-24", "l-1", 1, True, initialization_fingerprint="fp-1", result_payload={"done": True, "migration_id": "mig-24", "engine_execution_receipt": rcpt})
 
     with uow:
         reconciled = rec.reconcile_result(valid_res, "fp-1", uow.connection)
         assert reconciled["status"] == "SUCCEEDED"
-        assert reconciled["result_payload"] == {"done": True}
+        assert reconciled["result_payload"]["done"] is True
