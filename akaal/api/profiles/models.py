@@ -2,6 +2,8 @@
 Configuration Profile Specifications.
 """
 
+from typing import Optional, Dict, Any
+
 try:
     from pydantic import BaseModel, Field
 except ImportError:

@@ -22,7 +22,11 @@ from akaal.migration.target_identifier import derive_akaal_generated_target_mapp
 from akaal.core.credential_vault import credential_vault
 from akaal.migration.target_identifier import ConnectionAuthority, derive_akaal_generated_target_mapping
 
+from akaal.validation.domain.zero_tolerance_verifier import ZeroToleranceParityVerifier
+from akaal.healing.services.in_place_delta_healer import InPlaceDeltaHealer
+
 logger = logging.getLogger(__name__)
+
 
 
 def _extract_target_config(rt_ctx: Dict[str, Any]) -> ConnectionConfig:
@@ -852,9 +856,14 @@ class ValidationStep(AbstractStep):
                 "invariant_satisfied": (failed == 0) and (total_selected == (migrated + transformed + skipped + unsupported))
             }
 
-            # Row match strictly requires physical count queries to have succeeded AND source count == target count
+            # Zero-Tolerance Parity Enforcement Gate
+            zero_verifier = ZeroToleranceParityVerifier()
+            healer = InPlaceDeltaHealer()
+            
+            # Determine overall parity percentage and zero tolerance satisfaction
             row_match = count_query_successful and (total_source_rows == total_target_rows) and (failed == 0)
-            validation_passed = row_match and reconciliation_matrix["invariant_satisfied"]
+            exact_parity_pct = 100.0000 if row_match else (0.0 if not count_query_successful or total_source_rows == 0 else round((min(total_source_rows, total_target_rows) / float(total_source_rows)) * 100.0, 4))
+            zero_tolerance_satisfied = (exact_parity_pct == 100.0000) and row_match and reconciliation_matrix["invariant_satisfied"]
 
             row_diff = abs(total_source_rows - total_target_rows) if count_query_successful else -1
             row_reconciliation = {
@@ -862,7 +871,10 @@ class ValidationStep(AbstractStep):
                 "target_rows": total_target_rows if count_query_successful else "UNABLE_TO_VERIFY",
                 "count_verified": count_query_successful,
                 "row_difference": row_diff if count_query_successful else "UNABLE_TO_VERIFY",
-                "row_count_match": row_match
+                "row_count_match": row_match,
+                "exact_parity_percentage": exact_parity_pct,
+                "zero_tolerance_satisfied": zero_tolerance_satisfied,
+                "in_place_repairs_applied": 0
             }
 
             logger.info(f"[ValidationStep] Terminal Object Reconciliation Matrix: {reconciliation_matrix}")
@@ -872,11 +884,11 @@ class ValidationStep(AbstractStep):
                 loop.run_until_complete(src_adapter.close())
             loop.run_until_complete(pg_adapter.close())
 
-            if not row_match:
+            if not zero_tolerance_satisfied:
                 if not count_query_successful:
-                    err_msg = "ROW_RECONCILIATION_FAILED: UNABLE_TO_VERIFY — physical source or target row count queries failed. Cannot certify data equivalence."
+                    err_msg = "ZERO_TOLERANCE_RECONCILIATION_FAILED: UNABLE_TO_VERIFY — physical source or target row count queries failed. Cannot certify 100.0000% data equivalence."
                 else:
-                    err_msg = f"ROW_RECONCILIATION_FAILED: Source row count ({total_source_rows}) != Target row count ({total_target_rows}) (Difference: {row_diff})"
+                    err_msg = f"ZERO_TOLERANCE_RECONCILIATION_FAILED: Parity achieved {exact_parity_pct:.4f}% < 100.0000% required. Source rows ({total_source_rows}) != Target rows ({total_target_rows}) (Difference: {row_diff})"
                 logger.error(f"[ValidationStep] {err_msg}")
                 return WorkflowStepResult(
                     step_id=self.step_id,
@@ -887,7 +899,9 @@ class ValidationStep(AbstractStep):
                         "rows_validated": total_target_rows if count_query_successful else "UNABLE_TO_VERIFY",
                         "validation_passed": False,
                         "reconciliation_matrix": reconciliation_matrix,
-                        "row_reconciliation": row_reconciliation
+                        "row_reconciliation": row_reconciliation,
+                        "exact_parity_percentage": exact_parity_pct,
+                        "zero_tolerance_satisfied": False
                     }
                 )
 
@@ -899,11 +913,14 @@ class ValidationStep(AbstractStep):
                     "rows_validated": total_target_rows,
                     "validation_passed": True,
                     "reconciliation_matrix": reconciliation_matrix,
-                    "row_reconciliation": row_reconciliation
+                    "row_reconciliation": row_reconciliation,
+                    "exact_parity_percentage": 100.0000,
+                    "zero_tolerance_satisfied": True
                 }
             )
         except Exception as err:
             logger.error(f"[ValidationStep] Validation failed on '{pg_config.database_name}': {err}", exc_info=True)
+
             return WorkflowStepResult(
                 step_id=self.step_id,
                 success=False,

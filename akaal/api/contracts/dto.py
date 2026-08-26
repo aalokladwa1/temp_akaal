@@ -151,8 +151,12 @@ class ValidationReportDTO(BaseModel):
     report_id: str
     target: str
     is_valid: bool
+    exact_parity_percentage: float = 100.0000
+    zero_tolerance_satisfied: bool = True
+    in_place_repairs_applied: int = 0
     errors: List[str] = Field(default_factory=list)
     warnings: List[str] = Field(default_factory=list)
+
 
 
 class ReportDTO(BaseModel):
