@@ -811,11 +811,12 @@ class PlanCompiler:
         quality_def: Optional[Any] = None,
         conflict_config: Optional[Any] = None,
         target_connector_type: str = "GENERIC",
+        execution_mode: str = "M2",
     ) -> Dict[str, Any]:
         """
         Compiles P5.6 Deduplication, Data Quality, and Conflict Policy definitions.
         Validates key columns, survivor ordering, regex safety, numeric bounds,
-        connector collision compatibility, and P3 conflict policy alignment.
+        connector collision compatibility, mode applicability, and P3 conflict policy alignment.
         """
         import re
         from akaal.planner.models.p5_domain import (
@@ -831,6 +832,7 @@ class PlanCompiler:
         )
 
         diagnostics: List[CompilationDiagnostic] = []
+        mode_upper = str(execution_mode).upper()
 
         # 1. Parse Deduplication
         if isinstance(dedup_def, dict):
@@ -855,6 +857,24 @@ class PlanCompiler:
             parsed_conflict = conflict_config
         else:
             parsed_conflict = ConflictPolicyConfiguration()
+
+        # Validate Execution Mode Applicability
+        if mode_upper in ("M6", "SCHEMA_ONLY") and parsed_dedup.enabled:
+            diagnostics.append(CompilationDiagnostic(
+                level="BLOCKER",
+                code="INAPPLICABLE_DEDUP_MODE",
+                message=f"Row deduplication is not applicable to Schema-Only mode ({execution_mode}).",
+                target="deduplication",
+            ))
+
+        if mode_upper in ("M1", "BULK_ONLY", "M6", "SCHEMA_ONLY", "M8", "VALIDATION_ONLY"):
+            if parsed_conflict.default_policy != "SOURCE_A_WINS" or bool(parsed_conflict.object_overrides):
+                diagnostics.append(CompilationDiagnostic(
+                    level="BLOCKER",
+                    code="INAPPLICABLE_CONFLICT_MODE",
+                    message=f"P3 CDC Conflict Resolution policy cannot be configured for non-CDC execution mode '{execution_mode}'.",
+                    target="conflict_policy",
+                ))
 
         # Validate Deduplication Rules
         raw_objs = selected_scope.get("objects", []) if isinstance(selected_scope, dict) else []

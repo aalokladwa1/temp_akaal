@@ -924,6 +924,32 @@ class TestDeduplicationQualityConflict(unittest.TestCase):
         id1_row = next(r for r in transformed_rows if r["id"] == 1)
         self.assertEqual(id1_row["updated_at"], "2026-06-01")
 
+    # =========================================================================
+    # 9. EXECUTION MODE APPLICABILITY FENCING
+    # =========================================================================
+
+    def test_25_execution_mode_applicability_fencing(self):
+        """Tests that execution modes dynamically gate inapplicable P5.6 controls."""
+        # 1. Schema-Only (M6) must block row deduplication
+        m6_res = self.compiler.compile_deduplication_and_quality(
+            selected_scope=self.sample_scope,
+            dedup_def={"enabled": True, "rules": [{"object_name": "CUSTOMERS", "key_columns": ["id"]}]},
+            execution_mode="M6",
+        )
+        self.assertEqual(m6_res["status"], "BLOCKER")
+        codes = [d["code"] for d in m6_res["diagnostics"]]
+        self.assertIn("INAPPLICABLE_DEDUP_MODE", codes)
+
+        # 2. Bulk-Only (M1) must block P3 CDC conflict policy configuration
+        m1_res = self.compiler.compile_deduplication_and_quality(
+            selected_scope=self.sample_scope,
+            conflict_config={"default_policy": "LATEST_VERSION_WINS"},
+            execution_mode="M1",
+        )
+        self.assertEqual(m1_res["status"], "BLOCKER")
+        codes_m1 = [d["code"] for d in m1_res["diagnostics"]]
+        self.assertIn("INAPPLICABLE_CONFLICT_MODE", codes_m1)
+
 
 if __name__ == "__main__":
     unittest.main()
