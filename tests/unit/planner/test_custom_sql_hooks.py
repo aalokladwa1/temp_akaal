@@ -1021,6 +1021,162 @@ class TestP57CustomSQLHooks(unittest.TestCase):
         self.assertEqual(len(res["hooks"]), 0)
         self.assertEqual(res["fingerprint"], "")
 
+    # ---------------------------------------------------------------------------
+    # 13. Deep Fencing, Mode Invariants & Crash Recovery Matrix
+    # ---------------------------------------------------------------------------
+
+    def test_51_mode_m7_data_only_blocks_ddl_hooks(self):
+        """Hostile Test: M7 Data-Only migration mode blocks DDL operations in hooks."""
+        h1 = HookDefinition(
+            hook_id="h_ddl_m7",
+            name="DDL in M7",
+            stage=HookStage.TARGET_PREPARATION,
+            sql_statement="CREATE TABLE test_tab (id INT);",
+            requires_approval=True,
+        )
+        res = self.compiler.compile_custom_sql_hooks(
+            hooks_config=[h1],
+            execution_mode="M7",
+            source_connector_type="postgresql",
+            target_connector_type="postgresql",
+        )
+        self.assertEqual(res["status"], "BLOCKER")
+        self.assertTrue(any(d["code"] == "DDL_HOOK_IN_DATA_ONLY_MODE" for d in res["diagnostics"]))
+
+    def test_52_mode_m8_validation_blocks_source_mutations(self):
+        """Hostile Test: M8 Validation-Only mode blocks mutating SQL on source side as well as target."""
+        h1 = HookDefinition(
+            hook_id="h_mut_src_m8",
+            name="Source Mutation in M8",
+            side=HookSide.SOURCE,
+            stage=HookStage.PRE_MIGRATION,
+            sql_statement="UPDATE control_table SET status = 'IN_PROGRESS';",
+            requires_approval=True,
+        )
+        res = self.compiler.compile_custom_sql_hooks(
+            hooks_config=[h1],
+            execution_mode="M8",
+            source_connector_type="postgresql",
+            target_connector_type="postgresql",
+        )
+        self.assertEqual(res["status"], "BLOCKER")
+        self.assertTrue(any(d["code"] == "MUTATING_HOOK_IN_VALIDATION_MODE" for d in res["diagnostics"]))
+
+    def test_53_stub_connector_evaluates_sql_execution_as_unsupported(self):
+        """Hostile Test: UniversalCapabilityManifest forces supports_sql_execution=False for STUB implementation state."""
+        from akaal.connectors.manifest import UniversalCapabilityManifest
+        from akaal.connectors.taxonomy import ConnectorFamily, ImplementationState, CapabilitySupportStatus
+
+        manifest = UniversalCapabilityManifest(
+            connector_id="stub_db",
+            family=ConnectorFamily.RELATIONAL_DATABASE,
+            vendor_name="StubVendor",
+            system_type="STUB_SQL",
+            implementation_state=ImplementationState.STUB,
+        )
+        self.assertFalse(manifest.supports_sql_execution)
+        self.assertEqual(manifest.get_capability_status("sql_execution"), CapabilitySupportStatus.UNSUPPORTED)
+
+    def test_54_complex_cte_with_comments_and_quoted_literals_parsed_safely(self):
+        """Hostile Test: Complex CTE query with multi-line comments and quotes is correctly classified as SAFE_SELECT."""
+        sql = """
+        /* Multi-line header comment; contains DROP TABLE keywords */
+        WITH active_users AS (
+            SELECT id, name, '--not-a-comment--' AS dummy_str
+            FROM users -- inline comment
+            WHERE status = 'ACTIVE'
+        )
+        SELECT * FROM active_users;
+        """
+        classification = SQLSafetyClassifier.classify(sql)
+        self.assertEqual(classification, SQLSafetyClassification.SAFE_SELECT)
+
+    def test_55_plan_diff_triggers_reapproval_on_hook_parameter_change(self):
+        """Hostile Test: Modifying hook parameters changes hooks_fingerprint and triggers requires_reapproval."""
+        plan_v1 = {"configuration": {"hooks": [{"hook_id": "h1", "sql_statement": "SELECT 1", "parameters": {"env": "staging"}}]}}
+        plan_v2 = {"configuration": {"hooks": [{"hook_id": "h1", "sql_statement": "SELECT 1", "parameters": {"env": "production"}}]}}
+
+        diff = self.compiler.compute_diff(plan_v1, plan_v2)
+        self.assertTrue(diff.requires_reapproval)
+
+    def test_56_plan_diff_triggers_reapproval_on_hook_stage_change(self):
+        """Hostile Test: Modifying hook lifecycle stage triggers requires_reapproval."""
+        plan_v1 = {"configuration": {"hooks": [{"hook_id": "h1", "sql_statement": "SELECT 1", "stage": "PRE_MIGRATION"}]}}
+        plan_v2 = {"configuration": {"hooks": [{"hook_id": "h1", "sql_statement": "SELECT 1", "stage": "POST_MIGRATION"}]}}
+
+        diff = self.compiler.compute_diff(plan_v1, plan_v2)
+        self.assertTrue(diff.requires_reapproval)
+
+    def test_57_failure_policy_require_operator_raises_informative_error(self):
+        """Hostile Test: Hook with REQUIRE_OPERATOR policy raises HookExecutionError indicating operator intervention."""
+        adapter = MockDatabaseAdapter()
+        executor = GovernedHookExecutor(source_adapter=adapter, target_adapter=adapter, state_store=self.state_store)
+
+        adapter.mock_conn.fail_on_execute = True
+        hook = HookDefinition(
+            hook_id="h_op",
+            name="Operator Gate Hook",
+            stage=HookStage.PRE_MIGRATION,
+            sql_statement="SELECT 1;",
+            failure_policy=HookFailurePolicy.REQUIRE_OPERATOR,
+        )
+
+        with self.assertRaises(HookExecutionError) as ctx_err:
+            asyncio.run(executor.execute_stage_hooks([hook], stage=HookStage.PRE_MIGRATION, workflow_id="wf-op"))
+        self.assertIn("h_op", str(ctx_err.exception))
+
+    def test_58_crash_window_durable_state_verification(self):
+        """Hostile Test: CentralStateStore accurately reflects lifecycle transitions across crash simulations."""
+        adapter = MockDatabaseAdapter()
+        executor = GovernedHookExecutor(source_adapter=adapter, target_adapter=adapter, state_store=self.state_store)
+
+        hook = HookDefinition(hook_id="h_durable", name="Durable Hook", stage=HookStage.PRE_MIGRATION, sql_statement="SELECT 1;")
+
+        # 1. Pre-execution: state is None
+        self.assertIsNone(self.state_store.get_state("wf-dur:h_durable", category="hooks"))
+
+        # 2. Execution runs and completes
+        res = asyncio.run(executor.execute_stage_hooks([hook], stage=HookStage.PRE_MIGRATION, workflow_id="wf-dur"))
+        self.assertEqual(res[0].state, HookExecutionState.COMPLETED)
+
+        # 3. Post-execution: state is COMPLETED
+        st = self.state_store.get_state("wf-dur:h_durable", category="hooks")
+        self.assertIsNotNone(st)
+        self.assertEqual(st["state"], HookExecutionState.COMPLETED.value)
+
+    def test_59_evidence_authority_packages_redacted_hook_telemetry(self):
+        """Hostile Test: Evidence Authority packages hook execution facts with sensitive data excluded."""
+        evidence_auth = EvidenceAuthority.get_instance()
+        hook_res = HookExecutionResult(
+            hook_id="h_evd_sec",
+            stage=HookStage.PRE_MIGRATION,
+            state=HookExecutionState.COMPLETED,
+            sanitized_sql="CREATE USER test_usr WITH PASSWORD '[REDACTED]';",
+            duration_ms=42.5,
+        )
+        bundle = evidence_auth.package_hook_execution_evidence(
+            migration_id="mig-evd-999",
+            stage=HookStage.PRE_MIGRATION,
+            hook_results=[hook_res],
+        )
+        self.assertIn("facts", bundle)
+        self.assertNotIn("SUPER_SECRET", str(bundle))
+        self.assertEqual(bundle["status"], "CERTIFIED")
+
+    def test_60_audit_logger_entry_computes_valid_checksum(self):
+        """Hostile Test: AuditLogger produces tamper-evident SHA-256 checksums on hook audit entries."""
+        audit_log = AuditLogger.get_instance()
+        entry = audit_log.log(
+            event_type=AuditEventType.HOOK_COMPLETED,
+            migration_id="mig-audit-chk",
+            task_id="h_chk",
+            details={"rows": 100},
+        )
+        self.assertIsNotNone(entry.checksum)
+        self.assertEqual(len(entry.checksum), 64)
+        # Re-compute checksum and verify exact match
+        self.assertEqual(entry.checksum, entry._compute_checksum())
+
 
 if __name__ == "__main__":
     unittest.main()

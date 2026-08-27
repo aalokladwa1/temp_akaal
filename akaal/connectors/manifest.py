@@ -158,6 +158,7 @@ class UniversalCapabilityManifest:
             self.supports_cutover = False
             self.supports_failback = False
             self.supports_schema_discovery = False
+            self.supports_sql_execution = False
 
         self.registered_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
 

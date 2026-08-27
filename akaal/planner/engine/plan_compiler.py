@@ -1332,11 +1332,11 @@ class PlanCompiler:
                 requires_approval_overall = True
 
             # Execution Mode Applicability Fencing
-            if mode_upper == "M8" and h.side == HookSide.TARGET and SQLSafetyClassifier.is_mutating(classification):
+            if mode_upper == "M8" and SQLSafetyClassifier.is_mutating(classification):
                 diagnostics.append(CompilationDiagnostic(
                     level="BLOCKER",
                     code="MUTATING_HOOK_IN_VALIDATION_MODE",
-                    message=f"Hook '{h.hook_id}' performs mutating SQL on target in validation-only mode (M8).",
+                    message=f"Hook '{h.hook_id}' performs mutating SQL in validation-only mode (M8).",
                     target=h.hook_id,
                 ))
 
@@ -1345,6 +1345,14 @@ class PlanCompiler:
                     level="BLOCKER",
                     code="DATA_HOOK_IN_SCHEMA_ONLY_MODE",
                     message=f"Hook '{h.hook_id}' in stage '{h.stage.value}' is inapplicable for schema-only migration mode (M6).",
+                    target=h.hook_id,
+                ))
+
+            if mode_upper == "M7" and classification == SQLSafetyClassification.DESTRUCTIVE_DDL:
+                diagnostics.append(CompilationDiagnostic(
+                    level="BLOCKER",
+                    code="DDL_HOOK_IN_DATA_ONLY_MODE",
+                    message=f"Hook '{h.hook_id}' performs DDL operations in data-only mode (M7).",
                     target=h.hook_id,
                 ))
 

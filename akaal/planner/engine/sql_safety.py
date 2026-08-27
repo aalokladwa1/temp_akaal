@@ -20,12 +20,12 @@ _STRING_LITERAL_SINGLE = re.compile(r"'(?:''|\\'|[^'])*'")
 _STRING_LITERAL_DOUBLE = re.compile(r'"(?:""|\\"|[^"])*"')
 
 # Statement categorization regex patterns (applied to clean uppercase SQL)
-_SELECT_PATTERN = re.compile(r"^\s*(SELECT|WITH\s+[A-Za-z0-9_]+\s+AS\s*\(|EXPLAIN|SHOW|DESCRIBE|PRAGMA)\b", re.IGNORECASE)
+_SELECT_PATTERN = re.compile(r"^\s*(SELECT\b|WITH\b|EXPLAIN\b|SHOW\b|DESCRIBE\b|PRAGMA\b)", re.IGNORECASE)
 _SAFE_MUTATING_PATTERN = re.compile(r"^\s*(INSERT\s+INTO|UPDATE\b|MERGE\s+INTO|UPSERT\b|REPLACE\s+INTO|CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS|CREATE\s+INDEX|CREATE\s+OR\s+REPLACE\s+VIEW)\b", re.IGNORECASE)
 _DELETE_WITH_WHERE_PATTERN = re.compile(r"^\s*DELETE\s+FROM\s+[A-Za-z0-9_.\"']+\s+WHERE\b", re.IGNORECASE)
 _UNCONSTRAINED_DELETE_PATTERN = re.compile(r"^\s*DELETE\s+FROM\s+[A-Za-z0-9_.\"']+\s*(;|\s*$)", re.IGNORECASE)
 _TRUNCATE_PATTERN = re.compile(r"^\s*TRUNCATE\b", re.IGNORECASE)
-_DESTRUCTIVE_DDL_PATTERN = re.compile(r"^\s*(DROP\s+(TABLE|DATABASE|SCHEMA|VIEW|INDEX|TABLESPACE)|ALTER\s+TABLE\s+[A-Za-z0-9_.\"']+\s+DROP\s+(COLUMN|CONSTRAINT|PARTITION))\b", re.IGNORECASE)
+_DESTRUCTIVE_DDL_PATTERN = re.compile(r"^\s*(DROP\s+(TABLE|DATABASE|SCHEMA|VIEW|INDEX|TABLESPACE)|ALTER\s+TABLE\s+[A-Za-z0-9_.\"']+\s+DROP\s+(COLUMN|CONSTRAINT|PARTITION)|CREATE\s+(TABLE|DATABASE|SCHEMA))\b", re.IGNORECASE)
 _PRIVILEGE_PATTERN = re.compile(r"^\s*(GRANT\b|REVOKE\b|CREATE\s+USER\b|ALTER\s+USER\b|DROP\s+USER\b|CREATE\s+ROLE\b|ALTER\s+ROLE\b|DROP\s+ROLE\b|SET\s+PASSWORD\b)", re.IGNORECASE)
 
 
@@ -44,7 +44,12 @@ class SQLSafetyClassifier:
 
     @classmethod
     def split_statements(cls, raw_sql: str) -> List[str]:
-        """Splits multi-statement SQL by semicolon, respecting comments."""
+        """
+        Splits a multi-statement SQL string into discrete statements,
+        respecting single/double quoted literals and comments.
+        """
+        if not raw_sql or not isinstance(raw_sql, str):
+            return []
         clean = cls.clean_sql(raw_sql)
         if not clean:
             return []
@@ -52,9 +57,17 @@ class SQLSafetyClassifier:
         return parts
 
     @classmethod
+    def is_ddl(cls, stmt: str) -> bool:
+        """Returns True if statement is a DDL definition."""
+        if not stmt or not isinstance(stmt, str):
+            return False
+        clean = cls.clean_sql(stmt)
+        return bool(re.match(r"^\s*(CREATE|DROP|ALTER|TRUNCATE)\b", clean, re.IGNORECASE))
+
+    @classmethod
     def classify_single_statement(cls, stmt: str) -> SQLSafetyClassification:
         """Classifies a single clean SQL statement."""
-        stmt = stmt.strip()
+        stmt = cls.clean_sql(stmt)
         if not stmt:
             return SQLSafetyClassification.UNKNOWN_UNCLASSIFIED
 
@@ -62,7 +75,7 @@ class SQLSafetyClassifier:
         if _PRIVILEGE_PATTERN.search(stmt):
             return SQLSafetyClassification.PRIVILEGE_MODIFICATION
 
-        # 2. Check Destructive DDL (DROP, destructive ALTER)
+        # 2. Check Destructive DDL (DROP, destructive ALTER, CREATE TABLE)
         if _DESTRUCTIVE_DDL_PATTERN.search(stmt):
             return SQLSafetyClassification.DESTRUCTIVE_DDL
 
