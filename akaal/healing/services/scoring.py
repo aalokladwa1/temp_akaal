@@ -1,5 +1,6 @@
 """ConfidenceScoringService: Generates repair quality, risk, confidence, coverage scores (Cap 9)."""
 
+from typing import Any
 from akaal.healing.core.interfaces import IHealingService
 from akaal.healing.core.models import ConfidenceScore
 

@@ -9,8 +9,11 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Tuple, Optional
 import logging
 import time
-import psycopg2
-import psycopg2.extras
+try:
+    import psycopg2
+    import psycopg2.extras
+except ImportError:
+    psycopg2 = None
 
 from akaal.engine.spec import BatchMetadata
 

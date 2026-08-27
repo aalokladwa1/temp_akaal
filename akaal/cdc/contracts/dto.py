@@ -2,6 +2,8 @@
 DTO Contracts for CDC Operations.
 """
 
+from typing import List, Optional, Dict, Any
+
 try:
     from pydantic import BaseModel, Field
 except ImportError:

@@ -4,6 +4,7 @@ Owns task assignment lifecycle state machine transitions deterministically.
 """
 
 from dataclasses import dataclass, field, replace
+from typing import Dict, Optional, Set
 from threading import RLock
 import logging
 

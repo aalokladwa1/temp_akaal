@@ -8,7 +8,7 @@ agent session authentication, health checking, and private database routing.
 import asyncio
 import logging
 import time
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Tuple
 
 from akaal.transport.models import TransportHop, TransportEndpoint, TransportSession, TransportState, redact_text
 

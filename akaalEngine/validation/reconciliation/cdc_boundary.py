@@ -6,7 +6,7 @@ Anchors final reconciliation to Authority #10 synchronized CDC boundary and reje
 """
 
 import logging
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple, List
 
 from akaalEngine.validation.models.errors import ValidationError
 

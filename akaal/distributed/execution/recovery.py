@@ -5,6 +5,7 @@ ownership restoration, and failed execution recovery.
 """
 
 from dataclasses import dataclass, field, replace
+from typing import Any, Dict, List, Optional
 from threading import RLock
 import logging
 

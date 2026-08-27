@@ -4,6 +4,7 @@ Manages worker heartbeats, lease timeouts, failure detection, and crash eviction
 """
 
 from dataclasses import dataclass, field, replace
+from typing import List, Optional
 from threading import RLock
 import logging
 

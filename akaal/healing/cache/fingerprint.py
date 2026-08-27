@@ -1,6 +1,7 @@
 """HealingFingerprint: Cryptographic fingerprinting for repair artifacts."""
 
 import hashlib
+from typing import Any
 
 
 class HealingFingerprint:

@@ -2,6 +2,8 @@
 Enterprise Error Hierarchy & Data Contracts for AKAAL Platform 7.
 """
 
+from typing import Dict, Any, Optional, List
+
 try:
     from pydantic import BaseModel, Field
 except ImportError:

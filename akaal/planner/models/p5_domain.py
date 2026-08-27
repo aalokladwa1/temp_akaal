@@ -337,7 +337,23 @@ class SelectionDefinition:
     def from_dict(cls, data: Dict[str, Any]) -> "SelectionDefinition":
         if not isinstance(data, dict):
             return cls()
-        rules = [SelectionRule(**r) if isinstance(r, dict) else r for r in data.get("rules", [])]
+        rules = []
+        for r in data.get("rules", []):
+            if isinstance(r, dict):
+                if "rule_type" in r and "target_type" in r and "pattern" in r:
+                    rules.append(SelectionRule(**r))
+                elif "object_name" in r:
+                    rules.append(SelectionRule(
+                        rule_type="INCLUDE" if r.get("include", True) else "EXCLUDE",
+                        target_type="OBJECT",
+                        pattern=r["object_name"],
+                        is_regex=r.get("is_regex", False),
+                    ))
+                else:
+                    rules.append(SelectionRule(**r))
+            else:
+                rules.append(r)
+
         projections = [ProjectionDefinition(**p) if isinstance(p, dict) else p for p in data.get("projections", [])]
         predicates = [PredicateDefinition(**pr) if isinstance(pr, dict) else pr for pr in data.get("predicates", [])]
         ranges = [RangeDefinition(**rg) if isinstance(rg, dict) else rg for rg in data.get("ranges", [])]
@@ -588,39 +604,67 @@ class ExecutionMode(str, Enum):
 
     @classmethod
     def from_string(cls, mode_val: Any) -> "ExecutionMode":
-        """Resolves raw string, enum, or legacy token into canonical ExecutionMode."""
+        """Resolves raw string, enum, or canonical alias into canonical ExecutionMode. Fails closed with ValueError."""
         if isinstance(mode_val, cls):
             return mode_val
-        val_str = str(mode_val or "M1").strip().upper()
+        if mode_val is None or not str(mode_val).strip():
+            raise ValueError("ExecutionMode cannot be empty or None.")
+
+        raw_str = str(mode_val).strip()
+        val_str = raw_str.lower().replace("-", "_")
+
         alias_map = {
-            "M1": cls.M1_BULK_MIGRATION,
-            "BULK": cls.M1_BULK_MIGRATION,
-            "BULK_ONLY": cls.M1_BULK_MIGRATION,
-            "BULK_MIGRATION": cls.M1_BULK_MIGRATION,
-            "M2": cls.M2_BULK_CDC,
-            "BULK_CDC": cls.M2_BULK_CDC,
-            "M3": cls.M3_CDC_CONTINUOUS,
-            "CDC": cls.M3_CDC_CONTINUOUS,
-            "CDC_ONLY": cls.M3_CDC_CONTINUOUS,
-            "M4": cls.M4_INCREMENTAL_QUERY,
-            "INCREMENTAL": cls.M4_INCREMENTAL_QUERY,
-            "POLLING": cls.M4_INCREMENTAL_QUERY,
-            "M5": cls.M5_STATE_SYNCHRONIZATION,
-            "STATE_SYNC": cls.M5_STATE_SYNCHRONIZATION,
-            "M6": cls.M6_SCHEMA_ONLY,
-            "SCHEMA_ONLY": cls.M6_SCHEMA_ONLY,
-            "M7": cls.M7_DATA_ONLY,
-            "DATA_ONLY": cls.M7_DATA_ONLY,
-            "M8": cls.M8_VALIDATION_ONLY,
-            "VALIDATION_ONLY": cls.M8_VALIDATION_ONLY,
-            "RECONCILIATION_ONLY": cls.M8_VALIDATION_ONLY,
+            "m1": cls.M1_BULK_MIGRATION,
+            "bulk": cls.M1_BULK_MIGRATION,
+            "bulk_only": cls.M1_BULK_MIGRATION,
+            "bulk_migration": cls.M1_BULK_MIGRATION,
+            "initial_load_only": cls.M1_BULK_MIGRATION,
+            "full_migration": cls.M1_BULK_MIGRATION,
+            "m2": cls.M2_BULK_CDC,
+            "bulk_cdc": cls.M2_BULK_CDC,
+            "bulk_and_cdc": cls.M2_BULK_CDC,
+            "full_with_cdc": cls.M2_BULK_CDC,
+            "m3": cls.M3_CDC_CONTINUOUS,
+            "cdc": cls.M3_CDC_CONTINUOUS,
+            "cdc_only": cls.M3_CDC_CONTINUOUS,
+            "continuous_replication": cls.M3_CDC_CONTINUOUS,
+            "cdc_continuous": cls.M3_CDC_CONTINUOUS,
+            "m4": cls.M4_INCREMENTAL_QUERY,
+            "incremental": cls.M4_INCREMENTAL_QUERY,
+            "polling": cls.M4_INCREMENTAL_QUERY,
+            "polling_watermark": cls.M4_INCREMENTAL_QUERY,
+            "incremental_query": cls.M4_INCREMENTAL_QUERY,
+            "incremental_polling": cls.M4_INCREMENTAL_QUERY,
+            "m5": cls.M5_STATE_SYNCHRONIZATION,
+            "state_sync": cls.M5_STATE_SYNCHRONIZATION,
+            "state_based_sync": cls.M5_STATE_SYNCHRONIZATION,
+            "state_synchronization": cls.M5_STATE_SYNCHRONIZATION,
+            "m6": cls.M6_SCHEMA_ONLY,
+            "schema_only": cls.M6_SCHEMA_ONLY,
+            "schema": cls.M6_SCHEMA_ONLY,
+            "ddl_only": cls.M6_SCHEMA_ONLY,
+            "m7": cls.M7_DATA_ONLY,
+            "data_only": cls.M7_DATA_ONLY,
+            "data": cls.M7_DATA_ONLY,
+            "rows_only": cls.M7_DATA_ONLY,
+            "m8": cls.M8_VALIDATION_ONLY,
+            "validation_only": cls.M8_VALIDATION_ONLY,
+            "reconciliation_only": cls.M8_VALIDATION_ONLY,
+            "compare_without_migrate": cls.M8_VALIDATION_ONLY,
+            "selected_object_validation": cls.M8_VALIDATION_ONLY,
+            "revalidation": cls.M8_VALIDATION_ONLY,
+            "validation": cls.M8_VALIDATION_ONLY,
+            "reconciliation": cls.M8_VALIDATION_ONLY,
         }
         if val_str in alias_map:
             return alias_map[val_str]
+
+        upper_val = raw_str.upper()
         for item in cls:
-            if item.value == val_str or item.name == val_str:
+            if item.value == upper_val or item.name == upper_val:
                 return item
-        return cls.M1_BULK_MIGRATION
+
+        raise ValueError(f"Unknown or unsupported execution mode: '{mode_val}'.")
 
     def get_spec(self) -> "ExecutionModeSpec":
         """Returns canonical capability specification for this execution mode."""
@@ -638,6 +682,9 @@ class ExecutionMode(str, Enum):
                 uses_incremental_polling=False,
                 uses_state_comparison=False,
                 validation_only=False,
+                permits_repair_eligibility_analysis=True,
+                permits_repair_execution=True,
+                permits_custom_sql_hooks=True,
             ),
             ExecutionMode.M2_BULK_CDC: ExecutionModeSpec(
                 mode=ExecutionMode.M2_BULK_CDC,
@@ -652,6 +699,9 @@ class ExecutionMode(str, Enum):
                 uses_incremental_polling=False,
                 uses_state_comparison=False,
                 validation_only=False,
+                permits_repair_eligibility_analysis=True,
+                permits_repair_execution=True,
+                permits_custom_sql_hooks=True,
             ),
             ExecutionMode.M3_CDC_CONTINUOUS: ExecutionModeSpec(
                 mode=ExecutionMode.M3_CDC_CONTINUOUS,
@@ -666,6 +716,9 @@ class ExecutionMode(str, Enum):
                 uses_incremental_polling=False,
                 uses_state_comparison=False,
                 validation_only=False,
+                permits_repair_eligibility_analysis=False,
+                permits_repair_execution=False,
+                permits_custom_sql_hooks=True,
             ),
             ExecutionMode.M4_INCREMENTAL_QUERY: ExecutionModeSpec(
                 mode=ExecutionMode.M4_INCREMENTAL_QUERY,
@@ -680,6 +733,9 @@ class ExecutionMode(str, Enum):
                 uses_incremental_polling=True,
                 uses_state_comparison=False,
                 validation_only=False,
+                permits_repair_eligibility_analysis=False,
+                permits_repair_execution=False,
+                permits_custom_sql_hooks=True,
             ),
             ExecutionMode.M5_STATE_SYNCHRONIZATION: ExecutionModeSpec(
                 mode=ExecutionMode.M5_STATE_SYNCHRONIZATION,
@@ -694,6 +750,9 @@ class ExecutionMode(str, Enum):
                 uses_incremental_polling=False,
                 uses_state_comparison=True,
                 validation_only=False,
+                permits_repair_eligibility_analysis=True,
+                permits_repair_execution=True,
+                permits_custom_sql_hooks=True,
             ),
             ExecutionMode.M6_SCHEMA_ONLY: ExecutionModeSpec(
                 mode=ExecutionMode.M6_SCHEMA_ONLY,
@@ -708,6 +767,9 @@ class ExecutionMode(str, Enum):
                 uses_incremental_polling=False,
                 uses_state_comparison=False,
                 validation_only=False,
+                permits_repair_eligibility_analysis=False,
+                permits_repair_execution=False,
+                permits_custom_sql_hooks=True,
             ),
             ExecutionMode.M7_DATA_ONLY: ExecutionModeSpec(
                 mode=ExecutionMode.M7_DATA_ONLY,
@@ -722,6 +784,9 @@ class ExecutionMode(str, Enum):
                 uses_incremental_polling=False,
                 uses_state_comparison=False,
                 validation_only=False,
+                permits_repair_eligibility_analysis=False,
+                permits_repair_execution=False,
+                permits_custom_sql_hooks=True,
             ),
             ExecutionMode.M8_VALIDATION_ONLY: ExecutionModeSpec(
                 mode=ExecutionMode.M8_VALIDATION_ONLY,
@@ -736,6 +801,9 @@ class ExecutionMode(str, Enum):
                 uses_incremental_polling=False,
                 uses_state_comparison=True,
                 validation_only=True,
+                permits_repair_eligibility_analysis=True,
+                permits_repair_execution=False,
+                permits_custom_sql_hooks=True,
             ),
         }
         return specs[self]
@@ -755,6 +823,73 @@ class ExecutionModeSpec:
     uses_incremental_polling: bool
     uses_state_comparison: bool
     validation_only: bool
+    permits_repair_eligibility_analysis: bool = False
+    permits_repair_execution: bool = False
+    permits_custom_sql_hooks: bool = True
+
+    @property
+    def reads_source_data(self) -> bool:
+        return self.processes_rows or self.performs_schema or self.uses_state_comparison
+
+    @property
+    def reads_target_data(self) -> bool:
+        return self.mode in (
+            ExecutionMode.M2_BULK_CDC,
+            ExecutionMode.M5_STATE_SYNCHRONIZATION,
+            ExecutionMode.M8_VALIDATION_ONLY,
+        )
+
+    @property
+    def mutates_source(self) -> bool:
+        return False
+
+    @property
+    def mutates_target(self) -> bool:
+        return self.allows_target_mutation
+
+    @property
+    def performs_schema_work(self) -> bool:
+        return self.performs_schema
+
+    @property
+    def performs_data_movement(self) -> bool:
+        return self.processes_rows and self.allows_target_mutation
+
+    @property
+    def performs_bulk_transport(self) -> bool:
+        return self.mode in (ExecutionMode.M1_BULK_MIGRATION, ExecutionMode.M2_BULK_CDC)
+
+    @property
+    def requires_cdc(self) -> bool:
+        return self.mode in (ExecutionMode.M2_BULK_CDC, ExecutionMode.M3_CDC_CONTINUOUS)
+
+    @property
+    def permits_cdc(self) -> bool:
+        return self.mode in (ExecutionMode.M2_BULK_CDC, ExecutionMode.M3_CDC_CONTINUOUS)
+
+    @property
+    def performs_validation(self) -> bool:
+        return True
+
+    @property
+    def permits_reconciliation(self) -> bool:
+        return self.uses_state_comparison or self.validation_only
+
+    @property
+    def permits_governed_repair(self) -> bool:
+        """
+        Governed repair execution permission.
+        M8 ordinary operation may NOT execute repair. M8 may evaluate repair eligibility.
+        """
+        return self.permits_repair_execution
+
+    @property
+    def permits_deduplication(self) -> bool:
+        return self.allows_dedup_mutation
+
+    @property
+    def requires_target_write_authority(self) -> bool:
+        return self.allows_target_mutation or self.performs_schema
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -770,6 +905,115 @@ class ExecutionModeSpec:
             "uses_incremental_polling": self.uses_incremental_polling,
             "uses_state_comparison": self.uses_state_comparison,
             "validation_only": self.validation_only,
+            "permits_repair_eligibility_analysis": self.permits_repair_eligibility_analysis,
+            "permits_repair_execution": self.permits_repair_execution,
+            "permits_governed_repair": self.permits_governed_repair,
+            "permits_custom_sql_hooks": self.permits_custom_sql_hooks,
+            "reads_source_data": self.reads_source_data,
+            "reads_target_data": self.reads_target_data,
+            "mutates_source": self.mutates_source,
+            "mutates_target": self.mutates_target,
+            "performs_schema_work": self.performs_schema_work,
+            "performs_data_movement": self.performs_data_movement,
+            "performs_bulk_transport": self.performs_bulk_transport,
+            "requires_cdc": self.requires_cdc,
+            "permits_cdc": self.permits_cdc,
+            "performs_validation": self.performs_validation,
+            "permits_reconciliation": self.permits_reconciliation,
+            "permits_deduplication": self.permits_deduplication,
+            "requires_target_write_authority": self.requires_target_write_authority,
+        }
+
+
+# =====================================================================
+# P5.8 PREFLIGHT, DRY-RUN & REPAIR ELIGIBILITY CANONICAL DTOs
+# =====================================================================
+
+@dataclass(frozen=True)
+class PreflightDiagnostic:
+    code: str
+    severity: str  # "ERROR", "WARNING", "INFO"
+    message: str
+    target_object: Optional[str] = None
+    details: Dict[str, Any] = field(default_factory=dict)
+    remediation: Optional[str] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "code": self.code,
+            "severity": self.severity,
+            "message": self.message,
+            "target_object": self.target_object,
+            "details": dict(self.details),
+            "remediation": self.remediation,
+        }
+
+
+@dataclass(frozen=True)
+class PreflightResult:
+    passed: bool
+    checks_evaluated: int
+    checks_passed: int
+    checks_failed: int
+    diagnostics: List[PreflightDiagnostic] = field(default_factory=list)
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "passed": self.passed,
+            "checks_evaluated": self.checks_evaluated,
+            "checks_passed": self.checks_passed,
+            "checks_failed": self.checks_failed,
+            "diagnostics": [d.to_dict() for d in self.diagnostics],
+            "metadata": dict(self.metadata),
+        }
+
+
+@dataclass(frozen=True)
+class DryRunResult:
+    plan_id: str
+    mode: str
+    compiled_nodes_count: int
+    compiled_edges_count: int
+    dag_preview: List[Dict[str, Any]] = field(default_factory=list)
+    connector_decisions: Dict[str, Any] = field(default_factory=dict)
+    fingerprint: str = ""
+    writes_committed: int = 0
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "plan_id": self.plan_id,
+            "mode": self.mode,
+            "compiled_nodes_count": self.compiled_nodes_count,
+            "compiled_edges_count": self.compiled_edges_count,
+            "dag_preview": list(self.dag_preview),
+            "connector_decisions": dict(self.connector_decisions),
+            "fingerprint": self.fingerprint,
+            "writes_committed": self.writes_committed,
+            "metadata": dict(self.metadata),
+        }
+
+
+@dataclass(frozen=True)
+class RepairEligibilityResult:
+    table_name: str
+    discrepancies_found: int
+    eligible_for_repair: bool
+    repair_strategy: str
+    repair_execution_blocked: bool = True
+    reason: str = ""
+    details: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "table_name": self.table_name,
+            "discrepancies_found": self.discrepancies_found,
+            "eligible_for_repair": self.eligible_for_repair,
+            "repair_strategy": self.repair_strategy,
+            "repair_execution_blocked": self.repair_execution_blocked,
+            "reason": self.reason,
+            "details": dict(self.details),
         }
 
 

@@ -2,7 +2,7 @@
 AKAAL Platform 6 — Compliance Rule Engine.
 """
 
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Tuple
 from akaal.governance.domain.models import ComplianceRule
 
 

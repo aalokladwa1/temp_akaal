@@ -4,7 +4,7 @@ Captures system configurations, limits, active profiles, and health scores for d
 """
 
 from datetime import datetime, timezone
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from threading import RLock
 
 

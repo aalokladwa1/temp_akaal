@@ -3,7 +3,7 @@
 import uuid
 import asyncio
 import logging
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from akaal.healing.distributed.task_queue import DistributedHealingTaskQueue, HealingTask, HealingTaskLeaseManager, HealingHeartbeatMonitor
 from akaal.healing.core.models import HealingResult, HealingStatus, RepairOutcome
 

@@ -3,7 +3,7 @@
 import inspect
 import asyncio
 import logging
-from typing import Callable, Dict, List, Coroutine, Any
+from typing import Callable, Dict, List, Coroutine, Any, Optional
 from akaal.healing.events.events import HealingEvent, HealingEventType
 
 logger = logging.getLogger("akaal.healing.events")

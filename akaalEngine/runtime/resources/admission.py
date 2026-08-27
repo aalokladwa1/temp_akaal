@@ -5,7 +5,7 @@ Resource admission controller evaluating CPU, memory, slot capacity, and task we
 """
 
 from threading import RLock
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple, Any
 
 from akaalEngine.runtime.models.errors import ResourceAdmissionError
 from akaalEngine.runtime.models.resource import (

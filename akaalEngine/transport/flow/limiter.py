@@ -6,7 +6,7 @@ TokenBucketBandwidthLimiter with COOPERATIVE_RATE_WAIT semantics and time.monoto
 
 from threading import RLock
 import time
-from typing import Optional
+from typing import Optional, Any
 
 from akaalEngine.transport.models.errors import TransportCancelledError
 

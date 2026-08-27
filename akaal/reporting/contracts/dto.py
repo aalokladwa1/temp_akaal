@@ -2,6 +2,8 @@
 DTO Contracts for Platform 8 Reporting.
 """
 
+from typing import Dict, Any, Optional, List
+
 try:
     from pydantic import BaseModel, Field
 except ImportError:

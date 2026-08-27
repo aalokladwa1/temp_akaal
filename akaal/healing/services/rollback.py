@@ -1,6 +1,6 @@
 """RollbackService: Manages partial & selective rollbacks for target tables & rows (Caps 11, 12)."""
 
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from akaal.healing.core.interfaces import IHealingService
 from akaal.healing.core.models import RollbackManifest
 

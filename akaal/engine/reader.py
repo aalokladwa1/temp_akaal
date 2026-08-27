@@ -8,7 +8,10 @@ streaming cursor reader supporting Lob locators and range pagination.
 from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Tuple, Optional
 import logging
-import oracledb
+try:
+    import oracledb
+except ImportError:
+    oracledb = None
 
 from akaal.engine.spec import TransportPartition, PartitionStrategy, BatchMetadata
 

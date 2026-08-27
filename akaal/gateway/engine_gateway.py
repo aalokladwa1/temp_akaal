@@ -24,6 +24,7 @@ import asyncio
 import uuid
 import hashlib
 import datetime
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 try:
     import psutil
     HAS_PSUTIL = True
@@ -231,6 +232,14 @@ class EngineGateway:
             return self.p5_compare_plan_versions(payload)
         elif capability == "p5_get_plan_history":
             return self.p5_get_plan_history(payload)
+        elif capability == "p5_run_preflight":
+            return self.p5_run_preflight(payload)
+        elif capability == "p5_evaluate_repair_eligibility":
+            return self.p5_evaluate_repair_eligibility(payload)
+        elif capability == "p5_clone_plan":
+            return self.p5_clone_plan(payload)
+        elif capability == "p5_create_revalidation_context":
+            return self.p5_create_revalidation_context(payload)
         elif capability == "p5_evaluate_selection":
             return self.p5_evaluate_selection(payload)
         elif capability == "p5_preview_selection":
@@ -4004,6 +4013,91 @@ class EngineGateway:
 
         versions = store.list_plan_versions(project_id)
         return {"status": "SUCCESS", "versions": [v.to_dict() for v in versions]}
+
+    def p5_run_preflight(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        from akaal.planner.persistence.project_store import ProjectStore
+        from akaal.planner.engine.plan_compiler import PlanCompiler
+
+        store = ProjectStore()
+        plan_id = payload.get("plan_id")
+        version_id = payload.get("version_id")
+        options = payload.get("options", {})
+
+        if not plan_id:
+            return {"status": "ERROR", "message": "plan_id is required"}
+
+        plan = store.load_plan(plan_id)
+        if not plan:
+            return {"status": "ERROR", "message": f"Plan '{plan_id}' not found"}
+
+        version = store.load_plan_version(version_id) if version_id else None
+        compiler = PlanCompiler()
+        res = compiler.run_preflight(plan=plan, version=version, options=options)
+        return {"status": "SUCCESS", "preflight": res.to_dict()}
+
+    def p5_evaluate_repair_eligibility(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        from akaal.planner.engine.plan_compiler import PlanCompiler
+
+        table_name = payload.get("table_name", "UNKNOWN_TABLE")
+        discrepancies = int(payload.get("discrepancies_found", 0))
+        pks_available = bool(payload.get("primary_keys_available", True))
+        mode = payload.get("execution_mode", "M8")
+
+        compiler = PlanCompiler()
+        res = compiler.evaluate_repair_eligibility(
+            table_name=table_name,
+            discrepancies_found=discrepancies,
+            primary_keys_available=pks_available,
+            mode=mode,
+        )
+        return {"status": "SUCCESS", "repair_eligibility": res.to_dict()}
+
+    def p5_clone_plan(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        from akaal.planner.persistence.project_store import ProjectStore
+        from akaal.planner.engine.plan_compiler import PlanCompiler
+
+        store = ProjectStore()
+        plan_id = payload.get("plan_id")
+        if not plan_id:
+            return {"status": "ERROR", "message": "plan_id is required"}
+
+        plan = store.load_plan(plan_id)
+        if not plan:
+            return {"status": "ERROR", "message": f"Plan '{plan_id}' not found"}
+
+        compiler = PlanCompiler()
+        cloned = compiler.clone_plan(
+            original_plan=plan,
+            new_plan_id=payload.get("new_plan_id"),
+            new_name=payload.get("new_name"),
+        )
+        store.save_plan(cloned)
+        return {"status": "SUCCESS", "cloned_plan": cloned.to_dict()}
+
+    def p5_create_revalidation_context(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        from akaal.planner.persistence.project_store import ProjectStore
+        from akaal.planner.engine.plan_compiler import PlanCompiler
+
+        store = ProjectStore()
+        plan_id = payload.get("plan_id")
+        version_id = payload.get("version_id")
+
+        if not plan_id or not version_id:
+            return {"status": "ERROR", "message": "plan_id and version_id are required"}
+
+        plan = store.load_plan(plan_id)
+        version = store.load_plan_version(version_id)
+
+        if not plan or not version:
+            return {"status": "ERROR", "message": "Plan or PlanVersion not found"}
+
+        compiler = PlanCompiler()
+        reval_ctx = compiler.create_revalidation_context(
+            historical_plan=plan,
+            version=version,
+            fresh_options=payload.get("options"),
+        )
+        return {"status": "SUCCESS", "revalidation_context": reval_ctx}
 
     def p5_evaluate_selection(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         from akaal.planner.engine.plan_compiler import PlanCompiler

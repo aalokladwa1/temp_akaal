@@ -5,7 +5,7 @@ Provides deterministic, bounded in-memory lookup resolution for reference datase
 and inline dictionaries. ZERO network calls inside row transformation loops.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 from akaal.transformation.models import LookupDefinition, MissingKeyPolicy
 
 

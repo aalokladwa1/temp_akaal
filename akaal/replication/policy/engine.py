@@ -1,6 +1,6 @@
 """ReplicationPolicyEngine: Enterprise compliance policy engine."""
 
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from akaal.replication.core.interfaces import IReplicationPolicy
 from akaal.replication.core.config import ReplicationProfile, FailoverMode
 from akaal.replication.core.models import ReplicationPlan

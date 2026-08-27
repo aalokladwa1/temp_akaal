@@ -5,7 +5,7 @@ Extracts change records from PostgreSQL logical decoding slots, translates WAL L
 and reconstructs transactions into canonical P3.1 CDCTransaction objects.
 """
 
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 import datetime
 
 from akaal.cdc.sources.base import ICDCSourceAdapter, CDCCapabilityFlags

@@ -75,9 +75,10 @@ def _subproc_claim_worker(db_path: str, key: str, op_id: str, fingerprint: str, 
 class TestEngineGatewayStep4(unittest.TestCase):
 
     def setUp(self):
+        import uuid
         self.gateway = EngineGateway()
         self.governance = EnterpriseGovernancePlatformV6()
-        self.workflow_id = "mig-gateway-step4-test-01"
+        self.workflow_id = f"mig-gw-step4-{uuid.uuid4().hex[:8]}"
 
         # Register migration in gateway
         self.sample_spec = {

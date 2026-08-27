@@ -1,6 +1,6 @@
 """PatternLearningService: Learns successful repair patterns & knowledge base (Caps 24, 25)."""
 
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from akaal.healing.core.interfaces import IHealingService
 
 

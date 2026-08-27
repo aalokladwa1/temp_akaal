@@ -2,7 +2,7 @@
 AKAAL Platform 6 — Governance Audit Trail Generator.
 """
 
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import datetime
 import uuid
 

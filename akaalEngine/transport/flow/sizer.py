@@ -6,7 +6,7 @@ Mined from `akaal/performance/optimizers/batch.py`.
 """
 
 import sys
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping, Sequence, Optional
 
 from akaalEngine.transport.models.spec import TransportTuningPolicy
 

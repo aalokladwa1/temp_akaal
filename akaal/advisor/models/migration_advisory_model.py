@@ -10,7 +10,7 @@ import hashlib
 import json
 from dataclasses import dataclass, field
 from types import MappingProxyType
-from typing import Any, Mapping, Tuple
+from typing import Any, Dict, Mapping, Tuple
 
 from akaal.advisor.models.advisory_context import AdvisoryContext
 from akaal.advisor.models.advisory_manifest import AdvisoryManifest

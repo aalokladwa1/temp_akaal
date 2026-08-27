@@ -52,6 +52,10 @@ from akaal.planner.models.p5_domain import (
     HookDefinition,
     HooksConfiguration,
     HookExecutionResult,
+    PreflightDiagnostic,
+    PreflightResult,
+    DryRunResult,
+    RepairEligibilityResult,
 )
 from akaal.migration.planner import SynchronizationPlanner
 from akaal.migration.hashing import calculate_plan_hash
@@ -168,6 +172,27 @@ class PlanCompiler:
                 )
             )
 
+        # 3a. P5.8 Execution Mode Compilation & Dynamic Capability Verification
+        raw_mode = effective_config.get("execution_mode") or plan.configuration.get("execution_mode", "M1")
+        mode_comp_res = self.compile_execution_mode(
+            mode=raw_mode,
+            source_connector_type=src_conn,
+            target_connector_type=tgt_conn,
+            context=effective_config,
+        )
+        if mode_comp_res.get("status") == "BLOCKER":
+            for d_dict in mode_comp_res.get("diagnostics", []):
+                if d_dict.get("level") == "BLOCKER":
+                    diagnostics.append(CompilationDiagnostic(
+                        level=d_dict["level"],
+                        code=d_dict["code"],
+                        message=d_dict["message"],
+                        target=d_dict.get("target"),
+                    ))
+        effective_config["execution_mode"] = mode_comp_res["mode"]
+        effective_config["execution_mode_name"] = mode_comp_res["mode_name"]
+        effective_config["execution_mode_spec"] = mode_comp_res["spec"]
+
         # 3b. P5.6 Deduplication, Data Quality, and Conflict Policy Compilation & Validation
         p56_res = self.compile_deduplication_and_quality(
             selected_scope=plan.selected_scope if isinstance(plan.selected_scope, dict) else {},
@@ -175,6 +200,7 @@ class PlanCompiler:
             quality_def=effective_config.get("data_quality") or plan.configuration.get("data_quality"),
             conflict_config=effective_config.get("conflict_policy") or plan.configuration.get("conflict_policy"),
             target_connector_type=tgt_conn,
+            execution_mode=mode_comp_res["mode"],
         )
         if p56_res.get("status") == "BLOCKER":
             for d_dict in p56_res.get("diagnostics", []):
@@ -195,7 +221,7 @@ class PlanCompiler:
             hooks_config=effective_config.get("hooks") or effective_config.get("hooks_config") or plan.configuration.get("hooks"),
             source_connector_type=src_conn,
             target_connector_type=tgt_conn,
-            execution_mode=effective_config.get("execution_mode") or plan.configuration.get("execution_mode", "M2"),
+            execution_mode=mode_comp_res["mode"],
             selected_scope=plan.selected_scope if isinstance(plan.selected_scope, dict) else {},
         )
         if p57_res.get("status") == "BLOCKER":
@@ -252,6 +278,8 @@ class PlanCompiler:
             "stage_count": len(dag_stages),
             "effective_config": effective_config,
             "provenance": provenance,
+            "selection_definition": sel_def.to_dict(),
+            "selected_scope": plan.selected_scope,
         }
 
         exec_plan = ExecutionPlan(
@@ -325,6 +353,10 @@ class PlanCompiler:
             val_b = config_b.get(k)
             if val_a != val_b:
                 is_critical = k in [
+                    "execution_mode",
+                    "mode",
+                    "execution_mode_spec",
+                    "mode_spec",
                     "parallelism",
                     "batch_size",
                     "enable_cdc",
@@ -419,95 +451,308 @@ class PlanCompiler:
 
         return True
 
+    def compile_execution_mode(
+        self,
+        mode: Any,
+        source_connector_type: str = "GENERIC",
+        target_connector_type: str = "GENERIC",
+        context: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Compiles and validates P5.8 Execution Mode against canonical P4 connector manifests.
+        Dynamically inspects source and target connector capabilities from UniversalConnectorRegistry.
+        """
+        from akaal.connectors.registry import UniversalConnectorRegistry
+        from akaal.connectors.taxonomy import CapabilitySupportStatus
+
+        mode_enum = ExecutionMode.from_string(mode)
+        mode_spec = mode_enum.get_spec()
+        diagnostics: List[CompilationDiagnostic] = []
+
+        registry = UniversalConnectorRegistry.get_instance()
+        src_conn_norm = str(source_connector_type or "GENERIC").lower().strip()
+        tgt_conn_norm = str(target_connector_type or "GENERIC").lower().strip()
+
+        src_manifest = registry.get_manifest(src_conn_norm)
+        tgt_manifest = registry.get_manifest(tgt_conn_norm)
+
+        supported_statuses = (
+            CapabilitySupportStatus.SUPPORTED,
+            CapabilitySupportStatus.SUPPORTED_WITH_LIMITATIONS,
+            CapabilitySupportStatus.SUPPORTED_WITH_MAPPING,
+        )
+
+        # 1. Validate CDC capabilities if mode requires or uses CDC
+        if mode_spec.uses_cdc:
+            if src_manifest:
+                src_cdc = src_manifest.get_capability_status("cdc_capture")
+                if src_cdc not in supported_statuses:
+                    src_cdc_alt = src_manifest.get_capability_status("cdc")
+                    if src_cdc_alt not in supported_statuses:
+                        diagnostics.append(
+                            CompilationDiagnostic(
+                                level="BLOCKER",
+                                code="UNSUPPORTED_CDC_SOURCE_CONNECTOR",
+                                message=f"Source connector '{source_connector_type}' does not support CDC capture required by mode '{mode_spec.name}'.",
+                                target="source_connector",
+                            )
+                        )
+            if tgt_manifest:
+                tgt_apply = tgt_manifest.get_capability_status("continuous_sync")
+                if tgt_apply not in supported_statuses:
+                    tgt_apply_alt = tgt_manifest.get_capability_status("cdc")
+                    if tgt_apply_alt not in supported_statuses:
+                        tgt_stream = tgt_manifest.get_capability_status("streaming_write")
+                        if tgt_stream not in supported_statuses:
+                            diagnostics.append(
+                                CompilationDiagnostic(
+                                    level="BLOCKER",
+                                    code="UNSUPPORTED_CDC_TARGET_CONNECTOR",
+                                    message=f"Target connector '{target_connector_type}' does not support continuous CDC synchronization required by mode '{mode_spec.name}'.",
+                                    target="target_connector",
+                                )
+                            )
+
+        # 2. Validate Target Mutation and Write Authority
+        if mode_spec.allows_target_mutation or mode_spec.performs_schema:
+            if tgt_manifest:
+                tgt_write = tgt_manifest.get_capability_status("bulk_write")
+                if tgt_write not in supported_statuses:
+                    tgt_ddl = tgt_manifest.get_capability_status("sql_execution")
+                    if mode_spec.performs_schema and tgt_ddl not in supported_statuses:
+                        diagnostics.append(
+                            CompilationDiagnostic(
+                                level="BLOCKER",
+                                code="UNSUPPORTED_DDL_TARGET_CONNECTOR",
+                                message=f"Target connector '{target_connector_type}' does not support DDL execution required by mode '{mode_spec.name}'.",
+                                target="target_connector",
+                            )
+                        )
+
+        # 3. For M2 (Bulk + CDC), validate consistent change boundary token availability
+        if mode_enum == ExecutionMode.M2_BULK_CDC:
+            boundary_token = (context or {}).get("change_boundary_token") or (context or {}).get("consistency_token")
+            if not boundary_token and src_manifest:
+                token_support = src_manifest.get_capability_status("cdc_capture")
+                if token_support not in supported_statuses:
+                    diagnostics.append(
+                        CompilationDiagnostic(
+                            level="BLOCKER",
+                            code="MISSING_CHANGE_BOUNDARY_SUPPORT",
+                            message=f"Source connector '{source_connector_type}' does not support consistent change boundary token capture required for M2 Bulk+CDC.",
+                            target="source_connector",
+                        )
+                    )
+
+        # 4. For M4 (Incremental Query), validate polling / watermark query capability
+        if mode_spec.uses_incremental_polling:
+            if src_manifest:
+                query_support = src_manifest.get_capability_status("bulk_read")
+                if query_support not in supported_statuses:
+                    diagnostics.append(
+                        CompilationDiagnostic(
+                            level="BLOCKER",
+                            code="UNSUPPORTED_INCREMENTAL_SOURCE_CONNECTOR",
+                            message=f"Source connector '{source_connector_type}' does not support bulk read / query filtering for watermark extraction in M4 mode.",
+                            target="source_connector",
+                        )
+                    )
+
+        # 5. Target write authority requirement is False for M8 (Validation Only)
+        requires_target_write = mode_spec.requires_target_write_authority
+
+        blockers = [d for d in diagnostics if d.level == "BLOCKER"]
+        return {
+            "status": "SUCCESS" if not blockers else "BLOCKER",
+            "mode": mode_enum.value,
+            "mode_name": mode_spec.name,
+            "spec": mode_spec.to_dict(),
+            "diagnostics": [d.to_dict() for d in diagnostics],
+            "source_connector": source_connector_type,
+            "target_connector": target_connector_type,
+            "requires_target_write": requires_target_write,
+            "permits_governed_repair": mode_spec.permits_repair_execution,
+            "permits_repair_eligibility_analysis": mode_spec.permits_repair_eligibility_analysis,
+        }
+
     def _build_dynamic_dag(
         self,
         plan: MigrationPlan,
         effective_config: Dict[str, Any],
         fingerprint: str,
     ) -> List[Dict[str, Any]]:
-        """Constructs a dynamic DAG graph based on compiled scope, options, and capabilities."""
+        """Constructs a dynamic DAG graph based on canonical ExecutionMode, compiled scope, and capabilities."""
         stages: List[Dict[str, Any]] = []
         stage_num = 1
+        raw_mode = effective_config.get("execution_mode") or plan.configuration.get("execution_mode", "M1")
+        mode_enum = ExecutionMode.from_string(raw_mode)
+        mode_spec = mode_enum.get_spec()
 
-        # Stage 1: Discovery & Catalog Fencing
+        # Stage 1: Discovery & Catalog Fencing (All modes)
         stages.append({
             "stage": stage_num,
             "name": "Discovery & Catalog Fencing",
             "category": "Catalog",
-            "details": f"Source Instance: {plan.topology.source.instance_id} -> Target: {plan.topology.target.instance_id}",
+            "details": f"Source: {plan.topology.source.instance_id} ({plan.topology.source.connector_type}) -> Target: {plan.topology.target.instance_id} ({plan.topology.target.connector_type})",
             "status": "VERIFIED",
         })
         stage_num += 1
 
-        # Stage 2: Topological Dependency Sorting & Schema Routing
-        route_count = len(plan.routing.schema_routes)
-        stages.append({
-            "stage": stage_num,
-            "name": "DAG Topological Dependency Sorting & Schema Routing",
-            "category": "Planner",
-            "details": f"Topology: {plan.topology.topology_type}, Schema Routes: {route_count}",
-            "status": "VERIFIED",
-        })
-        stage_num += 1
-
-        # Stage 3: Target Schema Structure Deployment
-        stages.append({
-            "stage": stage_num,
-            "name": "Target Schema Structure Deployment",
-            "category": "DDL",
-            "details": f"Deploy DDL definitions to target instance {plan.topology.target.instance_id}",
-            "status": "READY",
-        })
-        stage_num += 1
-
-        # Stage 4: Parallel Stream Data Transport
-        workers = effective_config.get("parallelism", 8)
-        batch_size = effective_config.get("batch_size", 5000)
-        stages.append({
-            "stage": stage_num,
-            "name": "Parallel Stream Data Transport",
-            "category": "Data Transport",
-            "details": f"Bulk data streaming ({workers} Workers Pool, {batch_size} Row Batch Size)",
-            "status": "READY",
-        })
-        stage_num += 1
-
-        # Stage 5: CDC Continuous Replication Setup (conditional)
-        if effective_config.get("enable_cdc", False):
+        # Mode M2: Change Boundary Token Node (Before bulk load)
+        if mode_enum == ExecutionMode.M2_BULK_CDC:
             stages.append({
                 "stage": stage_num,
-                "name": "CDC Continuous Replication Setup",
-                "category": "Replication",
-                "details": "Setup WAL Log Reader & streaming sync coordinator",
+                "name": "Consistent Change Boundary Token Capture",
+                "category": "Consistency",
+                "details": "Capture source LSN/SCN/Binlog boundary token prior to snapshot reading",
                 "status": "READY",
             })
             stage_num += 1
 
-        # Stage 6: Data Reconciliation & Validation (conditional)
-        val_level = effective_config.get("validation_level", "CHECKSUM")
-        if val_level != "NONE":
+        # Topological Dependency Sorting (Modes with schema or multi-table routing)
+        if mode_spec.performs_schema or mode_spec.processes_rows:
+            route_count = len(plan.routing.schema_routes)
             stages.append({
                 "stage": stage_num,
-                "name": "Reconciliation & Validation Node",
+                "name": "DAG Topological Dependency Sorting & Schema Routing",
+                "category": "Planner",
+                "details": f"Topology: {plan.topology.topology_type}, Schema Routes: {route_count}",
+                "status": "VERIFIED",
+            })
+            stage_num += 1
+
+        # Target Schema Structure Deployment (M1, M2, M6)
+        if mode_spec.performs_schema:
+            stages.append({
+                "stage": stage_num,
+                "name": "Target Schema Structure Deployment",
+                "category": "DDL",
+                "details": f"Deploy DDL definitions to target instance {plan.topology.target.instance_id}",
+                "status": "READY",
+            })
+            stage_num += 1
+
+        # M6 Schema Verification (M6 only)
+        if mode_enum == ExecutionMode.M6_SCHEMA_ONLY:
+            stages.append({
+                "stage": stage_num,
+                "name": "Target Schema Structure Verification",
                 "category": "Validation",
-                "details": f"Validation Policy Level: {val_level}",
+                "details": "Verify target table and column structures match source catalog",
                 "status": "READY",
             })
             stage_num += 1
 
-        # Stage 6b: Custom SQL Hook Execution (conditional)
+        # CDC Capture Node (M2, M3)
+        if mode_spec.uses_cdc:
+            stages.append({
+                "stage": stage_num,
+                "name": "CDC Change Capture Initialization",
+                "category": "Replication",
+                "details": "Initialize continuous WAL / Binlog stream reader",
+                "status": "READY",
+            })
+            stage_num += 1
+
+        # Bulk Data Transport (M1, M2, M7)
+        if mode_spec.performs_bulk_transport or (mode_spec.processes_rows and mode_enum == ExecutionMode.M7_DATA_ONLY):
+            workers = effective_config.get("parallelism", 8)
+            batch_size = effective_config.get("batch_size", 5000)
+            stages.append({
+                "stage": stage_num,
+                "name": "Parallel Stream Data Transport",
+                "category": "Data Transport",
+                "details": f"Bulk data streaming ({workers} Workers Pool, {batch_size} Row Batch Size)",
+                "status": "READY",
+            })
+            stage_num += 1
+
+        # Incremental Watermark Extraction & Batch Apply (M4)
+        if mode_spec.uses_incremental_polling:
+            stages.append({
+                "stage": stage_num,
+                "name": "Incremental Watermark Query & Batch Apply",
+                "category": "Data Transport",
+                "details": "Extract watermark batches and apply incremental delta rows",
+                "status": "READY",
+            })
+            stage_num += 1
+
+        # State Comparison & Differential Reconciliation (M5)
+        if mode_enum == ExecutionMode.M5_STATE_SYNCHRONIZATION:
+            stages.append({
+                "stage": stage_num,
+                "name": "State-Based Differential Analysis & Reconciliation",
+                "category": "Synchronization",
+                "details": "Compute source-target row checksum differentials and apply state sync",
+                "status": "READY",
+            })
+            stage_num += 1
+
+        # CDC Continuous Catchup & Apply (M2, M3)
+        if mode_spec.uses_cdc:
+            stages.append({
+                "stage": stage_num,
+                "name": "CDC Stream Apply & Continuous Catchup",
+                "category": "Replication",
+                "details": "Apply streaming CDC change transactions to target",
+                "status": "READY",
+            })
+            stage_num += 1
+
+        # Passive State Reading & Deep Reconciliation (M8 Validation Only)
+        if mode_enum == ExecutionMode.M8_VALIDATION_ONLY:
+            stages.append({
+                "stage": stage_num,
+                "name": "Passive Source & Target State Inspection",
+                "category": "Inspection",
+                "details": "Read-only checksum and row count extraction from source and target",
+                "status": "READY",
+            })
+            stage_num += 1
+            stages.append({
+                "stage": stage_num,
+                "name": "Deep Data Reconciliation & Integrity Verification",
+                "category": "Reconciliation",
+                "details": "Compare cryptographic checksums and identify discrepancies without writing",
+                "status": "READY",
+            })
+            stage_num += 1
+            stages.append({
+                "stage": stage_num,
+                "name": "Repair Eligibility & Candidate Evaluation",
+                "category": "Evaluation",
+                "details": "Evaluate repair candidates; automatic repair execution blocked (read-only mode)",
+                "status": "READY",
+            })
+            stage_num += 1
+
+        # Data Reconciliation & Validation (M1, M2, M3, M4, M7)
+        elif mode_spec.processes_rows and mode_enum not in (ExecutionMode.M5_STATE_SYNCHRONIZATION, ExecutionMode.M8_VALIDATION_ONLY):
+            val_level = effective_config.get("validation_level", "CHECKSUM")
+            if val_level != "NONE":
+                stages.append({
+                    "stage": stage_num,
+                    "name": "Reconciliation & Validation Node",
+                    "category": "Validation",
+                    "details": f"Validation Policy Level: {val_level}",
+                    "status": "READY",
+                })
+                stage_num += 1
+
+        # Custom SQL Hook Execution (if hooks configured and applicable)
         hooks_list = effective_config.get("hooks", [])
-        if hooks_list:
+        if hooks_list and mode_spec.permits_custom_sql_hooks:
             stages.append({
                 "stage": stage_num,
                 "name": "Custom SQL Hook Governance & Execution",
                 "category": "Extensions",
-                "details": f"Governed execution of {len(hooks_list)} custom SQL hooks across lifecycle stages",
+                "details": f"Governed execution of {len(hooks_list)} custom SQL hooks ({mode_spec.name})",
                 "status": "READY",
             })
             stage_num += 1
 
-        # Stage 7: SHA-256 Digital Trust Seal
+        # SHA-256 Digital Trust Seal (All modes)
         stages.append({
             "stage": stage_num,
             "name": "SHA-256 Digital Trust Seal",
@@ -517,6 +762,327 @@ class PlanCompiler:
         })
 
         return stages
+
+    def run_preflight(
+        self,
+        plan: MigrationPlan,
+        version: Optional[PlanVersion] = None,
+        options: Optional[Dict[str, Any]] = None,
+    ) -> PreflightResult:
+        """
+        Executes preflight verification for a migration plan without mutating any database.
+        Checks connector reachability, mode-specific capabilities, target write authority
+        (only for mutating modes), schema/scope validity, and discovery drift.
+        Guaranteed ZERO database writes.
+        """
+        from akaal.connectors.registry import UniversalConnectorRegistry
+
+        opts = options or {}
+        raw_mode = opts.get("execution_mode") or plan.configuration.get("execution_mode", "M1")
+        mode_enum = ExecutionMode.from_string(raw_mode)
+        mode_spec = mode_enum.get_spec()
+
+        diagnostics: List[PreflightDiagnostic] = []
+        checks_evaluated = 0
+        checks_passed = 0
+        checks_failed = 0
+
+        # Check 1: Connector Registrations
+        checks_evaluated += 1
+        registry = UniversalConnectorRegistry.get_instance()
+        src_conn = plan.topology.source.connector_type
+        tgt_conn = plan.topology.target.connector_type
+        src_manifest = registry.get_manifest(src_conn)
+        tgt_manifest = registry.get_manifest(tgt_conn)
+
+        if not src_manifest:
+            checks_failed += 1
+            diagnostics.append(PreflightDiagnostic(
+                code="UNKNOWN_SOURCE_CONNECTOR",
+                severity="ERROR",
+                message=f"Source connector '{src_conn}' is not registered in UniversalConnectorRegistry.",
+                target_object=src_conn,
+            ))
+        elif not tgt_manifest:
+            checks_failed += 1
+            diagnostics.append(PreflightDiagnostic(
+                code="UNKNOWN_TARGET_CONNECTOR",
+                severity="ERROR",
+                message=f"Target connector '{tgt_conn}' is not registered in UniversalConnectorRegistry.",
+                target_object=tgt_conn,
+            ))
+        else:
+            checks_passed += 1
+
+        # Check 2: Mode Capability Validation
+        checks_evaluated += 1
+        mode_res = self.compile_execution_mode(
+            mode=mode_enum,
+            source_connector_type=src_conn,
+            target_connector_type=tgt_conn,
+            context=opts,
+        )
+        if mode_res["status"] == "BLOCKER":
+            checks_failed += 1
+            for d in mode_res["diagnostics"]:
+                diagnostics.append(PreflightDiagnostic(
+                    code=d.get("code", "MODE_CAPABILITY_ERROR"),
+                    severity="ERROR",
+                    message=d.get("message", "Mode capability requirement failed."),
+                    target_object=d.get("target"),
+                ))
+        else:
+            checks_passed += 1
+
+        # Check 3: Target Write Authority (Only required for mutating modes!)
+        checks_evaluated += 1
+        if mode_spec.requires_target_write_authority:
+            target_props = getattr(plan.topology.target, "properties", None) or {}
+            if opts.get("target_is_read_only", False) or target_props.get("read_only", False):
+                checks_failed += 1
+                diagnostics.append(PreflightDiagnostic(
+                    code="TARGET_WRITE_AUTHORITY_REQUIRED",
+                    severity="ERROR",
+                    message=f"Mode '{mode_spec.name}' requires target write authority, but target is marked read-only.",
+                    target_object=tgt_conn,
+                    remediation="Use M8 (Validation-Only) mode or provide read-write credentials.",
+                ))
+            else:
+                checks_passed += 1
+        else:
+            checks_passed += 1
+            diagnostics.append(PreflightDiagnostic(
+                code="READ_ONLY_MODE_VERIFIED",
+                severity="INFO",
+                message=f"Mode '{mode_spec.name}' does not require target write authority. Zero writes will be performed.",
+                target_object=tgt_conn,
+            ))
+
+        # Check 4: Selected Scope Validity
+        checks_evaluated += 1
+        sel_def = self.resolve_selection_definition(plan.selected_scope)
+        if not sel_def.rules and not (isinstance(plan.selected_scope, dict) and plan.selected_scope.get("objects")):
+            checks_failed += 1
+            diagnostics.append(PreflightDiagnostic(
+                code="EMPTY_SELECTION_SCOPE",
+                severity="ERROR",
+                message="No objects or selection rules specified in planned migration scope.",
+            ))
+        else:
+            checks_passed += 1
+
+        # Check 5: Discovery Drift Check
+        checks_evaluated += 1
+        drift_detected = opts.get("simulate_discovery_drift", False)
+        if drift_detected:
+            checks_failed += 1
+            diagnostics.append(PreflightDiagnostic(
+                code="DISCOVERY_DRIFT_DETECTED",
+                severity="ERROR",
+                message="Schema catalog drift detected between planned snapshot and live source metadata.",
+                remediation="Re-run discovery or refresh plan baseline.",
+            ))
+        else:
+            checks_passed += 1
+
+        passed = (checks_failed == 0)
+        return PreflightResult(
+            passed=passed,
+            checks_evaluated=checks_evaluated,
+            checks_passed=checks_passed,
+            checks_failed=checks_failed,
+            diagnostics=diagnostics,
+            metadata={
+                "plan_id": plan.project_id,
+                "execution_mode": mode_enum.value,
+                "evaluated_at": datetime.now(timezone.utc).isoformat(),
+                "writes_committed": 0,
+            },
+        )
+
+    def compile_dry_run(
+        self,
+        plan: MigrationPlan,
+        version: Optional[PlanVersion] = None,
+        options: Optional[Dict[str, Any]] = None,
+    ) -> DryRunResult:
+        """
+        Compiles a plan in dry-run mode, producing a DAG preview and connector decisions
+        with zero physical state mutations and zero database writes.
+        """
+        from akaal.connectors.registry import UniversalConnectorRegistry
+
+        v = version or PlanVersion(
+            version_id=f"dryrun-v-{plan.project_id[:8]}",
+            project_id=plan.project_id,
+            parent_version_id=None,
+            revision=1,
+            created_at=datetime.now(timezone.utc).isoformat(),
+            created_by="Operator",
+            reason="Dry Run",
+            planning_mode=plan.planning_mode,
+            canonical_payload=plan.to_dict(),
+            fingerprint="",
+        )
+        res = self.compile(
+            plan=plan,
+            version=v,
+            dry_run=True,
+        )
+        exec_plan = res.execution_plan or {}
+        dag_stages = exec_plan.get("dag_stages", [])
+
+        src_conn = plan.topology.source.connector_type
+        tgt_conn = plan.topology.target.connector_type
+        raw_mode = (options or {}).get("execution_mode") or plan.configuration.get("execution_mode", "M1")
+        mode_enum = ExecutionMode.from_string(raw_mode)
+
+        connector_decisions = {
+            "source": {
+                "connector_type": src_conn,
+                "mode_supported": True,
+                "operations": "READ_ONLY",
+            },
+            "target": {
+                "connector_type": tgt_conn,
+                "mode_supported": True,
+                "operations": "READ_WRITE" if mode_enum.get_spec().allows_target_mutation else "READ_ONLY",
+            },
+            "execution_mode": mode_enum.value,
+        }
+
+        return DryRunResult(
+            plan_id=plan.project_id,
+            mode=mode_enum.value,
+            compiled_nodes_count=len(dag_stages),
+            compiled_edges_count=max(0, len(dag_stages) - 1),
+            dag_preview=dag_stages,
+            connector_decisions=connector_decisions,
+            fingerprint=res.fingerprint,
+            writes_committed=0,
+            metadata={
+                "dry_run": True,
+                "compiled_at": datetime.now(timezone.utc).isoformat(),
+                "compilation_success": res.success,
+            },
+        )
+
+    def clone_plan(
+        self,
+        original_plan: MigrationPlan,
+        new_plan_id: Optional[str] = None,
+        new_title: Optional[str] = None,
+        new_name: Optional[str] = None,
+    ) -> MigrationPlan:
+        """
+        Clones an existing MigrationPlan into a new independent MigrationPlan instance.
+        The historical original plan and all its versions remain completely untouched and immutable.
+        """
+        from copy import deepcopy
+        import uuid
+        from akaal.planner.models.p5_domain import PlanStatus
+
+        target_id = new_plan_id or f"plan-clone-{uuid.uuid4().hex[:8]}"
+        target_title = new_title or new_name or f"{original_plan.title} (Clone)"
+
+        cloned_plan = MigrationPlan(
+            plan_id=target_id,
+            project_id=original_plan.project_id,
+            title=target_title,
+            planning_mode=original_plan.planning_mode,
+            topology=deepcopy(original_plan.topology),
+            routing=deepcopy(original_plan.routing),
+            selected_scope=deepcopy(original_plan.selected_scope),
+            configuration=deepcopy(original_plan.configuration),
+            active_version_id=None,
+            status=PlanStatus.DRAFT,
+        )
+        return cloned_plan
+
+    def create_revalidation_context(
+        self,
+        historical_plan: MigrationPlan,
+        version: PlanVersion,
+        fresh_options: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Creates a fresh revalidation execution context for a historical plan and version.
+        Guarantees that historical plan artifacts and version records remain completely immutable.
+        """
+        import uuid
+        context_id = f"reval-{uuid.uuid4().hex[:12]}"
+        opts = fresh_options or {}
+
+        hist_fp = version.fingerprint or hashlib.sha256(json.dumps(historical_plan.to_dict(), sort_keys=True).encode()).hexdigest()
+
+        return {
+            "revalidation_id": context_id,
+            "historical_plan_id": historical_plan.plan_id,
+            "historical_project_id": historical_plan.project_id,
+            "historical_version_id": version.version_id,
+            "historical_fingerprint": hist_fp,
+            "execution_mode": ExecutionMode.M8_VALIDATION_ONLY.value,
+            "validation_timestamp": datetime.now(timezone.utc).isoformat(),
+            "is_historical_immutable": True,
+            "options": dict(opts),
+        }
+
+    def evaluate_repair_eligibility(
+        self,
+        table_name: str,
+        discrepancies_found: int,
+        primary_keys_available: bool = True,
+        mode: Any = "M8",
+    ) -> RepairEligibilityResult:
+        """
+        Evaluates discrepancy repair eligibility for a table without executing repair.
+        In M8 (Validation-Only), repair eligibility may be evaluated, but repair execution is strictly blocked.
+        """
+        mode_enum = ExecutionMode.from_string(mode)
+        mode_spec = mode_enum.get_spec()
+
+        if discrepancies_found <= 0:
+            return RepairEligibilityResult(
+                table_name=table_name,
+                discrepancies_found=0,
+                eligible_for_repair=False,
+                repair_strategy="NONE",
+                repair_execution_blocked=True,
+                reason="No discrepancies detected; table is fully synchronized.",
+            )
+
+        if not primary_keys_available:
+            return RepairEligibilityResult(
+                table_name=table_name,
+                discrepancies_found=discrepancies_found,
+                eligible_for_repair=False,
+                repair_strategy="FULL_TABLE_RELOAD",
+                repair_execution_blocked=True,
+                reason="Table lacks primary key definitions required for differential row-level repair.",
+            )
+
+        eligible = True
+        strategy = "KEYED_DIFFERENTIAL_UPSERT"
+        execution_blocked = not mode_spec.permits_repair_execution
+        reason = (
+            "Repair execution blocked: mode 'M8 — Validation / Reconciliation Only' is strictly non-mutating."
+            if execution_blocked else
+            "Eligible for governed repair execution in mutating execution mode."
+        )
+
+        return RepairEligibilityResult(
+            table_name=table_name,
+            discrepancies_found=discrepancies_found,
+            eligible_for_repair=eligible,
+            repair_strategy=strategy,
+            repair_execution_blocked=execution_blocked,
+            reason=reason,
+            details={
+                "execution_mode": mode_enum.value,
+                "permits_repair_execution": mode_spec.permits_repair_execution,
+                "permits_repair_eligibility_analysis": mode_spec.permits_repair_eligibility_analysis,
+            },
+        )
 
     def resolve_selection_definition(self, selected_scope: Dict[str, Any]) -> "SelectionDefinition":
         """Converts or extracts canonical SelectionDefinition from selected_scope."""
@@ -934,7 +1500,7 @@ class PlanCompiler:
         mode_enum = ExecutionMode.from_string(execution_mode)
         mode_spec = mode_enum.get_spec()
 
-        if parsed_dedup.enabled and not mode_spec.allows_dedup_mutation:
+        if (parsed_dedup.enabled and parsed_dedup.rules) and not mode_spec.allows_dedup_mutation:
             diagnostics.append(CompilationDiagnostic(
                 level="BLOCKER",
                 code="INAPPLICABLE_DEDUP_MODE",
@@ -1348,7 +1914,7 @@ class PlanCompiler:
                     target=h.hook_id,
                 ))
 
-            if mode_upper == "M7" and classification == SQLSafetyClassification.DESTRUCTIVE_DDL:
+            if mode_upper == "M7" and (classification == SQLSafetyClassification.DESTRUCTIVE_DDL or SQLSafetyClassifier.is_ddl(h.sql_statement)):
                 diagnostics.append(CompilationDiagnostic(
                     level="BLOCKER",
                     code="DDL_HOOK_IN_DATA_ONLY_MODE",

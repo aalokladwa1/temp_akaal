@@ -2,7 +2,7 @@
 AKAAL Platform 8 — Enterprise Data Integrity Main Engine (EnterpriseDataIntegrityPlatformV8).
 """
 
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from akaal.data_integrity.verification.verifier import E2EConsistencyVerifier
 from akaal.data_integrity.transactions.validator import TransactionBoundaryValidator
 from akaal.data_integrity.snapshots.validator import SnapshotConsistencyValidator

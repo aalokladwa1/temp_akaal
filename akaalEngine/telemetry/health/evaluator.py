@@ -7,7 +7,7 @@ Mined from `akaal/performance/health/score.py`.
 
 import logging
 from threading import RLock
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from akaalEngine.telemetry.models.health import ComponentHealth, HealthSnapshot, HealthState
 

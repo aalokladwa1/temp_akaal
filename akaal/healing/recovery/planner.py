@@ -1,5 +1,6 @@
 """RecoveryPlanner & RecoveryResolver for multi-source data extraction."""
 
+from typing import Any
 from akaal.healing.recovery.multi_source import RecoverySourceType, MultiSourceRecovery
 
 

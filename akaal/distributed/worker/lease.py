@@ -4,6 +4,7 @@ Manages task leases, renewals, expiration checks, and task reassignment triggeri
 """
 
 from dataclasses import dataclass, field, replace
+from typing import List, Optional
 from threading import RLock
 import logging
 
