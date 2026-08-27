@@ -40,6 +40,18 @@ class EvidenceAuthority:
     tamper-detectable, identity-bound evidence artifacts and manifests.
     """
 
+    _instance: Optional["EvidenceAuthority"] = None
+    _instance_lock = RLock()
+
+    @classmethod
+    def get_instance(cls) -> "EvidenceAuthority":
+        """Singleton accessor for EvidenceAuthority."""
+        if cls._instance is None:
+            with cls._instance_lock:
+                if cls._instance is None:
+                    cls._instance = cls()
+        return cls._instance
+
     def __init__(
         self,
         connection_authority: Optional[Any] = None,
@@ -298,6 +310,72 @@ class EvidenceAuthority:
             provenance_list=[prov],
             artifact_id=artifact_id,
             cdc_boundary_position=cdc_boundary_position,
+            completeness=completeness,
+        )
+
+    def package_hook_execution_evidence(
+        self,
+        migration_id: str,
+        run_id: str,
+        hook_results: List[Any],
+        plan_identity: Optional[str] = None,
+        artifact_id: Optional[str] = None,
+    ) -> EvidenceArtifact:
+        """
+        Packages physical truth from custom SQL hook execution into an EvidenceArtifact.
+        """
+        now = time.time()
+        prov = EvidenceProvenance(
+            authority_name="Authority #2 Extensions / Hook Execution",
+            component_id="GovernedHookExecutor",
+            recorded_at=now,
+        )
+        facts: List[EvidenceFact] = []
+        total_hooks = len(hook_results)
+        completed_hooks = 0
+        failed_hooks = 0
+        ambiguous_hooks = 0
+
+        for r in hook_results:
+            r_dict = r.to_dict() if hasattr(r, "to_dict") else (r if isinstance(r, dict) else {})
+            h_id = r_dict.get("hook_id", "unknown")
+            st = str(r_dict.get("state", "UNKNOWN"))
+            stage = str(r_dict.get("stage", "UNKNOWN"))
+            rows = int(r_dict.get("rows_affected", 0))
+            dur = float(r_dict.get("duration_ms", 0.0))
+
+            if st == "COMPLETED":
+                completed_hooks += 1
+            elif st == "FAILED":
+                failed_hooks += 1
+            elif st == "AMBIGUOUS":
+                ambiguous_hooks += 1
+
+            facts.append(EvidenceFact(f"hook_{h_id}_state", st, "Authority #2 Extensions", "STATUS", now))
+            facts.append(EvidenceFact(f"hook_{h_id}_stage", stage, "Authority #2 Extensions", "METADATA", now))
+            facts.append(EvidenceFact(f"hook_{h_id}_rows", rows, "Authority #2 Extensions", "QUANTITATIVE", now))
+            facts.append(EvidenceFact(f"hook_{h_id}_duration_ms", dur, "Authority #2 Extensions", "PERFORMANCE", now))
+
+        facts.append(EvidenceFact("total_hooks_executed", total_hooks, "Authority #2 Extensions", "QUANTITATIVE", now))
+        facts.append(EvidenceFact("completed_hooks_count", completed_hooks, "Authority #2 Extensions", "QUANTITATIVE", now))
+        facts.append(EvidenceFact("failed_hooks_count", failed_hooks, "Authority #2 Extensions", "QUANTITATIVE", now))
+        facts.append(EvidenceFact("ambiguous_hooks_count", ambiguous_hooks, "Authority #2 Extensions", "QUANTITATIVE", now))
+
+        if failed_hooks > 0 or ambiguous_hooks > 0:
+            completeness = EvidenceCompleteness.FAILED
+        elif completed_hooks == total_hooks and total_hooks > 0:
+            completeness = EvidenceCompleteness.COMPLETE
+        else:
+            completeness = EvidenceCompleteness.PARTIAL
+
+        return self.create_evidence_artifact(
+            migration_id=migration_id,
+            run_id=run_id,
+            artifact_type="HOOK_EXECUTION_EVIDENCE",
+            facts=facts,
+            provenance_list=[prov],
+            artifact_id=artifact_id,
+            plan_identity=plan_identity,
             completeness=completeness,
         )
 

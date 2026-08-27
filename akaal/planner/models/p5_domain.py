@@ -1107,3 +1107,246 @@ class ConflictPolicyConfiguration:
             max_unresolved_conflicts=int(data.get("max_unresolved_conflicts", 0)),
             fail_on_unresolved_conflict=bool(data.get("fail_on_unresolved_conflict", True)),
         )
+
+
+# ===========================================================================
+# P5.7: Custom SQL + Hooks + Governed Extensibility Domain Models
+# ===========================================================================
+
+class HookStage(str, Enum):
+    """Execution lifecycle stages for custom SQL hooks."""
+    PRE_MIGRATION = "PRE_MIGRATION"
+    SESSION_INITIALIZATION = "SESSION_INITIALIZATION"
+    TARGET_PREPARATION = "TARGET_PREPARATION"
+    PRE_OBJECT = "PRE_OBJECT"
+    POST_OBJECT = "POST_OBJECT"
+    TARGET_FINALIZATION = "TARGET_FINALIZATION"
+    POST_MIGRATION = "POST_MIGRATION"
+
+
+class HookSide(str, Enum):
+    """Database side on which hook executes."""
+    SOURCE = "SOURCE"
+    TARGET = "TARGET"
+
+
+class HookTransactionPolicy(str, Enum):
+    """Transaction semantics for hook execution."""
+    AUTO_COMMIT = "AUTO_COMMIT"
+    PARTICIPATE_EXISTING = "PARTICIPATE_EXISTING"
+    ISOLATED_TRANSACTION = "ISOLATED_TRANSACTION"
+    NO_TRANSACTION = "NO_TRANSACTION"
+
+
+class HookIdempotencyClassification(str, Enum):
+    """Idempotency / replay protection classification."""
+    IDEMPOTENT = "IDEMPOTENT"
+    NON_IDEMPOTENT = "NON_IDEMPOTENT"
+    REPLAY_PROTECTED = "REPLAY_PROTECTED"
+    UNKNOWN = "UNKNOWN"
+
+
+class HookFailurePolicy(str, Enum):
+    """Action taken when a hook fails."""
+    FAIL_FAST = "FAIL_FAST"
+    CONTINUE_ON_FAILURE = "CONTINUE_ON_FAILURE"
+    REQUIRE_OPERATOR = "REQUIRE_OPERATOR"
+    ROLLBACK_AND_ABORT = "ROLLBACK_AND_ABORT"
+
+
+class HookExecutionState(str, Enum):
+    """Durable state tracking for hook execution."""
+    NOT_STARTED = "NOT_STARTED"
+    STARTED = "STARTED"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+    AMBIGUOUS = "AMBIGUOUS"
+    SKIPPED = "SKIPPED"
+
+
+class SQLSafetyClassification(str, Enum):
+    """Static and semantic classification of custom SQL statement risk."""
+    SAFE_SELECT = "SAFE_SELECT"
+    SAFE_MUTATING = "SAFE_MUTATING"
+    DESTRUCTIVE_DML = "DESTRUCTIVE_DML"
+    DESTRUCTIVE_DDL = "DESTRUCTIVE_DDL"
+    PRIVILEGE_MODIFICATION = "PRIVILEGE_MODIFICATION"
+    UNKNOWN_UNCLASSIFIED = "UNKNOWN_UNCLASSIFIED"
+
+
+@dataclass
+class HookDefinition:
+    """Canonical specification for a governed custom SQL hook."""
+    hook_id: str
+    name: str
+    stage: HookStage
+    sql_statement: str
+    description: str = ""
+    side: HookSide = HookSide.TARGET
+    scope_object: Optional[str] = None
+    parameters: Optional[Dict[str, Any]] = None
+    dependencies: List[str] = field(default_factory=list)
+    order: int = 100
+    timeout_ms: int = 30000
+    transaction_policy: HookTransactionPolicy = HookTransactionPolicy.AUTO_COMMIT
+    idempotency: HookIdempotencyClassification = HookIdempotencyClassification.NON_IDEMPOTENT
+    failure_policy: HookFailurePolicy = HookFailurePolicy.FAIL_FAST
+    requires_approval: bool = False
+    enabled: bool = True
+    allow_rules: Optional[List[str]] = None
+    deny_rules: Optional[List[str]] = None
+    safety_classification: Optional[SQLSafetyClassification] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "hook_id": self.hook_id,
+            "name": self.name,
+            "description": self.description,
+            "stage": self.stage.value if isinstance(self.stage, Enum) else str(self.stage),
+            "side": self.side.value if isinstance(self.side, Enum) else str(self.side),
+            "scope_object": self.scope_object,
+            "sql_statement": self.sql_statement,
+            "parameters": dict(self.parameters) if self.parameters else None,
+            "dependencies": list(self.dependencies),
+            "order": self.order,
+            "timeout_ms": self.timeout_ms,
+            "transaction_policy": (
+                self.transaction_policy.value
+                if isinstance(self.transaction_policy, Enum)
+                else str(self.transaction_policy)
+            ),
+            "idempotency": (
+                self.idempotency.value
+                if isinstance(self.idempotency, Enum)
+                else str(self.idempotency)
+            ),
+            "failure_policy": (
+                self.failure_policy.value
+                if isinstance(self.failure_policy, Enum)
+                else str(self.failure_policy)
+            ),
+            "requires_approval": self.requires_approval,
+            "enabled": self.enabled,
+            "allow_rules": list(self.allow_rules) if self.allow_rules is not None else None,
+            "deny_rules": list(self.deny_rules) if self.deny_rules is not None else None,
+            "safety_classification": (
+                self.safety_classification.value
+                if isinstance(self.safety_classification, Enum)
+                else (str(self.safety_classification) if self.safety_classification else None)
+            ),
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "HookDefinition":
+        if not isinstance(data, dict):
+            raise ValueError("HookDefinition data must be a dictionary.")
+
+        def _enum_val(enum_cls, val, default):
+            if val is None:
+                return default
+            if isinstance(val, enum_cls):
+                return val
+            try:
+                return enum_cls(str(val).upper())
+            except Exception:
+                return default
+
+        stage = _enum_val(HookStage, data.get("stage"), HookStage.PRE_MIGRATION)
+        side = _enum_val(HookSide, data.get("side"), HookSide.TARGET)
+        tx_pol = _enum_val(HookTransactionPolicy, data.get("transaction_policy"), HookTransactionPolicy.AUTO_COMMIT)
+        idem = _enum_val(HookIdempotencyClassification, data.get("idempotency"), HookIdempotencyClassification.NON_IDEMPOTENT)
+        fail_pol = _enum_val(HookFailurePolicy, data.get("failure_policy"), HookFailurePolicy.FAIL_FAST)
+        safety = _enum_val(SQLSafetyClassification, data.get("safety_classification"), None) if data.get("safety_classification") else None
+
+        return cls(
+            hook_id=str(data["hook_id"]).strip(),
+            name=str(data.get("name", data["hook_id"])),
+            stage=stage,
+            sql_statement=str(data.get("sql_statement", "")),
+            description=str(data.get("description", "")),
+            side=side,
+            scope_object=data.get("scope_object"),
+            parameters=dict(data.get("parameters", {})) if data.get("parameters") else None,
+            dependencies=list(data.get("dependencies", [])),
+            order=int(data.get("order", 100)),
+            timeout_ms=int(data.get("timeout_ms", 30000)),
+            transaction_policy=tx_pol,
+            idempotency=idem,
+            failure_policy=fail_pol,
+            requires_approval=bool(data.get("requires_approval", False)),
+            enabled=bool(data.get("enabled", True)),
+            allow_rules=list(data.get("allow_rules", [])) if data.get("allow_rules") is not None else None,
+            deny_rules=list(data.get("deny_rules", [])) if data.get("deny_rules") is not None else None,
+            safety_classification=safety,
+        )
+
+
+@dataclass
+class HooksConfiguration:
+    """Global configuration container for custom SQL hooks in a migration."""
+    enabled: bool = True
+    hooks: List[HookDefinition] = field(default_factory=list)
+    global_timeout_ms: int = 60000
+    allow_dangerous_sql: bool = False
+    require_approval_for_destructive: bool = True
+    allow_rules: Optional[List[str]] = None
+    deny_rules: Optional[List[str]] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "enabled": self.enabled,
+            "global_timeout_ms": self.global_timeout_ms,
+            "allow_dangerous_sql": self.allow_dangerous_sql,
+            "require_approval_for_destructive": self.require_approval_for_destructive,
+            "allow_rules": self.allow_rules,
+            "deny_rules": self.deny_rules,
+            "hooks": [h.to_dict() for h in self.hooks],
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "HooksConfiguration":
+        if not isinstance(data, dict):
+            return cls()
+        hooks = [
+            HookDefinition.from_dict(h) if isinstance(h, dict) else h
+            for h in data.get("hooks", [])
+        ]
+        return cls(
+            enabled=bool(data.get("enabled", True)),
+            global_timeout_ms=int(data.get("global_timeout_ms", 60000)),
+            allow_dangerous_sql=bool(data.get("allow_dangerous_sql", False)),
+            require_approval_for_destructive=bool(data.get("require_approval_for_destructive", True)),
+            allow_rules=data.get("allow_rules"),
+            deny_rules=data.get("deny_rules"),
+            hooks=hooks,
+        )
+
+
+@dataclass
+class HookExecutionResult:
+    """Physical outcome and telemetry for an executed hook."""
+    hook_id: str
+    stage: HookStage
+    state: HookExecutionState
+    rows_affected: int = 0
+    duration_ms: float = 0.0
+    error_message: Optional[str] = None
+    sanitized_sql: Optional[str] = None
+    is_ambiguous: bool = False
+    audit_entry_id: Optional[str] = None
+    side: HookSide = HookSide.TARGET
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "hook_id": self.hook_id,
+            "stage": self.stage.value if isinstance(self.stage, Enum) else str(self.stage),
+            "side": self.side.value if isinstance(self.side, Enum) else str(self.side),
+            "state": self.state.value if isinstance(self.state, Enum) else str(self.state),
+            "rows_affected": self.rows_affected,
+            "duration_ms": self.duration_ms,
+            "error_message": self.error_message,
+            "sanitized_sql": self.sanitized_sql,
+            "is_ambiguous": self.is_ambiguous,
+            "audit_entry_id": self.audit_entry_id,
+        }
+

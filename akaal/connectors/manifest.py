@@ -58,6 +58,7 @@ class UniversalCapabilityManifest:
         supports_cdc_position_resume: Optional[bool] = None,
         supports_upsert: Optional[bool] = None,
         supports_merge: Optional[bool] = None,
+        supports_sql_execution: Optional[bool] = None,
         supported_formats: Optional[List[str]] = None,
         supported_isolation_levels: Optional[List[str]] = None,
         known_restrictions: Optional[List[str]] = None,
@@ -123,6 +124,16 @@ class UniversalCapabilityManifest:
                 )
                 and self.role in (ConnectorRole.TARGET, ConnectorRole.BOTH)
             )
+
+        if supports_sql_execution is not None:
+            self.supports_sql_execution = bool(supports_sql_execution)
+        else:
+            self.supports_sql_execution = bool(
+                self.family in (
+                    ConnectorFamily.RELATIONAL_DATABASE,
+                    ConnectorFamily.CLOUD_DATA_WAREHOUSE,
+                )
+            )
         self.supported_formats = list(supported_formats or [])
         self.supported_isolation_levels = list(supported_isolation_levels or ["READ_COMMITTED"])
         self.known_restrictions = list(known_restrictions or [])
@@ -187,6 +198,8 @@ class UniversalCapabilityManifest:
             "cdc_position_resume": self.supports_cdc_position_resume,
             "upsert": self.supports_upsert,
             "merge": self.supports_merge,
+            "sql_execution": self.supports_sql_execution,
+            "custom_sql": self.supports_sql_execution,
         }
 
         if cap_key in flag_map:
@@ -228,6 +241,7 @@ class UniversalCapabilityManifest:
             "supports_streaming_write": self.supports_streaming_write,
             "supports_upsert": self.supports_upsert,
             "supports_merge": self.supports_merge,
+            "supports_sql_execution": self.supports_sql_execution,
             "supports_partition_awareness": self.supports_partition_awareness,
             "supports_transactions": self.supports_transactions,
             "supports_cdc_capture": self.supports_cdc_capture,

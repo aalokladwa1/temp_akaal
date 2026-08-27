@@ -42,11 +42,23 @@ from akaal.planner.models.p5_domain import (
     DataQualityDefinition,
     DataQualityRule,
     ConflictPolicyConfiguration,
+    HookStage,
+    HookSide,
+    HookTransactionPolicy,
+    HookIdempotencyClassification,
+    HookFailurePolicy,
+    HookExecutionState,
+    SQLSafetyClassification,
+    HookDefinition,
+    HooksConfiguration,
+    HookExecutionResult,
 )
 from akaal.migration.planner import SynchronizationPlanner
 from akaal.migration.hashing import calculate_plan_hash
 from akaal.connectors.compatibility_engine import UniversalCompatibilityEngine
 from akaal.connectors.manifest import UniversalCapabilityManifest
+from akaal.planner.engine.sql_safety import SQLSafetyClassifier
+from akaal.privacy.sanitizer import LogAndDiagnosticSanitizer
 from akaal.core.models.enums import SystemType
 
 
@@ -178,6 +190,28 @@ class PlanCompiler:
         effective_config["conflict_policy"] = p56_res["conflict_policy"]
         effective_config["p5_6_fingerprint"] = p56_res["fingerprint"]
 
+        # 3c. P5.7 Custom SQL + Hooks + Governed Extensibility Compilation & Validation
+        p57_res = self.compile_custom_sql_hooks(
+            hooks_config=effective_config.get("hooks") or effective_config.get("hooks_config") or plan.configuration.get("hooks"),
+            source_connector_type=src_conn,
+            target_connector_type=tgt_conn,
+            execution_mode=effective_config.get("execution_mode") or plan.configuration.get("execution_mode", "M2"),
+            selected_scope=plan.selected_scope if isinstance(plan.selected_scope, dict) else {},
+        )
+        if p57_res.get("status") == "BLOCKER":
+            for d_dict in p57_res.get("diagnostics", []):
+                if d_dict.get("level") == "BLOCKER":
+                    diagnostics.append(CompilationDiagnostic(
+                        level=d_dict["level"],
+                        code=d_dict["code"],
+                        message=d_dict["message"],
+                        target=d_dict.get("target"),
+                    ))
+        effective_config["hooks"] = p57_res["hooks"]
+        effective_config["hooks_config"] = p57_res["hooks_config"]
+        effective_config["hooks_fingerprint"] = p57_res["fingerprint"]
+        effective_config["hooks_requires_approval"] = p57_res["requires_approval"]
+
         # If blocking diagnostics exist, fail closed
         blockers = [d for d in diagnostics if d.level == "BLOCKER"]
         if blockers:
@@ -307,6 +341,11 @@ class PlanCompiler:
                     "collision_policy",
                     "conflict_policy",
                     "p5_6_fingerprint",
+                    "hooks",
+                    "hooks_config",
+                    "hooks_definition",
+                    "hooks_fingerprint",
+                    "custom_sql",
                 ]
                 changes.append({
                     "field": f"configuration.{k}",
@@ -327,25 +366,33 @@ class PlanCompiler:
     @staticmethod
     def validate_plan_approval(execution_plan: Dict[str, Any], approved_fingerprint: Optional[str]) -> bool:
         """
-        Enforces that current ExecutionPlan privacy/plan fingerprint matches approved_fingerprint.
+        Enforces that current ExecutionPlan privacy/hooks/plan fingerprint matches approved_fingerprint.
         Fails closed if metadata is missing, empty, or altered after approval.
         """
         if not execution_plan or not isinstance(execution_plan, dict):
             raise RuntimeError("STALE_APPROVAL_REJECTED: Execution plan is missing or invalid.")
 
         current_fp = execution_plan.get("fingerprint")
-        privacy_fp = execution_plan.get("resolved_configuration", {}).get("privacy_fingerprint")
+        resolved_config = execution_plan.get("resolved_configuration", {})
+        privacy_fp = resolved_config.get("privacy_fingerprint")
+        hooks_fp = resolved_config.get("hooks_fingerprint")
+        hooks_requires_approval = bool(resolved_config.get("hooks_requires_approval", False))
 
-        # Missing or empty approved_fingerprint for a privacy-controlled plan MUST fail closed
+        is_governed_plan = bool(current_fp or privacy_fp or hooks_fp or hooks_requires_approval)
+
+        # Missing or empty approved_fingerprint for a governed plan MUST fail closed
         if not approved_fingerprint or not isinstance(approved_fingerprint, str) or not approved_fingerprint.strip():
-            if current_fp or privacy_fp:
-                raise RuntimeError("STALE_APPROVAL_REJECTED: Approved fingerprint is missing or empty for privacy-controlled plan.")
+            if is_governed_plan:
+                raise RuntimeError("STALE_APPROVAL_REJECTED: Approved fingerprint is missing or empty for governed plan.")
 
-        if approved_fingerprint and (current_fp != approved_fingerprint and privacy_fp != approved_fingerprint):
-            raise RuntimeError(
-                f"STALE_APPROVAL_REJECTED: Approved fingerprint '{approved_fingerprint}' does not match "
-                f"current plan fingerprint '{current_fp}' (privacy_fingerprint='{privacy_fp}'). Plan requires re-approval."
-            )
+        valid_fingerprints = {current_fp, privacy_fp, hooks_fp} - {None, ""}
+        if approved_fingerprint:
+            clean_app_fp = approved_fingerprint.strip()
+            if clean_app_fp not in valid_fingerprints:
+                raise RuntimeError(
+                    f"STALE_APPROVAL_REJECTED: Approved fingerprint '{approved_fingerprint}' does not match "
+                    f"current plan fingerprint '{current_fp}' (privacy_fp='{privacy_fp}', hooks_fp='{hooks_fp}'). Plan requires re-approval."
+                )
         return True
 
     @staticmethod
@@ -444,6 +491,18 @@ class PlanCompiler:
                 "name": "Reconciliation & Validation Node",
                 "category": "Validation",
                 "details": f"Validation Policy Level: {val_level}",
+                "status": "READY",
+            })
+            stage_num += 1
+
+        # Stage 6b: Custom SQL Hook Execution (conditional)
+        hooks_list = effective_config.get("hooks", [])
+        if hooks_list:
+            stages.append({
+                "stage": stage_num,
+                "name": "Custom SQL Hook Governance & Execution",
+                "category": "Extensions",
+                "details": f"Governed execution of {len(hooks_list)} custom SQL hooks across lifecycle stages",
                 "status": "READY",
             })
             stage_num += 1
@@ -1137,3 +1196,330 @@ class PlanCompiler:
             violation_messages=violations,
             cutover_blocked=cutover_blocked,
         )
+
+    def compile_custom_sql_hooks(
+        self,
+        hooks_config: Optional[Any] = None,
+        source_connector_type: str = "GENERIC",
+        target_connector_type: str = "GENERIC",
+        execution_mode: str = "M2",
+        selected_scope: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Compiles P5.7 Custom SQL + Hooks + Governed Extensibility definitions.
+        Validates lifecycle stages, parameters, injection safety, static SQL risk,
+        allow/deny policies, connector capabilities, transaction policies, dependency DAGs,
+        and execution mode fencing (e.g. blocking mutating hooks in M8 validation mode).
+        """
+        diagnostics: List[CompilationDiagnostic] = []
+        mode_upper = str(execution_mode).upper()
+
+        # 1. Parse HooksConfiguration
+        if hooks_config is None:
+            config = HooksConfiguration(enabled=False, hooks=[])
+        elif isinstance(hooks_config, HooksConfiguration):
+            config = hooks_config
+        elif isinstance(hooks_config, dict):
+            config = HooksConfiguration.from_dict(hooks_config)
+        elif isinstance(hooks_config, list):
+            parsed_hooks = [
+                HookDefinition.from_dict(h) if isinstance(h, dict) else h
+                for h in hooks_config
+            ]
+            config = HooksConfiguration(enabled=True, hooks=parsed_hooks)
+        else:
+            config = HooksConfiguration(enabled=False, hooks=[])
+
+        if not config.enabled or not config.hooks:
+            return {
+                "status": "SUCCESS",
+                "diagnostics": [],
+                "hooks": [],
+                "hooks_config": config.to_dict(),
+                "fingerprint": "",
+                "requires_approval": False,
+            }
+
+        # 2. Stage Ordering Constants
+        stage_order_map = {
+            HookStage.PRE_MIGRATION: 0,
+            HookStage.SESSION_INITIALIZATION: 1,
+            HookStage.TARGET_PREPARATION: 2,
+            HookStage.PRE_OBJECT: 3,
+            HookStage.POST_OBJECT: 4,
+            HookStage.TARGET_FINALIZATION: 5,
+            HookStage.POST_MIGRATION: 6,
+        }
+
+        # 3. Parse & Validate Hooks
+        hook_map: Dict[str, HookDefinition] = {}
+        for raw_h in config.hooks:
+            h = HookDefinition.from_dict(raw_h) if isinstance(raw_h, dict) else raw_h
+            if not h.hook_id or not h.hook_id.strip():
+                diagnostics.append(CompilationDiagnostic(
+                    level="BLOCKER",
+                    code="INVALID_HOOK_ID",
+                    message="Hook definition must have a non-empty 'hook_id'.",
+                ))
+                continue
+            if h.hook_id in hook_map:
+                diagnostics.append(CompilationDiagnostic(
+                    level="BLOCKER",
+                    code="DUPLICATE_HOOK_ID",
+                    message=f"Duplicate hook_id '{h.hook_id}' detected.",
+                    target=h.hook_id,
+                ))
+            hook_map[h.hook_id] = h
+
+        # 4. Connector Capability Checkers
+        from akaal.connectors.registry import UniversalConnectorRegistry
+        from akaal.connectors.taxonomy import CapabilitySupportStatus
+        reg = UniversalConnectorRegistry.get_instance()
+        src_manifest = reg.get_manifest(source_connector_type)
+        tgt_manifest = reg.get_manifest(target_connector_type)
+
+        requires_approval_overall = False
+
+        for h in hook_map.values():
+            if not h.enabled:
+                continue
+
+            # Validate SQL statement presence
+            clean_sql = SQLSafetyClassifier.clean_sql(h.sql_statement)
+            if not clean_sql:
+                diagnostics.append(CompilationDiagnostic(
+                    level="BLOCKER",
+                    code="EMPTY_HOOK_SQL",
+                    message=f"Hook '{h.hook_id}' contains an empty or whitespace-only SQL statement.",
+                    target=h.hook_id,
+                ))
+                continue
+
+            # Classify SQL Safety
+            classification = SQLSafetyClassifier.classify(h.sql_statement)
+            h.safety_classification = classification
+
+            # Evaluate Allow / Deny Policies
+            effective_allow_rules = h.allow_rules if h.allow_rules is not None else config.allow_rules
+            effective_deny_rules = h.deny_rules if h.deny_rules is not None else config.deny_rules
+            is_allowed, policy_violations = SQLSafetyClassifier.evaluate_policies(
+                raw_sql=h.sql_statement,
+                allow_rules=effective_allow_rules,
+                deny_rules=effective_deny_rules,
+            )
+            if not is_allowed:
+                for v in policy_violations:
+                    diagnostics.append(CompilationDiagnostic(
+                        level="BLOCKER",
+                        code="DENIED_SQL_OPERATION" if "DENIED" in v else "DISALLOWED_SQL_OPERATION",
+                        message=f"Hook '{h.hook_id}' failed policy validation: {v}",
+                        target=h.hook_id,
+                    ))
+
+            # Dangerous / Destructive SQL Governance
+            if SQLSafetyClassifier.is_destructive(classification):
+                if not config.allow_dangerous_sql and not h.requires_approval:
+                    diagnostics.append(CompilationDiagnostic(
+                        level="BLOCKER",
+                        code="UNAPPROVED_DANGEROUS_SQL",
+                        message=f"Hook '{h.hook_id}' contains destructive SQL ({classification.value}) without required human approval sign-off.",
+                        target=h.hook_id,
+                    ))
+                if config.require_approval_for_destructive:
+                    h.requires_approval = True
+
+            if h.requires_approval:
+                requires_approval_overall = True
+
+            # Execution Mode Applicability Fencing
+            if mode_upper == "M8" and h.side == HookSide.TARGET and SQLSafetyClassifier.is_mutating(classification):
+                diagnostics.append(CompilationDiagnostic(
+                    level="BLOCKER",
+                    code="MUTATING_HOOK_IN_VALIDATION_MODE",
+                    message=f"Hook '{h.hook_id}' performs mutating SQL on target in validation-only mode (M8).",
+                    target=h.hook_id,
+                ))
+
+            if mode_upper == "M6" and h.stage in (HookStage.PRE_OBJECT, HookStage.POST_OBJECT):
+                diagnostics.append(CompilationDiagnostic(
+                    level="BLOCKER",
+                    code="DATA_HOOK_IN_SCHEMA_ONLY_MODE",
+                    message=f"Hook '{h.hook_id}' in stage '{h.stage.value}' is inapplicable for schema-only migration mode (M6).",
+                    target=h.hook_id,
+                ))
+
+            # Connector Capability Validation
+            manifest = src_manifest if h.side == HookSide.SOURCE else tgt_manifest
+            conn_type = source_connector_type if h.side == HookSide.SOURCE else target_connector_type
+
+            if manifest is None:
+                diagnostics.append(CompilationDiagnostic(
+                    level="BLOCKER",
+                    code="UNKNOWN_CONNECTOR_TYPE",
+                    message=f"Connector '{conn_type}' is unknown or not registered in UniversalConnectorRegistry.",
+                    target=h.hook_id,
+                ))
+            else:
+                sql_status = manifest.get_capability_status("sql_execution")
+                if sql_status != CapabilitySupportStatus.SUPPORTED:
+                    err_code = "UNSUPPORTED_HOOK_SOURCE_CONNECTOR" if h.side == HookSide.SOURCE else "UNSUPPORTED_HOOK_TARGET_CONNECTOR"
+                    diagnostics.append(CompilationDiagnostic(
+                        level="BLOCKER",
+                        code=err_code,
+                        message=f"Connector '{conn_type}' ({manifest.family.value if hasattr(manifest.family, 'value') else str(manifest.family)}) does not support SQL execution required by hook '{h.hook_id}'.",
+                        target=h.hook_id,
+                    ))
+
+                if h.transaction_policy in (HookTransactionPolicy.PARTICIPATE_EXISTING, HookTransactionPolicy.ISOLATED_TRANSACTION):
+                    tx_status = manifest.get_capability_status("transactions")
+                    if tx_status != CapabilitySupportStatus.SUPPORTED:
+                        diagnostics.append(CompilationDiagnostic(
+                            level="BLOCKER",
+                            code="UNSUPPORTED_HOOK_TRANSACTION_POLICY",
+                            message=f"Connector '{conn_type}' does not support transactions required by hook '{h.hook_id}' (policy: {h.transaction_policy.value if hasattr(h.transaction_policy, 'value') else str(h.transaction_policy)}).",
+                            target=h.hook_id,
+                        ))
+
+            # Scope Object Validation
+            if h.stage in (HookStage.PRE_OBJECT, HookStage.POST_OBJECT):
+                if not h.scope_object or not h.scope_object.strip():
+                    diagnostics.append(CompilationDiagnostic(
+                        level="BLOCKER",
+                        code="MISSING_HOOK_SCOPE_OBJECT",
+                        message=f"Hook '{h.hook_id}' in stage '{h.stage.value}' requires a scope_object table name.",
+                        target=h.hook_id,
+                    ))
+                elif selected_scope and isinstance(selected_scope, dict) and selected_scope.get("objects"):
+                    planned_objs = {
+                        o.get("object_name") for o in selected_scope["objects"]
+                        if isinstance(o, dict) and o.get("object_name")
+                    }
+                    if planned_objs and h.scope_object not in planned_objs:
+                        diagnostics.append(CompilationDiagnostic(
+                            level="BLOCKER",
+                            code="UNKNOWN_SCOPE_OBJECT",
+                            message=f"Hook '{h.hook_id}' references scope_object '{h.scope_object}' which is not present in planned migration scope.",
+                            target=h.hook_id,
+                        ))
+
+            # Parameter Key Validation
+            if h.parameters:
+                import re as _re
+                for param_key in h.parameters.keys():
+                    if not _re.match(r"^[A-Za-z0-9_]+$", str(param_key)):
+                        diagnostics.append(CompilationDiagnostic(
+                            level="BLOCKER",
+                            code="INVALID_HOOK_PARAMETER_KEY",
+                            message=f"Hook '{h.hook_id}' parameter key '{param_key}' contains invalid characters.",
+                            target=h.hook_id,
+                        ))
+
+        # 5. Dependency Graph Validation & Lifecycle Stage Ordering
+        for h in hook_map.values():
+            h_stage_idx = stage_order_map.get(h.stage, 0)
+            for dep_id in h.dependencies:
+                if dep_id not in hook_map:
+                    diagnostics.append(CompilationDiagnostic(
+                        level="BLOCKER",
+                        code="MISSING_HOOK_DEPENDENCY",
+                        message=f"Hook '{h.hook_id}' depends on non-existent hook '{dep_id}'.",
+                        target=h.hook_id,
+                    ))
+                else:
+                    dep_hook = hook_map[dep_id]
+                    dep_stage_idx = stage_order_map.get(dep_hook.stage, 0)
+                    if dep_stage_idx > h_stage_idx:
+                        diagnostics.append(CompilationDiagnostic(
+                            level="BLOCKER",
+                            code="INVALID_HOOK_STAGE_DEPENDENCY",
+                            message=f"Hook '{h.hook_id}' in stage '{h.stage.value}' cannot depend on hook '{dep_id}' in subsequent stage '{dep_hook.stage.value}'.",
+                            target=h.hook_id,
+                        ))
+
+        # Cycle Detection via DFS
+        def _detect_cycles() -> List[str]:
+            visited: Dict[str, int] = {}  # 0: unvisited, 1: visiting, 2: visited
+            cycle_nodes: List[str] = []
+
+            def _dfs(node: str, path: List[str]):
+                visited[node] = 1
+                for dep in hook_map.get(node, HookDefinition(node, node, HookStage.PRE_MIGRATION, "")).dependencies:
+                    if dep in hook_map:
+                        if visited.get(dep, 0) == 1:
+                            cycle_nodes.append(f"{' -> '.join(path + [dep])}")
+                        elif visited.get(dep, 0) == 0:
+                            _dfs(dep, path + [dep])
+                visited[node] = 2
+
+            for node in hook_map:
+                if visited.get(node, 0) == 0:
+                    _dfs(node, [node])
+            return cycle_nodes
+
+        cycles = _detect_cycles()
+        for c in cycles:
+            diagnostics.append(CompilationDiagnostic(
+                level="BLOCKER",
+                code="HOOK_DEPENDENCY_CYCLE",
+                message=f"Dependency cycle detected in hooks DAG: {c}",
+            ))
+
+        # If blocking diagnostics exist, fail closed
+        blockers = [d for d in diagnostics if d.level == "BLOCKER"]
+        if blockers:
+            return {
+                "status": "BLOCKER",
+                "diagnostics": [d.to_dict() for d in diagnostics],
+                "hooks": [],
+                "hooks_config": config.to_dict(),
+                "fingerprint": "",
+                "requires_approval": requires_approval_overall,
+            }
+
+        # 6. Deterministic Topological Sorting by Stage and Dependencies
+        # Compute in-degree within same stage for topological sort
+        stage_groups: Dict[HookStage, List[HookDefinition]] = {s: [] for s in HookStage}
+        for h in hook_map.values():
+            if h.enabled:
+                stage_groups[h.stage].append(h)
+
+        sorted_hooks: List[HookDefinition] = []
+        for stage in HookStage:
+            group = stage_groups[stage]
+            if not group:
+                continue
+
+            # Compute dependency depth for deterministic ordering
+            depth_map: Dict[str, int] = {}
+            def _get_depth(h_id: str) -> int:
+                if h_id in depth_map:
+                    return depth_map[h_id]
+                hk = hook_map.get(h_id)
+                if not hk or not hk.dependencies:
+                    depth_map[h_id] = 0
+                    return 0
+                max_d = 0
+                for d_id in hk.dependencies:
+                    if d_id in hook_map and hook_map[d_id].stage == stage:
+                        max_d = max(max_d, _get_depth(d_id) + 1)
+                depth_map[h_id] = max_d
+                return max_d
+
+            # Sort deterministically by (depth, order, hook_id)
+            group.sort(key=lambda x: (_get_depth(x.hook_id), x.order, x.hook_id))
+            sorted_hooks.extend(group)
+
+        # 7. Compute SHA-256 Fingerprint
+        canonical_hooks_payload = [h.to_dict() for h in sorted_hooks]
+        canonical_json = json.dumps(canonical_hooks_payload, sort_keys=True)
+        hooks_fp = hashlib.sha256(canonical_json.encode("utf-8")).hexdigest()
+
+        return {
+            "status": "SUCCESS",
+            "diagnostics": [d.to_dict() for d in diagnostics],
+            "hooks": canonical_hooks_payload,
+            "hooks_config": config.to_dict(),
+            "fingerprint": hooks_fp,
+            "requires_approval": requires_approval_overall,
+        }
+

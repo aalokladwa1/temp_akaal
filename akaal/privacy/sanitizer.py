@@ -86,3 +86,43 @@ class LogAndDiagnosticSanitizer:
             sanitized["reason"] = cls.sanitize_text(sanitized["reason"])
 
         return cls.sanitize_dict(sanitized)
+
+    @classmethod
+    def sanitize_hook_parameters(cls, params: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        """Redacts sensitive values in hook parameters dict."""
+        if not params or not isinstance(params, dict):
+            return {}
+        return cls.sanitize_dict(params)
+
+    @classmethod
+    def sanitize_sql_preview(cls, sql: str, params: Optional[Dict[str, Any]] = None) -> str:
+        """Redacts secrets, raw credentials, and sensitive parameters from SQL string preview."""
+        if not sql or not isinstance(sql, str):
+            return ""
+        sanitized_sql = cls.sanitize_text(sql)
+        # Redact raw password assignments in SQL text e.g. IDENTIFIED BY 'secret', PASSWORD 'secret', WITH PASSWORD 'secret'
+        sanitized_sql = re.sub(
+            r"(IDENTIFIED\s+BY|SET\s+PASSWORD\s*=|WITH\s+PASSWORD|PASSWORD\s*=|\bPASSWORD)\s*['\"][^'\"]+['\"]",
+            r"\1 '[REDACTED]'",
+            sanitized_sql,
+            flags=re.IGNORECASE,
+        )
+        sanitized_sql = re.sub(r"(SUPER_SECRET_[A-Z0-9_]+)", "[REDACTED_SECRET]", sanitized_sql)
+        if params and isinstance(params, dict):
+            for k, v in params.items():
+                if v and isinstance(v, str) and len(v) > 3:
+                    # If parameter key or value looks sensitive or contains secret payload
+                    if SENSITIVE_KEY_PATTERN.search(str(k)) or "SECRET" in str(v).upper() or "TOKEN" in str(v).upper():
+                        sanitized_sql = sanitized_sql.replace(v, "[REDACTED]")
+        return sanitized_sql
+
+    @classmethod
+    def sanitize_hook_diagnostics(cls, text: str) -> str:
+        """Redacts sensitive data from hook error messages and execution diagnostics."""
+        if not text or not isinstance(text, str):
+            return ""
+        sanitized = cls.sanitize_text(text)
+        sanitized = re.sub(r"(SUPER_SECRET_[A-Z0-9_]+)", "[REDACTED_SECRET]", sanitized)
+        sanitized = re.sub(r"(password|secret|token|api_key)=['\"]?[^'\"]+['\"]?", r"\1=[REDACTED]", sanitized, flags=re.IGNORECASE)
+        return sanitized
+

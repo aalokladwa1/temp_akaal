@@ -4451,3 +4451,33 @@ class EngineGateway:
                 "results_summary": [r.status for r in results],
             }
         }
+
+    def compile_custom_sql_hooks(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Compiles P5.7 custom SQL hooks, computes SHA-256 fingerprint, and classifies safety."""
+        from akaal.planner.engine.plan_compiler import PlanCompiler
+        compiler = PlanCompiler()
+        return compiler.compile_custom_sql_hooks(
+            hooks_config=payload.get("hooks_config") or payload.get("hooks"),
+            source_connector_type=payload.get("source_connector_type", "GENERIC"),
+            target_connector_type=payload.get("target_connector_type", "GENERIC"),
+            execution_mode=payload.get("execution_mode", "M2"),
+            selected_scope=payload.get("selected_scope", {}),
+        )
+
+    def validate_custom_sql_hooks(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Validates custom SQL hook configurations."""
+        res = self.compile_custom_sql_hooks(payload)
+        return {
+            "status": res["status"],
+            "is_valid": res["status"] == "SUCCESS",
+            "fingerprint": res.get("fingerprint", ""),
+            "diagnostics": res.get("diagnostics", []),
+            "requires_approval": res.get("requires_approval", False),
+        }
+
+    def p5_compile_custom_sql_hooks(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        return self.compile_custom_sql_hooks(payload)
+
+    def p5_validate_custom_sql_hooks(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        return self.validate_custom_sql_hooks(payload)
+

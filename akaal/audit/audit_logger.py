@@ -86,6 +86,13 @@ class AuditEventType:
     MIGRATION_BATCH_FAILED   = "MIGRATION_BATCH_FAILED"
     MIGRATION_COMPLETED      = "MIGRATION_COMPLETED"
 
+    # Hooks & Custom SQL
+    HOOK_STARTED             = "HOOK_STARTED"
+    HOOK_COMPLETED           = "HOOK_COMPLETED"
+    HOOK_FAILED              = "HOOK_FAILED"
+    HOOK_SKIPPED             = "HOOK_SKIPPED"
+    HOOK_AMBIGUOUS           = "HOOK_AMBIGUOUS"
+
     # CDC
     CDC_STARTED              = "CDC_STARTED"
     CDC_EVENT_PROCESSED      = "CDC_EVENT_PROCESSED"
@@ -199,6 +206,18 @@ class AuditLogger:
     Thread-safe: uses a threading lock for file writes.
     """
 
+    _instance: Optional["AuditLogger"] = None
+    _instance_lock = threading.Lock()
+
+    @classmethod
+    def get_instance(cls, log_dir: str = "audit", log_filename: str = "audit.jsonl") -> "AuditLogger":
+        """Singleton accessor for AuditLogger."""
+        if cls._instance is None:
+            with cls._instance_lock:
+                if cls._instance is None:
+                    cls._instance = cls(log_dir=log_dir, log_filename=log_filename)
+        return cls._instance
+
     def __init__(self, log_dir: str = "audit", log_filename: str = "audit.jsonl") -> None:
         self._log_path = Path(log_dir) / log_filename
         self._log_path.parent.mkdir(parents=True, exist_ok=True)
@@ -214,10 +233,12 @@ class AuditLogger:
     def log(
         self,
         event_type: str,
-        actor: str,
-        description: str,
+        actor: str = "system",
+        description: str = "",
         project_id: Optional[str] = None,
         migration_id: Optional[str] = None,
+        workflow_id: Optional[str] = None,
+        task_id: Optional[str] = None,
         details: Optional[Dict[str, Any]] = None,
     ) -> AuditEntry:
         """
@@ -226,6 +247,8 @@ class AuditLogger:
         This is the ONLY method for creating audit records.
         All agents must call this for every significant action.
         """
+        mig_id = migration_id or workflow_id
+        desc = description or f"Audit event {event_type}"
         with self._lock:
             self._sequence += 1
             entry = AuditEntry(

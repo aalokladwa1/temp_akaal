@@ -55,6 +55,15 @@ class CentralStateStore(IStateStore):
             self._local.conn = conn
         return self._local.conn
 
+    def close(self) -> None:
+        """Closes thread-local database connection cleanly."""
+        if hasattr(self, "_local") and hasattr(self._local, "conn") and self._local.conn is not None:
+            try:
+                self._local.conn.close()
+            except Exception:
+                pass
+            self._local.conn = None
+
     def _init_db(self) -> None:
         conn = self._get_connection()
         with conn:
