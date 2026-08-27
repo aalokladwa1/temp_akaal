@@ -569,6 +569,211 @@ class MigrationProject:
 
 
 # =====================================================================
+# CANONICAL FIRST-CLASS EXECUTION MODES (M1 - M8)
+# =====================================================================
+
+class ExecutionMode(str, Enum):
+    """
+    Canonical First-Class AKAAL Execution Modes (M1 - M8).
+    Frozen production workflow definition.
+    """
+    M1_BULK_MIGRATION         = "M1"  # M1 — Bulk Migration
+    M2_BULK_CDC               = "M2"  # M2 — Bulk + CDC Catchup
+    M3_CDC_CONTINUOUS         = "M3"  # M3 — CDC / Continuous Replication
+    M4_INCREMENTAL_QUERY      = "M4"  # M4 — Incremental Query / Polling
+    M5_STATE_SYNCHRONIZATION  = "M5"  # M5 — State-Based Synchronization
+    M6_SCHEMA_ONLY            = "M6"  # M6 — Schema Only
+    M7_DATA_ONLY              = "M7"  # M7 — Data Only
+    M8_VALIDATION_ONLY        = "M8"  # M8 — Validation / Reconciliation Only
+
+    @classmethod
+    def from_string(cls, mode_val: Any) -> "ExecutionMode":
+        """Resolves raw string, enum, or legacy token into canonical ExecutionMode."""
+        if isinstance(mode_val, cls):
+            return mode_val
+        val_str = str(mode_val or "M1").strip().upper()
+        alias_map = {
+            "M1": cls.M1_BULK_MIGRATION,
+            "BULK": cls.M1_BULK_MIGRATION,
+            "BULK_ONLY": cls.M1_BULK_MIGRATION,
+            "BULK_MIGRATION": cls.M1_BULK_MIGRATION,
+            "M2": cls.M2_BULK_CDC,
+            "BULK_CDC": cls.M2_BULK_CDC,
+            "M3": cls.M3_CDC_CONTINUOUS,
+            "CDC": cls.M3_CDC_CONTINUOUS,
+            "CDC_ONLY": cls.M3_CDC_CONTINUOUS,
+            "M4": cls.M4_INCREMENTAL_QUERY,
+            "INCREMENTAL": cls.M4_INCREMENTAL_QUERY,
+            "POLLING": cls.M4_INCREMENTAL_QUERY,
+            "M5": cls.M5_STATE_SYNCHRONIZATION,
+            "STATE_SYNC": cls.M5_STATE_SYNCHRONIZATION,
+            "M6": cls.M6_SCHEMA_ONLY,
+            "SCHEMA_ONLY": cls.M6_SCHEMA_ONLY,
+            "M7": cls.M7_DATA_ONLY,
+            "DATA_ONLY": cls.M7_DATA_ONLY,
+            "M8": cls.M8_VALIDATION_ONLY,
+            "VALIDATION_ONLY": cls.M8_VALIDATION_ONLY,
+            "RECONCILIATION_ONLY": cls.M8_VALIDATION_ONLY,
+        }
+        if val_str in alias_map:
+            return alias_map[val_str]
+        for item in cls:
+            if item.value == val_str or item.name == val_str:
+                return item
+        return cls.M1_BULK_MIGRATION
+
+    def get_spec(self) -> "ExecutionModeSpec":
+        """Returns canonical capability specification for this execution mode."""
+        specs = {
+            ExecutionMode.M1_BULK_MIGRATION: ExecutionModeSpec(
+                mode=ExecutionMode.M1_BULK_MIGRATION,
+                name="M1 — Bulk Migration",
+                description="One-time bulk migration with full deduplication, quality rules, and collision policies.",
+                processes_rows=True,
+                performs_schema=True,
+                allows_target_mutation=True,
+                allows_dedup_mutation=True,
+                allows_data_quality_rules=True,
+                uses_cdc=False,
+                uses_incremental_polling=False,
+                uses_state_comparison=False,
+                validation_only=False,
+            ),
+            ExecutionMode.M2_BULK_CDC: ExecutionModeSpec(
+                mode=ExecutionMode.M2_BULK_CDC,
+                name="M2 — Bulk + CDC Catchup",
+                description="Bulk snapshot followed by CDC continuous catchup and cutover.",
+                processes_rows=True,
+                performs_schema=True,
+                allows_target_mutation=True,
+                allows_dedup_mutation=True,
+                allows_data_quality_rules=True,
+                uses_cdc=True,
+                uses_incremental_polling=False,
+                uses_state_comparison=False,
+                validation_only=False,
+            ),
+            ExecutionMode.M3_CDC_CONTINUOUS: ExecutionModeSpec(
+                mode=ExecutionMode.M3_CDC_CONTINUOUS,
+                name="M3 — CDC / Continuous Replication",
+                description="Continuous replication streaming CDC events without initial bulk snapshot.",
+                processes_rows=True,
+                performs_schema=False,
+                allows_target_mutation=True,
+                allows_dedup_mutation=True,
+                allows_data_quality_rules=True,
+                uses_cdc=True,
+                uses_incremental_polling=False,
+                uses_state_comparison=False,
+                validation_only=False,
+            ),
+            ExecutionMode.M4_INCREMENTAL_QUERY: ExecutionModeSpec(
+                mode=ExecutionMode.M4_INCREMENTAL_QUERY,
+                name="M4 — Incremental Query / Polling",
+                description="Incremental polling using high-watermark columns or timestamp query filters.",
+                processes_rows=True,
+                performs_schema=False,
+                allows_target_mutation=True,
+                allows_dedup_mutation=True,
+                allows_data_quality_rules=True,
+                uses_cdc=False,
+                uses_incremental_polling=True,
+                uses_state_comparison=False,
+                validation_only=False,
+            ),
+            ExecutionMode.M5_STATE_SYNCHRONIZATION: ExecutionModeSpec(
+                mode=ExecutionMode.M5_STATE_SYNCHRONIZATION,
+                name="M5 — State-Based Synchronization",
+                description="State comparison and differential reconciliation between source and target.",
+                processes_rows=True,
+                performs_schema=False,
+                allows_target_mutation=True,
+                allows_dedup_mutation=True,
+                allows_data_quality_rules=True,
+                uses_cdc=False,
+                uses_incremental_polling=False,
+                uses_state_comparison=True,
+                validation_only=False,
+            ),
+            ExecutionMode.M6_SCHEMA_ONLY: ExecutionModeSpec(
+                mode=ExecutionMode.M6_SCHEMA_ONLY,
+                name="M6 — Schema Only",
+                description="DDL metadata extraction and schema deployment only; no row data processing.",
+                processes_rows=False,
+                performs_schema=True,
+                allows_target_mutation=False,
+                allows_dedup_mutation=False,
+                allows_data_quality_rules=False,
+                uses_cdc=False,
+                uses_incremental_polling=False,
+                uses_state_comparison=False,
+                validation_only=False,
+            ),
+            ExecutionMode.M7_DATA_ONLY: ExecutionModeSpec(
+                mode=ExecutionMode.M7_DATA_ONLY,
+                name="M7 — Data Only",
+                description="Data load into pre-existing target schema; no schema creation.",
+                processes_rows=True,
+                performs_schema=False,
+                allows_target_mutation=True,
+                allows_dedup_mutation=True,
+                allows_data_quality_rules=True,
+                uses_cdc=False,
+                uses_incremental_polling=False,
+                uses_state_comparison=False,
+                validation_only=False,
+            ),
+            ExecutionMode.M8_VALIDATION_ONLY: ExecutionModeSpec(
+                mode=ExecutionMode.M8_VALIDATION_ONLY,
+                name="M8 — Validation / Reconciliation Only",
+                description="Passive verification and reconciliation without mutating target tables.",
+                processes_rows=True,
+                performs_schema=False,
+                allows_target_mutation=False,
+                allows_dedup_mutation=False,
+                allows_data_quality_rules=True,
+                uses_cdc=False,
+                uses_incremental_polling=False,
+                uses_state_comparison=True,
+                validation_only=True,
+            ),
+        }
+        return specs[self]
+
+
+@dataclass(frozen=True)
+class ExecutionModeSpec:
+    mode: ExecutionMode
+    name: str
+    description: str
+    processes_rows: bool
+    performs_schema: bool
+    allows_target_mutation: bool
+    allows_dedup_mutation: bool
+    allows_data_quality_rules: bool
+    uses_cdc: bool
+    uses_incremental_polling: bool
+    uses_state_comparison: bool
+    validation_only: bool
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "mode": self.mode.value,
+            "name": self.name,
+            "description": self.description,
+            "processes_rows": self.processes_rows,
+            "performs_schema": self.performs_schema,
+            "allows_target_mutation": self.allows_target_mutation,
+            "allows_dedup_mutation": self.allows_dedup_mutation,
+            "allows_data_quality_rules": self.allows_data_quality_rules,
+            "uses_cdc": self.uses_cdc,
+            "uses_incremental_polling": self.uses_incremental_polling,
+            "uses_state_comparison": self.uses_state_comparison,
+            "validation_only": self.validation_only,
+        }
+
+
+# =====================================================================
 # P5.6 DEDUPLICATION + DATA QUALITY + CONFLICT POLICIES DOMAIN MODELS
 # =====================================================================
 

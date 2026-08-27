@@ -56,6 +56,8 @@ class UniversalCapabilityManifest:
         supports_checkpoint_resume: bool = True,
         supports_bulk_checkpoint_resume: Optional[bool] = None,
         supports_cdc_position_resume: Optional[bool] = None,
+        supports_upsert: Optional[bool] = None,
+        supports_merge: Optional[bool] = None,
         supported_formats: Optional[List[str]] = None,
         supported_isolation_levels: Optional[List[str]] = None,
         known_restrictions: Optional[List[str]] = None,
@@ -97,6 +99,30 @@ class UniversalCapabilityManifest:
         self.supports_cdc_position_resume = (
             supports_cdc_position_resume if supports_cdc_position_resume is not None else supports_cdc_capture
         )
+        if supports_upsert is not None:
+            self.supports_upsert = bool(supports_upsert)
+        else:
+            self.supports_upsert = bool(
+                self.family in (
+                    ConnectorFamily.RELATIONAL_DATABASE,
+                    ConnectorFamily.CLOUD_DATA_WAREHOUSE,
+                    ConnectorFamily.DOCUMENT_DATABASE,
+                    ConnectorFamily.WIDE_COLUMN_DATABASE,
+                    ConnectorFamily.KEY_VALUE_STORE,
+                )
+                and self.role in (ConnectorRole.TARGET, ConnectorRole.BOTH)
+            )
+
+        if supports_merge is not None:
+            self.supports_merge = bool(supports_merge)
+        else:
+            self.supports_merge = bool(
+                self.family in (
+                    ConnectorFamily.RELATIONAL_DATABASE,
+                    ConnectorFamily.CLOUD_DATA_WAREHOUSE,
+                )
+                and self.role in (ConnectorRole.TARGET, ConnectorRole.BOTH)
+            )
         self.supported_formats = list(supported_formats or [])
         self.supported_isolation_levels = list(supported_isolation_levels or ["READ_COMMITTED"])
         self.known_restrictions = list(known_restrictions or [])
@@ -159,6 +185,8 @@ class UniversalCapabilityManifest:
             "checkpoint_resume": self.supports_checkpoint_resume,
             "bulk_checkpoint_resume": self.supports_bulk_checkpoint_resume,
             "cdc_position_resume": self.supports_cdc_position_resume,
+            "upsert": self.supports_upsert,
+            "merge": self.supports_merge,
         }
 
         if cap_key in flag_map:
@@ -198,6 +226,8 @@ class UniversalCapabilityManifest:
             "supports_bulk_write": self.supports_bulk_write,
             "supports_streaming_read": self.supports_streaming_read,
             "supports_streaming_write": self.supports_streaming_write,
+            "supports_upsert": self.supports_upsert,
+            "supports_merge": self.supports_merge,
             "supports_partition_awareness": self.supports_partition_awareness,
             "supports_transactions": self.supports_transactions,
             "supports_cdc_capture": self.supports_cdc_capture,

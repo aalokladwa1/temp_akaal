@@ -29,6 +29,19 @@ from akaal.planner.models.p5_domain import (
     PlanningMode,
     RoutingDefinition,
     TopologyDefinition,
+    ExecutionMode,
+    ExecutionModeSpec,
+    SurvivorStrategy,
+    CollisionPolicy,
+    QualityRuleType,
+    QualityViolationPolicy,
+    QualityGateConsequence,
+    QualityThreshold,
+    DeduplicationDefinition,
+    DeduplicationRule,
+    DataQualityDefinition,
+    DataQualityRule,
+    ConflictPolicyConfiguration,
 )
 from akaal.migration.planner import SynchronizationPlanner
 from akaal.migration.hashing import calculate_plan_hash
@@ -858,37 +871,32 @@ class PlanCompiler:
         else:
             parsed_conflict = ConflictPolicyConfiguration()
 
-        # Validate Execution Mode Applicability
-        if mode_upper in ("M6", "SCHEMA_ONLY"):
-            if parsed_dedup.enabled:
-                diagnostics.append(CompilationDiagnostic(
-                    level="BLOCKER",
-                    code="INAPPLICABLE_DEDUP_MODE",
-                    message=f"Row deduplication is not applicable to Schema-Only mode ({execution_mode}).",
-                    target="deduplication",
-                ))
-            if parsed_quality.rules:
-                diagnostics.append(CompilationDiagnostic(
-                    level="BLOCKER",
-                    code="INAPPLICABLE_QUALITY_MODE",
-                    message=f"Data quality rules are not applicable to Schema-Only mode ({execution_mode}).",
-                    target="data_quality",
-                ))
+        # Validate Execution Mode Applicability against canonical ExecutionModeSpec
+        mode_enum = ExecutionMode.from_string(execution_mode)
+        mode_spec = mode_enum.get_spec()
 
-        if mode_upper in ("M8", "VALIDATION_ONLY") and parsed_dedup.enabled:
+        if parsed_dedup.enabled and not mode_spec.allows_dedup_mutation:
             diagnostics.append(CompilationDiagnostic(
                 level="BLOCKER",
                 code="INAPPLICABLE_DEDUP_MODE",
-                message=f"Row deduplication is not applicable to Validation-Only mode ({execution_mode}).",
+                message=f"Row deduplication is not applicable to mode '{mode_spec.name}'.",
                 target="deduplication",
             ))
 
-        if mode_upper in ("M1", "BULK_ONLY", "M6", "SCHEMA_ONLY", "M8", "VALIDATION_ONLY"):
+        if parsed_quality.rules and not mode_spec.allows_data_quality_rules:
+            diagnostics.append(CompilationDiagnostic(
+                level="BLOCKER",
+                code="INAPPLICABLE_QUALITY_MODE",
+                message=f"Data quality rules are not applicable to mode '{mode_spec.name}'.",
+                target="data_quality",
+            ))
+
+        if not mode_spec.uses_cdc:
             if parsed_conflict.default_policy != "SOURCE_A_WINS" or bool(parsed_conflict.object_overrides):
                 diagnostics.append(CompilationDiagnostic(
                     level="BLOCKER",
                     code="INAPPLICABLE_CONFLICT_MODE",
-                    message=f"P3 CDC Conflict Resolution policy cannot be configured for non-CDC execution mode '{execution_mode}'.",
+                    message=f"P3 CDC Conflict Resolution policy cannot be configured for non-CDC execution mode '{mode_spec.name}'.",
                     target="conflict_policy",
                 ))
 
@@ -928,22 +936,18 @@ class PlanCompiler:
                         target=rule.object_name,
                     ))
 
-            # Validate target collision policy against connector capabilities
-            tgt_conn_upper = str(target_connector_type).upper()
-            supports_upsert = True
+            # Validate target collision policy against canonical connector capability manifest
+            supports_upsert = False
             try:
                 from akaal.connectors.registry import UniversalConnectorRegistry
-                from akaal.connectors.taxonomy import ConnectorFamily
+                from akaal.connectors.taxonomy import CapabilitySupportStatus
                 registry = UniversalConnectorRegistry.get_instance()
                 manifest = registry.get_manifest(target_connector_type)
                 if manifest:
-                    if manifest.family in (ConnectorFamily.OBJECT_STORAGE, ConnectorFamily.STREAM_EVENT_PLATFORM):
-                        supports_upsert = False
-                elif any(x in tgt_conn_upper for x in ("S3", "AZURE_BLOB", "GCS", "FILE", "HDFS", "KAFKA", "RABBITMQ")):
-                    supports_upsert = False
+                    status = manifest.get_capability_status("upsert")
+                    supports_upsert = (status == CapabilitySupportStatus.SUPPORTED)
             except Exception:
-                if any(x in tgt_conn_upper for x in ("S3", "AZURE_BLOB", "GCS", "FILE", "HDFS", "KAFKA", "RABBITMQ")):
-                    supports_upsert = False
+                supports_upsert = False
 
             if rule.collision_policy == CollisionPolicy.UPSERT and not supports_upsert:
                 diagnostics.append(CompilationDiagnostic(

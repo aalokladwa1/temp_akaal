@@ -1075,45 +1075,31 @@ class TestDeduplicationQualityConflict(unittest.TestCase):
         self.assertEqual(out_rows[0]["updated_at"], "2026-06-01")
 
     # =========================================================================
-    # 11. GAP #2 — CONNECTOR CAPABILITY MANIFEST DERIVATION MATRIX
+    # 11. GAP #2 — CONNECTOR CAPABILITY MANIFEST DERIVATION MATRIX (12+ SYSTEMS)
     # =========================================================================
 
     def test_27_connector_capability_manifest_derivation_matrix(self):
-        """Tests that connector capability validation resolves dynamically against canonical manifests."""
+        """Tests that connector capability validation resolves dynamically against canonical manifests for 12+ enterprise systems."""
         from akaal.connectors.registry import UniversalConnectorRegistry
         from akaal.connectors.manifest import UniversalCapabilityManifest
-        from akaal.connectors.taxonomy import ConnectorFamily
+        from akaal.connectors.taxonomy import ConnectorFamily, ConnectorRole
 
         registry = UniversalConnectorRegistry.get_instance()
 
-        # Register cloud object storage and streaming manifests if not present
-        registry.register_manifest(
-            UniversalCapabilityManifest(
-                connector_id="s3-target",
-                family=ConnectorFamily.OBJECT_STORAGE,
-                vendor_name="AWS",
-                system_type="S3",
-            ),
-            allow_override=True,
-        )
-        registry.register_manifest(
-            UniversalCapabilityManifest(
-                connector_id="kafka-target",
-                family=ConnectorFamily.STREAM_EVENT_PLATFORM,
-                vendor_name="Apache",
-                system_type="KAFKA",
-            ),
-            allow_override=True,
-        )
-
         matrix = [
-            ("POSTGRESQL", "UPSERT", True),
-            ("MYSQL", "UPSERT", True),
-            ("SQLITE", "UPSERT", True),
-            ("ORACLE", "UPSERT", True),
-            ("MSSQL", "UPSERT", True),
-            ("s3-target", "UPSERT", False),
-            ("kafka-target", "UPSERT", False),
+            ("postgresql", "UPSERT", True),
+            ("mysql", "UPSERT", True),
+            ("mariadb", "UPSERT", True),
+            ("sqlite", "UPSERT", True),
+            ("oracle", "UPSERT", True),
+            ("mssql", "UPSERT", True),
+            ("ibm_db2", "UPSERT", True),
+            ("mongodb", "UPSERT", True),
+            ("s3", "UPSERT", False),
+            ("gcs", "UPSERT", False),
+            ("azure_blob", "UPSERT", False),
+            ("kafka", "UPSERT", False),
+            ("unknown_unregistered_sink", "UPSERT", False),  # Fail closed on unknown
         ]
 
         for conn_id, op, expected_supported in matrix:
@@ -1136,7 +1122,7 @@ class TestDeduplicationQualityConflict(unittest.TestCase):
             else:
                 self.assertEqual(res["status"], "BLOCKER", f"Expected {conn_id} to block {op}")
                 codes = [d["code"] for d in res["diagnostics"]]
-                self.assertIn("UNSUPPORTED_COLLISION_POLICY", codes)
+                self.assertIn("UNSUPPORTED_COLLISION_POLICY", codes, f"Expected UNSUPPORTED_COLLISION_POLICY for {conn_id}")
 
     # =========================================================================
     # 12. GAP #3 — REJECT VS QUARANTINE PHYSICAL HANDOFF & SANITIZATION
@@ -1169,8 +1155,15 @@ class TestDeduplicationQualityConflict(unittest.TestCase):
 
         self.assertEqual(res_r.status, "REJECTED")
         self.assertIsNone(res_r.transformed_row)
+        self.assertIsNone(res_r.quarantine_metadata)
         # Ensure diagnostic does not leak raw payload
         self.assertNotIn("SUPER_SECRET_PAYLOAD", str(res_r.diagnostics))
+
+        # Batch execution: verify rejected row never enters target output
+        out_batch_r, results_r = engine.transform_batch([row_bad, {"id": 2, "ssn": "123-45"}], plan_reject)
+        self.assertEqual(len(out_batch_r), 1)
+        self.assertEqual(out_batch_r[0]["id"], 2)
+        self.assertEqual(results_r[0].status, "REJECTED")
 
         # 2. Evaluate QUARANTINE policy
         plan_quarantine = dpa.compile_plan(object_name="CUSTOMERS", rules=[rule_quarantine])
@@ -1179,7 +1172,14 @@ class TestDeduplicationQualityConflict(unittest.TestCase):
         self.assertEqual(res_q.status, "QUARANTINED")
         self.assertIsNone(res_q.transformed_row)
         self.assertIsNotNone(res_q.quarantine_metadata)
+        self.assertEqual(res_q.quarantine_metadata["rule_id"], "q_quar")
         self.assertNotIn("SUPER_SECRET_PAYLOAD", str(res_q.diagnostics))
+
+        # Batch execution: verify quarantined row never enters target output
+        out_batch_q, results_q = engine.transform_batch([row_bad, {"id": 2, "ssn": "123-45"}], plan_quarantine)
+        self.assertEqual(len(out_batch_q), 1)
+        self.assertEqual(out_batch_q[0]["id"], 2)
+        self.assertEqual(results_q[0].status, "QUARANTINED")
 
         # 3. Deduplicator group quarantine
         dedup = RowDeduplicator()
@@ -1197,56 +1197,153 @@ class TestDeduplicationQualityConflict(unittest.TestCase):
         self.assertEqual(dups[0]["_dedup_disposition"], "QUARANTINED")
 
     # =========================================================================
-    # 13. GAP #4 — M6 QUALITY FENCING & M8 VALIDATION FENCING
+    # 13. GAP #4 — CANONICAL M1-M8 EXECUTION MODE APPLICABILITY
     # =========================================================================
 
-    def test_29_m6_quality_fencing_and_m8_validation_fencing(self):
-        """Tests that M6 Schema-Only blocks quality rules and M8 Validation-Only blocks deduplication mutations."""
-        # 1. M6 Schema-Only must block data quality rules
-        m6_qual_res = self.compiler.compile_deduplication_and_quality(
+    def test_29_m1_m8_canonical_execution_mode_applicability(self):
+        """Tests that all 8 canonical execution modes (M1 - M8) dynamically enforce correct capability fencing."""
+        # 1. M1 Bulk Migration: dedup & quality valid, CDC conflict blocked
+        m1_res = self.compiler.compile_deduplication_and_quality(
             selected_scope=self.sample_scope,
-            quality_def={
-                "rules": [{"rule_id": "q1", "object_name": "CUSTOMERS", "column_name": "age", "rule_type": "VALUE_RANGE", "min_value": 0}]
-            },
+            dedup_def={"enabled": True, "rules": [{"object_name": "CUSTOMERS", "key_columns": ["id"]}]},
+            quality_def={"rules": [{"rule_id": "q1", "object_name": "CUSTOMERS", "column_name": "age", "rule_type": "VALUE_RANGE", "min_value": 0}]},
+            conflict_config={"default_policy": "LATEST_VERSION_WINS"},
+            execution_mode="M1",
+        )
+        self.assertEqual(m1_res["status"], "BLOCKER")
+        codes_m1 = [d["code"] for d in m1_res["diagnostics"]]
+        self.assertIn("INAPPLICABLE_CONFLICT_MODE", codes_m1)
+        self.assertNotIn("INAPPLICABLE_DEDUP_MODE", codes_m1)
+        self.assertNotIn("INAPPLICABLE_QUALITY_MODE", codes_m1)
+
+        # 2. M2 Bulk + CDC: all valid
+        m2_res = self.compiler.compile_deduplication_and_quality(
+            selected_scope=self.sample_scope,
+            dedup_def={"enabled": True, "rules": [{"object_name": "CUSTOMERS", "key_columns": ["id"]}]},
+            quality_def={"rules": [{"rule_id": "q1", "object_name": "CUSTOMERS", "column_name": "age", "rule_type": "VALUE_RANGE", "min_value": 0}]},
+            conflict_config={"default_policy": "LATEST_VERSION_WINS"},
+            execution_mode="M2",
+        )
+        self.assertEqual(m2_res["status"], "SUCCESS")
+
+        # 3. M3 CDC Only: all valid
+        m3_res = self.compiler.compile_deduplication_and_quality(
+            selected_scope=self.sample_scope,
+            dedup_def={"enabled": True, "rules": [{"object_name": "CUSTOMERS", "key_columns": ["id"]}]},
+            quality_def={"rules": [{"rule_id": "q1", "object_name": "CUSTOMERS", "column_name": "age", "rule_type": "VALUE_RANGE", "min_value": 0}]},
+            conflict_config={"default_policy": "LATEST_VERSION_WINS"},
+            execution_mode="M3",
+        )
+        self.assertEqual(m3_res["status"], "SUCCESS")
+
+        # 4. M4 Incremental Query/Polling: dedup & quality valid, CDC conflict blocked
+        m4_res = self.compiler.compile_deduplication_and_quality(
+            selected_scope=self.sample_scope,
+            dedup_def={"enabled": True, "rules": [{"object_name": "CUSTOMERS", "key_columns": ["id"]}]},
+            conflict_config={"default_policy": "LATEST_VERSION_WINS"},
+            execution_mode="M4",
+        )
+        self.assertEqual(m4_res["status"], "BLOCKER")
+        self.assertIn("INAPPLICABLE_CONFLICT_MODE", [d["code"] for d in m4_res["diagnostics"]])
+
+        # 5. M5 State-Based Synchronization: dedup & quality valid, CDC conflict blocked
+        m5_res = self.compiler.compile_deduplication_and_quality(
+            selected_scope=self.sample_scope,
+            dedup_def={"enabled": True, "rules": [{"object_name": "CUSTOMERS", "key_columns": ["id"]}]},
+            conflict_config={"default_policy": "LATEST_VERSION_WINS"},
+            execution_mode="M5",
+        )
+        self.assertEqual(m5_res["status"], "BLOCKER")
+        self.assertIn("INAPPLICABLE_CONFLICT_MODE", [d["code"] for d in m5_res["diagnostics"]])
+
+        # 6. M6 Schema-Only: blocks dedup, quality rules, and CDC conflict
+        m6_res = self.compiler.compile_deduplication_and_quality(
+            selected_scope=self.sample_scope,
+            dedup_def={"enabled": True, "rules": [{"object_name": "CUSTOMERS", "key_columns": ["id"]}]},
+            quality_def={"rules": [{"rule_id": "q1", "object_name": "CUSTOMERS", "column_name": "age", "rule_type": "VALUE_RANGE", "min_value": 0}]},
+            conflict_config={"default_policy": "LATEST_VERSION_WINS"},
             execution_mode="M6",
         )
-        self.assertEqual(m6_qual_res["status"], "BLOCKER")
-        codes_m6 = [d["code"] for d in m6_qual_res["diagnostics"]]
+        self.assertEqual(m6_res["status"], "BLOCKER")
+        codes_m6 = [d["code"] for d in m6_res["diagnostics"]]
+        self.assertIn("INAPPLICABLE_DEDUP_MODE", codes_m6)
         self.assertIn("INAPPLICABLE_QUALITY_MODE", codes_m6)
+        self.assertIn("INAPPLICABLE_CONFLICT_MODE", codes_m6)
 
-        # 2. M8 Validation-Only must block row deduplication mutations
+        # 7. M7 Data Only: dedup & quality valid, CDC conflict blocked
+        m7_res = self.compiler.compile_deduplication_and_quality(
+            selected_scope=self.sample_scope,
+            dedup_def={"enabled": True, "rules": [{"object_name": "CUSTOMERS", "key_columns": ["id"]}]},
+            quality_def={"rules": [{"rule_id": "q1", "object_name": "CUSTOMERS", "column_name": "age", "rule_type": "VALUE_RANGE", "min_value": 0}]},
+            execution_mode="M7",
+        )
+        self.assertEqual(m7_res["status"], "SUCCESS")
+
+        # 8. M8 Validation-Only: blocks dedup mutations, allows passive quality verification
         m8_res = self.compiler.compile_deduplication_and_quality(
             selected_scope=self.sample_scope,
             dedup_def={"enabled": True, "rules": [{"object_name": "CUSTOMERS", "key_columns": ["id"]}]},
+            quality_def={"rules": [{"rule_id": "q1", "object_name": "CUSTOMERS", "column_name": "age", "rule_type": "VALUE_RANGE", "min_value": 0}]},
             execution_mode="M8",
         )
         self.assertEqual(m8_res["status"], "BLOCKER")
         codes_m8 = [d["code"] for d in m8_res["diagnostics"]]
         self.assertIn("INAPPLICABLE_DEDUP_MODE", codes_m8)
+        self.assertNotIn("INAPPLICABLE_QUALITY_MODE", codes_m8)
 
     # =========================================================================
-    # 14. BLOCK_CUTOVER AUTOMATED PROOF
+    # 14. BLOCK_CUTOVER END-TO-END DATA-DRIVEN PHYSICAL ENFORCEMENT
     # =========================================================================
 
     def test_30_quality_gate_cutover_blocked_physical_enforcement(self):
-        """Proves that quality gate consequence BLOCK_CUTOVER physically sets Gate 8 BLOCKED in CDC readiness."""
+        """Proves end-to-end that real bad data violating quality rules breaches threshold and sets Gate 8 BLOCKED in CDC readiness."""
         from akaal.cdc.sync.cutover_plan import CDCCutoverReadinessEngine
 
-        # 1. Evaluate Quality Gate with consequence BLOCK_CUTOVER
+        engine = ProcessingEngine()
+        dpa = DataProcessingAuthority()
+
+        # Configured quality rule: NOT_NULL on column 'email'
+        rule = TransformationRule(
+            rule_id="q_email_not_null",
+            column_name="email",
+            rule_type=RuleType.QUALITY,
+            quality_rule_type="NOT_NULL",
+            malformed_policy=MalformedDataPolicy.REJECT_RECORD,
+        )
+        plan = dpa.compile_plan(object_name="CUSTOMERS", rules=[rule])
+
+        # 1. Test Breach Scenario (10 records: 2 invalid -> 20% invalid rate)
+        bad_batch = [
+            {"id": 1, "email": "valid1@example.com"},
+            {"id": 2, "email": None},  # Violation 1
+            {"id": 3, "email": "valid2@example.com"},
+            {"id": 4, "email": None},  # Violation 2
+            {"id": 5, "email": "valid3@example.com"},
+            {"id": 6, "email": "valid4@example.com"},
+            {"id": 7, "email": "valid5@example.com"},
+            {"id": 8, "email": "valid6@example.com"},
+            {"id": 9, "email": "valid7@example.com"},
+            {"id": 10, "email": "valid8@example.com"},
+        ]
+        out_rows, res_list = engine.transform_batch(bad_batch, plan)
+        self.assertEqual(len(out_rows), 8)
+        invalids = sum(1 for r in res_list if r.status == "REJECTED")
+        self.assertEqual(invalids, 2)
+
+        # Evaluate against 10.0% max_invalid_percentage threshold with consequence BLOCK_CUTOVER
         q_def = DataQualityDefinition(
             global_threshold=QualityThreshold(
-                max_invalid_percentage=5.0,  # Exceeded when invalid count is 10%
+                max_invalid_percentage=10.0,  # 20% > 10%
                 consequence=QualityGateConsequence.BLOCK_CUTOVER,
             )
         )
-        metrics = {"total_rows": 100, "invalid_count": 10}
+        metrics = {"total_rows": len(bad_batch), "invalid_count": invalids}
         q_result = self.compiler.evaluate_quality_gates(q_def, metrics)
         self.assertFalse(q_result.passed)
         self.assertTrue(q_result.cutover_blocked)
 
-        # 2. Feed into CDC Cutover Readiness Engine
-        # When cutover is blocked by validation/quality, validation_passed is False
-        readiness = CDCCutoverReadinessEngine.evaluate_readiness(
+        # Feed into CDC Cutover Readiness Engine
+        readiness_blocked = CDCCutoverReadinessEngine.evaluate_readiness(
             cdc_session_id="cdc-sess-1",
             session_state="SYNCHRONIZED",
             is_synchronized=True,
@@ -1257,11 +1354,37 @@ class TestDeduplicationQualityConflict(unittest.TestCase):
             is_stale_worker=False,
             validation_passed=(not q_result.cutover_blocked),  # Physically blocked
         )
+        self.assertFalse(readiness_blocked["ready"])
+        self.assertEqual(readiness_blocked["overall_status"], "BLOCKED")
+        self.assertIn("FINAL_VALIDATION_BLOCKER", readiness_blocked["blocking_reasons"])
+        self.assertEqual(readiness_blocked["gates"]["final_validation_matched"]["status"], "BLOCKED")
 
-        self.assertFalse(readiness["ready"])
-        self.assertEqual(readiness["overall_status"], "BLOCKED")
-        self.assertIn("FINAL_VALIDATION_BLOCKER", readiness["blocking_reasons"])
-        self.assertEqual(readiness["gates"]["final_validation_matched"]["status"], "BLOCKED")
+        # 2. Inverse Control: Test Valid Data Scenario (10 records: 0 invalid -> 0% invalid rate)
+        good_batch = [{"id": i, "email": f"valid{i}@example.com"} for i in range(1, 11)]
+        out_good, res_good = engine.transform_batch(good_batch, plan)
+        self.assertEqual(len(out_good), 10)
+        invalids_good = sum(1 for r in res_good if r.status == "REJECTED")
+        self.assertEqual(invalids_good, 0)
+
+        metrics_good = {"total_rows": len(good_batch), "invalid_count": invalids_good}
+        q_good_result = self.compiler.evaluate_quality_gates(q_def, metrics_good)
+        self.assertTrue(q_good_result.passed)
+        self.assertFalse(q_good_result.cutover_blocked)
+
+        readiness_passed = CDCCutoverReadinessEngine.evaluate_readiness(
+            cdc_session_id="cdc-sess-1",
+            session_state="SYNCHRONIZED",
+            is_synchronized=True,
+            event_backlog=0,
+            time_lag_ms=0.0,
+            checkpoint_valid=True,
+            has_failed_transactions=False,
+            is_stale_worker=False,
+            validation_passed=(not q_good_result.cutover_blocked),
+        )
+        self.assertTrue(readiness_passed["ready"])
+        self.assertEqual(readiness_passed["overall_status"], "READY")
+        self.assertEqual(readiness_passed["gates"]["final_validation_matched"]["status"], "READY")
 
 
 if __name__ == "__main__":
