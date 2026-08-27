@@ -1177,6 +1177,59 @@ class TestP57CustomSQLHooks(unittest.TestCase):
         # Re-compute checksum and verify exact match
         self.assertEqual(entry.checksum, entry._compute_checksum())
 
+    # ---------------------------------------------------------------------------
+    # 14. Forensic Canary Secret Leakage Hostile Tests
+    # ---------------------------------------------------------------------------
+
+    def test_61_canary_secret_in_parameters_redacted_in_preview(self):
+        """Hostile Test: Canary secrets in parameters are scrubbed from SQL preview."""
+        canary = "P57_SECRET_CANARY_7F3A91"
+        sql = f"SELECT * FROM vault WHERE secret_token = '{canary}'"
+        preview = LogAndDiagnosticSanitizer.sanitize_sql_preview(sql, params={"token": canary})
+        self.assertNotIn(canary, preview)
+        self.assertIn("[REDACTED", preview)
+
+    def test_62_canary_password_in_sql_statement_redacted(self):
+        """Hostile Test: Inline canary password in DDL is redacted from SQL preview."""
+        canary_pwd = "P57_PASSWORD_CANARY_8D2B42"
+        sql = f"CREATE USER mig_user IDENTIFIED BY '{canary_pwd}';"
+        preview = LogAndDiagnosticSanitizer.sanitize_sql_preview(sql)
+        self.assertNotIn(canary_pwd, preview)
+        self.assertIn("[REDACTED", preview)
+
+    def test_63_canary_token_in_diagnostics_redacted(self):
+        """Hostile Test: Canary tokens inside exception messages and error diagnostics are scrubbed."""
+        canary_tok = "P57_TOKEN_CANARY_4E9C77"
+        raw_err = f"Driver connection failed with bearer_token={canary_tok} at remote endpoint."
+        sanitized_err = LogAndDiagnosticSanitizer.sanitize_hook_diagnostics(raw_err)
+        self.assertNotIn(canary_tok, sanitized_err)
+        self.assertIn("[REDACTED", sanitized_err)
+
+    def test_64_canary_secret_in_parameters_dict_sanitized(self):
+        """Hostile Test: Canary secrets inside hook parameters dictionary are scrubbed."""
+        canary = "P57_SECRET_CANARY_7F3A91"
+        raw_params = {"api_key": canary, "env": "prod"}
+        clean_params = LogAndDiagnosticSanitizer.sanitize_hook_parameters(raw_params)
+        self.assertEqual(clean_params["api_key"], "[REDACTED]")
+        self.assertEqual(clean_params["env"], "prod")
+
+    def test_65_canary_secret_absent_from_evidence_manifest(self):
+        """Hostile Test: Evidence Authority manifests never contain raw canary tokens."""
+        canary_token = "P57_TOKEN_CANARY_4E9C77"
+        evidence_auth = EvidenceAuthority.get_instance()
+        hook_res = HookExecutionResult(
+            hook_id="h_canary",
+            stage=HookStage.PRE_MIGRATION,
+            state=HookExecutionState.COMPLETED,
+            sanitized_sql=LogAndDiagnosticSanitizer.sanitize_sql_preview(f"SET token='{canary_token}'"),
+        )
+        bundle = evidence_auth.package_hook_execution_evidence(
+            migration_id="mig-canary",
+            stage=HookStage.PRE_MIGRATION,
+            hook_results=[hook_res],
+        )
+        self.assertNotIn(canary_token, str(bundle))
+
 
 if __name__ == "__main__":
     unittest.main()

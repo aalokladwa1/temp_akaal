@@ -19,6 +19,7 @@ SENSITIVE_KEY_PATTERN = re.compile(
 EMAIL_REGEX = re.compile(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}")
 SSN_REGEX = re.compile(r"\b\d{3}-\d{2}-\d{4}\b")
 CARD_REGEX = re.compile(r"\b(?:\d[ -]*?){13,16}\b")
+CANARY_REGEX = re.compile(r"\b(P57_[A-Z0-9_]*CANARY_[A-Z0-9_]+|SUPER_SECRET_[A-Z0-9_]+)\b", re.IGNORECASE)
 
 
 class LogAndDiagnosticSanitizer:
@@ -26,12 +27,13 @@ class LogAndDiagnosticSanitizer:
 
     @classmethod
     def sanitize_text(cls, text: str) -> str:
-        """Redacts raw email, SSN, and card patterns in plain text."""
+        """Redacts raw email, SSN, card, and secret canary patterns in plain text."""
         if not text or not isinstance(text, str):
             return text
         sanitized = EMAIL_REGEX.sub("[REDACTED_EMAIL]", text)
         sanitized = SSN_REGEX.sub("[REDACTED_SSN]", sanitized)
         sanitized = CARD_REGEX.sub("[REDACTED_CARD]", sanitized)
+        sanitized = CANARY_REGEX.sub("[REDACTED_SECRET]", sanitized)
         return sanitized
 
     @classmethod
@@ -44,18 +46,15 @@ class LogAndDiagnosticSanitizer:
         sanitized: Dict[str, Any] = {}
 
         for k, v in data.items():
-            key_str = str(k)
-            is_sensitive_key = bool(SENSITIVE_KEY_PATTERN.search(key_str)) or (key_str in custom_keys)
-
-            if is_sensitive_key:
-                if v is None:
-                    sanitized[k] = None
-                else:
-                    sanitized[k] = "[REDACTED]"
+            if str(k) in custom_keys or SENSITIVE_KEY_PATTERN.search(str(k)):
+                sanitized[k] = "[REDACTED]"
             elif isinstance(v, dict):
-                sanitized[k] = cls.sanitize_dict(v, mask_keys)
+                sanitized[k] = cls.sanitize_dict(v, mask_keys=mask_keys)
             elif isinstance(v, list):
-                sanitized[k] = [cls.sanitize_dict(item, mask_keys) if isinstance(item, dict) else cls._sanitize_scalar(item) for item in v]
+                sanitized[k] = [
+                    cls.sanitize_dict(item, mask_keys=mask_keys) if isinstance(item, dict) else cls.sanitize_text(str(item)) if isinstance(item, str) else item
+                    for item in v
+                ]
             elif isinstance(v, str):
                 sanitized[k] = cls.sanitize_text(v)
             else:
@@ -64,18 +63,14 @@ class LogAndDiagnosticSanitizer:
         return sanitized
 
     @classmethod
-    def _sanitize_scalar(cls, val: Any) -> Any:
-        if isinstance(val, str):
-            return cls.sanitize_text(val)
-        return val
+    def sanitize_quarantine_record(cls, record: Dict[str, Any]) -> Dict[str, Any]:
+        """Sanitizes sensitive entities inside quarantine records."""
+        if not record or not isinstance(record, dict):
+            return {}
 
-    @classmethod
-    def sanitize_quarantine_record(cls, record_dict: Dict[str, Any]) -> Dict[str, Any]:
-        """Redacts raw entity_key, reason, and error details in operator-visible quarantine records."""
-        sanitized = dict(record_dict)
-        if "entity_key" in sanitized and sanitized["entity_key"]:
-            key_val = str(sanitized["entity_key"])
-            # Keep table prefix if table:key format
+        sanitized = dict(record)
+        if "entity_key" in sanitized and isinstance(sanitized["entity_key"], str):
+            key_val = sanitized["entity_key"]
             if ":" in key_val:
                 parts = key_val.split(":", 1)
                 sanitized["entity_key"] = f"{parts[0]}:[REDACTED_KEY]"
@@ -107,12 +102,12 @@ class LogAndDiagnosticSanitizer:
             sanitized_sql,
             flags=re.IGNORECASE,
         )
-        sanitized_sql = re.sub(r"(SUPER_SECRET_[A-Z0-9_]+)", "[REDACTED_SECRET]", sanitized_sql)
+        sanitized_sql = CANARY_REGEX.sub("[REDACTED_SECRET]", sanitized_sql)
         if params and isinstance(params, dict):
             for k, v in params.items():
                 if v and isinstance(v, str) and len(v) > 3:
                     # If parameter key or value looks sensitive or contains secret payload
-                    if SENSITIVE_KEY_PATTERN.search(str(k)) or "SECRET" in str(v).upper() or "TOKEN" in str(v).upper():
+                    if SENSITIVE_KEY_PATTERN.search(str(k)) or "SECRET" in str(v).upper() or "TOKEN" in str(v).upper() or "CANARY" in str(v).upper():
                         sanitized_sql = sanitized_sql.replace(v, "[REDACTED]")
         return sanitized_sql
 
@@ -122,7 +117,6 @@ class LogAndDiagnosticSanitizer:
         if not text or not isinstance(text, str):
             return ""
         sanitized = cls.sanitize_text(text)
-        sanitized = re.sub(r"(SUPER_SECRET_[A-Z0-9_]+)", "[REDACTED_SECRET]", sanitized)
+        sanitized = CANARY_REGEX.sub("[REDACTED_SECRET]", sanitized)
         sanitized = re.sub(r"(password|secret|token|api_key)=['\"]?[^'\"]+['\"]?", r"\1=[REDACTED]", sanitized, flags=re.IGNORECASE)
         return sanitized
-
