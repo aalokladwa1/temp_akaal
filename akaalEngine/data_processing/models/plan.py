@@ -23,6 +23,7 @@ class RuleType(str, Enum):
     LOOKUP = "LOOKUP"
     DEFAULT = "DEFAULT"
     CUSTOM_HOOK = "CUSTOM_HOOK"
+    QUALITY = "QUALITY"
 
 
 class MalformedDataPolicy(str, Enum):
@@ -31,6 +32,7 @@ class MalformedDataPolicy(str, Enum):
     QUARANTINE_RECORD = "QUARANTINE_RECORD"
     USE_DEFAULT = "USE_DEFAULT"
     USE_NULL = "USE_NULL"
+    EXPLICIT_TRUNCATE = "EXPLICIT_TRUNCATE"
 
 
 class PrivacyStrategy(str, Enum):
@@ -54,7 +56,7 @@ class LookupDefinition:
 
 @dataclass(frozen=True)
 class TransformationRule:
-    """Single transformation rule."""
+    """Single transformation or quality rule."""
     rule_id: str
     column_name: str
     rule_type: RuleType
@@ -69,6 +71,15 @@ class TransformationRule:
     cleansing_operation: Optional[str] = None  # TRIM, UPPER, LOWER, REPLACE
     lookup_definition: Optional[LookupDefinition] = None
     malformed_policy: MalformedDataPolicy = MalformedDataPolicy.QUARANTINE_RECORD
+    # Quality rule extensions
+    quality_rule_type: Optional[str] = None  # NOT_NULL, VALUE_RANGE, REGEX_MATCH, ENUM_VALUES, MAX_LENGTH, NUMERIC_OVERFLOW
+    min_value: Optional[Any] = None
+    max_value: Optional[Any] = None
+    regex_pattern: Optional[str] = None
+    allowed_values: Optional[Sequence[Any]] = None
+    max_length: Optional[int] = None
+    allow_truncation: bool = False
+    target_datatype: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -83,6 +94,11 @@ class ProcessingPlan:
     execution_order: Sequence[str] = field(default_factory=tuple)
     filter_predicate: Optional[ASTNode] = None
     dedup_key_columns: Sequence[str] = field(default_factory=tuple)
+    survivor_strategy: str = "FIRST"
+    order_by_columns: Sequence[str] = field(default_factory=tuple)
+    priority_field: Optional[str] = None
+    priority_order: Sequence[Any] = field(default_factory=tuple)
+    dedup_disposition: str = "DISCARD"
     fingerprint: str = ""
 
     def __post_init__(self) -> None:
@@ -92,6 +108,9 @@ class ProcessingPlan:
                 "execution_order": list(self.execution_order),
                 "rules_count": len(self.compiled_rules),
                 "dedup_keys": list(self.dedup_key_columns),
+                "survivor_strategy": self.survivor_strategy,
+                "order_by_columns": list(self.order_by_columns),
+                "dedup_disposition": self.dedup_disposition,
             }
             h = hashlib.sha256(json.dumps(raw_repr, sort_keys=True).encode("utf-8")).hexdigest()
             object.__setattr__(self, "fingerprint", h)

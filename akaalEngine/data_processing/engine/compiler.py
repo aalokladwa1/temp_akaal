@@ -47,6 +47,11 @@ class ProcessingPlanCompiler:
         rules: Sequence[TransformationRule],
         filter_predicate: Optional[ASTNode] = None,
         dedup_key_columns: Sequence[str] = (),
+        survivor_strategy: str = "FIRST",
+        order_by_columns: Sequence[str] = (),
+        priority_field: Optional[str] = None,
+        priority_order: Sequence[Any] = (),
+        dedup_disposition: str = "DISCARD",
     ) -> ProcessingPlan:
         if not rules:
             return ProcessingPlan(
@@ -55,6 +60,11 @@ class ProcessingPlanCompiler:
                 execution_order=(),
                 filter_predicate=filter_predicate,
                 dedup_key_columns=tuple(dedup_key_columns),
+                survivor_strategy=survivor_strategy,
+                order_by_columns=tuple(order_by_columns),
+                priority_field=priority_field,
+                priority_order=tuple(priority_order),
+                dedup_disposition=dedup_disposition,
             )
 
         # 1. Build dependency graph
@@ -94,4 +104,9 @@ class ProcessingPlanCompiler:
             execution_order=execution_order,
             filter_predicate=filter_predicate,
             dedup_key_columns=tuple(dedup_key_columns),
+            survivor_strategy=survivor_strategy,
+            order_by_columns=tuple(order_by_columns),
+            priority_field=priority_field,
+            priority_order=tuple(priority_order),
+            dedup_disposition=dedup_disposition,
         )

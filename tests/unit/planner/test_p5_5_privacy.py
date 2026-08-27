@@ -236,8 +236,11 @@ class TestP55PrivacyControls(unittest.TestCase):
             p.join(timeout=5)
 
         results = []
-        while not q.empty():
-            results.append(q.get())
+        for _ in range(num_workers):
+            try:
+                results.append(q.get(timeout=10))
+            except Exception:
+                pass
 
         self.assertEqual(len(results), num_workers)
         tokens = [r["token"] for r in results if r["status"] == "SUCCESS"]
@@ -261,8 +264,11 @@ class TestP55PrivacyControls(unittest.TestCase):
             p.join(timeout=5)
 
         results_b = []
-        while not q.empty():
-            results_b.append(q.get())
+        for _ in range(num_workers):
+            try:
+                results_b.append(q.get(timeout=10))
+            except Exception:
+                pass
 
         diff_tokens = [r["token"] for r in results_b if r["status"] == "SUCCESS"]
         self.assertEqual(len(diff_tokens), num_workers)

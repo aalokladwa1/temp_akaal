@@ -566,3 +566,339 @@ class MigrationProject:
             "active_version_id": self.active_version_id,
             "compiled_execution_plan_id": self.compiled_execution_plan_id,
         }
+
+
+# =====================================================================
+# P5.6 DEDUPLICATION + DATA QUALITY + CONFLICT POLICIES DOMAIN MODELS
+# =====================================================================
+
+class SurvivorStrategy(str, Enum):
+    FIRST = "FIRST"                        # Explicit deterministic order first
+    LAST = "LAST"                          # Explicit deterministic order last
+    MIN_FIELD = "MIN_FIELD"                # Minimum value in specified field
+    MAX_FIELD = "MAX_FIELD"                # Maximum value in specified field
+    NEWEST = "NEWEST"                      # Newest timestamp in specified field
+    OLDEST = "OLDEST"                      # Oldest timestamp in specified field
+    PRIORITY = "PRIORITY"                  # Priority according to configured mapping
+    REJECT_GROUP = "REJECT_GROUP"          # Reject all records in duplicate group
+    QUARANTINE_GROUP = "QUARANTINE_GROUP"  # Quarantine all records in duplicate group
+    FAIL_ON_DUPLICATE = "FAIL_ON_DUPLICATE" # Fail execution immediately on duplicate
+
+
+class DuplicateDisposition(str, Enum):
+    DISCARD = "DISCARD"
+    REJECT = "REJECT"
+    QUARANTINE = "QUARANTINE"
+    FAIL = "FAIL"
+
+
+class CollisionPolicy(str, Enum):
+    FAIL = "FAIL"
+    REJECT = "REJECT"
+    QUARANTINE = "QUARANTINE"
+    SKIP = "SKIP"                          # DO NOTHING / INSERT IGNORE
+    INSERT = "INSERT"                      # Standard INSERT
+    UPDATE = "UPDATE"                      # UPDATE target
+    UPSERT = "UPSERT"                      # Dialect-aware UPSERT / MERGE
+
+
+class QualityRuleType(str, Enum):
+    NOT_NULL = "NOT_NULL"
+    VALUE_RANGE = "VALUE_RANGE"
+    REGEX_MATCH = "REGEX_MATCH"
+    ENUM_VALUES = "ENUM_VALUES"
+    MAX_LENGTH = "MAX_LENGTH"
+    NUMERIC_OVERFLOW = "NUMERIC_OVERFLOW"
+    CUSTOM_PREDICATE = "CUSTOM_PREDICATE"
+
+
+class QualityViolationPolicy(str, Enum):
+    FAIL_JOB = "FAIL_JOB"
+    REJECT_RECORD = "REJECT_RECORD"
+    QUARANTINE_RECORD = "QUARANTINE_RECORD"
+    USE_DEFAULT = "USE_DEFAULT"
+    USE_NULL = "USE_NULL"
+    EXPLICIT_TRUNCATE = "EXPLICIT_TRUNCATE"
+    WARN_ONLY = "WARN_ONLY"
+
+
+class QualityGateConsequence(str, Enum):
+    WARN = "WARN"
+    BLOCK_CUTOVER = "BLOCK_CUTOVER"
+    FAIL_JOB = "FAIL_JOB"
+
+
+@dataclass
+class DeduplicationRule:
+    object_name: str
+    key_columns: List[str]
+    enabled: bool = True
+    survivor_strategy: SurvivorStrategy = SurvivorStrategy.FIRST
+    order_by_columns: List[str] = field(default_factory=list)  # e.g. ["updated_at DESC", "id ASC"]
+    priority_field: Optional[str] = None
+    priority_order: List[Any] = field(default_factory=list)
+    disposition: DuplicateDisposition = DuplicateDisposition.DISCARD
+    collision_policy: CollisionPolicy = CollisionPolicy.FAIL
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "object_name": self.object_name,
+            "key_columns": self.key_columns,
+            "enabled": self.enabled,
+            "survivor_strategy": self.survivor_strategy.value if isinstance(self.survivor_strategy, Enum) else self.survivor_strategy,
+            "order_by_columns": self.order_by_columns,
+            "priority_field": self.priority_field,
+            "priority_order": self.priority_order,
+            "disposition": self.disposition.value if isinstance(self.disposition, Enum) else self.disposition,
+            "collision_policy": self.collision_policy.value if isinstance(self.collision_policy, Enum) else self.collision_policy,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "DeduplicationRule":
+        if not isinstance(data, dict):
+            raise ValueError("DeduplicationRule data must be a dictionary.")
+        strat = data.get("survivor_strategy", SurvivorStrategy.FIRST)
+        if isinstance(strat, str):
+            strat = SurvivorStrategy(strat.upper())
+        disp = data.get("disposition", DuplicateDisposition.DISCARD)
+        if isinstance(disp, str):
+            disp = DuplicateDisposition(disp.upper())
+        coll = data.get("collision_policy", CollisionPolicy.FAIL)
+        if isinstance(coll, str):
+            coll = CollisionPolicy(coll.upper())
+        return cls(
+            object_name=data["object_name"],
+            key_columns=list(data.get("key_columns", [])),
+            enabled=data.get("enabled", True),
+            survivor_strategy=strat,
+            order_by_columns=list(data.get("order_by_columns", [])),
+            priority_field=data.get("priority_field"),
+            priority_order=list(data.get("priority_order", [])),
+            disposition=disp,
+            collision_policy=coll,
+        )
+
+
+@dataclass
+class DeduplicationDefinition:
+    enabled: bool = True
+    global_collision_policy: CollisionPolicy = CollisionPolicy.FAIL
+    rules: List[DeduplicationRule] = field(default_factory=list)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "enabled": self.enabled,
+            "global_collision_policy": self.global_collision_policy.value if isinstance(self.global_collision_policy, Enum) else self.global_collision_policy,
+            "rules": [r.to_dict() for r in self.rules],
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "DeduplicationDefinition":
+        if not isinstance(data, dict):
+            return cls()
+        coll = data.get("global_collision_policy", CollisionPolicy.FAIL)
+        if isinstance(coll, str):
+            coll = CollisionPolicy(coll.upper())
+        rules = [
+            DeduplicationRule.from_dict(r) if isinstance(r, dict) else r
+            for r in data.get("rules", [])
+        ]
+        return cls(
+            enabled=data.get("enabled", True),
+            global_collision_policy=coll,
+            rules=rules,
+        )
+
+
+@dataclass
+class DataQualityRule:
+    rule_id: str
+    object_name: str
+    column_name: str
+    rule_type: QualityRuleType
+    violation_policy: QualityViolationPolicy = QualityViolationPolicy.QUARANTINE_RECORD
+    min_value: Optional[Any] = None
+    max_value: Optional[Any] = None
+    regex_pattern: Optional[str] = None
+    allowed_values: Optional[List[Any]] = None
+    max_length: Optional[int] = None
+    allow_truncation: bool = False
+    target_datatype: Optional[str] = None
+    default_value: Optional[Any] = None
+    predicate_expression: Optional[str] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "rule_id": self.rule_id,
+            "object_name": self.object_name,
+            "column_name": self.column_name,
+            "rule_type": self.rule_type.value if isinstance(self.rule_type, Enum) else self.rule_type,
+            "violation_policy": self.violation_policy.value if isinstance(self.violation_policy, Enum) else self.violation_policy,
+            "min_value": self.min_value,
+            "max_value": self.max_value,
+            "regex_pattern": self.regex_pattern,
+            "allowed_values": self.allowed_values,
+            "max_length": self.max_length,
+            "allow_truncation": self.allow_truncation,
+            "target_datatype": self.target_datatype,
+            "default_value": self.default_value,
+            "predicate_expression": self.predicate_expression,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "DataQualityRule":
+        if not isinstance(data, dict):
+            raise ValueError("DataQualityRule data must be a dictionary.")
+        rtype = data.get("rule_type", QualityRuleType.NOT_NULL)
+        if isinstance(rtype, str):
+            rtype = QualityRuleType(rtype.upper())
+        vpol = data.get("violation_policy", QualityViolationPolicy.QUARANTINE_RECORD)
+        if isinstance(vpol, str):
+            vpol = QualityViolationPolicy(vpol.upper())
+        return cls(
+            rule_id=data.get("rule_id", str(uuid.uuid4())),
+            object_name=data["object_name"],
+            column_name=data["column_name"],
+            rule_type=rtype,
+            violation_policy=vpol,
+            min_value=data.get("min_value"),
+            max_value=data.get("max_value"),
+            regex_pattern=data.get("regex_pattern"),
+            allowed_values=data.get("allowed_values"),
+            max_length=data.get("max_length"),
+            allow_truncation=data.get("allow_truncation", False),
+            target_datatype=data.get("target_datatype"),
+            default_value=data.get("default_value"),
+            predicate_expression=data.get("predicate_expression"),
+        )
+
+
+@dataclass
+class QualityThreshold:
+    max_duplicate_count: Optional[int] = None
+    max_duplicate_percentage: Optional[float] = None
+    max_invalid_count: Optional[int] = None
+    max_invalid_percentage: Optional[float] = None
+    max_reject_count: Optional[int] = None
+    max_quarantine_count: Optional[int] = None
+    max_total_violations: Optional[int] = None
+    consequence: QualityGateConsequence = QualityGateConsequence.FAIL_JOB
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "max_duplicate_count": self.max_duplicate_count,
+            "max_duplicate_percentage": self.max_duplicate_percentage,
+            "max_invalid_count": self.max_invalid_count,
+            "max_invalid_percentage": self.max_invalid_percentage,
+            "max_reject_count": self.max_reject_count,
+            "max_quarantine_count": self.max_quarantine_count,
+            "max_total_violations": self.max_total_violations,
+            "consequence": self.consequence.value if isinstance(self.consequence, Enum) else self.consequence,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "QualityThreshold":
+        if not isinstance(data, dict):
+            return cls()
+        conseq = data.get("consequence", QualityGateConsequence.FAIL_JOB)
+        if isinstance(conseq, str):
+            conseq = QualityGateConsequence(conseq.upper())
+        return cls(
+            max_duplicate_count=data.get("max_duplicate_count"),
+            max_duplicate_percentage=data.get("max_duplicate_percentage"),
+            max_invalid_count=data.get("max_invalid_count"),
+            max_invalid_percentage=data.get("max_invalid_percentage"),
+            max_reject_count=data.get("max_reject_count"),
+            max_quarantine_count=data.get("max_quarantine_count"),
+            max_total_violations=data.get("max_total_violations"),
+            consequence=conseq,
+        )
+
+
+@dataclass
+class DataQualityDefinition:
+    rules: List[DataQualityRule] = field(default_factory=list)
+    global_threshold: Optional[QualityThreshold] = None
+    object_thresholds: Dict[str, QualityThreshold] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "rules": [r.to_dict() for r in self.rules],
+            "global_threshold": self.global_threshold.to_dict() if self.global_threshold else None,
+            "object_thresholds": {k: v.to_dict() for k, v in self.object_thresholds.items()},
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "DataQualityDefinition":
+        if not isinstance(data, dict):
+            return cls()
+        rules = [
+            DataQualityRule.from_dict(r) if isinstance(r, dict) else r
+            for r in data.get("rules", [])
+        ]
+        g_thresh = (
+            QualityThreshold.from_dict(data["global_threshold"])
+            if isinstance(data.get("global_threshold"), dict)
+            else None
+        )
+        o_thresh = {}
+        for k, v in data.get("object_thresholds", {}).items():
+            if isinstance(v, dict):
+                o_thresh[k] = QualityThreshold.from_dict(v)
+            elif isinstance(v, QualityThreshold):
+                o_thresh[k] = v
+        return cls(
+            rules=rules,
+            global_threshold=g_thresh,
+            object_thresholds=o_thresh,
+        )
+
+
+@dataclass
+class QualityGateResult:
+    passed: bool
+    consequence: QualityGateConsequence
+    total_violations: int
+    duplicate_count: int
+    invalid_count: int
+    reject_count: int
+    quarantine_count: int
+    violation_messages: List[str] = field(default_factory=list)
+    cutover_blocked: bool = False
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "passed": self.passed,
+            "consequence": self.consequence.value if isinstance(self.consequence, Enum) else self.consequence,
+            "total_violations": self.total_violations,
+            "duplicate_count": self.duplicate_count,
+            "invalid_count": self.invalid_count,
+            "reject_count": self.reject_count,
+            "quarantine_count": self.quarantine_count,
+            "violation_messages": self.violation_messages,
+            "cutover_blocked": self.cutover_blocked,
+        }
+
+
+@dataclass
+class ConflictPolicyConfiguration:
+    default_policy: str = "SOURCE_A_WINS"  # Links to P3 CDCConflictResolutionPolicy
+    object_overrides: Dict[str, str] = field(default_factory=dict)
+    designated_primary_node: Optional[str] = None
+    max_unresolved_conflicts: int = 0
+    fail_on_unresolved_conflict: bool = True
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "ConflictPolicyConfiguration":
+        if not isinstance(data, dict):
+            return cls()
+        return cls(
+            default_policy=str(data.get("default_policy", "SOURCE_A_WINS")).upper(),
+            object_overrides=dict(data.get("object_overrides", {})),
+            designated_primary_node=data.get("designated_primary_node"),
+            max_unresolved_conflicts=int(data.get("max_unresolved_conflicts", 0)),
+            fail_on_unresolved_conflict=bool(data.get("fail_on_unresolved_conflict", True)),
+        )

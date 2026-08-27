@@ -60,6 +60,11 @@ class DataProcessingAuthority:
         rules: Sequence[TransformationRule],
         filter_predicate: Optional[ASTNode] = None,
         dedup_key_columns: Sequence[str] = (),
+        survivor_strategy: str = "FIRST",
+        order_by_columns: Sequence[str] = (),
+        priority_field: Optional[str] = None,
+        priority_order: Sequence[Any] = (),
+        dedup_disposition: str = "DISCARD",
     ) -> ProcessingPlan:
         """Compiles transformation rules into an immutable ProcessingPlan with cycle detection and SHA-256 fingerprinting."""
         return ProcessingPlanCompiler.compile_plan(
@@ -67,6 +72,11 @@ class DataProcessingAuthority:
             rules=rules,
             filter_predicate=filter_predicate,
             dedup_key_columns=dedup_key_columns,
+            survivor_strategy=survivor_strategy,
+            order_by_columns=order_by_columns,
+            priority_field=priority_field,
+            priority_order=priority_order,
+            dedup_disposition=dedup_disposition,
         )
 
     def register_lookup(self, lookup_def: LookupDefinition) -> None:

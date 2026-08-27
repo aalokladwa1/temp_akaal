@@ -138,10 +138,32 @@ class PlanCompiler:
             diagnostics.append(
                 CompilationDiagnostic(
                     level="WARNING",
-                    code="COMPATIBILITY_CHECK_SKIPPED",
-                    message=f"Compatibility evaluation skipped or returned warning: {err}",
+                    code="CONNECTOR_EVAL_FAILURE",
+                    message=f"Could not fully evaluate connector compatibility: {err}",
                 )
             )
+
+        # 3b. P5.6 Deduplication, Data Quality, and Conflict Policy Compilation & Validation
+        p56_res = self.compile_deduplication_and_quality(
+            selected_scope=plan.selected_scope if isinstance(plan.selected_scope, dict) else {},
+            dedup_def=effective_config.get("deduplication") or plan.configuration.get("deduplication"),
+            quality_def=effective_config.get("data_quality") or plan.configuration.get("data_quality"),
+            conflict_config=effective_config.get("conflict_policy") or plan.configuration.get("conflict_policy"),
+            target_connector_type=tgt_conn,
+        )
+        if p56_res.get("status") == "BLOCKER":
+            for d_dict in p56_res.get("diagnostics", []):
+                if d_dict.get("level") == "BLOCKER":
+                    diagnostics.append(CompilationDiagnostic(
+                        level=d_dict["level"],
+                        code=d_dict["code"],
+                        message=d_dict["message"],
+                        target=d_dict.get("target"),
+                    ))
+        effective_config["deduplication"] = p56_res["deduplication"]
+        effective_config["data_quality"] = p56_res["data_quality"]
+        effective_config["conflict_policy"] = p56_res["conflict_policy"]
+        effective_config["p5_6_fingerprint"] = p56_res["fingerprint"]
 
         # If blocking diagnostics exist, fail closed
         blockers = [d for d in diagnostics if d.level == "BLOCKER"]
@@ -264,6 +286,14 @@ class PlanCompiler:
                     "privacy_policy",
                     "privacy_rules",
                     "privacy_fingerprint",
+                    "deduplication",
+                    "deduplication_rules",
+                    "data_quality",
+                    "quality_rules",
+                    "quality_thresholds",
+                    "collision_policy",
+                    "conflict_policy",
+                    "p5_6_fingerprint",
                 ]
                 changes.append({
                     "field": f"configuration.{k}",
@@ -773,3 +803,282 @@ class PlanCompiler:
             confidence="ESTIMATED",
         )
         return estimate.to_dict()
+
+    def compile_deduplication_and_quality(
+        self,
+        selected_scope: Dict[str, Any],
+        dedup_def: Optional[Any] = None,
+        quality_def: Optional[Any] = None,
+        conflict_config: Optional[Any] = None,
+        target_connector_type: str = "GENERIC",
+    ) -> Dict[str, Any]:
+        """
+        Compiles P5.6 Deduplication, Data Quality, and Conflict Policy definitions.
+        Validates key columns, survivor ordering, regex safety, numeric bounds,
+        connector collision compatibility, and P3 conflict policy alignment.
+        """
+        import re
+        from akaal.planner.models.p5_domain import (
+            CompilationDiagnostic,
+            DeduplicationDefinition,
+            DeduplicationRule,
+            DataQualityDefinition,
+            DataQualityRule,
+            ConflictPolicyConfiguration,
+            CollisionPolicy,
+            SurvivorStrategy,
+            QualityRuleType,
+        )
+
+        diagnostics: List[CompilationDiagnostic] = []
+
+        # 1. Parse Deduplication
+        if isinstance(dedup_def, dict):
+            parsed_dedup = DeduplicationDefinition.from_dict(dedup_def)
+        elif isinstance(dedup_def, DeduplicationDefinition):
+            parsed_dedup = dedup_def
+        else:
+            parsed_dedup = DeduplicationDefinition()
+
+        # 2. Parse Data Quality
+        if isinstance(quality_def, dict):
+            parsed_quality = DataQualityDefinition.from_dict(quality_def)
+        elif isinstance(quality_def, DataQualityDefinition):
+            parsed_quality = quality_def
+        else:
+            parsed_quality = DataQualityDefinition()
+
+        # 3. Parse Conflict Policy
+        if isinstance(conflict_config, dict):
+            parsed_conflict = ConflictPolicyConfiguration.from_dict(conflict_config)
+        elif isinstance(conflict_config, ConflictPolicyConfiguration):
+            parsed_conflict = conflict_config
+        else:
+            parsed_conflict = ConflictPolicyConfiguration()
+
+        # Validate Deduplication Rules
+        raw_objs = selected_scope.get("objects", []) if isinstance(selected_scope, dict) else []
+
+        for rule in parsed_dedup.rules:
+            if not rule.key_columns:
+                diagnostics.append(CompilationDiagnostic(
+                    level="BLOCKER",
+                    code="EMPTY_DEDUP_KEY_COLUMNS",
+                    message=f"Deduplication rule for object '{rule.object_name}' has empty key_columns.",
+                    target=rule.object_name,
+                ))
+
+            # Validate ordering columns
+            if rule.order_by_columns:
+                for o_col in rule.order_by_columns:
+                    parts = o_col.strip().split()
+                    c_name = parts[0]
+                    direction = parts[1].upper() if len(parts) > 1 else "ASC"
+                    if direction not in ("ASC", "DESC"):
+                        diagnostics.append(CompilationDiagnostic(
+                            level="BLOCKER",
+                            code="INVALID_ORDER_DIRECTION",
+                            message=f"Order by direction '{direction}' in '{o_col}' on object '{rule.object_name}' is invalid (must be ASC or DESC).",
+                            target=rule.object_name,
+                        ))
+
+            # Validate priority field
+            if rule.survivor_strategy == SurvivorStrategy.PRIORITY:
+                if not rule.priority_field or not rule.priority_order:
+                    diagnostics.append(CompilationDiagnostic(
+                        level="BLOCKER",
+                        code="MISSING_PRIORITY_SPECIFICATION",
+                        message=f"PRIORITY survivor strategy on object '{rule.object_name}' requires priority_field and priority_order.",
+                        target=rule.object_name,
+                    ))
+
+            # Validate target collision policy against connector capabilities
+            tgt_conn_upper = str(target_connector_type).upper()
+            if rule.collision_policy == CollisionPolicy.UPSERT and any(x in tgt_conn_upper for x in ("S3", "AZURE_BLOB", "GCS", "FILE", "HDFS")):
+                diagnostics.append(CompilationDiagnostic(
+                    level="BLOCKER",
+                    code="UNSUPPORTED_COLLISION_POLICY",
+                    message=f"Target object storage connector '{target_connector_type}' does not support relational UPSERT collision policy.",
+                    target=rule.object_name,
+                ))
+
+        # Validate Data Quality Rules
+        for q_rule in parsed_quality.rules:
+            if q_rule.rule_type == QualityRuleType.REGEX_MATCH and q_rule.regex_pattern:
+                if len(q_rule.regex_pattern) > 250 or "(.*)*" in q_rule.regex_pattern or "(.+)+" in q_rule.regex_pattern:
+                    diagnostics.append(CompilationDiagnostic(
+                        level="BLOCKER",
+                        code="INVALID_QUALITY_REGEX",
+                        message=f"Quality regex pattern '{q_rule.regex_pattern}' violates ReDoS safety fencing.",
+                        target=q_rule.object_name,
+                    ))
+                else:
+                    try:
+                        re.compile(q_rule.regex_pattern)
+                    except re.error as err:
+                        diagnostics.append(CompilationDiagnostic(
+                            level="BLOCKER",
+                            code="SYNTAX_ERROR_QUALITY_REGEX",
+                            message=f"Quality regex pattern syntax error: {err}",
+                            target=q_rule.object_name,
+                        ))
+
+            if q_rule.rule_type == QualityRuleType.VALUE_RANGE:
+                if q_rule.min_value is not None and q_rule.max_value is not None:
+                    try:
+                        if float(q_rule.min_value) > float(q_rule.max_value):
+                            diagnostics.append(CompilationDiagnostic(
+                                level="BLOCKER",
+                                code="INVALID_VALUE_RANGE",
+                                message=f"Quality rule '{q_rule.rule_id}' min_value ({q_rule.min_value}) exceeds max_value ({q_rule.max_value}).",
+                                target=q_rule.object_name,
+                            ))
+                    except (ValueError, TypeError):
+                        pass
+
+            if q_rule.rule_type == QualityRuleType.MAX_LENGTH and q_rule.max_length is not None:
+                if q_rule.max_length <= 0:
+                    diagnostics.append(CompilationDiagnostic(
+                        level="BLOCKER",
+                        code="INVALID_MAX_LENGTH",
+                        message=f"Quality rule '{q_rule.rule_id}' max_length must be greater than zero.",
+                        target=q_rule.object_name,
+                    ))
+
+        # Validate Quality Thresholds (negative values / percentages outside 0..100)
+        thresholds_to_check = []
+        if parsed_quality.global_threshold:
+            thresholds_to_check.append(("global", parsed_quality.global_threshold))
+        for obj_name, th in parsed_quality.object_thresholds.items():
+            if th:
+                thresholds_to_check.append((obj_name, th))
+
+        for target_label, th in thresholds_to_check:
+            for count_attr in ("max_duplicate_count", "max_invalid_count", "max_reject_count", "max_quarantine_count", "max_policy_violations"):
+                val = getattr(th, count_attr, None)
+                if val is not None and val < 0:
+                    diagnostics.append(CompilationDiagnostic(
+                        level="BLOCKER",
+                        code="INVALID_QUALITY_THRESHOLD",
+                        message=f"Quality threshold '{count_attr}' cannot be negative ({val}) for {target_label}.",
+                        target=target_label,
+                    ))
+            for pct_attr in ("max_duplicate_percentage", "max_invalid_percentage"):
+                val = getattr(th, pct_attr, None)
+                if val is not None and (val < 0.0 or val > 100.0):
+                    diagnostics.append(CompilationDiagnostic(
+                        level="BLOCKER",
+                        code="INVALID_QUALITY_THRESHOLD",
+                        message=f"Quality threshold percentage '{pct_attr}' must be between 0.0 and 100.0 (got {val}) for {target_label}.",
+                        target=target_label,
+                    ))
+
+        # Validate Conflict Policy Configuration (must be a valid P3 resolution policy)
+        valid_p3_policies = {"SOURCE_A_WINS", "SOURCE_B_WINS", "DESIGNATED_PRIMARY_WINS", "LATEST_VERSION_WINS", "MANUAL_GOVERNANCE_REQUIRED"}
+        if parsed_conflict.default_policy not in valid_p3_policies:
+            diagnostics.append(CompilationDiagnostic(
+                level="BLOCKER",
+                code="INVALID_P3_CONFLICT_POLICY",
+                message=f"Default conflict policy '{parsed_conflict.default_policy}' is not a recognized P3 CDCConflictResolutionPolicy ({valid_p3_policies}).",
+                target="conflict_policy",
+            ))
+
+        # Compute deterministic SHA-256 fingerprint for P5.6 compiled payload
+        canon_p56 = json.dumps({
+            "deduplication": parsed_dedup.to_dict(),
+            "data_quality": parsed_quality.to_dict(),
+            "conflict_policy": parsed_conflict.to_dict(),
+        }, sort_keys=True)
+        fp = hashlib.sha256(canon_p56.encode("utf-8")).hexdigest()
+
+        return {
+            "status": "SUCCESS" if not any(d.level == "BLOCKER" for d in diagnostics) else "BLOCKER",
+            "deduplication": parsed_dedup.to_dict(),
+            "data_quality": parsed_quality.to_dict(),
+            "conflict_policy": parsed_conflict.to_dict(),
+            "fingerprint": fp,
+            "diagnostics": [d.to_dict() for d in diagnostics],
+        }
+
+    @staticmethod
+    def evaluate_quality_gates(
+        quality_def: Any,
+        execution_metrics: Dict[str, Any],
+    ) -> "QualityGateResult":
+        """
+        Evaluates actual execution/batch metrics against configured DataQualityDefinition thresholds.
+        Determines if quality gates pass or cutover is blocked / job failed.
+        """
+        from akaal.planner.models.p5_domain import (
+            DataQualityDefinition,
+            QualityThreshold,
+            QualityGateConsequence,
+            QualityGateResult,
+        )
+
+        q_def = (
+            DataQualityDefinition.from_dict(quality_def)
+            if isinstance(quality_def, dict)
+            else quality_def or DataQualityDefinition()
+        )
+
+        total_rows = max(1, int(execution_metrics.get("total_rows", 0)))
+        dups = int(execution_metrics.get("duplicate_count", 0))
+        invalids = int(execution_metrics.get("invalid_count", 0))
+        rejects = int(execution_metrics.get("reject_count", 0))
+        quarantines = int(execution_metrics.get("quarantine_count", 0))
+        total_violations = dups + invalids + rejects + quarantines
+
+        dup_pct = (dups / total_rows) * 100.0
+        invalid_pct = (invalids / total_rows) * 100.0
+
+        thresh = q_def.global_threshold or QualityThreshold()
+        violations: List[str] = []
+        consequence = QualityGateConsequence.WARN
+        passed = True
+        cutover_blocked = False
+
+        if thresh.max_duplicate_count is not None and dups > thresh.max_duplicate_count:
+            passed = False
+            violations.append(f"Duplicate count {dups} exceeds threshold {thresh.max_duplicate_count}.")
+
+        if thresh.max_duplicate_percentage is not None and dup_pct > thresh.max_duplicate_percentage:
+            passed = False
+            violations.append(f"Duplicate percentage {dup_pct:.2f}% exceeds threshold {thresh.max_duplicate_percentage}%.")
+
+        if thresh.max_invalid_count is not None and invalids > thresh.max_invalid_count:
+            passed = False
+            violations.append(f"Invalid record count {invalids} exceeds threshold {thresh.max_invalid_count}.")
+
+        if thresh.max_invalid_percentage is not None and invalid_pct > thresh.max_invalid_percentage:
+            passed = False
+            violations.append(f"Invalid percentage {invalid_pct:.2f}% exceeds threshold {thresh.max_invalid_percentage}%.")
+
+        if thresh.max_reject_count is not None and rejects > thresh.max_reject_count:
+            passed = False
+            violations.append(f"Reject count {rejects} exceeds threshold {thresh.max_reject_count}.")
+
+        if thresh.max_quarantine_count is not None and quarantines > thresh.max_quarantine_count:
+            passed = False
+            violations.append(f"Quarantine count {quarantines} exceeds threshold {thresh.max_quarantine_count}.")
+
+        if thresh.max_total_violations is not None and total_violations > thresh.max_total_violations:
+            passed = False
+            violations.append(f"Total violations {total_violations} exceeds threshold {thresh.max_total_violations}.")
+
+        if not passed:
+            consequence = thresh.consequence
+            if consequence in (QualityGateConsequence.BLOCK_CUTOVER, QualityGateConsequence.FAIL_JOB):
+                cutover_blocked = True
+
+        return QualityGateResult(
+            passed=passed,
+            consequence=consequence,
+            total_violations=total_violations,
+            duplicate_count=dups,
+            invalid_count=invalids,
+            reject_count=rejects,
+            quarantine_count=quarantines,
+            violation_messages=violations,
+            cutover_blocked=cutover_blocked,
+        )

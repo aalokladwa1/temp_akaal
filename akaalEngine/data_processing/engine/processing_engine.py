@@ -131,6 +131,82 @@ class ProcessingEngine:
                     if new_row.get(col) is None:
                         new_row[target_col] = rule.default_value
 
+                # G. Data Quality Rule Engine
+                elif rule.rule_type == RuleType.QUALITY:
+                    val = new_row.get(col)
+                    qtype = str(rule.quality_rule_type or "NOT_NULL").upper()
+
+                    # 1. NOT_NULL Check
+                    if qtype == "NOT_NULL" and val is None:
+                        raise ValueError(f"Quality rule violation: Column '{col}' is NULL, but NOT_NULL rule '{rule.rule_id}' is configured.")
+
+                    # 2. MAX_LENGTH & Truncation Check
+                    elif qtype == "MAX_LENGTH" and val is not None and rule.max_length is not None:
+                        s_val = str(val)
+                        if len(s_val) > rule.max_length:
+                            if rule.allow_truncation or rule.malformed_policy == MalformedDataPolicy.EXPLICIT_TRUNCATE:
+                                new_row[target_col] = s_val[:rule.max_length]
+                                diagnostics.append(TransformationDiagnostic(
+                                    level="WARNING",
+                                    code="EXPLICIT_TRUNCATION",
+                                    message=f"Column '{col}' explicitly truncated to max length {rule.max_length}.",
+                                    column_name=col,
+                                    rule_id=rule.rule_id,
+                                ))
+                            else:
+                                raise ValueError(
+                                    f"Quality rule violation: Column '{col}' length {len(s_val)} exceeds maximum allowed {rule.max_length}."
+                                )
+
+                    # 3. NUMERIC_OVERFLOW Check
+                    elif qtype == "NUMERIC_OVERFLOW" and val is not None:
+                        try:
+                            num_val = float(val)
+                        except (ValueError, TypeError):
+                            raise ValueError(f"Quality rule violation: Column '{col}' value '{val}' is not numeric.")
+
+                        target_dt = str(rule.target_datatype or "INT").upper()
+                        bounds = {
+                            "SMALLINT": (-32768, 32767),
+                            "INT": (-2147483648, 2147483647),
+                            "INTEGER": (-2147483648, 2147483647),
+                            "BIGINT": (-9223372036854775808, 9223372036854775807),
+                            "TINYINT": (0, 255),
+                        }
+                        if target_dt in bounds:
+                            b_min, b_max = bounds[target_dt]
+                            if num_val < b_min or num_val > b_max:
+                                raise ValueError(
+                                    f"Quality rule violation: Column '{col}' value {num_val} overflows target {target_dt} bounds [{b_min}, {b_max}]."
+                                )
+                        if rule.min_value is not None and num_val < float(rule.min_value):
+                            raise ValueError(f"Quality rule violation: Column '{col}' value {num_val} is below minimum {rule.min_value}.")
+                        if rule.max_value is not None and num_val > float(rule.max_value):
+                            raise ValueError(f"Quality rule violation: Column '{col}' value {num_val} exceeds maximum {rule.max_value}.")
+
+                    # 4. VALUE_RANGE Check
+                    elif qtype == "VALUE_RANGE" and val is not None:
+                        try:
+                            num_val = float(val)
+                            if rule.min_value is not None and num_val < float(rule.min_value):
+                                raise ValueError(f"Quality rule violation: Column '{col}' value {num_val} is below minimum {rule.min_value}.")
+                            if rule.max_value is not None and num_val > float(rule.max_value):
+                                raise ValueError(f"Quality rule violation: Column '{col}' value {num_val} exceeds maximum {rule.max_value}.")
+                        except (ValueError, TypeError) as err:
+                            raise ValueError(f"Quality rule range check failed on column '{col}': {err}")
+
+                    # 5. REGEX_MATCH Check
+                    elif qtype == "REGEX_MATCH" and val is not None and rule.regex_pattern:
+                        import re
+                        s_val = str(val)
+                        if not re.match(rule.regex_pattern, s_val):
+                            raise ValueError(f"Quality rule violation: Column '{col}' value does not match regex pattern.")
+
+                    # 6. ENUM_VALUES Check
+                    elif qtype == "ENUM_VALUES" and val is not None and rule.allowed_values:
+                        if val not in rule.allowed_values and str(val) not in [str(x) for x in rule.allowed_values]:
+                            raise ValueError(f"Quality rule violation: Column '{col}' value '{val}' not in allowed enum values.")
+
             except Exception as exc:
                 diag = TransformationDiagnostic(
                     level="BLOCKER",
@@ -168,15 +244,31 @@ class ProcessingEngine:
     def transform_batch(
         self, batch: Sequence[Mapping[str, Any]], plan: ProcessingPlan
     ) -> Tuple[List[Dict[str, Any]], List[ProcessingResult]]:
-        """Transforms a batch of row dictionaries deterministically."""
+        """Transforms a batch of row dictionaries deterministically with optional batch deduplication."""
+        input_records = list(batch)
+
+        # Batch-level deduplication with deterministic survivor selection
+        if plan.dedup_key_columns and len(input_records) > 1:
+            survivors, duplicates, _ = self.deduplicator.deduplicate_batch(
+                records=input_records,
+                key_columns=plan.dedup_key_columns,
+                survivor_strategy=plan.survivor_strategy,
+                order_by_columns=plan.order_by_columns,
+                priority_field=plan.priority_field,
+                priority_order=plan.priority_order,
+                disposition=plan.dedup_disposition,
+            )
+            input_records = survivors
+
         transformed_rows: List[Dict[str, Any]] = []
         results: List[ProcessingResult] = []
 
-        for row in batch:
+        for row in input_records:
             res = self.transform_row(row, plan)
             results.append(res)
             if res.status == "SUCCESS" and res.transformed_row is not None:
                 transformed_rows.append(res.transformed_row)
+
 
         return transformed_rows, results
 

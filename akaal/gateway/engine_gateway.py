@@ -405,6 +405,12 @@ class EngineGateway:
             return self.validate_transformation(payload)
         elif capability in ("preview_transformation", "p5_preview_transformation"):
             return self.preview_transformation(payload)
+        elif capability in ("compile_deduplication_and_quality", "p5_compile_deduplication_and_quality"):
+            return self.compile_deduplication_and_quality(payload)
+        elif capability in ("evaluate_quality_gates", "p5_evaluate_quality_gates"):
+            return self.evaluate_quality_gates(payload)
+        elif capability in ("preview_deduplication_and_quality", "p5_preview_deduplication_and_quality"):
+            return self.preview_deduplication_and_quality(payload)
         elif capability == "get_connector_manifest":
             return self.get_connector_manifest(payload)
         elif capability == "list_connector_manifests":
@@ -4352,3 +4358,96 @@ class EngineGateway:
             sanitized=True,
         )
         return {"status": "SUCCESS", "preview": preview.to_dict()}
+
+    def compile_deduplication_and_quality(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Gateway capability endpoint for P5.6 deduplication, quality, and conflict compilation."""
+        from akaal.planner.engine.plan_compiler import PlanCompiler
+        selected_scope = payload.get("selected_scope", {})
+        dedup_def = payload.get("deduplication", {})
+        quality_def = payload.get("data_quality", {})
+        conflict_config = payload.get("conflict_policy", {})
+        target_connector = payload.get("target_connector_type", "GENERIC")
+
+        compiler = PlanCompiler()
+        return compiler.compile_deduplication_and_quality(
+            selected_scope=selected_scope,
+            dedup_def=dedup_def,
+            quality_def=quality_def,
+            conflict_config=conflict_config,
+            target_connector_type=target_connector,
+        )
+
+    def evaluate_quality_gates(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Gateway capability endpoint for evaluating quality gate thresholds."""
+        from akaal.planner.engine.plan_compiler import PlanCompiler
+        quality_def = payload.get("data_quality", {})
+        metrics = payload.get("execution_metrics", {})
+        res = PlanCompiler.evaluate_quality_gates(quality_def, metrics)
+        return {"status": "SUCCESS", "gate_result": res.to_dict()}
+
+    def preview_deduplication_and_quality(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Gateway capability endpoint for live / dry-run preview of deduplication and quality rules."""
+        records = payload.get("sample_records", [])
+        dedup_rule = payload.get("deduplication_rule", {})
+        quality_rules = payload.get("quality_rules", [])
+
+        from akaalEngine.data_processing.dedup.deduplicator import RowDeduplicator
+        from akaalEngine.data_processing.engine.processing_engine import ProcessingEngine
+        from akaalEngine.data_processing.models.plan import ProcessingPlan, TransformationRule, RuleType, MalformedDataPolicy
+
+        dedup = RowDeduplicator()
+        key_cols = dedup_rule.get("key_columns", [])
+        surv_strat = dedup_rule.get("survivor_strategy", "FIRST")
+        order_cols = dedup_rule.get("order_by_columns", [])
+        pri_field = dedup_rule.get("priority_field")
+        pri_order = dedup_rule.get("priority_order", [])
+        disp = dedup_rule.get("disposition", "DISCARD")
+
+        survivors, duplicates, metrics = dedup.deduplicate_batch(
+            records=records,
+            key_columns=key_cols,
+            survivor_strategy=surv_strat,
+            order_by_columns=order_cols,
+            priority_field=pri_field,
+            priority_order=pri_order,
+            disposition=disp,
+        )
+
+        compiled_q_rules = []
+        for qr in quality_rules:
+            v_pol = qr.get("violation_policy", "QUARANTINE_RECORD")
+            compiled_q_rules.append(TransformationRule(
+                rule_id=qr.get("rule_id", "qr-preview"),
+                column_name=qr["column_name"],
+                rule_type=RuleType.QUALITY,
+                quality_rule_type=qr.get("rule_type", "NOT_NULL"),
+                malformed_policy=MalformedDataPolicy(v_pol if isinstance(v_pol, str) else v_pol.value),
+                min_value=qr.get("min_value"),
+                max_value=qr.get("max_value"),
+                regex_pattern=qr.get("regex_pattern"),
+                allowed_values=qr.get("allowed_values"),
+                max_length=qr.get("max_length"),
+                allow_truncation=qr.get("allow_truncation", False),
+                target_datatype=qr.get("target_datatype"),
+                default_value=qr.get("default_value"),
+            ))
+
+        plan = ProcessingPlan(
+            object_name=payload.get("object_name", "preview_object"),
+            compiled_rules=tuple(compiled_q_rules),
+        )
+        proc = ProcessingEngine()
+        valid_rows, results = proc.transform_batch(survivors, plan)
+
+        return {
+            "status": "SUCCESS",
+            "preview": {
+                "input_count": len(records),
+                "survivors_count": len(survivors),
+                "duplicate_count": len(duplicates),
+                "valid_output_count": len(valid_rows),
+                "sample_output": valid_rows[:10],
+                "sample_duplicates": duplicates[:10],
+                "results_summary": [r.status for r in results],
+            }
+        }
