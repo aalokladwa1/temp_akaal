@@ -1,7 +1,7 @@
 # AKAAL Migration Module Evolution Record
 
-**Document Version:** 1.0.0  
-**Status:** Canonical Evolution Record  
+**Document Version:** 1.0.0
+**Status:** Canonical Evolution Record
 **Purpose:** Single authoritative repository documenting the capabilities, architectural boundaries, technical debt, and future redesign requirements of the AKAAL Migration Module across phases P0 through P7.
 
 ---
@@ -10,7 +10,7 @@
 
 The **AKAAL Migration Module** encompasses both operator-facing command centers (**Mission Control**) and observation/telemetry centers (**Monitoring**).
 
-To prevent premature visual redesigns while core platform capabilities accumulate during phases P2–P7, **visual architecture is frozen**. 
+To prevent premature visual redesigns while core platform capabilities accumulate during phases P2–P7, **visual architecture is frozen**.
 
 This directory serves as the durable record where:
 1. Current architecture and backend consumption are factually documented.

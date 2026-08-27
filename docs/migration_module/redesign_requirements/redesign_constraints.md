@@ -1,6 +1,6 @@
 # Architectural & UX Redesign Constraints
 
-**Phase Baseline:** P1.5  
+**Phase Baseline:** P1.5
 
 ---
 

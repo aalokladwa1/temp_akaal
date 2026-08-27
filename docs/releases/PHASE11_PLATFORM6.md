@@ -1,8 +1,8 @@
 # AKAAL Phase 11 Platform 6 — Enterprise Governance Platform Release Notes
 
-**System Version**: `v0.11-platform6`  
-**Platform Name**: Phase 11 Platform 6 — Enterprise Governance Platform  
-**Status**: **CERTIFIED, COMPLETE & PRODUCTION READY**  
+**System Version**: `v0.11-platform6`
+**Platform Name**: Phase 11 Platform 6 — Enterprise Governance Platform
+**Status**: **CERTIFIED, COMPLETE & PRODUCTION READY**
 
 ---
 

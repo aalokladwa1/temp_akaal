@@ -1,9 +1,9 @@
 # ARCHITECTURE_REVIEW.md - Enterprise Architecture Review
 
-**System**: AKAAL Engine Platform  
-**Phase**: Post Stage 3 Stabilization & Readiness Gate  
-**Date**: 2026-07-24  
-**Author**: Enterprise Architecture Review Board  
+**System**: AKAAL Engine Platform
+**Phase**: Post Stage 3 Stabilization & Readiness Gate
+**Date**: 2026-07-24
+**Author**: Enterprise Architecture Review Board
 
 ---
 

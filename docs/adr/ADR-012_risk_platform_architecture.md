@@ -53,7 +53,7 @@ $$\text{RiskDomain} \longrightarrow \text{RiskCategory} \longrightarrow \text{Ri
 ```mermaid
 graph TD
     Decoder[Decoder Platform akaal/decoder] --> |CanonicalMigrationModel| Risk[Risk Platform akaal/risk]
-    
+
     Risk --> |RiskAssessmentModel| Planner[Phase 9 Migration Planner]
     Risk --> |RiskAssessmentModel| Advisor[Phase 9 Advisory Subsystem]
     Risk --> |RiskAssessmentModel| Intel[Phase 9 Enterprise Intelligence]

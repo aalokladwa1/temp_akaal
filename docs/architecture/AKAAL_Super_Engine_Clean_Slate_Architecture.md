@@ -1,9 +1,9 @@
 # AKAAL Super Engine Clean-Slate Architecture Blueprint
 
-**Document Version:** 2.0  
-**Status:** Target Architectural Specification  
-**Classification:** Internal System Architecture & Engine Redesign  
-**Target Package:** `akaal/engine` ([akaal/engine](file:///a:/temp_akaal/akaal/engine))  
+**Document Version:** 2.0
+**Status:** Target Architectural Specification
+**Classification:** Internal System Architecture & Engine Redesign
+**Target Package:** `akaal/engine` ([akaal/engine](file:///a:/temp_akaal/akaal/engine))
 
 ---
 

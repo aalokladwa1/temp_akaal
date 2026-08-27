@@ -1,8 +1,8 @@
 # AKAAL Engine (`akaal/engine`) Deep Logical Analysis & Gap Specification
 
-**Document Version:** 1.0  
-**Classification:** Architectural Audit & Integration Gap Specification  
-**Target Component:** `akaal/engine` ([akaal/engine](file:///a:/temp_akaal/akaal/engine))  
+**Document Version:** 1.0
+**Classification:** Architectural Audit & Integration Gap Specification
+**Target Component:** `akaal/engine` ([akaal/engine](file:///a:/temp_akaal/akaal/engine))
 
 ---
 
@@ -29,7 +29,7 @@ An inspection of all 11 files inside `akaal/engine` reveals direct imports to on
 ### Connectivity Percentage Calculation
 - **Total AKAAL Core Subpackages:** 44 platform folders (`adapters`, `advisor`, `advisory`, `agents`, `api`, `audit`, `catalog`, `cdc`, `core`, `coverage`, `data_integrity`, `decoder`, `distributed`, `events`, `gateway`, `governance`, `healing`, `integration`, `intelligence`, `metrics`, `migration`, `operational_reliability`, `operations`, `performance`, `orchestration`, `planner`, `platform`, `plugins`, `recovery_intelligence`, `reliability`, `reliability_intelligence`, `replication`, `reporting`, `resilience_eng`, `risk`, `rulebook`, `runtime`, `schema`, `scout`, `streaming`, `transpiler`, `trust_certification`, `validation`, `workflow`).
 - **Directly Connected Subpackages:** 2 (`adapters`, `core`/`events`).
-- **Integration Ratio:**  
+- **Integration Ratio:**
   $$\text{Connectivity \%} = \frac{2}{44} \times 100\% = \mathbf{4.55\%}$$
 
 **Conclusion:** `akaal/engine` is disconnected from **95.45%** of the AKAAL platform infrastructure.
@@ -38,7 +38,7 @@ An inspection of all 11 files inside `akaal/engine` reveals direct imports to on
 
 ## 3. Creation of Independent Custom Logic
 
-**Does `akaal/engine` create its own independent logic?**  
+**Does `akaal/engine` create its own independent logic?**
 **YES.** Instead of delegating to the 11 enterprise platform facades wired inside [`CompositionRoot`](file:///a:/temp_akaal/akaal/integration/composition_root.py), `akaal/engine` implements its own custom, isolated sub-systems:
 
 | Component | Custom Logic Created in `akaal/engine` | Official Enterprise Subsystem Bypassed |
@@ -61,9 +61,9 @@ An inspection of all 11 files inside `akaal/engine` reveals direct imports to on
 ### Crucial Implementation Gaps in `akaal/engine`:
 
 1. **Dummy Schema DDL Generation:**
-   - In [`akaal/engine/api.py`](file:///a:/temp_akaal/akaal/engine/api.py#L174), table creation uses fallback DDL:  
+   - In [`akaal/engine/api.py`](file:///a:/temp_akaal/akaal/engine/api.py#L174), table creation uses fallback DDL:
      `CREATE TABLE IF NOT EXISTS "schema"."table" (id TEXT);`
-   - In [`akaal/engine/writer.py`](file:///a:/temp_akaal/akaal/engine/writer.py#L134), columns are dynamically created by forcing **every data type to `TEXT`**:  
+   - In [`akaal/engine/writer.py`](file:///a:/temp_akaal/akaal/engine/writer.py#L134), columns are dynamically created by forcing **every data type to `TEXT`**:
      `cols_ddl = ", ".join([f'"{c.lower()}" TEXT' for c in columns])`
    - Real SQL data type conversion, precision scaling, and constraint remapping are completely absent.
 2. **Missing Transpilation & AST Generation:**
@@ -102,13 +102,13 @@ An inspection of all 11 files inside `akaal/engine` reveals direct imports to on
 
 To transform `akaal/engine` from a half-built prototype into a production-grade facade that exposes the real enterprise AKAAL platform:
 
-1. **Wire `AkaalMigrationEngine` to `CompositionRoot`:**  
+1. **Wire `AkaalMigrationEngine` to `CompositionRoot`:**
    Replace custom state repositories and readers inside `akaal/engine/api.py` with facade calls to `CompositionRoot.get_platform("orchestration")` and `CompositionRoot.get_platform("streaming")`.
-2. **Integrate Transpiler & Schema Evolution:**  
+2. **Integrate Transpiler & Schema Evolution:**
    Replace `writer.py` string concatenation with `TranspilerFacade.transpile_sql()` to ensure exact data types, constraints, and indexes are created on the target database.
-3. **Connect to Governance Platform:**  
+3. **Connect to Governance Platform:**
    Enforce `EnterpriseGovernancePlatformV6.evaluate_gate()` before allowing `start_migration()` to trigger bulk data transport.
-4. **Delegate Validation to Platform 1 & 8:**  
+4. **Delegate Validation to Platform 1 & 8:**
    Replace `EngineValidator` with calls to `EnterpriseDataIntegrityPlatformV8.verify_integrity()`.
 
 ---

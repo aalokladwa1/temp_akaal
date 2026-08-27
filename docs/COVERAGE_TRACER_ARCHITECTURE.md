@@ -36,8 +36,8 @@ docstrings = find_docstring_lines(tree)
 executable_statements = set()
 
 for node in ast.walk(tree):
-    if isinstance(node, (ast.Assign, ast.AnnAssign, ast.Return, ast.If, ast.For, 
-                        ast.While, ast.Try, ast.With, ast.Expr, ast.FunctionDef, 
+    if isinstance(node, (ast.Assign, ast.AnnAssign, ast.Return, ast.If, ast.For,
+                        ast.While, ast.Try, ast.With, ast.Expr, ast.FunctionDef,
                         ast.ClassDef, ast.Raise, ast.Import, ast.ImportFrom, ast.Pass)):
         lineno = getattr(node, "lineno", None)
         if lineno and lineno not in docstrings:

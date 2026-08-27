@@ -1,6 +1,6 @@
 # Mission Control — Current Architecture & Forensic Audit Record
 
-**Phase Baseline:** P1.5  
+**Phase Baseline:** P1.5
 **File Reference:** [`akaal_software/src/screens/MigrationModule/MissionControlView.tsx`](file:///a:/temp_akaal/akaal_software/src/screens/MigrationModule/MissionControlView.tsx)
 
 ---

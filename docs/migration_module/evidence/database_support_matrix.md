@@ -1,6 +1,6 @@
 # Multi-Database Production Capability Matrix
 
-**Phase Baseline:** P1.6 Universal Physical Transport Foundation  
+**Phase Baseline:** P1.6 Universal Physical Transport Foundation
 
 ---
 

@@ -1,6 +1,6 @@
 # Production-Reachable Backend Capabilities Inventory
 
-**Phase Baseline:** P1.5  
+**Phase Baseline:** P1.5
 
 ---
 

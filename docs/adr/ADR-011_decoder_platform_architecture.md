@@ -53,7 +53,7 @@ $$\text{StorageModel} \longrightarrow \text{StorageFamily} \longrightarrow \text
 graph TD
     Scout[Scout Platform] --> |DiscoveryReport| Decoder[Decoder Platform akaal/decoder]
     Rulebook[Rulebook Platform] --> |MigrationRuleSet| Decoder
-    
+
     Decoder --> |CanonicalMigrationModel| Risk[Phase 9 Risk Assessor]
     Decoder --> |CanonicalMigrationModel| Planner[Phase 9 Migration Planner]
     Decoder --> |CanonicalMigrationModel| Advisor[Phase 9 Advisory Subsystem]

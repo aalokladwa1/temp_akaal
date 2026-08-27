@@ -1,9 +1,9 @@
 # FOUNDATION_FREEZE_MANIFEST.md - AKAAL Enterprise Foundation Freeze Manifest
 
-**System**: AKAAL Engine Platform  
-**Document ID**: `MANIFEST-STAGE3-FREEZE-01`  
-**Date**: 2026-07-24  
-**Certification Level**: ENTERPRISE BASELINE CERTIFIED  
+**System**: AKAAL Engine Platform
+**Document ID**: `MANIFEST-STAGE3-FREEZE-01`
+**Date**: 2026-07-24
+**Certification Level**: ENTERPRISE BASELINE CERTIFIED
 
 ---
 

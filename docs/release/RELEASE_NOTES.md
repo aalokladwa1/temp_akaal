@@ -1,9 +1,9 @@
 # RELEASE_NOTES.md - AKAAL v0.10-stage3-certified Release Notes
 
-**Release Name**: AKAAL Stage 3 Enterprise Certification Baseline  
-**Release Tag**: `v0.10-stage3-certified`  
-**Git Commit**: `HEAD` (Certified Baseline)  
-**Date**: 2026-07-24  
+**Release Name**: AKAAL Stage 3 Enterprise Certification Baseline
+**Release Tag**: `v0.10-stage3-certified`
+**Git Commit**: `HEAD` (Certified Baseline)
+**Date**: 2026-07-24
 
 ---
 

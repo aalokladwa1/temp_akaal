@@ -1,6 +1,6 @@
 # Enterprise Migration Workflows & Governance Record
 
-**Phase Baseline:** P1.5  
+**Phase Baseline:** P1.5
 **Document Reference:** [`docs/architecture/AKAAL_Enterprise_Migration_Workflow_v1.0.md`](file:///a:/temp_akaal/docs/architecture/AKAAL_Enterprise_Migration_Workflow_v1.0.md)
 
 ---

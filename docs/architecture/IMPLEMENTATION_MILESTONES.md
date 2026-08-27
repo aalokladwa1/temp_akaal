@@ -1,8 +1,8 @@
 # AKAAL Phase 10 Part 2 – Implementation Milestones & Certification Gates
 
-**Architectural Blueprint Contract:** `PHASE10_PART1_IMPLEMENTATION_PLAN.md` (v1.3.0 Frozen)  
-**Master Plan Reference:** [MASTER_IMPLEMENTATION_PLAN_PART2.md](file:///c:/Users/LENOVO/Downloads/temp_akaal-main/MASTER_IMPLEMENTATION_PLAN_PART2.md)  
-**Task Reference:** [TASK_BREAKDOWN_PART2.md](file:///c:/Users/LENOVO/Downloads/temp_akaal-main/TASK_BREAKDOWN_PART2.md)  
+**Architectural Blueprint Contract:** `PHASE10_PART1_IMPLEMENTATION_PLAN.md` (v1.3.0 Frozen)
+**Master Plan Reference:** [MASTER_IMPLEMENTATION_PLAN_PART2.md](file:///c:/Users/LENOVO/Downloads/temp_akaal-main/MASTER_IMPLEMENTATION_PLAN_PART2.md)
+**Task Reference:** [TASK_BREAKDOWN_PART2.md](file:///c:/Users/LENOVO/Downloads/temp_akaal-main/TASK_BREAKDOWN_PART2.md)
 
 ---
 

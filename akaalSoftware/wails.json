@@ -1,0 +1,19 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "akaalSoftware",
+  "outputfilename": "akaalSoftware",
+  "frontend:install": "npm install",
+  "frontend:build": "npm run build",
+  "frontend:dev:watcher": "npm run watch",
+  "frontend:dev:serverUrl": "auto",
+  "author": {
+    "name": "AKAAL Enterprise Team",
+    "email": "engineering@akaal.internal"
+  },
+  "info": {
+    "companyName": "AKAAL",
+    "productName": "AKAAL Enterprise Migration Platform",
+    "productVersion": "1.0.0",
+    "copyright": "Copyright \u00a9 2026 AKAAL"
+  }
+}

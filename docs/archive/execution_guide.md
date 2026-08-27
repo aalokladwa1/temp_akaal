@@ -37,7 +37,7 @@ Before beginning the migration, ensure your local environment satisfies the foll
 ## PostgreSQL Hashing & Fallback Design
 
 > [!NOTE]
-> The validation SQL script dynamically evaluates if the `pgcrypto` extension is installed on the target PostgreSQL database. 
+> The validation SQL script dynamically evaluates if the `pgcrypto` extension is installed on the target PostgreSQL database.
 > * **With `pgcrypto`**: The script runs the standard SHA-256 binary hash check using `digest()`.
 > * **Without `pgcrypto`**: The script automatically falls back to comparing `md5()` hex checksum strings of the BLOB values, ensuring compatibility out of the box without requiring superuser extensions.
 

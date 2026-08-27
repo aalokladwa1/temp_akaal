@@ -1,8 +1,8 @@
 # AKAAL PLATFORM 1 PART 6: MANDATORY IMPLEMENTATION WALKTHROUGH
 
-**Document Version:** 1.0  
-**Target Subsystems:** `akaal.platform.ops`, `akaal.platform.observability`, `akaal.platform.governance`, `akaal.platform.security`, `akaal.platform.testing`, `akaal.platform.compliance`, `akaal.platform.monitoring`, `akaal.platform.diagnostics`, `akaal.platform.alerting`, `akaal.platform.configuration`, `akaal.platform.supportability`, `akaal.platform.certification`  
-**Auditor Target:** Independent Principal Distributed Systems & Reliability Engineers  
+**Document Version:** 1.0
+**Target Subsystems:** `akaal.platform.ops`, `akaal.platform.observability`, `akaal.platform.governance`, `akaal.platform.security`, `akaal.platform.testing`, `akaal.platform.compliance`, `akaal.platform.monitoring`, `akaal.platform.diagnostics`, `akaal.platform.alerting`, `akaal.platform.configuration`, `akaal.platform.supportability`, `akaal.platform.certification`
+**Auditor Target:** Independent Principal Distributed Systems & Reliability Engineers
 **Overall Certification Result:** **VERIFIED, AUDITED, & CERTIFIED**
 
 ---

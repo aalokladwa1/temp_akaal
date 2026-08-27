@@ -63,7 +63,7 @@ Eight deterministic, immutable phases: `PREPARATION` → `FREEZE` → `SYNCHRONI
 ```mermaid
 graph TD
     Risk[Risk Platform akaal/risk] --> |RiskAssessmentModel| Planner[Planner Platform akaal/planner]
-    
+
     Planner --> |MigrationExecutionPlan| Advisor[Phase 9 Advisory Subsystem]
     Planner --> |MigrationExecutionPlan| Intel[Phase 9 Enterprise Intelligence]
     Planner --> |MigrationExecutionPlan| Dashboard[Mission Control & Dashboards]

@@ -8,8 +8,8 @@ This document provides a comprehensive readiness assessment certifying the threa
 
 ### 1. Architecture Review
 
-The Metrics subsystem operates on an **injected ownership model**. 
-* Every metrics collection registry is owned directly by a `MigrationSession` (via the wrapper `ObservabilityContext`). 
+The Metrics subsystem operates on an **injected ownership model**.
+* Every metrics collection registry is owned directly by a `MigrationSession` (via the wrapper `ObservabilityContext`).
 * No global registry singleton is exposed. This guarantees complete isolation between concurrent migration runs or tests executing in the same process workspace.
 * Core primitives (`Counter`, `Gauge`, `Histogram`, `Rate`, `Timer`) are defined in `akaal.metrics.metrics` and managed by the registry (`akaal.metrics.registry.MetricsRegistry`).
 

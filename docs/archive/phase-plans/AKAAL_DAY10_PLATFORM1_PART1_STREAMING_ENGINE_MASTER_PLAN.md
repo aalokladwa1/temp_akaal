@@ -1,7 +1,7 @@
 # AKAAL DAY 10 — PLATFORM 1 PART 1: GENERIC STREAMING EXECUTION ENGINE
 ## MASTER IMPLEMENTATION PLANNING CONTRACT (VERSION 3.0)
-**Status:** Permanent Architecture Blueprint & Enterprise Engineering Contract (Frozen & ARB Certified)  
-**Target Subsystem:** `akaal.platform.streaming` (Platform 1 - Generic Streaming Execution Engine)  
+**Status:** Permanent Architecture Blueprint & Enterprise Engineering Contract (Frozen & ARB Certified)
+**Target Subsystem:** `akaal.platform.streaming` (Platform 1 - Generic Streaming Execution Engine)
 **Strict Domain Boundary:** Zero Knowledge of Databases, Migrations, Workflows, or Business Logic. Generic Stream Processing Only.
 
 ---
@@ -699,7 +699,7 @@ class ResourceManager:
             if (self._allocated.cpu_cores + required.cpu_cores > self._total_quota.cpu_cores or
                 self._allocated.memory_bytes + required.memory_bytes > self._total_quota.memory_bytes):
                 raise ResourceAdmissionError("Topology admission rejected: Cluster capacity exceeded.")
-            
+
             self._allocated.cpu_cores += required.cpu_cores
             self._allocated.memory_bytes += required.memory_bytes
             self._allocated.ring_buffer_slots += required.ring_buffer_slots

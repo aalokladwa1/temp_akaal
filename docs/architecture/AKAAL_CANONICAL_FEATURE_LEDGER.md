@@ -1,8 +1,8 @@
 # AKAAL CANONICAL FEATURE LEDGER
 
-**Document Version:** 1.0.0  
-**Status:** Active Canonical Truth (P1 + P2 Baseline Frozen)  
-**Last Verified Commit:** `92c4f5ce227614b5b86bbbe1618a1ab752d641c4`  
+**Document Version:** 1.0.0
+**Status:** Active Canonical Truth (P1 + P2 Baseline Frozen)
+**Last Verified Commit:** `92c4f5ce227614b5b86bbbe1618a1ab752d641c4`
 **Governing Policy:** This document is the single operational source of truth for all implemented capabilities in the AKAAL Database Migration Platform. `docs/migration_module/capability_evolution/P1.md` and `P2.md` remain historical phase evolution logs.
 
 ---

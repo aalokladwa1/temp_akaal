@@ -1,7 +1,7 @@
 # Accumulated Requirements for Future Migration Module Redesign
 
-**Phase Baseline:** P1.5  
-**Redesign Execution:** Scheduled post-P7  
+**Phase Baseline:** P1.5
+**Redesign Execution:** Scheduled post-P7
 
 ---
 

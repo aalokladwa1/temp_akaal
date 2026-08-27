@@ -1,6 +1,6 @@
 # Known UI Technical Debt Inventory
 
-**Phase Baseline:** P1.5  
+**Phase Baseline:** P1.5
 
 ---
 

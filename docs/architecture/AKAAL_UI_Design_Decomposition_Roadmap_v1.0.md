@@ -1,11 +1,11 @@
 # AKAAL Enterprise Platform — Outside-In UI/UX Design Decomposition Roadmap
 ## Canonical Design Systems & Product Interface Architecture (v1.0)
 
-**Document Version:** 1.0  
-**Status:** Approved UI/UX Design Architecture Roadmap  
-**Classification:** Internal Product & Design Specification  
-**Author:** Principal Product Architect, Enterprise UX Architect & Design Systems Lead  
-**Target Systems:** Desktop UI (Tauri / React), Enterprise Web UI, Multi-Tenant Cloud Control Plane  
+**Document Version:** 1.0
+**Status:** Approved UI/UX Design Architecture Roadmap
+**Classification:** Internal Product & Design Specification
+**Author:** Principal Product Architect, Enterprise UX Architect & Design Systems Lead
+**Target Systems:** Desktop UI (Tauri / React), Enterprise Web UI, Multi-Tenant Cloud Control Plane
 
 ---
 
@@ -97,7 +97,7 @@ flowchart TD
     M02 --> M03["Module 03: Navigation & Command Topology"]
     M03 --> M04["Module 04: Foundational Data Display Patterns"]
     M04 --> M05["Module 05: Multi-Custody Governance & Approval Patterns"]
-    
+
     M05 --> M06["Module 06: Discovery & Risk Assessment (WF-001–004)"]
     M06 --> M07["Module 07: Planning & Execution DAG (WF-005–008)"]
     M07 --> M08["Module 08: Pre-Flight & Maintenance Windows (WF-009–010)"]

@@ -4646,7 +4646,7 @@ Current safety classification: **PARTIAL**.
 | Stale discovery | Not checked |
 | Connector drift | Not checked |
 | Invalid canonical execution mode | No canonical mode validation |
-| Missing physical authority/contracts | Partially synthesized; then contract check | 
+| Missing physical authority/contracts | Partially synthesized; then contract check |
 | Insufficient capacity | No final capacity recheck |
 | Scheduler unavailable | NOT_APPLICABLE; no migration scheduler |
 | Duplicate Run Now while active | IDEMPOTENT ACK / claim-based prevention |
@@ -4835,79 +4835,79 @@ Lineage estimate:
 
 # 34. Answers to All 48 Hostile Questions
 
-1. Canonical final review: **NO**.  
-2. Exact executable artifact displayed: **NO**.  
-3. Immutable P5 ExecutionPlan: **YES, storage-level insert-only**.  
-4. Immutability mechanism: primary key plus explicit duplicate-ID rejection.  
-5. Older version compile can use newer draft: **YES**.  
-6. Persisted P5 execution plan can change after approval: no overwrite through store; runtime can execute a different artifact.  
-7. Runtime configuration can differ from review: **YES**.  
-8. Runtime can execute other than stored P5 ExecutionPlan: **YES**.  
-9. Run Now initializes from immutable P5 snapshot: **NO**.  
-10. Run Now idempotent: **PARTIAL**, migration-status claim only.  
-11. Double-click duplicate execution: normally blocked while active; crash/identity cases remain unproven.  
-12. User-facing schedule: **NO**.  
-13. Schedule durable: **NO**.  
-14. Schedule survives app closure: **NO**.  
-15. Schedule survives daemon restart: **NO**.  
-16. Schedule survives machine restart: **NO**.  
-17. Schedule pins exact plan: **NOT_IMPLEMENTED**.  
-18. Draft edit after schedule affects execution: no schedule exists.  
-19. Plan deletion/changing breaks schedule: no schedule exists; project deletion can cascade P5 plan deletion.  
-20. Schedule times timezone-safe: **NOT_IMPLEMENTED**.  
-21. Missed schedules deterministic: **NOT_IMPLEMENTED**.  
-22. Initialization durable before runtime work: start claim yes; complete runtime initialization no.  
-23. Crash can orphan execution: **YES, risk**.  
-24. Crash can duplicate execution: **UNPROVEN / risk**.  
-25. Authoritative execution/run identity: **NO**.  
-26. Consistently used by checkpoint/CDC/workflow/scheduler/monitoring: **NO**.  
-27. Approval bound to exact initialized P5 plan: **NO**.  
-28. Stale approval rejected: only if SuperEngine manifest/DAG fingerprint changes; expiry/readiness staleness not rejected.  
-29. Readiness bound to exact plan: **NO**.  
-30. Stale readiness rejected/revalidated: **NO**.  
-31. Approval barriers first-class immutable plan artifacts: **NO — P5.10 ownership**.  
-32. Current fingerprint covers exact runtime artifact: **PARTIAL for current merged spec/DAG; NO for P5 execution artifact equivalence**.  
-33. Multiple competing fingerprints: **YES**.  
-34. Secrets can leak: plaintext crosses IPC; P5 generic snapshots/diffs lack proven redaction; persisted migration config removes normal password fields.  
-35. Mission Control observes exact initialized execution: **PARTIAL, migration-ID state only**.  
-36. Mission Control reconstructs exact execution after restart: **NO / UNPROVEN**.  
-37. Scheduled inactive migrations visible: **NO**.  
-38. Initialization failures visible: **PARTIAL**.  
-39. Current AKAAL pieces: wizard, Mission Control, Tauri registry, gateway, SuperEngine, CentralStateStore.  
-40. Early AKAAL pieces: workflow plans/schedulers, rich plan DTOs, in-memory approval engine.  
-41. Nexus/NexusForge pieces: archive/UI and compatibility-like legacy material; no canonical Step-9 authority proven.  
-42. Compatibility bridges: manifest synthesis and multiple adapter/runtime bridges.  
-43. Dead/static/fake: archive schedules, local wizard DAG/export behavior, non-bound plan models.  
-44. Reconstruction requirement: estimated 65% rectify/build.  
-45. P5.7–P5.11-owned gaps: hooks, modes, workspace administration, custom barriers, templates.  
-46. Not judged yet: P6–P10 operational, security, ecosystem, scale, packaging, acceptance scope.  
-47. Current pipeline implicitly mandatory: **No architectural conclusion**; repository has multiple conflicting paths only.  
+1. Canonical final review: **NO**.
+2. Exact executable artifact displayed: **NO**.
+3. Immutable P5 ExecutionPlan: **YES, storage-level insert-only**.
+4. Immutability mechanism: primary key plus explicit duplicate-ID rejection.
+5. Older version compile can use newer draft: **YES**.
+6. Persisted P5 execution plan can change after approval: no overwrite through store; runtime can execute a different artifact.
+7. Runtime configuration can differ from review: **YES**.
+8. Runtime can execute other than stored P5 ExecutionPlan: **YES**.
+9. Run Now initializes from immutable P5 snapshot: **NO**.
+10. Run Now idempotent: **PARTIAL**, migration-status claim only.
+11. Double-click duplicate execution: normally blocked while active; crash/identity cases remain unproven.
+12. User-facing schedule: **NO**.
+13. Schedule durable: **NO**.
+14. Schedule survives app closure: **NO**.
+15. Schedule survives daemon restart: **NO**.
+16. Schedule survives machine restart: **NO**.
+17. Schedule pins exact plan: **NOT_IMPLEMENTED**.
+18. Draft edit after schedule affects execution: no schedule exists.
+19. Plan deletion/changing breaks schedule: no schedule exists; project deletion can cascade P5 plan deletion.
+20. Schedule times timezone-safe: **NOT_IMPLEMENTED**.
+21. Missed schedules deterministic: **NOT_IMPLEMENTED**.
+22. Initialization durable before runtime work: start claim yes; complete runtime initialization no.
+23. Crash can orphan execution: **YES, risk**.
+24. Crash can duplicate execution: **UNPROVEN / risk**.
+25. Authoritative execution/run identity: **NO**.
+26. Consistently used by checkpoint/CDC/workflow/scheduler/monitoring: **NO**.
+27. Approval bound to exact initialized P5 plan: **NO**.
+28. Stale approval rejected: only if SuperEngine manifest/DAG fingerprint changes; expiry/readiness staleness not rejected.
+29. Readiness bound to exact plan: **NO**.
+30. Stale readiness rejected/revalidated: **NO**.
+31. Approval barriers first-class immutable plan artifacts: **NO — P5.10 ownership**.
+32. Current fingerprint covers exact runtime artifact: **PARTIAL for current merged spec/DAG; NO for P5 execution artifact equivalence**.
+33. Multiple competing fingerprints: **YES**.
+34. Secrets can leak: plaintext crosses IPC; P5 generic snapshots/diffs lack proven redaction; persisted migration config removes normal password fields.
+35. Mission Control observes exact initialized execution: **PARTIAL, migration-ID state only**.
+36. Mission Control reconstructs exact execution after restart: **NO / UNPROVEN**.
+37. Scheduled inactive migrations visible: **NO**.
+38. Initialization failures visible: **PARTIAL**.
+39. Current AKAAL pieces: wizard, Mission Control, Tauri registry, gateway, SuperEngine, CentralStateStore.
+40. Early AKAAL pieces: workflow plans/schedulers, rich plan DTOs, in-memory approval engine.
+41. Nexus/NexusForge pieces: archive/UI and compatibility-like legacy material; no canonical Step-9 authority proven.
+42. Compatibility bridges: manifest synthesis and multiple adapter/runtime bridges.
+43. Dead/static/fake: archive schedules, local wizard DAG/export behavior, non-bound plan models.
+44. Reconstruction requirement: estimated 65% rectify/build.
+45. P5.7–P5.11-owned gaps: hooks, modes, workspace administration, custom barriers, templates.
+46. Not judged yet: P6–P10 operational, security, ecosystem, scale, packaging, acceptance scope.
+47. Current pipeline implicitly mandatory: **No architectural conclusion**; repository has multiple conflicting paths only.
 48. New-pipeline assumption required: **No**; all reported breaks are observed physical gaps.
 
 # 35. Final Step-9 Verdict
 
-A. Canonical final review: **NO**  
-B. Final review reflects exact executable artifact: **NO**  
-C. Immutable ExecutionPlan exists: **PARTIAL** — persisted P5 artifact exists, but is not the runtime authority  
-D. Historical PlanVersion immune to later draft mutation: **NO**  
-E. ExecutionPlan actually consumed by runtime: **NO**  
-F. Fingerprint covers exact runtime artifact: **PARTIAL** for manifest/DAG, **NO** for P5 execution-plan equivalence  
-G. Run Now exists: **YES**  
-H. Run Now durable/idempotent: **PARTIAL**  
-I. User-facing Schedule Migration exists: **NO**  
-J. Scheduled execution pins immutable snapshot: **NOT_APPLICABLE / NOT_IMPLEMENTED**  
-K. Scheduled execution survives restart: **NO**  
-L. Durable execution initialization exists: **PARTIAL**  
-M. Initialization crash-safe: **NO / UNPROVEN**  
-N. Duplicate execution prevented: **PARTIAL**  
-O. Approval bound to exact initialized plan: **NO**  
-P. Readiness bound to exact initialized plan: **NO**  
-Q. ApprovalBarrier first-class plan artifact: **NO — P5.10 implementation material**  
-R. Mission Control receives authoritative execution identity: **NO**  
-S. Restart reconstructs exact initialized execution: **NO / UNPROVEN**  
-T. Current pipeline must be retained: no architectural decision; several components are reusable.  
-U. New pipeline should be built: no architectural decision.  
-V. Lineage estimate: 45% current, 30% early, 10% legacy, 5% bridge, 10% unknown.  
+A. Canonical final review: **NO**
+B. Final review reflects exact executable artifact: **NO**
+C. Immutable ExecutionPlan exists: **PARTIAL** — persisted P5 artifact exists, but is not the runtime authority
+D. Historical PlanVersion immune to later draft mutation: **NO**
+E. ExecutionPlan actually consumed by runtime: **NO**
+F. Fingerprint covers exact runtime artifact: **PARTIAL** for manifest/DAG, **NO** for P5 execution-plan equivalence
+G. Run Now exists: **YES**
+H. Run Now durable/idempotent: **PARTIAL**
+I. User-facing Schedule Migration exists: **NO**
+J. Scheduled execution pins immutable snapshot: **NOT_APPLICABLE / NOT_IMPLEMENTED**
+K. Scheduled execution survives restart: **NO**
+L. Durable execution initialization exists: **PARTIAL**
+M. Initialization crash-safe: **NO / UNPROVEN**
+N. Duplicate execution prevented: **PARTIAL**
+O. Approval bound to exact initialized plan: **NO**
+P. Readiness bound to exact initialized plan: **NO**
+Q. ApprovalBarrier first-class plan artifact: **NO — P5.10 implementation material**
+R. Mission Control receives authoritative execution identity: **NO**
+S. Restart reconstructs exact initialized execution: **NO / UNPROVEN**
+T. Current pipeline must be retained: no architectural decision; several components are reusable.
+U. New pipeline should be built: no architectural decision.
+V. Lineage estimate: 45% current, 30% early, 10% legacy, 5% bridge, 10% unknown.
 W. Reconstruction estimate: 25% keep, 40% rectify/integrate, 25% build, 10% legacy/dead.
 
 
@@ -5455,139 +5455,139 @@ The same gaps affect all eight modes:
 
 # Hostile Questions — Explicit Answers
 
-1–8. M1 **PARTIAL**; M2 **NO**; M3 **PARTIAL**; M4 **NO**; M5 **NO**; M6 **NO**; M7 **NO**; M8 **PARTIAL**.  
-9. Yes: multiple labels/components ultimately meet the same fixed shipping runtime.  
-10. Execution mode is not canonically persisted.  
-11. It is not immutable.  
-12. No genuine mode-specific Step-7 DAG is proven.  
-13. No mode-specific Step-8 readiness is proven.  
-14. No Step-9 exact mode-plan initialization is proven.  
-15. Runtime does not consume exact P5 plan.  
-16. Yes; fixed schema/bulk runtime can execute absent mode guards.  
-17. Several competing runtime frameworks exist.  
-18. Only mode-adjacent P1/P3 checkpoints are durable.  
-19. No exact-mode restart reconstruction.  
-20. Mission Control cannot reconstruct exact mode.  
-21. Only generic bulk-oriented Run Now is shipping.  
-22. No modes have user-facing scheduling.  
-23. No schedule pins an immutable plan.  
+1–8. M1 **PARTIAL**; M2 **NO**; M3 **PARTIAL**; M4 **NO**; M5 **NO**; M6 **NO**; M7 **NO**; M8 **PARTIAL**.
+9. Yes: multiple labels/components ultimately meet the same fixed shipping runtime.
+10. Execution mode is not canonically persisted.
+11. It is not immutable.
+12. No genuine mode-specific Step-7 DAG is proven.
+13. No mode-specific Step-8 readiness is proven.
+14. No Step-9 exact mode-plan initialization is proven.
+15. Runtime does not consume exact P5 plan.
+16. Yes; fixed schema/bulk runtime can execute absent mode guards.
+17. Several competing runtime frameworks exist.
+18. Only mode-adjacent P1/P3 checkpoints are durable.
+19. No exact-mode restart reconstruction.
+20. Mission Control cannot reconstruct exact mode.
+21. Only generic bulk-oriented Run Now is shipping.
+22. No modes have user-facing scheduling.
+23. No schedule pins an immutable plan.
 24. Connector metadata alone cannot truthfully derive all mode eligibility.
 
-25. Bulk parallelism: **YES**, engine-worker material.  
-26. Bounded memory: **PARTIAL**, batch worker design; whole-path proof incomplete.  
-27. Partition checkpoints: **PARTIAL**, commit then checkpoint window remains.  
-28. Restart can duplicate/skip committed rows: **UNPROVEN risk**.  
-29. Schema execution genuinely composed for generic shipping flow: **PARTIAL**.  
+25. Bulk parallelism: **YES**, engine-worker material.
+26. Bounded memory: **PARTIAL**, batch worker design; whole-path proof incomplete.
+27. Partition checkpoints: **PARTIAL**, commit then checkpoint window remains.
+28. Restart can duplicate/skip committed rows: **UNPROVEN risk**.
+29. Schema execution genuinely composed for generic shipping flow: **PARTIAL**.
 30. Validation/reconciliation physically reached: **PARTIAL**.
 
-31. M2 consistent boundary: **NO**.  
-32. M2 changes during bulk can be lost: **UNPROVEN risk; not ruled out**.  
-33. M2 changes can be duplicated: **UNPROVEN risk**.  
-34. CDC capture overlap: **NO composition proof**.  
-35. Catch-up: P3 exists; M2 composition no.  
-36. Final drain: P3 exists; M2 composition no.  
-37. Cutover fenced: P3 material yes; M2 product no.  
-38. Failback: P3 material yes; M2 product no.  
+31. M2 consistent boundary: **NO**.
+32. M2 changes during bulk can be lost: **UNPROVEN risk; not ruled out**.
+33. M2 changes can be duplicated: **UNPROVEN risk**.
+34. CDC capture overlap: **NO composition proof**.
+35. Catch-up: P3 exists; M2 composition no.
+36. Final drain: P3 exists; M2 composition no.
+37. Cutover fenced: P3 material yes; M2 product no.
+38. Failback: P3 material yes; M2 product no.
 39. M2 boundary restart: **NO**.
 
-40. CDC can run without bulk internally: **YES, backend P3 material**.  
-41. CDC runtime silently bulk-loads: P3 coordinator does not; product mode isolation remains absent.  
-42. Starting position explicit: **YES** in P3 APIs.  
-43. Persistent buffering: **YES**, P3 material.  
-44. ACK/reclaim crash-safe: P3 material exists; end-to-end shipping proof unavailable.  
-45. Ordering/causality: **YES**, P3 material.  
+40. CDC can run without bulk internally: **YES, backend P3 material**.
+41. CDC runtime silently bulk-loads: P3 coordinator does not; product mode isolation remains absent.
+42. Starting position explicit: **YES** in P3 APIs.
+43. Persistent buffering: **YES**, P3 material.
+44. ACK/reclaim crash-safe: P3 material exists; end-to-end shipping proof unavailable.
+45. Ordering/causality: **YES**, P3 material.
 46. Continuous validation: P3 material exists; shipping M3 composition partial.
 
-47. Actual M4 polling: **NO**.  
-48. Durable watermark: store exists, but no operation.  
-49. Watermark after target commit: **NO proof**.  
-50. Equal timestamps safe: **NO**.  
-51. Deletes handled: **NO**.  
-52. Concurrent pollers duplicate work: **No prevention found**.  
+47. Actual M4 polling: **NO**.
+48. Durable watermark: store exists, but no operation.
+49. Watermark after target commit: **NO proof**.
+50. Equal timestamps safe: **NO**.
+51. Deletes handled: **NO**.
+52. Concurrent pollers duplicate work: **No prevention found**.
 53. Restart loses rows: **UNPROVEN risk**.
 
-54. State sync distinct from validation: **NO**.  
-55. Comparison boundary consistent: only CDC context.  
-56. Real governed delta: **NO**.  
-57. Governed reconciliation application: **NO physical proof**.  
-58. Convergence: **NO proof**.  
+54. State sync distinct from validation: **NO**.
+55. Comparison boundary consistent: only CDC context.
+56. Real governed delta: **NO**.
+57. Governed reconciliation application: **NO physical proof**.
+58. Convergence: **NO proof**.
 59. P2 reuse: reconciliation engines can be reused; no M5 composition exists.
 
-60. Schema-only without transport: **NO product proof**.  
-61. Schema-only without CDC: **NO product proof**.  
-62. Real translated DDL: schema material exists.  
-63. Dependency ordering: material exists; M6 product path no.  
-64. Schema reconciliation: material exists; M6 binding no.  
+60. Schema-only without transport: **NO product proof**.
+61. Schema-only without CDC: **NO product proof**.
+62. Real translated DDL: schema material exists.
+63. Dependency ordering: material exists; M6 product path no.
+64. Schema reconciliation: material exists; M6 binding no.
 65. UI avoids fake row progress: **NO proof**.
 
-66. Data-only without schema: **NO**.  
-67. Target structure first: **NO M7 path**.  
-68. Schema can mutate accidentally: **YES, risk**.  
-69. P5 controls applied: **UNPROVEN**.  
+66. Data-only without schema: **NO**.
+67. Target structure first: **NO M7 path**.
+68. Schema can mutate accidentally: **YES, risk**.
+69. P5 controls applied: **UNPROVEN**.
 70. M7 restart safe: **NO proof**.
 
-71. M8 without AKAAL history: **NO**.  
-72. Third-party migration validation: **NO product path**.  
-73. Heterogeneous validation: **PARTIAL algorithmic support**.  
-74. Canonical type normalization sufficient: **PARTIAL**.  
-75. Boundary-consistent counts: CDC context only.  
-76. Heterogeneous-safe checksums: **PARTIAL**.  
-77. Merkle implemented/reachable: implemented; independent M8 reachability no.  
-78. Mismatch localization: **PARTIAL**, PK-dependent.  
-79. Exact differing rows: **PARTIAL**, PK-dependent/in-memory.  
-80. Differing columns: **YES**, in reconciliation material.  
-81. Privacy-safe mismatch samples: **PARTIAL**.  
-82. Very large memory-safe validation: **NO proof**.  
-83. Validation restartable: CDC context partial; independent M8 no.  
-84. Validation non-mutating by default: firewall material yes; independent operation absent.  
-85. Repair candidates: **YES**, records.  
-86. Repair without authorization: no generic approval system; physical repair not proven.  
-87. Repair idempotent/restart-safe: logical P3 material partial; physical proof no.  
-88. Repair triggers revalidation: **NO composed flow**.  
-89. Credible evidence: **PARTIAL**.  
-90. Dedicated Validation Operations workflow: **NO**.  
+71. M8 without AKAAL history: **NO**.
+72. Third-party migration validation: **NO product path**.
+73. Heterogeneous validation: **PARTIAL algorithmic support**.
+74. Canonical type normalization sufficient: **PARTIAL**.
+75. Boundary-consistent counts: CDC context only.
+76. Heterogeneous-safe checksums: **PARTIAL**.
+77. Merkle implemented/reachable: implemented; independent M8 reachability no.
+78. Mismatch localization: **PARTIAL**, PK-dependent.
+79. Exact differing rows: **PARTIAL**, PK-dependent/in-memory.
+80. Differing columns: **YES**, in reconciliation material.
+81. Privacy-safe mismatch samples: **PARTIAL**.
+82. Very large memory-safe validation: **NO proof**.
+83. Validation restartable: CDC context partial; independent M8 no.
+84. Validation non-mutating by default: firewall material yes; independent operation absent.
+85. Repair candidates: **YES**, records.
+86. Repair without authorization: no generic approval system; physical repair not proven.
+87. Repair idempotent/restart-safe: logical P3 material partial; physical proof no.
+88. Repair triggers revalidation: **NO composed flow**.
+89. Credible evidence: **PARTIAL**.
+90. Dedicated Validation Operations workflow: **NO**.
 91. Mission Control independent validation: **NO**.
 
-92–99. Duplicate validators/schema/bulk/CDC/checkpoint/DAG/plan/fingerprint/approval authorities: **YES**.  
-100. Monitoring: partly authoritative state, partly inferred/local.  
-101. Fake/static/demo execution UI values: **YES**.  
-102. Secrets: plaintext crosses creation IPC; P5 snapshots lack generic redaction guarantee.  
-103. Fail-open: approval expiry/readiness/capability drift not enforced; absent mode guards.  
-104. Silent-loss risk: M2/M4 and restart windows.  
-105. False validation success risk: supplied-data/in-memory validation and UI-static paths.  
-106. Unauthorized mutation risk: absent generic repair barrier and M6/M7/M8 mode isolation.  
-107. Unrecoverable-state risk: daemon-thread startup after claim; fragmented identities.  
-108. P5.6–P5.11: quality, hooks, mode identity, workspace admin, barriers, templates.  
-109. P6+: operations/security/ecosystem/cloud/AI/scale/packaging deferred.  
+92–99. Duplicate validators/schema/bulk/CDC/checkpoint/DAG/plan/fingerprint/approval authorities: **YES**.
+100. Monitoring: partly authoritative state, partly inferred/local.
+101. Fake/static/demo execution UI values: **YES**.
+102. Secrets: plaintext crosses creation IPC; P5 snapshots lack generic redaction guarantee.
+103. Fail-open: approval expiry/readiness/capability drift not enforced; absent mode guards.
+104. Silent-loss risk: M2/M4 and restart windows.
+105. False validation success risk: supplied-data/in-memory validation and UI-static paths.
+106. Unauthorized mutation risk: absent generic repair barrier and M6/M7/M8 mode isolation.
+107. Unrecoverable-state risk: daemon-thread startup after claim; fragmented identities.
+108. P5.6–P5.11: quality, hooks, mode identity, workspace admin, barriers, templates.
+109. P6+: operations/security/ecosystem/cloud/AI/scale/packaging deferred.
 110. Preserve evidence: P1 transport/checkpoint, P2 schema/validation, P3 CDC lifecycle/fencing, P5.1 persistence/compiler, P5.2–P5.5 controls, SuperEngine gate, atomic claim code, all duplicate maps.
 
 # Final Verdict
 
-A. M1 status: **PARTIAL**  
-B. M2 status: **NO**  
-C. M3 status: **PARTIAL**  
-D. M4 status: **NO**  
-E. M5 status: **NO**  
-F. M6 status: **NO**  
-G. M7 status: **NO**  
-H. M8 status: **PARTIAL**  
-I. 9-step → execution binding: **NO**  
-J. Immutable-plan → runtime binding: **NO**  
-K. Mode-specific DAG support: **NO**  
-L. Durable execution identity: **PARTIAL / fragmented**  
-M. Scheduling: **NO**  
-N. Mode-aware restart: **NO**  
-O. Capability-driven Mission Control: **NO**  
-P. Independent Validation Operations: **NO**  
-Q. Cross-mode authority reuse: **PARTIAL**  
-R. Duplicate-authority severity: **HIGH**  
-S. Fake/static/dead-code severity: **MODERATE-HIGH**  
-T. Connector capability truthfulness: **PARTIAL / capability declarations exceed proven mode support**  
-U. Current M1–M8 product completeness: **LOW**  
-V. Strongest reusable implementation worlds: **P1 transport/checkpoints, P2 schema/validation, P3 CDC, P5.1–P5.5 planning/controls**  
-W. Largest foundational gaps: **mode identity/isolation, immutable runtime binding, execution identity, scheduling, capability-driven monitoring**  
-X. Future-roadmap items intentionally deferred: **P5.6–P5.12 and P6–P10 as classified above**  
-Y. Does this audit require retaining the current pipeline? **No architectural conclusion; evidence identifies reusable components only.**  
+A. M1 status: **PARTIAL**
+B. M2 status: **NO**
+C. M3 status: **PARTIAL**
+D. M4 status: **NO**
+E. M5 status: **NO**
+F. M6 status: **NO**
+G. M7 status: **NO**
+H. M8 status: **PARTIAL**
+I. 9-step → execution binding: **NO**
+J. Immutable-plan → runtime binding: **NO**
+K. Mode-specific DAG support: **NO**
+L. Durable execution identity: **PARTIAL / fragmented**
+M. Scheduling: **NO**
+N. Mode-aware restart: **NO**
+O. Capability-driven Mission Control: **NO**
+P. Independent Validation Operations: **NO**
+Q. Cross-mode authority reuse: **PARTIAL**
+R. Duplicate-authority severity: **HIGH**
+S. Fake/static/dead-code severity: **MODERATE-HIGH**
+T. Connector capability truthfulness: **PARTIAL / capability declarations exceed proven mode support**
+U. Current M1–M8 product completeness: **LOW**
+V. Strongest reusable implementation worlds: **P1 transport/checkpoints, P2 schema/validation, P3 CDC, P5.1–P5.5 planning/controls**
+W. Largest foundational gaps: **mode identity/isolation, immutable runtime binding, execution identity, scheduling, capability-driven monitoring**
+X. Future-roadmap items intentionally deferred: **P5.6–P5.12 and P6–P10 as classified above**
+Y. Does this audit require retaining the current pipeline? **No architectural conclusion; evidence identifies reusable components only.**
 Z. Does this audit require building a new pipeline? **No architectural conclusion; evidence identifies gaps only.**
 
 NO ARCHITECTURE DECISION WAS MADE BY THIS AUDIT.
