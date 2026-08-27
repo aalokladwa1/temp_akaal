@@ -106,7 +106,9 @@ class RowDeduplicator:
         if not records:
             return [], [], {"total_input": 0, "survivors": 0, "duplicates_detected": 0}
 
-        strat = str(survivor_strategy).upper()
+        strat = getattr(survivor_strategy, "value", str(survivor_strategy)).upper()
+        if strat.startswith("SURVIVORSTRATEGY."):
+            strat = strat.split(".", 1)[1]
         order_cols = list(order_by_columns or [])
         pri_order = list(priority_order or [])
 

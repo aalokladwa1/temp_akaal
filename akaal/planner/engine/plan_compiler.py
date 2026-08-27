@@ -859,11 +859,27 @@ class PlanCompiler:
             parsed_conflict = ConflictPolicyConfiguration()
 
         # Validate Execution Mode Applicability
-        if mode_upper in ("M6", "SCHEMA_ONLY") and parsed_dedup.enabled:
+        if mode_upper in ("M6", "SCHEMA_ONLY"):
+            if parsed_dedup.enabled:
+                diagnostics.append(CompilationDiagnostic(
+                    level="BLOCKER",
+                    code="INAPPLICABLE_DEDUP_MODE",
+                    message=f"Row deduplication is not applicable to Schema-Only mode ({execution_mode}).",
+                    target="deduplication",
+                ))
+            if parsed_quality.rules:
+                diagnostics.append(CompilationDiagnostic(
+                    level="BLOCKER",
+                    code="INAPPLICABLE_QUALITY_MODE",
+                    message=f"Data quality rules are not applicable to Schema-Only mode ({execution_mode}).",
+                    target="data_quality",
+                ))
+
+        if mode_upper in ("M8", "VALIDATION_ONLY") and parsed_dedup.enabled:
             diagnostics.append(CompilationDiagnostic(
                 level="BLOCKER",
                 code="INAPPLICABLE_DEDUP_MODE",
-                message=f"Row deduplication is not applicable to Schema-Only mode ({execution_mode}).",
+                message=f"Row deduplication is not applicable to Validation-Only mode ({execution_mode}).",
                 target="deduplication",
             ))
 
@@ -914,11 +930,26 @@ class PlanCompiler:
 
             # Validate target collision policy against connector capabilities
             tgt_conn_upper = str(target_connector_type).upper()
-            if rule.collision_policy == CollisionPolicy.UPSERT and any(x in tgt_conn_upper for x in ("S3", "AZURE_BLOB", "GCS", "FILE", "HDFS")):
+            supports_upsert = True
+            try:
+                from akaal.connectors.registry import UniversalConnectorRegistry
+                from akaal.connectors.taxonomy import ConnectorFamily
+                registry = UniversalConnectorRegistry.get_instance()
+                manifest = registry.get_manifest(target_connector_type)
+                if manifest:
+                    if manifest.family in (ConnectorFamily.OBJECT_STORAGE, ConnectorFamily.STREAM_EVENT_PLATFORM):
+                        supports_upsert = False
+                elif any(x in tgt_conn_upper for x in ("S3", "AZURE_BLOB", "GCS", "FILE", "HDFS", "KAFKA", "RABBITMQ")):
+                    supports_upsert = False
+            except Exception:
+                if any(x in tgt_conn_upper for x in ("S3", "AZURE_BLOB", "GCS", "FILE", "HDFS", "KAFKA", "RABBITMQ")):
+                    supports_upsert = False
+
+            if rule.collision_policy == CollisionPolicy.UPSERT and not supports_upsert:
                 diagnostics.append(CompilationDiagnostic(
                     level="BLOCKER",
                     code="UNSUPPORTED_COLLISION_POLICY",
-                    message=f"Target object storage connector '{target_connector_type}' does not support relational UPSERT collision policy.",
+                    message=f"Target connector '{target_connector_type}' does not support relational UPSERT collision policy.",
                     target=rule.object_name,
                 ))
 

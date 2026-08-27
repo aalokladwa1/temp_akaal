@@ -950,6 +950,319 @@ class TestDeduplicationQualityConflict(unittest.TestCase):
         codes_m1 = [d["code"] for d in m1_res["diagnostics"]]
         self.assertIn("INAPPLICABLE_CONFLICT_MODE", codes_m1)
 
+    # =========================================================================
+    # 10. GAP #1 — RESTART DETERMINISM & DRAFT MUTATION ISOLATION PROOF
+    # =========================================================================
+
+    def test_26_restart_determinism_and_draft_mutation_isolation(self):
+        """Proves that compiled ExecutionPlan retains frozen values after restart and original draft mutation."""
+        proj = MigrationProject(
+            project_id="proj-restart-test",
+            title="Restart Test",
+            description="Restart Test Project",
+            workspace="ws",
+            owner="Pratham",
+            environment="production",
+            priority="HIGH",
+            migration_strategy="OFFLINE",
+            source_instance_ref={"host": "localhost"},
+            target_instance_ref={"host": "localhost"},
+        )
+        self.store.save_project(proj)
+
+        plan_draft = {
+            "deduplication": {
+                "enabled": True,
+                "rules": [
+                    {
+                        "object_name": "CUSTOMERS",
+                        "key_columns": ["email", "tenant_id"],
+                        "survivor_strategy": "NEWEST",
+                        "order_by_columns": ["updated_at DESC"],
+                        "collision_policy": "UPSERT",
+                        "dedup_disposition": "DISCARD",
+                    }
+                ],
+            },
+            "data_quality": {
+                "rules": [
+                    {
+                        "rule_id": "q_not_null",
+                        "object_name": "CUSTOMERS",
+                        "column_name": "email",
+                        "rule_type": "NOT_NULL",
+                        "malformed_policy": "REJECT_RECORD",
+                    }
+                ],
+                "global_threshold": {"max_invalid_percentage": 0.05, "consequence": "BLOCK_CUTOVER"},
+            },
+            "conflict_policy": {
+                "default_policy": "LATEST_VERSION_WINS",
+                "object_overrides": {"CUSTOMERS": "SOURCE_A_WINS"},
+            },
+        }
+
+        # 1. Compile & Save Version
+        comp_res = self.compiler.compile_deduplication_and_quality(
+            selected_scope=self.sample_scope,
+            dedup_def=plan_draft["deduplication"],
+            quality_def=plan_draft["data_quality"],
+            conflict_config=plan_draft["conflict_policy"],
+            target_connector_type="POSTGRESQL",
+            execution_mode="M2",
+        )
+        self.assertEqual(comp_res["status"], "SUCCESS")
+        frozen_fp = comp_res["fingerprint"]
+
+        v1 = PlanVersion(
+            version_id="v1.0",
+            project_id=proj.project_id,
+            parent_version_id=None,
+            revision=1,
+            created_at="2026-01-01T00:00:00Z",
+            created_by="Pratham",
+            reason="Frozen P5.6 Release",
+            planning_mode=PlanningMode.ADVANCED,
+            canonical_payload=plan_draft,
+            fingerprint=frozen_fp,
+        )
+        self.store.save_plan_version(v1)
+
+        # 2. Mutate original draft dictionary deliberately
+        plan_draft["deduplication"]["enabled"] = False
+        plan_draft["deduplication"]["rules"][0]["key_columns"] = ["MUTATED_ID"]
+        plan_draft["deduplication"]["rules"][0]["survivor_strategy"] = "FIRST"
+        plan_draft["data_quality"]["rules"].clear()
+        plan_draft["conflict_policy"]["default_policy"] = "TARGET_WINS"
+
+        # 3. Reconstruct version from durable store
+        reconstructed = self.store.load_plan_version("v1.0")
+        self.assertIsNotNone(reconstructed)
+        self.assertEqual(reconstructed.fingerprint, frozen_fp)
+
+        # 4. Verify reconstructed payload retained frozen configuration
+        rec_payload = reconstructed.canonical_payload
+        self.assertTrue(rec_payload["deduplication"]["enabled"])
+        self.assertEqual(rec_payload["deduplication"]["rules"][0]["key_columns"], ["email", "tenant_id"])
+        self.assertEqual(rec_payload["deduplication"]["rules"][0]["survivor_strategy"], "NEWEST")
+        self.assertEqual(len(rec_payload["data_quality"]["rules"]), 1)
+        self.assertEqual(rec_payload["conflict_policy"]["default_policy"], "LATEST_VERSION_WINS")
+
+        # 5. Feed reconstructed configuration into DataProcessingAuthority
+        dpa = DataProcessingAuthority()
+        proc_plan = dpa.compile_plan(
+            object_name="CUSTOMERS",
+            rules=[
+                TransformationRule(
+                    rule_id="q_not_null",
+                    column_name="email",
+                    rule_type=RuleType.QUALITY,
+                    quality_rule_type="NOT_NULL",
+                    malformed_policy=MalformedDataPolicy.REJECT_RECORD,
+                )
+            ],
+            dedup_key_columns=rec_payload["deduplication"]["rules"][0]["key_columns"],
+            survivor_strategy=rec_payload["deduplication"]["rules"][0]["survivor_strategy"],
+            order_by_columns=rec_payload["deduplication"]["rules"][0]["order_by_columns"],
+            dedup_disposition="DISCARD",
+        )
+        test_batch = [
+            {"email": "a@example.com", "tenant_id": 1, "updated_at": "2026-01-01"},
+            {"email": "a@example.com", "tenant_id": 1, "updated_at": "2026-06-01"},
+        ]
+        out_rows, _ = dpa.transform_batch(test_batch, proc_plan)
+        self.assertEqual(len(out_rows), 1)
+        self.assertEqual(out_rows[0]["updated_at"], "2026-06-01")
+
+    # =========================================================================
+    # 11. GAP #2 — CONNECTOR CAPABILITY MANIFEST DERIVATION MATRIX
+    # =========================================================================
+
+    def test_27_connector_capability_manifest_derivation_matrix(self):
+        """Tests that connector capability validation resolves dynamically against canonical manifests."""
+        from akaal.connectors.registry import UniversalConnectorRegistry
+        from akaal.connectors.manifest import UniversalCapabilityManifest
+        from akaal.connectors.taxonomy import ConnectorFamily
+
+        registry = UniversalConnectorRegistry.get_instance()
+
+        # Register cloud object storage and streaming manifests if not present
+        registry.register_manifest(
+            UniversalCapabilityManifest(
+                connector_id="s3-target",
+                family=ConnectorFamily.OBJECT_STORAGE,
+                vendor_name="AWS",
+                system_type="S3",
+            ),
+            allow_override=True,
+        )
+        registry.register_manifest(
+            UniversalCapabilityManifest(
+                connector_id="kafka-target",
+                family=ConnectorFamily.STREAM_EVENT_PLATFORM,
+                vendor_name="Apache",
+                system_type="KAFKA",
+            ),
+            allow_override=True,
+        )
+
+        matrix = [
+            ("POSTGRESQL", "UPSERT", True),
+            ("MYSQL", "UPSERT", True),
+            ("SQLITE", "UPSERT", True),
+            ("ORACLE", "UPSERT", True),
+            ("MSSQL", "UPSERT", True),
+            ("s3-target", "UPSERT", False),
+            ("kafka-target", "UPSERT", False),
+        ]
+
+        for conn_id, op, expected_supported in matrix:
+            res = self.compiler.compile_deduplication_and_quality(
+                selected_scope=self.sample_scope,
+                dedup_def={
+                    "enabled": True,
+                    "rules": [
+                        {
+                            "object_name": "CUSTOMERS",
+                            "key_columns": ["id"],
+                            "collision_policy": op,
+                        }
+                    ],
+                },
+                target_connector_type=conn_id,
+            )
+            if expected_supported:
+                self.assertEqual(res["status"], "SUCCESS", f"Expected {conn_id} to support {op}")
+            else:
+                self.assertEqual(res["status"], "BLOCKER", f"Expected {conn_id} to block {op}")
+                codes = [d["code"] for d in res["diagnostics"]]
+                self.assertIn("UNSUPPORTED_COLLISION_POLICY", codes)
+
+    # =========================================================================
+    # 12. GAP #3 — REJECT VS QUARANTINE PHYSICAL HANDOFF & SANITIZATION
+    # =========================================================================
+
+    def test_28_reject_vs_quarantine_physical_handoff_and_sanitization(self):
+        """Proves that REJECT and QUARANTINE produce distinct physical execution outcomes without sensitive leaks."""
+        engine = ProcessingEngine()
+        dpa = DataProcessingAuthority()
+
+        rule_reject = TransformationRule(
+            rule_id="q_reject",
+            column_name="ssn",
+            rule_type=RuleType.QUALITY,
+            quality_rule_type="NOT_NULL",
+            malformed_policy=MalformedDataPolicy.REJECT_RECORD,
+        )
+        rule_quarantine = TransformationRule(
+            rule_id="q_quar",
+            column_name="ssn",
+            rule_type=RuleType.QUALITY,
+            quality_rule_type="NOT_NULL",
+            malformed_policy=MalformedDataPolicy.QUARANTINE_RECORD,
+        )
+
+        # 1. Evaluate REJECT policy
+        plan_reject = dpa.compile_plan(object_name="CUSTOMERS", rules=[rule_reject])
+        row_bad = {"id": 1, "ssn": None, "secret": "SUPER_SECRET_PAYLOAD"}
+        res_r = engine.transform_row(row_bad, plan_reject)
+
+        self.assertEqual(res_r.status, "REJECTED")
+        self.assertIsNone(res_r.transformed_row)
+        # Ensure diagnostic does not leak raw payload
+        self.assertNotIn("SUPER_SECRET_PAYLOAD", str(res_r.diagnostics))
+
+        # 2. Evaluate QUARANTINE policy
+        plan_quarantine = dpa.compile_plan(object_name="CUSTOMERS", rules=[rule_quarantine])
+        res_q = engine.transform_row(row_bad, plan_quarantine)
+
+        self.assertEqual(res_q.status, "QUARANTINED")
+        self.assertIsNone(res_q.transformed_row)
+        self.assertIsNotNone(res_q.quarantine_metadata)
+        self.assertNotIn("SUPER_SECRET_PAYLOAD", str(res_q.diagnostics))
+
+        # 3. Deduplicator group quarantine
+        dedup = RowDeduplicator()
+        dup_batch = [
+            {"id": 10, "email": "dup@example.com"},
+            {"id": 10, "email": "dup@example.com"},
+        ]
+        survivors, dups, d_stats = dedup.deduplicate_batch(
+            records=dup_batch,
+            key_columns=["id"],
+            survivor_strategy=SurvivorStrategy.QUARANTINE_GROUP,
+        )
+        self.assertEqual(len(survivors), 0)
+        self.assertEqual(len(dups), 2)
+        self.assertEqual(dups[0]["_dedup_disposition"], "QUARANTINED")
+
+    # =========================================================================
+    # 13. GAP #4 — M6 QUALITY FENCING & M8 VALIDATION FENCING
+    # =========================================================================
+
+    def test_29_m6_quality_fencing_and_m8_validation_fencing(self):
+        """Tests that M6 Schema-Only blocks quality rules and M8 Validation-Only blocks deduplication mutations."""
+        # 1. M6 Schema-Only must block data quality rules
+        m6_qual_res = self.compiler.compile_deduplication_and_quality(
+            selected_scope=self.sample_scope,
+            quality_def={
+                "rules": [{"rule_id": "q1", "object_name": "CUSTOMERS", "column_name": "age", "rule_type": "VALUE_RANGE", "min_value": 0}]
+            },
+            execution_mode="M6",
+        )
+        self.assertEqual(m6_qual_res["status"], "BLOCKER")
+        codes_m6 = [d["code"] for d in m6_qual_res["diagnostics"]]
+        self.assertIn("INAPPLICABLE_QUALITY_MODE", codes_m6)
+
+        # 2. M8 Validation-Only must block row deduplication mutations
+        m8_res = self.compiler.compile_deduplication_and_quality(
+            selected_scope=self.sample_scope,
+            dedup_def={"enabled": True, "rules": [{"object_name": "CUSTOMERS", "key_columns": ["id"]}]},
+            execution_mode="M8",
+        )
+        self.assertEqual(m8_res["status"], "BLOCKER")
+        codes_m8 = [d["code"] for d in m8_res["diagnostics"]]
+        self.assertIn("INAPPLICABLE_DEDUP_MODE", codes_m8)
+
+    # =========================================================================
+    # 14. BLOCK_CUTOVER AUTOMATED PROOF
+    # =========================================================================
+
+    def test_30_quality_gate_cutover_blocked_physical_enforcement(self):
+        """Proves that quality gate consequence BLOCK_CUTOVER physically sets Gate 8 BLOCKED in CDC readiness."""
+        from akaal.cdc.sync.cutover_plan import CDCCutoverReadinessEngine
+
+        # 1. Evaluate Quality Gate with consequence BLOCK_CUTOVER
+        q_def = DataQualityDefinition(
+            global_threshold=QualityThreshold(
+                max_invalid_percentage=5.0,  # Exceeded when invalid count is 10%
+                consequence=QualityGateConsequence.BLOCK_CUTOVER,
+            )
+        )
+        metrics = {"total_rows": 100, "invalid_count": 10}
+        q_result = self.compiler.evaluate_quality_gates(q_def, metrics)
+        self.assertFalse(q_result.passed)
+        self.assertTrue(q_result.cutover_blocked)
+
+        # 2. Feed into CDC Cutover Readiness Engine
+        # When cutover is blocked by validation/quality, validation_passed is False
+        readiness = CDCCutoverReadinessEngine.evaluate_readiness(
+            cdc_session_id="cdc-sess-1",
+            session_state="SYNCHRONIZED",
+            is_synchronized=True,
+            event_backlog=0,
+            time_lag_ms=0.0,
+            checkpoint_valid=True,
+            has_failed_transactions=False,
+            is_stale_worker=False,
+            validation_passed=(not q_result.cutover_blocked),  # Physically blocked
+        )
+
+        self.assertFalse(readiness["ready"])
+        self.assertEqual(readiness["overall_status"], "BLOCKED")
+        self.assertIn("FINAL_VALIDATION_BLOCKER", readiness["blocking_reasons"])
+        self.assertEqual(readiness["gates"]["final_validation_matched"]["status"], "BLOCKED")
+
 
 if __name__ == "__main__":
     unittest.main()
