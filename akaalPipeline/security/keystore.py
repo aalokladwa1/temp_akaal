@@ -211,3 +211,28 @@ class KeyStoreAuthority:
         """Revoke a specific key."""
         now_iso = TimeAuthority.utc_iso_now()
         self.keyring_repo.revoke_key(key_id, now_iso)
+
+    def verify_signature_ed25519(self, key_id: str, message: bytes, signature: bytes) -> bool:
+        """
+        Verify an Ed25519 signature against message bytes using the stored public key.
+        Fails closed (raises KeyRevokedError) if the key is not ACTIVE.
+        Raises KeyNotFoundError if the key does not exist.
+        Raises cryptography.exceptions.InvalidSignature on bad signature.
+        """
+        from cryptography.exceptions import InvalidSignature
+        key_record = self.keyring_repo.get_key_by_id(key_id)
+        if not key_record:
+            raise KeyNotFoundError(f"Key {key_id!r} not found in keyring")
+        if key_record["status"] != KeyStatus.ACTIVE.value:
+            raise KeyRevokedError(
+                f"Key {key_id!r} is not ACTIVE (status={key_record['status']}). "
+                "Signature verification blocked on revoked key."
+            )
+        public_pem = key_record.get("public_key_pem")
+        if not public_pem:
+            raise KeyPurposeMismatchError(f"Key {key_id!r} has no public key PEM for Ed25519 verification")
+        public_key = serialization.load_pem_public_key(public_pem.encode("utf-8"))
+        if not isinstance(public_key, ed25519.Ed25519PublicKey):
+            raise KeyPurposeMismatchError(f"Key {key_id!r} is not an Ed25519 public key")
+        public_key.verify(signature, message)  # raises InvalidSignature if mismatch
+        return True

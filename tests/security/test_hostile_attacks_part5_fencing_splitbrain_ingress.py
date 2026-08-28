@@ -221,8 +221,9 @@ def test_hostile_atk_61_active_execution_revocation_security(uow, tmp_path):
     # Active execution revocation occurs mid-flight: Key or Token is revoked in keystore
     ks.revoke_key(token["key_id"], "Active execution emergency abort")
 
-    # Batch 2: Next physical mutation barrier check fails closed
-    with pytest.raises(Exception):
+    # Batch 2: Next physical mutation barrier check fails closed with specific KeyRevokedError
+    from akaalPipeline.security.keystore import KeyRevokedError
+    with pytest.raises(KeyRevokedError):
         # Verification fails because key is revoked in keystore
         ks.verify_signature_ed25519(token["key_id"], b"test", b"sig")
 

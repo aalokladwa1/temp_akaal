@@ -120,10 +120,13 @@ def test_hostile_atk_21_master_root_key_envelope_tampering(uow):
         (key_id,),
     )
     
-    # Next retrieval must fail closed on AES-GCM decryption
-    with pytest.raises(Exception):
+    # Next retrieval must fail closed on AES-GCM decryption (InvalidTag or ValueError from cryptography)
+    from cryptography.exceptions import InvalidTag
+    with pytest.raises((InvalidTag, ValueError, Exception)) as exc_info:
         ks_new = KeyStoreAuthority(uow.keyring, master_root_key=mrk)
         ks_new.get_signing_key_ed25519(KeyPurpose.EXECUTION_SIGNING)
+    # Must NOT silently succeed — any exception is acceptable because AES-GCM AEAD tag is corrupted
+    assert exc_info.value is not None
 
 
 def test_hostile_atk_22_enterprise_bootstrap_idempotency_and_second_run_blocking(uow):

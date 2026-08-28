@@ -1,0 +1,255 @@
+﻿.......................................F....F.FFFFFF.................... [  1%]
+...................F..................................................F. [  3%]
+..F.FEEEEEEEEEEEEEFFFFFF................................................ [  5%]
+........................................................................ [  7%]
+...................F.F.FFFFFFFFFFFFF.FF.F..F.F.FF................F...FFF [  8%]
+FFFFFF..FF....F..F.....F.F.F..FFF.................F........F..........F. [ 10%]
+.............F........F....FF.F.F.FF...FF.FFFF..FFFFFFFFF.F..FFF.F.FFFFF [ 12%]
+FFFFFFFF................................................................ [ 14%]
+...........FF........................................................... [ 15%]
+........................................................................ [ 17%]
+.......................................................................F [ 19%]
+.......F................................................................ [ 21%]
+.........................................F.................F............ [ 22%]
+......................................F.........F..F.FFF...F............ [ 24%]
+........................................................................ [ 26%]
+..........F............................................................. [ 28%]
+........................................................................ [ 30%]
+........................................................................ [ 31%]
+..............................F......................................... [ 33%]
+........................................................................ [ 35%]
+........................................................................ [ 37%]
+........................................................................ [ 38%]
+........................................................................ [ 40%]
+........................................................................ [ 42%]
+........................................................................ [ 44%]
+........................................................................ [ 45%]
+........................................................................ [ 47%]
+.............................................F.......................... [ 49%]
+........................................................................ [ 51%]
+........................................................................ [ 52%]
+........................................................................ [ 54%]
+........................................................................ [ 56%]
+........................................................................ [ 58%]
+........................................................................ [ 60%]
+........................................................................ [ 61%]
+........................................................................ [ 63%]
+........................................................................ [ 65%]
+........................................................................ [ 67%]
+........................................................................ [ 68%]
+..........FF...FF....F.................................................. [ 70%]
+........................................................................ [ 72%]
+........................................................................ [ 74%]
+................................F....................F..FFFFF........... [ 75%]
+....FF.................................................................. [ 77%]
+..........................F..........F.................................. [ 79%]
+FFFFFF.................................................................. [ 81%]
+......................................................F.F.....F......... [ 83%]
+F..........................FF........................................... [ 84%]
+...........FFFFF......F..F.............................................. [ 86%]
+........................................................................ [ 88%]
+........................................................................ [ 90%]
+.............................................................F.F........ [ 91%]
+..............FF........................................................ [ 93%]
+........................................................................ [ 95%]
+...F..........................FFFFF..FF................................. [ 97%]
+........................................................................ [ 98%]
+...ssssssssssF..F......sss...................                            [100%]
+============================== warnings summary ===============================
+.venv\Lib\site-packages\fastapi\testclient.py:1
+  C:\Users\LENOVO\Downloads\temp_akaal-main\.venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+tests\unit\core\test_step_5_3_1_state_store_hardening.py:26
+  C:\Users\LENOVO\Downloads\temp_akaal-main\tests\unit\core\test_step_5_3_1_state_store_hardening.py:26: PytestCollectionWarning: cannot collect test class 'TestSpecDataclass' because it has a __init__ constructor (from: tests/unit/core/test_step_5_3_1_state_store_hardening.py)
+    @dataclasses.dataclass
+
+akaal\platform\testing\testing_manager.py:55
+  C:\Users\LENOVO\Downloads\temp_akaal-main\akaal\platform\testing\testing_manager.py:55: PytestCollectionWarning: cannot collect test class 'TestingManager' because it has a __init__ constructor (from: tests/unit/platform/test_part6_certification.py)
+    class TestingManager:
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/cdc/test_coordinator_facade.py::test_cdc_client_and_facade_flow
+FAILED tests/cdc/test_routing_buffering.py::test_cdc_routing_engine - NameErr...
+FAILED tests/cdc/test_sources.py::test_postgres_wal_adapter - AssertionError:...
+FAILED tests/cdc/test_sources.py::test_mysql_binlog_adapter - AttributeError:...
+FAILED tests/cdc/test_sources.py::test_oracle_logminer_adapter - AttributeErr...
+FAILED tests/cdc/test_sources.py::test_sqlserver_cdc_adapter - AssertionError...
+FAILED tests/cdc/test_sources.py::test_mongodb_change_stream_adapter - Attrib...
+FAILED tests/cdc/test_sources.py::test_trigger_fallback_adapter - TypeError: ...
+FAILED tests/integration/composition/test_enterprise_composition_root.py::test_enterprise_composition_bootstrap_and_smoke_test
+FAILED tests/integration/test_p010_acceptance_guard.py::TestP010AcceptanceGuard::test_01_run_preflight_invokes_benchmarks_and_produces_eta
+FAILED tests/integration/test_p010_acceptance_guard.py::TestP010AcceptanceGuard::test_05_failed_migration_rejects_ordinary_start_transport
+FAILED tests/integration/test_p010_acceptance_guard.py::TestP010AcceptanceGuard::test_07_split_brain_target_mapping_prevention
+FAILED tests/integration/test_phase9_real_engine_certification.py::TestRealEngineDeterminismAndImmutability::test_live_models_immutability
+FAILED tests/integration/test_phase9_real_engine_certification.py::TestRealEngineDeterminismAndImmutability::test_live_models_lossless_serialization
+FAILED tests/integration/test_phase9_real_engine_certification.py::TestRealEngineDeterminismAndImmutability::test_live_postgres_3_run_determinism
+FAILED tests/integration/test_pre_phase_12_e2e_integration.py::test_e2e_pre_phase_12_pipeline_workflow
+FAILED tests/integration/test_real_mysql_to_postgres.py::TestRealMysqlToPostgres::test_mysql_to_postgres_migration
+FAILED tests/integration/test_real_postgres_to_mysql.py::TestRealPostgresToMysql::test_postgres_to_mysql_migration
+FAILED tests/pipeline/test_concurrency_multitenancy.py::test_concurrent_revision_cas_race
+FAILED tests/pipeline/test_dependency_and_zero_fake_audit.py::test_zero_fake_production_audit
+FAILED tests/pipeline/test_durable_dag_execution.py::test_m1_multi_node_execution_sequence
+FAILED tests/pipeline/test_durable_dag_execution.py::test_m2_three_node_execution_sequence
+FAILED tests/pipeline/test_durable_dag_execution.py::test_m3_two_node_cdc_sequence
+FAILED tests/pipeline/test_durable_dag_execution.py::test_m4_incremental_sequence
+FAILED tests/pipeline/test_durable_dag_execution.py::test_m5_state_sync_sequence
+FAILED tests/pipeline/test_durable_dag_execution.py::test_m6_schema_sequence
+FAILED tests/pipeline/test_durable_dag_execution.py::test_m7_single_node_data_transport
+FAILED tests/pipeline/test_durable_dag_execution.py::test_m8_single_node_validation_compare
+FAILED tests/pipeline/test_durable_dag_execution.py::test_predecessor_failure_blocks_successor_and_fails_plan
+FAILED tests/pipeline/test_durable_dag_execution.py::test_mid_execution_unbound_capability_fails_closed
+FAILED tests/pipeline/test_durable_dag_execution.py::test_mid_execution_engine_crash_fails_closed
+FAILED tests/pipeline/test_durable_dag_execution.py::test_each_node_acquires_distinct_attempt_lease_fence
+FAILED tests/pipeline/test_durable_dag_execution.py::test_crash_recovery_resumes_from_ready_nodes
+FAILED tests/pipeline/test_durable_dag_execution.py::test_node_level_provenance_and_audit_events
+FAILED tests/pipeline/test_durable_dag_execution.py::test_custom_diamond_dag_execution
+FAILED tests/pipeline/test_durable_dag_execution.py::test_n02_finite_plan_completion_transitions_to_completed
+FAILED tests/pipeline/test_durable_dag_execution.py::test_n05_and_n08_asynchronous_engine_completion_with_autonomous_redrive
+FAILED tests/pipeline/test_durable_dag_execution.py::test_n07_asynchronous_terminal_operation_reconciled_via_query
+FAILED tests/pipeline/test_final_hostile_invariants_a01_to_a08.py::test_a01_accepted_start_idempotency_replay
+FAILED tests/pipeline/test_final_hostile_invariants_a01_to_a08.py::test_a01_error_idempotency_replay
+FAILED tests/pipeline/test_final_hostile_invariants_a01_to_a08.py::test_a03_cross_project_operation_query_rejected
+FAILED tests/pipeline/test_final_hostile_invariants_a01_to_a08.py::test_a04_start_without_required_approval_fails
+FAILED tests/pipeline/test_final_hostile_invariants_a01_to_a08.py::test_a04_caller_cannot_bypass_approval_with_payload_flag
+FAILED tests/pipeline/test_final_hostile_invariants_a01_to_a08.py::test_a04_caller_supplied_unpersisted_payload_decision_fails
+FAILED tests/pipeline/test_final_hostile_invariants_a01_to_a08.py::test_a04_expired_persisted_approval_fails
+FAILED tests/pipeline/test_final_hostile_invariants_a01_to_a08.py::test_a04_stale_approval_fingerprint_fails
+FAILED tests/pipeline/test_final_hostile_invariants_a01_to_a08.py::test_a04_persisted_approval_with_authorized_admin_issuer_passes
+FAILED tests/pipeline/test_final_hostile_invariants_a01_to_a08.py::test_a04_approval_resource_mismatch_fails
+FAILED tests/pipeline/test_final_hostile_invariants_a01_to_a08.py::test_a04_approval_action_mismatch_fails
+FAILED tests/pipeline/test_final_hostile_invariants_a01_to_a08.py::test_a04_approval_subject_mismatch_fails
+FAILED tests/pipeline/test_final_hostile_invariants_a01_to_a08.py::test_a06_accepted_operation_survives_dispatch_failure
+FAILED tests/pipeline/test_final_hostile_invariants_a01_to_a08.py::test_a06_engine_port_exception_transitions_operation_to_failed_and_stages_events
+FAILED tests/pipeline/test_final_hostile_invariants_a09_to_a15.py::test_a09_unrelated_binding_cannot_satisfy_capability
+FAILED tests/pipeline/test_final_hostile_invariants_a09_to_a15.py::test_a09_multiple_competing_bindings_selects_only_exact_match
+FAILED tests/pipeline/test_final_hostile_invariants_a09_to_a15.py::test_a12_unbound_dispatch_failure_stages_outbox_and_audit
+FAILED tests/pipeline/test_final_hostile_invariants_a09_to_a15.py::test_a13_cancellation_fences_active_attempt_and_late_engine_result_rejected
+FAILED tests/pipeline/test_final_hostile_invariants_a09_to_a15.py::test_a14_recovery_establishes_replacement_attempt_and_selects_checkpoint
+FAILED tests/pipeline/test_final_hostile_invariants_a09_to_a15.py::test_a14_unowned_checkpoint_rejected
+FAILED tests/pipeline/test_final_hostile_invariants_a09_to_a15.py::test_a14_recovery_fences_source_attempt_before_replacement_authority
+FAILED tests/pipeline/test_final_hostile_invariants_a09_to_a15.py::test_a14_cross_migration_attempt_with_checkpoint_rejected
+FAILED tests/pipeline/test_hostile_corrections_findings_1_to_6.py::test_16_unified_caller_no_implicit_memory_default
+FAILED tests/pipeline/test_hostile_scenarios_1_to_35.py::test_01_duplicate_start
+FAILED tests/pipeline/test_hostile_scenarios_1_to_35.py::test_29_acceptance_distinct_from_execution_success
+FAILED tests/property/test_procedure_properties.py::TestProcedurePropertyInvariants::test_transaction_block_rejection_invariant
+FAILED tests/recovery/test_distributed_checkpoint_validation.py::TestDistributedCheckpointValidation::test_01_multiple_concurrent_gbagents
+FAILED tests/recovery/test_distributed_checkpoint_validation.py::TestDistributedCheckpointValidation::test_07_worker_crash_and_restart
+FAILED tests/recovery/test_distributed_checkpoint_validation.py::TestDistributedCheckpointValidation::test_09_manager_and_pipeline_restart
+FAILED tests/recovery/test_distributed_checkpoint_validation.py::TestDistributedCheckpointValidation::test_13_worker_ownership_preservation
+FAILED tests/recovery/test_distributed_checkpoint_validation.py::TestDistributedCheckpointValidation::test_15_checkpoint_and_cursor_consistency
+FAILED tests/recovery/test_distributed_checkpoint_validation.py::TestDistributedCheckpointValidation::test_18_zero_duplicates_and_skips
+FAILED tests/recovery/test_distributed_checkpoint_validation.py::TestDistributedCheckpointValidation::test_20_worker_failures
+FAILED tests/recovery/test_distributed_checkpoint_validation.py::TestDistributedCheckpointValidation::test_28_repeated_recovery_cycles
+FAILED tests/recovery/test_end_to_end_recovery.py::TestEndToEndRecovery::test_01_fresh_migration
+FAILED tests/recovery/test_end_to_end_recovery.py::TestEndToEndRecovery::test_03_crash_after_first_committed_batch
+FAILED tests/recovery/test_end_to_end_recovery.py::TestEndToEndRecovery::test_04_crash_after_multiple_committed_batches
+FAILED tests/recovery/test_end_to_end_recovery.py::TestEndToEndRecovery::test_05_crash_after_target_commit_before_checkpoint_persistence
+FAILED tests/recovery/test_end_to_end_recovery.py::TestEndToEndRecovery::test_06_crash_during_checkpoint_persistence
+FAILED tests/recovery/test_end_to_end_recovery.py::TestEndToEndRecovery::test_09_crash_during_gb_agent_recovery
+FAILED tests/recovery/test_end_to_end_recovery.py::TestEndToEndRecovery::test_10_pipeline_restart
+FAILED tests/recovery/test_end_to_end_recovery.py::TestEndToEndRecovery::test_11_completed_table_restart
+FAILED tests/recovery/test_end_to_end_recovery.py::TestEndToEndRecovery::test_12_completed_migration_restart
+FAILED tests/recovery/test_end_to_end_recovery.py::TestEndToEndRecovery::test_13_multiple_sequential_crashes
+FAILED tests/recovery/test_end_to_end_recovery.py::TestEndToEndRecovery::test_14_recovery_after_three_or_more_crashes
+FAILED tests/recovery/test_end_to_end_recovery.py::TestEndToEndRecovery::test_15_unexpected_process_termination
+FAILED tests/recovery/test_end_to_end_recovery.py::TestEndToEndRecovery::test_16_recovery_after_forced_shutdown
+FAILED tests/recovery/test_end_to_end_recovery.py::TestEndToEndRecovery::test_17_simulated_power_failure
+FAILED tests/recovery/test_end_to_end_recovery.py::TestEndToEndRecovery::test_19_agent_restart
+FAILED tests/recovery/test_end_to_end_recovery.py::TestEndToEndRecovery::test_22_partial_checkpoint_history
+FAILED tests/recovery/test_end_to_end_recovery.py::TestEndToEndRecovery::test_23_recovery_after_transaction_retry
+FAILED tests/recovery/test_end_to_end_recovery.py::TestEndToEndRecovery::test_24_recovery_after_adapter_reconnect
+FAILED tests/recovery/test_gb_checkpoint_resume.py::TestGBCheckpointResume::test_adapter_state_restoration
+FAILED tests/recovery/test_gb_checkpoint_resume.py::TestGBCheckpointResume::test_checkpoint_written_only_after_commit_acknowledgement
+FAILED tests/recovery/test_gb_checkpoint_resume.py::TestGBCheckpointResume::test_composite_primary_key_resume_works_correctly
+FAILED tests/recovery/test_gb_checkpoint_resume.py::TestGBCheckpointResume::test_crash_mid_migration_and_resume_success
+FAILED tests/recovery/test_gb_checkpoint_resume.py::TestGBCheckpointResume::test_deterministic_ordering_across_resume_cycles
+FAILED tests/recovery/test_gb_checkpoint_resume.py::TestGBCheckpointResume::test_fresh_migration_starts_without_checkpoints
+FAILED tests/recovery/test_gb_checkpoint_resume.py::TestGBCheckpointResume::test_migration_resumes_from_saved_primary_key
+FAILED tests/recovery/test_gb_checkpoint_resume.py::TestGBCheckpointResume::test_multi_crash_completion_resilience
+FAILED tests/recovery/test_gb_checkpoint_resume.py::TestGBCheckpointResume::test_no_duplicate_rows_after_recovery
+FAILED tests/recovery/test_gb_checkpoint_resume.py::TestGBCheckpointResume::test_no_rows_skipped_after_recovery
+FAILED tests/recovery/test_gb_checkpoint_resume.py::TestGBCheckpointResume::test_performance_stability_and_index_usage
+FAILED tests/recovery/test_gb_checkpoint_resume.py::TestGBCheckpointResume::test_string_primary_key_resume_works_correctly
+FAILED tests/recovery/test_gb_checkpoint_resume.py::TestGBCheckpointResume::test_tables_without_primary_keys_fallback_to_offset
+FAILED tests/recovery/test_gb_checkpoint_resume.py::TestGBCheckpointResume::test_uuid_primary_key_resume_works_correctly
+FAILED tests/reporting/test_facade.py::test_reporting_facade_and_wrapper_flow
+FAILED tests/reporting/test_reporting_architecture_conformance.py::test_enforce_platform8_boundary_isolation
+FAILED tests/snapshots/test_procedure_rendering.py::TestProcedureSnapshots::test_golden_rendering_blocked_dynamic_sql
+FAILED tests/test_performance_benchmarks.py::test_cdc_throughput_benchmark - ...
+FAILED tests/unit/cdc/test_p3_11_whole_p3_e2e_pipeline_hostile_audit.py::TestP311WholeP3HostileIntegrationAudit::test_B01_full_forward_pipeline_journey_created_to_completed
+FAILED tests/unit/cdc/test_p3_11_whole_p3_e2e_pipeline_hostile_audit.py::TestP311WholeP3HostileIntegrationAudit::test_S01_buffer_backpressure_and_catching_up_transition
+FAILED tests/unit/cdc/test_p3_2_1_cdc_capture_hostile_audit.py::TestP321CDCCaptureHostileAudit::test_attack_05_capture_miner_cannot_advance_applied_position
+FAILED tests/unit/cdc/test_p3_2_native_cdc_capture_miners.py::TestP32NativeCDCCaptureMiners::test_03_postgres_wal_miner_polling
+FAILED tests/unit/cdc/test_p3_2_native_cdc_capture_miners.py::TestP32NativeCDCCaptureMiners::test_06_mysql_binlog_miner_polling
+FAILED tests/unit/cdc/test_p3_2_native_cdc_capture_miners.py::TestP32NativeCDCCaptureMiners::test_08_oracle_redo_miner_polling
+FAILED tests/unit/cdc/test_p3_2_native_cdc_capture_miners.py::TestP32NativeCDCCaptureMiners::test_09_mssql_cdc_miner_polling
+FAILED tests/unit/cdc/test_p3_2_native_cdc_capture_miners.py::TestP32NativeCDCCaptureMiners::test_10_mongodb_oplog_miner_polling
+FAILED tests/unit/cdc/test_p3_2_native_cdc_capture_miners.py::TestP32NativeCDCCaptureMiners::test_14_gateway_start_and_poll_cdc_capture
+FAILED tests/unit/cdc/test_p3_4_continuous_cdc_cutover_failback_engine.py::TestP34ContinuousCDCCutoverFailbackEngine::test_14_gateway_ipc_continuous_sync_lifecycle
+FAILED tests/unit/cdc/test_p3_8_1_multi_master_hostile_audit.py::TestP381MultiMasterHostileAudit::test_34_quarantine_durability_and_restart
+FAILED tests/unit/engine_durability/test_durability_authority.py::test_checkpoint_without_any_token_is_rejected
+FAILED tests/unit/replication/test_p1_6_universal_transport.py::TestP16UniversalTransportFoundation::test_04_reader_contract_compliance_all_four_engines
+FAILED tests/unit/replication/test_p1_6_universal_transport.py::TestP16UniversalTransportFoundation::test_05_writer_contract_compliance_all_four_engines
+FAILED tests/unit/replication/test_physical_replication.py::TestCanonicalPhysicalReplication::test_oracle_physical_reader_mock
+FAILED tests/unit/replication/test_physical_replication.py::TestCanonicalPhysicalReplication::test_postgresql_physical_writer_mock
+FAILED tests/unit/replication/test_step_5_2_canonical_transport.py::TestStep52CanonicalTransportReachability::test_legacy_engine_components_never_invoked
+FAILED tests/unit/test_cdc_sync.py::test_all_adapters_fetch_cdc_changes - psy...
+FAILED tests/unit/test_clean_session_governance.py::TestCleanSessionGovernanceAndLifecycle::test_canonical_lifecycle_and_fail_closed_governance
+FAILED tests/unit/test_connection_dto_verification.py::TestConnectionDTOVerification::test_oracle_invalid_password_surfaces_sanitized_error
+FAILED tests/unit/test_connection_dto_verification.py::TestConnectionDTOVerification::test_oracle_normal_user_connects
+FAILED tests/unit/test_connection_dto_verification.py::TestConnectionDTOVerification::test_oracle_sys_normal_mode_surfaces_error
+FAILED tests/unit/test_connection_dto_verification.py::TestConnectionDTOVerification::test_oracle_sys_sysdba_connects
+FAILED tests/unit/test_connection_dto_verification.py::TestConnectionDTOVerification::test_postgresql_valid_credentials_unaffected
+FAILED tests/unit/test_day23_reconciliation.py::TestDay23ControlPlaneReconciliation::test_p0_7_telemetry_provenance_and_zero_synthetic_workers
+FAILED tests/unit/test_day23_reconciliation.py::TestDay23ControlPlaneReconciliation::test_snapshot_returns_neutral_idle_telemetry_before_start
+FAILED tests/unit/test_eta_and_target_validation.py::TestETAAndTargetIdentifierValidation::test_preflight_eta_with_real_benchmarks
+FAILED tests/unit/test_identity_handling.py::test_adapters_discover_identity
+FAILED tests/unit/test_manifest_driven_execution.py::TestManifestDrivenExecutionAndAntiSpecialCasing::test_arbitrary_custom_table_and_object_names
+FAILED tests/unit/test_manifest_driven_execution.py::TestManifestDrivenExecutionAndAntiSpecialCasing::test_empty_scope_fallback
+FAILED tests/unit/test_manifest_driven_execution.py::TestManifestDrivenExecutionAndAntiSpecialCasing::test_mixed_object_types_scope
+FAILED tests/unit/test_manifest_driven_execution.py::TestManifestDrivenExecutionAndAntiSpecialCasing::test_multi_table_custom_schema_scope
+FAILED tests/unit/test_manifest_driven_execution.py::TestManifestDrivenExecutionAndAntiSpecialCasing::test_single_table_scope_reconciliation
+FAILED tests/unit/test_manifest_driven_execution.py::TestManifestDrivenExecutionAndAntiSpecialCasing::test_unsupported_object_type_accounting
+FAILED tests/unit/test_p010_rectification2.py::TestP010Rectification2::test_10_11_eta_available_dynamic
+FAILED tests/unit/test_p010_rectification2.py::TestP010Rectification2::test_13_14_15_16_real_adapter_data_transport
+FAILED tests/unit/test_p010_rectification2.py::TestP010Rectification2::test_25_terminal_failed_state_protection
+FAILED tests/unit/test_p010_rectification3.py::TestP010Rectification3::test_10_start_transport_success_semantics
+FAILED tests/unit/test_p010_rectification4.py::TestP010Rectification4::test_27_start_transport_returns_immediate_async_ack
+FAILED tests/unit/test_p010_rectification4.py::TestP010Rectification4::test_28_command_acceptance_distinct_from_migration_success
+FAILED tests/unit/test_partition_migration.py::test_postgresql_adapter_partition_discovery
+FAILED tests/unit/test_partition_migration.py::test_mysql_adapter_partition_discovery
+FAILED tests/unit/test_partition_migration.py::test_oracle_adapter_partition_discovery
+FAILED tests/unit/test_partition_migration.py::test_mssql_adapter_partition_discovery
+FAILED tests/unit/test_partition_migration.py::test_end_to_end_planning_integration_pipeline
+FAILED tests/unit/test_phase12_stage2_runtime.py::test_stage2_unified_migration_runtime_execution
+FAILED tests/unit/test_phase12_stage3_agent_network.py::test_stage3_agent_network_fleet_execution
+FAILED tests/unit/test_stage4_zero_duplicate.py::test_zero_duplicate_source_filtering
+FAILED tests/unit/test_stage4_zero_duplicate.py::test_zero_duplicate_process_batch
+FAILED tests/unit/test_transform_compilation.py::TestTransformCompilation::test_conditional_execution
+FAILED tests/unit/test_transform_compilation.py::TestTransformCompilation::test_cycle_detection
+FAILED tests/unit/validation/test_p2_reality_rectification_suite.py::TestP2RealityRectificationSuite::test_01_validation_step_fails_closed_on_count_query_failure
+FAILED tests/unit/validation/test_physical_validation.py::TestCanonicalPhysicalValidation::test_01_null_normalization
+FAILED tests/unit/validation/test_physical_validation.py::TestCanonicalPhysicalValidation::test_02_oracle_empty_string_semantics
+FAILED tests/unit/validation/test_physical_validation.py::TestCanonicalPhysicalValidation::test_03_postgresql_empty_string_distinction
+FAILED tests/unit/validation/test_physical_validation.py::TestCanonicalPhysicalValidation::test_04_decimal_equivalence
+FAILED tests/unit/validation/test_physical_validation.py::TestCanonicalPhysicalValidation::test_05_decimal_precision
+FAILED tests/unit/validation/test_physical_validation.py::TestCanonicalPhysicalValidation::test_08_timestamps_without_timezone
+FAILED tests/unit/validation/test_physical_validation.py::TestCanonicalPhysicalValidation::test_09_binary_values
+FAILED tests/validation/test_production_validation_suite.py::TestProductionValidationSuite::test_category_1_core_migration
+FAILED tests/validation/test_production_validation_suite.py::TestProductionValidationSuite::test_category_4_cdc_validation
+ERROR tests/integration/test_phase9_real_engine_certification.py::TestRealEnginePostgresPipeline::test_advisor_live_postgres_advisory
+ERROR tests/integration/test_phase9_real_engine_certification.py::TestRealEnginePostgresPipeline::test_decoder_live_postgres_canonical
+ERROR tests/integration/test_phase9_real_engine_certification.py::TestRealEnginePostgresPipeline::test_intelligence_live_postgres_model
+ERROR tests/integration/test_phase9_real_engine_certification.py::TestRealEnginePostgresPipeline::test_planner_live_postgres_execution_plan
+ERROR tests/integration/test_phase9_real_engine_certification.py::TestRealEnginePostgresPipeline::test_risk_live_postgres_assessment
+ERROR tests/integration/test_phase9_real_engine_certification.py::TestRealEnginePostgresPipeline::test_rulebook_live_postgres_rules
+ERROR tests/integration/test_phase9_real_engine_certification.py::TestRealEnginePostgresPipeline::test_scout_live_postgres_metadata
+ERROR tests/integration/test_phase9_real_engine_certification.py::TestRealEngineMySQLPipeline::test_advisor_live_mysql_reports
+ERROR tests/integration/test_phase9_real_engine_certification.py::TestRealEngineMySQLPipeline::test_decoder_live_mysql_canonical
+ERROR tests/integration/test_phase9_real_engine_certification.py::TestRealEngineMySQLPipeline::test_intelligence_live_mysql_synthesis
+ERROR tests/integration/test_phase9_real_engine_certification.py::TestRealEngineMySQLPipeline::test_scout_live_mysql_metadata
+ERROR tests/integration/test_phase9_real_engine_certification.py::TestRealEngineOraclePipeline::test_full_pipeline_oracle_checksum_chaining
+ERROR tests/integration/test_phase9_real_engine_certification.py::TestRealEngineOraclePipeline::test_scout_live_oracle_metadata
+169 failed, 3882 passed, 13 skipped, 3 warnings, 13 errors in 473.45s (0:07:53)

@@ -280,8 +280,9 @@ def test_dynamic_09_active_key_revocation_blocks_token_minting_and_verification(
     # Revoke key in keystore
     ks.revoke_key(key_id, "Compromise simulation")
 
-    # Subsequent key retrieval fails closed
-    with pytest.raises(Exception):
+    # Subsequent key retrieval fails closed — revoked key not returned by get_active_key()
+    from akaalPipeline.security.keystore import KeyNotFoundError, KeyRevokedError
+    with pytest.raises((KeyNotFoundError, KeyRevokedError)):
         ks.get_signing_key_ed25519(KeyPurpose.EXECUTION_SIGNING)
 
 

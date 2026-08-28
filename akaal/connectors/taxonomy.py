@@ -81,6 +81,7 @@ class ImplementationState(str, Enum):
     STUB                     = "STUB"
     PARTIAL                  = "PARTIAL"
     IMPLEMENTED              = "IMPLEMENTED"
+    MANAGED_PROFILE          = "MANAGED_PROFILE"  # Managed/distribution alias reusing a canonical physical connector
 
 
 class RegistrationState(str, Enum):
