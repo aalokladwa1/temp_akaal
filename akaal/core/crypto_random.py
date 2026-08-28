@@ -16,6 +16,20 @@ class CSPRNGUnavailableError(RuntimeError):
     pass
 
 
+CryptographicEntropyError = CSPRNGUnavailableError
+
+
+class CryptoRandomAuthority:
+    """Canonical OS CSPRNG wrapper authority."""
+    @staticmethod
+    def random_bytes(n_bytes: int) -> bytes:
+        return secure_random_bytes(n_bytes)
+
+    @staticmethod
+    def generate_nonce() -> str:
+        return generate_nonce()
+
+
 def secure_random_bytes(n_bytes: int) -> bytes:
     """Generate n_bytes using OS CSPRNG. Fail-closed on error."""
     if n_bytes <= 0:

@@ -40,6 +40,51 @@ class ExecutionAuthorizationMinter:
         self.keystore = keystore
         self.config = config or SecurityBaselineConfig()
 
+    def mint_token(
+        self,
+        tenant_id: str,
+        workspace_id: str,
+        project_id: str,
+        migration_id: str,
+        execution_id: str,
+        generation: int = 1,
+        allowed_operations: Optional[List[str]] = None,
+        allowed_target_schemas: Optional[List[str]] = None,
+        ttl_seconds: Optional[int] = None,
+        **kwargs: Any,
+    ) -> Dict[str, Any]:
+        from akaalPipeline.security.seal import ExecutionSealBuilder
+        seal = kwargs.get("execution_seal")
+        if seal is None:
+            seal = ExecutionSealBuilder.build_seal(
+                tenant_id=tenant_id,
+                workspace_id=workspace_id,
+                project_id=project_id,
+                migration_id=migration_id,
+                plan_id=kwargs.get("plan_id", "plan-01"),
+                plan_revision=kwargs.get("plan_revision", 1),
+                execution_mode=kwargs.get("execution_mode", "M1"),
+                source_identity_fingerprint=kwargs.get("source_identity_fingerprint", "src"),
+                target_identity_fingerprint=kwargs.get("target_identity_fingerprint", "tgt"),
+                selection_scope_fingerprint=kwargs.get("selection_scope_fingerprint", "sel"),
+                config_fingerprint=kwargs.get("config_fingerprint", "cfg"),
+                initialization_fingerprint=kwargs.get("initialization_fingerprint", "init"),
+                approval_fingerprint=kwargs.get("approval_fingerprint", "appr"),
+                fence_epoch=kwargs.get("fence_epoch", generation),
+            )
+        return self.mint_authorization(
+            tenant_id=tenant_id,
+            workspace_id=workspace_id,
+            project_id=project_id,
+            migration_id=migration_id,
+            execution_id=execution_id,
+            execution_seal=seal,
+            allowed_operations=allowed_operations or ["MIGRATE", "MUTATE"],
+            allowed_target_schemas=allowed_target_schemas or ["public"],
+            security_revision=kwargs.get("security_revision", 1),
+            ttl_seconds=ttl_seconds,
+        )
+
     def mint_authorization(
         self,
         tenant_id: str,
@@ -183,7 +228,14 @@ def verify_execution_authorization(
     signature_bytes = bytes.fromhex(artifact["signature_hex"])
 
     try:
-        public_key = serialization.load_pem_public_key(public_key_pem.encode("utf-8"))
+        if isinstance(public_key_pem, ed25519.Ed25519PublicKey):
+            public_key = public_key_pem
+        elif isinstance(public_key_pem, bytes):
+            public_key = serialization.load_pem_public_key(public_key_pem)
+        elif isinstance(public_key_pem, str):
+            public_key = serialization.load_pem_public_key(public_key_pem.encode("utf-8"))
+        else:
+            raise ExecutionAuthorizationError(f"Unsupported public key type: {type(public_key_pem)}")
         if not isinstance(public_key, ed25519.Ed25519PublicKey):
             raise ExecutionAuthorizationError("Public key is not an Ed25519 public key")
         public_key.verify(signature_bytes, canonical_bytes)

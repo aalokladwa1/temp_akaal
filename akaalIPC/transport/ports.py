@@ -54,8 +54,16 @@ class CallerResult:
     operation: Optional[OperationReference] = None
     error: Optional[IPCError] = None
 
+    @property
+    def is_success(self) -> bool:
+        return self.status == CallerResultStatus.OK
+
+    @property
+    def success(self) -> bool:
+        return self.status == CallerResultStatus.OK
+
     def __getitem__(self, key: str) -> Any:
-        if key == "success":
+        if key in ("success", "is_success"):
             return self.status == CallerResultStatus.OK
         if key == "status":
             return self.status.value

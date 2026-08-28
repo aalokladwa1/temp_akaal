@@ -120,3 +120,20 @@ class JITPrivilegeAuthority:
         """Explicitly revoke a JIT grant and advance security revision."""
         self.grant_repo.revoke_grant(tenant_id, grant_id)
         self.principal_repo.bump_security_revision(tenant_id, principal_id)
+
+    def is_grant_valid(self, tenant_id: str, grant_id: str) -> bool:
+        """Check if a JIT grant is active and unexpired."""
+        cur = self.grant_repo.conn.execute(
+            "SELECT * FROM role_grants WHERE tenant_id = ? AND grant_id = ?",
+            (tenant_id, grant_id),
+        )
+        row = cur.fetchone()
+        if not row:
+            return False
+        d = dict(row)
+        if d.get("is_revoked", 0):
+            return False
+        expires_at = d.get("expires_at")
+        if expires_at and TimeAuthority.is_expired(expires_at):
+            return False
+        return True

@@ -257,9 +257,9 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
             from akaalIPC.protocol.envelopes import CommandEnvelope, CorrelationContext
             from akaalIPC.security.context import ActorContext, ActorReference
             from akaalIPC.protocol.schemas import RequestKind
-            actor_dict = envelope.get("actor", {})
+            actor_dict = envelope.get("actor_context") or envelope.get("actor", {})
             actor_ref = ActorReference(
-                actor_id=actor_dict.get("actor_id", "anonymous"),
+                actor_id=actor_dict.get("principal_id") or actor_dict.get("actor_id", "anonymous"),
                 actor_type=actor_dict.get("actor_type", "human"),
             )
             actor_ctx = ActorContext(
@@ -267,12 +267,13 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
                 organization_id=actor_dict.get("tenant_id", "default"),
                 provenance=actor_dict.get("provenance", "external"),
             )
-            req_id = envelope.get("command_id", str(uuid.uuid4()))
+            req_id = envelope.get("command_id") or envelope.get("envelope_id", str(uuid.uuid4()))
+            req_type = envelope.get("command_type") or envelope.get("request_type") or envelope.get("command_id", "UNKNOWN")
             envelope = CommandEnvelope(
                 request_id=req_id,
                 protocol_version="1.0",
                 schema_version="1.0",
-                request_type=envelope.get("command_id", "UNKNOWN"),
+                request_type=req_type,
                 kind=RequestKind.COMMAND,
                 actor=actor_ctx,
                 correlation=CorrelationContext(correlation_id=req_id, request_id=req_id),
