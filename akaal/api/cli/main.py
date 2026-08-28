@@ -18,7 +18,7 @@ except ImportError:
             return default
         def Argument(self, default=None, *args, **kwargs):
             return default
-    typer = DummyTyper()
+import asyncio
 from akaal.api.cli.formatter import CLIFormatter
 from akaal.api.contracts.dto import JobRequestDTO, WorkflowSubmitDTO, SchemaCheckDTO
 from akaal.api.facades.platform1 import Platform1Facade

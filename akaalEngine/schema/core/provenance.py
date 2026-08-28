@@ -3,7 +3,7 @@ from enum import Enum
 import hashlib
 import json
 from types import MappingProxyType
-from typing import Any, Mapping
+from typing import Any, Mapping, Optional
 
 from akaalEngine.schema.ddl.emitter import StagedDDLPackage
 from akaalEngine.schema.models.mapping import CompiledSchemaMapping

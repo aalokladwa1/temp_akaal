@@ -20,7 +20,10 @@ import hashlib
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
-import oracledb
+try:
+    import oracledb
+except ImportError:
+    oracledb = None
 
 from akaal.adapters.base_adapter import BaseAdapter
 from akaal.core.models.enums import SystemType, AdapterCapability

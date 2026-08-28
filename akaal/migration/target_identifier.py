@@ -80,6 +80,30 @@ def derive_akaal_generated_target_mapping(source_schema: str) -> Dict[str, Any]:
     }
 
 
+def sanitize_pg_identifier(identifier: str) -> str:
+    res = derive_akaal_generated_target_mapping(identifier)
+    return res["target_schema"]
+
+
+def validate_target_schema(identifier: str) -> Dict[str, Any]:
+    res = validate_operator_configured_identifier(identifier, identifier_type="schema")
+    if not res.get("valid"):
+        code = res.get("error_code")
+        if code in ("RESERVED_PREFIX", "RESERVED_SCHEMA"):
+            code = "RESERVED_SCHEMA_NAME"
+        return {
+            "valid": False,
+            "error_code": code,
+            "error_message": res.get("error_message"),
+            "suggestion": res.get("suggested_name"),
+        }
+    return {
+        "valid": True,
+        "sanitized": res.get("sanitized_identifier"),
+    }
+
+
+
 class ConnectionAuthority:
     """Canonical connection authority representation for SOURCE and TARGET endpoints.
     

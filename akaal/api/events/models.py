@@ -4,6 +4,7 @@ Enterprise Domain Event Definitions.
 
 from typing import Any, Dict, Optional
 import datetime
+import uuid
 try:
     from pydantic import BaseModel, Field
 except ImportError:

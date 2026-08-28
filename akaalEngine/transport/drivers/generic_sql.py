@@ -1,7 +1,7 @@
 """
 akaalEngine.transport.drivers.generic_sql
 ==========================================
-Generic SQL SourceReader and TargetWriter driver for SQLite, MySQL, MSSQL, Db2.
+Generic SQL SourceReader and TargetWriter driver for SQLite, MySQL, MSSQL, Db2 with physical fencing verification.
 """
 
 import logging
@@ -88,7 +88,7 @@ class GenericSQLSourceReader(SourceReader):
 
 
 class GenericSQLTargetWriter(TargetWriter):
-    """Generic SQL TargetWriter using executemany batch insertion."""
+    """Generic SQL TargetWriter using executemany batch insertion with physical mutation fencing."""
 
     def __init__(self, connection_params: dict):
         super().__init__(
@@ -121,6 +121,7 @@ class GenericSQLTargetWriter(TargetWriter):
         pk_columns: None = None,
         allow_merge: bool = True,
     ) -> int:
+        self.verify_fencing()
         if not batch.rows:
             return 0
         if not self.cursor:
@@ -155,6 +156,7 @@ class GenericSQLTargetWriter(TargetWriter):
         return CommitOutcomeState.UNKNOWN_COMMIT_OUTCOME
 
     def commit(self) -> None:
+        self.verify_fencing()
         if self.conn:
             self.conn.commit()
         self._in_transaction = False

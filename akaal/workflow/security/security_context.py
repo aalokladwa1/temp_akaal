@@ -28,7 +28,7 @@ class SecurityContext:
 
     def has_permission(self, permission: str) -> bool:
         """Check if permission is present in security context."""
-        return permission in self.permissions or "admin" in self.roles
+        return permission in self.permissions
 
     def to_dict(self) -> dict[str, Any]:
         """Convert security context to dictionary."""

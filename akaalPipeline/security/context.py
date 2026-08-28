@@ -32,6 +32,18 @@ class PipelineActorContext:
         object.__setattr__(self, "roles", tuple(self.roles) if self.roles else ())
         object.__setattr__(self, "scopes", tuple(self.scopes) if self.scopes else ())
 
+    @property
+    def tenant_id(self) -> str:
+        return self.organization_id or "default-tenant"
+
+    @property
+    def principal_id(self) -> str:
+        return self.actor_id
+
+    @property
+    def principal_type(self) -> str:
+        return self.actor_type
+
     @classmethod
     def from_ipc(cls, ipc_actor: IPCActorContext) -> PipelineActorContext:
         ref = ipc_actor.actor

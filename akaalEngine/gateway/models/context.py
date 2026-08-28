@@ -2,14 +2,16 @@
 akaalEngine.gateway.models.context
 ==================================
 Canonical Gateway request execution context.
-Preserves identity, fencing epochs, cancellation tokens, and request metadata across orchestration chains.
+Preserves identity, fencing epochs, execution authorization artifacts, cancellation tokens, and request metadata.
 """
 
+from __future__ import annotations
+
+import threading
 import time
 import uuid
-import threading
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Any, Dict, Mapping, Optional
 
 
 @dataclass
@@ -25,6 +27,8 @@ class GatewayRequestContext:
     fencing_epoch: Optional[int] = None
     fencing_token_envelope: Optional[Mapping[str, Any]] = None
     initialization_fingerprint: Optional[str] = None
+    execution_authorization_artifact: Optional[Dict[str, Any]] = None
+    execution_seal_fingerprint: Optional[str] = None
     cancellation_event: Optional[threading.Event] = None
     execution_mode: Optional[str] = None
     request_timestamp: float = field(default_factory=time.time)

@@ -31,8 +31,12 @@ from akaalPipeline.orchestration.compiler import GraphCompiler
 from akaalPipeline.orchestration.graph_validation import GraphValidator
 from akaalPipeline.orchestration.plans import ExecutionPlan
 from akaalPipeline.policy.contracts import PolicyDecision
-from akaalPipeline.policy.gates import PolicyGateEvaluator
-from akaalPipeline.ports.engine import EngineInvocationRequest, ExecutionPort
+from akaalIPC.security.context import ActorContext
+from akaalPipeline.ports.engine import (
+    EngineInvocationRequest,
+    EngineInvocationResult,
+    ExecutionPort,
+)
 from akaalPipeline.security.context import PipelineActorContext
 from akaalPipeline.state.aggregates import MigrationAggregate
 from akaalPipeline.state.artifacts import ArtifactRegistry, ImmutableArtifact
@@ -267,6 +271,19 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
                 ),
             )
         pipeline_actor = PipelineActorContext.from_ipc(envelope.actor)
+
+        # Reject SYSTEM actor spoofing from external envelope
+        if pipeline_actor.actor_type.lower() == "system" and envelope.actor.provenance != "internal-core":
+            return CallerResult(
+                status=CallerResultStatus.ERROR,
+                error=make_error(
+                    IPCErrorCategory.UNAUTHORIZED,
+                    code="SYSTEM_ACTOR_SPOOFING_PROHIBITED",
+                    message="External callers are prohibited from asserting system actor identity.",
+                    correlation_id=correlation_id,
+                    request_id=request_id,
+                ),
+            )
 
         payload_fp = canonical_fingerprint(envelope.payload)
         uow = self._create_uow()

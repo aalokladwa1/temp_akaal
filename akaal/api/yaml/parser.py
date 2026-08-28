@@ -4,6 +4,7 @@ YAML Job Definition Parser with Template Resolution.
 
 from typing import Any, Dict
 import os
+import re
 try:
     import yaml
 except ImportError:

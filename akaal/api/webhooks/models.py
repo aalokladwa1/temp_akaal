@@ -4,6 +4,7 @@ Webhook Models for Subscriptions and Delivery Records.
 
 from typing import List, Optional
 import datetime
+import uuid
 try:
     from pydantic import BaseModel, Field
 except ImportError:

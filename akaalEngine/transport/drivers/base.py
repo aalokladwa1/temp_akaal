@@ -2,10 +2,11 @@
 akaalEngine.transport.drivers.base
 ===================================
 Abstract base classes SourceReader and TargetWriter for Authority #9 Transport.
+Enforces physical mutation fencing and write-once identity binding.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, List, Mapping, Optional, Sequence, Tuple
+from typing import Any, Callable, List, Mapping, Optional, Sequence, Tuple
 
 from akaalEngine.transport.models.batch import TransportBatch
 from akaalEngine.transport.models.capabilities import (
@@ -13,6 +14,11 @@ from akaalEngine.transport.models.capabilities import (
     ProviderCapabilities,
 )
 from akaalEngine.transport.models.spec import TransportPartition
+
+
+class StaleFencingEpochError(RuntimeError):
+    """Raised when a physical target driver detects a stale fencing epoch."""
+    pass
 
 
 class SourceReader(ABC):
@@ -45,7 +51,7 @@ class SourceReader(ABC):
 
 
 class TargetWriter(ABC):
-    """Abstract interface for database and file target writing."""
+    """Abstract interface for database and file target writing with physical fencing checks."""
 
     def __init__(
         self,
@@ -56,6 +62,8 @@ class TargetWriter(ABC):
         self._migration_id = migration_id
         self._batch_id = batch_id
         self._endpoint_identity = endpoint_identity
+        self._fencing_token_envelope: Optional[Mapping[str, Any]] = None
+        self._fencing_validator_fn: Optional[Callable[[int], bool]] = None
 
     @property
     def migration_id(self) -> Optional[str]:
@@ -95,6 +103,25 @@ class TargetWriter(ABC):
             self.batch_id = batch_id
         if endpoint_identity:
             self.endpoint_identity = endpoint_identity
+
+    def bind_fencing_token(
+        self,
+        fencing_token_envelope: Mapping[str, Any],
+        validator_fn: Optional[Callable[[int], bool]] = None,
+    ) -> None:
+        """Binds fencing token and epoch validator function to target writer."""
+        self._fencing_token_envelope = fencing_token_envelope
+        self._fencing_validator_fn = validator_fn
+
+    def verify_fencing(self) -> None:
+        """Physical mutation fencing barrier verification."""
+        if self._fencing_token_envelope and self._fencing_validator_fn:
+            epoch = self._fencing_token_envelope.get("fencing_epoch") or self._fencing_token_envelope.get("epoch", 1)
+            is_valid = self._fencing_validator_fn(int(epoch))
+            if not is_valid:
+                raise StaleFencingEpochError(
+                    f"Physical TargetWriter fencing check failed: worker epoch {epoch} is stale."
+                )
 
     @abstractmethod
     def get_capabilities(self) -> ProviderCapabilities:

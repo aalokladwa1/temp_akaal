@@ -24,7 +24,6 @@ class MigrationLifecycleState(str, Enum):
     ARCHIVED = "ARCHIVED"
 
 
-
 class AttemptLifecycleState(str, Enum):
     REQUESTED = "REQUESTED"
     ADMITTED = "ADMITTED"
@@ -77,7 +76,6 @@ class NodeExecutionState(str, Enum):
     CANCELLED = "CANCELLED"
 
 
-
 class MigrationMode(str, Enum):
     M1_BULK = "M1"
     M2_BULK_CDC = "M2"
@@ -125,3 +123,111 @@ class PipelineErrorCode(str, Enum):
     CONTRACT_INCOMPATIBLE = "CONTRACT_INCOMPATIBLE"
     PERSISTENCE_FAILURE = "PERSISTENCE_FAILURE"
     INTERNAL_ERROR = "INTERNAL_ERROR"
+    UNAUTHORIZED = "UNAUTHORIZED"
+    FORBIDDEN = "FORBIDDEN"
+    NOT_FOUND = "NOT_FOUND"
+    CONFLICT = "CONFLICT"
+    SOD_VIOLATION = "SOD_VIOLATION"
+    QUORUM_NOT_MET = "QUORUM_NOT_MET"
+    STALE_GENERATION = "STALE_GENERATION"
+    SEAL_MISMATCH = "SEAL_MISMATCH"
+    KEY_REVOKED = "KEY_REVOKED"
+    CLOCK_SKEW_DETECTED = "CLOCK_SKEW_DETECTED"
+    CSPRNG_UNAVAILABLE = "CSPRNG_UNAVAILABLE"
+    CRYPTOGRAPHIC_DEPENDENCY_ERROR = "CRYPTOGRAPHIC_DEPENDENCY_ERROR"
+
+
+# ---------------------------------------------------------------------------
+# P5.9 Enterprise Security & Governance Enums
+# ---------------------------------------------------------------------------
+
+class PrincipalType(str, Enum):
+    HUMAN = "HUMAN"
+    SERVICE = "SERVICE"
+    MACHINE = "MACHINE"
+    SYSTEM = "SYSTEM"
+
+
+class KDFAlgorithm(str, Enum):
+    ARGON2ID = "ARGON2ID"
+    PBKDF2_SHA256 = "PBKDF2_SHA256"
+
+
+class GrantSubjectType(str, Enum):
+    PRINCIPAL = "PRINCIPAL"
+    GROUP = "GROUP"
+
+
+class GrantResourceType(str, Enum):
+    ORGANIZATION = "ORGANIZATION"
+    WORKSPACE = "WORKSPACE"
+    PROJECT = "PROJECT"
+    MIGRATION = "MIGRATION"
+    SYSTEM = "SYSTEM"
+
+
+class ApprovalStatus(str, Enum):
+    PENDING = "PENDING"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+    REVOKED = "REVOKED"
+    EXPIRED = "EXPIRED"
+    SUPERSEDED = "SUPERSEDED"
+
+
+class KeyPurpose(str, Enum):
+    EXECUTION_SIGNING = "EXECUTION_SIGNING"
+    AUDIT_SEAL = "AUDIT_SEAL"
+    TOKEN_ENCRYPT = "TOKEN_ENCRYPT"
+    RECEIPT_SIGNING = "RECEIPT_SIGNING"
+
+
+class KeyAlgorithm(str, Enum):
+    ED25519 = "ED25519"
+    HMAC_SHA256 = "HMAC_SHA256"
+    AES_256_GCM = "AES_256_GCM"
+
+
+class KeyStatus(str, Enum):
+    ACTIVE = "ACTIVE"
+    RETIRED = "RETIRED"
+    REVOKED = "REVOKED"
+
+
+class SecurityAlertSeverity(str, Enum):
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
+    CRITICAL = "CRITICAL"
+
+
+class TenantStatus(str, Enum):
+    ACTIVE = "ACTIVE"
+    SUSPENDED = "SUSPENDED"
+    DECOMMISSIONED = "DECOMMISSIONED"
+
+
+class WorkspaceStatus(str, Enum):
+    ACTIVE = "ACTIVE"
+    SUSPENDED = "SUSPENDED"
+
+
+class PolicyEffect(str, Enum):
+    ALLOW = "ALLOW"
+    DENY = "DENY"
+
+
+class AuditDecision(str, Enum):
+    ALLOW = "ALLOW"
+    DENY = "DENY"
+    MUTATE = "MUTATE"
+    LOGIN_SUCCESS = "LOGIN_SUCCESS"
+    LOGIN_FAILURE = "LOGIN_FAILURE"
+
+
+class FencingAssuranceClass(str, Enum):
+    ATOMIC_FENCEABLE = "ATOMIC_FENCEABLE"
+    CONDITIONAL_VERSIONED = "CONDITIONAL_VERSIONED"
+    PRE_OPERATION_ONLY = "PRE_OPERATION_ONLY"
+    COMPENSATABLE_NON_ATOMIC = "COMPENSATABLE_NON_ATOMIC"
+    UNSUPPORTED_FAIL_CLOSED = "UNSUPPORTED_FAIL_CLOSED"

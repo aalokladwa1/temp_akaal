@@ -117,6 +117,30 @@ class GatewayDispatcher:
 
         op_name = operation.value
 
+        # Zero-Trust Execution Authorization Verification
+        if getattr(context, "execution_authorization_artifact", None) is not None:
+            from akaalPipeline.security.execution_authorization import verify_execution_authorization
+            authz = context.execution_authorization_artifact
+            pub_key_pem = payload.get("execution_signing_public_key_pem") or authz.get("public_key_pem")
+            if pub_key_pem:
+                try:
+                    verify_execution_authorization(
+                        artifact=authz,
+                        public_key_pem=pub_key_pem,
+                        expected_tenant_id=context.tenant_id,
+                        expected_migration_id=context.migration_id,
+                    )
+                except Exception as exc:
+                    return GatewayResponse.create_failure(
+                        operation_id=context.operation_id,
+                        operation_type=op_name,
+                        migration_id=context.migration_id,
+                        run_id=context.run_id,
+                        failure_category=GatewayFailureCategory.INVALID_REQUEST.value,
+                        error_message=f"Execution authorization verification failed: {exc}",
+                        fencing_epoch=context.fencing_epoch,
+                    )
+
         try:
             # Explicit, auditable enum dispatch table (No getattr or eval)
             if operation == SemanticOperation.ACQUIRE_EXECUTION_FENCE:

@@ -1,6 +1,6 @@
 """akaalPipeline.contracts.errors
 ==============================
-Structured pipeline exceptions.
+Structured pipeline exceptions and canonical security errors.
 """
 
 from __future__ import annotations
@@ -41,6 +41,18 @@ class PipelineError(Exception):
             PipelineErrorCode.INELIGIBLE: IPCErrorCategory.INELIGIBLE,
             PipelineErrorCode.NOT_READY: IPCErrorCategory.NOT_READY,
             PipelineErrorCode.POLICY_DENIED: IPCErrorCategory.FORBIDDEN,
+            PipelineErrorCode.FORBIDDEN: IPCErrorCategory.FORBIDDEN,
+            PipelineErrorCode.UNAUTHORIZED: IPCErrorCategory.UNAUTHORIZED,
+            PipelineErrorCode.NOT_FOUND: IPCErrorCategory.NOT_FOUND,
+            PipelineErrorCode.CONFLICT: IPCErrorCategory.CONFLICT,
+            PipelineErrorCode.SOD_VIOLATION: IPCErrorCategory.FORBIDDEN,
+            PipelineErrorCode.QUORUM_NOT_MET: IPCErrorCategory.FORBIDDEN,
+            PipelineErrorCode.STALE_GENERATION: IPCErrorCategory.STALE_RESULT,
+            PipelineErrorCode.SEAL_MISMATCH: IPCErrorCategory.FORBIDDEN,
+            PipelineErrorCode.KEY_REVOKED: IPCErrorCategory.UNAUTHORIZED,
+            PipelineErrorCode.CLOCK_SKEW_DETECTED: IPCErrorCategory.INTERNAL_ERROR,
+            PipelineErrorCode.CSPRNG_UNAVAILABLE: IPCErrorCategory.INTERNAL_ERROR,
+            PipelineErrorCode.CRYPTOGRAPHIC_DEPENDENCY_ERROR: IPCErrorCategory.INTERNAL_ERROR,
             PipelineErrorCode.LEASE_CONFLICT: IPCErrorCategory.INVALID_REQUEST,
             PipelineErrorCode.UNABLE_TO_ACQUIRE_LEASE: IPCErrorCategory.INVALID_REQUEST,
             PipelineErrorCode.STALE_RESULT: IPCErrorCategory.STALE_RESULT,
@@ -58,6 +70,61 @@ class PipelineError(Exception):
             details=self.details,
             correlation_id=self.correlation_id,
         )
+
+
+class UnauthorizedError(PipelineError):
+    def __init__(self, message: str = "Authentication required or credentials invalid.", correlation_id: Optional[str] = None) -> None:
+        super().__init__(PipelineErrorCode.UNAUTHORIZED, message, correlation_id=correlation_id)
+
+
+class ForbiddenError(PipelineError):
+    def __init__(self, message: str = "Permission denied for requested action.", correlation_id: Optional[str] = None) -> None:
+        super().__init__(PipelineErrorCode.FORBIDDEN, message, correlation_id=correlation_id)
+
+
+class NotFoundError(PipelineError):
+    def __init__(self, message: str = "Requested resource not found.", correlation_id: Optional[str] = None) -> None:
+        super().__init__(PipelineErrorCode.NOT_FOUND, message, correlation_id=correlation_id)
+
+
+class ConflictError(PipelineError):
+    def __init__(self, message: str = "Conflict with current state.", correlation_id: Optional[str] = None) -> None:
+        super().__init__(PipelineErrorCode.CONFLICT, message, correlation_id=correlation_id)
+
+
+class SoDViolationError(PipelineError):
+    def __init__(self, message: str = "Separation of Duties violation detected.", correlation_id: Optional[str] = None) -> None:
+        super().__init__(PipelineErrorCode.SOD_VIOLATION, message, correlation_id=correlation_id)
+
+
+class QuorumNotMetError(PipelineError):
+    def __init__(self, message: str = "Required authorization quorum not met.", correlation_id: Optional[str] = None) -> None:
+        super().__init__(PipelineErrorCode.QUORUM_NOT_MET, message, correlation_id=correlation_id)
+
+
+class StaleGenerationError(PipelineError):
+    def __init__(self, message: str = "Operation rejected due to stale generation / fencing epoch.", correlation_id: Optional[str] = None) -> None:
+        super().__init__(PipelineErrorCode.STALE_GENERATION, message, correlation_id=correlation_id)
+
+
+class SealMismatchError(PipelineError):
+    def __init__(self, message: str = "Execution seal mismatch.", correlation_id: Optional[str] = None) -> None:
+        super().__init__(PipelineErrorCode.SEAL_MISMATCH, message, correlation_id=correlation_id)
+
+
+class KeyRevokedError(PipelineError):
+    def __init__(self, message: str = "Cryptographic key has been revoked.", correlation_id: Optional[str] = None) -> None:
+        super().__init__(PipelineErrorCode.KEY_REVOKED, message, correlation_id=correlation_id)
+
+
+class ClockSkewDetectedError(PipelineError):
+    def __init__(self, message: str = "Unacceptable clock skew detected.", correlation_id: Optional[str] = None) -> None:
+        super().__init__(PipelineErrorCode.CLOCK_SKEW_DETECTED, message, correlation_id=correlation_id)
+
+
+class CSPRNGUnavailableError(PipelineError):
+    def __init__(self, message: str = "OS CSPRNG is unavailable.", correlation_id: Optional[str] = None) -> None:
+        super().__init__(PipelineErrorCode.CSPRNG_UNAVAILABLE, message, correlation_id=correlation_id)
 
 
 class RevisionConflictError(PipelineError):
