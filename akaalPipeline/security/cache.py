@@ -62,6 +62,9 @@ class AuthorizationCacheManager:
         )
         self._cache[key] = decision
 
+    set_decision = put
+    get_decision = get
+
     def clear(self) -> None:
-        """Explicitly clear in-memory cache."""
+        """Evict all cached decisions."""
         self._cache.clear()

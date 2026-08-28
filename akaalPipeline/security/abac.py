@@ -50,10 +50,14 @@ class ABACAuthority:
             elif op == "not":
                 return not self._evaluate_expression(args, context)
             elif op == "equals":
-                if not isinstance(args, list) or len(args) != 2:
-                    raise ValueError("'equals' expression requires [attr_path, expected_value]")
-                val = self._resolve_attribute(args[0], context) if isinstance(args[0], str) and "." in args[0] else args[0]
-                expected = self._resolve_attribute(args[1], context) if isinstance(args[1], str) and "." in args[1] else args[1]
+                if isinstance(args, dict):
+                    k, expected = next(iter(args.items()))
+                    val = self._resolve_attribute(k, context)
+                elif isinstance(args, list) and len(args) == 2:
+                    val = self._resolve_attribute(args[0], context) if isinstance(args[0], str) and "." in args[0] else args[0]
+                    expected = self._resolve_attribute(args[1], context) if isinstance(args[1], str) and "." in args[1] else args[1]
+                else:
+                    raise ValueError("'equals' expression requires [attr_path, expected_value] or {attr_path: expected_value}")
                 if type(val) != type(expected) and not (isinstance(val, (int, float)) and isinstance(expected, (int, float))):
                     return False
                 return val == expected
@@ -92,7 +96,7 @@ class ABACAuthority:
         if not policies:
             return PolicyEffect.ALLOW
 
-        matched_any = False
+        applicable_allow_policies = False
         has_allow = False
 
         for policy in policies:
@@ -102,7 +106,9 @@ class ABACAuthority:
             if policy["target_resource_type"] != "*" and policy["target_resource_type"] != resource_type:
                 continue
 
-            matched_any = True
+            if policy["effect"] == PolicyEffect.ALLOW.value:
+                applicable_allow_policies = True
+
             try:
                 matches = self._evaluate_expression(policy["condition_expression"], context)
             except MissingAttributeError:
@@ -114,7 +120,12 @@ class ABACAuthority:
                 elif policy["effect"] == PolicyEffect.ALLOW.value:
                     has_allow = True
 
-        if not matched_any:
-            return PolicyEffect.ALLOW
+        if applicable_allow_policies:
+            return PolicyEffect.ALLOW if has_allow else PolicyEffect.DENY
 
-        return PolicyEffect.ALLOW if has_allow else PolicyEffect.DENY
+        return PolicyEffect.ALLOW
+
+    def evaluate(self, tenant_id: str, action: str, attributes: Dict[str, Any], resource_type: str = "*") -> str:
+        """Convenience evaluation returning effect string ('ALLOW' or 'DENY')."""
+        effect = self.evaluate_policies(tenant_id, action, resource_type, attributes)
+        return effect.value if hasattr(effect, "value") else str(effect)

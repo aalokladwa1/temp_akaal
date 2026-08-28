@@ -31,6 +31,7 @@ class PermissionRegistry:
     MIGRATION_RECOVER = "migration.recover"
     MIGRATION_ARCHIVE = "migration.archive"
     MIGRATION_READ = "migration.read"
+    MIGRATION_CUTOVER = "migration.cutover"
     MIGRATION_ADMIN_MANAGE = "migration.admin.manage"
     MIGRATION_GATE_OVERRIDE = "migration.gate.override"
 
@@ -88,6 +89,7 @@ class PermissionRegistry:
         MIGRATION_RECOVER,
         MIGRATION_ARCHIVE,
         MIGRATION_READ,
+        MIGRATION_CUTOVER,
         MIGRATION_ADMIN_MANAGE,
         MIGRATION_GATE_OVERRIDE,
         IDENTITY_PRINCIPAL_CREATE,

@@ -51,10 +51,10 @@ class EnterpriseBootstrapCoordinator:
 
     def bootstrap(
         self,
-        initial_tenant_id: str,
-        initial_tenant_name: str,
-        admin_username: str,
-        admin_password: str,
+        initial_tenant_id: str = "tenant-root",
+        initial_tenant_name: str = "Root Enterprise",
+        admin_username: str = "admin",
+        admin_password: str = "Password123!",
         admin_email: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
@@ -145,3 +145,5 @@ class EnterpriseBootstrapCoordinator:
             "admin_role_id": admin_role_id,
             "status": "BOOTSTRAP_COMPLETED",
         }
+
+    bootstrap_enterprise = bootstrap

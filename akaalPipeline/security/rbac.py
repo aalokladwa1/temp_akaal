@@ -158,3 +158,17 @@ class RBACAuthority:
                 active_role_ids.add(grant["role_id"])
 
         return self.resolve_permissions_for_roles(tenant_id, active_role_ids)
+
+    def resolve_effective_permissions_for_subject(
+        self,
+        tenant_id: str,
+        subject_type: str,
+        subject_id: str,
+        resource_type: str = "SYSTEM",
+        resource_id: str = "root",
+    ) -> Set[str]:
+        """Resolve effective permissions for a single subject under a resource scope."""
+        if subject_type == GrantSubjectType.PRINCIPAL.value:
+            return self.get_effective_permissions(tenant_id, subject_id, [], resource_type, resource_id)
+        else:
+            return self.get_effective_permissions(tenant_id, "", [subject_id], resource_type, resource_id)

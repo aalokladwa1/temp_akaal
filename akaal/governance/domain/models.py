@@ -35,8 +35,8 @@ class SoDRule:
     rule_id: str
     role_a: str
     role_b: str
-    forbidden_actions: List[str]
-    description: str
+    forbidden_actions: List[str] = field(default_factory=list)
+    description: str = ""
     is_active: bool = True
 
 

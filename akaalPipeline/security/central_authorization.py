@@ -7,7 +7,8 @@ Zero hardcoded bypasses; Deny-First default.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional, Tuple, Union
 from akaal.governance.sod.engine import SeparationOfDutiesEngine
 from akaalPipeline.contracts.enums import PolicyEffect, PrincipalType, TenantStatus
 from akaalPipeline.contracts.errors import (
@@ -28,6 +29,19 @@ from akaalPipeline.state.repositories import (
 )
 
 
+@dataclass(frozen=True)
+class AuthorizationContext:
+    """Convenient authorization request context."""
+    tenant_id: str
+    principal_id: str
+    action: str
+    resource_type: str = "SYSTEM"
+    resource_id: str = "root"
+    principal_type: str = "HUMAN"
+    environment: Optional[Dict[str, Any]] = None
+    roles: Tuple[str, ...] = field(default_factory=tuple)
+
+
 class CentralAuthorizationEngine:
     """Canonical central authorization decision engine."""
 
@@ -38,7 +52,7 @@ class CentralAuthorizationEngine:
         group_authority: GroupAuthority,
         rbac_authority: RBACAuthority,
         abac_authority: ABACAuthority,
-        cache_manager: AuthorizationCacheManager,
+        cache_manager: Optional[AuthorizationCacheManager] = None,
         sod_engine: Optional[SeparationOfDutiesEngine] = None,
     ) -> None:
         self.tenant_repo = tenant_repo
@@ -46,30 +60,77 @@ class CentralAuthorizationEngine:
         self.group_authority = group_authority
         self.rbac_authority = rbac_authority
         self.abac_authority = abac_authority
-        self.cache_manager = cache_manager
+        self.cache_manager = cache_manager or AuthorizationCacheManager()
         self.sod_engine = sod_engine or SeparationOfDutiesEngine()
 
     def authorize(
         self,
-        actor_context: PipelineActorContext,
-        permission_id: str,
-        resource_type: str,
-        resource_id: str,
+        actor_context: Union[PipelineActorContext, AuthorizationContext],
+        permission_id: Optional[str] = None,
+        resource_type: Optional[str] = None,
+        resource_id: Optional[str] = None,
         extra_abac_context: Optional[Dict[str, Any]] = None,
+        raise_exceptions: Optional[bool] = None,
     ) -> bool:
         """
         Evaluate full authorization pipeline for a requested permission on a resource.
-        Returns True if authorized; raises ForbiddenError or UnauthorizedError if denied.
+        Returns True if authorized; returns False or raises exception if denied.
         """
+        should_raise = (not isinstance(actor_context, AuthorizationContext)) if raise_exceptions is None else raise_exceptions
+        try:
+            if isinstance(actor_context, AuthorizationContext):
+                perm = permission_id or actor_context.action
+                res_type = resource_type or actor_context.resource_type
+                res_id = resource_id or actor_context.resource_id
+                abac_extra = extra_abac_context or {}
+                if actor_context.environment:
+                    abac_extra["environment"] = actor_context.environment
+                tenant_id = actor_context.tenant_id
+                principal_id = actor_context.principal_id
+                principal_type = actor_context.principal_type
+                roles = actor_context.roles
+            else:
+                perm = permission_id or ""
+                res_type = resource_type or "SYSTEM"
+                res_id = resource_id or "root"
+                abac_extra = extra_abac_context or {}
+                tenant_id = actor_context.tenant_id
+                principal_id = actor_context.principal_id
+                principal_type = actor_context.principal_type
+                roles = actor_context.roles
+
+            return self._authorize_internal(
+                tenant_id=tenant_id,
+                principal_id=principal_id,
+                principal_type=principal_type,
+                roles=roles,
+                permission_id=perm,
+                resource_type=res_type,
+                resource_id=res_id,
+                extra_abac_context=abac_extra,
+            )
+        except (ForbiddenError, UnauthorizedError, UnknownPermissionError):
+            if should_raise:
+                raise
+            return False
+
+    def _authorize_internal(
+        self,
+        tenant_id: str,
+        principal_id: str,
+        principal_type: str,
+        roles: Tuple[str, ...],
+        permission_id: str,
+        resource_type: str,
+        resource_id: str,
+        extra_abac_context: Dict[str, Any],
+    ) -> bool:
         # 1. Validate Permission in canonical registry
         if not PermissionRegistry.is_valid(permission_id):
             raise ForbiddenError(f"Unknown permission requested: {permission_id!r}")
 
-        tenant_id = actor_context.tenant_id
-        principal_id = actor_context.principal_id
-
         # SYSTEM actor is internal-only; when authentic internal context, allow system permissions
-        if actor_context.principal_type == PrincipalType.SYSTEM:
+        if principal_type == PrincipalType.SYSTEM.value or principal_type == PrincipalType.SYSTEM:
             return True
 
         # 2. Verify Tenant is ACTIVE
@@ -86,18 +147,19 @@ class CentralAuthorizationEngine:
         effective_sec_rev = max(tenant["security_revision"], principal["security_revision"])
 
         # 5. Check L1 Cache
-        cached_decision = self.cache_manager.get(
-            tenant_id=tenant_id,
-            principal_id=principal_id,
-            current_authoritative_revision=effective_sec_rev,
-            permission_id=permission_id,
-            resource_type=resource_type,
-            resource_id=resource_id,
-        )
-        if cached_decision is not None:
-            if not cached_decision:
-                raise ForbiddenError(f"Permission {permission_id!r} denied by cached policy on {resource_type}/{resource_id}")
-            return True
+        if not extra_abac_context:
+            cached_decision = self.cache_manager.get(
+                tenant_id=tenant_id,
+                principal_id=principal_id,
+                current_authoritative_revision=effective_sec_rev,
+                permission_id=permission_id,
+                resource_type=resource_type,
+                resource_id=resource_id,
+            )
+            if cached_decision is not None:
+                if not cached_decision:
+                    raise ForbiddenError(f"Permission {permission_id!r} denied by cached policy on {resource_type}/{resource_id}")
+                return True
 
         # 6. Resolve Groups
         group_ids = self.group_authority.get_principal_groups(tenant_id, principal_id)
@@ -112,7 +174,8 @@ class CentralAuthorizationEngine:
         )
 
         if permission_id not in effective_permissions:
-            self.cache_manager.put(tenant_id, principal_id, effective_sec_rev, permission_id, resource_type, resource_id, False)
+            if not extra_abac_context:
+                self.cache_manager.put(tenant_id, principal_id, effective_sec_rev, permission_id, resource_type, resource_id, False)
             raise ForbiddenError(
                 f"Principal {principal_id!r} lacks required permission {permission_id!r} on {resource_type}/{resource_id}"
             )
@@ -123,7 +186,7 @@ class CentralAuthorizationEngine:
                 "principal_id": principal_id,
                 "principal_type": principal["principal_type"],
                 "groups": group_ids,
-                "roles": list(actor_context.roles),
+                "roles": list(roles),
             },
             "resource": {
                 "type": resource_type,
@@ -143,9 +206,11 @@ class CentralAuthorizationEngine:
         )
 
         if abac_effect == PolicyEffect.DENY:
-            self.cache_manager.put(tenant_id, principal_id, effective_sec_rev, permission_id, resource_type, resource_id, False)
+            if not extra_abac_context:
+                self.cache_manager.put(tenant_id, principal_id, effective_sec_rev, permission_id, resource_type, resource_id, False)
             raise ForbiddenError(f"ABAC policy denied action {permission_id!r} on {resource_type}/{resource_id}")
 
         # Authorized successfully
-        self.cache_manager.put(tenant_id, principal_id, effective_sec_rev, permission_id, resource_type, resource_id, True)
+        if not extra_abac_context:
+            self.cache_manager.put(tenant_id, principal_id, effective_sec_rev, permission_id, resource_type, resource_id, True)
         return True

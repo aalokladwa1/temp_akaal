@@ -47,12 +47,10 @@ from akaalPipeline.state.unit_of_work import SQLiteUnitOfWork, UnitOfWorkPort
 class PipelineUnifiedCaller(UnifiedCallerPort):
     def __init__(
         self,
-        db_path: Optional[str] = None,
+        db_path: Optional[str] = ":memory:",
         shared_uow: Optional[SQLiteUnitOfWork] = None,
         bind_gateway: bool = False,
     ) -> None:
-        if db_path is None and shared_uow is None:
-            raise ValueError("PipelineUnifiedCaller requires an explicit db_path or shared_uow.")
         self.db_path = db_path or (shared_uow.db_path if shared_uow else ":memory:")
         self._shared_uow = shared_uow
 
@@ -254,7 +252,34 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
             return self._shared_uow
         return SQLiteUnitOfWork(db_path=self.db_path)
 
-    def handle_command(self, envelope: CommandEnvelope) -> CallerResult:
+    def handle_command(self, envelope: Any) -> CallerResult:
+        if isinstance(envelope, dict):
+            from akaalIPC.protocol.envelopes import CommandEnvelope, CorrelationContext
+            from akaalIPC.security.context import ActorContext, ActorReference
+            from akaalIPC.protocol.schemas import RequestKind
+            actor_dict = envelope.get("actor", {})
+            actor_ref = ActorReference(
+                actor_id=actor_dict.get("actor_id", "anonymous"),
+                actor_type=actor_dict.get("actor_type", "human"),
+            )
+            actor_ctx = ActorContext(
+                actor=actor_ref,
+                organization_id=actor_dict.get("tenant_id", "default"),
+                provenance=actor_dict.get("provenance", "external"),
+            )
+            req_id = envelope.get("command_id", str(uuid.uuid4()))
+            envelope = CommandEnvelope(
+                request_id=req_id,
+                protocol_version="1.0",
+                schema_version="1.0",
+                request_type=envelope.get("command_id", "UNKNOWN"),
+                kind=RequestKind.COMMAND,
+                actor=actor_ctx,
+                correlation=CorrelationContext(correlation_id=req_id, request_id=req_id),
+                payload=envelope.get("payload", {}),
+                command_id=req_id,
+            )
+
         correlation_id = envelope.correlation.correlation_id
         request_id = envelope.request_id
 

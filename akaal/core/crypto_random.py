@@ -29,6 +29,9 @@ def secure_random_bytes(n_bytes: int) -> bytes:
         raise CSPRNGUnavailableError(f"OS CSPRNG failure: {exc}") from exc
 
 
+generate_secure_random_bytes = secure_random_bytes
+
+
 def generate_nonce() -> str:
     """Generate a high-entropy 128-bit UUID4 nonce using OS CSPRNG."""
     try:

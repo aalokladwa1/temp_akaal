@@ -52,16 +52,17 @@ class GroupAuthority:
         tenant_id: str,
         group_id: str,
         principal_id: str,
-        granted_by: str,
+        granted_by: str = "system",
     ) -> None:
         """Add a principal to a flat group. Prohibits nested groups."""
+        # Check if attempting to add another group
+        if principal_id.startswith("grp-") or self.group_repo.get_group(tenant_id, principal_id) is not None:
+            raise NestedGroupsNotSupportedError(f"Cannot add group {principal_id!r} to group {group_id!r}: nested groups are prohibited in P5.9")
+
         # Check if principal exists
         principal = self.principal_repo.get_by_id(tenant_id, principal_id)
         if not principal:
-            # Check if principal_id is another group (nested group attempt)
-            if principal_id.startswith("grp-"):
-                raise NestedGroupsNotSupportedError("Nested groups are unsupported in P5.9")
-            raise ValueError(f"Principal {principal_id!r} not found in tenant {tenant_id!r}")
+            raise ValueError(f"Principal {principal_id!r} does not exist in tenant {tenant_id!r}")
 
         now_iso = TimeAuthority.utc_iso_now()
         self.group_repo.add_member(tenant_id, group_id, principal_id, granted_by, now_iso)

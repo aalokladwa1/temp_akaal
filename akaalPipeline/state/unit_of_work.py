@@ -10,7 +10,24 @@ import sqlite3
 from abc import ABC, abstractmethod
 from typing import Any, Mapping, Optional
 from akaalPipeline.contracts.errors import PersistenceError
-from akaalPipeline.state.repositories import SQLiteMigrationRepository
+from akaalPipeline.state.repositories import (
+    SQLiteABACPolicyRepository,
+    SQLiteCredentialRepository,
+    SQLiteGovernanceApprovalRepository,
+    SQLiteGroupRepository,
+    SQLiteKeyringRepository,
+    SQLiteMigrationRepository,
+    SQLitePrincipalRepository,
+    SQLiteProjectRepository,
+    SQLiteRoleGrantRepository,
+    SQLiteRolePermissionRepository,
+    SQLiteRoleRepository,
+    SQLiteSecurityAuditRepository,
+    SQLiteServiceTokenRepository,
+    SQLiteSessionRepository,
+    SQLiteTenantRepository,
+    SQLiteWorkspaceRepository,
+)
 
 
 class UnitOfWorkPort(ABC):
@@ -61,6 +78,73 @@ class SQLiteUnitOfWork(UnitOfWorkPort):
     def connection(self) -> sqlite3.Connection:
         return self._get_conn()
 
+    @property
+    def conn(self) -> sqlite3.Connection:
+        return self._get_conn()
+
+    def initialize_schema(self) -> None:
+        self._init_all_tables()
+
+    @property
+    def tenants(self) -> SQLiteTenantRepository:
+        return SQLiteTenantRepository(self._get_conn())
+
+    @property
+    def workspaces(self) -> SQLiteWorkspaceRepository:
+        return SQLiteWorkspaceRepository(self._get_conn())
+
+    @property
+    def projects(self) -> SQLiteProjectRepository:
+        return SQLiteProjectRepository(self._get_conn())
+
+    @property
+    def principals(self) -> SQLitePrincipalRepository:
+        return SQLitePrincipalRepository(self._get_conn())
+
+    @property
+    def credentials(self) -> SQLiteCredentialRepository:
+        return SQLiteCredentialRepository(self._get_conn())
+
+    @property
+    def sessions(self) -> SQLiteSessionRepository:
+        return SQLiteSessionRepository(self._get_conn())
+
+    @property
+    def service_tokens(self) -> SQLiteServiceTokenRepository:
+        return SQLiteServiceTokenRepository(self._get_conn())
+
+    @property
+    def groups(self) -> SQLiteGroupRepository:
+        return SQLiteGroupRepository(self._get_conn())
+
+    @property
+    def roles(self) -> SQLiteRoleRepository:
+        return SQLiteRoleRepository(self._get_conn())
+
+    @property
+    def role_permissions(self) -> SQLiteRolePermissionRepository:
+        return SQLiteRolePermissionRepository(self._get_conn())
+
+    @property
+    def role_grants(self) -> SQLiteRoleGrantRepository:
+        return SQLiteRoleGrantRepository(self._get_conn())
+
+    @property
+    def abac_policies(self) -> SQLiteABACPolicyRepository:
+        return SQLiteABACPolicyRepository(self._get_conn())
+
+    @property
+    def governance_approvals(self) -> SQLiteGovernanceApprovalRepository:
+        return SQLiteGovernanceApprovalRepository(self._get_conn())
+
+    @property
+    def keyring(self) -> SQLiteKeyringRepository:
+        return SQLiteKeyringRepository(self._get_conn())
+
+    @property
+    def audit_ledger(self) -> SQLiteSecurityAuditRepository:
+        return SQLiteSecurityAuditRepository(self._get_conn())
+
     def _init_all_tables(self) -> None:
         conn = self._get_conn()
         conn.executescript("""
@@ -105,7 +189,7 @@ class SQLiteUnitOfWork(UnitOfWorkPort):
             CREATE TABLE IF NOT EXISTS enterprise_principals (
                 principal_id TEXT NOT NULL,
                 tenant_id TEXT NOT NULL,
-                principal_type TEXT NOT NULL CHECK(principal_type IN ('HUMAN', 'SERVICE', 'MACHINE', 'SYSTEM')),
+                principal_type TEXT NOT NULL CHECK(principal_type IN ('HUMAN', 'SERVICE', 'MACHINE', 'WORKLOAD', 'SYSTEM')),
                 username TEXT NOT NULL,
                 display_name TEXT,
                 email TEXT,

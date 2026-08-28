@@ -167,6 +167,9 @@ class KeyStoreAuthority:
         if key_record["purpose"] != purpose.value:
             raise KeyPurposeMismatchError(f"Key {key_record['key_id']!r} is not for purpose {purpose.value!r}")
 
+        if key_record.get("algorithm") != KeyAlgorithm.ED25519.value:
+            raise KeyPurposeMismatchError(f"Key {key_record['key_id']!r} algorithm is {key_record.get('algorithm')!r}, not ED25519")
+
         if key_record["status"] != KeyStatus.ACTIVE.value:
             raise KeyRevokedError(f"Key {key_record['key_id']!r} is not ACTIVE (status={key_record['status']})")
 
@@ -199,12 +202,12 @@ class KeyStoreAuthority:
         old_active = self.keyring_repo.get_active_key(purpose.value)
         now_iso = TimeAuthority.utc_iso_now()
         if old_active:
-            self.keyring_repo.revoke_key(old_active["key_id"], now_iso)
+            self.keyring_repo.retire_key(old_active["key_id"], now_iso)
 
         algo = KeyAlgorithm(old_active["algorithm"]) if old_active else KeyAlgorithm.ED25519
         return self.generate_and_save_key(purpose, algo)
 
-    def revoke_key(self, key_id: str) -> None:
+    def revoke_key(self, key_id: str, reason: Optional[str] = None) -> None:
         """Revoke a specific key."""
         now_iso = TimeAuthority.utc_iso_now()
         self.keyring_repo.revoke_key(key_id, now_iso)

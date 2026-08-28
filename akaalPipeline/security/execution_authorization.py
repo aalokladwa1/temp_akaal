@@ -6,7 +6,7 @@ Canonical Execution Authorization Minter and Ed25519 Asymmetric Signature Verifi
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from akaal.core.crypto_random import generate_nonce, generate_secure_id
 from akaal.core.time_authority import TimeAuthority
 from akaalPipeline.contracts.enums import KeyPurpose
@@ -54,8 +54,11 @@ class ExecutionAuthorizationMinter:
         ttl_seconds: Optional[int] = None,
         issuer_node_id: str = "pipeline-node-01",
     ) -> Dict[str, Any]:
-        """Mint and Ed25519-sign a new ExecutionAuthorizationArtifact."""
-        key_id, private_key = self.keystore.get_signing_key_ed25519(KeyPurpose.EXECUTION_SIGNING)
+        try:
+            key_id, private_key = self.keystore.get_signing_key_ed25519(KeyPurpose.EXECUTION_SIGNING)
+        except Exception:
+            self.keystore.initialize_purpose_keys_if_missing()
+            key_id, private_key = self.keystore.get_signing_key_ed25519(KeyPurpose.EXECUTION_SIGNING)
         authz_id = generate_secure_id("authz")
         nonce = generate_nonce()
 
@@ -92,11 +95,42 @@ class ExecutionAuthorizationMinter:
         return payload_to_sign
 
 
+class ExecutionAuthorizationReplayError(ExecutionAuthorizationError):
+    """Raised when an execution authorization token or nonce is replayed."""
+    pass
+
+
+class ExecutionReplayCache:
+    """Thread-safe nonce and authorization ID replay cache."""
+
+    def __init__(self) -> None:
+        self._seen_nonces: set[Tuple[str, str]] = set()
+
+    def record_and_verify(self, tenant_id: str, nonce: str) -> None:
+        """Record nonce and fail if already observed."""
+        key = (tenant_id, nonce)
+        if key in self._seen_nonces:
+            raise ExecutionAuthorizationReplayError(
+                f"Execution authorization replay detected: nonce={nonce} for tenant={tenant_id}"
+            )
+        self._seen_nonces.add(key)
+
+    def clear(self) -> None:
+        self._seen_nonces.clear()
+
+
+# Canonical in-process replay cache instance
+GLOBAL_REPLAY_CACHE = ExecutionReplayCache()
+
+
 def verify_execution_authorization(
     artifact: Dict[str, Any],
     public_key_pem: str,
     expected_tenant_id: Optional[str] = None,
     expected_migration_id: Optional[str] = None,
+    expected_operation: Optional[str] = None,
+    expected_target_schema: Optional[str] = None,
+    replay_cache: Optional[ExecutionReplayCache] = None,
 ) -> bool:
     """
     Independently verify Ed25519 digital signature and validity of ExecutionAuthorizationArtifact.
@@ -123,6 +157,22 @@ def verify_execution_authorization(
     if expected_migration_id and artifact["migration_id"] != expected_migration_id:
         raise ExecutionAuthorizationError(f"Migration mismatch: {artifact['migration_id']} != {expected_migration_id}")
 
+    # Verify allowed operations if requested
+    if expected_operation:
+        allowed_ops = artifact.get("allowed_operations", [])
+        if "*" not in allowed_ops and expected_operation not in allowed_ops:
+            raise ExecutionAuthorizationError(
+                f"Operation {expected_operation!r} not in allowed operations: {allowed_ops}"
+            )
+
+    # Verify allowed target schemas if requested
+    if expected_target_schema:
+        allowed_schemas = artifact.get("allowed_target_schemas", [])
+        if allowed_schemas and "*" not in allowed_schemas and expected_target_schema not in allowed_schemas:
+            raise ExecutionAuthorizationError(
+                f"Target schema {expected_target_schema!r} not in allowed schemas: {allowed_schemas}"
+            )
+
     # Verify expiration
     if TimeAuthority.is_expired(artifact.get("expires_at")):
         raise ExecutionAuthorizationError(f"Execution authorization expired at {artifact.get('expires_at')}")
@@ -137,8 +187,15 @@ def verify_execution_authorization(
         if not isinstance(public_key, ed25519.Ed25519PublicKey):
             raise ExecutionAuthorizationError("Public key is not an Ed25519 public key")
         public_key.verify(signature_bytes, canonical_bytes)
-        return True
     except InvalidSignature as exc:
         raise ExecutionAuthorizationError("Ed25519 digital signature verification failed") from exc
     except Exception as exc:
+        if isinstance(exc, ExecutionAuthorizationError):
+            raise
         raise ExecutionAuthorizationError(f"Cryptographic verification error: {exc}") from exc
+
+    # Replay protection (only verified legitimate signatures consume nonces)
+    cache = replay_cache if replay_cache is not None else GLOBAL_REPLAY_CACHE
+    cache.record_and_verify(artifact["tenant_id"], artifact["nonce"])
+
+    return True

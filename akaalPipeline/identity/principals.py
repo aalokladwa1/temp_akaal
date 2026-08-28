@@ -69,11 +69,12 @@ class PrincipalManager:
 
         principal_id = generate_secure_id("usr")
         now_iso = TimeAuthority.utc_iso_now()
+        ptype_str = principal_type.value if hasattr(principal_type, "value") else str(principal_type)
 
         created = self.principal_repo.create(
             tenant_id=tenant_id,
             principal_id=principal_id,
-            principal_type=principal_type.value,
+            principal_type=ptype_str,
             username=username,
             display_name=display_name,
             email=email,
@@ -81,7 +82,7 @@ class PrincipalManager:
             created_at=now_iso,
         )
 
-        if password and principal_type == PrincipalType.HUMAN:
+        if password and ptype_str == PrincipalType.HUMAN.value:
             self.set_password(tenant_id, principal_id, password)
 
         return created
@@ -177,3 +178,5 @@ class PrincipalManager:
             )
 
         raise AuthenticationFailedError("Invalid username or password")
+
+    authenticate = authenticate_human

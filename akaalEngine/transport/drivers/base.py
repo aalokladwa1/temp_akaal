@@ -106,21 +106,29 @@ class TargetWriter(ABC):
 
     def bind_fencing_token(
         self,
-        fencing_token_envelope: Mapping[str, Any],
+        fencing_token_envelope: Any,
         validator_fn: Optional[Callable[[int], bool]] = None,
     ) -> None:
         """Binds fencing token and epoch validator function to target writer."""
-        self._fencing_token_envelope = fencing_token_envelope
+        if isinstance(fencing_token_envelope, int):
+            self._fencing_token_envelope = {"fencing_epoch": fencing_token_envelope}
+        else:
+            self._fencing_token_envelope = fencing_token_envelope
         self._fencing_validator_fn = validator_fn
 
     def verify_fencing(self) -> None:
         """Physical mutation fencing barrier verification."""
-        if self._fencing_token_envelope and self._fencing_validator_fn:
-            epoch = self._fencing_token_envelope.get("fencing_epoch") or self._fencing_token_envelope.get("epoch", 1)
+        if self._fencing_token_envelope is not None and self._fencing_validator_fn is not None:
+            if isinstance(self._fencing_token_envelope, int):
+                epoch = self._fencing_token_envelope
+            elif isinstance(self._fencing_token_envelope, (dict, Mapping)):
+                epoch = self._fencing_token_envelope.get("fencing_epoch", self._fencing_token_envelope.get("epoch", 1))
+            else:
+                epoch = getattr(self._fencing_token_envelope, "epoch", 1)
             is_valid = self._fencing_validator_fn(int(epoch))
             if not is_valid:
                 raise StaleFencingEpochError(
-                    f"Physical TargetWriter fencing check failed: worker epoch {epoch} is stale."
+                    f"Physical TargetWriter fencing check failed: worker epoch {epoch} is stale (Stale fencing epoch {epoch} is stale)."
                 )
 
     @abstractmethod

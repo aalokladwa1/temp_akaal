@@ -77,6 +77,7 @@ class SecurityAuditService:
         now_iso = TimeAuthority.utc_iso_now()
         audit_id = generate_secure_id("aud")
 
+        decision_val = decision.value if hasattr(decision, "value") else str(decision)
         entry_hash = self._compute_entry_hash(
             sequence_number=next_seq,
             previous_hash=last_hash,
@@ -86,7 +87,7 @@ class SecurityAuditService:
             resource_type=resource_type,
             resource_id=resource_id,
             action=action,
-            decision=decision.value,
+            decision=decision_val,
             details=details_dict,
             timestamp=now_iso,
         )
@@ -101,7 +102,7 @@ class SecurityAuditService:
             resource_type=resource_type,
             resource_id=resource_id,
             action=action,
-            decision=decision.value,
+            decision=decision_val,
             details=details_dict,
             previous_hash=last_hash,
             entry_hash=entry_hash,

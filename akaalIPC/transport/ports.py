@@ -54,6 +54,21 @@ class CallerResult:
     operation: Optional[OperationReference] = None
     error: Optional[IPCError] = None
 
+    def __getitem__(self, key: str) -> Any:
+        if key == "success":
+            return self.status == CallerResultStatus.OK
+        if key == "status":
+            return self.status.value
+        if key == "error_code":
+            return self.error.code if self.error else None
+        if key == "error_category":
+            return self.error.category.value if self.error and hasattr(self.error.category, "value") else str(self.error.category) if self.error else None
+        if key == "error":
+            return self.error
+        if key == "result":
+            return self.result
+        raise KeyError(key)
+
 
 @runtime_checkable
 class UnifiedCallerPort(Protocol):

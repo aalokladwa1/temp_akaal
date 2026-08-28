@@ -5,6 +5,7 @@ Generic SQL SourceReader and TargetWriter driver for SQLite, MySQL, MSSQL, Db2 w
 """
 
 import logging
+from typing import Any, Dict, List, Optional
 
 from akaalEngine.transport.drivers.base import SourceReader, TargetWriter
 from akaalEngine.transport.models.batch import TransportBatch, TransportBatchMetadata
@@ -90,14 +91,15 @@ class GenericSQLSourceReader(SourceReader):
 class GenericSQLTargetWriter(TargetWriter):
     """Generic SQL TargetWriter using executemany batch insertion with physical mutation fencing."""
 
-    def __init__(self, connection_params: dict):
+    def __init__(self, connection_params: Optional[dict] = None):
+        params = connection_params or {}
         super().__init__(
-            migration_id=connection_params.get("migration_id"),
-            batch_id=connection_params.get("batch_id") or connection_params.get("job_id"),
-            endpoint_identity=connection_params.get("endpoint_identity") or connection_params.get("host"),
+            migration_id=params.get("migration_id"),
+            batch_id=params.get("batch_id") or params.get("job_id"),
+            endpoint_identity=params.get("endpoint_identity") or params.get("host"),
         )
-        self.params = connection_params
-        self.conn = connection_params.get("db_connection")
+        self.params = params
+        self.conn = params.get("db_connection")
         self.cursor = self.conn.cursor() if self.conn else None
         self._in_transaction: bool = False
         self._active_tx_uncommitted_rows: int = 0

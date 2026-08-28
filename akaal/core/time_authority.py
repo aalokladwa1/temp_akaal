@@ -25,6 +25,18 @@ class TimeAuthority:
     _max_backward_skew_seconds: float = 5.0
 
     @classmethod
+    def set_clock_skew_threshold(cls, threshold_seconds: float) -> None:
+        """Configure maximum allowable backward wall clock drift."""
+        if threshold_seconds < 0.1 or threshold_seconds > 60.0:
+            raise ValueError("Clock skew threshold must be between 0.1s and 60.0s")
+        cls._max_backward_skew_seconds = threshold_seconds
+
+    @classmethod
+    def get_clock_skew_threshold(cls) -> float:
+        """Get current clock skew threshold in seconds."""
+        return cls._max_backward_skew_seconds
+
+    @classmethod
     def monotonic_now(cls) -> float:
         """Returns monotonic time in seconds for timeouts and lease durations."""
         return time.monotonic()

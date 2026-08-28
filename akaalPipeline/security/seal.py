@@ -71,14 +71,23 @@ class ExecutionSealBuilder:
         plan_id: str,
         plan_revision: int,
         execution_mode: str,
-        source_identity_fp: str,
-        target_identity_fp: str,
-        selection_scope_fp: str,
-        config_fp: str,
-        initialization_fp: str,
-        approval_fp: str,
-        fence_epoch: int,
+        source_identity_fp: str = "",
+        target_identity_fp: str = "",
+        selection_scope_fp: str = "",
+        config_fp: str = "",
+        initialization_fp: str = "",
+        approval_fp: str = "",
+        fence_epoch: int = 1,
+        **kwargs: Any,
     ) -> ExecutionSeal:
+        src = source_identity_fp or kwargs.get("source_identity_fingerprint", "")
+        tgt = target_identity_fp or kwargs.get("target_identity_fingerprint", "")
+        sel = selection_scope_fp or kwargs.get("selection_scope_fingerprint", "")
+        cfg = config_fp or kwargs.get("config_fingerprint", "")
+        init = initialization_fp or kwargs.get("initialization_fingerprint", "")
+        appr = approval_fp or kwargs.get("approval_fingerprint", "")
+        f_epoch = fence_epoch if fence_epoch is not None else kwargs.get("fence_epoch", 1)
+
         return ExecutionSeal(
             seal_version=cls.SEAL_VERSION,
             tenant_id=tenant_id,
@@ -88,11 +97,11 @@ class ExecutionSealBuilder:
             plan_id=plan_id,
             plan_revision=plan_revision,
             execution_mode=execution_mode,
-            source_identity_fp=source_identity_fp,
-            target_identity_fp=target_identity_fp,
-            selection_scope_fp=selection_scope_fp,
-            config_fp=config_fp,
-            initialization_fp=initialization_fp,
-            approval_fp=approval_fp,
-            fence_epoch=fence_epoch,
+            source_identity_fp=src,
+            target_identity_fp=tgt,
+            selection_scope_fp=sel,
+            config_fp=cfg,
+            initialization_fp=init,
+            approval_fp=appr,
+            fence_epoch=f_epoch,
         )

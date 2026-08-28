@@ -145,6 +145,7 @@ class PrincipalType(str, Enum):
     HUMAN = "HUMAN"
     SERVICE = "SERVICE"
     MACHINE = "MACHINE"
+    WORKLOAD = "WORKLOAD"
     SYSTEM = "SYSTEM"
 
 

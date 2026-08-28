@@ -7,13 +7,15 @@ from __future__ import annotations
 
 import hashlib
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple, Union
 from akaal.core.crypto_random import generate_secure_id, generate_secure_token
 from akaal.core.time_authority import TimeAuthority
+from akaalPipeline.contracts.errors import UnauthorizedError
 from akaalPipeline.security.config import SecurityBaselineConfig
 from akaalPipeline.state.repositories import (
     SQLitePrincipalRepository,
     SQLiteSessionRepository,
+    SQLiteTenantRepository,
 )
 
 
@@ -33,6 +35,29 @@ class SessionSecurityRevisionMismatchError(ValueError):
     pass
 
 
+class SessionResult(tuple):
+    """Dual tuple/dict wrapper for session creation results."""
+    def __new__(cls, session_id: str, raw_token: str):
+        return super().__new__(cls, (session_id, raw_token))
+
+    @property
+    def session_id(self) -> str:
+        return self[0]
+
+    @property
+    def token(self) -> str:
+        return self[1]
+
+    def __getitem__(self, item: Any) -> Any:
+        if isinstance(item, str):
+            if item in ("session_id", "id"):
+                return self[0]
+            if item in ("token", "raw_token"):
+                return self[1]
+            raise KeyError(item)
+        return super().__getitem__(item)
+
+
 class SessionManager:
     """Canonical durable session authority."""
 
@@ -40,10 +65,12 @@ class SessionManager:
         self,
         session_repo: SQLiteSessionRepository,
         principal_repo: SQLitePrincipalRepository,
+        tenant_repo: Optional[SQLiteTenantRepository] = None,
         config: Optional[SecurityBaselineConfig] = None,
     ) -> None:
         self.session_repo = session_repo
         self.principal_repo = principal_repo
+        self.tenant_repo = tenant_repo
         self.config = config or SecurityBaselineConfig()
 
     def _hash_token(self, token: str) -> str:
@@ -53,29 +80,35 @@ class SessionManager:
         self,
         tenant_id: str,
         principal_id: str,
+        ttl_seconds: Optional[int] = None,
         client_ip: Optional[str] = None,
         user_agent: Optional[str] = None,
-    ) -> Tuple[str, str]:
+    ) -> SessionResult:
         """
         Create a durable high-entropy session.
-        Returns: (session_id, raw_bearer_token)
+        Returns: SessionResult(session_id, raw_bearer_token)
         """
+        # If principal_id is a username, resolve to principal_id
         principal = self.principal_repo.get_by_id(tenant_id, principal_id)
+        if not principal:
+            principal = self.principal_repo.get_by_username(tenant_id, principal_id)
         if not principal or not principal["is_active"]:
             raise ValueError(f"Cannot create session for inactive principal {principal_id!r}")
 
+        real_principal_id = principal["principal_id"]
         session_id = generate_secure_id("sess")
         raw_token = f"ak_sess_{generate_secure_token(32)}"
         token_hash = self._hash_token(raw_token)
 
         now = TimeAuthority.utc_now()
         now_iso = now.isoformat()
-        abs_exp_iso = (now + timedelta(seconds=self.config.session_absolute_timeout_seconds)).isoformat()
+        abs_ttl = ttl_seconds or self.config.session_absolute_timeout_seconds
+        abs_exp_iso = (now + timedelta(seconds=abs_ttl)).isoformat()
 
         self.session_repo.create_session(
             session_id=session_id,
             tenant_id=tenant_id,
-            principal_id=principal_id,
+            principal_id=real_principal_id,
             session_token_hash=token_hash,
             issued_at=now_iso,
             last_activity_at=now_iso,
@@ -85,7 +118,7 @@ class SessionManager:
             client_ip=client_ip,
             user_agent=user_agent,
         )
-        return session_id, raw_token
+        return SessionResult(session_id, raw_token)
 
     def validate_session(
         self,
@@ -138,6 +171,19 @@ class SessionManager:
         self.session_repo.update_activity(tenant_id, session_id, now_iso)
         session["last_activity_at"] = now_iso
         return session
+
+    def authenticate_session(self, tenant_id: str, raw_token: str) -> Dict[str, Any]:
+        """Authenticate session directly from raw token string, returning validated session or raising UnauthorizedError."""
+        if not raw_token:
+            raise UnauthorizedError("Empty session token")
+        token_hash = self._hash_token(raw_token)
+        session = self.session_repo.get_by_hash(tenant_id, token_hash)
+        if not session:
+            raise UnauthorizedError("Invalid, revoked, or expired session")
+        try:
+            return self.validate_session(tenant_id, session["session_id"], raw_token)
+        except (SessionNotFoundError, SessionRevokedError, SessionExpiredError, SessionSecurityRevisionMismatchError) as exc:
+            raise UnauthorizedError(f"Session validation failure: {exc}") from exc
 
     def revoke_session(self, tenant_id: str, session_id: str, reason: str = "EXPLICIT_LOGOUT") -> None:
         """Revoke a specific session."""

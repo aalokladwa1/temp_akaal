@@ -28,11 +28,16 @@ class SecurityAlertEvent:
     details: Dict[str, Any]
     timestamp: str
 
+    @property
+    def alert_type(self) -> str:
+        return self.threat_type
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "alert_id": self.alert_id,
             "tenant_id": self.tenant_id,
             "threat_type": self.threat_type,
+            "alert_type": self.threat_type,
             "severity": self.severity.value,
             "description": self.description,
             "actor_id": self.actor_id,
@@ -151,3 +156,39 @@ class SecurityThreatDetector:
             actor_id=actor_id,
             details={"target_role": target_role},
         )
+
+    def analyze_event(self, event: Dict[str, Any]) -> Optional[SecurityAlertEvent]:
+        """Analyze an incoming audit/security event dictionary and trigger appropriate threat alerts."""
+        event_type = event.get("event_type", "")
+        tenant_id = event.get("tenant_id", "system")
+        actor_id = event.get("actor_id", "unknown")
+
+        if event_type in ("LOGIN_FAILURE", "AUTHENTICATION_FAILURE"):
+            if not hasattr(self, "_failure_counts"):
+                self._failure_counts: Dict[str, int] = {}
+            key = f"{tenant_id}:{actor_id}"
+            self._failure_counts[key] = self._failure_counts.get(key, 0) + 1
+            return self.record_auth_failure(tenant_id, actor_id, event.get("ip_address"), self._failure_counts[key])
+
+        elif event_type in ("CROSS_TENANT_IDOR_PROBING", "IDOR_PROBING"):
+            target_tenant = event.get("target_tenant_id", event.get("target_tenant", "target"))
+            resource_id = event.get("resource_id", "resource")
+            return self.record_cross_tenant_access_attempt(tenant_id, target_tenant, resource_id, actor_id)
+
+        elif event_type in ("STALE_FENCING_EPOCH", "FENCING_EPOCH_VIOLATION"):
+            mig_id = event.get("migration_id", "mig-01")
+            stale_epoch = event.get("stale_epoch", 1)
+            auth_epoch = event.get("authoritative_epoch", 2)
+            return self.record_fencing_epoch_violation(tenant_id, mig_id, stale_epoch, auth_epoch)
+
+        elif event_type in ("REPLAY_ATTACK", "NONCE_REPLAY"):
+            token_or_nonce = event.get("nonce", event.get("token", "nonce"))
+            return self.record_replay_attempt(tenant_id, token_or_nonce, actor_id)
+
+        elif event_type in ("SEAL_TAMPER", "SEAL_INTEGRITY_VIOLATION"):
+            mig_id = event.get("migration_id", "mig-01")
+            exp_seal = event.get("expected_seal", "")
+            act_seal = event.get("actual_seal", "")
+            return self.record_seal_tamper_attempt(tenant_id, mig_id, exp_seal, act_seal)
+
+        return None

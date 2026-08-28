@@ -58,11 +58,24 @@ class InProcessCredentialVault:
             return creds
 
     def remove_credentials(self, credential_ref: str) -> None:
-        """Purges credentials from vault when session finishes."""
+        """Evicts credentials for a given reference from memory."""
         with self._lock:
             if credential_ref in self._store:
                 del self._store[credential_ref]
-                logger.info(f"[CREDENTIAL VAULT] Purged ref={credential_ref} from memory.")
+                logger.info(f"[CREDENTIAL VAULT] Evicted credentials for ref={credential_ref}.")
+
+    def store_secret(self, key_or_name: str, secret: Optional[str] = None) -> str:
+        """Convenience helper for storing a secret string."""
+        payload = {"password": secret if secret is not None else key_or_name, "key": key_or_name}
+        return self.store_credentials(payload)
+
+    def get_secret(self, credential_ref: str) -> Dict[str, Any]:
+        """Convenience helper for retrieving a secret."""
+        return self.get_credentials(credential_ref, fail_closed=True)
+
+    def evict_secret(self, credential_ref: str) -> None:
+        """Convenience helper for evicting a secret."""
+        self.remove_credentials(credential_ref)
 
     def clear_all(self) -> None:
         """Wipes vault memory."""
