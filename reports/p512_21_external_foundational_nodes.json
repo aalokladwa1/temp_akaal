@@ -1,0 +1,212 @@
+[
+  {
+    "index": 1,
+    "node_id": "tests/cdc/test_coordinator_facade.py::test_cdc_client_and_facade_flow",
+    "p0_p4_membership": "P0\u2013P4 Foundational",
+    "whole_p5_membership": "Whole-P5 Validation / Reporting or External Deferred",
+    "exact_shared_membership": true,
+    "external_deferred_membership": true,
+    "global_accounting_bucket": "EXTERNAL_LIVE_DEFERRED",
+    "local_execution_eligibility": "DEFERRED (Requires live DB / Kafka / socket infrastructure)"
+  },
+  {
+    "index": 2,
+    "node_id": "tests/cdc/test_routing_buffering.py::test_cdc_routing_engine",
+    "p0_p4_membership": "P0\u2013P4 Foundational",
+    "whole_p5_membership": "Whole-P5 Validation / Reporting or External Deferred",
+    "exact_shared_membership": true,
+    "external_deferred_membership": true,
+    "global_accounting_bucket": "EXTERNAL_LIVE_DEFERRED",
+    "local_execution_eligibility": "DEFERRED (Requires live DB / Kafka / socket infrastructure)"
+  },
+  {
+    "index": 3,
+    "node_id": "tests/cdc/test_sources.py::test_postgres_wal_adapter",
+    "p0_p4_membership": "P0\u2013P4 Foundational",
+    "whole_p5_membership": "Whole-P5 Validation / Reporting or External Deferred",
+    "exact_shared_membership": true,
+    "external_deferred_membership": true,
+    "global_accounting_bucket": "EXTERNAL_LIVE_DEFERRED",
+    "local_execution_eligibility": "DEFERRED (Requires live DB / Kafka / socket infrastructure)"
+  },
+  {
+    "index": 4,
+    "node_id": "tests/cdc/test_sources.py::test_mysql_binlog_adapter",
+    "p0_p4_membership": "P0\u2013P4 Foundational",
+    "whole_p5_membership": "Whole-P5 Validation / Reporting or External Deferred",
+    "exact_shared_membership": true,
+    "external_deferred_membership": true,
+    "global_accounting_bucket": "EXTERNAL_LIVE_DEFERRED",
+    "local_execution_eligibility": "DEFERRED (Requires live DB / Kafka / socket infrastructure)"
+  },
+  {
+    "index": 5,
+    "node_id": "tests/cdc/test_sources.py::test_oracle_logminer_adapter",
+    "p0_p4_membership": "P0\u2013P4 Foundational",
+    "whole_p5_membership": "Whole-P5 Validation / Reporting or External Deferred",
+    "exact_shared_membership": true,
+    "external_deferred_membership": true,
+    "global_accounting_bucket": "EXTERNAL_LIVE_DEFERRED",
+    "local_execution_eligibility": "DEFERRED (Requires live DB / Kafka / socket infrastructure)"
+  },
+  {
+    "index": 6,
+    "node_id": "tests/cdc/test_sources.py::test_sqlserver_cdc_adapter",
+    "p0_p4_membership": "P0\u2013P4 Foundational",
+    "whole_p5_membership": "Whole-P5 Validation / Reporting or External Deferred",
+    "exact_shared_membership": true,
+    "external_deferred_membership": true,
+    "global_accounting_bucket": "EXTERNAL_LIVE_DEFERRED",
+    "local_execution_eligibility": "DEFERRED (Requires live DB / Kafka / socket infrastructure)"
+  },
+  {
+    "index": 7,
+    "node_id": "tests/cdc/test_sources.py::test_mongodb_change_stream_adapter",
+    "p0_p4_membership": "P0\u2013P4 Foundational",
+    "whole_p5_membership": "Whole-P5 Validation / Reporting or External Deferred",
+    "exact_shared_membership": true,
+    "external_deferred_membership": true,
+    "global_accounting_bucket": "EXTERNAL_LIVE_DEFERRED",
+    "local_execution_eligibility": "DEFERRED (Requires live DB / Kafka / socket infrastructure)"
+  },
+  {
+    "index": 8,
+    "node_id": "tests/cdc/test_sources.py::test_trigger_fallback_adapter",
+    "p0_p4_membership": "P0\u2013P4 Foundational",
+    "whole_p5_membership": "Whole-P5 Validation / Reporting or External Deferred",
+    "exact_shared_membership": true,
+    "external_deferred_membership": true,
+    "global_accounting_bucket": "EXTERNAL_LIVE_DEFERRED",
+    "local_execution_eligibility": "DEFERRED (Requires live DB / Kafka / socket infrastructure)"
+  },
+  {
+    "index": 9,
+    "node_id": "tests/property/test_procedure_properties.py::TestProcedurePropertyInvariants::test_transaction_block_rejection_invariant",
+    "p0_p4_membership": "P0\u2013P4 Foundational",
+    "whole_p5_membership": "Whole-P5 Validation / Reporting or External Deferred",
+    "exact_shared_membership": true,
+    "external_deferred_membership": true,
+    "global_accounting_bucket": "EXTERNAL_LIVE_DEFERRED",
+    "local_execution_eligibility": "DEFERRED (Requires live DB / Kafka / socket infrastructure)"
+  },
+  {
+    "index": 10,
+    "node_id": "tests/unit/cdc/test_p3_11_whole_p3_e2e_pipeline_hostile_audit.py::TestP311WholeP3HostileIntegrationAudit::test_B01_full_forward_pipeline_journey_created_to_completed",
+    "p0_p4_membership": "P0\u2013P4 Foundational",
+    "whole_p5_membership": "Whole-P5 Validation / Reporting or External Deferred",
+    "exact_shared_membership": true,
+    "external_deferred_membership": true,
+    "global_accounting_bucket": "EXTERNAL_LIVE_DEFERRED",
+    "local_execution_eligibility": "DEFERRED (Requires live DB / Kafka / socket infrastructure)"
+  },
+  {
+    "index": 11,
+    "node_id": "tests/unit/cdc/test_p3_11_whole_p3_e2e_pipeline_hostile_audit.py::TestP311WholeP3HostileIntegrationAudit::test_S01_buffer_backpressure_and_catching_up_transition",
+    "p0_p4_membership": "P0\u2013P4 Foundational",
+    "whole_p5_membership": "Whole-P5 Validation / Reporting or External Deferred",
+    "exact_shared_membership": true,
+    "external_deferred_membership": true,
+    "global_accounting_bucket": "EXTERNAL_LIVE_DEFERRED",
+    "local_execution_eligibility": "DEFERRED (Requires live DB / Kafka / socket infrastructure)"
+  },
+  {
+    "index": 12,
+    "node_id": "tests/unit/cdc/test_p3_2_1_cdc_capture_hostile_audit.py::TestP321CDCCaptureHostileAudit::test_attack_05_capture_miner_cannot_advance_applied_position",
+    "p0_p4_membership": "P0\u2013P4 Foundational",
+    "whole_p5_membership": "Whole-P5 Validation / Reporting or External Deferred",
+    "exact_shared_membership": true,
+    "external_deferred_membership": true,
+    "global_accounting_bucket": "EXTERNAL_LIVE_DEFERRED",
+    "local_execution_eligibility": "DEFERRED (Requires live DB / Kafka / socket infrastructure)"
+  },
+  {
+    "index": 13,
+    "node_id": "tests/unit/cdc/test_p3_2_native_cdc_capture_miners.py::TestP32NativeCDCCaptureMiners::test_03_postgres_wal_miner_polling",
+    "p0_p4_membership": "P0\u2013P4 Foundational",
+    "whole_p5_membership": "Whole-P5 Validation / Reporting or External Deferred",
+    "exact_shared_membership": true,
+    "external_deferred_membership": true,
+    "global_accounting_bucket": "EXTERNAL_LIVE_DEFERRED",
+    "local_execution_eligibility": "DEFERRED (Requires live DB / Kafka / socket infrastructure)"
+  },
+  {
+    "index": 14,
+    "node_id": "tests/unit/cdc/test_p3_2_native_cdc_capture_miners.py::TestP32NativeCDCCaptureMiners::test_06_mysql_binlog_miner_polling",
+    "p0_p4_membership": "P0\u2013P4 Foundational",
+    "whole_p5_membership": "Whole-P5 Validation / Reporting or External Deferred",
+    "exact_shared_membership": true,
+    "external_deferred_membership": true,
+    "global_accounting_bucket": "EXTERNAL_LIVE_DEFERRED",
+    "local_execution_eligibility": "DEFERRED (Requires live DB / Kafka / socket infrastructure)"
+  },
+  {
+    "index": 15,
+    "node_id": "tests/unit/cdc/test_p3_2_native_cdc_capture_miners.py::TestP32NativeCDCCaptureMiners::test_08_oracle_redo_miner_polling",
+    "p0_p4_membership": "P0\u2013P4 Foundational",
+    "whole_p5_membership": "Whole-P5 Validation / Reporting or External Deferred",
+    "exact_shared_membership": true,
+    "external_deferred_membership": true,
+    "global_accounting_bucket": "EXTERNAL_LIVE_DEFERRED",
+    "local_execution_eligibility": "DEFERRED (Requires live DB / Kafka / socket infrastructure)"
+  },
+  {
+    "index": 16,
+    "node_id": "tests/unit/cdc/test_p3_2_native_cdc_capture_miners.py::TestP32NativeCDCCaptureMiners::test_09_mssql_cdc_miner_polling",
+    "p0_p4_membership": "P0\u2013P4 Foundational",
+    "whole_p5_membership": "Whole-P5 Validation / Reporting or External Deferred",
+    "exact_shared_membership": true,
+    "external_deferred_membership": true,
+    "global_accounting_bucket": "EXTERNAL_LIVE_DEFERRED",
+    "local_execution_eligibility": "DEFERRED (Requires live DB / Kafka / socket infrastructure)"
+  },
+  {
+    "index": 17,
+    "node_id": "tests/unit/cdc/test_p3_2_native_cdc_capture_miners.py::TestP32NativeCDCCaptureMiners::test_10_mongodb_oplog_miner_polling",
+    "p0_p4_membership": "P0\u2013P4 Foundational",
+    "whole_p5_membership": "Whole-P5 Validation / Reporting or External Deferred",
+    "exact_shared_membership": true,
+    "external_deferred_membership": true,
+    "global_accounting_bucket": "EXTERNAL_LIVE_DEFERRED",
+    "local_execution_eligibility": "DEFERRED (Requires live DB / Kafka / socket infrastructure)"
+  },
+  {
+    "index": 18,
+    "node_id": "tests/unit/cdc/test_p3_2_native_cdc_capture_miners.py::TestP32NativeCDCCaptureMiners::test_14_gateway_start_and_poll_cdc_capture",
+    "p0_p4_membership": "P0\u2013P4 Foundational",
+    "whole_p5_membership": "Whole-P5 Validation / Reporting or External Deferred",
+    "exact_shared_membership": true,
+    "external_deferred_membership": true,
+    "global_accounting_bucket": "EXTERNAL_LIVE_DEFERRED",
+    "local_execution_eligibility": "DEFERRED (Requires live DB / Kafka / socket infrastructure)"
+  },
+  {
+    "index": 19,
+    "node_id": "tests/unit/cdc/test_p3_4_continuous_cdc_cutover_failback_engine.py::TestP34ContinuousCDCCutoverFailbackEngine::test_14_gateway_ipc_continuous_sync_lifecycle",
+    "p0_p4_membership": "P0\u2013P4 Foundational",
+    "whole_p5_membership": "Whole-P5 Validation / Reporting or External Deferred",
+    "exact_shared_membership": true,
+    "external_deferred_membership": true,
+    "global_accounting_bucket": "EXTERNAL_LIVE_DEFERRED",
+    "local_execution_eligibility": "DEFERRED (Requires live DB / Kafka / socket infrastructure)"
+  },
+  {
+    "index": 20,
+    "node_id": "tests/unit/cdc/test_p3_8_1_multi_master_hostile_audit.py::TestP381MultiMasterHostileAudit::test_34_quarantine_durability_and_restart",
+    "p0_p4_membership": "P0\u2013P4 Foundational",
+    "whole_p5_membership": "Whole-P5 Validation / Reporting or External Deferred",
+    "exact_shared_membership": true,
+    "external_deferred_membership": true,
+    "global_accounting_bucket": "EXTERNAL_LIVE_DEFERRED",
+    "local_execution_eligibility": "DEFERRED (Requires live DB / Kafka / socket infrastructure)"
+  },
+  {
+    "index": 21,
+    "node_id": "tests/unit/connectors/test_p4_5_full_scope_fleet.py::TestP45FullScopeFleet::test_01_p4_5_eleven_connector_inventory_and_registry",
+    "p0_p4_membership": "P0\u2013P4 Foundational",
+    "whole_p5_membership": "Whole-P5 Validation / Reporting or External Deferred",
+    "exact_shared_membership": true,
+    "external_deferred_membership": true,
+    "global_accounting_bucket": "EXTERNAL_LIVE_DEFERRED",
+    "local_execution_eligibility": "DEFERRED (Requires live DB / Kafka / socket infrastructure)"
+  }
+]

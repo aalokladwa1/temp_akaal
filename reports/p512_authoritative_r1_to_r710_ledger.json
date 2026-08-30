@@ -1,0 +1,86 @@
+{
+  "total_rules": 710,
+  "rules_633_to_640": [
+    {
+      "rule_id": "R633",
+      "text": "Real Database Verification Deferral Boundary",
+      "category": "EXTERNAL_PROOF_BOUNDARY",
+      "requirement_status": "SATISFIED",
+      "local_proof": "UNIT_PROVEN",
+      "live_proof": "NOT LIVE_PROVEN",
+      "external_status": "DEFERRED",
+      "limitation": "Live Oracle/Postgres wire testing deferred."
+    },
+    {
+      "rule_id": "R634",
+      "text": "Real Cloud Storage Deferral Boundary",
+      "category": "EXTERNAL_PROOF_BOUNDARY",
+      "requirement_status": "SATISFIED",
+      "local_proof": "UNIT_PROVEN",
+      "live_proof": "NOT LIVE_PROVEN",
+      "external_status": "DEFERRED",
+      "limitation": "Live S3/GCS wire testing deferred."
+    },
+    {
+      "rule_id": "R635",
+      "text": "Real Message Broker Deferral Boundary",
+      "category": "EXTERNAL_PROOF_BOUNDARY",
+      "requirement_status": "SATISFIED",
+      "local_proof": "UNIT_PROVEN",
+      "live_proof": "NOT LIVE_PROVEN",
+      "external_status": "DEFERRED",
+      "limitation": "Live Kafka cluster wire testing deferred."
+    },
+    {
+      "rule_id": "R636",
+      "text": "Multi-Node Distributed Cluster Deferral Boundary",
+      "category": "EXTERNAL_PROOF_BOUNDARY",
+      "requirement_status": "SATISFIED",
+      "local_proof": "UNIT_PROVEN",
+      "live_proof": "NOT LIVE_PROVEN",
+      "external_status": "DEFERRED",
+      "limitation": "Multi-node cluster consensus deferred."
+    },
+    {
+      "rule_id": "R637",
+      "text": "Wide-Area Network Fault Injection Deferral Boundary",
+      "category": "EXTERNAL_PROOF_BOUNDARY",
+      "requirement_status": "SATISFIED",
+      "local_proof": "UNIT_PROVEN",
+      "live_proof": "NOT LIVE_PROVEN",
+      "external_status": "DEFERRED",
+      "limitation": "WAN routing split-brain testing deferred."
+    },
+    {
+      "rule_id": "R638",
+      "text": "Production Scale 500M/1B Record Deferral Boundary",
+      "category": "EXTERNAL_PROOF_BOUNDARY",
+      "requirement_status": "SATISFIED",
+      "local_proof": "UNIT_PROVEN",
+      "live_proof": "NOT LIVE_PROVEN",
+      "external_status": "DEFERRED",
+      "limitation": "Billion-scale production volume testing deferred."
+    },
+    {
+      "rule_id": "R639",
+      "text": "Truthful Capability Labeling & Non-Fabrication Rule",
+      "category": "GOVERNANCE_INTEGRITY",
+      "requirement_status": "SATISFIED",
+      "local_proof": "N/A",
+      "live_proof": "NOT LIVE_PROVEN",
+      "external_status": "DEFERRED",
+      "limitation": "Audit rule governing truthful reporting."
+    },
+    {
+      "rule_id": "R640",
+      "text": "Independent Aalok Acceptance & Freeze Boundary Rule",
+      "category": "GOVERNANCE_INTEGRITY",
+      "requirement_status": "SATISFIED",
+      "local_proof": "N/A",
+      "live_proof": "NOT LIVE_PROVEN",
+      "external_status": "DEFERRED",
+      "limitation": "Prohibits autonomous freeze; awaiting Aalok determination."
+    }
+  ],
+  "status": "ALL_710_RULES_SATISFIED_OR_ACCOUNTED"
+}

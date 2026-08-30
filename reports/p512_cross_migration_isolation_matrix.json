@@ -1,0 +1,148 @@
+{
+  "matrix": "p512_cross_migration_isolation_matrix",
+  "total_dimensions": 20,
+  "verified_with_real_node_id": 16,
+  "unverified_downgraded": 4,
+  "dimensions": [
+    {
+      "isolation_dimension": "migration_identity",
+      "exact_test_node_id": "tests/security/test_p510_governed_execution_security.py::test_atk_17_cross_migration_approval_replay",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "isolation_dimension": "tenant_identity",
+      "exact_test_node_id": "tests/security/test_p510_governed_execution_security.py::test_atk_26_cross_tenant_approval_isolated",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "isolation_dimension": "workspace_identity",
+      "exact_test_node_id": "tests/security/test_p510_governed_execution_security.py::test_atk_27_cross_workspace_approval_isolated",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "isolation_dimension": "project_identity",
+      "exact_test_node_id": "tests/security/test_p510_governed_execution_security.py::test_atk_28_cross_project_approval_isolated",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "isolation_dimension": "execution_token",
+      "exact_test_node_id": "tests/security/test_p510_governed_execution_security.py::test_atk_44_token_wrong_migration_rejected",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "isolation_dimension": "plan_fingerprint_binding",
+      "exact_test_node_id": null,
+      "proof_level": "UNIT_PROVEN",
+      "correction_note": "DOWNGRADED_NO_REAL_MATCH",
+      "node_verified": false
+    },
+    {
+      "isolation_dimension": "configuration_fingerprint",
+      "exact_test_node_id": null,
+      "proof_level": "UNIT_PROVEN",
+      "correction_note": "DOWNGRADED_NO_REAL_MATCH",
+      "node_verified": false
+    },
+    {
+      "isolation_dimension": "checkpoint_origin",
+      "exact_test_node_id": null,
+      "proof_level": "UNIT_PROVEN",
+      "correction_note": "DOWNGRADED_NO_REAL_MATCH",
+      "node_verified": false
+    },
+    {
+      "isolation_dimension": "fencing_epoch",
+      "exact_test_node_id": "tests/security/test_p510_governed_execution_security.py::test_atk_58_stale_fencing_epoch_blocks_batch_transaction",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "isolation_dimension": "governance_approval_artifact",
+      "exact_test_node_id": "tests/security/test_p510_governed_execution_security.py::test_atk_17_cross_migration_approval_replay",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "isolation_dimension": "security_revision_token",
+      "exact_test_node_id": null,
+      "proof_level": "UNIT_PROVEN",
+      "correction_note": "DOWNGRADED_NO_REAL_MATCH",
+      "node_verified": false
+    },
+    {
+      "isolation_dimension": "actor_context",
+      "exact_test_node_id": "tests/security/test_p510_governed_execution_security.py::test_atk_56_actor_context_missing_rejected",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "isolation_dimension": "operation_scope",
+      "exact_test_node_id": "tests/security/test_p510_governed_execution_security.py::test_atk_44_token_wrong_migration_rejected",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "isolation_dimension": "execution_mode",
+      "exact_test_node_id": "tests/security/test_p510_governed_execution_security.py::test_atk_48_token_wrong_execution_mode_rejected",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "isolation_dimension": "fencing_epoch_seal_dimension",
+      "exact_test_node_id": "tests/security/test_p510_governed_execution_security.py::test_atk_14_seal_tamper_fence_epoch",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "isolation_dimension": "approval_seal_dimension",
+      "exact_test_node_id": "tests/security/test_p510_governed_execution_security.py::test_atk_13_seal_tamper_approval_fp",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "isolation_dimension": "config_seal_dimension",
+      "exact_test_node_id": "tests/security/test_p510_governed_execution_security.py::test_atk_11_seal_tamper_config_fp",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "isolation_dimension": "source_identity_seal",
+      "exact_test_node_id": "tests/security/test_p510_governed_execution_security.py::test_atk_08_seal_tamper_source_identity_fp",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "isolation_dimension": "completion_recovery_state",
+      "exact_test_node_id": "tests/security/test_p510_governed_execution_security.py::test_atk_61_checkpoint_save_and_resume_with_valid_fencing",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "isolation_dimension": "idempotency_identity",
+      "exact_test_node_id": "tests/security/test_p510_governed_execution_security.py::test_atk_59_command_idempotency_replay_identical_result",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    }
+  ]
+}

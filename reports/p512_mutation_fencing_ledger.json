@@ -1,0 +1,75 @@
+{
+  "total_paths": 7,
+  "paths": [
+    {
+      "mutation_path": "Bulk Apply",
+      "production_function": "TransportAuthority.write_batch",
+      "target_interaction": "Direct SQL INSERT / COPY",
+      "fencing_validation_function": "FencingTokenManager.validate_epoch",
+      "validation_timing": "BEFORE_MUTATION",
+      "stale_worker_attempted": true,
+      "physical_write_prevented": true,
+      "result": "PASS (FencingViolationError before socket write)"
+    },
+    {
+      "mutation_path": "Incremental Apply",
+      "production_function": "IncrementalExtractor.apply_changes",
+      "target_interaction": "Target SQL DML execution",
+      "fencing_validation_function": "FencingTokenManager.validate_epoch",
+      "validation_timing": "BEFORE_MUTATION",
+      "stale_worker_attempted": true,
+      "physical_write_prevented": true,
+      "result": "PASS (FencingViolationError before socket write)"
+    },
+    {
+      "mutation_path": "CDC Apply",
+      "production_function": "CDCApplyCoordinator.apply_event",
+      "target_interaction": "Target UPSERT / DELETE DML",
+      "fencing_validation_function": "FencingTokenManager.validate_epoch",
+      "validation_timing": "BEFORE_MUTATION",
+      "stale_worker_attempted": true,
+      "physical_write_prevented": true,
+      "result": "PASS (FencingViolationError before socket write)"
+    },
+    {
+      "mutation_path": "Schema DDL",
+      "production_function": "SchemaAuthority.apply_ddl",
+      "target_interaction": "Target CREATE / ALTER TABLE",
+      "fencing_validation_function": "FencingTokenManager.validate_epoch",
+      "validation_timing": "BEFORE_MUTATION",
+      "stale_worker_attempted": true,
+      "physical_write_prevented": true,
+      "result": "PASS (FencingViolationError before socket write)"
+    },
+    {
+      "mutation_path": "Custom SQL Hooks",
+      "production_function": "GovernedHookExecutor.execute_hook",
+      "target_interaction": "Pre/Post migration user SQL",
+      "fencing_validation_function": "FencingTokenManager.validate_epoch",
+      "validation_timing": "BEFORE_MUTATION",
+      "stale_worker_attempted": true,
+      "physical_write_prevented": true,
+      "result": "PASS (FencingViolationError before socket write)"
+    },
+    {
+      "mutation_path": "Cutover Mutation",
+      "production_function": "ContinuousCutoverEngine.execute_cutover",
+      "target_interaction": "Target active switch / lock",
+      "fencing_validation_function": "FencingTokenManager.validate_epoch",
+      "validation_timing": "BEFORE_MUTATION",
+      "stale_worker_attempted": true,
+      "physical_write_prevented": true,
+      "result": "PASS (FencingViolationError before socket write)"
+    },
+    {
+      "mutation_path": "State-Based Sync",
+      "production_function": "ValidationAuthority.reconcile_state",
+      "target_interaction": "Target repair DML",
+      "fencing_validation_function": "FencingTokenManager.validate_epoch",
+      "validation_timing": "BEFORE_MUTATION",
+      "stale_worker_attempted": true,
+      "physical_write_prevented": true,
+      "result": "PASS (FencingViolationError before socket write)"
+    }
+  ]
+}

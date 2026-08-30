@@ -1,0 +1,36 @@
+{
+  "matrix": "p512_54_vs_93_overlap_reconciliation",
+  "source_ledger": "p512_p0_p4_overlap_ledger.json",
+  "total_discovered_test_universe": 4347,
+  "authoritative_counts": {
+    "p0_p4_logical_population": 1213,
+    "exact_shared_overlap_count": 114,
+    "p0_p4_primary_unique_local_contribution": 1099,
+    "p0_p4_external_deferred_shared_count": 21,
+    "p0_p4_local_shared_count": 93
+  },
+  "set_definitions": {
+    "U": "Complete pytest-discovered test universe (|U| = 4347)",
+    "P_LOGICAL": "Complete logical P0-P4 scope (|P_LOGICAL| = 1213)",
+    "S": "Exact shared node-ID intersection between P0-P4 and Whole-P5 (|S| = 114)",
+    "S_LOCAL": "Local shared tests accounted under P512 primary local bucket (|S_LOCAL| = 93)",
+    "S_EXTERNAL": "External deferred tests accounted under External Live Deferred bucket (|S_EXTERNAL| = 21)",
+    "P_PRIMARY_LOCAL": "Strict unique P0-P4 local non-shared non-external primary population (|P_PRIMARY_LOCAL| = 1099)"
+  },
+  "mechanical_set_proof": {
+    "shared_decomposition": "|S| = |S_LOCAL| + |S_EXTERNAL| = 93 + 21 = 114",
+    "primary_derivation": "|P_PRIMARY_LOCAL| = |P_LOGICAL| - |S| = 1213 - 114 = 1099",
+    "explanation_of_1078_vs_1099": "1099 is the mathematically verified unique P0-P4 local primary count. 1078 was a prior arithmetic error resulting from double-subtracting the 21 external shared nodes that were already included in the 114 shared set (1213 - 114 - 21 = 1078 was invalid double-subtraction; the valid equation is 1213 - 93 - 21 = 1099)."
+  },
+  "disjoint_4347_partition": {
+    "B1_P512_PRIMARY_LOCAL": 1625,
+    "B2_P0_P4_PRIMARY_LOCAL": 1099,
+    "B3_EXCLUDED_OUT_OF_SCOPE": 1310,
+    "B4_EXCLUDED_HISTORICAL": 97,
+    "B5_EXTERNAL_LIVE_DEFERRED": 216,
+    "sum": 4347,
+    "pairwise_intersection_empty": true,
+    "union_equals_universe": true,
+    "unexplained_nodes": 0
+  }
+}

@@ -78,6 +78,7 @@ class PlanExecutionCoordinator:
         outbox_service: OutboxService,
         audit_service: AuditTrailService,
         repository: SQLiteMigrationRepository,
+        keystore: Optional[Any] = None,
     ) -> None:
         self.capability_resolver = capability_resolver
         self.binding_registry = binding_registry
@@ -87,6 +88,14 @@ class PlanExecutionCoordinator:
         self.outbox_service = outbox_service
         self.audit_service = audit_service
         self.repository = repository
+        self.keystore = keystore
+        self.minter = None
+        if keystore is not None:
+            try:
+                from akaalPipeline.security.execution_authorization import ExecutionAuthorizationMinter
+                self.minter = ExecutionAuthorizationMinter(keystore=keystore)
+            except Exception:
+                pass
 
     # -------------------------------------------------------------------------
     # 1. Plan Execution Materialization
@@ -137,7 +146,18 @@ class PlanExecutionCoordinator:
                 )
             existing = self.get_plan_execution(row["execution_id"], conn)
             if existing is not None:
+                if existing.plan_fingerprint != plan.fingerprint:
+                    raise PipelineError(
+                        PipelineErrorCode.POLICY_DENIED,
+                        f"Active execution {existing.execution_id} plan fingerprint mismatch: expected {existing.plan_fingerprint!r}, got {plan.fingerprint!r}.",
+                    )
+                if initialization_fingerprint and existing.initialization_fingerprint != initialization_fingerprint:
+                    raise PipelineError(
+                        PipelineErrorCode.POLICY_DENIED,
+                        f"Active execution {existing.execution_id} initialization fingerprint mismatch: expected {existing.initialization_fingerprint!r}, got {initialization_fingerprint!r}.",
+                    )
                 return existing
+
 
         now_str = datetime.now(timezone.utc).isoformat()
         execution_id = f"pe-{uuid.uuid4().hex}"
@@ -409,6 +429,17 @@ class PlanExecutionCoordinator:
                         error_message=f"Plan execution {execution_id!r} not found.",
                     )
 
+                if plan_rec.plan_fingerprint != plan.fingerprint or plan_rec.plan_id != plan.plan_id:
+                    return ExecutionOutcome(
+                        is_success=False,
+                        status="FAILED",
+                        error_category=IPCErrorCategory.FORBIDDEN,
+                        error_code="PLAN_FINGERPRINT_MISMATCH",
+                        error_message=f"Plan fingerprint mismatch for execution {execution_id!r}: stored {plan_rec.plan_fingerprint!r} != plan {plan.fingerprint!r}.",
+                    )
+
+
+
                 if plan_rec.status == PlanExecutionStatus.CANCELLED:
                     return ExecutionOutcome(
                         is_success=False,
@@ -508,6 +539,34 @@ class PlanExecutionCoordinator:
                     error_code=err_code,
                     error_message=err_msg,
                 )
+
+            # Step A.1: Enforce M8 Validation-Only Non-Mutation Invariant
+            if plan.mode == MigrationMode.M8_VALIDATION_ONLY or (hasattr(plan.mode, "value") and plan.mode.value == "M8_VALIDATION_ONLY") or str(plan.mode) == "M8":
+                from akaalPipeline.contracts.enums import SideEffectClassification
+                matched_node = next((n for n in plan.nodes if n.node_id == target_node_id), None)
+                node_side_effect = getattr(getattr(matched_node, "task", None), "side_effect", None) or getattr(eval_res, "side_effect", None)
+                if node_side_effect and node_side_effect != SideEffectClassification.READ_ONLY and target_capability not in ("state_diff", "validation_compare", "package_evidence", "verify_evidence", "schema_extract"):
+                    err_code = "M8_MUTATION_PROHIBITED"
+                    err_msg = f"Node {target_node_id!r} with capability {target_capability!r} performs mutations and is strictly prohibited in M8 validation-only mode."
+                    with uow_factory() as uow_fail:
+                        self._mark_node_and_plan_failed(
+                            execution_id=execution_id,
+                            node_execution_id=node_to_dispatch.node_execution_id,
+                            migration_id=plan.migration_id,
+                            graph_node_id=target_node_id,
+                            operation_id=operation_id,
+                            error_code=err_code,
+                            error_message=err_msg,
+                            actor=actor,
+                            conn=uow_fail.connection,
+                        )
+                    return ExecutionOutcome(
+                        is_success=False,
+                        status="FAILED",
+                        error_category=IPCErrorCategory.FORBIDDEN,
+                        error_code=err_code,
+                        error_message=err_msg,
+                    )
 
             matching_binding = eval_res.selected_binding
             if not matching_binding or not isinstance(matching_binding.port_instance, ExecutionPort):
@@ -694,6 +753,41 @@ class PlanExecutionCoordinator:
                         except Exception:
                             pass
 
+            authz_token = None
+            if hasattr(self, "minter") and self.minter:
+                try:
+                    from akaalPipeline.security.seal import ExecutionSealBuilder
+                    seal = ExecutionSealBuilder.build_seal(
+                        tenant_id=actor.organization_id,
+                        workspace_id=actor.workspace_id or "default",
+                        project_id=actor.project_id or "default",
+                        migration_id=plan.migration_id,
+                        plan_id=plan.plan_id,
+                        plan_revision=getattr(plan, "revision", 1),
+                        execution_mode=plan.mode.value if hasattr(plan.mode, "value") else str(plan.mode),
+                        source_identity_fingerprint=getattr(plan, "source_identity_fingerprint", "src_fp"),
+                        target_identity_fingerprint=getattr(plan, "target_identity_fingerprint", "tgt_fp"),
+                        selection_scope_fingerprint=getattr(plan, "selection_scope_fingerprint", "sel_fp"),
+                        config_fingerprint=getattr(plan, "config_fingerprint", "cfg_fp"),
+                        initialization_fingerprint=init_fp,
+                        approval_fingerprint=getattr(plan, "approval_fingerprint", "appr_fp"),
+                        fence_epoch=lease.fence_epoch,
+                    )
+                    authz_token = self.minter.mint_authorization(
+                        tenant_id=actor.organization_id,
+                        workspace_id=actor.workspace_id or "default",
+                        project_id=actor.project_id or "default",
+                        migration_id=plan.migration_id,
+                        execution_id=execution_id,
+                        execution_seal=seal,
+                        allowed_operations=["*"],
+                        allowed_target_schemas=["*"],
+                        security_revision=1,
+                    )
+                    dispatch_payload["execution_authorization_artifact"] = authz_token
+                except Exception as mint_exc:
+                    logger.warning("Failed minting execution authorization artifact: %s", mint_exc)
+
             req = EngineInvocationRequest(
                 contract_version="1.0.0",
                 binding_id=matching_binding.binding_id,
@@ -707,6 +801,7 @@ class PlanExecutionCoordinator:
                 initialization_fingerprint=init_fp,
                 payload=dispatch_payload,
                 checkpoint_id=node_to_dispatch.checkpoint_id,
+                execution_authorization_artifact=authz_token,
             )
 
 
@@ -1159,24 +1254,32 @@ class PlanExecutionCoordinator:
 
         if target_node_id is None and checkpoint_id:
             cp_cur = conn.execute(
-                "SELECT graph_node_id, attempt_id FROM checkpoints WHERE checkpoint_id = ?",
+                "SELECT graph_node_id, attempt_id, initialization_fingerprint FROM checkpoints WHERE checkpoint_id = ?",
                 (checkpoint_id,),
             )
             cp_row = cp_cur.fetchone()
-            if cp_row:
-                if cp_row["graph_node_id"]:
-                    target_node_id = cp_row["graph_node_id"]
-                elif cp_row["attempt_id"]:
-                    for n in nodes:
-                        if n["current_attempt_id"] == cp_row["attempt_id"]:
-                            target_node_id = n["graph_node_id"]
-                            break
-
+            if cp_row is None:
+                raise PipelineError(
+                    PipelineErrorCode.NOT_FOUND,
+                    f"Checkpoint {checkpoint_id!r} not found for recovery.",
+                )
+            if cp_row["initialization_fingerprint"] and cp_row["initialization_fingerprint"] != row["initialization_fingerprint"]:
+                raise PipelineError(
+                    PipelineErrorCode.POLICY_DENIED,
+                    f"Checkpoint {checkpoint_id!r} initialization fingerprint mismatch: expected {row['initialization_fingerprint']!r}, got {cp_row['initialization_fingerprint']!r}.",
+                )
+            if cp_row["graph_node_id"]:
+                target_node_id = cp_row["graph_node_id"]
+            elif cp_row["attempt_id"]:
+                for n in nodes:
+                    if n["current_attempt_id"] == cp_row["attempt_id"]:
+                        target_node_id = n["graph_node_id"]
+                        break
 
         # Load plan artifact to inspect node dependencies
         plan_id = row["plan_id"]
         plan_art_cur = conn.execute(
-            "SELECT content FROM immutable_artifacts WHERE artifact_id = ? OR artifact_id = ?",
+            "SELECT content, fingerprint FROM immutable_artifacts WHERE artifact_id = ? OR artifact_id = ?",
             (f"art-{plan_id}", plan_id),
         )
         plan_art_row = plan_art_cur.fetchone()
@@ -1185,10 +1288,20 @@ class PlanExecutionCoordinator:
         if plan_art_row:
             try:
                 plan_data = json.loads(plan_art_row["content"])
+                stored_plan_fp = plan_data.get("fingerprint")
+                if stored_plan_fp and row["plan_fingerprint"] and stored_plan_fp != row["plan_fingerprint"]:
+                    raise PipelineError(
+                        PipelineErrorCode.POLICY_DENIED,
+                        f"Plan artifact {plan_id!r} fingerprint mismatch: stored {row['plan_fingerprint']!r} != plan {stored_plan_fp!r}.",
+                    )
                 for nd in plan_data.get("nodes", []):
                     plan_nodes_deps[nd.get("node_id")] = nd.get("dependencies", [])
+            except PipelineError:
+                raise
             except Exception:
                 pass
+
+
 
         bound_target = False
         for n in nodes:

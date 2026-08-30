@@ -1,0 +1,34 @@
+{
+  "uncached_1_thread": {
+    "p50_us": 255.5,
+    "p95_us": 491.6,
+    "p99_us": 8546.3,
+    "tps": 2147.1557485989806
+  },
+  "cached_1_thread": {
+    "p50_us": 48.3,
+    "p95_us": 92.8,
+    "p99_us": 211.7,
+    "tps": 12795.944606972433
+  },
+  "concurrent_cached": {
+    "2_threads": {
+      "num_threads": 2,
+      "total_ops": 10000,
+      "elapsed_seconds": 0.04677040000387933,
+      "throughput_ops_sec": 213810.44419484457
+    },
+    "4_threads": {
+      "num_threads": 4,
+      "total_ops": 20000,
+      "elapsed_seconds": 0.07139689999166876,
+      "throughput_ops_sec": 280124.2071061038
+    },
+    "8_threads": {
+      "num_threads": 8,
+      "total_ops": 40000,
+      "elapsed_seconds": 0.11376740000559948,
+      "throughput_ops_sec": 351594.569252978
+    }
+  }
+}

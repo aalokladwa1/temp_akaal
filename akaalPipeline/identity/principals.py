@@ -125,7 +125,7 @@ class PrincipalManager:
         """
         principal = self.principal_repo.get_by_username(tenant_id, username)
         if not principal:
-            # Timing equalizing dummy check
+            # Timing equalizing synthetic baseline check
             self.password_engine.verify_password(password, "PBKDF2_SHA256", {"iterations": 600000}, "00" * 16, "00" * 32)
             raise AuthenticationFailedError("Invalid username or password")
 

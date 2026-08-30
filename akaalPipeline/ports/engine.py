@@ -26,6 +26,8 @@ class EngineInvocationRequest:
     checkpoint_id: Optional[str] = None
     timeout_seconds: int = 300
     fencing_token_envelope: Optional[Mapping[str, Any]] = None
+    execution_authorization_artifact: Optional[Mapping[str, Any]] = None
+
 
 
 @dataclass(frozen=True)

@@ -56,31 +56,86 @@ class LeaderElectionCoordinator:
             }
 
 
+import os
+import socket
+import hashlib
+
+def resolve_stable_node_id() -> str:
+    """
+    Dynamically resolves a stable node identity representing the AKAAL Service Installation on a host.
+    Precedence:
+    1. Explicit enterprise configuration via `AKAAL_NODE_ID` environment variable (if non-empty).
+    2. Deterministic hash of hostname, installation directory path, and OS environment.
+    """
+    machine_sig = os.environ.get("AKAAL_NODE_ID", "").strip()
+    if machine_sig:
+        return machine_sig
+    hostname = socket.gethostname() or "localhost"
+    install_root = os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
+    seed = f"{hostname}::{install_root}::{os.name}"
+    h = hashlib.sha256(seed.encode("utf-8")).hexdigest()[:12]
+    return f"node-{hostname}-{h}"
+
+
 class DistributedCoordinator:
     """
     Distributed Execution Coordinator tracking cluster nodes, topology, and execution routing seams.
     """
 
-    def __init__(self, local_node_id: str = "node-local") -> None:
-        self.local_node_id = local_node_id
-        self.leader_coordinator = LeaderElectionCoordinator(local_node_id)
+    def __init__(self, local_node_id: Optional[str] = None) -> None:
+        self.local_node_id = local_node_id or resolve_stable_node_id()
+        self.leader_coordinator = LeaderElectionCoordinator(self.local_node_id)
         self._nodes: Dict[str, Dict[str, Any]] = {}
         self._lock = RLock()
 
         # Register local node
-        self.register_node(local_node_id, address="127.0.0.1", port=9000)
+        self.register_node(self.local_node_id, address="127.0.0.1", port=9000)
 
-    def register_node(self, node_id: str, address: str, port: int) -> None:
+    def register_node(self, node_id: str, address: str, port: int, capabilities: Optional[List[str]] = None) -> None:
         with self._lock:
+            now = time.time()
             self._nodes[node_id] = {
                 "node_id": node_id,
                 "address": address,
                 "port": port,
                 "status": "ONLINE",
-                "registered_at": time.time(),
-                "last_seen": time.time(),
+                "drain_state": "ACTIVE",
+                "capabilities": list(capabilities or []),
+                "registered_at": now,
+                "last_seen": now,
             }
+
+    def heartbeat(self, node_id: str) -> bool:
+        with self._lock:
+            if node_id in self._nodes:
+                self._nodes[node_id]["last_seen"] = time.time()
+                if self._nodes[node_id]["status"] == "DEAD":
+                    self._nodes[node_id]["status"] = "ONLINE"
+                return True
+            return False
+
+    def get_node(self, node_id: str) -> Optional[Dict[str, Any]]:
+        with self._lock:
+            node = self._nodes.get(node_id)
+            return dict(node) if node else None
+
+    def set_node_drain_state(self, node_id: str, drain_state: str) -> bool:
+        with self._lock:
+            if node_id in self._nodes:
+                self._nodes[node_id]["drain_state"] = drain_state
+                self._nodes[node_id]["last_seen"] = time.time()
+                return True
+            return False
+
+    def set_node_status(self, node_id: str, status: str) -> bool:
+        with self._lock:
+            if node_id in self._nodes:
+                self._nodes[node_id]["status"] = status
+                self._nodes[node_id]["last_seen"] = time.time()
+                return True
+            return False
 
     def list_nodes(self) -> List[Dict[str, Any]]:
         with self._lock:
-            return list(self._nodes.values())
+            return [dict(n) for n in self._nodes.values()]
+

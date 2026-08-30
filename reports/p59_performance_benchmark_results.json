@@ -1,0 +1,65 @@
+{
+  "Auth (Uncached RBAC+Group+Inheritance+ABAC)": {
+    "p50_us": 135.30001160688698,
+    "p95_us": 290.8999886130914,
+    "p99_us": 2807.4000001652166,
+    "throughput_ops_sec": 5104.6556504393575
+  },
+  "Auth (Cached L1 Decision)": {
+    "p50_us": 22.099993657320738,
+    "p95_us": 53.90000296756625,
+    "p99_us": 120.90000382158905,
+    "throughput_ops_sec": 27577.876475382982
+  },
+  "Auth Concurrency (4 Threads Throughput)": {
+    "throughput_ops_sec": 3593890.3678847053
+  },
+  "Session Validation (SQLite+Hash)": {
+    "p50_us": 38.8999906135723,
+    "p95_us": 83.59999628737569,
+    "p99_us": 211.50000975467265,
+    "throughput_ops_sec": 16562.241733378163
+  },
+  "Execution Seal Fingerprint (SHA-256)": {
+    "p50_us": 56.99999746866524,
+    "p95_us": 106.89999908208847,
+    "p99_us": 214.30000197142363,
+    "throughput_ops_sec": 12649.749313446679
+  },
+  "Ed25519 Token Minting (Sign)": {
+    "p50_us": 441.29999878350645,
+    "p95_us": 863.5999984107912,
+    "p99_us": 3310.500003863126,
+    "throughput_ops_sec": 1809.3286087473919
+  },
+  "Ed25519 Token Verify (PEM)": {
+    "p50_us": 284.6999996108934,
+    "p95_us": 617.0999986352399,
+    "p99_us": 2839.0999941620976,
+    "throughput_ops_sec": 2536.3503389813563
+  },
+  "Ed25519 Token Verify (KeyStore/SQLite)": {
+    "p50_us": 348.0000013951212,
+    "p95_us": 861.7999992566183,
+    "p99_us": 3264.8000051267445,
+    "throughput_ops_sec": 1960.2100874307291
+  },
+  "Engine Gateway Dispatch + Zero Trust Authz": {
+    "p50_us": 1955.3000020096079,
+    "p95_us": 5575.200004386716,
+    "p99_us": 7928.399994852953,
+    "throughput_ops_sec": 390.5410031734147
+  },
+  "Fencing HMAC & Epoch Verification": {
+    "p50_us": 18.099992303177714,
+    "p95_us": 48.70000702794641,
+    "p99_us": 172.69999079871923,
+    "throughput_ops_sec": 30645.892843961898
+  },
+  "Audit Ledger Append (SHA-256 Chain + SQLite)": {
+    "p50_us": 206.29999926313758,
+    "p95_us": 494.699997943826,
+    "p99_us": 3206.9000008050352,
+    "throughput_ops_sec": 3553.8951755903436
+  }
+}

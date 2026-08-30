@@ -397,6 +397,17 @@ class RuntimeAuthority:
         with self._lock:
             return self.recovery_coordinator.evaluate_recovery(migration_id)
 
+    # --- Drain Management ---
+    def set_drain_mode(self, is_draining: bool) -> None:
+        with self._lock:
+            self.admission_controller.set_draining(is_draining)
+            logger.info("[RuntimeAuthority] Drain mode set to %s", is_draining)
+
+    @property
+    def is_draining(self) -> bool:
+        with self._lock:
+            return self.admission_controller.is_draining
+
     # --- Runtime Snapshot ---
     def get_runtime_snapshot(self) -> Dict[str, Any]:
         with self._lock:
@@ -407,8 +418,10 @@ class RuntimeAuthority:
             return {
                 "is_running": self._is_running,
                 "is_shutting_down": self._is_shutting_down,
+                "is_draining": self.admission_controller.is_draining,
                 "active_workers": [w.to_dict() for w in workers],
                 "task_snapshots": tasks,
                 "resource_utilization": utilization,
                 "adaptive_workers": self.adaptive_controller.current_workers,
             }
+

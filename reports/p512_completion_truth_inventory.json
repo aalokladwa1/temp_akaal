@@ -1,0 +1,29 @@
+{
+  "total_states": 4,
+  "states": [
+    {
+      "state": "WORKER_COMPLETED",
+      "scope": "Individual Thread",
+      "can_declare_migration_completion": false,
+      "canonical_owner": "ThreadPoolWorker"
+    },
+    {
+      "state": "STAGE_COMPLETED",
+      "scope": "DAG Stage / Node",
+      "can_declare_migration_completion": false,
+      "canonical_owner": "PlanExecutionCoordinator"
+    },
+    {
+      "state": "CDC_CAUGHT_UP",
+      "scope": "Stream Lag = 0",
+      "can_declare_migration_completion": false,
+      "canonical_owner": "ContinuousCutoverEngine"
+    },
+    {
+      "state": "MIGRATION_COMPLETED",
+      "scope": "Global Execution",
+      "can_declare_migration_completion": true,
+      "canonical_owner": "PlanExecutionCoordinator"
+    }
+  ]
+}

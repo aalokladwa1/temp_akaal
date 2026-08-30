@@ -17,11 +17,14 @@ class MigrationLifecycleState(str, Enum):
     AUTHORIZED = "AUTHORIZED"
     INITIALIZED = "INITIALIZED"
     ACTIVE = "ACTIVE"
+    PAUSING = "PAUSING"
+    PAUSED = "PAUSED"
     CANCELLATION_PENDING = "CANCELLATION_PENDING"
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
     CANCELLED = "CANCELLED"
     ARCHIVED = "ARCHIVED"
+
 
 
 class AttemptLifecycleState(str, Enum):
@@ -48,6 +51,123 @@ class ScheduleLifecycleState(str, Enum):
     CONSUMED = "CONSUMED"
     CANCELLED = "CANCELLED"
     INVALIDATED = "INVALIDATED"
+
+
+class ScheduleType(str, Enum):
+    ONE_TIME = "ONE_TIME"
+    RECURRING = "RECURRING"
+
+
+class MisfirePolicy(str, Enum):
+    SKIP = "SKIP"
+    EXECUTE_ONCE = "EXECUTE_ONCE"
+    BOUNDED_CATCHUP = "BOUNDED_CATCHUP"
+
+
+class OverlapPolicy(str, Enum):
+    REJECT_OVERLAP = "REJECT_OVERLAP"
+    SKIP_WHILE_ACTIVE = "SKIP_WHILE_ACTIVE"
+    QUEUE_ONE = "QUEUE_ONE"
+
+
+class OccurrenceStatus(str, Enum):
+    PENDING = "PENDING"
+    CLAIMED = "CLAIMED"
+    DISPATCHED = "DISPATCHED"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+    MISFIRED = "MISFIRED"
+    SKIPPED_OVERLAP = "SKIPPED_OVERLAP"
+
+
+class RetentionProtectionClass(str, Enum):
+    OPERATIONALLY_PRUNEABLE = "OPERATIONALLY_PRUNEABLE"
+    RECOVERY_SENSITIVE = "RECOVERY_SENSITIVE"
+    GOVERNANCE_SENSITIVE = "GOVERNANCE_SENSITIVE"
+    EVIDENCE_PROTECTED = "EVIDENCE_PROTECTED"
+    ACTIVE_REFERENCE_PROTECTED = "ACTIVE_REFERENCE_PROTECTED"
+    IDEMPOTENCY_SAFETY = "IDEMPOTENCY_SAFETY"
+
+
+class ResourceEvidenceKind(str, Enum):
+    MEASURED = "MEASURED"
+    DERIVED = "DERIVED"
+    ESTIMATED = "ESTIMATED"
+    UNKNOWN = "UNKNOWN"
+    UNAVAILABLE = "UNAVAILABLE"
+    INSUFFICIENT_DATA = "INSUFFICIENT_DATA"
+
+
+class ResourceType(str, Enum):
+    CPU = "CPU"
+    MEMORY = "MEMORY"
+    DISK = "DISK"
+    STAGING_STORAGE = "STAGING_STORAGE"
+    CHECKPOINT_STORAGE = "CHECKPOINT_STORAGE"
+    CDC_BACKLOG = "CDC_BACKLOG"
+    CDC_BUFFER = "CDC_BUFFER"
+    WORKER_POOL = "WORKER_POOL"
+    QUEUE_DEPTH = "QUEUE_DEPTH"
+    NETWORK_THROUGHPUT = "NETWORK_THROUGHPUT"
+
+
+class CapacityRiskLevel(str, Enum):
+    LOW = "LOW"
+    NOMINAL = "NOMINAL"
+    ELEVATED = "ELEVATED"
+    CRITICAL = "CRITICAL"
+    EXHAUSTION_IMMINENT = "EXHAUSTION_IMMINENT"
+    UNKNOWN = "UNKNOWN"
+
+
+class AlertSeverity(str, Enum):
+    INFO = "INFO"
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
+    CRITICAL = "CRITICAL"
+
+
+class AlertLifecycleState(str, Enum):
+    OPEN = "OPEN"
+    ACKNOWLEDGED = "ACKNOWLEDGED"
+    SUPPRESSED = "SUPPRESSED"
+    RESOLVED = "RESOLVED"
+    REOPENED = "REOPENED"
+
+
+class IncidentSeverity(str, Enum):
+    SEV1 = "SEV1"
+    SEV2 = "SEV2"
+    SEV3 = "SEV3"
+    SEV4 = "SEV4"
+    SEV5 = "SEV5"
+
+
+class IncidentStatus(str, Enum):
+    OPEN = "OPEN"
+    INVESTIGATING = "INVESTIGATING"
+    MITIGATED = "MITIGATED"
+    RESOLVED = "RESOLVED"
+    CLOSED = "CLOSED"
+
+
+class NotificationDeliveryStatus(str, Enum):
+    PENDING = "PENDING"
+    SENDING = "SENDING"
+    SENT = "SENT"
+    FAILED = "FAILED"
+    RETRYING = "RETRYING"
+    AMBIGUOUS_DELIVERY = "AMBIGUOUS_DELIVERY"
+    SUPPRESSED = "SUPPRESSED"
+
+
+class NotificationChannel(str, Enum):
+    LOG = "LOG"
+    WEBHOOK = "WEBHOOK"
+    EMAIL = "EMAIL"
+    SLACK = "SLACK"
+    EVENT_BUS = "EVENT_BUS"
 
 
 class OperationStatus(str, Enum):

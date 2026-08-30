@@ -1,0 +1,158 @@
+{
+  "matrix": "p512_evidence_hostile_matrix",
+  "total_cases": 18,
+  "verified_with_real_node_id": 18,
+  "unverified_downgraded": 0,
+  "proof_level_taxonomy": [
+    "IMPLEMENTED",
+    "UNIT_PROVEN",
+    "INTEGRATION_PROVEN",
+    "LIVE_PROVEN"
+  ],
+  "cases": [
+    {
+      "case_id": "EV-01",
+      "name": "Proof taxonomy monotonicity: IMPLEMENTED never upgraded",
+      "exact_test_node_id": "tests/unit/engine_evidence/test_evidence_100_hostile_scenarios.py::test_41_unit_proven_not_upgraded",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "case_id": "EV-02",
+      "name": "UNIT_PROVEN not upgraded to INTEGRATION_PROVEN without test",
+      "exact_test_node_id": "tests/unit/engine_evidence/test_evidence_100_hostile_scenarios.py::test_41_unit_proven_not_upgraded",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "case_id": "EV-03",
+      "name": "INTEGRATION_PROVEN not upgraded without live proof",
+      "exact_test_node_id": "tests/unit/engine_evidence/test_evidence_100_hostile_scenarios.py::test_42_integration_proven_not_upgraded",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "case_id": "EV-04",
+      "name": "SCALE_DESIGN_PROVEN not auto-upgraded",
+      "exact_test_node_id": "tests/unit/engine_evidence/test_evidence_100_hostile_scenarios.py::test_43_scale_design_proven_not_upgraded",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "case_id": "EV-05",
+      "name": "PROVIDER_SEAM not upgraded without physical test",
+      "exact_test_node_id": "tests/unit/engine_evidence/test_evidence_100_hostile_scenarios.py::test_44_provider_seam_not_upgraded",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "case_id": "EV-06",
+      "name": "UNPROVEN remains UNPROVEN",
+      "exact_test_node_id": "tests/unit/engine_evidence/test_evidence_100_hostile_scenarios.py::test_45_unproven_remains_unproven",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "case_id": "EV-07",
+      "name": "FAILED remains FAILED",
+      "exact_test_node_id": "tests/unit/engine_evidence/test_evidence_100_hostile_scenarios.py::test_97_technical_cutover_ready_plus_validation_failed_remains_failed_evidence",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "case_id": "EV-08",
+      "name": "CANCELLED remains CANCELLED",
+      "exact_test_node_id": "tests/unit/engine_evidence/test_evidence_100_hostile_scenarios.py::test_47_cancelled_remains_cancelled",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "case_id": "EV-09",
+      "name": "LIVE_PROVEN preserved only when upstream live",
+      "exact_test_node_id": "tests/unit/engine_evidence/test_evidence_100_hostile_scenarios.py::test_48_live_proven_preserved_only_when_upstream_live",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "case_id": "EV-10",
+      "name": "Digest integrity does not upgrade proof level",
+      "exact_test_node_id": "tests/unit/engine_evidence/test_evidence_100_hostile_scenarios.py::test_49_digest_integrity_does_not_upgrade_proof_level",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "case_id": "EV-11",
+      "name": "Manifest valid: all artifacts verified",
+      "exact_test_node_id": "tests/unit/engine_evidence/test_evidence_100_hostile_scenarios.py::test_50_manifest_valid_all_artifacts_verified",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "case_id": "EV-12",
+      "name": "Manifest missing mandatory artifact fails",
+      "exact_test_node_id": "tests/unit/engine_evidence/test_evidence_100_hostile_scenarios.py::test_51_manifest_missing_mandatory_artifact",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "case_id": "EV-13",
+      "name": "Manifest member digest corrupted fails",
+      "exact_test_node_id": "tests/unit/engine_evidence/test_evidence_100_hostile_scenarios.py::test_52_manifest_member_digest_corrupted",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "case_id": "EV-14",
+      "name": "Manifest artifact content mutated fails",
+      "exact_test_node_id": "tests/unit/engine_evidence/test_evidence_100_hostile_scenarios.py::test_53_manifest_artifact_content_mutated",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "case_id": "EV-15",
+      "name": "Foreign migration artifact insertion rejected",
+      "exact_test_node_id": "tests/unit/engine_evidence/test_evidence_100_hostile_scenarios.py::test_56_manifest_foreign_migration_artifact_inserted",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "case_id": "EV-16",
+      "name": "Final correctness: missing validation fails closed",
+      "exact_test_node_id": "tests/unit/engine_evidence/test_evidence_100_hostile_scenarios.py::test_102_final_correctness_context_missing_validation_fails_closed",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REMAPPED_FROM_EVIDENCE_SUITE",
+      "node_verified": true
+    },
+    {
+      "case_id": "EV-17",
+      "name": "CDC cutover: missing CDC proof fails closed",
+      "exact_test_node_id": "tests/unit/engine_evidence/test_evidence_100_hostile_scenarios.py::test_106_cdc_cutover_context_without_cdc_proof_fails_closed",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REMAPPED_FROM_EVIDENCE_SUITE",
+      "node_verified": true
+    },
+    {
+      "case_id": "EV-18",
+      "name": "Required proof category absent fails closed",
+      "exact_test_node_id": "tests/unit/engine_evidence/test_evidence_100_hostile_scenarios.py::test_109_required_proof_category_absent_from_manifest_fails_closed",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    }
+  ]
+}

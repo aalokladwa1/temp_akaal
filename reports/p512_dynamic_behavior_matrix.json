@@ -1,0 +1,53 @@
+{
+  "matrix": "p512_dynamic_behavior_matrix",
+  "total_behaviors": 5,
+  "behaviors": [
+    {
+      "behavior_id": "DB-01",
+      "behavior": "Dynamic provider truth verification (28 physical providers)",
+      "capability_status": "SUPPORTED",
+      "exact_test_node_id": "tests/security/test_p510_governed_execution_security.py::test_atk_80_dynamic_provider_truth_unsupported_provider_fails_closed",
+      "proof_level": "INTEGRATION_PROVEN",
+      "unsupported_note": null,
+      "node_verified": true
+    },
+    {
+      "behavior_id": "DB-02",
+      "behavior": "Worker pool resizing at runtime",
+      "capability_status": "UNSUPPORTED_BY_DESIGN",
+      "exact_test_node_id": null,
+      "proof_level": "IMPLEMENTED",
+      "unsupported_note": "Worker count is fixed at execution-start. Runtime resize is intentionally unsupported. No test required; architecture is static-pool-only.",
+      "node_verified": true
+    },
+    {
+      "behavior_id": "DB-03",
+      "behavior": "Dynamic role/permission mutation with immediate revocation",
+      "capability_status": "SUPPORTED",
+      "exact_test_node_id": "tests/security/test_dynamic_production_reality.py::test_dynamic_01_persisted_role_and_permission_mutation",
+      "proof_level": "INTEGRATION_PROVEN",
+      "unsupported_note": null,
+      "node_verified": true
+    },
+    {
+      "behavior_id": "DB-04",
+      "behavior": "JIT privilege issuance and dynamic expiration",
+      "capability_status": "SUPPORTED",
+      "exact_test_node_id": "tests/security/test_dynamic_production_reality.py::test_dynamic_08_jit_privilege_issuance_and_dynamic_expiration",
+      "proof_level": "INTEGRATION_PROVEN",
+      "unsupported_note": null,
+      "node_verified": true,
+      "correction_note": "REMAPPED_FROM_DYNAMIC_TEST_SUITE"
+    },
+    {
+      "behavior_id": "DB-05",
+      "behavior": "Active key revocation blocks token minting",
+      "capability_status": "SUPPORTED",
+      "exact_test_node_id": "tests/security/test_dynamic_production_reality.py::test_dynamic_09_active_key_revocation_blocks_token_minting_and_verification",
+      "proof_level": "INTEGRATION_PROVEN",
+      "unsupported_note": null,
+      "node_verified": true
+    }
+  ],
+  "semantics_note": "capability_status=UNSUPPORTED_BY_DESIGN means the feature is intentionally absent by architecture decision, not a gap. proof_level=IMPLEMENTED for unsupported-by-design behaviors."
+}

@@ -34,6 +34,7 @@ from akaalPipeline.orchestration.compiler import GraphCompiler
 from akaalPipeline.orchestration.graph_validation import GraphValidator
 from akaalPipeline.orchestration.plans import ExecutionPlan
 from akaalPipeline.state.artifacts import ArtifactRegistry, ImmutableArtifact
+from akaal.governance.foureyes.validator import FourEyesValidator
 
 
 class CommandHandlerRegistry:
@@ -60,6 +61,20 @@ class CommandHandlerRegistry:
         self.checkpoint_manager = checkpoint_manager or CheckpointManager(self.execution_controller.lease_manager)
         self.plan_coordinator = plan_coordinator
 
+        from akaalPipeline.operations.schedules import ScheduleService
+        from akaalPipeline.operations.retention import OperationalRetentionService
+        from akaalPipeline.operations.capacity import CapacityIntelligenceService
+        from akaalPipeline.operations.alerts import AlertService
+        from akaalPipeline.operations.incidents import IncidentService
+        from akaalPipeline.operations.notifications import NotificationService
+
+        self.schedule_service = ScheduleService(self.execution_controller.lease_manager)
+        self.retention_service = OperationalRetentionService()
+        self.capacity_service = CapacityIntelligenceService()
+        self.alert_service = AlertService()
+        self.incident_service = IncidentService()
+        self.notification_service = NotificationService()
+
 
 
 
@@ -71,12 +86,20 @@ class CommandHandlerRegistry:
     ) -> Mapping[str, Any]:
         migration_id = payload.get("migration_id") or f"mig-{uuid.uuid4().hex}"
         name = payload.get("name") or f"Migration {migration_id}"
-        mode_str = payload.get("mode") or "M1"
+        mode_raw = payload.get("mode") or "M1"
+        if isinstance(mode_raw, MigrationMode):
+            mode = mode_raw
+        elif isinstance(mode_raw, str):
+            if hasattr(MigrationMode, mode_raw):
+                mode = getattr(MigrationMode, mode_raw)
+            else:
+                try:
+                    mode = MigrationMode(mode_raw)
+                except ValueError:
+                    raise PipelineError(PipelineErrorCode.INVALID_REQUEST, f"Unknown migration mode {mode_raw!r}")
+        else:
+            mode = MigrationMode.M1_BULK
 
-        try:
-            mode = MigrationMode(mode_str)
-        except ValueError:
-            raise PipelineError(PipelineErrorCode.INVALID_REQUEST, f"Unknown migration mode {mode_str!r}")
 
         agg = MigrationAggregate(
             migration_id=migration_id,
@@ -762,6 +785,20 @@ class CommandHandlerRegistry:
                 f"Actor {actor.actor_id!r} lacks governance authorization to approve migration.",
             )
 
+        # Enforce Maker-Checker: requester cannot self-approve
+        requester_id = payload.get("requester_id") or getattr(agg, "creator_id", None) or payload.get("creator_id")
+        if requester_id:
+            ok, msg = FourEyesValidator().validate_action(
+                requester_id=str(requester_id),
+                approver_id=str(actor.actor_id),
+                action_type="APPROVE_MIGRATION",
+            )
+            if not ok:
+                raise PipelineError(
+                    PipelineErrorCode.POLICY_DENIED,
+                    f"Maker-checker violation: {msg}",
+                )
+
         decision_id = payload.get("decision_id") or f"dec-{uuid.uuid4().hex}"
         approval_id = payload.get("approval_id") or f"art-approval-{migration_id}"
 
@@ -792,7 +829,6 @@ class CommandHandlerRegistry:
             expires_at=payload.get("expires_at"),
         )
 
-
         approval_art = ImmutableArtifact.create(approval_id, "policy_decision", decision.to_dict())
         self.artifact_registry.register(approval_art, conn=uow.connection)
 
@@ -818,3 +854,818 @@ class CommandHandlerRegistry:
             "result": "ALLOW",
             "issuer_id": actor.actor_id,
         }
+
+    def handle_pause_migration(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        """P6.1 Operational Command: Pause running migration execution."""
+        from akaalPipeline.operations.mutability import OperationalMutabilityResolver, MutabilityClassification
+
+        migration_id = payload["migration_id"]
+        agg = self.repository.get_by_id(migration_id, connection=uow.connection)
+        if agg is None:
+            raise PipelineError(PipelineErrorCode.INVALID_REQUEST, f"Migration {migration_id!r} not found.")
+
+        if agg.tenant_id != actor.organization_id:
+            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Migration {migration_id!r} not found or unauthorized for tenant.")
+        if actor.workspace_id and agg.workspace_id and agg.workspace_id != actor.workspace_id:
+            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Migration {migration_id!r} belongs to a different workspace.")
+        if actor.project_id and agg.project_id and agg.project_id != actor.project_id:
+            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Migration {migration_id!r} belongs to a different project.")
+
+        # Stale execution fencing check
+        target_execution = payload.get("target_execution_id") or payload.get("execution_id") or payload.get("attempt_id")
+        if target_execution and agg.active_attempt_id and target_execution != agg.active_attempt_id:
+            raise PipelineError(
+                PipelineErrorCode.STALE_RESULT,
+                f"Pause command rejected: target execution {target_execution!r} does not match active execution {agg.active_attempt_id!r}.",
+            )
+
+        # Idempotent return if already paused
+        if agg.state == MigrationLifecycleState.PAUSED:
+            return {
+                "migration_id": migration_id,
+                "status": "APPLIED",
+                "state": agg.state.value,
+                "message": "Migration is already paused.",
+                "idempotent": True,
+            }
+
+        if agg.state not in (MigrationLifecycleState.ACTIVE, MigrationLifecycleState.INITIALIZED):
+            raise PipelineError(
+                PipelineErrorCode.INVALID_TRANSITION,
+                f"Cannot pause migration in state {agg.state.value!r}. Only active migrations can be paused.",
+            )
+
+        # Evaluate dynamic mutability
+        mut_res = OperationalMutabilityResolver.evaluate("pause", agg.state, agg.mode)
+
+        # Step 1: Create operation record with ACCEPTED
+        op_id = payload.get("operation_id") or f"op-pause-{uuid.uuid4().hex}"
+        op_rec = OperationRecord(
+            operation_id=op_id,
+            command_id=payload.get("command_id") or f"cmd-pause-{uuid.uuid4().hex}",
+            idempotency_key=payload.get("idempotency_key"),
+            status=OperationStatus.ACCEPTED,
+            actor=actor,
+            payload_fingerprint=payload.get("payload_fingerprint", "fp-pause"),
+        )
+        self.operation_service.create_operation(op_rec, uow.connection)
+
+        # Step 2: Transition state to PAUSING
+        old_state = agg.state.value
+        agg.state = MigrationLifecycleState.PAUSING
+        agg.revision += 1
+        self.repository.save(agg, connection=uow.connection)
+
+        # Step 3: Physical task pause in Engine
+        cur_running = uow.connection.execute(
+            "SELECT current_engine_task_id FROM node_executions WHERE migration_id = ? AND state IN ('RUNNING', 'DISPATCHED')",
+            (migration_id,),
+        )
+        running_tasks = [r["current_engine_task_id"] for r in cur_running.fetchall() if r and r["current_engine_task_id"]]
+
+        binding = self.execution_controller.binding_registry.get("gateway_engine_binding")
+        if not binding:
+            for b in self.execution_controller.binding_registry.list_all():
+                if isinstance(getattr(b, "port_instance", None), ExecutionPort):
+                    binding = b
+                    break
+
+        if running_tasks and binding and isinstance(binding.port_instance, ExecutionPort):
+            for t_id in running_tasks:
+                pause_req = EngineInvocationRequest(
+                    contract_version="1.0.0",
+                    binding_id=binding.binding_id,
+                    correlation_id=f"pause-{migration_id}",
+                    operation_id=f"pause-op-{uuid.uuid4().hex}",
+                    attempt_id=agg.active_attempt_id or f"att-pause-{uuid.uuid4().hex}",
+                    invocation_id=f"inv-pause-{uuid.uuid4().hex}",
+                    lease_id=f"lease-pause-{uuid.uuid4().hex}",
+                    fence_epoch=1,
+                    graph_node_id="n-pause",
+                    initialization_fingerprint="fp-pause",
+                    payload={
+                        "migration_id": migration_id,
+                        "semantic_operation": "PAUSE_EXECUTION",
+                        "task_id": t_id,
+                    },
+                )
+                try:
+                    binding.port_instance.execute_task(pause_req)
+                except Exception as p_exc:
+                    logger.warning("Engine task pause invocation failed for task %s: %s", t_id, p_exc)
+
+        # Step 4: Transition to PAUSED & confirm APPLIED
+        agg.state = MigrationLifecycleState.PAUSED
+        agg.revision += 1
+        self.repository.save(agg, connection=uow.connection)
+
+        self.operation_service.update_status(
+            op_id,
+            OperationStatus.SUCCEEDED,
+            uow.connection,
+            result_payload={"status": "APPLIED", "state": agg.state.value},
+        )
+
+        hist = LifecycleHistoryRecord(
+            history_id=f"hist-{uuid.uuid4().hex}",
+            migration_id=migration_id,
+            from_state=old_state,
+            to_state=agg.state.value,
+            actor=actor,
+            reason=payload.get("reason", "Migration paused by operator"),
+        )
+        uow.connection.execute(
+            """
+            INSERT INTO lifecycle_history (history_id, migration_id, from_state, to_state, actor, reason, details, timestamp)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (hist.history_id, hist.migration_id, hist.from_state, hist.to_state, hist.actor.actor_id, hist.reason, "{}", hist.timestamp),
+        )
+
+        evt = DomainEvent.create(migration_id, "migration.paused", {"migration_id": migration_id, "operation_id": op_id, "state": agg.state.value})
+        self.outbox_service.stage_event(evt, uow.connection)
+        self.audit_service.record_event(actor, "migration.paused", migration_id, uow.connection)
+
+        return {
+            "migration_id": migration_id,
+            "operation_id": op_id,
+            "status": "APPLIED",
+            "state": agg.state.value,
+            "revision": agg.revision,
+        }
+
+    def handle_resume_migration(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        """P6.1 Operational Command: Resume paused migration execution."""
+        migration_id = payload["migration_id"]
+        agg = self.repository.get_by_id(migration_id, connection=uow.connection)
+        if agg is None:
+            raise PipelineError(PipelineErrorCode.INVALID_REQUEST, f"Migration {migration_id!r} not found.")
+
+        if agg.tenant_id != actor.organization_id:
+            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Migration {migration_id!r} not found or unauthorized for tenant.")
+        if actor.workspace_id and agg.workspace_id and agg.workspace_id != actor.workspace_id:
+            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Migration {migration_id!r} belongs to a different workspace.")
+        if actor.project_id and agg.project_id and agg.project_id != actor.project_id:
+            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Migration {migration_id!r} belongs to a different project.")
+
+        # Stale execution fencing check
+        target_execution = payload.get("target_execution_id") or payload.get("execution_id") or payload.get("attempt_id")
+        if target_execution and agg.active_attempt_id and target_execution != agg.active_attempt_id:
+            raise PipelineError(
+                PipelineErrorCode.STALE_RESULT,
+                f"Resume command rejected: target execution {target_execution!r} does not match active execution {agg.active_attempt_id!r}.",
+            )
+
+        # Idempotent return if already active
+        if agg.state == MigrationLifecycleState.ACTIVE:
+            return {
+                "migration_id": migration_id,
+                "status": "APPLIED",
+                "state": agg.state.value,
+                "message": "Migration is already active.",
+                "idempotent": True,
+            }
+
+        if agg.state != MigrationLifecycleState.PAUSED:
+            raise PipelineError(
+                PipelineErrorCode.INVALID_TRANSITION,
+                f"Cannot resume migration in state {agg.state.value!r}. Only paused migrations can be resumed.",
+            )
+
+        # Step 1: Create operation record with ACCEPTED
+        op_id = payload.get("operation_id") or f"op-resume-{uuid.uuid4().hex}"
+        op_rec = OperationRecord(
+            operation_id=op_id,
+            command_id=payload.get("command_id") or f"cmd-resume-{uuid.uuid4().hex}",
+            idempotency_key=payload.get("idempotency_key"),
+            status=OperationStatus.ACCEPTED,
+            actor=actor,
+            payload_fingerprint=payload.get("payload_fingerprint", "fp-resume"),
+        )
+        self.operation_service.create_operation(op_rec, uow.connection)
+
+        # Step 2: Physical task resume in Engine
+        cur_running = uow.connection.execute(
+            "SELECT current_engine_task_id FROM node_executions WHERE migration_id = ? AND state IN ('PAUSED', 'RUNNING', 'DISPATCHED')",
+            (migration_id,),
+        )
+        paused_tasks = [r["current_engine_task_id"] for r in cur_running.fetchall() if r and r["current_engine_task_id"]]
+
+        binding = self.execution_controller.binding_registry.get("gateway_engine_binding")
+        if not binding:
+            for b in self.execution_controller.binding_registry.list_all():
+                if isinstance(getattr(b, "port_instance", None), ExecutionPort):
+                    binding = b
+                    break
+
+        if paused_tasks and binding and isinstance(binding.port_instance, ExecutionPort):
+            for t_id in paused_tasks:
+                resume_req = EngineInvocationRequest(
+                    contract_version="1.0.0",
+                    binding_id=binding.binding_id,
+                    correlation_id=f"resume-{migration_id}",
+                    operation_id=f"resume-op-{uuid.uuid4().hex}",
+                    attempt_id=agg.active_attempt_id or f"att-resume-{uuid.uuid4().hex}",
+                    invocation_id=f"inv-resume-{uuid.uuid4().hex}",
+                    lease_id=f"lease-resume-{uuid.uuid4().hex}",
+                    fence_epoch=1,
+                    graph_node_id="n-resume",
+                    initialization_fingerprint="fp-resume",
+                    payload={
+                        "migration_id": migration_id,
+                        "semantic_operation": "RESUME_EXECUTION",
+                        "task_id": t_id,
+                    },
+                )
+                try:
+                    binding.port_instance.execute_task(resume_req)
+                except Exception as r_exc:
+                    logger.warning("Engine task resume invocation failed for task %s: %s", t_id, r_exc)
+
+        # Step 3: Transition to ACTIVE & confirm APPLIED
+        old_state = agg.state.value
+        agg.state = MigrationLifecycleState.ACTIVE
+        agg.revision += 1
+        self.repository.save(agg, connection=uow.connection)
+
+        self.operation_service.update_status(
+            op_id,
+            OperationStatus.SUCCEEDED,
+            uow.connection,
+            result_payload={"status": "APPLIED", "state": agg.state.value},
+        )
+
+        hist = LifecycleHistoryRecord(
+            history_id=f"hist-{uuid.uuid4().hex}",
+            migration_id=migration_id,
+            from_state=old_state,
+            to_state=agg.state.value,
+            actor=actor,
+            reason=payload.get("reason", "Migration resumed by operator"),
+        )
+        uow.connection.execute(
+            """
+            INSERT INTO lifecycle_history (history_id, migration_id, from_state, to_state, actor, reason, details, timestamp)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (hist.history_id, hist.migration_id, hist.from_state, hist.to_state, hist.actor.actor_id, hist.reason, "{}", hist.timestamp),
+        )
+
+        evt = DomainEvent.create(migration_id, "migration.resumed", {"migration_id": migration_id, "operation_id": op_id, "state": agg.state.value})
+        self.outbox_service.stage_event(evt, uow.connection)
+        self.audit_service.record_event(actor, "migration.resumed", migration_id, uow.connection)
+
+        return {
+            "migration_id": migration_id,
+            "operation_id": op_id,
+            "status": "APPLIED",
+            "state": agg.state.value,
+            "revision": agg.revision,
+        }
+
+    def handle_throttle_cdc(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        """P6.1 Operational Command: Dynamic CDC rate throttling."""
+        migration_id = payload["migration_id"]
+        agg = self.repository.get_by_id(migration_id, connection=uow.connection)
+        if agg is None:
+            raise PipelineError(PipelineErrorCode.INVALID_REQUEST, f"Migration {migration_id!r} not found.")
+
+        if agg.tenant_id != actor.organization_id:
+            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Migration {migration_id!r} not found or unauthorized for tenant.")
+
+        max_events = payload.get("max_events_per_fetch")
+        max_bytes = payload.get("max_fetch_bytes_sec")
+
+        # Strict validation: REJECT INVALID
+        if max_events is not None:
+            try:
+                max_events = int(max_events)
+                if max_events <= 0:
+                    raise ValueError
+            except (ValueError, TypeError):
+                raise PipelineError(PipelineErrorCode.INVALID_REQUEST, "max_events_per_fetch must be a positive integer > 0.")
+
+        if max_bytes is not None:
+            try:
+                max_bytes = int(max_bytes)
+                if max_bytes <= 0:
+                    raise ValueError
+            except (ValueError, TypeError):
+                raise PipelineError(PipelineErrorCode.INVALID_REQUEST, "max_fetch_bytes_sec must be a positive integer > 0.")
+
+        op_id = payload.get("operation_id") or f"op-throttle-{uuid.uuid4().hex}"
+        op_rec = OperationRecord(
+            operation_id=op_id,
+            command_id=payload.get("command_id") or f"cmd-throttle-{uuid.uuid4().hex}",
+            idempotency_key=payload.get("idempotency_key"),
+            status=OperationStatus.ACCEPTED,
+            actor=actor,
+            payload_fingerprint=payload.get("payload_fingerprint", "fp-throttle"),
+        )
+        self.operation_service.create_operation(op_rec, uow.connection)
+
+        # Apply dynamic rate throttling if gateway engine is bound
+        throttle_result = {"max_events_per_fetch": max_events, "max_fetch_bytes_sec": max_bytes}
+        binding = self.execution_controller.binding_registry.get("gateway_engine_binding")
+        if binding and hasattr(binding, "engine_gateway"):
+            gw = getattr(binding, "engine_gateway", None)
+            if gw and hasattr(gw, "coordinator") and hasattr(gw.coordinator, "cdc_authority"):
+                throttle_result = gw.coordinator.cdc_authority.set_capture_budget(
+                    max_events_per_fetch=max_events,
+                    max_fetch_bytes_sec=max_bytes,
+                )
+
+        self.operation_service.update_status(
+            op_id,
+            OperationStatus.SUCCEEDED,
+            uow.connection,
+            result_payload={"status": "APPLIED", "throttle": throttle_result},
+        )
+
+        evt = DomainEvent.create(migration_id, "migration.cdc_throttled", {"migration_id": migration_id, "throttle": throttle_result})
+        self.outbox_service.stage_event(evt, uow.connection)
+        self.audit_service.record_event(actor, "migration.cdc_throttled", migration_id, uow.connection)
+
+        return {
+            "migration_id": migration_id,
+            "operation_id": op_id,
+            "status": "APPLIED",
+            "throttle": throttle_result,
+        }
+
+    # =========================================================================
+    # P6.5 ENTERPRISE SCHEDULING & RETENTION COMMAND HANDLERS
+    # =========================================================================
+
+    def handle_create_schedule(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        """Create a new schedule definition with initial DRAFT or ARMED state."""
+        migration_id = payload.get("migration_id")
+        if not migration_id:
+            raise PipelineError(PipelineErrorCode.INVALID_REQUEST, "migration_id is required to create a schedule.")
+
+        agg = self.repository.get_by_id(migration_id, connection=uow.connection)
+        if agg is None:
+            raise PipelineError(PipelineErrorCode.INVALID_REQUEST, f"Migration {migration_id!r} not found.")
+
+        if agg.tenant_id != actor.organization_id:
+            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Migration {migration_id!r} unauthorized for tenant.")
+
+        from akaalPipeline.contracts.enums import MisfirePolicy, OverlapPolicy, ScheduleLifecycleState, ScheduleType
+        from akaalPipeline.operations.schedules import ScheduleRecord
+
+        schedule_id = payload.get("schedule_id") or f"sch-{uuid.uuid4().hex[:12]}"
+        stype = ScheduleType(payload.get("schedule_type", "RECURRING"))
+        cron_expr = payload.get("cron_expression", "0 * * * *")
+        one_shot = payload.get("one_shot_time")
+        tz_name = payload.get("timezone", "UTC")
+        op_type = payload.get("operation_type", "migration.start")
+        misfire = MisfirePolicy(payload.get("misfire_policy", "SKIP"))
+        overlap = OverlapPolicy(payload.get("overlap_policy", "REJECT_OVERLAP"))
+        arm_immediately = bool(payload.get("arm_immediately", False))
+        initial_state = ScheduleLifecycleState.ARMED if arm_immediately else ScheduleLifecycleState.DRAFT
+
+        record = ScheduleRecord(
+            schedule_id=schedule_id,
+            tenant_id=actor.organization_id,
+            workspace_id=actor.workspace_id or "default-workspace",
+            project_id=actor.project_id,
+            migration_id=migration_id,
+            operation_type=op_type,
+            schedule_type=stype,
+            cron_expression=cron_expr,
+            one_shot_time=one_shot,
+            timezone=tz_name,
+            state=initial_state,
+            enabled=True,
+            revision=1,
+            misfire_policy=misfire,
+            overlap_policy=overlap,
+            creator_actor_id=actor.actor_id,
+            delegated_roles=json.dumps(list(actor.roles)),
+        )
+        created = self.schedule_service.create_schedule(record, uow.connection)
+
+        self.audit_service.record_event(actor, "schedule.created", schedule_id, uow.connection)
+        return created.to_dict()
+
+    def handle_update_schedule(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        """Update an existing schedule with monotonic revision bump and tenant verification."""
+        schedule_id = payload.get("schedule_id")
+        if not schedule_id:
+            raise PipelineError(PipelineErrorCode.INVALID_REQUEST, "schedule_id is required.")
+
+        sch = self.schedule_service.get_by_id(schedule_id, uow.connection)
+        if sch is None:
+            raise PipelineError(PipelineErrorCode.INVALID_REQUEST, f"Schedule {schedule_id!r} not found.")
+
+        if sch.tenant_id != actor.organization_id:
+            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Schedule {schedule_id!r} unauthorized for tenant.")
+
+        from akaalPipeline.contracts.enums import MisfirePolicy, OverlapPolicy
+        misfire = MisfirePolicy(payload["misfire_policy"]) if "misfire_policy" in payload else None
+        overlap = OverlapPolicy(payload["overlap_policy"]) if "overlap_policy" in payload else None
+
+        updated = self.schedule_service.update_schedule(
+            schedule_id=schedule_id,
+            conn=uow.connection,
+            cron_expression=payload.get("cron_expression"),
+            timezone_str=payload.get("timezone"),
+            misfire_policy=misfire,
+            overlap_policy=overlap,
+            one_shot_time=payload.get("one_shot_time"),
+        )
+        self.audit_service.record_event(actor, "schedule.updated", schedule_id, uow.connection)
+        return updated.to_dict()
+
+    def handle_arm_schedule(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        """Arm a schedule for occurrence generation."""
+        schedule_id = payload.get("schedule_id")
+        if not schedule_id:
+            raise PipelineError(PipelineErrorCode.INVALID_REQUEST, "schedule_id is required.")
+
+        sch = self.schedule_service.get_by_id(schedule_id, uow.connection)
+        if sch is None:
+            raise PipelineError(PipelineErrorCode.INVALID_REQUEST, f"Schedule {schedule_id!r} not found.")
+
+        if sch.tenant_id != actor.organization_id:
+            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Schedule {schedule_id!r} unauthorized for tenant.")
+
+        armed = self.schedule_service.arm_schedule(schedule_id, uow.connection)
+        self.audit_service.record_event(actor, "schedule.armed", schedule_id, uow.connection)
+        return armed.to_dict()
+
+    def handle_disable_schedule(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        """Disable future occurrences of a schedule."""
+        schedule_id = payload.get("schedule_id")
+        if not schedule_id:
+            raise PipelineError(PipelineErrorCode.INVALID_REQUEST, "schedule_id is required.")
+
+        sch = self.schedule_service.get_by_id(schedule_id, uow.connection)
+        if sch is None:
+            raise PipelineError(PipelineErrorCode.INVALID_REQUEST, f"Schedule {schedule_id!r} not found.")
+
+        if sch.tenant_id != actor.organization_id:
+            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Schedule {schedule_id!r} unauthorized for tenant.")
+
+        disabled = self.schedule_service.disable_schedule(schedule_id, uow.connection)
+        self.audit_service.record_event(actor, "schedule.disabled", schedule_id, uow.connection)
+        return disabled.to_dict()
+
+    def handle_enable_schedule(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        """Enable a disabled schedule."""
+        schedule_id = payload.get("schedule_id")
+        if not schedule_id:
+            raise PipelineError(PipelineErrorCode.INVALID_REQUEST, "schedule_id is required.")
+
+        sch = self.schedule_service.get_by_id(schedule_id, uow.connection)
+        if sch is None:
+            raise PipelineError(PipelineErrorCode.INVALID_REQUEST, f"Schedule {schedule_id!r} not found.")
+
+        if sch.tenant_id != actor.organization_id:
+            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Schedule {schedule_id!r} unauthorized for tenant.")
+
+        enabled = self.schedule_service.enable_schedule(schedule_id, uow.connection)
+        self.audit_service.record_event(actor, "schedule.enabled", schedule_id, uow.connection)
+        return enabled.to_dict()
+
+    def handle_cancel_schedule(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        """Cancel a schedule."""
+        schedule_id = payload.get("schedule_id")
+        if not schedule_id:
+            raise PipelineError(PipelineErrorCode.INVALID_REQUEST, "schedule_id is required.")
+
+        sch = self.schedule_service.get_by_id(schedule_id, uow.connection)
+        if sch is None:
+            raise PipelineError(PipelineErrorCode.INVALID_REQUEST, f"Schedule {schedule_id!r} not found.")
+
+        if sch.tenant_id != actor.organization_id:
+            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Schedule {schedule_id!r} unauthorized for tenant.")
+
+        cancelled = self.schedule_service.cancel_schedule(schedule_id, uow.connection)
+        self.audit_service.record_event(actor, "schedule.cancelled", schedule_id, uow.connection)
+        return cancelled.to_dict()
+
+    def handle_delete_schedule(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        """Delete a schedule definition."""
+        schedule_id = payload.get("schedule_id")
+        if not schedule_id:
+            raise PipelineError(PipelineErrorCode.INVALID_REQUEST, "schedule_id is required.")
+
+        sch = self.schedule_service.get_by_id(schedule_id, uow.connection)
+        if sch is None:
+            raise PipelineError(PipelineErrorCode.INVALID_REQUEST, f"Schedule {schedule_id!r} not found.")
+
+        if sch.tenant_id != actor.organization_id:
+            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Schedule {schedule_id!r} unauthorized for tenant.")
+
+        deleted = self.schedule_service.delete_schedule(schedule_id, uow.connection)
+        self.audit_service.record_event(actor, "schedule.deleted", schedule_id, uow.connection)
+        return {"deleted": deleted, "schedule_id": schedule_id}
+
+    def handle_execute_retention(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        """Execute operational retention pruning in bounded batches respecting all protection classes."""
+        cutoff_time = payload.get("cutoff_time")
+        if not cutoff_time:
+            raise PipelineError(PipelineErrorCode.INVALID_REQUEST, "cutoff_time is required for retention execution.")
+
+        data_classes = payload.get("data_classes") or [
+            "operation_journal",
+            "idempotency_records",
+            "lifecycle_history",
+            "outbox_events",
+            "checkpoints",
+            "immutable_artifacts",
+            "audit_trail",
+            "schedule_occurrences",
+        ]
+        batch_size = int(payload.get("batch_size", 500))
+
+        from akaalPipeline.operations.retention import RetentionPolicy
+        policy = RetentionPolicy(
+            cutoff_time=cutoff_time,
+            tenant_id=actor.organization_id,
+            workspace_id=actor.workspace_id,
+            project_id=actor.project_id,
+            data_classes=data_classes,
+            max_batch_size=batch_size,
+        )
+
+        res = self.retention_service.execute(policy, uow.connection, actor=actor, batch_size=batch_size)
+        self.audit_service.record_event(actor, "retention.executed", res.retention_op_id, uow.connection)
+        return res.to_dict()
+
+    # =========================================================================
+    # P6.6 Capacity Command Handlers
+    # =========================================================================
+
+    def handle_sample_capacity(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        """Trigger capacity and resource observation sampling."""
+        node_id = payload.get("node_id", "node-local")
+        obs = self.capacity_service.sample_os_resources(node_id=node_id, tenant_id=actor.organization_id)
+        for o in obs:
+            self.capacity_service.record_observation(o, uow.connection)
+        self.audit_service.record_event(actor, "capacity.sampled", node_id, uow.connection)
+        return {"samples": [o.to_dict() for o in obs]}
+
+    # =========================================================================
+    # P6.7 Alert Command Handlers
+    # =========================================================================
+
+    def handle_create_alert_rule(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        """Create a typed alert rule."""
+        from akaalPipeline.contracts.enums import AlertSeverity
+        name = payload["name"]
+        signal_name = payload["signal_name"]
+        operator = payload["operator"]
+        threshold_value = str(payload["threshold_value"])
+        threshold_type = payload.get("threshold_type", "NUMERIC")
+        severity_str = payload.get("severity", "MEDIUM")
+        severity = AlertSeverity(severity_str.upper())
+        dedup_window_sec = int(payload.get("dedup_window_sec", 300))
+
+        rule = self.alert_service.create_rule(
+            tenant_id=actor.organization_id,
+            name=name,
+            signal_name=signal_name,
+            operator=operator,
+            threshold_value=threshold_value,
+            threshold_type=threshold_type,
+            severity=severity,
+            conn=uow.connection,
+            dedup_window_sec=dedup_window_sec,
+            actor=actor,
+        )
+        self.audit_service.record_event(actor, "alert.rule.created", rule.rule_id, uow.connection)
+        return rule.to_dict()
+
+    def handle_evaluate_alert(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        """Evaluate a signal and potentially trigger/update an alert."""
+        signal_name = payload["signal_name"]
+        value = payload.get("value")
+        context = payload.get("context", {})
+        target_id = payload.get("target_id")
+
+        alert = self.alert_service.evaluate_signal(
+            tenant_id=actor.organization_id,
+            signal_name=signal_name,
+            value=value,
+            conn=uow.connection,
+            context=context,
+            target_id=target_id,
+        )
+        if alert:
+            self.audit_service.record_event(actor, "alert.triggered", alert.alert_id, uow.connection)
+            return {"triggered": True, "alert": alert.to_dict()}
+        return {"triggered": False, "alert": None}
+
+    def handle_acknowledge_alert(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        """Acknowledge an active alert."""
+        alert_id = payload["alert_id"]
+        alert = self.alert_service.acknowledge_alert(alert_id, actor, uow.connection)
+        self.audit_service.record_event(actor, "alert.acknowledged", alert_id, uow.connection)
+        return alert.to_dict()
+
+    def handle_resolve_alert(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        """Resolve an active alert."""
+        alert_id = payload["alert_id"]
+        alert = self.alert_service.resolve_alert(alert_id, uow.connection)
+        self.audit_service.record_event(actor, "alert.resolved", alert_id, uow.connection)
+        return alert.to_dict()
+
+    def handle_suppress_alert(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        """Suppress an active alert for a duration."""
+        alert_id = payload["alert_id"]
+        duration_seconds = int(payload.get("duration_seconds", 3600))
+        alert = self.alert_service.suppress_alert(alert_id, duration_seconds, uow.connection)
+        self.audit_service.record_event(actor, "alert.suppressed", alert_id, uow.connection)
+        return alert.to_dict()
+
+    # =========================================================================
+    # P6.7 Incident Command Handlers
+    # =========================================================================
+
+    def handle_create_incident(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        """Create an operational incident."""
+        from akaalPipeline.contracts.enums import IncidentSeverity
+        title = payload["title"]
+        severity_str = payload.get("severity", "SEV3")
+        severity = IncidentSeverity(severity_str.upper())
+        summary = payload.get("summary", "")
+        migration_id = payload.get("migration_id")
+        node_id = payload.get("node_id")
+        correlation_key = payload.get("correlation_key")
+
+        incident = self.incident_service.create_incident(
+            tenant_id=actor.organization_id,
+            title=title,
+            severity=severity,
+            summary=summary,
+            conn=uow.connection,
+            migration_id=migration_id,
+            node_id=node_id,
+            correlation_key=correlation_key,
+            actor=actor,
+        )
+        self.audit_service.record_event(actor, "incident.created", incident.incident_id, uow.connection)
+        return incident.to_dict()
+
+    def handle_attach_alert_to_incident(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        """Attach an alert to an incident."""
+        incident_id = payload["incident_id"]
+        alert_id = payload["alert_id"]
+        self.incident_service.attach_alert(incident_id, alert_id, uow.connection, actor=actor)
+        self.audit_service.record_event(actor, "incident.alert_attached", incident_id, uow.connection)
+        return {"incident_id": incident_id, "alert_id": alert_id, "attached": True}
+
+    def handle_update_incident_status(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        """Update incident status."""
+        from akaalPipeline.contracts.enums import IncidentStatus
+        incident_id = payload["incident_id"]
+        status_str = payload["status"]
+        status = IncidentStatus(status_str.upper())
+        reason = payload.get("reason")
+
+        incident = self.incident_service.update_status(incident_id, status, uow.connection, actor=actor, reason=reason)
+        self.audit_service.record_event(actor, "incident.status_updated", incident_id, uow.connection)
+        return incident.to_dict()
+
+    # =========================================================================
+    # P6.7 Notification Command Handlers
+    # =========================================================================
+
+    def handle_send_notification(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        """Dispatch a sanitized notification to a registered channel."""
+        from akaalPipeline.contracts.enums import NotificationChannel
+        from akaalPipeline.operations.notifications import NotificationRequest
+        channel_str = payload.get("channel", "LOG")
+        channel = NotificationChannel(channel_str.upper())
+        recipient = payload["recipient"]
+        subject = payload["subject"]
+        body = payload["body"]
+        context_payload = payload.get("context_payload")
+        alert_id = payload.get("alert_id")
+        incident_id = payload.get("incident_id")
+        idempotency_token = payload.get("idempotency_token")
+
+        req = NotificationRequest(
+            tenant_id=actor.organization_id,
+            channel=channel,
+            recipient=recipient,
+            subject=subject,
+            body=body,
+            context_payload=context_payload,
+            alert_id=alert_id,
+            incident_id=incident_id,
+            idempotency_token=idempotency_token,
+        )
+        res = self.notification_service.dispatch(req, uow.connection, actor=actor)
+        self.audit_service.record_event(actor, "notification.dispatched", res.delivery_id, uow.connection)
+        return res.to_dict()
+
+
+

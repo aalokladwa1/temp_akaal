@@ -111,6 +111,8 @@ class PipelineEngineGatewayAdapter(
                 f"Missing required execution identity context: migration_id={mig_id!r}, run_id={run_id!r}, job_id={job_id!r}.",
             )
 
+        authz_art = payload.get("execution_authorization_artifact") or getattr(req, "execution_authorization_artifact", None)
+
         return GatewayRequestContext(
             migration_id=mig_id,
             run_id=run_id,
@@ -122,6 +124,7 @@ class PipelineEngineGatewayAdapter(
             fencing_epoch=fencing_epoch,
             fencing_token_envelope=req.fencing_token_envelope,
             initialization_fingerprint=req.initialization_fingerprint,
+            execution_authorization_artifact=authz_art,
             execution_mode=payload.get("execution_mode") or payload.get("mode"),
             deadline_seconds=float(req.timeout_seconds) if req.timeout_seconds else None,
         )

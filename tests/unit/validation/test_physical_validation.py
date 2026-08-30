@@ -18,17 +18,17 @@ class TestCanonicalPhysicalValidation(unittest.IsolatedAsyncioTestCase):
 
     def test_01_null_normalization(self):
         val_b = PhysicalChecksumValidator.normalize_value_to_bytes(None)
-        self.assertEqual(val_b, b"TYPE:NULL")
+        self.assertEqual(val_b, b"TYPE:NULL:1:0:")
 
     def test_02_oracle_empty_string_semantics(self):
         # Oracle treats empty string as NULL
         val_b = PhysicalChecksumValidator.normalize_value_to_bytes("", dialect="oracle")
-        self.assertEqual(val_b, b"TYPE:NULL")
+        self.assertEqual(val_b, b"TYPE:NULL:1:0:")
 
     def test_03_postgresql_empty_string_distinction(self):
         # PostgreSQL distinguishes empty string from NULL
         val_b = PhysicalChecksumValidator.normalize_value_to_bytes("", dialect="postgresql")
-        self.assertEqual(val_b, b"TYPE:STR:0:")
+        self.assertEqual(val_b, b"TYPE:STR:0:0:")
 
     def test_04_decimal_equivalence(self):
         val1 = decimal.Decimal("12.50")
@@ -36,12 +36,12 @@ class TestCanonicalPhysicalValidation(unittest.IsolatedAsyncioTestCase):
         b1 = PhysicalChecksumValidator.normalize_value_to_bytes(val1)
         b2 = PhysicalChecksumValidator.normalize_value_to_bytes(val2)
         self.assertEqual(b1, b2)
-        self.assertEqual(b1, b"TYPE:DEC:4:12.5")
+        self.assertEqual(b1, b"TYPE:NUM:0:4:12.5")
 
     def test_05_decimal_precision(self):
         val1 = decimal.Decimal("0.0000000000000000001")
         b1 = PhysicalChecksumValidator.normalize_value_to_bytes(val1)
-        self.assertTrue(b1.startswith(b"TYPE:DEC:"))
+        self.assertTrue(b1.startswith(b"TYPE:NUM:"))
 
     def test_06_unicode_nfc_normalization(self):
         # NFD vs NFC
@@ -61,12 +61,12 @@ class TestCanonicalPhysicalValidation(unittest.IsolatedAsyncioTestCase):
     def test_08_timestamps_without_timezone(self):
         dt = datetime.datetime(2026, 8, 11, 20, 0, 0)
         b1 = PhysicalChecksumValidator.normalize_value_to_bytes(dt)
-        self.assertEqual(b1, b"TYPE:DATE:26:2026-08-11T20:00:00.000000")
+        self.assertEqual(b1, b"TYPE:DATE:0:26:2026-08-11T20:00:00.000000")
 
     def test_09_binary_values(self):
         raw_b = b"\x00\x01\x02\xFF"
         b1 = PhysicalChecksumValidator.normalize_value_to_bytes(raw_b)
-        self.assertEqual(b1, b"TYPE:BYTES:4:\x00\x01\x02\xFF")
+        self.assertEqual(b1, b"TYPE:BYTES:0:4:\x00\x01\x02\xff")
 
     def test_10_embedded_delimiter_strings_no_collision(self):
         # ["a|b", "c"] vs ["a", "b|c"]

@@ -88,13 +88,10 @@ class FencingTokenManager:
         )
         row = cursor.fetchone()
         if not row:
-            conn.execute(
-                "INSERT INTO fencing_tokens (resource_id, current_epoch, last_worker_id, updated_at) VALUES (?, ?, ?, ?);",
-                (token.resource_id, token.fencing_epoch, token.worker_id, token.issued_at)
+            raise FencingViolationError(
+                f"Fencing violation: no fencing token has been issued for resource '{token.resource_id}'."
             )
-            current_epoch = token.fencing_epoch
-        else:
-            current_epoch = row["current_epoch"]
+        current_epoch = row["current_epoch"]
         if token.fencing_epoch != current_epoch:
             raise StaleGenerationError(
                 f"Fencing violation: token epoch {token.fencing_epoch} != current resource epoch {current_epoch} "

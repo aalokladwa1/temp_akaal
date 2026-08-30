@@ -1,0 +1,14 @@
+{
+  "total_collected": 4347,
+  "total_accounted": 4347,
+  "unexplained": 0,
+  "whole_p5_logical": 1679,
+  "whole_p5_unique": 1625,
+  "whole_p5_overlap": 54,
+  "p0_p4_logical": 1213,
+  "p0_p4_unique": 1099,
+  "external_deferred_total": 216,
+  "p5_tracked_subset": 204,
+  "additional_external_matrix": 12,
+  "status": "ALL_INVARIANTS_SATISFIED"
+}

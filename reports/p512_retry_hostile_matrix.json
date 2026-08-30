@@ -1,0 +1,199 @@
+{
+  "matrix": "p512_retry_hostile_matrix",
+  "total_dimensions": 17,
+  "authoritative_count_reconciliation": {
+    "authoritative_count": 17,
+    "justification": "Deduplication Authority (P5.6 RowDeduplicator) and CDC Conflict Resolution Policy (CDCConflictResolutionPolicy) are distinct authorities and semantics in production. They are maintained as separate dimensions RD-13 and RD-14, establishing exactly 17 retry dimensions."
+  },
+  "verified_with_real_node_id": 17,
+  "unverified_downgraded": 0,
+  "dimensions": [
+    {
+      "dim_id": "RD-01",
+      "dimension": "migration_identity",
+      "owning_authority": "akaalPipeline.contracts.context.PipelineActorContext",
+      "state_before": "mig-p512-retry-001",
+      "retry_condition": "Worker crash during stage",
+      "exact_test_node_id": "tests/pipeline/test_p512_whole_p5_acceptance.py::test_combination_08_recovery_x_security",
+      "expected_preserved_state": "Exact migration identity preserved, foreign substitution rejected",
+      "proof_level": "INTEGRATION_PROVEN",
+      "node_verified": true
+    },
+    {
+      "dim_id": "RD-02",
+      "dimension": "execution_identity",
+      "owning_authority": "akaalPipeline.execution.coordinator.PlanExecutionCoordinator",
+      "state_before": "exec-run-001 / attempt 1",
+      "retry_condition": "Transient network failure",
+      "exact_test_node_id": "tests/pipeline/test_p512_whole_p5_acceptance.py::test_combination_11_configuration_x_recovery",
+      "expected_preserved_state": "New attempt incremented, execution identity linkage unbroken",
+      "proof_level": "INTEGRATION_PROVEN",
+      "node_verified": true
+    },
+    {
+      "dim_id": "RD-03",
+      "dimension": "plan_fingerprint",
+      "owning_authority": "akaalPipeline.orchestration.plans.ExecutionPlan",
+      "state_before": "SHA256(canonical_plan_json)",
+      "retry_condition": "Restart from checkpoint",
+      "exact_test_node_id": "tests/security/test_p510_governed_execution_security.py::test_atk_18_material_plan_mutation_invalidates_approval",
+      "expected_preserved_state": "Plan fingerprint identical; mutation strictly invalidates execution",
+      "proof_level": "INTEGRATION_PROVEN",
+      "node_verified": true
+    },
+    {
+      "dim_id": "RD-04",
+      "dimension": "immutable_configuration",
+      "owning_authority": "akaalPipeline.configuration.resolver.ConfigurationResolver",
+      "state_before": "Resolved mappingproxy config snapshot",
+      "retry_condition": "Process restart",
+      "exact_test_node_id": "tests/security/test_p511_configuration_lifecycle_and_recovery.py::test_atk_53_runtime_scope_cannot_override_immutable_snapshot_post_init",
+      "expected_preserved_state": "Config values and fingerprint unmodified across retries",
+      "proof_level": "INTEGRATION_PROVEN",
+      "node_verified": true
+    },
+    {
+      "dim_id": "RD-05",
+      "dimension": "authorization_context",
+      "owning_authority": "akaalPipeline.security.central_authorization.CentralAuthorizationEngine",
+      "state_before": "ActorContext(user=admin, role=OPERATOR)",
+      "retry_condition": "New command envelope on retry",
+      "exact_test_node_id": "tests/security/test_p510_governed_execution_security.py::test_atk_24_wrong_action_approval_rejected",
+      "expected_preserved_state": "Actor authorization evaluated with identical permissions",
+      "proof_level": "INTEGRATION_PROVEN",
+      "node_verified": true
+    },
+    {
+      "dim_id": "RD-06",
+      "dimension": "approval_governance_state",
+      "owning_authority": "akaalPipeline.policy.gates.PolicyGateEvaluator",
+      "state_before": "GovernanceApprovalArtifact(status=APPROVED)",
+      "retry_condition": "Interrupted execution resume",
+      "exact_test_node_id": "tests/security/test_p510_governed_execution_security.py::test_atk_64_approval_revocation_at_t2_blocks_execution",
+      "expected_preserved_state": "Approval valid unless revoked or expired",
+      "proof_level": "INTEGRATION_PROVEN",
+      "node_verified": true
+    },
+    {
+      "dim_id": "RD-07",
+      "dimension": "fencing_epoch_validity",
+      "owning_authority": "akaalEngine.durability.api.DurabilityAuthority",
+      "state_before": "fencing_epoch = 1",
+      "retry_condition": "Worker heartbeat timeout -> retry increment",
+      "exact_test_node_id": "tests/security/test_p510_governed_execution_security.py::test_atk_47_token_stale_fencing_epoch_rejected",
+      "expected_preserved_state": "Epoch incremented to 2; old epoch-1 worker fenced out",
+      "proof_level": "INTEGRATION_PROVEN",
+      "node_verified": true
+    },
+    {
+      "dim_id": "RD-08",
+      "dimension": "selection_scope",
+      "owning_authority": "akaalPipeline.selection.engine.DataSelectionEngine",
+      "state_before": "SelectionScope(tables=['users', 'orders'])",
+      "retry_condition": "Partition retry",
+      "exact_test_node_id": "tests/pipeline/test_p512_whole_p5_acceptance.py::test_combination_01_selection_x_mapping",
+      "expected_preserved_state": "Table and column scope unchanged",
+      "proof_level": "INTEGRATION_PROVEN",
+      "node_verified": true
+    },
+    {
+      "dim_id": "RD-09",
+      "dimension": "mapping_definitions",
+      "owning_authority": "akaalPipeline.mapping.engine.SchemaMappingEngine",
+      "state_before": "SchemaMapping(users->target_users)",
+      "retry_condition": "Chunk failure",
+      "exact_test_node_id": "tests/pipeline/test_p512_whole_p5_acceptance.py::test_combination_02_mapping_x_transformation",
+      "expected_preserved_state": "Mapping definitions strictly preserved",
+      "proof_level": "INTEGRATION_PROVEN",
+      "node_verified": true
+    },
+    {
+      "dim_id": "RD-10",
+      "dimension": "transformation_ast",
+      "owning_authority": "akaalPipeline.transformation.engine.TransformationEngine",
+      "state_before": "AST: UPPER(email)",
+      "retry_condition": "Batch transform error -> retry",
+      "exact_test_node_id": "tests/pipeline/test_p512_whole_p5_acceptance.py::test_combination_03_transformation_x_masking",
+      "expected_preserved_state": "AST transformation identical across attempts",
+      "proof_level": "INTEGRATION_PROVEN",
+      "node_verified": true
+    },
+    {
+      "dim_id": "RD-11",
+      "dimension": "masking_privacy_salt",
+      "owning_authority": "akaalPipeline.masking.engine.DataMaskingEngine",
+      "state_before": "Salt HMAC-SHA256 seed",
+      "retry_condition": "Chunk replay",
+      "exact_test_node_id": "tests/pipeline/test_p512_whole_p5_acceptance.py::test_combination_04_masking_x_filtering",
+      "expected_preserved_state": "Deterministic pseudonymization salt preserved",
+      "proof_level": "INTEGRATION_PROVEN",
+      "node_verified": true
+    },
+    {
+      "dim_id": "RD-12",
+      "dimension": "filtering_predicates",
+      "owning_authority": "akaalPipeline.filtering.engine.DataFilteringEngine",
+      "state_before": "WHERE status='ACTIVE'",
+      "retry_condition": "Chunk re-query",
+      "exact_test_node_id": "tests/pipeline/test_p512_whole_p5_acceptance.py::test_combination_05_filtering_x_deduplication",
+      "expected_preserved_state": "Filter predicates strictly identical",
+      "proof_level": "INTEGRATION_PROVEN",
+      "node_verified": true
+    },
+    {
+      "dim_id": "RD-13",
+      "dimension": "deduplication_authority",
+      "owning_authority": "akaalPipeline.deduplication.engine.RowDeduplicator (P5.6 Deduplication Authority)",
+      "state_before": "Row deduplication key window & bloom cache",
+      "retry_condition": "Batch replay across chunks",
+      "exact_test_node_id": "tests/pipeline/test_p512_whole_p5_acceptance.py::test_combination_06_deduplication_x_cdc",
+      "expected_preserved_state": "Deduplication key window preserved, duplicate records filtered",
+      "proof_level": "INTEGRATION_PROVEN",
+      "node_verified": true
+    },
+    {
+      "dim_id": "RD-14",
+      "dimension": "cdc_conflict_resolution_policy",
+      "owning_authority": "akaalEngine.cdc.resolver.CDCConflictResolutionPolicy",
+      "state_before": "Policy: SOURCE_A_WINS / LAST_WRITE_WINS",
+      "retry_condition": "Conflict on duplicate PK insert",
+      "exact_test_node_id": "tests/pipeline/test_p512_whole_p5_acceptance.py::test_combination_07_cdc_x_recovery",
+      "expected_preserved_state": "Conflict resolution policy identical, deterministic winner chosen",
+      "proof_level": "INTEGRATION_PROVEN",
+      "node_verified": true
+    },
+    {
+      "dim_id": "RD-15",
+      "dimension": "cdc_source_position",
+      "owning_authority": "akaalEngine.cdc.coordinator.CDCCoordinator",
+      "state_before": "CANONICAL_LOCAL_CDC_POSITION=5000",
+      "retry_condition": "Stream consumer disconnect",
+      "exact_test_node_id": "tests/security/test_p511_configuration_lifecycle_and_recovery.py::test_atk_38_m3_cdc_position_preserved",
+      "expected_preserved_state": "Re-reads stream from exact LSN/GTID position 5000",
+      "proof_level": "INTEGRATION_PROVEN",
+      "node_verified": true
+    },
+    {
+      "dim_id": "RD-16",
+      "dimension": "checkpoint_advancement",
+      "owning_authority": "akaalEngine.durability.api.DurabilityAuthority",
+      "state_before": "Watermark Batch 4 committed",
+      "retry_condition": "Batch 5 write failed",
+      "exact_test_node_id": "tests/pipeline/test_p512_whole_p5_acceptance.py::test_combination_12_checkpoint_x_recovery",
+      "expected_preserved_state": "Watermark remains at Batch 4 until Batch 5 committed",
+      "proof_level": "INTEGRATION_PROVEN",
+      "node_verified": true
+    },
+    {
+      "dim_id": "RD-17",
+      "dimension": "ambiguous_outcome_truth",
+      "owning_authority": "akaalEngine.durability.api.DurabilityAuthority",
+      "state_before": "Target ACK lost in transit",
+      "retry_condition": "Commit outcome ambiguous",
+      "exact_test_node_id": "tests/security/test_p511_configuration_lifecycle_and_recovery.py::test_atk_62_ambiguous_commit_does_not_falsely_advance_checkpoint",
+      "expected_preserved_state": "UNKNOWN remains UNKNOWN until physical target verified; no blind replay",
+      "proof_level": "INTEGRATION_PROVEN",
+      "node_verified": true
+    }
+  ]
+}

@@ -1,0 +1,805 @@
+{
+  "p0_p4_logical_invocation_count": 1213,
+  "p0_p4_primary_unique_contribution": 1099,
+  "exact_shared_node_count": 114,
+  "items": [
+    {
+      "node_id": "tests/cdc/test_coordinator_facade.py::test_cdc_client_and_facade_flow",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "EXTERNAL_LIVE_DEFERRED",
+      "result": "DEFERRED"
+    },
+    {
+      "node_id": "tests/cdc/test_routing_buffering.py::test_cdc_routing_engine",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "EXTERNAL_LIVE_DEFERRED",
+      "result": "DEFERRED"
+    },
+    {
+      "node_id": "tests/cdc/test_sources.py::test_postgres_wal_adapter",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "EXTERNAL_LIVE_DEFERRED",
+      "result": "DEFERRED"
+    },
+    {
+      "node_id": "tests/cdc/test_sources.py::test_mysql_binlog_adapter",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "EXTERNAL_LIVE_DEFERRED",
+      "result": "DEFERRED"
+    },
+    {
+      "node_id": "tests/cdc/test_sources.py::test_oracle_logminer_adapter",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "EXTERNAL_LIVE_DEFERRED",
+      "result": "DEFERRED"
+    },
+    {
+      "node_id": "tests/cdc/test_sources.py::test_sqlserver_cdc_adapter",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "EXTERNAL_LIVE_DEFERRED",
+      "result": "DEFERRED"
+    },
+    {
+      "node_id": "tests/cdc/test_sources.py::test_mongodb_change_stream_adapter",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "EXTERNAL_LIVE_DEFERRED",
+      "result": "DEFERRED"
+    },
+    {
+      "node_id": "tests/cdc/test_sources.py::test_trigger_fallback_adapter",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "EXTERNAL_LIVE_DEFERRED",
+      "result": "DEFERRED"
+    },
+    {
+      "node_id": "tests/property/test_procedure_properties.py::TestProcedurePropertyInvariants::test_transaction_block_rejection_invariant",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "EXTERNAL_LIVE_DEFERRED",
+      "result": "DEFERRED"
+    },
+    {
+      "node_id": "tests/unit/cdc/test_p3_11_whole_p3_e2e_pipeline_hostile_audit.py::TestP311WholeP3HostileIntegrationAudit::test_B01_full_forward_pipeline_journey_created_to_completed",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "EXTERNAL_LIVE_DEFERRED",
+      "result": "DEFERRED"
+    },
+    {
+      "node_id": "tests/unit/cdc/test_p3_11_whole_p3_e2e_pipeline_hostile_audit.py::TestP311WholeP3HostileIntegrationAudit::test_S01_buffer_backpressure_and_catching_up_transition",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "EXTERNAL_LIVE_DEFERRED",
+      "result": "DEFERRED"
+    },
+    {
+      "node_id": "tests/unit/cdc/test_p3_2_1_cdc_capture_hostile_audit.py::TestP321CDCCaptureHostileAudit::test_attack_05_capture_miner_cannot_advance_applied_position",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "EXTERNAL_LIVE_DEFERRED",
+      "result": "DEFERRED"
+    },
+    {
+      "node_id": "tests/unit/cdc/test_p3_2_native_cdc_capture_miners.py::TestP32NativeCDCCaptureMiners::test_03_postgres_wal_miner_polling",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "EXTERNAL_LIVE_DEFERRED",
+      "result": "DEFERRED"
+    },
+    {
+      "node_id": "tests/unit/cdc/test_p3_2_native_cdc_capture_miners.py::TestP32NativeCDCCaptureMiners::test_06_mysql_binlog_miner_polling",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "EXTERNAL_LIVE_DEFERRED",
+      "result": "DEFERRED"
+    },
+    {
+      "node_id": "tests/unit/cdc/test_p3_2_native_cdc_capture_miners.py::TestP32NativeCDCCaptureMiners::test_08_oracle_redo_miner_polling",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "EXTERNAL_LIVE_DEFERRED",
+      "result": "DEFERRED"
+    },
+    {
+      "node_id": "tests/unit/cdc/test_p3_2_native_cdc_capture_miners.py::TestP32NativeCDCCaptureMiners::test_09_mssql_cdc_miner_polling",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "EXTERNAL_LIVE_DEFERRED",
+      "result": "DEFERRED"
+    },
+    {
+      "node_id": "tests/unit/cdc/test_p3_2_native_cdc_capture_miners.py::TestP32NativeCDCCaptureMiners::test_10_mongodb_oplog_miner_polling",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "EXTERNAL_LIVE_DEFERRED",
+      "result": "DEFERRED"
+    },
+    {
+      "node_id": "tests/unit/cdc/test_p3_2_native_cdc_capture_miners.py::TestP32NativeCDCCaptureMiners::test_14_gateway_start_and_poll_cdc_capture",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "EXTERNAL_LIVE_DEFERRED",
+      "result": "DEFERRED"
+    },
+    {
+      "node_id": "tests/unit/cdc/test_p3_4_continuous_cdc_cutover_failback_engine.py::TestP34ContinuousCDCCutoverFailbackEngine::test_14_gateway_ipc_continuous_sync_lifecycle",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "EXTERNAL_LIVE_DEFERRED",
+      "result": "DEFERRED"
+    },
+    {
+      "node_id": "tests/unit/cdc/test_p3_8_1_multi_master_hostile_audit.py::TestP381MultiMasterHostileAudit::test_34_quarantine_durability_and_restart",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "EXTERNAL_LIVE_DEFERRED",
+      "result": "DEFERRED"
+    },
+    {
+      "node_id": "tests/unit/connectors/test_p4_5_full_scope_fleet.py::TestP45FullScopeFleet::test_01_p4_5_eleven_connector_inventory_and_registry",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "EXTERNAL_LIVE_DEFERRED",
+      "result": "DEFERRED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_capability_conservation_closure.py::test_canonical_specialized_secret_resolution_success",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_capability_conservation_closure.py::test_canonical_specialized_secret_resolution_fail_closed",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_capability_conservation_closure.py::test_gcs_fail_closed_on_invalid_service_account_json",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_capability_conservation_closure.py::test_pubsub_fail_closed_on_missing_explicit_sa_credentials",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_capability_conservation_closure.py::test_bigquery_fail_closed_on_missing_explicit_sa_credentials",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_capability_conservation_closure.py::test_route_resolver_resolves_all_cluster_endpoints",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_capability_conservation_closure.py::test_route_resolver_cassandra_contact_points_and_port",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_capability_conservation_closure.py::test_mariadb_both_drivers_executable",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_capability_conservation_closure.py::test_redshift_both_drivers_executable",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_capability_conservation_closure.py::test_pubsub_physical_validation_rpc",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_capability_conservation_closure.py::test_eventhubs_physical_validation_rpc",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_capability_conservation_closure.py::test_mssql_validate_configuration_rejects_contradictory_auth",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_capability_conservation_closure.py::test_all_28_provider_schemas_truthful_and_aligned",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_capability_conservation_closure.py::test_single_clustered_endpoint_strictly_uses_canonical_route",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_capability_conservation_closure.py::test_all_extensions_schema_secret_fields_map_to_canonical_model",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_capability_conservation_closure.py::test_wipe_credentials_dict_recursively_wipes_all_resolved_secrets",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_connection_authority_facade.py::test_connection_authority_singleton_and_list",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_connection_authority_facade.py::test_connection_authority_describe_provider",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_connection_authority_facade.py::test_connection_authority_public_probe_sanitization",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_connection_authority_facade.py::test_connection_authority_session_lease_lifecycle",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_correction_pass_verifications.py::test_socks_proxy_missing_host_fails_closed",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_correction_pass_verifications.py::test_sqlite_rejects_network_routes",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_correction_pass_verifications.py::test_ssh_strict_host_verification_fails_without_keys",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_correction_pass_verifications.py::test_route_resource_lifetime_on_session_destruction",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_correction_pass_verifications.py::test_session_admission_probe_bootstrapping",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_correction_pass_verifications.py::test_session_admission_role_mismatch",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_correction_pass_verifications.py::test_session_admission_unsupported_required_capability",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_correction_pass_verifications.py::test_session_admission_all_thirteen_purposes",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_correction_pass_verifications.py::test_read_only_purpose_cannot_be_weakened",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_correction_pass_verifications.py::test_fingerprint_includes_secret_references_without_collision",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_correction_pass_verifications.py::test_fingerprint_includes_catalog_generation",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_correction_pass_verifications.py::test_secret_consumer_fails_closed_without_plaintext_fallback",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_correction_pass_verifications.py::test_testing_consumer_resolves_and_wipes",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_correction_pass_verifications.py::test_sqlite_rejects_tls_configurations",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_correction_pass_verifications.py::test_connection_authority_end_to_end_truth",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_final_freeze_closure.py::test_eventhubs_validation_requires_supported_physical_probe",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_final_freeze_closure.py::test_pubsub_authentication_failures_never_validate[UNAUTHENTICATED]",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_final_freeze_closure.py::test_pubsub_authentication_failures_never_validate[HTTP 401 invalid credentials]",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_final_freeze_closure.py::test_pubsub_success_requires_real_project_scoped_rpc",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_final_freeze_closure.py::test_oracle_thin_never_initializes_thick_client",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_final_freeze_closure.py::test_oracle_thick_initialization_is_once_only_and_thread_safe",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_final_freeze_closure.py::test_oracle_thick_initialization_failure_is_preserved",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_final_freeze_closure.py::test_oracle_schema_exposes_only_explicit_driver_modes",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_identity_and_drift.py::test_deterministic_fingerprint",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_identity_and_drift.py::test_fingerprint_excludes_secret_material",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_identity_and_drift.py::test_drift_detector_ip_mutation",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_identity_and_drift.py::test_drift_detector_topology_failover",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_legacy_capability_conservation.py::test_kafka_physical_connect_kafka_python",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_legacy_capability_conservation.py::test_kafka_physical_connect_confluent_fallback",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_legacy_capability_conservation.py::test_kafka_error_normalization",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_legacy_capability_conservation.py::test_oracle_connect_standard_and_sid",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_legacy_capability_conservation.py::test_oracle_connect_tns_wallet_and_sysdba",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_legacy_capability_conservation.py::test_oracle_error_normalization",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_legacy_capability_conservation.py::test_mssql_integrated_authentication",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_legacy_capability_conservation.py::test_mssql_standard_authentication",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_legacy_capability_conservation.py::test_s3_and_kinesis_sts_temporary_credentials",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_legacy_capability_conservation.py::test_gcp_explicit_service_account_credentials",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_legacy_capability_conservation.py::test_azure_blob_connection_forms",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_legacy_capability_conservation.py::test_snowflake_session_context",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_legacy_capability_conservation.py::test_clustered_multi_endpoints",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_legacy_capability_conservation.py::test_deterministic_endpoint_spec_fingerprinting",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_models.py::test_endpoint_spec_immutability",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_models.py::test_auth_spec_immutability",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_models.py::test_session_purpose_properties",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_models.py::test_connection_failure_serialization",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_models.py::test_manifest_fail_closed_logic",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_pooling_and_budgeting.py::test_pool_acquire_and_release",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_pooling_and_budgeting.py::test_pool_capacity_exhaustion",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_pooling_and_budgeting.py::test_pool_manager_invalidation",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_probes_and_capabilities.py::test_capability_resolver_fail_closed",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_probes_and_capabilities.py::test_purpose_satisfaction_validation",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_probes_and_capabilities.py::test_connectivity_probe_sqlite",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_probes_and_capabilities.py::test_permission_probe_sqlite",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_probes_and_capabilities.py::test_health_probe_sqlite",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_providers_conformance.py::test_all_providers_pass_conformance_suite",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_providers_conformance.py::test_sqlite_live_physical_execution",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_routing_and_dns.py::test_dns_resolver_localhost",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_routing_and_dns.py::test_dns_resolver_ip_literal",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_routing_and_dns.py::test_route_resolver_direct",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_routing_and_dns.py::test_route_resolver_private_endpoint",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_security_and_redaction.py::test_redact_text",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_security_and_redaction.py::test_redact_mapping",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_security_and_redaction.py::test_safe_repr_mixin",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_security_and_redaction.py::test_resolved_secret_lifecycle",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_security_and_redaction.py::test_secret_consumer_rotation_notification",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_security_and_redaction.py::test_tls_context_builder",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_sessions_and_lifecycle.py::test_session_factory_and_lease_lifecycle",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_sessions_and_lifecycle.py::test_session_reset_poisoned_destruction",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_socks5_and_multihop.py::test_http_proxy_route_resolution_returns_lease",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_socks5_and_multihop.py::test_socks5_fragmented_reads_and_atyp_parsing",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_socks5_and_multihop.py::test_socks5_unoffered_auth_method_rejection",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_socks5_and_multihop.py::test_multihop_ssh_uses_final_transport_and_secret_consumer",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    },
+    {
+      "node_id": "tests/unit/engine_connection/test_socks5_and_multihop.py::test_multihop_ssh_rejects_plaintext_jump_passwords",
+      "logical_phase_membership": "P0\u2013P4 Foundational",
+      "other_logical_suite_membership": "Whole-P5 Validation / Reporting or External Deferred",
+      "primary_repository_category": "P512_LOCAL_EXECUTED",
+      "result": "PASSED"
+    }
+  ]
+}

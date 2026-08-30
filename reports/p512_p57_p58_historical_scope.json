@@ -1,0 +1,20 @@
+{
+  "P5.7": {
+    "canonical_scope": "Custom SQL, Hooks + Governed Extensibility",
+    "historical_authority_source": "docs/architecture/Roadmap.md (Line 36) & akaal/planner/models/p5_domain.py (Line 1357)",
+    "production_paths": [
+      "akaal/migration/execution/hooks/executor.py",
+      "akaalEngine/extensions/api.py"
+    ],
+    "test_evidence": "tests/unit/planner/test_custom_sql_hooks.py (26 passed)"
+  },
+  "P5.8": {
+    "canonical_scope": "Execution Modes M1\u2013M8 + Validation-Only Operations",
+    "historical_authority_source": "docs/architecture/Roadmap.md (Line 37) & akaal/planner/engine/plan_compiler.py (Line 175)",
+    "production_paths": [
+      "akaal/planner/engine/plan_compiler.py",
+      "akaalPipeline/contracts/enums.py"
+    ],
+    "test_evidence": "tests/unit/planner/test_execution_modes_and_validation.py (36 passed)"
+  }
+}

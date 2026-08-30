@@ -1,0 +1,8 @@
+{
+  "historical_171_count": 171,
+  "added_benchmark_33_count": 33,
+  "p5_tracked_deferred_total": 204,
+  "additional_cross_db_matrix_count": 12,
+  "repository_unique_external_total": 216,
+  "reconciliation_equation": "171 (Historical) + 33 (Benchmark) = 204 (P5 Tracked); 204 + 12 (Cross-DB Matrix) = 216 (Repository External Total)"
+}

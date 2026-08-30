@@ -1,0 +1,22 @@
+{
+  "total_repository_collected": 4347,
+  "total_repository_accounted": 4347,
+  "repository_unique_external_live_deferred": 216,
+  "p5_tracked_external_deferred_subset": 204,
+  "additional_external_tests_outside_p5_tracked_subset": 12,
+  "whole_p5_local_execution_count": 1679,
+  "whole_p5_primary_unique_accounting": 1625,
+  "whole_p5_shared_overlap_count": 54,
+  "p0_p4_logical_invocation_count": 1213,
+  "p0_p4_primary_unique_contribution": 1099,
+  "p0_p4_shared_overlap_count": 114,
+  "governing_rules_accounted": 710,
+  "work_areas_accounted": 80,
+  "execution_modes_accounted": 8,
+  "physical_providers_accounted": 28,
+  "interruption_points_accounted": 18,
+  "production_defects_remaining": 0,
+  "frozen_foundational_defects_fixed": 1,
+  "three_package_production_files_changed": 0,
+  "final_submission_status": "SUBMITTED FOR INDEPENDENT ACCEPTANCE AND FREEZE DETERMINATION"
+}

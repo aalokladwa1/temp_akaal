@@ -170,3 +170,54 @@ class SchemaRegistry:
             )
 
         return SchemaValidationResult(is_valid=True, descriptor=descriptor)
+
+
+def register_core_pipeline_schemas(registry: SchemaRegistry) -> None:
+    """Registers standard P0-P6 command and query schemas into the SchemaRegistry."""
+    def _require_migration_id(payload: Any) -> Optional[str]:
+        if not isinstance(payload, Mapping) or "migration_id" not in payload:
+            return "Payload must contain 'migration_id'."
+        return None
+
+    def _allow_any_mapping(payload: Any) -> Optional[str]:
+        if not isinstance(payload, Mapping):
+            return "Payload must be a JSON object (mapping)."
+        return None
+
+    # Commands
+    cmd_types = [
+        "migration.create", "migration.configure", "migration.plan", "migration.initialize",
+        "migration.approve", "migration.start", "migration.cancel", "migration.recover",
+        "migration.pause", "migration.resume", "migration.throttle_cdc",
+        "fleet.drain_node", "fleet.undrain_node",
+        "schedule.create", "schedule.update", "schedule.arm", "schedule.disable",
+        "schedule.enable", "schedule.cancel", "schedule.delete", "retention.execute",
+        "capacity.sample",
+        "alert.rule.create", "alert.evaluate", "alert.acknowledge", "alert.resolve", "alert.suppress",
+        "incident.create", "incident.alert.attach", "incident.status.update",
+        "notification.send",
+    ]
+    for ct in cmd_types:
+        try:
+            registry.register(SchemaDescriptor(ct, "1.0", RequestKind.COMMAND, _allow_any_mapping))
+        except DuplicateSchemaRegistrationError:
+            pass
+
+    # Queries
+    query_types = [
+        "migration.get", "migration.list", "operation.get", "mutability.evaluate",
+        "observability.get", "health.get_explainable", "diagnostics.capture",
+        "fleet.status", "metrics.export_prometheus",
+        "schedule.get", "schedule.list", "schedule.occurrence.get", "schedule.occurrence.list",
+        "retention.preview", "retention.operation.get", "retention.operation.list",
+        "capacity.report", "capacity.history", "capacity.forecast",
+        "alert.list", "alert.get",
+        "incident.list", "incident.get", "incident.timeline",
+        "notification.list",
+    ]
+    for qt in query_types:
+        try:
+            registry.register(SchemaDescriptor(qt, "1.0", RequestKind.QUERY, _allow_any_mapping))
+        except DuplicateSchemaRegistrationError:
+            pass
+

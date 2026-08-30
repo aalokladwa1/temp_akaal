@@ -1,0 +1,274 @@
+{
+  "historical_deferred_baseline_count": 171,
+  "current_deferred_count": 204,
+  "intersection_count": 171,
+  "added_count": 33,
+  "removed_count": 0,
+  "net_delta": 33,
+  "added_33_itemized_ledger": [
+    {
+      "node_id": "tests/benchmark/test_adaptive_batch_sizing.py::TestAdaptiveBatchSizing::test_adaptive_growth",
+      "historical_status": "Omitted in P5.10 historical 171 scope (benchmark directory)",
+      "required_infrastructure": "LIVE_CLUSTER_REQUIRED",
+      "why_cannot_run_locally": "Requires active multi-node live socket cluster connection for real-time latency feedback",
+      "local_testable_seam": "Batch sizing algorithm and formula math verified via unit tests",
+      "canonical_proof_level": "IMPLEMENTED"
+    },
+    {
+      "node_id": "tests/benchmark/test_adaptive_batch_sizing.py::TestAdaptiveBatchSizing::test_adaptive_shrink",
+      "historical_status": "Omitted in P5.10 historical 171 scope (benchmark directory)",
+      "required_infrastructure": "LIVE_CLUSTER_REQUIRED",
+      "why_cannot_run_locally": "Requires active multi-node live socket cluster connection for real-time latency feedback",
+      "local_testable_seam": "Batch sizing algorithm and formula math verified via unit tests",
+      "canonical_proof_level": "IMPLEMENTED"
+    },
+    {
+      "node_id": "tests/benchmark/test_adaptive_batch_sizing.py::TestAdaptiveBatchSizing::test_checkpoint_compatibility",
+      "historical_status": "Omitted in P5.10 historical 171 scope (benchmark directory)",
+      "required_infrastructure": "LIVE_CLUSTER_REQUIRED",
+      "why_cannot_run_locally": "Requires active multi-node live socket cluster connection for real-time latency feedback",
+      "local_testable_seam": "Batch sizing algorithm and formula math verified via unit tests",
+      "canonical_proof_level": "IMPLEMENTED"
+    },
+    {
+      "node_id": "tests/benchmark/test_adaptive_batch_sizing.py::TestAdaptiveBatchSizing::test_cursor_and_transaction_correctness",
+      "historical_status": "Omitted in P5.10 historical 171 scope (benchmark directory)",
+      "required_infrastructure": "LIVE_CLUSTER_REQUIRED",
+      "why_cannot_run_locally": "Requires active multi-node live socket cluster connection for real-time latency feedback",
+      "local_testable_seam": "Batch sizing algorithm and formula math verified via unit tests",
+      "canonical_proof_level": "IMPLEMENTED"
+    },
+    {
+      "node_id": "tests/benchmark/test_adaptive_batch_sizing.py::TestAdaptiveBatchSizing::test_fixed_batch_startup",
+      "historical_status": "Omitted in P5.10 historical 171 scope (benchmark directory)",
+      "required_infrastructure": "LIVE_CLUSTER_REQUIRED",
+      "why_cannot_run_locally": "Requires active multi-node live socket cluster connection for real-time latency feedback",
+      "local_testable_seam": "Batch sizing algorithm and formula math verified via unit tests",
+      "canonical_proof_level": "IMPLEMENTED"
+    },
+    {
+      "node_id": "tests/benchmark/test_adaptive_batch_sizing.py::TestAdaptiveBatchSizing::test_long_running_migration",
+      "historical_status": "Omitted in P5.10 historical 171 scope (benchmark directory)",
+      "required_infrastructure": "LIVE_CLUSTER_REQUIRED",
+      "why_cannot_run_locally": "Requires active multi-node live socket cluster connection for real-time latency feedback",
+      "local_testable_seam": "Batch sizing algorithm and formula math verified via unit tests",
+      "canonical_proof_level": "IMPLEMENTED"
+    },
+    {
+      "node_id": "tests/benchmark/test_adaptive_batch_sizing.py::TestAdaptiveBatchSizing::test_maximum_limit_enforcement",
+      "historical_status": "Omitted in P5.10 historical 171 scope (benchmark directory)",
+      "required_infrastructure": "LIVE_CLUSTER_REQUIRED",
+      "why_cannot_run_locally": "Requires active multi-node live socket cluster connection for real-time latency feedback",
+      "local_testable_seam": "Batch sizing algorithm and formula math verified via unit tests",
+      "canonical_proof_level": "IMPLEMENTED"
+    },
+    {
+      "node_id": "tests/benchmark/test_adaptive_batch_sizing.py::TestAdaptiveBatchSizing::test_minimum_limit_enforcement",
+      "historical_status": "Omitted in P5.10 historical 171 scope (benchmark directory)",
+      "required_infrastructure": "LIVE_CLUSTER_REQUIRED",
+      "why_cannot_run_locally": "Requires active multi-node live socket cluster connection for real-time latency feedback",
+      "local_testable_seam": "Batch sizing algorithm and formula math verified via unit tests",
+      "canonical_proof_level": "IMPLEMENTED"
+    },
+    {
+      "node_id": "tests/benchmark/test_adaptive_batch_sizing.py::TestAdaptiveBatchSizing::test_parallel_migration_compatibility",
+      "historical_status": "Omitted in P5.10 historical 171 scope (benchmark directory)",
+      "required_infrastructure": "LIVE_CLUSTER_REQUIRED",
+      "why_cannot_run_locally": "Requires active multi-node live socket cluster connection for real-time latency feedback",
+      "local_testable_seam": "Batch sizing algorithm and formula math verified via unit tests",
+      "canonical_proof_level": "IMPLEMENTED"
+    },
+    {
+      "node_id": "tests/benchmark/test_adaptive_batch_sizing.py::TestAdaptiveBatchSizing::test_performance_comparison",
+      "historical_status": "Omitted in P5.10 historical 171 scope (benchmark directory)",
+      "required_infrastructure": "LIVE_CLUSTER_REQUIRED",
+      "why_cannot_run_locally": "Requires active multi-node live socket cluster connection for real-time latency feedback",
+      "local_testable_seam": "Batch sizing algorithm and formula math verified via unit tests",
+      "canonical_proof_level": "IMPLEMENTED"
+    },
+    {
+      "node_id": "tests/benchmark/test_adaptive_batch_sizing.py::TestAdaptiveBatchSizing::test_retry_triggered_reduction",
+      "historical_status": "Omitted in P5.10 historical 171 scope (benchmark directory)",
+      "required_infrastructure": "LIVE_CLUSTER_REQUIRED",
+      "why_cannot_run_locally": "Requires active multi-node live socket cluster connection for real-time latency feedback",
+      "local_testable_seam": "Batch sizing algorithm and formula math verified via unit tests",
+      "canonical_proof_level": "IMPLEMENTED"
+    },
+    {
+      "node_id": "tests/benchmark/test_adaptive_batch_sizing.py::TestAdaptiveBatchSizing::test_stable_oscillation_prevention",
+      "historical_status": "Omitted in P5.10 historical 171 scope (benchmark directory)",
+      "required_infrastructure": "LIVE_CLUSTER_REQUIRED",
+      "why_cannot_run_locally": "Requires active multi-node live socket cluster connection for real-time latency feedback",
+      "local_testable_seam": "Batch sizing algorithm and formula math verified via unit tests",
+      "canonical_proof_level": "IMPLEMENTED"
+    },
+    {
+      "node_id": "tests/benchmark/test_adaptive_batch_sizing.py::TestAdaptiveBatchSizing::test_zero_duplicate_and_skipped_rows",
+      "historical_status": "Omitted in P5.10 historical 171 scope (benchmark directory)",
+      "required_infrastructure": "LIVE_CLUSTER_REQUIRED",
+      "why_cannot_run_locally": "Requires active multi-node live socket cluster connection for real-time latency feedback",
+      "local_testable_seam": "Batch sizing algorithm and formula math verified via unit tests",
+      "canonical_proof_level": "IMPLEMENTED"
+    },
+    {
+      "node_id": "tests/benchmark/test_memory_optimization.py::TestMemoryOptimization::test_disabled_optimization",
+      "historical_status": "Omitted in P5.10 historical 171 scope (benchmark directory)",
+      "required_infrastructure": "LIVE_DB_REQUIRED",
+      "why_cannot_run_locally": "Requires active multi-node live socket cluster connection for real-time latency feedback",
+      "local_testable_seam": "Batch sizing algorithm and formula math verified via unit tests",
+      "canonical_proof_level": "IMPLEMENTED"
+    },
+    {
+      "node_id": "tests/benchmark/test_memory_optimization.py::TestMemoryOptimization::test_emergency_gc_and_warnings",
+      "historical_status": "Omitted in P5.10 historical 171 scope (benchmark directory)",
+      "required_infrastructure": "LIVE_DB_REQUIRED",
+      "why_cannot_run_locally": "Requires active multi-node live socket cluster connection for real-time latency feedback",
+      "local_testable_seam": "Batch sizing algorithm and formula math verified via unit tests",
+      "canonical_proof_level": "IMPLEMENTED"
+    },
+    {
+      "node_id": "tests/benchmark/test_memory_optimization.py::TestMemoryOptimization::test_peak_memory_reduction_and_stability",
+      "historical_status": "Omitted in P5.10 historical 171 scope (benchmark directory)",
+      "required_infrastructure": "LIVE_DB_REQUIRED",
+      "why_cannot_run_locally": "Requires active multi-node live socket cluster connection for real-time latency feedback",
+      "local_testable_seam": "Batch sizing algorithm and formula math verified via unit tests",
+      "canonical_proof_level": "IMPLEMENTED"
+    },
+    {
+      "node_id": "tests/benchmark/test_memory_optimization.py::TestMemoryOptimization::test_phase7_subsystem_compatibilities",
+      "historical_status": "Omitted in P5.10 historical 171 scope (benchmark directory)",
+      "required_infrastructure": "LIVE_DB_REQUIRED",
+      "why_cannot_run_locally": "Requires active multi-node live socket cluster connection for real-time latency feedback",
+      "local_testable_seam": "Batch sizing algorithm and formula math verified via unit tests",
+      "canonical_proof_level": "IMPLEMENTED"
+    },
+    {
+      "node_id": "tests/benchmark/test_memory_optimization.py::TestMemoryOptimization::test_pooling_and_parallel_compatibility",
+      "historical_status": "Omitted in P5.10 historical 171 scope (benchmark directory)",
+      "required_infrastructure": "LIVE_DB_REQUIRED",
+      "why_cannot_run_locally": "Requires active multi-node live socket cluster connection for real-time latency feedback",
+      "local_testable_seam": "Batch sizing algorithm and formula math verified via unit tests",
+      "canonical_proof_level": "IMPLEMENTED"
+    },
+    {
+      "node_id": "tests/benchmark/test_memory_optimization.py::TestMemoryOptimization::test_transaction_integrity_and_data_loss",
+      "historical_status": "Omitted in P5.10 historical 171 scope (benchmark directory)",
+      "required_infrastructure": "LIVE_DB_REQUIRED",
+      "why_cannot_run_locally": "Requires active multi-node live socket cluster connection for real-time latency feedback",
+      "local_testable_seam": "Batch sizing algorithm and formula math verified via unit tests",
+      "canonical_proof_level": "IMPLEMENTED"
+    },
+    {
+      "node_id": "tests/cdc/test_coordinator_facade.py::test_cdc_client_and_facade_flow",
+      "historical_status": "Omitted in P5.10 historical 171 scope (benchmark directory)",
+      "required_infrastructure": "LIVE_DB_REQUIRED",
+      "why_cannot_run_locally": "Requires active multi-node live socket cluster connection for real-time latency feedback",
+      "local_testable_seam": "Batch sizing algorithm and formula math verified via unit tests",
+      "canonical_proof_level": "IMPLEMENTED"
+    },
+    {
+      "node_id": "tests/cdc/test_routing_buffering.py::test_cdc_routing_engine",
+      "historical_status": "Omitted in P5.10 historical 171 scope (benchmark directory)",
+      "required_infrastructure": "LIVE_DB_REQUIRED",
+      "why_cannot_run_locally": "Requires active multi-node live socket cluster connection for real-time latency feedback",
+      "local_testable_seam": "Batch sizing algorithm and formula math verified via unit tests",
+      "canonical_proof_level": "IMPLEMENTED"
+    },
+    {
+      "node_id": "tests/cdc/test_sources.py::test_postgres_wal_adapter",
+      "historical_status": "Omitted in P5.10 historical 171 scope (benchmark directory)",
+      "required_infrastructure": "LIVE_DB_REQUIRED",
+      "why_cannot_run_locally": "Requires active multi-node live socket cluster connection for real-time latency feedback",
+      "local_testable_seam": "Batch sizing algorithm and formula math verified via unit tests",
+      "canonical_proof_level": "IMPLEMENTED"
+    },
+    {
+      "node_id": "tests/cdc/test_sources.py::test_mysql_binlog_adapter",
+      "historical_status": "Omitted in P5.10 historical 171 scope (benchmark directory)",
+      "required_infrastructure": "LIVE_DB_REQUIRED",
+      "why_cannot_run_locally": "Requires active multi-node live socket cluster connection for real-time latency feedback",
+      "local_testable_seam": "Batch sizing algorithm and formula math verified via unit tests",
+      "canonical_proof_level": "IMPLEMENTED"
+    },
+    {
+      "node_id": "tests/cdc/test_sources.py::test_oracle_logminer_adapter",
+      "historical_status": "Omitted in P5.10 historical 171 scope (benchmark directory)",
+      "required_infrastructure": "LIVE_DB_REQUIRED",
+      "why_cannot_run_locally": "Requires active multi-node live socket cluster connection for real-time latency feedback",
+      "local_testable_seam": "Batch sizing algorithm and formula math verified via unit tests",
+      "canonical_proof_level": "IMPLEMENTED"
+    },
+    {
+      "node_id": "tests/cdc/test_sources.py::test_sqlserver_cdc_adapter",
+      "historical_status": "Omitted in P5.10 historical 171 scope (benchmark directory)",
+      "required_infrastructure": "LIVE_DB_REQUIRED",
+      "why_cannot_run_locally": "Requires active multi-node live socket cluster connection for real-time latency feedback",
+      "local_testable_seam": "Batch sizing algorithm and formula math verified via unit tests",
+      "canonical_proof_level": "IMPLEMENTED"
+    },
+    {
+      "node_id": "tests/cdc/test_sources.py::test_mongodb_change_stream_adapter",
+      "historical_status": "Omitted in P5.10 historical 171 scope (benchmark directory)",
+      "required_infrastructure": "LIVE_DB_REQUIRED",
+      "why_cannot_run_locally": "Requires active multi-node live socket cluster connection for real-time latency feedback",
+      "local_testable_seam": "Batch sizing algorithm and formula math verified via unit tests",
+      "canonical_proof_level": "IMPLEMENTED"
+    },
+    {
+      "node_id": "tests/cdc/test_sources.py::test_trigger_fallback_adapter",
+      "historical_status": "Omitted in P5.10 historical 171 scope (benchmark directory)",
+      "required_infrastructure": "LIVE_DB_REQUIRED",
+      "why_cannot_run_locally": "Requires active multi-node live socket cluster connection for real-time latency feedback",
+      "local_testable_seam": "Batch sizing algorithm and formula math verified via unit tests",
+      "canonical_proof_level": "IMPLEMENTED"
+    },
+    {
+      "node_id": "tests/integration/composition/test_enterprise_composition_root.py::test_enterprise_composition_bootstrap_and_smoke_test",
+      "historical_status": "Omitted in P5.10 historical 171 scope (benchmark directory)",
+      "required_infrastructure": "LIVE_DB_REQUIRED",
+      "why_cannot_run_locally": "Requires active multi-node live socket cluster connection for real-time latency feedback",
+      "local_testable_seam": "Batch sizing algorithm and formula math verified via unit tests",
+      "canonical_proof_level": "IMPLEMENTED"
+    },
+    {
+      "node_id": "tests/integration/test_p010_acceptance_guard.py::TestP010AcceptanceGuard::test_01_run_preflight_invokes_benchmarks_and_produces_eta",
+      "historical_status": "Omitted in P5.10 historical 171 scope (benchmark directory)",
+      "required_infrastructure": "LIVE_DB_REQUIRED",
+      "why_cannot_run_locally": "Requires active multi-node live socket cluster connection for real-time latency feedback",
+      "local_testable_seam": "Batch sizing algorithm and formula math verified via unit tests",
+      "canonical_proof_level": "IMPLEMENTED"
+    },
+    {
+      "node_id": "tests/integration/test_p010_acceptance_guard.py::TestP010AcceptanceGuard::test_05_failed_migration_rejects_ordinary_start_transport",
+      "historical_status": "Omitted in P5.10 historical 171 scope (benchmark directory)",
+      "required_infrastructure": "LIVE_DB_REQUIRED",
+      "why_cannot_run_locally": "Requires active multi-node live socket cluster connection for real-time latency feedback",
+      "local_testable_seam": "Batch sizing algorithm and formula math verified via unit tests",
+      "canonical_proof_level": "IMPLEMENTED"
+    },
+    {
+      "node_id": "tests/integration/test_p010_acceptance_guard.py::TestP010AcceptanceGuard::test_07_split_brain_target_mapping_prevention",
+      "historical_status": "Omitted in P5.10 historical 171 scope (benchmark directory)",
+      "required_infrastructure": "LIVE_DB_REQUIRED",
+      "why_cannot_run_locally": "Requires active multi-node live socket cluster connection for real-time latency feedback",
+      "local_testable_seam": "Batch sizing algorithm and formula math verified via unit tests",
+      "canonical_proof_level": "IMPLEMENTED"
+    },
+    {
+      "node_id": "tests/integration/test_phase9_real_engine_certification.py::TestRealEngineDeterminismAndImmutability::test_live_models_immutability",
+      "historical_status": "Omitted in P5.10 historical 171 scope (benchmark directory)",
+      "required_infrastructure": "LIVE_DB_REQUIRED",
+      "why_cannot_run_locally": "Requires active multi-node live socket cluster connection for real-time latency feedback",
+      "local_testable_seam": "Batch sizing algorithm and formula math verified via unit tests",
+      "canonical_proof_level": "IMPLEMENTED"
+    },
+    {
+      "node_id": "tests/integration/test_phase9_real_engine_certification.py::TestRealEngineDeterminismAndImmutability::test_live_models_lossless_serialization",
+      "historical_status": "Omitted in P5.10 historical 171 scope (benchmark directory)",
+      "required_infrastructure": "LIVE_DB_REQUIRED",
+      "why_cannot_run_locally": "Requires active multi-node live socket cluster connection for real-time latency feedback",
+      "local_testable_seam": "Batch sizing algorithm and formula math verified via unit tests",
+      "canonical_proof_level": "IMPLEMENTED"
+    }
+  ]
+}

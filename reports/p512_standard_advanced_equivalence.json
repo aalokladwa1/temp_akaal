@@ -1,0 +1,18 @@
+{
+  "equivalence_invariant": "Standard and Advanced configuration paths produce semantically identical ExecutionPlan DAGs for equivalent operator intent.",
+  "compared_dimensions": [
+    "Canonical Model",
+    "Selection Rules",
+    "Mapping Dictionaries",
+    "Transformation AST",
+    "Masking Salt",
+    "Filter Predicates",
+    "Dedup Collision Policy",
+    "Security Scope",
+    "Approval Quorum",
+    "DAG Node Topologies"
+  ],
+  "representation_differences": "Non-semantic comments and UI metadata fields differ; cryptographic plan identity and physical DML output are identical.",
+  "test_evidence": "tests/pipeline/test_p512_whole_p5_acceptance.py::test_standard_vs_advanced_semantic_equivalence",
+  "result": "PASS (0 discrepancies)"
+}

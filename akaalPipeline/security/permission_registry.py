@@ -76,6 +76,32 @@ class PermissionRegistry:
     SYSTEM_TENANT_DECOMMISSION = "system.tenant.decommission"
     SYSTEM_WORKSPACE_CREATE = "system.workspace.create"
     SYSTEM_PROJECT_CREATE = "system.project.create"
+    # Operations & Scheduling / Retention
+    OPERATIONS_SCHEDULE_CREATE = "operations.schedule.create"
+    OPERATIONS_SCHEDULE_READ = "operations.schedule.read"
+    OPERATIONS_SCHEDULE_UPDATE = "operations.schedule.update"
+    OPERATIONS_SCHEDULE_ARM = "operations.schedule.arm"
+    OPERATIONS_SCHEDULE_DISABLE = "operations.schedule.disable"
+    OPERATIONS_SCHEDULE_CANCEL = "operations.schedule.cancel"
+    OPERATIONS_SCHEDULE_DELETE = "operations.schedule.delete"
+    OPERATIONS_RETENTION_PREVIEW = "operations.retention.preview"
+    OPERATIONS_RETENTION_EXECUTE = "operations.retention.execute"
+    OPERATIONS_RETENTION_READ = "operations.retention.read"
+    # P6.6 Capacity & Resources
+    OPERATIONS_CAPACITY_READ = "operations.capacity.read"
+    OPERATIONS_CAPACITY_SAMPLE = "operations.capacity.sample"
+    OPERATIONS_CAPACITY_FORECAST = "operations.capacity.forecast"
+    # P6.7 Alerts, Incidents & Notifications
+    OPERATIONS_ALERT_READ = "operations.alert.read"
+    OPERATIONS_ALERT_EVALUATE = "operations.alert.evaluate"
+    OPERATIONS_ALERT_ACK = "operations.alert.ack"
+    OPERATIONS_ALERT_RESOLVE = "operations.alert.resolve"
+    OPERATIONS_ALERT_SUPPRESS = "operations.alert.suppress"
+    OPERATIONS_INCIDENT_READ = "operations.incident.read"
+    OPERATIONS_INCIDENT_MANAGE = "operations.incident.manage"
+    OPERATIONS_NOTIFICATION_ROUTE = "operations.notification.route"
+    OPERATIONS_NOTIFICATION_SEND = "operations.notification.send"
+    OPERATIONS_NOTIFICATION_READ = "operations.notification.read"
 
     ALL_PERMISSIONS: FrozenSet[str] = frozenset({
         MIGRATION_CREATE,
@@ -126,6 +152,29 @@ class PermissionRegistry:
         SYSTEM_TENANT_DECOMMISSION,
         SYSTEM_WORKSPACE_CREATE,
         SYSTEM_PROJECT_CREATE,
+        OPERATIONS_SCHEDULE_CREATE,
+        OPERATIONS_SCHEDULE_READ,
+        OPERATIONS_SCHEDULE_UPDATE,
+        OPERATIONS_SCHEDULE_ARM,
+        OPERATIONS_SCHEDULE_DISABLE,
+        OPERATIONS_SCHEDULE_CANCEL,
+        OPERATIONS_SCHEDULE_DELETE,
+        OPERATIONS_RETENTION_PREVIEW,
+        OPERATIONS_RETENTION_EXECUTE,
+        OPERATIONS_RETENTION_READ,
+        OPERATIONS_CAPACITY_READ,
+        OPERATIONS_CAPACITY_SAMPLE,
+        OPERATIONS_CAPACITY_FORECAST,
+        OPERATIONS_ALERT_READ,
+        OPERATIONS_ALERT_EVALUATE,
+        OPERATIONS_ALERT_ACK,
+        OPERATIONS_ALERT_RESOLVE,
+        OPERATIONS_ALERT_SUPPRESS,
+        OPERATIONS_INCIDENT_READ,
+        OPERATIONS_INCIDENT_MANAGE,
+        OPERATIONS_NOTIFICATION_ROUTE,
+        OPERATIONS_NOTIFICATION_SEND,
+        OPERATIONS_NOTIFICATION_READ,
     })
 
     @classmethod

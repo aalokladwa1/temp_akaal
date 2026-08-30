@@ -47,7 +47,9 @@ class GatewayCoordinator:
         cdc_authority: Optional[CDCAuthority] = None,
         validation_authority: Optional[ValidationAuthority] = None,
         evidence_authority: Optional[EvidenceAuthority] = None,
+        keystore: Optional[Any] = None,
     ) -> None:
+        self.keystore = keystore
         self.connection_authority = connection_authority or ConnectionAuthority()
         self.extensions_authority = extensions_authority or ExtensionsAuthority()
         self.discovery_authority = discovery_authority or DiscoveryAuthority(
@@ -144,7 +146,7 @@ class GatewayCoordinator:
                 f"Admission rejected: Missing required authenticated fencing_token_envelope for operation '{context.operation_id}' on resource '{canonical_resource_id}'."
             )
 
-        # 1. Directly validate custom or mock authority when verify_fencing_token is provided
+        # 1. Directly validate custom authority when verify_fencing_token is provided
         if self.durability_authority and hasattr(self.durability_authority, "verify_fencing_token"):
             valid = self.durability_authority.verify_fencing_token(envelope)
             if valid is False:
@@ -368,12 +370,28 @@ class GatewayCoordinator:
             if not reader or not writer or not partition:
                 from akaalEngine.transport.models.errors import TransportError
                 raise TransportError("Transport execution requires active SourceReader, TargetWriter, and TransportPartition instances.")
+            sec_reval = payload.get("security_revalidator")
+            if sec_reval is None and getattr(context, "execution_authorization_artifact", None) and getattr(self, "keystore", None):
+                from akaalPipeline.security.execution_authorization import verify_execution_authorization
+                authz_art = context.execution_authorization_artifact
+                ks = self.keystore
+                ctx_t_id = context.tenant_id
+                ctx_m_id = context.migration_id
+                sec_reval = lambda: verify_execution_authorization(
+                    artifact=authz_art,
+                    expected_tenant_id=ctx_t_id,
+                    expected_migration_id=ctx_m_id,
+                    keystore=ks,
+                )
             transport_snap = self.transport_authority.execute_partition_transport(
                 reader=reader,
                 writer=writer,
                 partition=partition,
+                fencing_token=payload.get("fencing_token"),
+                cancellation_token=payload.get("cancellation_token"),
                 migration_id=context.migration_id,
                 run_id=context.run_id,
+                security_revalidator=sec_reval,
             )
         else:
             from akaalEngine.transport.models.errors import TransportError

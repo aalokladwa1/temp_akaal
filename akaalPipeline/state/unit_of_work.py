@@ -471,12 +471,71 @@ class SQLiteUnitOfWork(UnitOfWorkPort):
             CREATE TABLE IF NOT EXISTS schedules (
                 schedule_id TEXT PRIMARY KEY,
                 tenant_id TEXT NOT NULL DEFAULT 'default-tenant',
+                workspace_id TEXT NOT NULL DEFAULT 'default-workspace',
+                project_id TEXT,
                 migration_id TEXT NOT NULL,
+                operation_type TEXT NOT NULL DEFAULT 'migration.start',
+                schedule_type TEXT NOT NULL DEFAULT 'RECURRING',
                 cron_expression TEXT NOT NULL,
+                one_shot_time TEXT,
+                timezone TEXT NOT NULL DEFAULT 'UTC',
                 state TEXT NOT NULL,
+                enabled INTEGER NOT NULL DEFAULT 1,
+                revision INTEGER NOT NULL DEFAULT 1,
+                misfire_policy TEXT NOT NULL DEFAULT 'SKIP',
+                overlap_policy TEXT NOT NULL DEFAULT 'REJECT_OVERLAP',
                 activation_id TEXT,
+                creator_actor_id TEXT,
+                delegated_roles TEXT,
+                last_occurrence_time TEXT,
+                next_occurrence_time TEXT,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS schedule_occurrences (
+                occurrence_id TEXT PRIMARY KEY,
+                schedule_id TEXT NOT NULL,
+                tenant_id TEXT NOT NULL DEFAULT 'default-tenant',
+                workspace_id TEXT NOT NULL DEFAULT 'default-workspace',
+                project_id TEXT,
+                schedule_revision INTEGER NOT NULL DEFAULT 1,
+                canonical_scheduled_time TEXT NOT NULL,
+                status TEXT NOT NULL,
+                claim_attempt_id TEXT,
+                claim_owner_id TEXT,
+                lease_id TEXT,
+                fence_epoch INTEGER NOT NULL DEFAULT 1,
+                dispatched_at TEXT,
+                dispatched_command_id TEXT,
+                dispatched_operation_id TEXT,
+                completed_at TEXT,
+                result_summary TEXT,
+                error_payload TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                UNIQUE (schedule_id, schedule_revision, canonical_scheduled_time)
+            );
+
+            CREATE TABLE IF NOT EXISTS retention_operations (
+                retention_op_id TEXT PRIMARY KEY,
+                tenant_id TEXT NOT NULL DEFAULT 'default-tenant',
+                workspace_id TEXT NOT NULL DEFAULT 'default-workspace',
+                project_id TEXT,
+                initiator_actor_id TEXT NOT NULL,
+                is_preview INTEGER NOT NULL DEFAULT 0,
+                cutoff_time TEXT NOT NULL,
+                data_classes TEXT NOT NULL,
+                status TEXT NOT NULL,
+                considered_count INTEGER NOT NULL DEFAULT 0,
+                eligible_count INTEGER NOT NULL DEFAULT 0,
+                deleted_count INTEGER NOT NULL DEFAULT 0,
+                protected_count INTEGER NOT NULL DEFAULT 0,
+                failed_count INTEGER NOT NULL DEFAULT 0,
+                protection_breakdown TEXT NOT NULL DEFAULT '{}',
+                error_details TEXT,
+                created_at TEXT NOT NULL,
+                completed_at TEXT
             );
 
             CREATE TABLE IF NOT EXISTS leases (
@@ -584,12 +643,168 @@ class SQLiteUnitOfWork(UnitOfWorkPort):
                 updated_at TEXT NOT NULL,
                 UNIQUE (execution_id, graph_node_id)
             );
+
+            CREATE TABLE IF NOT EXISTS capacity_observations (
+                observation_id TEXT PRIMARY KEY,
+                tenant_id TEXT NOT NULL DEFAULT 'default-tenant',
+                workspace_id TEXT NOT NULL DEFAULT 'default-workspace',
+                project_id TEXT,
+                node_id TEXT,
+                resource_type TEXT NOT NULL,
+                value REAL NOT NULL,
+                units TEXT NOT NULL,
+                evidence_kind TEXT NOT NULL,
+                source_authority TEXT NOT NULL,
+                freshness_sec REAL NOT NULL DEFAULT 0.0,
+                provenance TEXT,
+                timestamp TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS capacity_forecasts (
+                forecast_id TEXT PRIMARY KEY,
+                tenant_id TEXT NOT NULL DEFAULT 'default-tenant',
+                workspace_id TEXT NOT NULL DEFAULT 'default-workspace',
+                project_id TEXT,
+                resource_type TEXT NOT NULL,
+                target_metric TEXT NOT NULL,
+                current_value REAL NOT NULL,
+                growth_rate_per_sec REAL NOT NULL,
+                projected_exhaustion_time TEXT,
+                sample_count INTEGER NOT NULL,
+                observation_window_sec REAL NOT NULL,
+                evidence_kind TEXT NOT NULL,
+                confidence_score REAL,
+                assumptions TEXT,
+                created_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS alert_rules (
+                rule_id TEXT PRIMARY KEY,
+                tenant_id TEXT NOT NULL DEFAULT 'default-tenant',
+                name TEXT NOT NULL,
+                signal_name TEXT NOT NULL,
+                operator TEXT NOT NULL,
+                threshold_value TEXT NOT NULL,
+                threshold_type TEXT NOT NULL,
+                severity TEXT NOT NULL,
+                dedup_window_sec INTEGER NOT NULL DEFAULT 300,
+                enabled INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS alerts (
+                alert_id TEXT PRIMARY KEY,
+                tenant_id TEXT NOT NULL DEFAULT 'default-tenant',
+                rule_id TEXT,
+                signal_name TEXT NOT NULL,
+                dedup_fingerprint TEXT NOT NULL,
+                severity TEXT NOT NULL,
+                lifecycle_state TEXT NOT NULL,
+                message TEXT NOT NULL,
+                current_value TEXT,
+                threshold_value TEXT,
+                context_payload TEXT,
+                observation_count INTEGER NOT NULL DEFAULT 1,
+                suppression_expires_at TEXT,
+                acknowledged_by TEXT,
+                acknowledged_at TEXT,
+                resolved_at TEXT,
+                first_observed_at TEXT NOT NULL,
+                last_observed_at TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS incidents (
+                incident_id TEXT PRIMARY KEY,
+                tenant_id TEXT NOT NULL DEFAULT 'default-tenant',
+                title TEXT NOT NULL,
+                severity TEXT NOT NULL,
+                status TEXT NOT NULL,
+                summary TEXT NOT NULL,
+                migration_id TEXT,
+                node_id TEXT,
+                correlation_key TEXT,
+                owner_actor_id TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                resolved_at TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS incident_timeline (
+                event_id TEXT PRIMARY KEY,
+                incident_id TEXT NOT NULL,
+                tenant_id TEXT NOT NULL DEFAULT 'default-tenant',
+                event_type TEXT NOT NULL,
+                actor_id TEXT NOT NULL,
+                details TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS incident_alert_links (
+                incident_id TEXT NOT NULL,
+                alert_id TEXT NOT NULL,
+                attached_at TEXT NOT NULL,
+                PRIMARY KEY (incident_id, alert_id)
+            );
+
+            CREATE TABLE IF NOT EXISTS notification_deliveries (
+                delivery_id TEXT PRIMARY KEY,
+                tenant_id TEXT NOT NULL DEFAULT 'default-tenant',
+                alert_id TEXT,
+                incident_id TEXT,
+                channel TEXT NOT NULL,
+                recipient TEXT NOT NULL,
+                status TEXT NOT NULL,
+                attempt_count INTEGER NOT NULL DEFAULT 0,
+                max_retries INTEGER NOT NULL DEFAULT 3,
+                payload_fingerprint TEXT NOT NULL,
+                idempotency_token TEXT NOT NULL,
+                last_error TEXT,
+                last_attempt_at TEXT,
+                sent_at TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
         """)
 
         # Migration columns if missing
         cols = [r[1] for r in conn.execute("PRAGMA table_info(migrations);").fetchall()]
         if "active_fence_epoch" not in cols:
             conn.execute("ALTER TABLE migrations ADD COLUMN active_fence_epoch INTEGER NOT NULL DEFAULT 1;")
+
+        # Schedules columns if missing
+        sched_cols = [r[1] for r in conn.execute("PRAGMA table_info(schedules);").fetchall()]
+        if "workspace_id" not in sched_cols:
+            conn.execute("ALTER TABLE schedules ADD COLUMN workspace_id TEXT NOT NULL DEFAULT 'default-workspace';")
+        if "project_id" not in sched_cols:
+            conn.execute("ALTER TABLE schedules ADD COLUMN project_id TEXT;")
+        if "operation_type" not in sched_cols:
+            conn.execute("ALTER TABLE schedules ADD COLUMN operation_type TEXT NOT NULL DEFAULT 'migration.start';")
+        if "schedule_type" not in sched_cols:
+            conn.execute("ALTER TABLE schedules ADD COLUMN schedule_type TEXT NOT NULL DEFAULT 'RECURRING';")
+        if "one_shot_time" not in sched_cols:
+            conn.execute("ALTER TABLE schedules ADD COLUMN one_shot_time TEXT;")
+        if "timezone" not in sched_cols:
+            conn.execute("ALTER TABLE schedules ADD COLUMN timezone TEXT NOT NULL DEFAULT 'UTC';")
+        if "enabled" not in sched_cols:
+            conn.execute("ALTER TABLE schedules ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1;")
+        if "revision" not in sched_cols:
+            conn.execute("ALTER TABLE schedules ADD COLUMN revision INTEGER NOT NULL DEFAULT 1;")
+        if "misfire_policy" not in sched_cols:
+            conn.execute("ALTER TABLE schedules ADD COLUMN misfire_policy TEXT NOT NULL DEFAULT 'SKIP';")
+        if "overlap_policy" not in sched_cols:
+            conn.execute("ALTER TABLE schedules ADD COLUMN overlap_policy TEXT NOT NULL DEFAULT 'REJECT_OVERLAP';")
+        if "creator_actor_id" not in sched_cols:
+            conn.execute("ALTER TABLE schedules ADD COLUMN creator_actor_id TEXT;")
+        if "delegated_roles" not in sched_cols:
+            conn.execute("ALTER TABLE schedules ADD COLUMN delegated_roles TEXT;")
+        if "last_occurrence_time" not in sched_cols:
+            conn.execute("ALTER TABLE schedules ADD COLUMN last_occurrence_time TEXT;")
+        if "next_occurrence_time" not in sched_cols:
+            conn.execute("ALTER TABLE schedules ADD COLUMN next_occurrence_time TEXT;")
 
         if not self._shared_conn:
             conn.commit()

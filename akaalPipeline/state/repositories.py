@@ -52,6 +52,7 @@ class SQLiteMigrationRepository(MigrationRepositoryPort):
         if not db_path:
             raise ValueError("SQLiteMigrationRepository requires an explicit db_path.")
         self.db_path = db_path
+        self._ensure_table()
 
     def _get_connection(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.db_path)
@@ -59,6 +60,34 @@ class SQLiteMigrationRepository(MigrationRepositoryPort):
         conn.execute("PRAGMA journal_mode=WAL;")
         conn.execute("PRAGMA foreign_keys=ON;")
         return conn
+
+    def _ensure_table(self) -> None:
+        conn = self._get_connection()
+        try:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS migrations (
+                    migration_id TEXT PRIMARY KEY,
+                    revision INTEGER NOT NULL,
+                    name TEXT NOT NULL,
+                    mode TEXT NOT NULL,
+                    state TEXT NOT NULL,
+                    tenant_id TEXT NOT NULL DEFAULT 'default-tenant',
+                    workspace_id TEXT NOT NULL DEFAULT 'default-workspace',
+                    project_id TEXT,
+                    configuration TEXT NOT NULL,
+                    plan_id TEXT,
+                    initialization_id TEXT,
+                    active_attempt_id TEXT,
+                    active_schedule_id TEXT,
+                    active_fence_epoch INTEGER NOT NULL DEFAULT 1,
+                    lineage TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+            """)
+            conn.commit()
+        finally:
+            conn.close()
 
     def save(self, aggregate: MigrationAggregate, connection: Optional[sqlite3.Connection] = None) -> None:
         owns_conn = False
@@ -92,8 +121,8 @@ class SQLiteMigrationRepository(MigrationRepositoryPort):
                         aggregate.name,
                         aggregate.mode.value,
                         aggregate.state.value,
-                        aggregate.tenant_id,
-                        aggregate.workspace_id,
+                        aggregate.tenant_id or "default-tenant",
+                        aggregate.workspace_id or "default-workspace",
                         aggregate.project_id,
                         json.dumps(aggregate.configuration),
                         aggregate.plan_id,
@@ -121,8 +150,8 @@ class SQLiteMigrationRepository(MigrationRepositoryPort):
                         aggregate.name,
                         aggregate.mode.value,
                         aggregate.state.value,
-                        aggregate.tenant_id,
-                        aggregate.workspace_id,
+                        aggregate.tenant_id or "default-tenant",
+                        aggregate.workspace_id or "default-workspace",
                         aggregate.project_id,
                         json.dumps(aggregate.configuration),
                         aggregate.plan_id,

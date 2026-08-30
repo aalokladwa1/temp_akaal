@@ -1,0 +1,12 @@
+{
+  "P0_logical_size": 13,
+  "P1_logical_size": 22,
+  "P2_logical_size": 189,
+  "P3_logical_size": 682,
+  "P4_logical_size": 307,
+  "P0_P4_EXACT_NODE_SET_UNION": 1213,
+  "P0_P4_PRIMARY_REPOSITORY_ACCOUNTING_ASSIGNMENT": 1099,
+  "SHARED_WITH_WHOLE_P5_LOCAL_SUITE": 93,
+  "ASSIGNED_TO_EXTERNAL_LIVE_DEFERRED": 21,
+  "EXPLANATION": "The disjoint union of all P0-P4 test suites contains exactly 1,213 unique node IDs. In the mutually exclusive primary repository inventory, 93 nodes are assigned to Whole-P5 local acceptance and 21 are assigned to External Live Deferred, leaving 1,099 unique primary P0-P4 contributions."
+}

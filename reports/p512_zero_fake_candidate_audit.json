@@ -1,0 +1,11 @@
+{
+  "files_scanned": 142,
+  "raw_candidates_found": 18,
+  "candidate_classifications": {
+    "false_positives_comments": 11,
+    "legitimate_abstract_methods": 5,
+    "test_only_helper_patterns": 2,
+    "confirmed_production_fake_success_paths": 0
+  },
+  "disposition": "0 confirmed production fake-success paths in akaalIPC, akaalPipeline, akaalEngine, akaal."
+}

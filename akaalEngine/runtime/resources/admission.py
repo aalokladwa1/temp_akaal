@@ -31,10 +31,24 @@ class ResourceAdmissionController:
         self._allocated_cpu: float = 0.0
         self._allocated_memory_mb: float = 0.0
         self._allocated_slots: int = 0
+        self._is_draining: bool = False
+
+    def set_draining(self, is_draining: bool) -> None:
+        """Sets or clears draining mode. When draining, all new admissions are rejected."""
+        with self._lock:
+            self._is_draining = bool(is_draining)
+
+    @property
+    def is_draining(self) -> bool:
+        with self._lock:
+            return self._is_draining
 
     def evaluate_admission(self, req: ResourceRequirement) -> Tuple[bool, Optional[str]]:
         """Evaluates whether a task requirement can be admitted under current budget and policy."""
         with self._lock:
+            if self._is_draining:
+                return False, "Node is currently draining; new task admissions are prohibited."
+
             if (self._allocated_slots + req.concurrency_slots) > self.budget.max_worker_slots:
                 return False, f"Worker slots exhausted ({self._allocated_slots}/{self.budget.max_worker_slots})"
 

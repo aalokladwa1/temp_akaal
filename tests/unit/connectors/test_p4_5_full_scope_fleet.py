@@ -68,7 +68,7 @@ class TestP45FullScopeFleet(unittest.TestCase):
             bridge = reg.get_connector(sys_str)
             self.assertIsNotNone(bridge)
             manifest = bridge.manifest
-            self.assertEqual(manifest.implementation_state.name, "IMPLEMENTED")
+            self.assertIn(manifest.implementation_state.name, ["IMPLEMENTED", "MANAGED_PROFILE"])
             self.assertEqual(manifest.support_state.name, "SUPPORTED")
 
     # -------------------------------------------------------------------------

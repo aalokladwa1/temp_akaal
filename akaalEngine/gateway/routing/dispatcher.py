@@ -22,8 +22,11 @@ logger = logging.getLogger("akaalEngine.gateway.routing")
 class GatewayDispatcher:
     """Explicit semantic request router for EngineGateway."""
 
-    def __init__(self, coordinator: Optional[GatewayCoordinator] = None) -> None:
-        self.coordinator = coordinator or GatewayCoordinator()
+    def __init__(self, coordinator: Optional[GatewayCoordinator] = None, keystore: Optional[Any] = None) -> None:
+        self.coordinator = coordinator or GatewayCoordinator(keystore=keystore)
+        self.keystore = keystore
+        if hasattr(self.coordinator, "keystore") and self.coordinator.keystore is None and keystore is not None:
+            self.coordinator.keystore = keystore
 
     def dispatch(self, request: Any) -> GatewayResponse[Any]:
         """Routes a GatewayRequest or typed request DTO to its designated semantic handler, catching and translating all exceptions."""
@@ -37,8 +40,18 @@ class GatewayDispatcher:
                 error_message="Request must be a valid request instance with a context attribute.",
             )
 
-        context: GatewayRequestContext = request.context
+        context: Optional[GatewayRequestContext] = getattr(request, "context", None)
+        if context is None:
+            return GatewayResponse.create_failure(
+                operation_id="op-missing-ctx",
+                operation_type="UNKNOWN",
+                migration_id="unknown",
+                run_id="unknown",
+                failure_category=GatewayFailureCategory.INVALID_REQUEST.value,
+                error_message="Request must have a valid, non-null context attribute.",
+            )
         operation = getattr(request, "operation", None)
+
 
         if operation is None:
             cls_name = request.__class__.__name__.upper()
@@ -117,29 +130,54 @@ class GatewayDispatcher:
 
         op_name = operation.value
 
-        # Zero-Trust Execution Authorization Verification
-        if getattr(context, "execution_authorization_artifact", None) is not None:
+        is_mutating = operation in (
+            SemanticOperation.APPLY_SCHEMA_CHANGES,
+            SemanticOperation.EXECUTE_BULK_MIGRATION,
+            SemanticOperation.EXECUTE_INCREMENTAL_APPLY,
+            SemanticOperation.EXECUTE_CDC_SYNC,
+            SemanticOperation.EXECUTE_ATOMIC_CUTOVER,
+            SemanticOperation.RECONCILE_DISPUTED_RECORDS,
+            SemanticOperation.ROLLBACK_TRANSACTION_BATCH,
+        )
+
+        exec_mode = getattr(context, "execution_mode", None) or payload.get("execution_mode") or payload.get("mode")
+        if is_mutating and exec_mode in ("M8_VALIDATION_ONLY", "M8"):
+            return GatewayResponse.create_failure(
+                operation_id=context.operation_id,
+                operation_type=op_name,
+                migration_id=context.migration_id,
+                run_id=context.run_id,
+                failure_category=GatewayFailureCategory.UNSUPPORTED_OPERATION.value,
+                error_message=f"Operation '{op_name}' is mutating and strictly prohibited in M8 validation-only mode.",
+                fencing_epoch=context.fencing_epoch,
+            )
+
+        authz = getattr(context, "execution_authorization_artifact", None) or payload.get("execution_authorization_artifact")
+        if authz is not None:
             from akaalPipeline.security.execution_authorization import verify_execution_authorization
-            authz = context.execution_authorization_artifact
             pub_key_pem = payload.get("execution_signing_public_key_pem") or authz.get("public_key_pem")
-            if pub_key_pem:
-                try:
-                    verify_execution_authorization(
-                        artifact=authz,
-                        public_key_pem=pub_key_pem,
-                        expected_tenant_id=context.tenant_id,
-                        expected_migration_id=context.migration_id,
-                    )
-                except Exception as exc:
-                    return GatewayResponse.create_failure(
-                        operation_id=context.operation_id,
-                        operation_type=op_name,
-                        migration_id=context.migration_id,
-                        run_id=context.run_id,
-                        failure_category=GatewayFailureCategory.INVALID_REQUEST.value,
-                        error_message=f"Execution authorization verification failed: {exc}",
-                        fencing_epoch=context.fencing_epoch,
-                    )
+            try:
+                verify_execution_authorization(
+                    artifact=authz,
+                    public_key_pem=pub_key_pem if not self.keystore else None,
+                    expected_tenant_id=context.tenant_id,
+                    expected_migration_id=context.migration_id,
+                    expected_workspace_id=context.workspace_id,
+                    expected_project_id=context.project_id,
+                    expected_fencing_epoch=context.fencing_epoch,
+                    expected_execution_mode=exec_mode,
+                    keystore=self.keystore,
+                )
+            except Exception as exc:
+                return GatewayResponse.create_failure(
+                    operation_id=context.operation_id,
+                    operation_type=op_name,
+                    migration_id=context.migration_id,
+                    run_id=context.run_id,
+                    failure_category=GatewayFailureCategory.INVALID_REQUEST.value,
+                    error_message=f"Execution authorization verification failed: {exc}",
+                    fencing_epoch=context.fencing_epoch,
+                )
 
         try:
             # Explicit, auditable enum dispatch table (No getattr or eval)
@@ -273,7 +311,7 @@ class GatewayDispatcher:
         src = payload.get("source_schema_model", {})
         tgt = payload.get("target_schema_model", {})
         if hasattr(self.coordinator.schema_authority, "assess_compatibility"):
-            res = self.coordinator.schema_authority.assess_compatibility(src, tgt)
+            res = self.coordinator.schema_authority.assess_compatibility(src, tgt)  # type: ignore
             is_compat = getattr(res, "is_compatible", getattr(res, "compatible", False))
         elif hasattr(self.coordinator.schema_authority, "compile"):
             from akaalEngine.schema.authority import SchemaCompilationRequest
@@ -293,7 +331,7 @@ class GatewayDispatcher:
             report = getattr(res, "compatibility_report", None)
             is_compat = bool(report and getattr(report, "is_compatible", getattr(report, "compatible", False)))
         else:
-            from akaalEngine.schema.models.errors import SchemaError
+            from akaalEngine.schema.models.errors import SchemaError  # type: ignore
             raise SchemaError("SchemaAuthority does not support schema compatibility validation.")
 
         if not is_compat:
@@ -324,33 +362,33 @@ class GatewayDispatcher:
         if writer:
             from akaalEngine.transport.drivers.base import TargetWriter
             if not isinstance(writer, TargetWriter):
-                from akaalEngine.schema.models.errors import SchemaError
+                from akaalEngine.schema.models.errors import SchemaError  # type: ignore
                 raise SchemaError("TargetWriter must inherit from canonical TargetWriter base class.")
             if not ddl_statements:
-                from akaalEngine.schema.models.errors import SchemaError
+                from akaalEngine.schema.models.errors import SchemaError  # type: ignore
                 raise SchemaError("Physical schema deployment requires non-empty DDL statements.")
             for ddl in ddl_statements:
-                writer.execute_ddl(ddl)
+                writer.execute_ddl(ddl)  # type: ignore
                 applied_count += 1
             if hasattr(writer, "commit"):
                 c_res = writer.commit()
                 if c_res is False:
-                    from akaalEngine.schema.models.errors import SchemaError
+                    from akaalEngine.schema.models.errors import SchemaError  # type: ignore
                     raise SchemaError("TargetWriter physical schema commit failed.")
         elif hasattr(self.coordinator.schema_authority, "apply_schema"):
-            res = self.coordinator.schema_authority.apply_schema(payload)
+            res = self.coordinator.schema_authority.apply_schema(payload)  # type: ignore
             if not isinstance(res, dict) or not res.get("applied") or "applied_count" not in res:
-                from akaalEngine.schema.models.errors import SchemaError
+                from akaalEngine.schema.models.errors import SchemaError  # type: ignore
                 raise SchemaError("SchemaAuthority apply_schema did not return verified deployment proof with applied=True.")
             applied_count = res["applied_count"]
         elif hasattr(self.coordinator.transport_authority, "apply_schema"):
-            res = self.coordinator.transport_authority.apply_schema(payload)
+            res = self.coordinator.transport_authority.apply_schema(payload)  # type: ignore
             if not isinstance(res, dict) or not res.get("applied") or "applied_count" not in res:
-                from akaalEngine.schema.models.errors import SchemaError
+                from akaalEngine.schema.models.errors import SchemaError  # type: ignore
                 raise SchemaError("TransportAuthority apply_schema did not return verified deployment proof with applied=True.")
             applied_count = res["applied_count"]
         else:
-            from akaalEngine.schema.models.errors import SchemaError
+            from akaalEngine.schema.models.errors import SchemaError  # type: ignore
             raise SchemaError("Schema deployment rejected: Physical schema deployment requires an active TargetWriter driver with execute_ddl() capability or a registered SchemaAuthority deployment connector. Synthetic deployment of raw table names or DDL strings without execution is forbidden.")
 
         return GatewayResponse.create_success(
@@ -414,7 +452,7 @@ class GatewayDispatcher:
                 or getattr(res, "slot_name", None)
                 or getattr(res, "stream_id", None)
                 or (res.to_dict().get("stream_handle") if hasattr(res, "to_dict") else None)
-                or (res.get("stream_handle") if isinstance(res, Mapping) else None)
+                or (res.get("stream_handle") if isinstance(res, Mapping) else None)  # type: ignore
             )
         if not boundary_token:
             boundary_token = (
@@ -424,7 +462,7 @@ class GatewayDispatcher:
                 or getattr(res, "barrier_position", None)
                 or (res.to_dict().get("source_position") if hasattr(res, "to_dict") else None)
                 or (res.to_dict().get("boundary_token") if hasattr(res, "to_dict") else None)
-                or (res.get("source_position") if isinstance(res, Mapping) else None)
+                or (res.get("source_position") if isinstance(res, Mapping) else None)  # type: ignore
             )
 
         if not stream_handle or not boundary_token:
@@ -588,7 +626,7 @@ class GatewayDispatcher:
 
         # Authoritatively query runtime task state to verify terminal transition
         if hasattr(self.coordinator.runtime_authority, "get_task_snapshot"):
-            snap = self.coordinator.runtime_authority.get_task_snapshot(task_id) or snap
+            snap = self.coordinator.runtime_authority.get_task_snapshot(task_id) or snap  # type: ignore
 
         is_terminal = getattr(snap, "is_terminal", False)
         state_str = getattr(getattr(snap, "state", None), "value", str(getattr(snap, "state", "CANCELLED")))
@@ -668,7 +706,7 @@ class GatewayDispatcher:
             raise ReconciliationMismatchError("Reconciliation requires both source_records and target_records to resolve disputed records.")
         key_cols = payload.get("key_columns", ["id"])
         if hasattr(self.coordinator.validation_authority, "reconcile_disputed"):
-            res = self.coordinator.validation_authority.reconcile_disputed(ctx.migration_id, src_recs, tgt_recs, key_cols)
+            res = self.coordinator.validation_authority.reconcile_disputed(ctx.migration_id, src_recs, tgt_recs, key_cols)  # type: ignore
         elif hasattr(self.coordinator.validation_authority, "exact_reconciler"):
             res = self.coordinator.validation_authority.exact_reconciler.reconcile_exact(src_recs, tgt_recs, key_cols)
         else:
@@ -693,7 +731,7 @@ class GatewayDispatcher:
             extracted_records = len(getattr(batch, "rows", [])) if hasattr(batch, "rows") else (len(batch) if isinstance(batch, list) else 0)
             extracted_wm = wm_val + extracted_records if isinstance(wm_val, int) else wm_val
         elif hasattr(self.coordinator.transport_authority, "extract_incremental"):
-            res = self.coordinator.transport_authority.extract_incremental(payload)
+            res = self.coordinator.transport_authority.extract_incremental(payload)  # type: ignore
             extracted_records = res.get("extracted_records", 0)
             extracted_wm = res.get("extracted_watermark", wm_val)
         else:
@@ -739,9 +777,9 @@ class GatewayDispatcher:
             if not col_vals:
                 from akaalEngine.transport.models.errors import TransportError
                 raise TransportError(f"Committed batch does not contain required watermark column '{wm_col}'. Watermark cannot be derived.")
-            committed_wm = max(col_vals)
+            committed_wm = max(col_vals)  # type: ignore
         elif hasattr(self.coordinator.transport_authority, "apply_incremental"):
-            res = self.coordinator.transport_authority.apply_incremental(payload)
+            res = self.coordinator.transport_authority.apply_incremental(payload)  # type: ignore
             if not isinstance(res, dict) or not res.get("committed") or "target_commit_receipt" not in res:
                 from akaalEngine.transport.models.errors import TransportError
                 raise TransportError("TransportAuthority apply_incremental returned without verified physical target_commit_receipt and committed=True.")
@@ -857,7 +895,7 @@ class GatewayDispatcher:
                 writer.rollback()
                 target_rolled_back = True
             elif hasattr(self.coordinator.transport_authority, "rollback_batch"):
-                res_transport = self.coordinator.transport_authority.rollback_batch(batch_id)
+                res_transport = self.coordinator.transport_authority.rollback_batch(batch_id)  # type: ignore
                 target_rolled_back = bool(res_transport)
 
             if not target_rolled_back:

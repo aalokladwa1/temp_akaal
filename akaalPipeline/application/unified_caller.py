@@ -31,6 +31,7 @@ from akaalPipeline.orchestration.compiler import GraphCompiler
 from akaalPipeline.orchestration.graph_validation import GraphValidator
 from akaalPipeline.orchestration.plans import ExecutionPlan
 from akaalPipeline.policy.contracts import PolicyDecision
+from akaalPipeline.policy.gates import PolicyGateEvaluator
 from akaalIPC.security.context import ActorContext
 from akaalPipeline.ports.engine import (
     EngineInvocationRequest,
@@ -47,12 +48,18 @@ from akaalPipeline.state.unit_of_work import SQLiteUnitOfWork, UnitOfWorkPort
 class PipelineUnifiedCaller(UnifiedCallerPort):
     def __init__(
         self,
-        db_path: Optional[str] = ":memory:",
+        db_path: Optional[str] = None,
         shared_uow: Optional[SQLiteUnitOfWork] = None,
         bind_gateway: bool = False,
+        central_authz: Optional[Any] = None,
+        threat_detector: Optional[Any] = None,
     ) -> None:
-        self.db_path = db_path or (shared_uow.db_path if shared_uow else ":memory:")
+        if db_path is None and shared_uow is None:
+            raise ValueError("PipelineUnifiedCaller requires an explicit db_path or shared_uow.")
+        self.db_path = db_path or (shared_uow.db_path if shared_uow else None)
         self._shared_uow = shared_uow
+        self.central_authz = central_authz
+        self.threat_detector = threat_detector
 
         self.repository = SQLiteMigrationRepository(db_path=self.db_path)
 
@@ -102,6 +109,12 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
             self.repository,
             self.operation_service,
         )
+        self.schedule_service = self.command_handlers.schedule_service
+        self.retention_service = self.command_handlers.retention_service
+        self.capacity_service = self.command_handlers.capacity_service
+        self.alert_service = self.command_handlers.alert_service
+        self.incident_service = self.command_handlers.incident_service
+        self.notification_service = self.command_handlers.notification_service
 
     def close(self) -> None:
         """Closes bound EngineGateway resources cleanly."""
@@ -257,16 +270,19 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
             from akaalIPC.protocol.envelopes import CommandEnvelope, CorrelationContext
             from akaalIPC.security.context import ActorContext, ActorReference
             from akaalIPC.protocol.schemas import RequestKind
-            actor_dict = envelope.get("actor_context") or envelope.get("actor", {})
-            actor_ref = ActorReference(
-                actor_id=actor_dict.get("principal_id") or actor_dict.get("actor_id", "anonymous"),
-                actor_type=actor_dict.get("actor_type", "human"),
-            )
-            actor_ctx = ActorContext(
-                actor=actor_ref,
-                organization_id=actor_dict.get("tenant_id", "default"),
-                provenance=actor_dict.get("provenance", "external"),
-            )
+            actor_dict = envelope.get("actor_context") or envelope.get("actor")
+            if actor_dict:
+                actor_ref = ActorReference(
+                    actor_id=actor_dict.get("principal_id") or actor_dict.get("actor_id", "anonymous"),
+                    actor_type=actor_dict.get("actor_type", "human"),
+                )
+                actor_ctx = ActorContext(
+                    actor=actor_ref,
+                    organization_id=actor_dict.get("tenant_id", "default"),
+                    provenance=actor_dict.get("provenance", "external"),
+                )
+            else:
+                actor_ctx = None
             req_id = envelope.get("command_id") or envelope.get("envelope_id", str(uuid.uuid4()))
             req_type = envelope.get("command_type") or envelope.get("request_type") or envelope.get("command_id", "UNKNOWN")
             envelope = CommandEnvelope(
@@ -279,9 +295,10 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
                 correlation=CorrelationContext(correlation_id=req_id, request_id=req_id),
                 payload=envelope.get("payload", {}),
                 command_id=req_id,
+                idempotency_key=envelope.get("idempotency_key"),
             )
 
-        correlation_id = envelope.correlation.correlation_id
+        correlation_id = envelope.correlation.correlation_id if envelope.correlation else str(uuid.uuid4())
         request_id = envelope.request_id
 
         # 1. Convert IPC ActorContext to PipelineActorContext & validate authorization
@@ -328,29 +345,111 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
                         command_name=envelope.request_type,
                     )
                 if cached_result is not None:
-                    if "_error_category" in cached_result:
-                        cat_enum = IPCErrorCategory(cached_result["_error_category"])
-                        err = make_error(
-                            cat_enum,
-                            code=cached_result.get("_error_code", "ERROR"),
-                            message=cached_result.get("_error_message", "Idempotent replay error"),
+                    if isinstance(cached_result, Mapping) and "_operation_reference" in cached_result:
+                        op_data = cached_result["_operation_reference"]
+                        return CallerResult(
+                            status=CallerResultStatus.ACCEPTED,
+                            operation=OperationReference(
+                                operation_id=op_data["operation_id"],
+                                accepted_at=op_data["accepted_at"],
+                                query_request_type=op_data.get("query_request_type", "operation.get"),
+                                correlation_id=op_data.get("correlation_id", correlation_id),
+                            ),
+                        )
+                    if isinstance(cached_result, Mapping) and "_error_category" in cached_result:
+                        cat_str = cached_result["_error_category"]
+                        cat = getattr(IPCErrorCategory, cat_str, IPCErrorCategory.INTERNAL_ERROR)
+                        return CallerResult(
+                            status=CallerResultStatus.ERROR,
+                            error=make_error(
+                                cat,
+                                code=cached_result.get("_error_code", "CACHED_ERROR"),
+                                message=cached_result.get("_error_message", "Idempotent cached error"),
+                                correlation_id=correlation_id,
+                                request_id=request_id,
+                            ),
+                        )
+                    return CallerResult(
+                        status=CallerResultStatus.OK,
+                        result=cached_result,
+                    )
+            request_type = envelope.request_type
+
+            # Central Authorization Check (Dynamic RBAC + ABAC)
+            if getattr(self, "central_authz", None) is not None:
+                from akaalPipeline.contracts.errors import ForbiddenError, UnauthorizedError
+                from akaalPipeline.security.permission_registry import PermissionRegistry
+                from akaalPipeline.contracts.enums import SecurityAlertSeverity
+                perm_map = {
+                    "migration.create": PermissionRegistry.MIGRATION_CREATE,
+                    "create_migration": PermissionRegistry.MIGRATION_CREATE,
+                    "migration.configure": PermissionRegistry.MIGRATION_CONFIGURE,
+                    "configure_migration": PermissionRegistry.MIGRATION_CONFIGURE,
+                    "migration.plan": PermissionRegistry.MIGRATION_PLAN,
+                    "plan_migration": PermissionRegistry.MIGRATION_PLAN,
+                    "migration.initialize": PermissionRegistry.MIGRATION_PLAN,
+                    "initialize_migration": PermissionRegistry.MIGRATION_PLAN,
+                    "migration.approve": PermissionRegistry.GOVERNANCE_APPROVAL_SUBMIT,
+                    "approve_migration": PermissionRegistry.GOVERNANCE_APPROVAL_SUBMIT,
+                    "migration.start": PermissionRegistry.MIGRATION_EXECUTE,
+                    "start_migration": PermissionRegistry.MIGRATION_EXECUTE,
+                    "migration.cancel": PermissionRegistry.MIGRATION_CANCEL,
+                    "cancel_migration": PermissionRegistry.MIGRATION_CANCEL,
+                    "migration.recover": PermissionRegistry.MIGRATION_RECOVER,
+                    "recover_migration": PermissionRegistry.MIGRATION_RECOVER,
+                    "migration.pause": PermissionRegistry.MIGRATION_PAUSE,
+                    "pause_migration": PermissionRegistry.MIGRATION_PAUSE,
+                    "migration.resume": PermissionRegistry.MIGRATION_RESUME,
+                    "resume_migration": PermissionRegistry.MIGRATION_RESUME,
+                    "schedule.create": PermissionRegistry.OPERATIONS_SCHEDULE_CREATE,
+                    "create_schedule": PermissionRegistry.OPERATIONS_SCHEDULE_CREATE,
+                    "schedule.update": PermissionRegistry.OPERATIONS_SCHEDULE_UPDATE,
+                    "update_schedule": PermissionRegistry.OPERATIONS_SCHEDULE_UPDATE,
+                    "schedule.arm": PermissionRegistry.OPERATIONS_SCHEDULE_ARM,
+                    "arm_schedule": PermissionRegistry.OPERATIONS_SCHEDULE_ARM,
+                    "schedule.disable": PermissionRegistry.OPERATIONS_SCHEDULE_DISABLE,
+                    "disable_schedule": PermissionRegistry.OPERATIONS_SCHEDULE_DISABLE,
+                    "schedule.enable": PermissionRegistry.OPERATIONS_SCHEDULE_ARM,
+                    "enable_schedule": PermissionRegistry.OPERATIONS_SCHEDULE_ARM,
+                    "schedule.cancel": PermissionRegistry.OPERATIONS_SCHEDULE_CANCEL,
+                    "cancel_schedule": PermissionRegistry.OPERATIONS_SCHEDULE_CANCEL,
+                    "schedule.delete": PermissionRegistry.OPERATIONS_SCHEDULE_DELETE,
+                    "delete_schedule": PermissionRegistry.OPERATIONS_SCHEDULE_DELETE,
+                    "retention.execute": PermissionRegistry.OPERATIONS_RETENTION_EXECUTE,
+                    "execute_retention": PermissionRegistry.OPERATIONS_RETENTION_EXECUTE,
+                }
+                perm = perm_map.get(request_type, PermissionRegistry.MIGRATION_READ)
+                res_id = envelope.payload.get("migration_id", "root") if isinstance(envelope.payload, dict) else "root"
+                try:
+                    self.central_authz.authorize(
+                        actor_context=pipeline_actor,
+                        permission_id=perm,
+                        resource_type="migration",
+                        resource_id=res_id,
+                        raise_exceptions=True,
+                    )
+                except (ForbiddenError, UnauthorizedError) as auth_exc:
+                    if getattr(self, "threat_detector", None) is not None:
+                        self.threat_detector._emit_alert(
+                            tenant_id=pipeline_actor.organization_id,
+                            threat_type="UNAUTHORIZED_COMMAND_ATTEMPT",
+                            severity=SecurityAlertSeverity.HIGH,
+                            description=str(auth_exc),
+                            actor_id=pipeline_actor.actor_id,
+                            resource_type="migration",
+                            resource_id=res_id,
+                        )
+                    cat = IPCErrorCategory.FORBIDDEN if isinstance(auth_exc, ForbiddenError) else IPCErrorCategory.UNAUTHORIZED
+                    return CallerResult(
+                        status=CallerResultStatus.ERROR,
+                        error=make_error(
+                            cat,
+                            code=cat.name,
+                            message=str(auth_exc),
                             correlation_id=correlation_id,
                             request_id=request_id,
-                        )
-                        return CallerResult(status=CallerResultStatus.ERROR, error=err)
-                    elif "_operation_reference" in cached_result:
-                        ref_dict = cached_result["_operation_reference"]
-                        op_ref = OperationReference(
-                            operation_id=ref_dict["operation_id"],
-                            accepted_at=ref_dict["accepted_at"],
-                            query_request_type=ref_dict["query_request_type"],
-                            correlation_id=ref_dict.get("correlation_id", correlation_id),
-                        )
-                        return CallerResult(status=CallerResultStatus.ACCEPTED, operation=op_ref)
-                    else:
-                        return CallerResult(status=CallerResultStatus.OK, result=cached_result)
-
-            request_type = envelope.request_type
+                        ),
+                    )
 
             # 3. Handle synchronous domain commands
             if request_type in ("migration.create", "create_migration"):
@@ -421,7 +520,405 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
                         )
                 return CallerResult(status=CallerResultStatus.OK, result=dict(res))
 
+            elif request_type in ("migration.pause", "pause_migration"):
+                with uow:
+                    res = self.command_handlers.handle_pause_migration(envelope.payload, pipeline_actor, uow)
+                    if envelope.idempotency_key:
+                        self.idempotency_service.record_idempotent_result(
+                            envelope.idempotency_key,
+                            pipeline_actor.organization_id,
+                            envelope.command_id,
+                            payload_fp,
+                            res,
+                            uow.connection,
+                            workspace_id=pipeline_actor.workspace_id,
+                            project_id=pipeline_actor.project_id,
+                            command_name=envelope.request_type,
+                        )
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type in ("migration.resume", "resume_migration"):
+                with uow:
+                    res = self.command_handlers.handle_resume_migration(envelope.payload, pipeline_actor, uow)
+                    if envelope.idempotency_key:
+                        self.idempotency_service.record_idempotent_result(
+                            envelope.idempotency_key,
+                            pipeline_actor.organization_id,
+                            envelope.command_id,
+                            payload_fp,
+                            res,
+                            uow.connection,
+                            workspace_id=pipeline_actor.workspace_id,
+                            project_id=pipeline_actor.project_id,
+                            command_name=envelope.request_type,
+                        )
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type in ("migration.throttle_cdc", "throttle_cdc"):
+                with uow:
+                    res = self.command_handlers.handle_throttle_cdc(envelope.payload, pipeline_actor, uow)
+                    if envelope.idempotency_key:
+                        self.idempotency_service.record_idempotent_result(
+                            envelope.idempotency_key,
+                            pipeline_actor.organization_id,
+                            envelope.command_id,
+                            payload_fp,
+                            res,
+                            uow.connection,
+                            workspace_id=pipeline_actor.workspace_id,
+                            project_id=pipeline_actor.project_id,
+                            command_name=envelope.request_type,
+                        )
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type in ("fleet.drain_node", "drain_node"):
+                from akaalPipeline.fleet.fleet_service import FleetOperationalService
+                with uow:
+                    node_id = envelope.payload.get("node_id", "node-local")
+                    fleet_svc = FleetOperationalService(binding_registry=self.binding_registry)
+                    res = fleet_svc.drain_node(node_id, uow.connection, pipeline_actor)
+                    if envelope.idempotency_key:
+                        self.idempotency_service.record_idempotent_result(
+                            envelope.idempotency_key,
+                            pipeline_actor.organization_id,
+                            envelope.command_id,
+                            payload_fp,
+                            res,
+                            uow.connection,
+                            workspace_id=pipeline_actor.workspace_id,
+                            project_id=pipeline_actor.project_id,
+                            command_name=envelope.request_type,
+                        )
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type in ("fleet.undrain_node", "undrain_node"):
+                from akaalPipeline.fleet.fleet_service import FleetOperationalService
+                with uow:
+                    node_id = envelope.payload.get("node_id", "node-local")
+                    fleet_svc = FleetOperationalService(binding_registry=self.binding_registry)
+                    res = fleet_svc.undrain_node(node_id, uow.connection, pipeline_actor)
+                    if envelope.idempotency_key:
+                        self.idempotency_service.record_idempotent_result(
+                            envelope.idempotency_key,
+                            pipeline_actor.organization_id,
+                            envelope.command_id,
+                            payload_fp,
+                            res,
+                            uow.connection,
+                            workspace_id=pipeline_actor.workspace_id,
+                            project_id=pipeline_actor.project_id,
+                            command_name=envelope.request_type,
+                        )
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type in ("schedule.create", "create_schedule"):
+                with uow:
+                    res = self.command_handlers.handle_create_schedule(envelope.payload, pipeline_actor, uow)
+                    if envelope.idempotency_key:
+                        self.idempotency_service.record_idempotent_result(
+                            envelope.idempotency_key,
+                            pipeline_actor.organization_id,
+                            envelope.command_id,
+                            payload_fp,
+                            res,
+                            uow.connection,
+                            workspace_id=pipeline_actor.workspace_id,
+                            project_id=pipeline_actor.project_id,
+                            command_name=envelope.request_type,
+                        )
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type in ("schedule.update", "update_schedule"):
+                with uow:
+                    res = self.command_handlers.handle_update_schedule(envelope.payload, pipeline_actor, uow)
+                    if envelope.idempotency_key:
+                        self.idempotency_service.record_idempotent_result(
+                            envelope.idempotency_key,
+                            pipeline_actor.organization_id,
+                            envelope.command_id,
+                            payload_fp,
+                            res,
+                            uow.connection,
+                            workspace_id=pipeline_actor.workspace_id,
+                            project_id=pipeline_actor.project_id,
+                            command_name=envelope.request_type,
+                        )
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type in ("schedule.arm", "arm_schedule"):
+                with uow:
+                    res = self.command_handlers.handle_arm_schedule(envelope.payload, pipeline_actor, uow)
+                    if envelope.idempotency_key:
+                        self.idempotency_service.record_idempotent_result(
+                            envelope.idempotency_key,
+                            pipeline_actor.organization_id,
+                            envelope.command_id,
+                            payload_fp,
+                            res,
+                            uow.connection,
+                            workspace_id=pipeline_actor.workspace_id,
+                            project_id=pipeline_actor.project_id,
+                            command_name=envelope.request_type,
+                        )
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type in ("schedule.disable", "disable_schedule"):
+                with uow:
+                    res = self.command_handlers.handle_disable_schedule(envelope.payload, pipeline_actor, uow)
+                    if envelope.idempotency_key:
+                        self.idempotency_service.record_idempotent_result(
+                            envelope.idempotency_key,
+                            pipeline_actor.organization_id,
+                            envelope.command_id,
+                            payload_fp,
+                            res,
+                            uow.connection,
+                            workspace_id=pipeline_actor.workspace_id,
+                            project_id=pipeline_actor.project_id,
+                            command_name=envelope.request_type,
+                        )
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type in ("schedule.enable", "enable_schedule"):
+                with uow:
+                    res = self.command_handlers.handle_enable_schedule(envelope.payload, pipeline_actor, uow)
+                    if envelope.idempotency_key:
+                        self.idempotency_service.record_idempotent_result(
+                            envelope.idempotency_key,
+                            pipeline_actor.organization_id,
+                            envelope.command_id,
+                            payload_fp,
+                            res,
+                            uow.connection,
+                            workspace_id=pipeline_actor.workspace_id,
+                            project_id=pipeline_actor.project_id,
+                            command_name=envelope.request_type,
+                        )
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type in ("schedule.cancel", "cancel_schedule"):
+                with uow:
+                    res = self.command_handlers.handle_cancel_schedule(envelope.payload, pipeline_actor, uow)
+                    if envelope.idempotency_key:
+                        self.idempotency_service.record_idempotent_result(
+                            envelope.idempotency_key,
+                            pipeline_actor.organization_id,
+                            envelope.command_id,
+                            payload_fp,
+                            res,
+                            uow.connection,
+                            workspace_id=pipeline_actor.workspace_id,
+                            project_id=pipeline_actor.project_id,
+                            command_name=envelope.request_type,
+                        )
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type in ("schedule.delete", "delete_schedule"):
+                with uow:
+                    res = self.command_handlers.handle_delete_schedule(envelope.payload, pipeline_actor, uow)
+                    if envelope.idempotency_key:
+                        self.idempotency_service.record_idempotent_result(
+                            envelope.idempotency_key,
+                            pipeline_actor.organization_id,
+                            envelope.command_id,
+                            payload_fp,
+                            res,
+                            uow.connection,
+                            workspace_id=pipeline_actor.workspace_id,
+                            project_id=pipeline_actor.project_id,
+                            command_name=envelope.request_type,
+                        )
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type in ("retention.execute", "execute_retention"):
+                with uow:
+                    res = self.command_handlers.handle_execute_retention(envelope.payload, pipeline_actor, uow)
+                    if envelope.idempotency_key:
+                        self.idempotency_service.record_idempotent_result(
+                            envelope.idempotency_key,
+                            pipeline_actor.organization_id,
+                            envelope.command_id,
+                            payload_fp,
+                            res,
+                            uow.connection,
+                            workspace_id=pipeline_actor.workspace_id,
+                            project_id=pipeline_actor.project_id,
+                            command_name=envelope.request_type,
+                        )
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type in ("capacity.sample", "sample_capacity"):
+                with uow:
+                    res = self.command_handlers.handle_sample_capacity(envelope.payload, pipeline_actor, uow)
+                    if envelope.idempotency_key:
+                        self.idempotency_service.record_idempotent_result(
+                            envelope.idempotency_key,
+                            pipeline_actor.organization_id,
+                            envelope.command_id,
+                            payload_fp,
+                            res,
+                            uow.connection,
+                            workspace_id=pipeline_actor.workspace_id,
+                            project_id=pipeline_actor.project_id,
+                            command_name=envelope.request_type,
+                        )
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type in ("alert.rule.create", "create_alert_rule"):
+                with uow:
+                    res = self.command_handlers.handle_create_alert_rule(envelope.payload, pipeline_actor, uow)
+                    if envelope.idempotency_key:
+                        self.idempotency_service.record_idempotent_result(
+                            envelope.idempotency_key,
+                            pipeline_actor.organization_id,
+                            envelope.command_id,
+                            payload_fp,
+                            res,
+                            uow.connection,
+                            workspace_id=pipeline_actor.workspace_id,
+                            project_id=pipeline_actor.project_id,
+                            command_name=envelope.request_type,
+                        )
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type in ("alert.evaluate", "evaluate_alert"):
+                with uow:
+                    res = self.command_handlers.handle_evaluate_alert(envelope.payload, pipeline_actor, uow)
+                    if envelope.idempotency_key:
+                        self.idempotency_service.record_idempotent_result(
+                            envelope.idempotency_key,
+                            pipeline_actor.organization_id,
+                            envelope.command_id,
+                            payload_fp,
+                            res,
+                            uow.connection,
+                            workspace_id=pipeline_actor.workspace_id,
+                            project_id=pipeline_actor.project_id,
+                            command_name=envelope.request_type,
+                        )
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type in ("alert.acknowledge", "acknowledge_alert"):
+                with uow:
+                    res = self.command_handlers.handle_acknowledge_alert(envelope.payload, pipeline_actor, uow)
+                    if envelope.idempotency_key:
+                        self.idempotency_service.record_idempotent_result(
+                            envelope.idempotency_key,
+                            pipeline_actor.organization_id,
+                            envelope.command_id,
+                            payload_fp,
+                            res,
+                            uow.connection,
+                            workspace_id=pipeline_actor.workspace_id,
+                            project_id=pipeline_actor.project_id,
+                            command_name=envelope.request_type,
+                        )
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type in ("alert.resolve", "resolve_alert"):
+                with uow:
+                    res = self.command_handlers.handle_resolve_alert(envelope.payload, pipeline_actor, uow)
+                    if envelope.idempotency_key:
+                        self.idempotency_service.record_idempotent_result(
+                            envelope.idempotency_key,
+                            pipeline_actor.organization_id,
+                            envelope.command_id,
+                            payload_fp,
+                            res,
+                            uow.connection,
+                            workspace_id=pipeline_actor.workspace_id,
+                            project_id=pipeline_actor.project_id,
+                            command_name=envelope.request_type,
+                        )
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type in ("alert.suppress", "suppress_alert"):
+                with uow:
+                    res = self.command_handlers.handle_suppress_alert(envelope.payload, pipeline_actor, uow)
+                    if envelope.idempotency_key:
+                        self.idempotency_service.record_idempotent_result(
+                            envelope.idempotency_key,
+                            pipeline_actor.organization_id,
+                            envelope.command_id,
+                            payload_fp,
+                            res,
+                            uow.connection,
+                            workspace_id=pipeline_actor.workspace_id,
+                            project_id=pipeline_actor.project_id,
+                            command_name=envelope.request_type,
+                        )
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type in ("incident.create", "create_incident"):
+                with uow:
+                    res = self.command_handlers.handle_create_incident(envelope.payload, pipeline_actor, uow)
+                    if envelope.idempotency_key:
+                        self.idempotency_service.record_idempotent_result(
+                            envelope.idempotency_key,
+                            pipeline_actor.organization_id,
+                            envelope.command_id,
+                            payload_fp,
+                            res,
+                            uow.connection,
+                            workspace_id=pipeline_actor.workspace_id,
+                            project_id=pipeline_actor.project_id,
+                            command_name=envelope.request_type,
+                        )
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type in ("incident.alert.attach", "attach_alert_to_incident"):
+                with uow:
+                    res = self.command_handlers.handle_attach_alert_to_incident(envelope.payload, pipeline_actor, uow)
+                    if envelope.idempotency_key:
+                        self.idempotency_service.record_idempotent_result(
+                            envelope.idempotency_key,
+                            pipeline_actor.organization_id,
+                            envelope.command_id,
+                            payload_fp,
+                            res,
+                            uow.connection,
+                            workspace_id=pipeline_actor.workspace_id,
+                            project_id=pipeline_actor.project_id,
+                            command_name=envelope.request_type,
+                        )
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type in ("incident.status.update", "update_incident_status"):
+                with uow:
+                    res = self.command_handlers.handle_update_incident_status(envelope.payload, pipeline_actor, uow)
+                    if envelope.idempotency_key:
+                        self.idempotency_service.record_idempotent_result(
+                            envelope.idempotency_key,
+                            pipeline_actor.organization_id,
+                            envelope.command_id,
+                            payload_fp,
+                            res,
+                            uow.connection,
+                            workspace_id=pipeline_actor.workspace_id,
+                            project_id=pipeline_actor.project_id,
+                            command_name=envelope.request_type,
+                        )
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type in ("notification.send", "send_notification"):
+                with uow:
+                    res = self.command_handlers.handle_send_notification(envelope.payload, pipeline_actor, uow)
+                    if envelope.idempotency_key:
+                        self.idempotency_service.record_idempotent_result(
+                            envelope.idempotency_key,
+                            pipeline_actor.organization_id,
+                            envelope.command_id,
+                            payload_fp,
+                            res,
+                            uow.connection,
+                            workspace_id=pipeline_actor.workspace_id,
+                            project_id=pipeline_actor.project_id,
+                            command_name=envelope.request_type,
+                        )
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
             elif request_type in ("migration.plan", "plan_migration"):
+
 
                 with uow:
                     res = self.command_handlers.handle_plan_migration(envelope.payload, pipeline_actor, uow)
@@ -756,6 +1253,105 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
                     op_id = envelope.payload.get("operation_id")
                     op = self.query_service.get_operation(op_id, actor=pipeline_actor, conn=uow.connection)
                     return CallerResult(status=CallerResultStatus.OK, result=op.to_dict())
+                elif request_type in ("mutability.evaluate", "evaluate_mutability"):
+                    param_name = envelope.payload.get("parameter_name", "")
+                    mig_id = envelope.payload.get("migration_id")
+                    res = self.query_service.evaluate_mutability(param_name, migration_id=mig_id, actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=res)
+                elif request_type in ("observability.get", "get_observability"):
+                    mig_id = envelope.payload.get("migration_id", "")
+                    res = self.query_service.get_observability(mig_id, actor=pipeline_actor, conn=uow.connection, binding_registry=self.binding_registry)
+                    return CallerResult(status=CallerResultStatus.OK, result=res)
+                elif request_type in ("health.get_explainable", "get_explainable_health"):
+                    mig_id = envelope.payload.get("migration_id", "")
+                    res = self.query_service.get_explainable_health(mig_id, actor=pipeline_actor, conn=uow.connection, binding_registry=self.binding_registry)
+                    return CallerResult(status=CallerResultStatus.OK, result=res)
+                elif request_type in ("diagnostics.capture", "capture_diagnostics"):
+                    mig_id = envelope.payload.get("migration_id", "")
+                    res = self.query_service.capture_diagnostics(mig_id, actor=pipeline_actor, conn=uow.connection, binding_registry=self.binding_registry)
+                    return CallerResult(status=CallerResultStatus.OK, result=res)
+                elif request_type in ("fleet.status", "get_fleet_status"):
+                    res = self.query_service.get_fleet_status(actor=pipeline_actor, conn=uow.connection, binding_registry=self.binding_registry)
+                    return CallerResult(status=CallerResultStatus.OK, result={"nodes": res})
+                elif request_type in ("metrics.export_prometheus", "export_prometheus"):
+                    res = self.query_service.export_prometheus(binding_registry=self.binding_registry)
+                    return CallerResult(status=CallerResultStatus.OK, result={"prometheus_text": res})
+                elif request_type in ("schedule.get", "get_schedule"):
+                    sch_id = envelope.payload.get("schedule_id", "")
+                    res = self.query_service.get_schedule(sch_id, actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=res)
+                elif request_type in ("schedule.list", "list_schedules"):
+                    res = self.query_service.list_schedules(
+                        actor=pipeline_actor,
+                        conn=uow.connection,
+                        tenant_id=envelope.payload.get("tenant_id"),
+                        workspace_id=envelope.payload.get("workspace_id"),
+                        project_id=envelope.payload.get("project_id"),
+                    )
+                    return CallerResult(status=CallerResultStatus.OK, result={"schedules": res})
+                elif request_type in ("schedule.occurrence.get", "get_schedule_occurrence"):
+                    occ_id = envelope.payload.get("occurrence_id", "")
+                    res = self.query_service.get_schedule_occurrence(occ_id, actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=res)
+                elif request_type in ("schedule.occurrence.list", "list_schedule_occurrences"):
+                    sch_id = envelope.payload.get("schedule_id", "")
+                    limit = int(envelope.payload.get("limit", 50))
+                    res = self.query_service.list_schedule_occurrences(sch_id, actor=pipeline_actor, conn=uow.connection, limit=limit)
+                    return CallerResult(status=CallerResultStatus.OK, result={"occurrences": res})
+                elif request_type in ("retention.preview", "preview_retention"):
+                    res = self.query_service.preview_retention(envelope.payload, actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=res)
+                elif request_type in ("retention.operation.get", "get_retention_operation"):
+                    op_id = envelope.payload.get("retention_op_id", "")
+                    res = self.query_service.get_retention_operation(op_id, actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=res)
+                elif request_type in ("retention.operation.list", "list_retention_operations"):
+                    limit = int(envelope.payload.get("limit", 50))
+                    res = self.query_service.list_retention_operations(actor=pipeline_actor, conn=uow.connection, limit=limit)
+                    return CallerResult(status=CallerResultStatus.OK, result={"operations": res})
+                elif request_type in ("capacity.report", "get_capacity_report"):
+                    res = self.query_service.get_capacity_report(
+                        actor=pipeline_actor,
+                        conn=uow.connection,
+                        db_path=self.db_path,
+                    )
+                    return CallerResult(status=CallerResultStatus.OK, result=res)
+                elif request_type in ("capacity.history", "get_capacity_history"):
+                    resource_type_str = envelope.payload.get("resource_type", "DISK")
+                    limit = int(envelope.payload.get("limit", 100))
+                    res = self.query_service.get_capacity_history(resource_type_str, actor=pipeline_actor, conn=uow.connection, limit=limit)
+                    return CallerResult(status=CallerResultStatus.OK, result={"history": res})
+                elif request_type in ("capacity.forecast", "get_capacity_forecast"):
+                    resource_type_str = envelope.payload.get("resource_type", "DISK")
+                    target_capacity = envelope.payload.get("target_capacity")
+                    res = self.query_service.get_capacity_forecast(resource_type_str, actor=pipeline_actor, conn=uow.connection, target_capacity=target_capacity)
+                    return CallerResult(status=CallerResultStatus.OK, result=res)
+                elif request_type in ("alert.list", "list_alerts"):
+                    lifecycle_state = envelope.payload.get("lifecycle_state")
+                    limit = int(envelope.payload.get("limit", 50))
+                    res = self.query_service.list_alerts(actor=pipeline_actor, conn=uow.connection, lifecycle_state=lifecycle_state, limit=limit)
+                    return CallerResult(status=CallerResultStatus.OK, result={"alerts": res})
+                elif request_type in ("alert.get", "get_alert"):
+                    alert_id = envelope.payload.get("alert_id", "")
+                    res = self.query_service.get_alert(alert_id, actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=res)
+                elif request_type in ("incident.list", "list_incidents"):
+                    status = envelope.payload.get("status")
+                    limit = int(envelope.payload.get("limit", 50))
+                    res = self.query_service.list_incidents(actor=pipeline_actor, conn=uow.connection, status=status, limit=limit)
+                    return CallerResult(status=CallerResultStatus.OK, result={"incidents": res})
+                elif request_type in ("incident.get", "get_incident"):
+                    incident_id = envelope.payload.get("incident_id", "")
+                    res = self.query_service.get_incident(incident_id, actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=res)
+                elif request_type in ("incident.timeline", "get_incident_timeline"):
+                    incident_id = envelope.payload.get("incident_id", "")
+                    res = self.query_service.get_incident_timeline(incident_id, actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result={"timeline": res})
+                elif request_type in ("notification.list", "list_notification_deliveries"):
+                    limit = int(envelope.payload.get("limit", 50))
+                    res = self.query_service.list_notification_deliveries(actor=pipeline_actor, conn=uow.connection, limit=limit)
+                    return CallerResult(status=CallerResultStatus.OK, result={"deliveries": res})
                 else:
                     raise PipelineError(
                         PipelineErrorCode.INVALID_REQUEST,

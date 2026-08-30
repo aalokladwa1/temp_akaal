@@ -78,6 +78,7 @@ class ExecutionSealBuilder:
         initialization_fp: str = "",
         approval_fp: str = "",
         fence_epoch: int = 1,
+        seal_version: Optional[str] = None,
         **kwargs: Any,
     ) -> ExecutionSeal:
         src = source_identity_fp or kwargs.get("source_identity_fingerprint", "")
@@ -87,9 +88,10 @@ class ExecutionSealBuilder:
         init = initialization_fp or kwargs.get("initialization_fingerprint", "")
         appr = approval_fp or kwargs.get("approval_fingerprint", "")
         f_epoch = fence_epoch if fence_epoch is not None else kwargs.get("fence_epoch", 1)
+        version = seal_version or kwargs.get("seal_version", cls.SEAL_VERSION)
 
         return ExecutionSeal(
-            seal_version=cls.SEAL_VERSION,
+            seal_version=version,
             tenant_id=tenant_id,
             workspace_id=workspace_id,
             project_id=project_id,

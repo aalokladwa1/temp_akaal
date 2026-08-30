@@ -1,0 +1,158 @@
+{
+  "matrix": "p512_immutable_configuration_hostile_matrix",
+  "total_cases": 18,
+  "verified_with_real_node_id": 18,
+  "unverified_downgraded": 0,
+  "proof_level_taxonomy": [
+    "IMPLEMENTED",
+    "UNIT_PROVEN",
+    "INTEGRATION_PROVEN",
+    "LIVE_PROVEN"
+  ],
+  "cases": [
+    {
+      "case_id": "IC-01",
+      "name": "Sealed snapshot strictly reloaded on restart",
+      "exact_test_node_id": "tests/security/test_p511_configuration_lifecycle_and_recovery.py::test_atk_24_restart_after_defaults_change_resumes_original_config",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "case_id": "IC-02",
+      "name": "Template draft mutation after initialization ignored",
+      "exact_test_node_id": "tests/security/test_p511_configuration_lifecycle_and_recovery.py::test_atk_17_concurrent_template_mutation_during_initialization_atomic",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "case_id": "IC-03",
+      "name": "Default overrides cannot retroactively alter sealed config",
+      "exact_test_node_id": "tests/security/test_p511_configuration_lifecycle_and_recovery.py::test_atk_18_concurrent_default_mutation_during_initialization_atomic",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "case_id": "IC-04",
+      "name": "Runtime override rejected post-initialization",
+      "exact_test_node_id": "tests/security/test_p511_configuration_lifecycle_and_recovery.py::test_atk_53_runtime_scope_cannot_override_immutable_snapshot_post_init",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "case_id": "IC-05",
+      "name": "Cross-migration config substitution blocked",
+      "exact_test_node_id": "tests/security/test_p511_configuration_lifecycle_and_recovery.py::test_atk_11_cross_migration_substitution_rejected",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "case_id": "IC-06",
+      "name": "Cross-execution config substitution blocked",
+      "exact_test_node_id": "tests/security/test_p511_configuration_lifecycle_and_recovery.py::test_atk_12_cross_execution_substitution_rejected",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "case_id": "IC-07",
+      "name": "Fingerprint tampering fails closed",
+      "exact_test_node_id": "tests/security/test_p511_configuration_lifecycle_and_recovery.py::test_atk_13_fingerprint_tampering_fails_closed",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "case_id": "IC-08",
+      "name": "Plan vs config mismatch fails closed",
+      "exact_test_node_id": "tests/security/test_p511_configuration_lifecycle_and_recovery.py::test_atk_14_plan_config_mismatch_fails_closed",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "case_id": "IC-09",
+      "name": "Seal vs config mismatch fails closed",
+      "exact_test_node_id": "tests/security/test_p511_configuration_lifecycle_and_recovery.py::test_atk_15_seal_config_mismatch_fails_closed",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "case_id": "IC-10",
+      "name": "Approval vs config mismatch fails closed",
+      "exact_test_node_id": "tests/security/test_p511_configuration_lifecycle_and_recovery.py::test_atk_16_approval_config_mismatch_fails_closed",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "case_id": "IC-11",
+      "name": "Concurrent template mutation during initialization is atomic",
+      "exact_test_node_id": "tests/security/test_p511_configuration_lifecycle_and_recovery.py::test_atk_17_concurrent_template_mutation_during_initialization_atomic",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "case_id": "IC-12",
+      "name": "Concurrent default mutation during initialization is atomic",
+      "exact_test_node_id": "tests/security/test_p511_configuration_lifecycle_and_recovery.py::test_atk_18_concurrent_default_mutation_during_initialization_atomic",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "case_id": "IC-13",
+      "name": "Concurrent override mutation is atomic",
+      "exact_test_node_id": "tests/security/test_p511_configuration_lifecycle_and_recovery.py::test_atk_19_concurrent_override_mutation_atomic",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "case_id": "IC-14",
+      "name": "Deterministic fingerprint for same inputs",
+      "exact_test_node_id": "tests/security/test_p511_configuration_lifecycle_and_recovery.py::test_atk_49_deterministic_same_input_fingerprint",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "case_id": "IC-15",
+      "name": "Material change produces different fingerprint",
+      "exact_test_node_id": "tests/security/test_p511_configuration_lifecycle_and_recovery.py::test_atk_50_material_change_fingerprint_mutation",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "case_id": "IC-16",
+      "name": "Deep nested mapping immutability enforced",
+      "exact_test_node_id": "tests/security/test_p511_configuration_lifecycle_and_recovery.py::test_atk_51_deep_nested_immutability_mapping_proxy",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "case_id": "IC-17",
+      "name": "Deep nested list immutability enforced (tuple)",
+      "exact_test_node_id": "tests/security/test_p511_configuration_lifecycle_and_recovery.py::test_atk_52_deep_nested_list_immutability_tuple",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "case_id": "IC-18",
+      "name": "Recovery preserves original sealed config (crash scenario)",
+      "exact_test_node_id": "tests/security/test_p511_configuration_lifecycle_and_recovery.py::test_atk_20_crash_before_checkpoint_recovery_preserves_committed_truth",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    }
+  ]
+}

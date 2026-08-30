@@ -1,0 +1,34 @@
+{
+  "microbenchmark_type": "LOCAL IN-MEMORY TRANSFORMATION & SQLITE DURABILITY CHECKPOINTS",
+  "traversed_authorities": [
+    "Authority #9 TransformationEngine",
+    "Authority #5 DurabilityAuthority"
+  ],
+  "non_traversed_authorities": [
+    "Authority #4 Connectors (Live Sockets)",
+    "Authority #10 CDC Stream Network",
+    "Distributed Cluster Network"
+  ],
+  "records_processed": 50000,
+  "transformation_elapsed_seconds": 17.574,
+  "transformation_throughput_rec_per_sec": 2845.2,
+  "checkpoint_count": 1000,
+  "checkpoint_latency_p50_ms": 1.714,
+  "checkpoint_latency_p95_ms": 3.631,
+  "checkpoint_latency_p99_ms": 6.323,
+  "traced_python_allocation": {
+    "measurement_tool": "Python tracemalloc",
+    "initial_mb": 0.0,
+    "peak_mb": 49.1,
+    "final_mb": 49.09,
+    "delta_mb": 49.09
+  },
+  "operating_system_process_rss": {
+    "measurement_tool": "Windows GetProcessMemoryInfo WorkingSetSize",
+    "initial_process_rss_mb": 42.15,
+    "peak_process_rss_mb": 42.15,
+    "process_rss_delta_mb": 0.0
+  },
+  "extrapolation_limitation": "Microbenchmark only; does not represent distributed network migration throughput or 1B production scale.",
+  "memory_assessment": "No unbounded memory growth observed under the measured local workload."
+}

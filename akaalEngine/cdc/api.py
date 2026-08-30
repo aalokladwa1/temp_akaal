@@ -100,7 +100,7 @@ class CDCAuthority:
         self.events_captured_total = 0
         self.events_applied_total = 0
         self.events_deduplicated_total = 0
-        self.replication_lag_seconds = 0.0
+        self.replication_lag_seconds: Optional[float] = None
         self.ambiguous_commit_count = 0
         self.is_cdc_paused = False
 
@@ -139,6 +139,33 @@ class CDCAuthority:
             accumulated_bytes += evt_sz
 
         return byte_bounded
+
+    def set_capture_budget(self, max_events_per_fetch: Optional[int] = None, max_fetch_bytes_sec: Optional[int] = None) -> Dict[str, Any]:
+        """
+        Dynamically adjusts change capture throttle budgets under lock.
+        Classified as RUNTIME_MUTABLE because limits are enforced on each poll cycle.
+        Fails closed (REJECT INVALID): raises ValueError if parameters are <= 0.
+        """
+        with self._lock:
+            if max_events_per_fetch is not None:
+                val_events = int(max_events_per_fetch)
+                if val_events <= 0:
+                    raise ValueError("max_events_per_fetch must be a positive integer > 0")
+                self.max_events_per_fetch = val_events
+            if max_fetch_bytes_sec is not None:
+                val_bytes = int(max_fetch_bytes_sec)
+                if val_bytes <= 0:
+                    raise ValueError("max_fetch_bytes_sec must be a positive integer > 0")
+                self.max_fetch_bytes_sec = val_bytes
+            logger.info(
+                "[CDCAuthority] Updated capture budget: max_events_per_fetch=%d, max_fetch_bytes_sec=%d",
+                self.max_events_per_fetch,
+                self.max_fetch_bytes_sec,
+            )
+            return {
+                "max_events_per_fetch": self.max_events_per_fetch,
+                "max_fetch_bytes_sec": self.max_fetch_bytes_sec,
+            }
 
     def abort_pre_cutover(self) -> Dict[str, Any]:
         """
@@ -329,7 +356,7 @@ class CDCAuthority:
         if self.telemetry_authority:
             if hasattr(self.telemetry_authority, "record_counter"):
                 self.telemetry_authority.record_counter("cdc_events_applied_total", self.events_applied_total)
-            if hasattr(self.telemetry_authority, "record_gauge"):
+            if hasattr(self.telemetry_authority, "record_gauge") and self.replication_lag_seconds is not None:
                 self.telemetry_authority.record_gauge("cdc_replication_lag_seconds", self.replication_lag_seconds)
 
     def evaluate_convergence(self, source_rate: float, apply_rate: float, tolerance: float = 5.0) -> ConvergenceState:
@@ -379,7 +406,7 @@ class CDCAuthority:
 
             retention_status = self.retention_monitor.assess_retention(self.active_adapter) if self.active_adapter else None
             retention_state = retention_status.state.value if retention_status else RetentionState.HEALTHY.value
-            retention_remaining = retention_status.remaining_seconds if retention_status else 0.0
+            retention_remaining = retention_status.remaining_seconds if retention_status else None
 
             barrier_pos = getattr(self.barrier_engine, "barrier_position", None) or pos_str
 
@@ -405,7 +432,7 @@ class CDCAuthority:
                 "target_apply_rate_events_sec": float(self.events_applied_total),
                 "target_apply_rate_bytes_sec": 0.0,
                 "replication_lag_seconds": self.replication_lag_seconds,
-                "convergence": ConvergenceState.CONVERGING.value if self.replication_lag_seconds > 0 else ConvergenceState.STABLE.value,
+                "convergence": ConvergenceState.CONVERGING.value if (self.replication_lag_seconds is not None and self.replication_lag_seconds > 0) else ConvergenceState.STABLE.value,
                 "retention_state": retention_state,
                 "retention_remaining_sec": retention_remaining,
                 "open_transactions": len(self.tx_engine._active_txs),

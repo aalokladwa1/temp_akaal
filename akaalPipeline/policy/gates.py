@@ -66,7 +66,7 @@ class PolicyGateEvaluator:
         # 5. Validate that approval was issued by an authorized governance role
         issuer_roles = getattr(decision, "issuer_roles", []) or []
         issuer_id = getattr(decision, "issuer_id", None)
-        authorized_gov_roles = {"SecurityOfficer", "ComplianceHead", "GovernanceOfficer", "security_officer", "compliance"}
+        authorized_gov_roles = {"admin", "governor", "SecurityOfficer", "ComplianceHead", "GovernanceOfficer", "security_officer", "compliance"}
         if not issuer_id or not any(r in authorized_gov_roles for r in issuer_roles):
             raise PolicyDeniedError(
                 f"Policy decision {decision.decision_id!r} rejected: unauthorized issuer {issuer_id!r} lacking governance authorization."
@@ -76,26 +76,83 @@ class PolicyGateEvaluator:
     def validate_approval_record(
         approval: Optional[Dict[str, Any]],
         expected_migration_id: str,
-        current_plan_fingerprint: str,
+        current_plan_fingerprint: Optional[str] = None,
+        expected_plan_id: Optional[str] = None,
+        expected_plan_revision: Optional[int] = None,
+        expected_config_fingerprint: Optional[str] = None,
+        expected_action: Optional[str] = None,
+        expected_node_id: Optional[str] = None,
+        min_quorum: int = 1,
+        requester_id: Optional[str] = None,
     ) -> None:
-        """Validate durable GovernanceApproval record from SQLite."""
+        """Validate durable GovernanceApproval record from SQLite or artifact registry."""
         if not approval:
             raise PolicyDeniedError("No approved governance record found for migration")
 
-        if approval["status"] != ApprovalStatus.APPROVED.value:
-            raise PolicyDeniedError(f"Governance approval status is {approval['status']!r} (not APPROVED)")
+        status = approval.get("status")
+        if hasattr(status, "value"):
+            status = status.value
+        if status != ApprovalStatus.APPROVED.value and status != "APPROVED":
+            raise PolicyDeniedError(f"Governance approval status is {status!r} (not APPROVED)")
 
-        if approval["migration_id"] != expected_migration_id:
-            raise PolicyDeniedError(f"Approval migration ID mismatch: {approval['migration_id']} != {expected_migration_id}")
+        if approval.get("migration_id") != expected_migration_id:
+            raise PolicyDeniedError(f"Approval migration ID mismatch: {approval.get('migration_id')} != {expected_migration_id}")
 
-        if approval["intent_fingerprint"] != current_plan_fingerprint:
-            raise PolicyDeniedError("Approval intent fingerprint does not match active plan (plan has been mutated)")
+        if current_plan_fingerprint:
+            intent_fp = approval.get("intent_fingerprint") or approval.get("plan_fingerprint") or approval.get("artifact_fingerprint")
+            if intent_fp and intent_fp != current_plan_fingerprint:
+                raise PolicyDeniedError("Approval intent fingerprint does not match active plan (plan has been mutated)")
+
+        if expected_plan_id and approval.get("plan_id") and approval["plan_id"] != expected_plan_id:
+            raise PolicyDeniedError(f"Approval plan ID mismatch: {approval['plan_id']} != {expected_plan_id}")
+
+        if expected_plan_revision is not None and approval.get("plan_revision") is not None:
+            if approval["plan_revision"] != expected_plan_revision:
+                raise PolicyDeniedError(
+                    f"Approval plan revision mismatch: {approval['plan_revision']} != {expected_plan_revision}"
+                )
+
+        if expected_config_fingerprint and approval.get("config_fingerprint"):
+            if approval["config_fingerprint"] != expected_config_fingerprint:
+                raise PolicyDeniedError("Approval config fingerprint mismatch (configuration has been mutated)")
+
+        if expected_action and approval.get("action"):
+            if approval["action"] not in (expected_action, "*"):
+                raise PolicyDeniedError(f"Approval action mismatch: {approval['action']} != {expected_action}")
+
+        if expected_node_id and approval.get("graph_node_id"):
+            if approval["graph_node_id"] not in (expected_node_id, "*"):
+                raise PolicyDeniedError(f"Approval node mismatch: {approval['graph_node_id']} != {expected_node_id}")
+
+        approvers = approval.get("approvers", [])
+        if not isinstance(approvers, list):
+            approvers = [approval.get("issuer_id") or approval.get("approver_id")] if (approval.get("issuer_id") or approval.get("approver_id")) else []
+
+        if len(set(approvers)) < min_quorum:
+            raise PolicyDeniedError(f"Insufficient approval quorum: required {min_quorum}, got {len(set(approvers))}")
+
+        if requester_id:
+            fe = FourEyesValidator()
+            for approver in approvers:
+                ok, msg = fe.validate_action(
+                    requester_id=str(requester_id),
+                    approver_id=str(approver),
+                    action_type=str(expected_action or "MIGRATION_EXECUTE"),
+                )
+                if not ok:
+                    raise PolicyDeniedError(f"Maker-checker violation: {msg}")
 
     @staticmethod
     def is_approval_required(state: Any, actor: Any) -> bool:
-        """Governance approval required if in GOVERNANCE_PENDING or in production environment."""
+        """Governance approval required if in GOVERNANCE_PENDING or non-admin in production."""
         if hasattr(state, "value") and state.value == "GOVERNANCE_PENDING":
             return True
-        if getattr(actor, "environment", "") in ("production", "prod"):
+        if state == "GOVERNANCE_PENDING":
+            return True
+        if getattr(actor, "requires_governance", False):
+            return True
+        roles = getattr(actor, "roles", ()) or ()
+        env = getattr(actor, "environment", "") or ""
+        if env in ("production", "prod") and "admin" not in roles:
             return True
         return False

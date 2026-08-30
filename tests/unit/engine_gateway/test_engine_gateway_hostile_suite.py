@@ -88,19 +88,30 @@ def make_context(
     job_id: Optional[str] = None,
     envelope: Optional[Dict[str, Any]] = None,
     with_envelope: bool = True,
+    durability: Optional[Any] = None,
+    token: Optional[Any] = None,
 ) -> GatewayRequestContext:
-    fencing_epoch = epoch or 1
+    fencing_epoch = epoch or (token.fencing_epoch if token else 1)
     canonical_res = f"{mig_id}/{run_id}/{job_id}" if job_id else f"{mig_id}/{run_id}"
-    if with_envelope and envelope is None:
-        import hmac, hashlib
-        da = get_shared_durability()
-        now = "2026-08-24T00:00:00Z"
-        tok_epoch = epoch or 1
-        sig = hmac.new(
-            da.fencing_manager.signing_key,
-            f"{canonical_res}|gateway_worker|{tok_epoch}|{now}".encode("utf-8"),
-            hashlib.sha256,
-        ).hexdigest()
+    if token is not None and envelope is None:
+        envelope = {
+            "token_version": "1.0.0",
+            "canonical_resource_id": token.resource_id,
+            "resource_id": token.resource_id,
+            "migration_id": mig_id,
+            "run_id": run_id,
+            "job_id": job_id,
+            "worker_id": token.worker_id,
+            "fencing_epoch": token.fencing_epoch,
+            "epoch": token.fencing_epoch,
+            "issued_at": token.issued_at,
+            "signature": token.signature,
+            "engine_signature": token.signature,
+        }
+        fencing_epoch = token.fencing_epoch
+    elif with_envelope and envelope is None:
+        da = durability or get_shared_durability()
+        tok = da.fencing_manager.issue_token(canonical_res, "gateway_worker")
         envelope = {
             "token_version": "1.0.0",
             "canonical_resource_id": canonical_res,
@@ -109,13 +120,13 @@ def make_context(
             "run_id": run_id,
             "job_id": job_id,
             "worker_id": "gateway_worker",
-            "fencing_epoch": tok_epoch,
-            "epoch": tok_epoch,
-            "issued_at": now,
-            "signature": sig,
-            "engine_signature": sig,
+            "fencing_epoch": tok.fencing_epoch,
+            "epoch": tok.fencing_epoch,
+            "issued_at": tok.issued_at,
+            "signature": tok.signature,
+            "engine_signature": tok.signature,
         }
-        fencing_epoch = tok_epoch
+        fencing_epoch = tok.fencing_epoch
 
     return GatewayRequestContext(
         migration_id=mig_id,
@@ -214,8 +225,10 @@ def test_op_05_validate_schema_compatibility():
     assert res.success is True
 
 def test_op_06_prepare_migration():
-    gw = EngineGateway()
-    ctx = make_context()
+    da = get_shared_durability()
+    coord = GatewayCoordinator(durability_authority=da)
+    gw = EngineGateway(coordinator=coord)
+    ctx = make_context(durability=da)
     res = gw.prepare_migration(PrepareMigrationRequest(ctx, {}, {}, {}))
     assert res.success is True
 
@@ -291,8 +304,8 @@ def test_op_15_trigger_checkpoint():
 def test_op_16_recover_from_checkpoint():
     gw = EngineGateway()
     from akaalEngine.durability.models import MigrationCheckpoint
-    token = gw.coordinator.durability_authority.issue_fencing_token("mig-test-1", "gateway")
-    ctx = make_context(epoch=token.fencing_epoch)
+    token = gw.coordinator.durability_authority.issue_fencing_token("mig-test-1/run-test-1", "gateway")
+    ctx = make_context(token=token)
     ckpt = MigrationCheckpoint(
         migration_id=ctx.migration_id,
         job_id="chk-1",
@@ -405,8 +418,8 @@ def test_op_25_writer_identity_mismatch_fails_closed():
 
 def test_op_25_target_rollback_failure_records_rollback_failed():
     gw = EngineGateway()
-    token = gw.coordinator.durability_authority.issue_fencing_token("mig-1", "gateway")
-    ctx = make_context(mig_id="mig-1", epoch=token.fencing_epoch)
+    token = gw.coordinator.durability_authority.issue_fencing_token("mig-1/run-test-1", "gateway")
+    ctx = make_context(mig_id="mig-1", token=token)
     from akaalEngine.durability.models import MigrationCheckpoint
     from akaalEngine.transport.drivers.postgres import PostgreSQLTargetWriter
     ckpt = MigrationCheckpoint(migration_id=ctx.migration_id, job_id="b-1", fencing_epoch=token.fencing_epoch, status="COMMITTED", endpoint_identity="ep-1")
@@ -431,10 +444,10 @@ def test_op_25_target_rollback_failure_records_rollback_failed():
 
 def test_op_25_unbound_writer_missing_migration_id_rejected():
     gw = EngineGateway()
-    ctx = make_context(mig_id="mig-1")
+    token = gw.coordinator.durability_authority.issue_fencing_token("mig-1/run-test-1", "gateway")
+    ctx = make_context(mig_id="mig-1", token=token)
     from akaalEngine.durability.models import MigrationCheckpoint
     from akaalEngine.transport.drivers.postgres import PostgreSQLTargetWriter
-    token = gw.coordinator.durability_authority.issue_fencing_token(ctx.migration_id, "gateway")
     ckpt = MigrationCheckpoint(migration_id=ctx.migration_id, job_id="b-1", fencing_epoch=token.fencing_epoch, status="COMMITTED")
     gw.coordinator.durability_authority.save_checkpoint(ckpt, token)
     unbound_writer = PostgreSQLTargetWriter({"batch_id": "b-1"})

@@ -19,7 +19,9 @@ _VALID_MIGRATION_TRANSITIONS: dict[MigrationLifecycleState, Set[MigrationLifecyc
     MigrationLifecycleState.GOVERNANCE_PENDING: {MigrationLifecycleState.AUTHORIZED, MigrationLifecycleState.PLANNED, MigrationLifecycleState.INITIALIZED, MigrationLifecycleState.FAILED, MigrationLifecycleState.CANCELLED, MigrationLifecycleState.ARCHIVED},
     MigrationLifecycleState.AUTHORIZED: {MigrationLifecycleState.INITIALIZED, MigrationLifecycleState.CONFIGURING, MigrationLifecycleState.CANCELLED, MigrationLifecycleState.ARCHIVED},
     MigrationLifecycleState.INITIALIZED: {MigrationLifecycleState.ACTIVE, MigrationLifecycleState.CONFIGURING, MigrationLifecycleState.FAILED, MigrationLifecycleState.CANCELLED, MigrationLifecycleState.ARCHIVED},
-    MigrationLifecycleState.ACTIVE: {MigrationLifecycleState.CANCELLATION_PENDING, MigrationLifecycleState.COMPLETED, MigrationLifecycleState.FAILED, MigrationLifecycleState.INITIALIZED, MigrationLifecycleState.CANCELLED, MigrationLifecycleState.ARCHIVED},
+    MigrationLifecycleState.ACTIVE: {MigrationLifecycleState.PAUSING, MigrationLifecycleState.PAUSED, MigrationLifecycleState.CANCELLATION_PENDING, MigrationLifecycleState.COMPLETED, MigrationLifecycleState.FAILED, MigrationLifecycleState.INITIALIZED, MigrationLifecycleState.CANCELLED, MigrationLifecycleState.ARCHIVED},
+    MigrationLifecycleState.PAUSING: {MigrationLifecycleState.PAUSED, MigrationLifecycleState.FAILED, MigrationLifecycleState.CANCELLED, MigrationLifecycleState.ACTIVE},
+    MigrationLifecycleState.PAUSED: {MigrationLifecycleState.ACTIVE, MigrationLifecycleState.CANCELLED, MigrationLifecycleState.FAILED, MigrationLifecycleState.INITIALIZED, MigrationLifecycleState.ARCHIVED},
     MigrationLifecycleState.CANCELLATION_PENDING: {MigrationLifecycleState.CANCELLED, MigrationLifecycleState.FAILED, MigrationLifecycleState.ACTIVE},
     MigrationLifecycleState.COMPLETED: {MigrationLifecycleState.ARCHIVED},
     MigrationLifecycleState.FAILED: {MigrationLifecycleState.INITIALIZED, MigrationLifecycleState.CONFIGURING, MigrationLifecycleState.CANCELLED, MigrationLifecycleState.ARCHIVED},
@@ -48,9 +50,9 @@ _VALID_ATTEMPT_TRANSITIONS: dict[AttemptLifecycleState, Set[AttemptLifecycleStat
 
 # Allowed Schedule Lifecycle transitions:
 _VALID_SCHEDULE_TRANSITIONS: dict[ScheduleLifecycleState, Set[ScheduleLifecycleState]] = {
-    ScheduleLifecycleState.DRAFT: {ScheduleLifecycleState.VALIDATED, ScheduleLifecycleState.CANCELLED},
+    ScheduleLifecycleState.DRAFT: {ScheduleLifecycleState.VALIDATED, ScheduleLifecycleState.ARMED, ScheduleLifecycleState.CANCELLED},
     ScheduleLifecycleState.VALIDATED: {ScheduleLifecycleState.ARMED, ScheduleLifecycleState.INVALIDATED, ScheduleLifecycleState.CANCELLED},
-    ScheduleLifecycleState.ARMED: {ScheduleLifecycleState.ACTIVATING, ScheduleLifecycleState.INVALIDATED, ScheduleLifecycleState.CANCELLED},
+    ScheduleLifecycleState.ARMED: {ScheduleLifecycleState.ACTIVATING, ScheduleLifecycleState.INVALIDATED, ScheduleLifecycleState.CANCELLED, ScheduleLifecycleState.DRAFT},
     ScheduleLifecycleState.ACTIVATING: {ScheduleLifecycleState.CONSUMED, ScheduleLifecycleState.ARMED, ScheduleLifecycleState.INVALIDATED, ScheduleLifecycleState.CANCELLED},
     ScheduleLifecycleState.CONSUMED: set(),
     ScheduleLifecycleState.CANCELLED: set(),

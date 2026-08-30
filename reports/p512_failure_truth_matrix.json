@@ -1,0 +1,104 @@
+{
+  "total_classes": 9,
+  "classes": [
+    {
+      "class": "REQUEST_INPUT_FAILURE",
+      "trigger": "Malformed IPC payload",
+      "sanitized_error": "INVALID_REQUEST",
+      "durable_state": "CREATED",
+      "retryable": false,
+      "physical_truth": "KNOWN (Unmutated)",
+      "checkpoint_advanced": false,
+      "completion_allowed": false,
+      "evidence_allowed": false
+    },
+    {
+      "class": "SECURITY_FAILURE",
+      "trigger": "Actor missing required role",
+      "sanitized_error": "SECURITY_ACCESS_DENIED",
+      "durable_state": "CREATED",
+      "retryable": false,
+      "physical_truth": "KNOWN (Unmutated)",
+      "checkpoint_advanced": false,
+      "completion_allowed": false,
+      "evidence_allowed": false
+    },
+    {
+      "class": "GOVERNANCE_FAILURE",
+      "trigger": "Maker attempting self-approval",
+      "sanitized_error": "POLICY_DENIED",
+      "durable_state": "GOVERNANCE_PENDING",
+      "retryable": true,
+      "physical_truth": "KNOWN (Unmutated)",
+      "checkpoint_advanced": false,
+      "completion_allowed": false,
+      "evidence_allowed": false
+    },
+    {
+      "class": "DEPENDENCY_FAILURE",
+      "trigger": "Target database socket disconnect",
+      "sanitized_error": "DEPENDENCY_UNAVAILABLE",
+      "durable_state": "RUNNING",
+      "retryable": true,
+      "physical_truth": "UNKNOWN",
+      "checkpoint_advanced": false,
+      "completion_allowed": false,
+      "evidence_allowed": false
+    },
+    {
+      "class": "TECHNICAL_FAILURE",
+      "trigger": "Worker process killed by OS",
+      "sanitized_error": "WORKER_FAILED",
+      "durable_state": "RUNNING",
+      "retryable": true,
+      "physical_truth": "UNKNOWN",
+      "checkpoint_advanced": false,
+      "completion_allowed": false,
+      "evidence_allowed": false
+    },
+    {
+      "class": "INTEGRITY_FAILURE",
+      "trigger": "Configuration fingerprint tampered",
+      "sanitized_error": "INTEGRITY_VIOLATION",
+      "durable_state": "FAILED_CLOSED",
+      "retryable": false,
+      "physical_truth": "KNOWN (Halted)",
+      "checkpoint_advanced": false,
+      "completion_allowed": false,
+      "evidence_allowed": false
+    },
+    {
+      "class": "PHYSICAL_FAILURE",
+      "trigger": "Disk storage quota exceeded",
+      "sanitized_error": "STORAGE_QUOTA_EXCEEDED",
+      "durable_state": "PAUSED",
+      "retryable": true,
+      "physical_truth": "KNOWN",
+      "checkpoint_advanced": false,
+      "completion_allowed": false,
+      "evidence_allowed": false
+    },
+    {
+      "class": "AMBIGUOUS_PHYSICAL_OUTCOME",
+      "trigger": "Commit ACK lost over network",
+      "sanitized_error": "OUTCOME_UNKNOWN",
+      "durable_state": "RUNNING (RECONCILING)",
+      "retryable": true,
+      "physical_truth": "UNKNOWN \u2794 VERIFIED",
+      "checkpoint_advanced": false,
+      "completion_allowed": false,
+      "evidence_allowed": false
+    },
+    {
+      "class": "RECOVERY_BLOCKED",
+      "trigger": "Physical target verification unreachable",
+      "sanitized_error": "RECOVERY_BLOCKED",
+      "durable_state": "BLOCKED",
+      "retryable": false,
+      "physical_truth": "UNKNOWN",
+      "checkpoint_advanced": false,
+      "completion_allowed": false,
+      "evidence_allowed": false
+    }
+  ]
+}

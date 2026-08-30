@@ -44,6 +44,20 @@ class PipelineActorContext:
     def principal_type(self) -> str:
         return self.actor_type
 
+    def to_ipc(self) -> IPCActorContext:
+        from akaalIPC.security.context import ActorReference
+        return IPCActorContext(
+            actor=ActorReference(actor_id=self.actor_id, actor_type=self.actor_type, display_name=self.display_name),
+            organization_id=self.organization_id,
+            workspace_id=self.workspace_id,
+            project_id=self.project_id,
+            environment=self.environment,
+            roles=self.roles,
+            scopes=self.scopes,
+            session_id=self.session_id,
+            provenance=self.provenance,
+        )
+
     @classmethod
     def from_ipc(cls, ipc_actor: IPCActorContext) -> PipelineActorContext:
         ref = ipc_actor.actor

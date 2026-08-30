@@ -11,19 +11,32 @@ from akaal.cdc.routing.engine import CDCRoutingEngine, RoutePolicy
 def test_cdc_routing_engine():
     engine = CDCRoutingEngine()
     engine.add_route(RoutePolicy(route_id="r1", table_pattern="public.users", target_destination="topic_users"))
-    engine.add_route(RoutePolicy(route_id="r2", table_pattern="public.orders", target_destination="topic_orders"))
+    engine.add_route(RoutePolicy(route_id="r2", table_pattern="public.orders_*", target_destination="topic_orders_sharded"))
+    engine.add_route(RoutePolicy(route_id="r3", table_pattern="*.audit", target_destination="topic_audit"))
 
+    # Exact match
     evt1 = CDCEvent(
         source_engine="POSTGRES", source_db="db1", source_schema="public", source_table="users", change_type=ChangeType.INSERT
     )
-    dests1 = engine.route_event(evt1)
-    assert dests1 == ["topic_users"]
+    assert engine.route_event(evt1) == ["topic_users"]
 
+    # Glob wildcard match
     evt2 = CDCEvent(
-        source_engine="POSTGRES", source_db="db1", source_schema="public", source_table="orders", change_type=ChangeType.UPDATE
+        source_engine="POSTGRES", source_db="db1", source_schema="public", source_table="orders_2026", change_type=ChangeType.UPDATE
     )
-    dests2 = engine.route_event(evt2)
-    assert dests2 == ["topic_orders"]
+    assert engine.route_event(evt2) == ["topic_orders_sharded"]
+
+    # Suffix wildcard match
+    evt3 = CDCEvent(
+        source_engine="POSTGRES", source_db="db1", source_schema="security", source_table="audit", change_type=ChangeType.INSERT
+    )
+    assert engine.route_event(evt3) == ["topic_audit"]
+
+    # Negative non-matching table falls back to default destination
+    evt4 = CDCEvent(
+        source_engine="POSTGRES", source_db="db1", source_schema="unknown", source_table="unregistered_table", change_type=ChangeType.DELETE
+    )
+    assert engine.route_event(evt4) == ["default_destination"]
 
 
 def test_durable_cdc_buffer_ordering():

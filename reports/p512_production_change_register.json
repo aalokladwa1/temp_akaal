@@ -1,0 +1,18 @@
+{
+  "total_production_files_changed": 1,
+  "entries": [
+    {
+      "path": "akaal/cdc/routing/engine.py",
+      "canonical_authority": "Authority #10 CDC Routing Engine (Frozen P3)",
+      "roadmap_frozen_ownership": "Frozen P3 Foundational",
+      "reason_changed": "Missing 'import fnmatch' caused runtime NameError when route_event evaluated table glob patterns",
+      "defect_id": "DEF-P3-PROD-01",
+      "boundary_classification": "FROZEN_FOUNDATIONAL_DEFECT",
+      "before_behavior": "Raised NameError: name 'fnmatch' is not defined on fnmatch.fnmatch() invocation",
+      "after_behavior": "fnmatch is imported; table patterns evaluated accurately without error",
+      "focused_test": "tests/cdc/test_routing_buffering.py::test_cdc_routing_engine",
+      "regression_test": "tests/cdc/test_routing_buffering.py (2 passed in 4.09s)",
+      "final_disposition": "PRESERVED_MINIMAL_CORRECTION"
+    }
+  ]
+}

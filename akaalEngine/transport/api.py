@@ -146,6 +146,18 @@ class TransportAuthority:
             elif hasattr(fencing_token, "is_valid") and not fencing_token.is_valid():
                 raise TransportFencingError("Fencing token invalid")
 
+    def _validate_security(self, security_revalidator: Optional[Callable[[], bool]]) -> None:
+        """Validates execution authorization / security state at physical execution barriers during active execution."""
+        if security_revalidator is not None:
+            try:
+                valid = security_revalidator()
+                if valid is False:
+                    raise TransportFencingError("Execution authorization revoked during active transport execution")
+            except Exception as exc:
+                if isinstance(exc, TransportFencingError):
+                    raise exc
+                raise TransportFencingError(f"Security barrier revalidation failed: {exc}") from exc
+
     def execute_partition_transport(
         self,
         reader: SourceReader,
@@ -157,13 +169,16 @@ class TransportAuthority:
         retry_max_attempts: int = 5,
         migration_id: Optional[str] = None,
         run_id: Optional[str] = None,
+        security_revalidator: Optional[Callable[[], bool]] = None,
     ) -> int:
         """
         Executes full transport pipeline for a partition:
         SourceReader -> BoundedBuffer -> DataProcessing -> TargetWriter -> Durability Checkpoint.
+        Revalidates security and fencing barriers at partition entry, batch boundaries, and pre-commit.
         """
-        # 1. Fencing Check before Source Fetch
+        # 1. Fencing and Security Checks before Source Fetch
         self._validate_fencing(fencing_token)
+        self._validate_security(security_revalidator)
 
         mig_id = migration_id or getattr(partition, "migration_id", None) or "mig-transport-canonical"
         r_id = run_id or f"run-{partition.partition_id}"
@@ -179,8 +194,9 @@ class TransportAuthority:
                 if cancellation_token and getattr(cancellation_token, "is_cancelled", False):
                     raise TransportCancelledError("Transport cancelled during read loop")
 
-                # Fencing Check
+                # Fencing and Security Barrier Checks
                 self._validate_fencing(fencing_token)
+                self._validate_security(security_revalidator)
 
                 # Read Batch from Source
                 batch = reader.read_batch(batch_size=self.tuning_policy.max_rows_per_batch)
@@ -222,7 +238,7 @@ class TransportAuthority:
                     column_names=popped_batch.column_names,
                 )
 
-                # Execute Target Write with Retries
+                # Execute Target Write with Retries and Security Barrier
                 written = self._write_batch_with_retry(
                     writer=writer,
                     partition=partition,
@@ -230,6 +246,7 @@ class TransportAuthority:
                     fencing_token=fencing_token,
                     cancellation_token=cancellation_token,
                     max_attempts=retry_max_attempts,
+                    security_revalidator=security_revalidator,
                 )
                 total_written += written
 
@@ -275,6 +292,7 @@ class TransportAuthority:
         fencing_token: Optional[Any],
         cancellation_token: Optional[Any],
         max_attempts: int,
+        security_revalidator: Optional[Callable[[], bool]] = None,
     ) -> int:
         capabilities = writer.get_capabilities()
 
@@ -282,9 +300,10 @@ class TransportAuthority:
             if cancellation_token and getattr(cancellation_token, "is_cancelled", False):
                 raise TransportCancelledError("Cancelled during retry backoff")
 
-            # Fencing check before target write
+            # Fencing and Security check before target write
             if fencing_token and hasattr(fencing_token, "is_valid") and not fencing_token.is_valid():
                 raise TransportFencingError("Fencing token invalid before write")
+            self._validate_security(security_revalidator)
 
             try:
                 written = writer.write_batch(
@@ -293,7 +312,7 @@ class TransportAuthority:
                     target_schema=partition.target_schema,
                     pk_columns=partition.pk_columns,
                 )
-                # Fencing check before COMMIT
+                # Fencing and Security check before COMMIT
                 if fencing_token and hasattr(fencing_token, "is_valid") and not fencing_token.is_valid():
                     if writer and getattr(writer, "_in_transaction", False):
                         try:
@@ -302,6 +321,17 @@ class TransportAuthority:
                             logger.error(f"[TransportAuthority] Pre-commit fencing rollback failed: {rb_exc}")
                             raise TransportFencingError(f"Fencing token invalid before commit and target rollback failed ({rb_exc}); target transaction state is UNKNOWN.") from rb_exc
                     raise TransportFencingError("Fencing token invalid before commit")
+
+                if security_revalidator is not None:
+                    try:
+                        self._validate_security(security_revalidator)
+                    except Exception as sec_exc:
+                        if writer and getattr(writer, "_in_transaction", False):
+                            try:
+                                writer.rollback()
+                            except Exception as rb_exc:
+                                logger.error(f"[TransportAuthority] Pre-commit security rollback failed: {rb_exc}")
+                        raise sec_exc
 
                 writer.commit()
                 return written

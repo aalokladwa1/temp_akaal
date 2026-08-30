@@ -1,0 +1,176 @@
+{
+  "matrix": "p512_security_governance_hostile_matrix",
+  "total_cases": 20,
+  "verified_with_real_node_id": 20,
+  "unverified_downgraded": 0,
+  "proof_level_taxonomy": [
+    "IMPLEMENTED",
+    "UNIT_PROVEN",
+    "INTEGRATION_PROVEN",
+    "LIVE_PROVEN"
+  ],
+  "external_infrastructure_status": "DEFERRED",
+  "live_proof": false,
+  "cases": [
+    {
+      "case_id": "SEC-01",
+      "name": "Interrupted approval wait \u2014 maker-checker barrier blocks execution",
+      "exact_test_node_id": "tests/security/test_p510_governed_execution_security.py::test_atk_16_non_governance_role_approval_rejected",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "case_id": "SEC-02",
+      "name": "Approval TTL expiry during pause",
+      "exact_test_node_id": "tests/security/test_p510_governed_execution_security.py::test_atk_40_expired_execution_token_rejected",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "case_id": "SEC-03",
+      "name": "Explicit approval rejection",
+      "exact_test_node_id": "tests/security/test_p510_governed_execution_security.py::test_atk_22_missing_governance_approval_fails_closed",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "case_id": "SEC-04",
+      "name": "Maker-checker self approval attempt",
+      "exact_test_node_id": "tests/security/test_p510_governed_execution_security.py::test_atk_15_maker_checker_self_approval_prohibition",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "case_id": "SEC-05",
+      "name": "Segregation of Duties role violation",
+      "exact_test_node_id": "tests/security/test_p510_governed_execution_security.py::test_atk_63_sod_conflict_enforced_blocks_dispatch",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "case_id": "SEC-06",
+      "name": "Wrong approver role / non-governance role approval rejected",
+      "exact_test_node_id": "tests/security/test_p510_governed_execution_security.py::test_atk_16_non_governance_role_approval_rejected",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "case_id": "SEC-07",
+      "name": "Cross-tenant approval token reuse",
+      "exact_test_node_id": "tests/security/test_p510_governed_execution_security.py::test_atk_26_cross_tenant_approval_isolated",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "case_id": "SEC-08",
+      "name": "Cross-migration approval token reuse",
+      "exact_test_node_id": "tests/security/test_p510_governed_execution_security.py::test_atk_17_cross_migration_approval_replay",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "case_id": "SEC-09",
+      "name": "Plan-A approval applied to Plan-B (fingerprint mismatch)",
+      "exact_test_node_id": "tests/security/test_p510_governed_execution_security.py::test_atk_18_material_plan_mutation_invalidates_approval",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "case_id": "SEC-10",
+      "name": "Config-A approval on altered Config-B",
+      "exact_test_node_id": "tests/security/test_p510_governed_execution_security.py::test_atk_19_config_mutation_invalidates_approval",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "case_id": "SEC-11",
+      "name": "Stale execution authorization token",
+      "exact_test_node_id": "tests/security/test_p510_governed_execution_security.py::test_atk_47_token_stale_fencing_epoch_rejected",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REMAPPED_FROM_P510_OR_P512",
+      "node_verified": true
+    },
+    {
+      "case_id": "SEC-12",
+      "name": "Expired execution authorization",
+      "exact_test_node_id": "tests/security/test_p510_governed_execution_security.py::test_atk_40_expired_execution_token_rejected",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REMAPPED_FROM_P510_OR_P512",
+      "node_verified": true
+    },
+    {
+      "case_id": "SEC-13",
+      "name": "Tampered authorization signature payload",
+      "exact_test_node_id": "tests/security/test_p510_governed_execution_security.py::test_atk_06_seal_tamper_plan_revision",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "case_id": "SEC-14",
+      "name": "Authorization for wrong operation",
+      "exact_test_node_id": "tests/security/test_p510_governed_execution_security.py::test_atk_24_wrong_action_approval_rejected",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "case_id": "SEC-15",
+      "name": "Authorization for wrong migration",
+      "exact_test_node_id": "tests/security/test_p510_governed_execution_security.py::test_atk_44_token_wrong_migration_rejected",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "case_id": "SEC-16",
+      "name": "Authorization for wrong tenant workspace",
+      "exact_test_node_id": "tests/pipeline/test_p512_whole_p5_acceptance.py::test_hostile_cross_tenant_access_blocked",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "case_id": "SEC-17",
+      "name": "Restart while waiting for approval",
+      "exact_test_node_id": "tests/pipeline/test_p512_whole_p5_acceptance.py::test_combination_09_security_x_approval",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "case_id": "SEC-18",
+      "name": "Governance revocation while worker alive / approval revocation halts dispatch",
+      "exact_test_node_id": "tests/security/test_p510_governed_execution_security.py::test_atk_65_approval_revocation_race_before_physical_dispatch",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    },
+    {
+      "case_id": "SEC-19",
+      "name": "Fencing epoch changed after authorization",
+      "exact_test_node_id": "tests/pipeline/test_p512_whole_p5_acceptance.py::test_hostile_stale_fencing_token_rejected",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REMAPPED_FROM_P510_OR_P512",
+      "node_verified": true
+    },
+    {
+      "case_id": "SEC-20",
+      "name": "Unauthorized cutover operation dispatch",
+      "exact_test_node_id": "tests/pipeline/test_p512_whole_p5_acceptance.py::test_combination_10_approval_x_cutover",
+      "proof_level": "INTEGRATION_PROVEN",
+      "correction_note": "REAL_NODE_VERIFIED",
+      "node_verified": true
+    }
+  ]
+}

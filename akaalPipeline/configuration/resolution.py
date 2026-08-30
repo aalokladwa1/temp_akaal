@@ -15,10 +15,12 @@ class PresentationIntent(str, Enum):
     ADVANCED = "ADVANCED"
 
 
-# Precedence order: Platform -> Org -> Workspace -> Project -> Migration -> Plan -> Initialization
+# Precedence order: Platform -> Default -> Org -> Template -> Workspace -> Project -> Migration -> Plan -> Initialization
 PRECEDENCE_ORDER = [
     ConfigurationScope.PLATFORM,
+    ConfigurationScope.DEFAULT,
     ConfigurationScope.ORGANIZATION,
+    ConfigurationScope.TEMPLATE,
     ConfigurationScope.WORKSPACE,
     ConfigurationScope.PROJECT,
     ConfigurationScope.MIGRATION,
@@ -30,26 +32,32 @@ PRECEDENCE_ORDER = [
 class ConfigurationResolver:
     @staticmethod
     def resolve(layers: List[ConfigurationLayer]) -> EffectiveConfiguration:
+        from akaalPipeline.contracts.serialization import normalize_nfc
         resolved: dict[str, Any] = {}
         provenance: dict[str, str] = {}
         overrides: dict[str, Any] = {}
 
-        # Sort layers by precedence order
-        layer_map = {layer.scope: layer for layer in layers}
+        # Group layers by scope and evaluate in strict precedence order
+        scope_to_layers: dict[ConfigurationScope, list[ConfigurationLayer]] = {}
+        for layer in layers:
+            scope_to_layers.setdefault(layer.scope, []).append(layer)
+
         for scope in PRECEDENCE_ORDER:
-            if scope in layer_map:
-                layer = layer_map[scope]
-                for k, v in layer.settings.items():
-                    if k in resolved:
-                        overrides[k] = v
-                    resolved[k] = v
-                    provenance[k] = scope.value
+            if scope in scope_to_layers:
+                for layer in scope_to_layers[scope]:
+                    norm_settings = normalize_nfc(dict(layer.settings))
+                    for k, v in norm_settings.items():
+                        if k in resolved:
+                            overrides[k] = v
+                        resolved[k] = v
+                        provenance[k] = scope.value
 
         return EffectiveConfiguration(
             resolved_values=resolved,
             provenance=provenance,
             overrides=overrides,
         )
+
 
     @staticmethod
     def filter_presentation(

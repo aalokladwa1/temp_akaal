@@ -1,0 +1,41 @@
+{
+  "total_classifications": 6,
+  "positions": [
+    {
+      "context": "Local Integration Tests (tests/pipeline/test_p512_whole_p5_acceptance.py)",
+      "token_used": "position_sequence_int",
+      "canonical_classification": "CANONICAL_LOCAL_CDC_POSITION",
+      "reason": "Locally emitted monotonically increasing integer tracking internal stream position."
+    },
+    {
+      "context": "CDC Backlog Ring Buffer (akaalEngine/cdc/buffering/ring.py)",
+      "token_used": "CDCSourcePosition.offset",
+      "canonical_classification": "CANONICAL_LOCAL_CDC_POSITION",
+      "reason": "In-memory ring buffer sequence index."
+    },
+    {
+      "context": "PostgreSQL WAL Adapter (akaalEngine/cdc/capture/postgres.py)",
+      "token_used": "LSN (Log Sequence Number)",
+      "canonical_classification": "REAL_PROVIDER_POSITION",
+      "reason": "Represents PostgreSQL XLogRecPtr (e.g. '0/16B3748') from pg_replication_slots when active."
+    },
+    {
+      "context": "MySQL Binlog Miner (akaalEngine/cdc/capture/mysql.py)",
+      "token_used": "GTID / binlog offset",
+      "canonical_classification": "REAL_PROVIDER_POSITION",
+      "reason": "Represents MySQL Master_Log_Pos and GTID set."
+    },
+    {
+      "context": "Oracle LogMiner Adapter (akaalEngine/cdc/capture/oracle.py)",
+      "token_used": "SCN (System Change Number)",
+      "canonical_classification": "REAL_PROVIDER_POSITION",
+      "reason": "Represents Oracle database SCN from V$LOGMINER."
+    },
+    {
+      "context": "Synthetic Unit Fixtures (tests/unit/cdc/fixtures.py)",
+      "token_used": "mock_lsn_1000",
+      "canonical_classification": "FIXTURE_POSITION",
+      "reason": "Hardcoded test data for boundary assertions."
+    }
+  ]
+}

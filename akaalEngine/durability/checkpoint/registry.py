@@ -11,7 +11,13 @@ import json
 import sqlite3
 from typing import Dict, Any, List, Optional
 from akaalEngine.durability.models.checkpoint import MigrationCheckpoint, TableCheckpoint, RowPosition
-from akaalEngine.durability.models.errors import CheckpointConflictError, StaleGenerationError, FencingViolationError, DurabilityError
+from akaalEngine.durability.models.errors import (
+    CheckpointConflictError,
+    StaleGenerationError,
+    FencingViolationError,
+    DurabilityError,
+    StateCorruptError,
+)
 from akaalEngine.durability.models.fencing import FencingToken
 from akaalEngine.durability.checkpoint.position import RowPositionTracker
 from akaalEngine.durability.integrity.sanitizer import StateIntegritySanitizer
@@ -136,7 +142,10 @@ class MigrationCheckpointRegistry:
         if not row:
             return None
 
-        chk_dict = json.loads(row["checkpoint_json"])
+        try:
+            chk_dict = json.loads(row["checkpoint_json"])
+        except Exception as e:
+            raise StateCorruptError(f"Corrupted checkpoint JSON payload: {e}") from e
         StateIntegritySanitizer.verify_dict_checksum(chk_dict, row["checksum"])
 
         tables = {}
@@ -181,7 +190,10 @@ class MigrationCheckpointRegistry:
         if not row:
             return None
 
-        chk_dict = json.loads(row["checkpoint_json"])
+        try:
+            chk_dict = json.loads(row["checkpoint_json"])
+        except Exception as e:
+            raise StateCorruptError(f"Corrupted checkpoint JSON payload: {e}") from e
         StateIntegritySanitizer.verify_dict_checksum(chk_dict, row["checksum"])
 
         tables = {}

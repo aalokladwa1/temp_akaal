@@ -1,0 +1,28 @@
+{
+  "matrix": "p512_foundational_accounting_vs_execution",
+  "foundational_accounting": {
+    "total_unique_nodes_in_collection": 4347,
+    "source": "pytest --collect-only across all tests/ (verified 2026-08-30)",
+    "note": "This is the ACCOUNTING figure: the complete universe of all discoverable test nodes. It does NOT mean all 4,347 ran in any single session."
+  },
+  "execution_record": {
+    "context": "The file final_post_fix_regression_203.json records 203 node records that were classified during a regression investigation pass (type=FAILED). These are a subset of the total test universe, representing the nodes that failed in a specific regression run and were subsequently classified.",
+    "classified_node_count": 203,
+    "all_nodes_type_in_file": "FAILED (investigation records)",
+    "source": "reports/final_post_fix_regression_203.json",
+    "note": "This is NOT a complete execution record. It is a classification ledger of 203 failed nodes. The actual pass/fail execution record for the P5.12 acceptance suite is the test_p512_whole_p5_acceptance.py suite result."
+  },
+  "p5_acceptance_suite": {
+    "suite": "tests/pipeline/test_p512_whole_p5_acceptance.py",
+    "total_nodes_in_suite": 48,
+    "all_must_pass_for_p512_acceptance": true,
+    "instruction": "Run: pytest tests/pipeline/test_p512_whole_p5_acceptance.py -v to get live execution result"
+  },
+  "distinction": {
+    "accounting_4347": "Universe size from collection. Used for scope completeness.",
+    "execution_set": "The actual passing/failing nodes in a specific run. Requires pytest run.",
+    "classification_203": "Post-hoc failure investigation ledger, not a full execution record.",
+    "these_are_different_things": true,
+    "conflation_is_a_proof_integrity_violation": true
+  }
+}
