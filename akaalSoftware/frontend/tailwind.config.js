@@ -7,9 +7,9 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        heading: ['"Geist"', 'sans-serif'],
-        sans: ['"Geist Sans"', 'sans-serif'],
-        mono: ['"JetBrains Mono"', 'monospace'],
+        sans: ['"Roboto"', 'sans-serif'],
+        heading: ['"Roboto"', 'sans-serif'],
+        mono: ['"Roboto"', 'sans-serif'],
       },
       colors: {
         background: 'var(--color-bg-canvas)',

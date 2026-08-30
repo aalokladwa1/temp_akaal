@@ -1,33 +1,45 @@
-@import "@fontsource/geist-sans";
-@import "@fontsource/geist-mono";
-@import "@fontsource/jetbrains-mono";
+@import "@fontsource/roboto/400.css";
+@import "@fontsource/roboto/500.css";
+@import "@fontsource/roboto/700.css";
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --color-bg-canvas: #090d16;
-  --color-bg-surface: #0f172a;
-  --color-bg-elevated: #1e293b;
-  --color-bg-subtle: #141e33;
+  --color-bg-canvas: #f8fafc;
+  --color-bg-surface: #ffffff;
+  --color-bg-elevated: #f1f5f9;
+  --color-bg-subtle: #f8fafc;
 
-  --color-border-default: #334155;
-  --color-border-strong: #475569;
-  --color-border-subtle: #1e293b;
+  --color-border-default: #e2e8f0;
+  --color-border-strong: #cbd5e1;
+  --color-border-subtle: #f1f5f9;
 
-  --color-text-primary: #f8fafc;
-  --color-text-secondary: #94a3b8;
-  --color-text-muted: #64748b;
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #334155;
+  --color-text-muted: #475569;
 
   --color-accent: #2563eb;
   --color-accent-hover: #1d4ed8;
-  --color-accent-muted: rgba(37, 99, 235, 0.15);
+  --color-accent-muted: rgba(37, 99, 235, 0.08);
 
-  --color-status-success: #10b981;
-  --color-status-warning: #f59e0b;
-  --color-status-error: #ef4444;
-  --color-status-info: #06b6d4;
+  --color-status-success: #059669;
+  --color-status-warning: #d97706;
+  --color-status-error: #dc2626;
+  --color-status-info: #0284c7;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  font-family: "Roboto", sans-serif !important;
+}
+
+body, button, input, select, textarea, table, code, pre, span, p, h1, h2, h3, h4, h5, h6, div, label, li, a {
+  font-family: "Roboto", sans-serif !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 body {
@@ -35,9 +47,43 @@ body {
   padding: 0;
   background-color: var(--color-bg-canvas);
   color: var(--color-text-primary);
-  font-family: "Geist Sans", sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  font-family: "Roboto", sans-serif !important;
   overflow: hidden;
   user-select: none;
+}
+
+/* Ensure secondary text is dark and high-contrast across all views */
+.text-slate-400 {
+  color: #475569 !important;
+}
+
+.text-slate-500 {
+  color: #334155 !important;
+}
+
+.text-slate-600 {
+  color: #1e293b !important;
+}
+
+/* Custom scrollbar for main content */
+main::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+main::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+main::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+main::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.active-nav-blue svg {
+  color: #ffffff !important;
 }

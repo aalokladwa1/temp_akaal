@@ -9,14 +9,14 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options/windows"
 )
 
-//go:embed all:frontend/dist/akaal-software
+//go:embed all:frontend/dist/akaal-software/browser
 var assets embed.FS
 
 func main() {
 	app := NewApp()
 
 	err := wails.Run(&options.App{
-		Title:     "AKAAL Enterprise Migration Platform",
+		Title:     "DevKros Enterprise Platform",
 		Width:     1440,
 		Height:    900,
 		MinWidth:  1200,

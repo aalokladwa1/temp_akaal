@@ -9,6 +9,8 @@ import (
 	"sync"
 	"time"
 
+	"akaalSoftware/pkg/prototypedb"
+
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
@@ -136,3 +138,48 @@ func (a *App) InvokeIPC(req IPCRequest) (IPCResponse, error) {
 		},
 	}, nil
 }
+
+// ============================================================================
+// PROTOTYPE MIGRATION HOME SQLITE ACCESS (2.1 UI Prototype Only)
+// ============================================================================
+
+func (a *App) GetMigrationHomeSummary() (prototypedb.MigrationHomeSummaryDTO, error) {
+	store, err := prototypedb.GetStore()
+	if err != nil {
+		return prototypedb.MigrationHomeSummaryDTO{}, err
+	}
+	return store.GetSummary()
+}
+
+func (a *App) GetMigrationHomeMigrations() ([]prototypedb.MigrationRowDTO, error) {
+	store, err := prototypedb.GetStore()
+	if err != nil {
+		return nil, err
+	}
+	return store.GetIndependentMigrations()
+}
+
+func (a *App) GetMigrationHomeProjects() ([]prototypedb.ProjectRowDTO, error) {
+	store, err := prototypedb.GetStore()
+	if err != nil {
+		return nil, err
+	}
+	return store.GetAllProjects()
+}
+
+func (a *App) GetMigrationHomeActivities() ([]prototypedb.ActivityRowDTO, error) {
+	store, err := prototypedb.GetStore()
+	if err != nil {
+		return nil, err
+	}
+	return store.GetRecentActivity()
+}
+
+func (a *App) ResetMigrationHomeDemoState() error {
+	store, err := prototypedb.GetStore()
+	if err != nil {
+		return err
+	}
+	return store.ResetDemoState()
+}
+
