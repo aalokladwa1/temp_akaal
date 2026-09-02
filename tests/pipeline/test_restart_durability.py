@@ -17,13 +17,13 @@ from akaalPipeline.operations.service import OperationService
 from akaalPipeline.state.aggregates import MigrationAggregate
 from akaalPipeline.state.repositories import SQLiteMigrationRepository
 from akaalPipeline.state.unit_of_work import SQLiteUnitOfWork
-from tests.pipeline.conftest import make_command, make_query
+from tests.pipeline.conftest import authorized_caller, make_command, make_query
 
 
 def test_aggregate_and_history_reconstruct_after_restart(temp_db_path, ipc_actor, ipc_correlation):
     """Prove MigrationAggregate and lifecycle history survive process restart on SQLite file."""
     # 1. First session: Create migration
-    caller1 = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller1 = authorized_caller(db_path=temp_db_path)
     cmd1 = make_command(
         request_type="migration.create",
         payload={"migration_id": "mig-restart-1", "name": "Restart Mig", "mode": "M1"},
@@ -38,7 +38,7 @@ def test_aggregate_and_history_reconstruct_after_restart(temp_db_path, ipc_actor
     del caller1
 
     # 3. Second session: New objects attached to same database file
-    caller2 = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller2 = authorized_caller(db_path=temp_db_path)
     qry2 = make_query(
         request_type="migration.get",
         payload={"migration_id": "mig-restart-1"},

@@ -19,12 +19,18 @@ from akaalEngine.connection.models.endpoint import EndpointSpec
 from akaalEngine.connection.models.errors import (
     ConnectionEngineException,
     ConnectionFailure,
+    ConnectivityPolicyDeniedError,
     FailureCategory,
     ProviderInternalError,
 )
 from akaalEngine.connection.models.session import InternalSessionHandle, SessionRequest
 from akaalEngine.connection.routing.resolver import ResolvedRoute, RouteResolver, default_route_resolver
 from akaalEngine.connection.security.authentication import AuthenticationManager, wipe_credentials_dict
+from akaalEngine.connection.security.connectivity_policy import (
+    ConnectivityPolicyEnforcer,
+    ConnectivityPolicyViolationError,
+    ConnectivityRequirement,
+)
 from akaalEngine.connection.security.redaction import redact_text
 from akaalEngine.connection.security.secret_consumer import SecretConsumer, default_secret_consumer
 from akaalEngine.connection.security.tls import TLSContextBuilder
@@ -49,6 +55,7 @@ class SessionFactory:
         self.secret_consumer = secret_consumer or default_secret_consumer
         self.auth_manager = AuthenticationManager(self.secret_consumer)
         self.tls_builder = TLSContextBuilder(self.secret_consumer)
+        self.connectivity_enforcer = ConnectivityPolicyEnforcer()
 
     def create_physical_session(
         self,
@@ -67,6 +74,38 @@ class SessionFactory:
         # 2. Compute fingerprint (using current catalog generation)
         cat_gen = self.catalog.get_catalog_generation() if hasattr(self.catalog, "get_catalog_generation") else 1
         fp = compute_endpoint_fingerprint(spec, catalog_generation=cat_gen).fingerprint_sha256
+
+        # 2b. Enforce P7.9 connectivity protection policy against the DECLARED
+        #     TLSBinding/RouteSpec configuration before spending any time/resources on
+        #     DNS/route resolution or a physical connect attempt -- fails fast and closed.
+        #     A migration/endpoint with no required_connectivity_tier set (None) is
+        #     unaffected -- this is additive policy, not a default restriction.
+        if spec.required_connectivity_tier:
+            try:
+                required = ConnectivityRequirement(spec.required_connectivity_tier)
+            except ValueError as exc:
+                raise ConnectivityPolicyDeniedError(
+                    ConnectionFailure(
+                        error_code="CONNECTIVITY_POLICY_MALFORMED",
+                        category=FailureCategory.INVALID_CONFIGURATION,
+                        message=f"Unknown required_connectivity_tier {spec.required_connectivity_tier!r} on EndpointSpec.",
+                        retryable=False,
+                        provider_id=spec.provider_id,
+                    )
+                ) from exc
+            try:
+                self.connectivity_enforcer.enforce(required, tls_binding=spec.tls_binding, route_spec=spec.route_spec)
+            except ConnectivityPolicyViolationError as exc:
+                raise ConnectivityPolicyDeniedError(
+                    ConnectionFailure(
+                        error_code="CONNECTIVITY_POLICY_VIOLATION",
+                        category=FailureCategory.TLS_FAILURE,
+                        message=f"Endpoint {spec.provider_id!r} does not satisfy required connectivity tier {required.value!r}: {exc}",
+                        retryable=False,
+                        provider_id=spec.provider_id,
+                        remediation="Configure TLSBinding/RouteSpec to meet the required protection tier, or lower the policy requirement.",
+                    )
+                ) from exc
 
         # 3. Resolve Route
         resolved_route = self.route_resolver.resolve_route(spec)

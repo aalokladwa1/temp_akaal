@@ -104,6 +104,8 @@ class CDCAuthority:
         self.ambiguous_commit_count = 0
         self.is_cdc_paused = False
 
+
+
     def validate_checkpoint_identity(self, expected_identity: Dict[str, Any], actual_checkpoint_identity: Dict[str, Any]) -> bool:
         """
         Validates checkpoint identity binding against expected migration/resource identity.
@@ -356,8 +358,10 @@ class CDCAuthority:
         if self.telemetry_authority:
             if hasattr(self.telemetry_authority, "record_counter"):
                 self.telemetry_authority.record_counter("cdc_events_applied_total", self.events_applied_total)
-            if hasattr(self.telemetry_authority, "record_gauge") and self.replication_lag_seconds is not None:
-                self.telemetry_authority.record_gauge("cdc_replication_lag_seconds", self.replication_lag_seconds)
+            if hasattr(self.telemetry_authority, "record_gauge"):
+                lag_val = self.replication_lag_seconds if self.replication_lag_seconds is not None else 0.0
+                self.telemetry_authority.record_gauge("cdc_replication_lag_seconds", lag_val)
+
 
     def evaluate_convergence(self, source_rate: float, apply_rate: float, tolerance: float = 5.0) -> ConvergenceState:
         """Evaluates replication lag convergence state: apply < source => DIVERGING, apply > source => CONVERGING, equal => STABLE."""

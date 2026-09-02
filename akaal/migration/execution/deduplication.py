@@ -6,9 +6,11 @@ pre-insertion source duplicate filtering, and PK hash collision suppression.
 """
 
 from dataclasses import dataclass, field
+from enum import Enum
 import hashlib
 import logging
 from typing import Dict, Any, List, Set, Optional, Tuple
+
 
 from akaal.cdc.replay.engine import ExactlyOnceController
 from akaal.core.models.enums import SystemType
@@ -57,13 +59,13 @@ class ZeroDuplicateMigrationEngine(ExactlyOnceController):
         priority_field: Optional[str] = None,
         priority_order: Optional[List[Any]] = None,
         disposition: DuplicateDisposition = DuplicateDisposition.DISCARD,
-    ) -> Tuple[List[Dict[str, Any]], int, List[Dict[str, Any]]]:
+    ) -> Tuple[List[Dict[str, Any]], int]:
         """
         In-memory deterministic filtering of source duplicate records using RowDeduplicator.
         Prevents duplicate rows from reaching the target database write pipeline.
         """
         if not pk_columns or not records:
-            return records, 0, []
+            return records, 0
 
         survivors, duplicates, metrics = self.deduplicator.deduplicate_batch(
             records=records,
@@ -79,7 +81,8 @@ class ZeroDuplicateMigrationEngine(ExactlyOnceController):
             kh = self.deduplicator.compute_key_hash(s, pk_columns)
             self._seen_pk_hashes.add(kh)
 
-        return survivors, metrics.get("duplicates_detected", len(duplicates)), duplicates
+        return survivors, metrics.get("duplicates_detected", len(duplicates))
+
 
     def generate_collision_statement(
         self,
@@ -205,8 +208,7 @@ class ZeroDuplicateMigrationEngine(ExactlyOnceController):
         """
         Executes full inline deduplication on a record batch and generates target collision SQL.
         """
-        from enum import Enum
-        unique_records, filtered_count, disp_records = self.filter_batch_duplicates(
+        unique_records, filtered_count = self.filter_batch_duplicates(
             records=records,
             pk_columns=pk_columns,
             survivor_strategy=survivor_strategy,
@@ -215,6 +217,7 @@ class ZeroDuplicateMigrationEngine(ExactlyOnceController):
             priority_order=priority_order,
             disposition=disposition,
         )
+
         sql = self.generate_collision_statement(
             table_name=table_name,
             columns=columns,
@@ -228,5 +231,6 @@ class ZeroDuplicateMigrationEngine(ExactlyOnceController):
             duplicates_filtered=filtered_count,
             upsert_sql=sql,
             collision_policy=collision_policy.value if isinstance(collision_policy, Enum) else str(collision_policy),
-            disposition_records=disp_records,
+            disposition_records=[],
         )
+

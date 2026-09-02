@@ -107,7 +107,7 @@ from akaalEngine.validation.api import ValidationAuthority
 from akaalEngine.evidence.api import EvidenceAuthority
 from akaalEngine.evidence.models import EvidenceFact, EvidenceProvenance
 
-from tests.pipeline.conftest import make_command, make_query
+from tests.pipeline.conftest import authorized_caller, make_command, make_query
 
 
 # =============================================================================
@@ -217,7 +217,7 @@ def create_p512_caller(
         tf.close()
 
     port = port or P512RecordingEnginePort()
-    caller = PipelineUnifiedCaller(db_path=db_path)
+    caller = authorized_caller(db_path=db_path)
     _register_universal_binding(caller, port)
     return caller, db_path, port
 
@@ -226,7 +226,7 @@ def create_p512_caller(
 # 1. FLAGSHIP WHOLE-P5 INTEGRATION SCENARIO (R54)
 # =============================================================================
 
-def test_p512_flagship_end_to_end_intent_preservation(ipc_actor, ipc_correlation):
+def test_p512_flagship_end_to_end_intent_preservation(temp_db_path, verified_ipc_actor, ipc_correlation):
     """
     R54 Flagship Scenario:
     Proves that Selection + Mapping + Transformation + Masking + Filtering + Deduplication +
@@ -234,7 +234,7 @@ def test_p512_flagship_end_to_end_intent_preservation(ipc_actor, ipc_correlation
     Interruption + Recovery + Validation + Evidence execute seamlessly with 100% intent preservation.
     """
     mig_id = f"mig-flagship-{uuid.uuid4().hex[:8]}"
-    caller, db_path, port = create_p512_caller()
+    caller, db_path, port = create_p512_caller(db_path=temp_db_path)
 
     # 1. IPC Command: migration.create
     res_create = caller.handle_command(
@@ -247,7 +247,7 @@ def test_p512_flagship_end_to_end_intent_preservation(ipc_actor, ipc_correlation
                 "source": {"type": "oracle", "host": "oracle.internal"},
                 "target": {"type": "postgresql", "host": "pg.internal"},
             },
-            actor=ipc_actor,
+            actor=verified_ipc_actor,
             correlation=ipc_correlation,
         )
     )
@@ -258,7 +258,7 @@ def test_p512_flagship_end_to_end_intent_preservation(ipc_actor, ipc_correlation
         make_command(
             request_type="migration.plan",
             payload={"migration_id": mig_id},
-            actor=ipc_actor,
+            actor=verified_ipc_actor,
             correlation=ipc_correlation,
         )
     )
@@ -269,7 +269,7 @@ def test_p512_flagship_end_to_end_intent_preservation(ipc_actor, ipc_correlation
         make_command(
             request_type="migration.initialize",
             payload={"migration_id": mig_id},
-            actor=ipc_actor,
+            actor=verified_ipc_actor,
             correlation=ipc_correlation,
         )
     )
@@ -280,7 +280,7 @@ def test_p512_flagship_end_to_end_intent_preservation(ipc_actor, ipc_correlation
         make_command(
             request_type="migration.start",
             payload={"migration_id": mig_id, "mode": "M2"},
-            actor=ipc_actor,
+            actor=verified_ipc_actor,
             correlation=ipc_correlation,
         )
     )
@@ -295,7 +295,7 @@ def test_p512_flagship_end_to_end_intent_preservation(ipc_actor, ipc_correlation
         make_query(
             request_type="migration.get",
             payload={"migration_id": mig_id},
-            actor=ipc_actor,
+            actor=verified_ipc_actor,
             correlation=ipc_correlation,
         )
     )
@@ -346,44 +346,44 @@ def test_combination_05_filtering_x_deduplication():
     assert dd.rules[0].key_columns == ["tax_id"]
 
 
-def test_combination_06_deduplication_x_cdc(ipc_actor, ipc_correlation):
+def test_combination_06_deduplication_x_cdc(temp_db_path, verified_ipc_actor, ipc_correlation):
     """Deduplication x CDC: CDC replays resolve idempotently against dedup key."""
-    caller, _, port = create_p512_caller()
+    caller, _, port = create_p512_caller(db_path=temp_db_path)
     mig_id = "mig-c06-dedup-cdc"
     caller.handle_command(
         make_command(
             request_type="migration.create",
             payload={"migration_id": mig_id, "name": "CDC Dedup", "mode": "M3"},
-            actor=ipc_actor,
+            actor=verified_ipc_actor,
             correlation=ipc_correlation,
         )
     )
-    caller.handle_command(make_command(request_type="migration.plan", payload={"migration_id": mig_id}, actor=ipc_actor, correlation=ipc_correlation))
-    caller.handle_command(make_command(request_type="migration.initialize", payload={"migration_id": mig_id}, actor=ipc_actor, correlation=ipc_correlation))
-    res = caller.handle_command(make_command(request_type="migration.start", payload={"migration_id": mig_id, "mode": "M3"}, actor=ipc_actor, correlation=ipc_correlation))
+    caller.handle_command(make_command(request_type="migration.plan", payload={"migration_id": mig_id}, actor=verified_ipc_actor, correlation=ipc_correlation))
+    caller.handle_command(make_command(request_type="migration.initialize", payload={"migration_id": mig_id}, actor=verified_ipc_actor, correlation=ipc_correlation))
+    res = caller.handle_command(make_command(request_type="migration.start", payload={"migration_id": mig_id, "mode": "M3"}, actor=verified_ipc_actor, correlation=ipc_correlation))
     assert res.status.value in ["ACCEPTED", "OK"]
 
 
-def test_combination_07_cdc_x_recovery(ipc_actor, ipc_correlation):
+def test_combination_07_cdc_x_recovery(temp_db_path, verified_ipc_actor, ipc_correlation):
     """CDC x Recovery: CDC stream positions and buffer watermarks reconstruct exactly on recovery."""
-    caller, db_path, port = create_p512_caller()
+    caller, db_path, port = create_p512_caller(db_path=temp_db_path)
     mig_id = "mig-c07-cdc-rec"
-    caller.handle_command(make_command(request_type="migration.create", payload={"migration_id": mig_id, "name": "CDC Rec", "mode": "M3"}, actor=ipc_actor, correlation=ipc_correlation))
-    caller.handle_command(make_command(request_type="migration.plan", payload={"migration_id": mig_id}, actor=ipc_actor, correlation=ipc_correlation))
-    caller.handle_command(make_command(request_type="migration.initialize", payload={"migration_id": mig_id}, actor=ipc_actor, correlation=ipc_correlation))
-    caller.handle_command(make_command(request_type="migration.start", payload={"migration_id": mig_id, "mode": "M3"}, actor=ipc_actor, correlation=ipc_correlation))
+    caller.handle_command(make_command(request_type="migration.create", payload={"migration_id": mig_id, "name": "CDC Rec", "mode": "M3"}, actor=verified_ipc_actor, correlation=ipc_correlation))
+    caller.handle_command(make_command(request_type="migration.plan", payload={"migration_id": mig_id}, actor=verified_ipc_actor, correlation=ipc_correlation))
+    caller.handle_command(make_command(request_type="migration.initialize", payload={"migration_id": mig_id}, actor=verified_ipc_actor, correlation=ipc_correlation))
+    caller.handle_command(make_command(request_type="migration.start", payload={"migration_id": mig_id, "mode": "M3"}, actor=verified_ipc_actor, correlation=ipc_correlation))
 
     caller_rec, _, _ = create_p512_caller(db_path=db_path)
-    res = caller_rec.handle_query(make_query(request_type="migration.get", payload={"migration_id": mig_id}, actor=ipc_actor, correlation=ipc_correlation))
+    res = caller_rec.handle_query(make_query(request_type="migration.get", payload={"migration_id": mig_id}, actor=verified_ipc_actor, correlation=ipc_correlation))
     assert res.status.value in ["ACCEPTED", "OK"]
     assert res.result["migration_id"] == mig_id
 
 
-def test_combination_08_recovery_x_security(ipc_actor, ipc_correlation):
+def test_combination_08_recovery_x_security(verified_ipc_actor, ipc_correlation):
     """Recovery x Security: Process recovery strictly enforces execution authorization and tenant fencing."""
     caller, db_path, port = create_p512_caller()
     mig_id = "mig-c08-sec-rec"
-    caller.handle_command(make_command(request_type="migration.create", payload={"migration_id": mig_id, "name": "Sec Rec", "mode": "M1"}, actor=ipc_actor, correlation=ipc_correlation))
+    caller.handle_command(make_command(request_type="migration.create", payload={"migration_id": mig_id, "name": "Sec Rec", "mode": "M1"}, actor=verified_ipc_actor, correlation=ipc_correlation))
 
     caller_rec, _, _ = create_p512_caller(db_path=db_path)
     actor_attacker = ActorContext(
@@ -415,16 +415,16 @@ def test_combination_10_approval_x_cutover():
     assert CutoverState.TECHNICAL_CUTOVER_READY is not None
 
 
-def test_combination_11_configuration_x_recovery(ipc_actor, ipc_correlation):
+def test_combination_11_configuration_x_recovery(temp_db_path, verified_ipc_actor, ipc_correlation):
     """Configuration x Recovery: Rebuilt state uses immutable initialization snapshot, never latest drafts."""
-    caller, db_path, _ = create_p512_caller()
+    caller, db_path, _ = create_p512_caller(db_path=temp_db_path)
     mig_id = "mig-c11-cfg-rec"
-    caller.handle_command(make_command(request_type="migration.create", payload={"migration_id": mig_id, "name": "Cfg Rec", "mode": "M1"}, actor=ipc_actor, correlation=ipc_correlation))
-    caller.handle_command(make_command(request_type="migration.plan", payload={"migration_id": mig_id}, actor=ipc_actor, correlation=ipc_correlation))
-    caller.handle_command(make_command(request_type="migration.initialize", payload={"migration_id": mig_id}, actor=ipc_actor, correlation=ipc_correlation))
+    caller.handle_command(make_command(request_type="migration.create", payload={"migration_id": mig_id, "name": "Cfg Rec", "mode": "M1"}, actor=verified_ipc_actor, correlation=ipc_correlation))
+    caller.handle_command(make_command(request_type="migration.plan", payload={"migration_id": mig_id}, actor=verified_ipc_actor, correlation=ipc_correlation))
+    caller.handle_command(make_command(request_type="migration.initialize", payload={"migration_id": mig_id}, actor=verified_ipc_actor, correlation=ipc_correlation))
 
     caller_rebuilt, _, _ = create_p512_caller(db_path=db_path)
-    res = caller_rebuilt.handle_query(make_query(request_type="migration.get", payload={"migration_id": mig_id}, actor=ipc_actor, correlation=ipc_correlation))
+    res = caller_rebuilt.handle_query(make_query(request_type="migration.get", payload={"migration_id": mig_id}, actor=verified_ipc_actor, correlation=ipc_correlation))
     assert res.status.value in ["ACCEPTED", "OK"]
     assert res.result["migration_id"] == mig_id
 
@@ -476,15 +476,15 @@ def test_combination_13_validation_x_evidence():
         ("M8", 1),
     ],
 )
-def test_execution_modes_m1_to_m8_supported(mode_code: str, expected_node_count: int, ipc_actor, ipc_correlation):
+def test_execution_modes_m1_to_m8_supported(mode_code: str, expected_node_count: int, temp_db_path, verified_ipc_actor, ipc_correlation):
     """Proves all 8 execution modes (M1-M8) compile, validate, and execute through canonical Pipeline."""
     mig_id = f"mig-mode-{mode_code.lower()}-{uuid.uuid4().hex[:6]}"
-    caller, _, port = create_p512_caller()
+    caller, _, port = create_p512_caller(db_path=temp_db_path)
 
-    caller.handle_command(make_command(request_type="migration.create", payload={"migration_id": mig_id, "name": f"Mig {mode_code}", "mode": mode_code}, actor=ipc_actor, correlation=ipc_correlation))
-    caller.handle_command(make_command(request_type="migration.plan", payload={"migration_id": mig_id}, actor=ipc_actor, correlation=ipc_correlation))
-    caller.handle_command(make_command(request_type="migration.initialize", payload={"migration_id": mig_id}, actor=ipc_actor, correlation=ipc_correlation))
-    res_start = caller.handle_command(make_command(request_type="migration.start", payload={"migration_id": mig_id, "mode": mode_code}, actor=ipc_actor, correlation=ipc_correlation))
+    caller.handle_command(make_command(request_type="migration.create", payload={"migration_id": mig_id, "name": f"Mig {mode_code}", "mode": mode_code}, actor=verified_ipc_actor, correlation=ipc_correlation))
+    caller.handle_command(make_command(request_type="migration.plan", payload={"migration_id": mig_id}, actor=verified_ipc_actor, correlation=ipc_correlation))
+    caller.handle_command(make_command(request_type="migration.initialize", payload={"migration_id": mig_id}, actor=verified_ipc_actor, correlation=ipc_correlation))
+    res_start = caller.handle_command(make_command(request_type="migration.start", payload={"migration_id": mig_id, "mode": mode_code}, actor=verified_ipc_actor, correlation=ipc_correlation))
 
     assert res_start.status.value in ["ACCEPTED", "OK"]
     assert len(port.invocations) == expected_node_count
@@ -494,7 +494,7 @@ def test_execution_modes_m1_to_m8_supported(mode_code: str, expected_node_count:
 # 4. MALFORMED-STATE HOSTILE ATTACKS (R431-R458)
 # =============================================================================
 
-def test_hostile_invalid_mode_rejected(ipc_actor, ipc_correlation):
+def test_hostile_invalid_mode_rejected(verified_ipc_actor, ipc_correlation):
     """Attack: Supplying an invalid mode like M99 fails closed."""
     caller, _, _ = create_p512_caller()
     mig_id = "mig-malformed-mode"
@@ -502,7 +502,7 @@ def test_hostile_invalid_mode_rejected(ipc_actor, ipc_correlation):
         make_command(
             request_type="migration.create",
             payload={"migration_id": mig_id, "name": "Bad Mode", "mode": "M99_INVALID"},
-            actor=ipc_actor,
+            actor=verified_ipc_actor,
             correlation=ipc_correlation,
         )
     )
@@ -565,30 +565,30 @@ def test_hostile_cross_tenant_access_blocked(ipc_correlation):
 # 5. REPEATED RECOVERY CYCLES (R55)
 # =============================================================================
 
-def test_p512_repeated_recovery_three_cycles(ipc_actor, ipc_correlation):
+def test_p512_repeated_recovery_three_cycles(temp_db_path, verified_ipc_actor, ipc_correlation):
     """
     R55 Repeated Recovery:
     Proves state determinism across multiple successive crash / recover cycles:
     RUN -> CRASH -> RECOVER -> RUN -> CRASH -> RECOVER -> RUN -> COMPLETE.
     """
     mig_id = f"mig-rep-rec-{uuid.uuid4().hex[:6]}"
-    caller1, db_path, port1 = create_p512_caller()
+    caller1, db_path, port1 = create_p512_caller(db_path=temp_db_path)
 
     # Cycle 1: Create & Initialize
-    caller1.handle_command(make_command(request_type="migration.create", payload={"migration_id": mig_id, "name": "Rep Rec", "mode": "M1"}, actor=ipc_actor, correlation=ipc_correlation))
-    caller1.handle_command(make_command(request_type="migration.plan", payload={"migration_id": mig_id}, actor=ipc_actor, correlation=ipc_correlation))
-    caller1.handle_command(make_command(request_type="migration.initialize", payload={"migration_id": mig_id}, actor=ipc_actor, correlation=ipc_correlation))
-    caller1.handle_command(make_command(request_type="migration.start", payload={"migration_id": mig_id, "mode": "M1"}, actor=ipc_actor, correlation=ipc_correlation))
+    caller1.handle_command(make_command(request_type="migration.create", payload={"migration_id": mig_id, "name": "Rep Rec", "mode": "M1"}, actor=verified_ipc_actor, correlation=ipc_correlation))
+    caller1.handle_command(make_command(request_type="migration.plan", payload={"migration_id": mig_id}, actor=verified_ipc_actor, correlation=ipc_correlation))
+    caller1.handle_command(make_command(request_type="migration.initialize", payload={"migration_id": mig_id}, actor=verified_ipc_actor, correlation=ipc_correlation))
+    caller1.handle_command(make_command(request_type="migration.start", payload={"migration_id": mig_id, "mode": "M1"}, actor=verified_ipc_actor, correlation=ipc_correlation))
 
     # Crash 1 -> Recover Cycle 2
     caller2, _, port2 = create_p512_caller(db_path=db_path)
-    q1 = caller2.handle_query(make_query(request_type="migration.get", payload={"migration_id": mig_id}, actor=ipc_actor, correlation=ipc_correlation))
+    q1 = caller2.handle_query(make_query(request_type="migration.get", payload={"migration_id": mig_id}, actor=verified_ipc_actor, correlation=ipc_correlation))
     assert q1.status.value in ["ACCEPTED", "OK"]
     assert q1.result["migration_id"] == mig_id
 
     # Crash 2 -> Recover Cycle 3
     caller3, _, port3 = create_p512_caller(db_path=db_path)
-    q2 = caller3.handle_query(make_query(request_type="migration.get", payload={"migration_id": mig_id}, actor=ipc_actor, correlation=ipc_correlation))
+    q2 = caller3.handle_query(make_query(request_type="migration.get", payload={"migration_id": mig_id}, actor=verified_ipc_actor, correlation=ipc_correlation))
     assert q2.status.value in ["ACCEPTED", "OK"]
     assert q2.result["migration_id"] == mig_id
 
@@ -679,24 +679,24 @@ def test_zero_fake_production_audit():
         ("DURING_CUTOVER", "n-cdc-sync"),
     ],
 )
-def test_all_18_interruption_points_recoverable(interruption_point: str, failed_node: str, ipc_actor, ipc_correlation):
+def test_all_18_interruption_points_recoverable(interruption_point: str, failed_node: str, temp_db_path, verified_ipc_actor, ipc_correlation):
     """
     R459-R480: Proves that an interruption at any of the 18 distinct lifecycle / physical points
     fails closed, preserves physical durability, and reconstructs cleanly upon recovery.
     """
     mig_id = f"mig-intr-{interruption_point.lower()[:8]}-{uuid.uuid4().hex[:6]}"
-    
+
     # 1. Start execution with crash injected on targeted node
     port_failing = P512RecordingEnginePort(crash_nodes=[failed_node])
-    caller1, db_path, _ = create_p512_caller(port=port_failing)
+    caller1, db_path, _ = create_p512_caller(port=port_failing, db_path=temp_db_path)
 
-    caller1.handle_command(make_command(request_type="migration.create", payload={"migration_id": mig_id, "name": f"Intr {interruption_point}", "mode": "M2"}, actor=ipc_actor, correlation=ipc_correlation))
-    caller1.handle_command(make_command(request_type="migration.plan", payload={"migration_id": mig_id}, actor=ipc_actor, correlation=ipc_correlation))
-    caller1.handle_command(make_command(request_type="migration.initialize", payload={"migration_id": mig_id}, actor=ipc_actor, correlation=ipc_correlation))
+    caller1.handle_command(make_command(request_type="migration.create", payload={"migration_id": mig_id, "name": f"Intr {interruption_point}", "mode": "M2"}, actor=verified_ipc_actor, correlation=ipc_correlation))
+    caller1.handle_command(make_command(request_type="migration.plan", payload={"migration_id": mig_id}, actor=verified_ipc_actor, correlation=ipc_correlation))
+    caller1.handle_command(make_command(request_type="migration.initialize", payload={"migration_id": mig_id}, actor=verified_ipc_actor, correlation=ipc_correlation))
     
     # Start encounters the injected crash
     try:
-        caller1.handle_command(make_command(request_type="migration.start", payload={"migration_id": mig_id, "mode": "M2"}, actor=ipc_actor, correlation=ipc_correlation))
+        caller1.handle_command(make_command(request_type="migration.start", payload={"migration_id": mig_id, "mode": "M2"}, actor=verified_ipc_actor, correlation=ipc_correlation))
     except Exception:
         pass  # Expected physical process crash
 
@@ -705,7 +705,7 @@ def test_all_18_interruption_points_recoverable(interruption_point: str, failed_
     caller2, _, _ = create_p512_caller(port=port_clean, db_path=db_path)
 
     # 3. Query state: must be non-corrupted and discoverable
-    q = caller2.handle_query(make_query(request_type="migration.get", payload={"migration_id": mig_id}, actor=ipc_actor, correlation=ipc_correlation))
+    q = caller2.handle_query(make_query(request_type="migration.get", payload={"migration_id": mig_id}, actor=verified_ipc_actor, correlation=ipc_correlation))
     assert q.status.value in ["ACCEPTED", "OK"]
     assert q.result["migration_id"] == mig_id
 

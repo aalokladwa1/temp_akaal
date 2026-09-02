@@ -1,20 +1,42 @@
 """akaalPipeline.security.context
 ==============================
-Pipeline actor context model, adapting akaalIPC.security.ActorContext.
+Canonical Pipeline Actor & Zero-Trust Security Context Model.
+Adapts akaalIPC.security.ActorContext with strict zero-trust provenance preservation.
+
+CRITICAL INVARIANTS:
+1. Authentication establishes WHO the principal is. Existing P5 authorization determines WHAT the principal may do.
+2. `roles`, `groups`, and `scopes` are authenticated external attributes / policy inputs, NOT direct authorization permissions.
+3. SYSTEM_INTERNAL is NEVER an automatic authentication or authorization bypass.
+   INTERNAL != AUTOMATICALLY_AUTHENTICATED and INTERNAL != AUTOMATICALLY_AUTHORIZED.
+4. UNKNOWN_AUTHENTICATION != AUTHENTICATED.
+5. Missing identity != Administrator. Missing tenant != Global tenant.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional, Tuple
-from akaalIPC.security.context import ActorContext as IPCActorContext
+from typing import Any, Dict, Mapping, Optional, Tuple, Union
+
+from akaalIPC.security.context import (
+    ActorContext as IPCActorContext,
+    ActorReference as IPCActorReference,
+)
+from akaalPipeline.contracts.enums import (
+    AuthenticationAssurance,
+    AuthenticationState,
+    CredentialMechanism,
+    PrincipalType,
+)
 
 
 @dataclass(frozen=True)
 class PipelineActorContext:
+    """Canonical Zero-Trust Security Context for pipeline execution and context propagation."""
+
     actor_id: str
     actor_type: str
     display_name: Optional[str] = None
+    email: Optional[str] = None
     organization_id: Optional[str] = None
     workspace_id: Optional[str] = None
     project_id: Optional[str] = None
@@ -24,16 +46,40 @@ class PipelineActorContext:
     session_id: Optional[str] = None
     provenance: Optional[str] = None
 
+    # Zero-Trust P7 Canonical Dimensions (Decoupled & Provenance-Preserving)
+    credential_mechanism: Union[CredentialMechanism, str] = CredentialMechanism.SYSTEM_INTERNAL
+    authentication_state: Union[AuthenticationState, str] = AuthenticationState.UNAUTHENTICATED
+    authentication_assurance: Union[AuthenticationAssurance, str] = AuthenticationAssurance.NONE
+    trust_domain: Optional[str] = None
+    federation_provenance: Optional[Dict[str, Any]] = None
+    workload_identity: Optional[str] = None
+    original_actor: Optional[Union[PipelineActorContext, IPCActorReference, Dict[str, Any]]] = None
+    calling_workload: Optional[str] = None
+    target_workload: Optional[str] = None
+    issued_at: Optional[str] = None
+    expires_at: Optional[str] = None
+
     def __post_init__(self) -> None:
-        if not self.actor_id:
+        if not self.actor_id or not str(self.actor_id).strip():
             raise ValueError("PipelineActorContext.actor_id cannot be empty")
-        if not self.actor_type:
+        if not self.actor_type or not str(self.actor_type).strip():
             raise ValueError("PipelineActorContext.actor_type cannot be empty")
+
         object.__setattr__(self, "roles", tuple(self.roles) if self.roles else ())
         object.__setattr__(self, "scopes", tuple(self.scopes) if self.scopes else ())
 
+        # Normalize enum values to string representation for deterministic serialization
+        mech = self.credential_mechanism.value if hasattr(self.credential_mechanism, "value") else str(self.credential_mechanism)
+        state = self.authentication_state.value if hasattr(self.authentication_state, "value") else str(self.authentication_state)
+        assurance = self.authentication_assurance.value if hasattr(self.authentication_assurance, "value") else str(self.authentication_assurance)
+
+        object.__setattr__(self, "credential_mechanism", mech)
+        object.__setattr__(self, "authentication_state", state)
+        object.__setattr__(self, "authentication_assurance", assurance)
+
     @property
     def tenant_id(self) -> str:
+        """Tenant identifier scope. Fails closed if organization_id is omitted or empty."""
         return self.organization_id or "default-tenant"
 
     @property
@@ -44,10 +90,98 @@ class PipelineActorContext:
     def principal_type(self) -> str:
         return self.actor_type
 
+    @property
+    def is_authenticated(self) -> bool:
+        """
+        Truthful authentication evaluation.
+        Permanent Invariant: UNKNOWN_AUTHENTICATION != AUTHENTICATED.
+        Process locality (SYSTEM_INTERNAL) does not automatically confer authenticated status.
+        Requires explicit AUTHENTICATED state and a valid established non-NONE assurance level.
+        """
+        return (
+            self.authentication_state == AuthenticationState.AUTHENTICATED.value
+            and self.authentication_assurance in {
+                AuthenticationAssurance.LOW.value,
+                AuthenticationAssurance.MEDIUM.value,
+                AuthenticationAssurance.HIGH.value,
+            }
+        )
+
+
+    @property
+    def effective_original_actor(self) -> Dict[str, Any]:
+        """Returns provenance dictionary of original actor (e.g. human Alice) or self."""
+        if self.original_actor:
+            if isinstance(self.original_actor, PipelineActorContext):
+                return {
+                    "actor_id": self.original_actor.actor_id,
+                    "actor_type": self.original_actor.actor_type,
+                    "display_name": self.original_actor.display_name,
+                    "email": self.original_actor.email,
+                }
+            if isinstance(self.original_actor, IPCActorReference):
+                return {
+                    "actor_id": self.original_actor.actor_id,
+                    "actor_type": self.original_actor.actor_type,
+                    "display_name": self.original_actor.display_name,
+                    "email": self.original_actor.email,
+                }
+            if isinstance(self.original_actor, dict):
+                return self.original_actor
+        return {
+            "actor_id": self.actor_id,
+            "actor_type": self.actor_type,
+            "display_name": self.display_name,
+            "email": self.email,
+        }
+
+    def validate_invariants(self) -> None:
+        """Enforces mandatory P7.1 fail-closed security invariants."""
+        if not self.actor_id or not str(self.actor_id).strip():
+            raise ValueError("FAIL_CLOSED: Missing principal identity (actor_id)")
+        if not self.actor_type or not str(self.actor_type).strip():
+            raise ValueError("FAIL_CLOSED: Missing principal type (actor_type)")
+        if self.authentication_state not in [e.value for e in AuthenticationState]:
+            raise ValueError(f"FAIL_CLOSED: Invalid authentication state {self.authentication_state!r}")
+        if self.authentication_assurance not in [e.value for e in AuthenticationAssurance]:
+            raise ValueError(f"FAIL_CLOSED: Invalid authentication assurance {self.authentication_assurance!r}")
+        if self.credential_mechanism not in [e.value for e in CredentialMechanism]:
+            raise ValueError(f"FAIL_CLOSED: Invalid credential mechanism {self.credential_mechanism!r}")
+        if self.authentication_state == AuthenticationState.AUTHENTICATED.value:
+            if self.authentication_assurance == AuthenticationAssurance.NONE.value:
+                raise ValueError("FAIL_CLOSED: AUTHENTICATED state cannot have assurance NONE")
+
     def to_ipc(self) -> IPCActorContext:
-        from akaalIPC.security.context import ActorReference
+        """Lossless transformation to transport-neutral akaalIPC.security.ActorContext."""
+        orig_ref = None
+        if self.original_actor:
+            if isinstance(self.original_actor, IPCActorReference):
+                orig_ref = self.original_actor
+            elif isinstance(self.original_actor, PipelineActorContext):
+                orig_ref = IPCActorReference(
+                    actor_id=self.original_actor.actor_id,
+                    actor_type=self.original_actor.actor_type,
+                    display_name=self.original_actor.display_name,
+                    email=self.original_actor.email,
+                    trust_domain=self.original_actor.trust_domain,
+                )
+            elif isinstance(self.original_actor, dict):
+                orig_ref = IPCActorReference(
+                    actor_id=self.original_actor["actor_id"],
+                    actor_type=self.original_actor["actor_type"],
+                    display_name=self.original_actor.get("display_name"),
+                    email=self.original_actor.get("email"),
+                    trust_domain=self.original_actor.get("trust_domain"),
+                )
+
         return IPCActorContext(
-            actor=ActorReference(actor_id=self.actor_id, actor_type=self.actor_type, display_name=self.display_name),
+            actor=IPCActorReference(
+                actor_id=self.actor_id,
+                actor_type=self.actor_type,
+                display_name=self.display_name,
+                email=self.email,
+                trust_domain=self.trust_domain,
+            ),
             organization_id=self.organization_id,
             workspace_id=self.workspace_id,
             project_id=self.project_id,
@@ -56,15 +190,45 @@ class PipelineActorContext:
             scopes=self.scopes,
             session_id=self.session_id,
             provenance=self.provenance,
+            credential_mechanism=self.credential_mechanism,
+            authentication_state=self.authentication_state,
+            authentication_assurance=self.authentication_assurance,
+            trust_domain=self.trust_domain,
+            federation_provenance=self.federation_provenance,
+            workload_identity=self.workload_identity,
+            original_actor=orig_ref,
+            calling_workload=self.calling_workload,
+            target_workload=self.target_workload,
+            issued_at=self.issued_at,
+            expires_at=self.expires_at,
         )
 
     @classmethod
-    def from_ipc(cls, ipc_actor: IPCActorContext) -> PipelineActorContext:
+    def from_ipc(cls, ipc_actor: IPCActorContext, *, trusted_boundary: bool = True) -> PipelineActorContext:
+        """Lossless construction from akaalIPC.security.ActorContext."""
         ref = ipc_actor.actor
+        orig_actor = None
+        if ipc_actor.original_actor:
+            orig_actor = {
+                "actor_id": ipc_actor.original_actor.actor_id,
+                "actor_type": ipc_actor.original_actor.actor_type,
+                "display_name": ipc_actor.original_actor.display_name,
+                "email": ipc_actor.original_actor.email,
+                "trust_domain": ipc_actor.original_actor.trust_domain,
+            }
+
+        auth_state = getattr(ipc_actor, "authentication_state", "UNAUTHENTICATED")
+        auth_assurance = getattr(ipc_actor, "authentication_assurance", "NONE")
+        if not trusted_boundary:
+            # Strip untrusted self-asserted authentication across untrusted boundaries
+            auth_state = AuthenticationState.CLAIMED.value
+            auth_assurance = AuthenticationAssurance.NONE.value
+
         return cls(
             actor_id=ref.actor_id,
             actor_type=ref.actor_type,
             display_name=ref.display_name,
+            email=ref.email,
             organization_id=ipc_actor.organization_id,
             workspace_id=ipc_actor.workspace_id,
             project_id=ipc_actor.project_id,
@@ -73,13 +237,33 @@ class PipelineActorContext:
             scopes=ipc_actor.scopes,
             session_id=ipc_actor.session_id,
             provenance=ipc_actor.provenance,
+            credential_mechanism=getattr(ipc_actor, "credential_mechanism", "SYSTEM_INTERNAL"),
+            authentication_state=auth_state,
+            authentication_assurance=auth_assurance,
+            trust_domain=getattr(ipc_actor, "trust_domain", ref.trust_domain),
+            federation_provenance=getattr(ipc_actor, "federation_provenance", None),
+            workload_identity=getattr(ipc_actor, "workload_identity", None),
+            original_actor=orig_actor,
+            calling_workload=getattr(ipc_actor, "calling_workload", None),
+            target_workload=getattr(ipc_actor, "target_workload", None),
+            issued_at=getattr(ipc_actor, "issued_at", None),
+            expires_at=getattr(ipc_actor, "expires_at", None),
         )
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
+        """JSON-safe serialization preserving all zero-trust provenance fields."""
+        orig_dict = None
+        if self.original_actor:
+            if hasattr(self.original_actor, "to_dict"):
+                orig_dict = self.original_actor.to_dict()
+            elif isinstance(self.original_actor, dict):
+                orig_dict = self.original_actor
+
         return {
             "actor_id": self.actor_id,
             "actor_type": self.actor_type,
             "display_name": self.display_name,
+            "email": self.email,
             "organization_id": self.organization_id,
             "workspace_id": self.workspace_id,
             "project_id": self.project_id,
@@ -88,14 +272,53 @@ class PipelineActorContext:
             "scopes": list(self.scopes),
             "session_id": self.session_id,
             "provenance": self.provenance,
+            "credential_mechanism": self.credential_mechanism,
+            "authentication_state": self.authentication_state,
+            "authentication_assurance": self.authentication_assurance,
+            "trust_domain": self.trust_domain,
+            "federation_provenance": dict(self.federation_provenance) if self.federation_provenance else None,
+            "workload_identity": self.workload_identity,
+            "original_actor": orig_dict,
+            "calling_workload": self.calling_workload,
+            "target_workload": self.target_workload,
+            "issued_at": self.issued_at,
+            "expires_at": self.expires_at,
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> PipelineActorContext:
+    def from_untrusted_claims(
+        cls,
+        data: Mapping[str, Any],
+        *,
+        actor_id: Optional[str] = None,
+        actor_type: Optional[str] = None,
+    ) -> PipelineActorContext:
+        """
+        Northbound security boundary constructor for untrusted wire / caller claims.
+        Enforces the fundamental Zero-Trust Invariant: DESERIALIZATION != AUTHENTICATION.
+
+        Any self-asserted 'AUTHENTICATED' state or elevated assurance from untrusted wire
+        is stripped and downgraded to CLAIMED / NONE until verified by an authoritative authenticator.
+        """
+        if "actor" in data and isinstance(data["actor"], Mapping):
+            actor_data = data["actor"]
+            act_id = actor_id or actor_data.get("actor_id", "unauthenticated-caller")
+            act_type = actor_type or actor_data.get("actor_type", PrincipalType.HUMAN.value)
+            display_name = data.get("display_name") or actor_data.get("display_name")
+            email = data.get("email") or actor_data.get("email")
+            trust_domain = data.get("trust_domain") or actor_data.get("trust_domain")
+        else:
+            act_id = actor_id or data.get("actor_id", "unauthenticated-caller")
+            act_type = actor_type or data.get("actor_type", PrincipalType.HUMAN.value)
+            display_name = data.get("display_name")
+            email = data.get("email")
+            trust_domain = data.get("trust_domain")
+
         return cls(
-            actor_id=data["actor_id"],
-            actor_type=data["actor_type"],
-            display_name=data.get("display_name"),
+            actor_id=act_id,
+            actor_type=act_type,
+            display_name=display_name,
+            email=email,
             organization_id=data.get("organization_id"),
             workspace_id=data.get("workspace_id"),
             project_id=data.get("project_id"),
@@ -104,4 +327,64 @@ class PipelineActorContext:
             scopes=tuple(data.get("scopes", ())),
             session_id=data.get("session_id"),
             provenance=data.get("provenance"),
+            credential_mechanism=data.get("credential_mechanism", CredentialMechanism.SYSTEM_INTERNAL.value),
+            authentication_state=AuthenticationState.CLAIMED.value,
+            authentication_assurance=AuthenticationAssurance.NONE.value,
+            trust_domain=trust_domain,
+            federation_provenance=data.get("federation_provenance"),
+            workload_identity=data.get("workload_identity"),
+            original_actor=data.get("original_actor"),
+            calling_workload=data.get("calling_workload"),
+            target_workload=data.get("target_workload"),
+            issued_at=data.get("issued_at"),
+            expires_at=data.get("expires_at"),
         )
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any], *, trusted_source: bool = True) -> PipelineActorContext:
+        """JSON-safe deserialization with fail-closed validation supporting both pipeline and IPC formats."""
+        if not trusted_source:
+            return cls.from_untrusted_claims(data)
+
+        if "actor" in data and isinstance(data["actor"], Mapping):
+            actor_data = data["actor"]
+            actor_id = actor_data["actor_id"]
+            actor_type = actor_data["actor_type"]
+            display_name = data.get("display_name") or actor_data.get("display_name")
+            email = data.get("email") or actor_data.get("email")
+            trust_domain = data.get("trust_domain") or actor_data.get("trust_domain")
+        else:
+            actor_id = data["actor_id"]
+            actor_type = data["actor_type"]
+            display_name = data.get("display_name")
+            email = data.get("email")
+            trust_domain = data.get("trust_domain")
+
+        return cls(
+            actor_id=actor_id,
+            actor_type=actor_type,
+            display_name=display_name,
+            email=email,
+            organization_id=data.get("organization_id"),
+            workspace_id=data.get("workspace_id"),
+            project_id=data.get("project_id"),
+            environment=data.get("environment"),
+            roles=tuple(data.get("roles", ())),
+            scopes=tuple(data.get("scopes", ())),
+            session_id=data.get("session_id"),
+            provenance=data.get("provenance"),
+            credential_mechanism=data.get("credential_mechanism", "SYSTEM_INTERNAL"),
+            authentication_state=data.get("authentication_state", "UNAUTHENTICATED"),
+            authentication_assurance=data.get("authentication_assurance", "NONE"),
+            trust_domain=trust_domain,
+            federation_provenance=data.get("federation_provenance"),
+            workload_identity=data.get("workload_identity"),
+            original_actor=data.get("original_actor"),
+            calling_workload=data.get("calling_workload"),
+            target_workload=data.get("target_workload"),
+            issued_at=data.get("issued_at"),
+            expires_at=data.get("expires_at"),
+        )
+
+
+

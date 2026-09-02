@@ -257,6 +257,8 @@ class TestP34ContinuousCDCCutoverFailbackEngine(unittest.TestCase):
     # 6. GATEWAY IPC REACHABILITY TESTS (13 Capabilities)
     # -------------------------------------------------------------------------
     def test_14_gateway_ipc_continuous_sync_lifecycle(self):
+        from tests.conftest import require_postgres
+        require_postgres("localhost", 5432)
         gw = EngineGateway()
         payload = {
             "migration_id": f"mig-gw-{self.session_suffix}",
@@ -265,6 +267,7 @@ class TestP34ContinuousCDCCutoverFailbackEngine(unittest.TestCase):
             "cdc_session_id": f"sess-gw-{self.session_suffix}",
         }
         res_start = gw.invoke("start_continuous_sync", payload)
+
         self.assertEqual(res_start["status"], "APPLYING")
 
         res_cycle = gw.invoke("process_sync_cycle", {"cdc_session_id": payload["cdc_session_id"]})

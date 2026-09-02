@@ -52,52 +52,60 @@ from akaal.intelligence.serialization.enterprise_intelligence_serializer import 
 from akaal.intelligence.governance.enterprise_intelligence_governance import EnterpriseIntelligenceGovernance
 
 
+from tests.conftest import require_postgres, require_mysql, require_oracle
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Real Connection Config Helpers
 # ─────────────────────────────────────────────────────────────────────────────
 
 def get_postgres_config(port: int = 5432) -> ConnectionConfig:
-    cfg = ConnectionConfig(
+    require_postgres("127.0.0.1", port)
+    return ConnectionConfig(
         system_type=SystemType.POSTGRESQL,
         host="127.0.0.1",
         port=port,
         database_name="postgres",
         credentials_ref="postgres_creds",
+        extra={"username": "akaal_admin", "password": "AkaalPass2026"},
     )
-    cfg.username = "akaal_admin"
-    cfg.password = "AkaalPass2026"
-    return cfg
 
 
 def get_mysql_config() -> ConnectionConfig:
-    cfg = ConnectionConfig(
+    require_mysql("127.0.0.1", 3306)
+    return ConnectionConfig(
         system_type=SystemType.MYSQL,
         host="127.0.0.1",
         port=3306,
         database_name="akaal_smoke_test",
         credentials_ref="mysql_creds",
+        extra={"username": "akaal_admin", "password": "AkaalPass2026"},
     )
-    cfg.username = "akaal_admin"
-    cfg.password = "AkaalPass2026"
-    return cfg
 
 
 def get_oracle_config() -> ConnectionConfig:
-    cfg = ConnectionConfig(
+    require_oracle("localhost", 1521)
+    return ConnectionConfig(
         system_type=SystemType.ORACLE,
         host="localhost",
         port=1521,
         database_name="FREEPDB1",
         credentials_ref="oracle_creds",
+        extra={"username": "akaal_admin", "password": "AkaalPass2026"},
     )
-    cfg.username = "akaal_admin"
-    cfg.password = "AkaalPass2026"
-    return cfg
 
 
 async def run_live_pipeline(config: ConnectionConfig, target_engine: str):
     """Executes full 7-stage pipeline against a live database connection."""
+    if config.system_type == SystemType.POSTGRESQL:
+        require_postgres(config.host, config.port)
+    elif config.system_type == SystemType.MYSQL:
+
+        require_mysql(config.host, config.port)
+    elif config.system_type == SystemType.ORACLE:
+        require_oracle(config.host, config.port)
     report = await ScoutPlatform.discover(config, force_refresh=True)
+
     ruleset = RulebookPlatform.generate_ruleset(report, target_engine=target_engine)
     canonical = DecoderPlatform.normalize(report, ruleset)
     risk = RiskPlatform.assess_risk(canonical)
@@ -135,6 +143,7 @@ class TestRealEnginePostgresPipeline(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        require_postgres()
         cfg = get_postgres_config(5432)
         cls.data = asyncio.run(run_live_pipeline(cfg, "POSTGRESQL"))
 
@@ -194,6 +203,7 @@ class TestRealEngineMySQLPipeline(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        require_mysql()
         cfg = get_mysql_config()
         cls.data = asyncio.run(run_live_pipeline(cfg, "MYSQL"))
 
@@ -223,8 +233,10 @@ class TestRealEngineOraclePipeline(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        require_oracle()
         cfg = get_oracle_config()
         cls.data = asyncio.run(run_live_pipeline(cfg, "ORACLE"))
+
 
     def test_scout_live_oracle_metadata(self):
         report: DiscoveryReport = self.data["report"]

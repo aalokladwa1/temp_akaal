@@ -4,10 +4,14 @@ from akaal.workflow.models.context import WorkflowContext
 from akaal.workflow.models.sub_contexts import ExecutionContext
 from akaal.workflow.steps.migration_steps import SchemaExecutionStep, DataTransportStep, ValidationStep
 
+from tests.conftest import require_postgres
+
 class TestManifestDrivenExecutionAndAntiSpecialCasing(unittest.TestCase):
 
     def setUp(self):
+        require_postgres("localhost", 5432)
         self.gateway = EngineGateway()
+
 
     def _make_context(self, wfid: str, scope: dict) -> WorkflowContext:
         ctx = WorkflowContext(execution_context=ExecutionContext(workflow_id=wfid, run_id=f"run_{wfid}"))

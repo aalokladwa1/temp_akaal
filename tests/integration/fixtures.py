@@ -77,12 +77,15 @@ def _get_dialect_sql(file_path: str, dialect: str) -> List[str]:
                     
     return statements
 
+from tests.conftest import require_mysql, require_postgres, require_oracle
+
 def reset_source_database(dialect: str, config: dict):
     """Clean the tables from database."""
     logger.info("Resetting %s source database...", dialect)
     tables = ["audit_logs", "order_items", "orders", "products", "users"]
     
     if dialect == "mysql":
+        require_mysql(config.get("host", "127.0.0.1"), config.get("port", 3306))
         conn = pymysql.connect(**config)
         with conn.cursor() as cur:
             cur.execute("SET FOREIGN_KEY_CHECKS = 0;")
@@ -92,6 +95,7 @@ def reset_source_database(dialect: str, config: dict):
         conn.commit()
         conn.close()
     elif dialect == "postgres":
+        require_postgres(config.get("host", "127.0.0.1"), config.get("port", 5432))
         conn = psycopg2.connect(
             host=config["host"], port=config["port"],
             user=config["user"], password=config["password"], dbname=config["database"]
@@ -101,6 +105,9 @@ def reset_source_database(dialect: str, config: dict):
                 cur.execute(f"DROP TABLE IF EXISTS {table} CASCADE;")
         conn.commit()
         conn.close()
+    elif dialect == "oracle":
+        require_oracle(config.get("host", "127.0.0.1"), config.get("port", 1521))
+
 
 def reset_target_database(dialect: str, config: dict):
     reset_source_database(dialect, config)

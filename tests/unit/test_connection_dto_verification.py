@@ -8,9 +8,11 @@ under valid, invalid, and privileged (SYSDBA / NORMAL) scenarios.
 import unittest
 from akaal.gateway.engine_gateway import EngineGateway
 from akaal.core.credential_vault import credential_vault
+from tests.conftest import require_oracle, require_postgres
 
 
 class TestConnectionDTOVerification(unittest.TestCase):
+
 
     def setUp(self):
         self.gateway = EngineGateway()
@@ -28,6 +30,7 @@ class TestConnectionDTOVerification(unittest.TestCase):
         self.assertEqual(credential_vault.get_credentials("cred-ref-alias-test")["password"], "alias_pass_456")
 
     def test_oracle_normal_user_connects(self):
+        require_oracle("localhost", 1521)
         payload = {
             "system_type": "Oracle 19c",
             "host": "localhost",
@@ -42,6 +45,7 @@ class TestConnectionDTOVerification(unittest.TestCase):
         self.assertEqual(res["privilege_mode"], "NORMAL")
 
     def test_oracle_sys_sysdba_connects(self):
+        require_oracle("localhost", 1521)
         payload = {
             "system_type": "Oracle 19c",
             "host": "localhost",
@@ -56,6 +60,7 @@ class TestConnectionDTOVerification(unittest.TestCase):
         self.assertEqual(res["privilege_mode"], "SYSDBA")
 
     def test_oracle_sys_normal_mode_surfaces_error(self):
+        require_oracle("localhost", 1521)
         payload = {
             "system_type": "Oracle 19c",
             "host": "localhost",
@@ -70,6 +75,7 @@ class TestConnectionDTOVerification(unittest.TestCase):
         self.assertIn("ORA-", res["message"])
 
     def test_oracle_invalid_password_surfaces_sanitized_error(self):
+        require_oracle("localhost", 1521)
         payload = {
             "system_type": "Oracle 19c",
             "host": "localhost",
@@ -84,6 +90,7 @@ class TestConnectionDTOVerification(unittest.TestCase):
         self.assertIn("ORA-01017", res["message"])
 
     def test_postgresql_valid_credentials_unaffected(self):
+        require_postgres("127.0.0.1", 5432)
         payload = {
             "system_type": "PostgreSQL 16",
             "host": "127.0.0.1",
@@ -99,6 +106,7 @@ class TestConnectionDTOVerification(unittest.TestCase):
             res = self.gateway.test_connection(payload)
         self.assertTrue(res["connected"])
         self.assertEqual(res["system_type"], "POSTGRESQL 16")
+
 
 
 if __name__ == "__main__":

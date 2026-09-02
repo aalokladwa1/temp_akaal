@@ -61,7 +61,10 @@ class TestStep52CanonicalTransportReachability(unittest.TestCase):
     @patch("akaal.engine.checkpoint.CheckpointStore")
     def test_legacy_engine_components_never_invoked(self, mock_checkpoint_store, mock_target_writer, mock_migration_engine):
         """Assert that executing DataTransportStep never invokes AkaalMigrationEngine, PostgreSQLTargetWriter, or CheckpointStore."""
+        from tests.conftest import require_postgres
+        require_postgres("127.0.0.1", 5432)
         step = DataTransportStep()
+
         
         mock_src_conn = MagicMock()
         mock_src_conn.__eq__ = lambda self, other: False

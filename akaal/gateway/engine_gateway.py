@@ -2183,14 +2183,17 @@ class EngineGateway:
         comp_tbls = progress.get("completed_tables", 0) if progress else 0
         tot_tbls = progress.get("total_tables", 1) if progress else 1
         
-        if st_str == "COMPLETED":
+        if st_str == "COMPLETED" or (progress and progress.get("percentage") == 100.0) or (progress and progress.get("status") == "COMPLETED"):
             prog_pct = 100.0
+        elif progress and (progress.get("percentage") is not None or progress.get("progress_percent") is not None):
+            prog_pct = progress.get("percentage") if progress.get("percentage") is not None else progress.get("progress_percent")
         elif progress and (rows_m is not None or comp_tbls > 0):
             tbl_pct = (comp_tbls / max(tot_tbls, 1)) * 100.0
             row_pct = ((rows_m or 0) / max(rows_t or 1, 1)) * 100.0 if (rows_t and rows_t > 0) else 0.0
             prog_pct = min(99.9, round(max(tbl_pct, row_pct), 1))
         else:
             prog_pct = None
+
 
         runtime_info = self.runtime_registry.get_runtime(mig_id)
         pid_val = runtime_info.get("pid") if runtime_info else None

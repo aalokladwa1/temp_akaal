@@ -10,6 +10,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional, Tuple, Union
 from akaal.core.crypto_random import generate_secure_id, generate_secure_token
 from akaal.core.time_authority import TimeAuthority
+from akaalPipeline.contracts.enums import AuthenticationAssurance, AuthenticationState, CredentialMechanism
 from akaalPipeline.contracts.errors import UnauthorizedError
 from akaalPipeline.security.config import SecurityBaselineConfig
 from akaalPipeline.state.repositories import (
@@ -83,10 +84,22 @@ class SessionManager:
         ttl_seconds: Optional[int] = None,
         client_ip: Optional[str] = None,
         user_agent: Optional[str] = None,
+        authentication_assurance: AuthenticationAssurance = AuthenticationAssurance.NONE,
+        credential_mechanism: Optional[CredentialMechanism] = None,
+        trust_domain: Optional[str] = None,
     ) -> SessionResult:
         """
         Create a durable high-entropy session.
         Returns: SessionResult(session_id, raw_bearer_token)
+
+        `authentication_assurance`/`credential_mechanism`/`trust_domain`: captured HERE,
+        at session-establishment time, from the caller's ALREADY-VERIFIED authentication
+        result (e.g. akaalPipeline.security.federation.manager.FederationManager's
+        successful OIDC/SAML/LDAP validation, or akaalPipeline.security.mfa.MFAAuthority's
+        successful challenge verification) -- never from a later, untrusted, wire-asserted
+        claim. This is what allows resolve_authenticated_context() to later hand back a
+        genuinely trustworthy assurance level for HIGH-assurance-gated authorization,
+        without re-deriving trust from anything the caller merely asserts on each request.
         """
         # If principal_id is a username, resolve to principal_id
         principal = self.principal_repo.get_by_id(tenant_id, principal_id)
@@ -117,8 +130,48 @@ class SessionManager:
             bound_security_revision=principal["security_revision"],
             client_ip=client_ip,
             user_agent=user_agent,
+            authentication_assurance=authentication_assurance.value if hasattr(authentication_assurance, "value") else str(authentication_assurance),
+            credential_mechanism=(credential_mechanism.value if hasattr(credential_mechanism, "value") else credential_mechanism) if credential_mechanism else None,
+            trust_domain=trust_domain,
         )
         return SessionResult(session_id, raw_token)
+
+    def resolve_authenticated_context(self, tenant_id: str, session_id: str, raw_token: str):
+        """
+        THE trusted bridge: resolves a raw bearer token (never a bare session_id alone --
+        that is not secret and would let a caller merely guess/replay an identifier) via
+        the existing validate_session() durable session authority, then constructs a
+        genuinely trustworthy `PipelineActorContext` using the ASSURANCE/CREDENTIAL/
+        TRUST-DOMAIN CAPTURED AT SESSION CREATION TIME (see create_session() above) --
+        never from anything the current request's caller merely asserts. Fails closed
+        (raises UnauthorizedError) on any invalid/expired/revoked/tampered session,
+        exactly like every other session validation failure in this class.
+        """
+        from akaalPipeline.security.context import PipelineActorContext  # local import: avoids a security->identity import cycle
+
+        session = self.authenticate_session(tenant_id, raw_token)
+        if session["session_id"] != session_id:
+            # The supplied session_id does not match the session actually bound to this
+            # token -- treat as tampered/substituted provenance and fail closed.
+            raise UnauthorizedError("Session identity does not match the presented session token; provenance rejected.")
+
+        principal = self.principal_repo.get_by_id(tenant_id, session["principal_id"])
+        if not principal or not principal["is_active"]:
+            raise UnauthorizedError("Session principal is no longer active.")
+
+        return PipelineActorContext(
+            actor_id=session["principal_id"],
+            actor_type=principal.get("principal_type", "HUMAN"),
+            display_name=principal.get("display_name"),
+            email=principal.get("email"),
+            organization_id=tenant_id,
+            session_id=session["session_id"],
+            credential_mechanism=session.get("credential_mechanism") or CredentialMechanism.SESSION_TOKEN.value,
+            authentication_state=AuthenticationState.AUTHENTICATED.value,
+            authentication_assurance=session.get("authentication_assurance") or AuthenticationAssurance.NONE.value,
+            trust_domain=session.get("trust_domain"),
+            issued_at=session.get("issued_at"),
+        )
 
     def validate_session(
         self,
@@ -167,8 +220,18 @@ class SessionManager:
             self.session_repo.revoke_session(tenant_id, session_id, "SECURITY_REVISION_ADVANCED")
             raise SessionSecurityRevisionMismatchError("Principal security revision advanced; session invalid")
 
-        # Update last activity
+        # Update last activity. Ownership captured BEFORE this call's first write (this
+        # method may run inside an external `with uow:` transaction, or -- as with the
+        # HIGH-assurance trusted-session bridge in unified_caller.handle_command(), which
+        # calls resolve_authenticated_context()/authenticate_session() before opening its
+        # own transaction -- it may be the one opening the connection's transaction. Same
+        # composability rule as identity.jit_identity.JITIdentityAuthority._commit_if_owned:
+        # self-commit only when this call itself owns the transaction, else the outer owner
+        # commits/rolls back later.
+        owns_transaction = not self.session_repo.conn.in_transaction
         self.session_repo.update_activity(tenant_id, session_id, now_iso)
+        if owns_transaction:
+            self.session_repo.conn.commit()
         session["last_activity_at"] = now_iso
         return session
 

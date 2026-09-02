@@ -159,6 +159,43 @@ class RBACAuthority:
 
         return self.resolve_permissions_for_roles(tenant_id, active_role_ids)
 
+    def get_principal_roles(
+        self,
+        tenant_id: str,
+        principal_id: str,
+        group_ids: Optional[List[str]] = None,
+        req_resource_type: str = "SYSTEM",
+        req_resource_id: str = "root",
+    ) -> Set[str]:
+        """Resolve all authoritative active roles for a principal and groups from durable storage, including inherited parent roles."""
+        subject_tuples: List[Tuple[str, str]] = [(GrantSubjectType.PRINCIPAL.value, principal_id)]
+        if group_ids:
+            for gid in group_ids:
+                subject_tuples.append((GrantSubjectType.GROUP.value, gid))
+
+        grants = self.role_grant_repo.list_active_grants_for_subjects(tenant_id, subject_tuples)
+        active_role_ids: Set[str] = set()
+        for grant in grants:
+            if grant.get("is_revoked"):
+                continue
+            if TimeAuthority.is_expired(grant.get("expires_at")):
+                continue
+
+            if self._is_scope_applicable(
+                tenant_id=tenant_id,
+                grant_resource_type=grant["resource_type"],
+                grant_resource_id=grant["resource_id"],
+                req_resource_type=req_resource_type,
+                req_resource_id=req_resource_id,
+            ):
+                active_role_ids.add(grant["role_id"])
+
+        all_roles: Set[str] = set()
+        for r_id in active_role_ids:
+            all_roles.update(self.resolve_role_hierarchy(tenant_id, r_id))
+        return all_roles
+
+
     def resolve_effective_permissions_for_subject(
         self,
         tenant_id: str,

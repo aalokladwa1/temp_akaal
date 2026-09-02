@@ -27,19 +27,19 @@ from tests.pipeline.conftest import make_command, make_query
 
 
 # -- 01. Duplicate Start ----------------------------------------------------
-def test_01_duplicate_start(unified_caller, ipc_actor, ipc_correlation):
+def test_01_duplicate_start(unified_caller, verified_ipc_actor, ipc_correlation):
     """Prove duplicate start command handles idempotency or state transitions cleanly."""
     cmd_create = make_command(
         request_type="migration.create",
         payload={"migration_id": "mig-dup-1", "mode": "M1"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
     )
     unified_caller.handle_command(cmd_create)
     cmd_init = make_command(
         request_type="migration.initialize",
         payload={"migration_id": "mig-dup-1"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
     )
     unified_caller.handle_command(cmd_init)
@@ -47,7 +47,7 @@ def test_01_duplicate_start(unified_caller, ipc_actor, ipc_correlation):
     cmd1 = make_command(
         request_type="migration.start",
         payload={"migration_id": "mig-dup-1", "mode": "M1"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
     )
     res1 = unified_caller.handle_command(cmd1)
@@ -221,19 +221,19 @@ def test_25_irreversible_recovery_forbidden(temp_db_path):
 
 
 # -- 29. IPC Acceptance Cannot Infer Execution Success ----------------------
-def test_29_acceptance_distinct_from_execution_success(unified_caller, ipc_actor, ipc_correlation):
+def test_29_acceptance_distinct_from_execution_success(unified_caller, verified_ipc_actor, ipc_correlation):
     """Prove command acceptance or unbound error does NOT claim execution success."""
     cmd_create = make_command(
         request_type="migration.create",
         payload={"migration_id": "mig-29", "mode": "M1"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
     )
     unified_caller.handle_command(cmd_create)
     cmd_init = make_command(
         request_type="migration.initialize",
         payload={"migration_id": "mig-29"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
     )
     unified_caller.handle_command(cmd_init)
@@ -241,7 +241,7 @@ def test_29_acceptance_distinct_from_execution_success(unified_caller, ipc_actor
     cmd = make_command(
         request_type="migration.start",
         payload={"migration_id": "mig-29", "mode": "M1"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
     )
     res = unified_caller.handle_command(cmd)

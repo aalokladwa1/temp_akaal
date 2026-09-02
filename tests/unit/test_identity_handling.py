@@ -227,10 +227,14 @@ def test_version_capability_matrix():
     assert unknown.capabilities[CapabilityType.IDENTITY].supported is False
 
 
+from tests.conftest import require_postgres
+
 @pytest.mark.asyncio
 async def test_adapters_discover_identity():
     """Asserts that all database adapters discover identity metadata in mock mode."""
+    require_postgres("source-db.example.com")
     from akaal.adapters.rdbms.postgresql_adapter import PostgreSQLAdapter
+
     from akaal.adapters.rdbms.oracle_adapter import OracleAdapter
     from akaal.adapters.rdbms.mssql_adapter import MSSQLAdapter
     from akaal.adapters.rdbms.mysql_adapter import MySQLAdapter

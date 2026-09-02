@@ -46,7 +46,7 @@ class ExpressionCompiler:
         # Date & Time operations
         "DATE_PARSE", "DATE_FORMAT", "TIMEZONE_CONVERT", "EPOCH_CONVERT",
         # Boolean & Null operations
-        "BOOLEAN_NORMALIZE", "COALESCE", "IS_NULL", "IS_NOT_NULL", "IF",
+        "BOOLEAN_NORMALIZE", "COALESCE", "IS_NULL", "IS_NOT_NULL", "IF", "EQ", "NEQ",
     }
 
     @classmethod
@@ -67,6 +67,37 @@ class ExpressionCompiler:
         return current_depth
 
     @classmethod
+    def _find_top_level_operator(cls, text: str, op: str) -> int:
+        in_quote = False
+        quote_char = None
+        paren_depth = 0
+        i = 0
+        n = len(text)
+        op_len = len(op)
+        while i < n:
+            c = text[i]
+            if c in ("'", '"'):
+                if not in_quote:
+                    in_quote = True
+                    quote_char = c
+                elif quote_char == c:
+                    in_quote = False
+                    quote_char = None
+            elif not in_quote:
+                if c == '(':
+                    paren_depth += 1
+                elif c == ')':
+                    paren_depth -= 1
+                elif paren_depth == 0:
+                    if text[i:i+op_len] == op:
+                        if op == "-" and (i == 0 or text[:i].strip().endswith(("+", "-", "*", "/", "==", "!="))):
+                            pass
+                        else:
+                            return i
+            i += 1
+        return -1
+
+    @classmethod
     def parse_simple_expression(cls, expr_text: str) -> ASTNode:
         """Parses standard string expressions into AST nodes safely without eval."""
         text = expr_text.strip()
@@ -83,11 +114,34 @@ class ExpressionCompiler:
             raw_args = match_fn.group(2).strip()
             args: List[ASTNode] = []
             if raw_args:
-                # Split args safely by comma respecting quotes
                 parts = cls._split_args(raw_args)
                 for part in parts:
                     args.append(cls.parse_simple_expression(part))
             return FunctionCallNode(fn_name, args)
+
+        # Infix comparison operators
+        for op, fn in [("==", "EQ"), ("!=", "NEQ")]:
+            idx = cls._find_top_level_operator(text, op)
+            if idx != -1:
+                left = text[:idx].strip()
+                right = text[idx+len(op):].strip()
+                return FunctionCallNode(fn, [cls.parse_simple_expression(left), cls.parse_simple_expression(right)])
+
+        # Infix additive operators
+        for op, fn in [("+", "ADD"), ("-", "SUBTRACT")]:
+            idx = cls._find_top_level_operator(text, op)
+            if idx != -1:
+                left = text[:idx].strip()
+                right = text[idx+len(op):].strip()
+                return FunctionCallNode(fn, [cls.parse_simple_expression(left), cls.parse_simple_expression(right)])
+
+        # Infix multiplicative operators
+        for op, fn in [("*", "MULTIPLY"), ("/", "DIVIDE")]:
+            idx = cls._find_top_level_operator(text, op)
+            if idx != -1:
+                left = text[:idx].strip()
+                right = text[idx+len(op):].strip()
+                return FunctionCallNode(fn, [cls.parse_simple_expression(left), cls.parse_simple_expression(right)])
 
         # Literal string in single or double quotes
         if (text.startswith("'") and text.endswith("'")) or (text.startswith('"') and text.endswith('"')):
@@ -110,6 +164,7 @@ class ExpressionCompiler:
 
         # Column reference fallback
         return ColumnRefNode(text)
+
 
     @classmethod
     def _split_args(cls, args_str: str) -> List[str]:
@@ -264,6 +319,24 @@ class ExpressionCompiler:
             val = evaluated_args[0] if evaluated_args else None
             return math.ceil(float(val)) if val is not None else None
 
+        elif fn_name == "ADD":
+            v1, v2 = (evaluated_args[0] if len(evaluated_args) > 0 else None), (evaluated_args[1] if len(evaluated_args) > 1 else None)
+            if v1 is None or v2 is None:
+                return None
+            return float(v1) + float(v2) if isinstance(v1, float) or isinstance(v2, float) else int(v1) + int(v2)
+
+        elif fn_name == "SUBTRACT":
+            v1, v2 = (evaluated_args[0] if len(evaluated_args) > 0 else None), (evaluated_args[1] if len(evaluated_args) > 1 else None)
+            if v1 is None or v2 is None:
+                return None
+            return float(v1) - float(v2) if isinstance(v1, float) or isinstance(v2, float) else int(v1) - int(v2)
+
+        elif fn_name == "MULTIPLY":
+            v1, v2 = (evaluated_args[0] if len(evaluated_args) > 0 else None), (evaluated_args[1] if len(evaluated_args) > 1 else None)
+            if v1 is None or v2 is None:
+                return None
+            return float(v1) * float(v2) if isinstance(v1, float) or isinstance(v2, float) else int(v1) * int(v2)
+
         elif fn_name == "DIVIDE":
             v1, v2 = evaluated_args[0], evaluated_args[1]
             if v1 is None or v2 is None:
@@ -271,6 +344,17 @@ class ExpressionCompiler:
             if float(v2) == 0.0:
                 return None  # Division-by-zero guard returns NULL
             return float(v1) / float(v2)
+
+        elif fn_name == "EQ":
+            v1 = evaluated_args[0] if len(evaluated_args) > 0 else None
+            v2 = evaluated_args[1] if len(evaluated_args) > 1 else None
+            return v1 == v2
+
+        elif fn_name == "NEQ":
+            v1 = evaluated_args[0] if len(evaluated_args) > 0 else None
+            v2 = evaluated_args[1] if len(evaluated_args) > 1 else None
+            return v1 != v2
+
 
         # --- DATE & TIME OPERATIONS ---
         elif fn_name == "DATE_PARSE":

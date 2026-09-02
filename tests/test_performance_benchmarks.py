@@ -8,11 +8,15 @@ from akaal.cdc.contracts.event import CDCEvent, ChangeType
 from akaal.cdc.coordinator.coordinator import CDCCoordinator
 from akaal.reporting.contracts.dto import ReportRequestDTO
 from akaal.reporting.engine.engine import ReportEngine
+from tests.conftest import require_postgres
+
 
 
 @pytest.mark.asyncio
 async def test_cdc_throughput_benchmark():
+    require_postgres("localhost", 5432)
     coord = CDCCoordinator()
+
     evt = CDCEvent(source_engine="POSTGRES", source_db="db", source_schema="public", source_table="users", change_type=ChangeType.INSERT)
 
     iterations = 500

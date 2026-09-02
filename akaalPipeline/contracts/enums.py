@@ -352,3 +352,79 @@ class FencingAssuranceClass(str, Enum):
     PRE_OPERATION_ONLY = "PRE_OPERATION_ONLY"
     COMPENSATABLE_NON_ATOMIC = "COMPENSATABLE_NON_ATOMIC"
     UNSUPPORTED_FAIL_CLOSED = "UNSUPPORTED_FAIL_CLOSED"
+
+
+# ---------------------------------------------------------------------------
+# P7.1 Canonical Security Foundation & Zero-Trust Enums
+# ---------------------------------------------------------------------------
+
+class AuthenticationState(str, Enum):
+    UNAUTHENTICATED = "UNAUTHENTICATED"
+    CLAIMED = "CLAIMED"
+    AUTHENTICATED = "AUTHENTICATED"
+    FAILED = "FAILED"
+    EXPIRED = "EXPIRED"
+    REVOKED = "REVOKED"
+
+
+class CredentialMechanism(str, Enum):
+    PASSWORD = "PASSWORD"
+    API_TOKEN = "API_TOKEN"
+    SESSION_TOKEN = "SESSION_TOKEN"
+    OIDC_ID_TOKEN = "OIDC_ID_TOKEN"
+    OAUTH2_BEARER_TOKEN = "OAUTH2_BEARER_TOKEN"
+    SAML2_ASSERTION = "SAML2_ASSERTION"
+    LDAP_BIND_CREDENTIAL = "LDAP_BIND_CREDENTIAL"
+    X509_CERTIFICATE = "X509_CERTIFICATE"
+    SPIFFE_X509_SVID = "SPIFFE_X509_SVID"
+    SPIFFE_JWT_SVID = "SPIFFE_JWT_SVID"
+    SYSTEM_INTERNAL = "SYSTEM_INTERNAL"
+
+
+class AuthenticationAssurance(str, Enum):
+    NONE = "NONE"
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
+
+
+class TrustDomainType(str, Enum):
+    ENTERPRISE_IDP = "ENTERPRISE_IDP"
+    PKI_CA = "PKI_CA"
+    SPIFFE = "SPIFFE"
+    DIRECTORY_LDAP = "DIRECTORY_LDAP"
+    WORKLOAD_MESH = "WORKLOAD_MESH"
+    LOCAL_SYSTEM = "LOCAL_SYSTEM"
+
+
+# ---------------------------------------------------------------------------
+# P7.2 PKI & Certificate Lifecycle Enums
+# ---------------------------------------------------------------------------
+
+class CertificateLifecycleState(str, Enum):
+    DISCOVERED = "DISCOVERED"
+    REFERENCED = "REFERENCED"
+    VALIDATED = "VALIDATED"
+    ACTIVE = "ACTIVE"
+    EXPIRING = "EXPIRING"
+    RENEWAL_REQUESTED = "RENEWAL_REQUESTED"
+    ROTATING = "ROTATING"
+    RETIRING = "RETIRING"
+    REVOKED = "REVOKED"
+    EXPIRED = "EXPIRED"
+    INVALID = "INVALID"
+    UNAVAILABLE = "UNAVAILABLE"
+
+
+# ---------------------------------------------------------------------------
+# P7.4 Enterprise Identity Federation Enums
+# ---------------------------------------------------------------------------
+
+class FederationProviderType(str, Enum):
+    OIDC = "OIDC"
+    OAUTH2 = "OAUTH2"
+    SAML2 = "SAML2"
+    LDAP = "LDAP"
+    ACTIVE_DIRECTORY = "ACTIVE_DIRECTORY"
+
+

@@ -31,6 +31,7 @@ from akaalIPC.protocol.envelopes import CommandEnvelope, CorrelationContext, Que
 from akaalIPC.protocol.errors import IPCErrorCategory
 from akaalIPC.protocol.schemas import RequestKind, SchemaRegistry, register_core_pipeline_schemas
 from akaalPipeline.application.unified_caller import PipelineUnifiedCaller
+from tests.pipeline.conftest import authorized_caller, provision_verified_actor
 from akaalPipeline.contracts.enums import (
     AlertLifecycleState,
     AlertSeverity,
@@ -111,7 +112,7 @@ def test_db_path(tmp_path):
 
 @pytest.fixture
 def unified_caller(test_db_path):
-    return PipelineUnifiedCaller(db_path=test_db_path)
+    return authorized_caller(db_path=test_db_path)
 
 
 @pytest.fixture
@@ -710,14 +711,27 @@ def test_retention_preview_and_execution_via_caller(unified_caller, test_db_path
         cur = uow.connection.execute("SELECT * FROM operation_journal WHERE operation_id = 'op-prune-1'")
         assert cur.fetchone() is not None
 
-    # 2. Execute Command
-    exec_res = unified_caller.handle_command(make_cmd(
+    # 2. Execute Command -- retention.execute requires HIGH authentication assurance
+    # (see akaalPipeline.application.unified_caller's _HIGH_ASSURANCE_PERMISSIONS); the
+    # bare PipelineActorContext-derived admin_actor carries no verified assurance evidence,
+    # so this must go through a REAL trusted session (same authority the production
+    # PipelineUnifiedCaller trusted-session bridge resolves through) rather than admin_actor.
+    verified_uow = SQLiteUnitOfWork(test_db_path)
+    verified_uow.initialize_schema()
+    verified_actor_ipc = provision_verified_actor(verified_uow, tenant_id=admin_actor.organization_id, principal_id=admin_actor.actor_id)
+    verified_uow.close()
+    exec_res = unified_caller.handle_command(CommandEnvelope(
+        request_id=f"req-{uuid.uuid4().hex[:12]}",
+        command_id=f"cmd-{uuid.uuid4().hex[:12]}",
         request_type="retention.execute",
+        protocol_version="1.0.0",
+        schema_version="1.0",
         payload={
             "cutoff_time": datetime.now(timezone.utc).isoformat(),
             "data_classes": ["operation_journal"],
         },
-        actor=admin_actor,
+        kind=RequestKind.COMMAND,
+        actor=verified_actor_ipc,
         correlation=corr,
     ))
     assert exec_res.status.value == "OK"
@@ -1755,7 +1769,7 @@ def test_cross_p6_flow_e_ambiguous_control_fencing_and_alert(test_db_path, admin
 
 def test_operations_gateway_dynamic_capability_discovery(test_db_path, admin_actor):
     """Verify Operations Gateway dynamically resolves capabilities without hardcoded flags."""
-    caller = PipelineUnifiedCaller(db_path=test_db_path)
+    caller = authorized_caller(db_path=test_db_path)
     gateway = OperationsGateway(caller)
     caps = gateway.discover_capabilities(admin_actor)
 
@@ -1773,7 +1787,7 @@ def test_operations_gateway_dynamic_capability_discovery(test_db_path, admin_act
 
 def test_operations_gateway_complete_northbound_routing(test_db_path, admin_actor):
     """Verify Operations Gateway routes queries across P6.1 through P6.7 seamlessly."""
-    caller = PipelineUnifiedCaller(db_path=test_db_path)
+    caller = authorized_caller(db_path=test_db_path)
     gateway = OperationsGateway(caller)
     corr = CorrelationContext(correlation_id="corr-gw-1", request_id="req-gw-1")
 
@@ -1802,7 +1816,7 @@ def test_operations_gateway_complete_northbound_routing(test_db_path, admin_acto
 
 def test_operations_gateway_context_and_tenant_security(test_db_path, admin_actor):
     """Verify Operations Gateway enforces tenant isolation and rejects unauthorized access."""
-    caller = PipelineUnifiedCaller(db_path=test_db_path)
+    caller = authorized_caller(db_path=test_db_path)
     gateway = OperationsGateway(caller)
     corr = CorrelationContext(correlation_id="corr-sec-1", request_id="req-sec-1")
 

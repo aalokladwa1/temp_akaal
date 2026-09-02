@@ -150,6 +150,8 @@ class TransformationRule:
     rule_type: RuleType = RuleType.EXPRESSION
     expression_ast: Optional[ASTNode] = None
     expression_text: Optional[str] = None
+    condition_ast: Optional[ASTNode] = None
+    condition_text: Optional[str] = None
     default_value: Any = None
     target_type: Optional[str] = None
     priority: int = 10
@@ -163,12 +165,15 @@ class TransformationRule:
             "rule_type": self.rule_type.value,
             "expression_ast": self.expression_ast.to_dict() if self.expression_ast else None,
             "expression_text": self.expression_text,
+            "condition_ast": self.condition_ast.to_dict() if self.condition_ast else None,
+            "condition_text": self.condition_text,
             "default_value": self.default_value,
             "target_type": self.target_type,
             "priority": self.priority,
             "malformed_policy": self.malformed_policy.value,
             "lookup_definition": self.lookup_definition.to_dict() if self.lookup_definition else None,
         }
+
 
 
 @dataclass

@@ -29,9 +29,14 @@ def test_stage3_system_agent_registration_and_health():
     assert health_p["diagnostics"]["system_health"] == "HEALTHY"
 
 
+from tests.conftest import require_postgres
+
+
 @pytest.mark.asyncio
 async def test_stage3_agent_network_fleet_execution(tmp_path):
+    require_postgres("source-db.example.com", 5432)
     workspace = str(tmp_path / "akaal_stage3_ws")
+
 
     source_cfg = ConnectionConfig(
         system_type=SystemType.POSTGRESQL,

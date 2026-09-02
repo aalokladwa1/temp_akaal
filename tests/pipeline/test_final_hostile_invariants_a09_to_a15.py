@@ -26,7 +26,7 @@ from akaalPipeline.ports.engine import EngineInvocationRequest, EngineInvocation
 from akaalPipeline.recovery.checkpoints import CheckpointCandidate
 from akaalPipeline.security.context import PipelineActorContext
 from akaalPipeline.state.unit_of_work import SQLiteUnitOfWork
-from tests.pipeline.conftest import make_command, make_query
+from tests.pipeline.conftest import authorized_caller, make_command, make_query
 
 
 
@@ -241,9 +241,9 @@ def _setup_planned_and_initialized_migration(
 # A-09: ONE AUTHORITATIVE BINDING SELECTION
 # ==============================================================================
 
-def test_a09_unrelated_binding_cannot_satisfy_capability(temp_db_path, ipc_actor, ipc_correlation):
+def test_a09_unrelated_binding_cannot_satisfy_capability(temp_db_path, verified_ipc_actor, ipc_correlation):
     """Prove a binding registered ONLY for validation_compare cannot be invoked for data_transport."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     val_port = DummyTrackingPort("ValidationPort")
     caller.binding_registry.register(
         EngineBindingDescriptor(
@@ -256,13 +256,13 @@ def test_a09_unrelated_binding_cannot_satisfy_capability(temp_db_path, ipc_actor
         )
     )
 
-    _setup_planned_and_initialized_migration(caller, "mig-unrelated-bind", ipc_actor, ipc_correlation, "M1")
+    _setup_planned_and_initialized_migration(caller, "mig-unrelated-bind", verified_ipc_actor, ipc_correlation, "M1")
 
     # Start M1 migration (requires data_transport)
     cmd = make_command(
         request_type="migration.start",
         payload={"migration_id": "mig-unrelated-bind", "mode": "M1"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
     )
     res = caller.handle_command(cmd)
@@ -274,7 +274,7 @@ def test_a09_unrelated_binding_cannot_satisfy_capability(temp_db_path, ipc_actor
 
 def test_a09_incompatible_contract_version_rejected(temp_db_path):
     """Prove a binding with incompatible contract version is rejected by resolver."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     port = DummyTrackingPort()
     caller.binding_registry.register(
         EngineBindingDescriptor(
@@ -295,7 +295,7 @@ def test_a09_incompatible_contract_version_rejected(temp_db_path):
 
 def test_a09_empty_capability_set_binding_rejected(temp_db_path):
     """Prove a binding with empty supported_capabilities or supported_modes is rejected and not treated as a wildcard."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     port = DummyTrackingPort()
     caller.binding_registry.register(
         EngineBindingDescriptor(
@@ -315,9 +315,9 @@ def test_a09_empty_capability_set_binding_rejected(temp_db_path):
 
 
 
-def test_a09_multiple_competing_bindings_selects_only_exact_match(temp_db_path, ipc_actor, ipc_correlation):
+def test_a09_multiple_competing_bindings_selects_only_exact_match(temp_db_path, verified_ipc_actor, ipc_correlation):
     """Prove resolver accurately selects only the exact matching healthy binding from multiple competing candidates."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
 
     port_wrong_cap = DummyTrackingPort("WrongCapPort")
     port_wrong_mode = DummyTrackingPort("WrongModePort")
@@ -357,12 +357,12 @@ def test_a09_multiple_competing_bindings_selects_only_exact_match(temp_db_path, 
     )
 
 
-    _setup_planned_and_initialized_migration(caller, "mig-compete-bind", ipc_actor, ipc_correlation, "M1")
+    _setup_planned_and_initialized_migration(caller, "mig-compete-bind", verified_ipc_actor, ipc_correlation, "M1")
 
     cmd = make_command(
         request_type="migration.start",
         payload={"migration_id": "mig-compete-bind", "mode": "M1"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
     )
     res = caller.handle_command(cmd)
@@ -573,11 +573,11 @@ def test_a11_external_mutation_isolation():
 # A-12: COMPLETE TRANSACTION ATOMICITY
 # ==============================================================================
 
-def test_a12_create_transaction_rollback_cleans_state_and_outbox_and_audit(temp_db_path, ipc_actor):
+def test_a12_create_transaction_rollback_cleans_state_and_outbox_and_audit(temp_db_path, verified_ipc_actor):
     """Prove that an unhandled error rolling back a UoW transaction leaves zero orphaned outbox or audit records."""
     uow = SQLiteUnitOfWork(db_path=temp_db_path)
-    caller = PipelineUnifiedCaller(shared_uow=uow)
-    pipeline_actor = PipelineActorContext.from_ipc(ipc_actor)
+    caller = authorized_caller(shared_uow=uow)
+    pipeline_actor = PipelineActorContext.from_ipc(verified_ipc_actor)
 
     with pytest.raises(RuntimeError):
         with uow:
@@ -601,11 +601,11 @@ def test_a12_create_transaction_rollback_cleans_state_and_outbox_and_audit(temp_
         assert cur_audit.fetchone()[0] == 0
 
 
-def test_a12_configure_rollback_cleans_all_records(temp_db_path, ipc_actor):
+def test_a12_configure_rollback_cleans_all_records(temp_db_path, verified_ipc_actor):
     """Prove forced failure during configure rolls back aggregate state and all correlated outbox/audit records."""
     uow = SQLiteUnitOfWork(db_path=temp_db_path)
-    caller = PipelineUnifiedCaller(shared_uow=uow)
-    pipeline_actor = PipelineActorContext.from_ipc(ipc_actor)
+    caller = authorized_caller(shared_uow=uow)
+    pipeline_actor = PipelineActorContext.from_ipc(verified_ipc_actor)
 
     # Create initial migration
     with uow:
@@ -637,16 +637,16 @@ def test_a12_configure_rollback_cleans_all_records(temp_db_path, ipc_actor):
         assert cur_outbox.fetchone()[0] == 0
 
 
-def test_a12_unbound_dispatch_failure_stages_outbox_and_audit(temp_db_path, ipc_actor, ipc_correlation):
+def test_a12_unbound_dispatch_failure_stages_outbox_and_audit(temp_db_path, verified_ipc_actor, ipc_correlation):
     """Prove post-commit unbound failure in start stages correlated outbox event and audit trail."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
-    _setup_planned_and_initialized_migration(caller, "mig-unbound-audit", ipc_actor, ipc_correlation, "M1")
+    caller = authorized_caller(db_path=temp_db_path)
+    _setup_planned_and_initialized_migration(caller, "mig-unbound-audit", verified_ipc_actor, ipc_correlation, "M1")
 
     # Start migration with NO engine bound
     cmd_start = make_command(
         request_type="migration.start",
         payload={"migration_id": "mig-unbound-audit", "mode": "M1"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
     )
     res_start = caller.handle_command(cmd_start)
@@ -675,13 +675,13 @@ def test_a12_unbound_dispatch_failure_stages_outbox_and_audit(temp_db_path, ipc_
 # ==============================================================================
 
 
-def test_a13_cancellation_durability_and_idempotency(temp_db_path, ipc_actor, ipc_correlation):
+def test_a13_cancellation_durability_and_idempotency(temp_db_path, verified_ipc_actor, ipc_correlation):
     """Prove migration cancellation transitions to CANCELLED, records events, and is restart-durable."""
-    caller1 = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller1 = authorized_caller(db_path=temp_db_path)
     cmd_create = make_command(
         request_type="migration.create",
         payload={"migration_id": "mig-cancel-1", "name": "Cancel Mig", "mode": "M1"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
     )
     caller1.handle_command(cmd_create)
@@ -689,7 +689,7 @@ def test_a13_cancellation_durability_and_idempotency(temp_db_path, ipc_actor, ip
     cmd_cancel = make_command(
         request_type="migration.cancel",
         payload={"migration_id": "mig-cancel-1", "reason": "User abort"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
         idempotency_key="idemp-cancel-1",
     )
@@ -702,11 +702,11 @@ def test_a13_cancellation_durability_and_idempotency(temp_db_path, ipc_actor, ip
     assert res_cancel_replay.status.value == "OK"
 
     # Verify state after restart
-    caller2 = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller2 = authorized_caller(db_path=temp_db_path)
     query = make_query(
         request_type="migration.get",
         payload={"migration_id": "mig-cancel-1"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
     )
     res_query = caller2.handle_query(query)
@@ -714,9 +714,9 @@ def test_a13_cancellation_durability_and_idempotency(temp_db_path, ipc_actor, ip
     assert res_query.result["state"] == "CANCELLED"
 
 
-def test_a13_cancellation_fences_active_attempt_and_late_engine_result_rejected(temp_db_path, ipc_actor, ipc_correlation):
+def test_a13_cancellation_fences_active_attempt_and_late_engine_result_rejected(temp_db_path, verified_ipc_actor, ipc_correlation):
     """Prove cancelling a migration with an active attempt revokes its lease and fences out late engine results."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     rec_port = RecordingExecutionPort(is_in_progress=True)
     caller.binding_registry.register(
         EngineBindingDescriptor(
@@ -725,13 +725,13 @@ def test_a13_cancellation_fences_active_attempt_and_late_engine_result_rejected(
         )
     )
 
-    _setup_planned_and_initialized_migration(caller, "mig-fence-cancel", ipc_actor, ipc_correlation, "M1")
+    _setup_planned_and_initialized_migration(caller, "mig-fence-cancel", verified_ipc_actor, ipc_correlation, "M1")
 
     # Start migration to establish active attempt A1 and lease
     cmd_start = make_command(
         request_type="migration.start",
         payload={"migration_id": "mig-fence-cancel", "mode": "M1"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
     )
     res_start = caller.handle_command(cmd_start)
@@ -750,7 +750,7 @@ def test_a13_cancellation_fences_active_attempt_and_late_engine_result_rejected(
     cmd_cancel = make_command(
         request_type="migration.cancel",
         payload={"migration_id": "mig-fence-cancel", "reason": "Operator cancelled execution"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
     )
     res_cancel = caller.handle_command(cmd_cancel)
@@ -789,13 +789,13 @@ def test_a13_cancellation_fences_active_attempt_and_late_engine_result_rejected(
 # A-14: COMPLETE RECOVERY AUTHORITY
 # ==============================================================================
 
-def test_a14_recovery_durability_and_idempotency(temp_db_path, ipc_actor, ipc_correlation):
+def test_a14_recovery_durability_and_idempotency(temp_db_path, verified_ipc_actor, ipc_correlation):
     """Prove recovery transitions a cancelled migration back to INITIALIZED and is restart-durable."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     cmd_create = make_command(
         request_type="migration.create",
         payload={"migration_id": "mig-recov-1", "name": "Recov Mig", "mode": "M1"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
     )
     caller.handle_command(cmd_create)
@@ -803,7 +803,7 @@ def test_a14_recovery_durability_and_idempotency(temp_db_path, ipc_actor, ipc_co
     cmd_cancel = make_command(
         request_type="migration.cancel",
         payload={"migration_id": "mig-recov-1"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
     )
     caller.handle_command(cmd_cancel)
@@ -812,7 +812,7 @@ def test_a14_recovery_durability_and_idempotency(temp_db_path, ipc_actor, ipc_co
     cmd_recov = make_command(
         request_type="migration.recover",
         payload={"migration_id": "mig-recov-1", "side_effect": "REVERSIBLE"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
         idempotency_key="idemp-recov-1",
     )
@@ -823,9 +823,9 @@ def test_a14_recovery_durability_and_idempotency(temp_db_path, ipc_actor, ipc_co
     assert res_recov.result["new_lease_id"] is not None
 
 
-def test_a14_recovery_establishes_replacement_attempt_and_selects_checkpoint(temp_db_path, ipc_actor, ipc_correlation):
+def test_a14_recovery_establishes_replacement_attempt_and_selects_checkpoint(temp_db_path, verified_ipc_actor, ipc_correlation):
     """Prove recovery creates replacement attempt authority and records recovery operation record."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     rec_port = RecordingExecutionPort(is_in_progress=True)
     caller.binding_registry.register(
         EngineBindingDescriptor(
@@ -834,13 +834,13 @@ def test_a14_recovery_establishes_replacement_attempt_and_selects_checkpoint(tem
         )
     )
 
-    _setup_planned_and_initialized_migration(caller, "mig-recov-chk", ipc_actor, ipc_correlation, "M1")
+    _setup_planned_and_initialized_migration(caller, "mig-recov-chk", verified_ipc_actor, ipc_correlation, "M1")
 
     # Start migration to establish source attempt
     cmd_start = make_command(
         request_type="migration.start",
         payload={"migration_id": "mig-recov-chk", "mode": "M1"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
     )
     res_start = caller.handle_command(cmd_start)
@@ -883,7 +883,7 @@ def test_a14_recovery_establishes_replacement_attempt_and_selects_checkpoint(tem
     cmd_cancel = make_command(
         request_type="migration.cancel",
         payload={"migration_id": "mig-recov-chk"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
     )
     caller.handle_command(cmd_cancel)
@@ -897,7 +897,7 @@ def test_a14_recovery_establishes_replacement_attempt_and_selects_checkpoint(tem
             "checkpoint_id": "chk-src-100",
             "side_effect": "REVERSIBLE",
         },
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
     )
     res_recov = caller.handle_command(cmd_recov)
@@ -914,13 +914,13 @@ def test_a14_recovery_establishes_replacement_attempt_and_selects_checkpoint(tem
         assert op_rec.status == OperationStatus.ACCEPTED
 
 
-def test_a14_irreversible_recovery_rejected(temp_db_path, ipc_actor, ipc_correlation):
+def test_a14_irreversible_recovery_rejected(temp_db_path, verified_ipc_actor, ipc_correlation):
     """Prove automatic recovery for irreversible side-effects is rejected unless forced with admin authority."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     cmd_create = make_command(
         request_type="migration.create",
         payload={"migration_id": "mig-irrev-1", "name": "Irrev Mig", "mode": "M1"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
     )
     caller.handle_command(cmd_create)
@@ -928,7 +928,7 @@ def test_a14_irreversible_recovery_rejected(temp_db_path, ipc_actor, ipc_correla
     cmd_cancel = make_command(
         request_type="migration.cancel",
         payload={"migration_id": "mig-irrev-1"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
     )
     caller.handle_command(cmd_cancel)
@@ -937,7 +937,7 @@ def test_a14_irreversible_recovery_rejected(temp_db_path, ipc_actor, ipc_correla
     cmd_recov_bad = make_command(
         request_type="migration.recover",
         payload={"migration_id": "mig-irrev-1", "side_effect": "IRREVERSIBLE", "force": False},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
     )
     res = caller.handle_command(cmd_recov_bad)
@@ -945,13 +945,13 @@ def test_a14_irreversible_recovery_rejected(temp_db_path, ipc_actor, ipc_correla
     assert res.error.category == IPCErrorCategory.INELIGIBLE
 
 
-def test_a14_unowned_source_attempt_rejected(temp_db_path, ipc_actor, ipc_correlation):
+def test_a14_unowned_source_attempt_rejected(temp_db_path, verified_ipc_actor, ipc_correlation):
     """Prove recovery rejecting an attempt ID that does not belong to the migration."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     cmd_create = make_command(
         request_type="migration.create",
         payload={"migration_id": "mig-unowned-att", "name": "Unowned Att", "mode": "M1"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
     )
     caller.handle_command(cmd_create)
@@ -959,7 +959,7 @@ def test_a14_unowned_source_attempt_rejected(temp_db_path, ipc_actor, ipc_correl
     cmd_cancel = make_command(
         request_type="migration.cancel",
         payload={"migration_id": "mig-unowned-att"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
     )
     caller.handle_command(cmd_cancel)
@@ -968,7 +968,7 @@ def test_a14_unowned_source_attempt_rejected(temp_db_path, ipc_actor, ipc_correl
     cmd_recov_bad = make_command(
         request_type="migration.recover",
         payload={"migration_id": "mig-unowned-att", "source_attempt_id": "att-alien-999"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
     )
     res = caller.handle_command(cmd_recov_bad)
@@ -976,9 +976,9 @@ def test_a14_unowned_source_attempt_rejected(temp_db_path, ipc_actor, ipc_correl
     assert res.error.category == IPCErrorCategory.INVALID_REQUEST
 
 
-def test_a14_unowned_checkpoint_rejected(temp_db_path, ipc_actor, ipc_correlation):
+def test_a14_unowned_checkpoint_rejected(temp_db_path, verified_ipc_actor, ipc_correlation):
     """Prove recovery rejecting a checkpoint that belongs to a different attempt/migration."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     rec_port = RecordingExecutionPort(is_in_progress=True)
     caller.binding_registry.register(
         EngineBindingDescriptor(
@@ -986,12 +986,12 @@ def test_a14_unowned_checkpoint_rejected(temp_db_path, ipc_actor, ipc_correlatio
             supported_capabilities={"schema_prep", "data_transport"}, supported_modes={MigrationMode.M1_BULK},
         )
     )
-    _setup_planned_and_initialized_migration(caller, "mig-chk-own", ipc_actor, ipc_correlation, "M1")
+    _setup_planned_and_initialized_migration(caller, "mig-chk-own", verified_ipc_actor, ipc_correlation, "M1")
 
     cmd_start = make_command(
         request_type="migration.start",
         payload={"migration_id": "mig-chk-own", "mode": "M1"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
     )
     res_start = caller.handle_command(cmd_start)
@@ -1032,7 +1032,7 @@ def test_a14_unowned_checkpoint_rejected(temp_db_path, ipc_actor, ipc_correlatio
     cmd_cancel = make_command(
         request_type="migration.cancel",
         payload={"migration_id": "mig-chk-own"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
     )
     caller.handle_command(cmd_cancel)
@@ -1041,7 +1041,7 @@ def test_a14_unowned_checkpoint_rejected(temp_db_path, ipc_actor, ipc_correlatio
     cmd_recov_bad = make_command(
         request_type="migration.recover",
         payload={"migration_id": "mig-chk-own", "source_attempt_id": source_attempt, "checkpoint_id": "chk-alien-555"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
     )
     res = caller.handle_command(cmd_recov_bad)
@@ -1049,9 +1049,9 @@ def test_a14_unowned_checkpoint_rejected(temp_db_path, ipc_actor, ipc_correlatio
     assert res.error.category == IPCErrorCategory.INVALID_REQUEST
 
 
-def test_a14_recovery_fences_source_attempt_before_replacement_authority(temp_db_path, ipc_actor, ipc_correlation):
+def test_a14_recovery_fences_source_attempt_before_replacement_authority(temp_db_path, verified_ipc_actor, ipc_correlation):
     """Prove recovery revokes and fences the source attempt before establishing replacement authority."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     rec_port = RecordingExecutionPort(is_in_progress=True)
     caller.binding_registry.register(
         EngineBindingDescriptor(
@@ -1059,12 +1059,12 @@ def test_a14_recovery_fences_source_attempt_before_replacement_authority(temp_db
             supported_capabilities={"schema_prep", "data_transport"}, supported_modes={MigrationMode.M1_BULK},
         )
     )
-    _setup_planned_and_initialized_migration(caller, "mig-rec-fence", ipc_actor, ipc_correlation, "M1")
+    _setup_planned_and_initialized_migration(caller, "mig-rec-fence", verified_ipc_actor, ipc_correlation, "M1")
 
     cmd_start = make_command(
         request_type="migration.start",
         payload={"migration_id": "mig-rec-fence", "mode": "M1"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
     )
     res_start = caller.handle_command(cmd_start)
@@ -1080,7 +1080,7 @@ def test_a14_recovery_fences_source_attempt_before_replacement_authority(temp_db
     cmd_cancel = make_command(
         request_type="migration.cancel",
         payload={"migration_id": "mig-rec-fence"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
     )
     caller.handle_command(cmd_cancel)
@@ -1089,7 +1089,7 @@ def test_a14_recovery_fences_source_attempt_before_replacement_authority(temp_db
     cmd_recov = make_command(
         request_type="migration.recover",
         payload={"migration_id": "mig-rec-fence", "source_attempt_id": source_attempt},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
     )
     res_recov = caller.handle_command(cmd_recov)
@@ -1120,9 +1120,9 @@ def test_a14_recovery_fences_source_attempt_before_replacement_authority(temp_db
             )
 
 
-def test_a14_cross_migration_attempt_with_checkpoint_rejected(temp_db_path, ipc_actor, ipc_correlation):
+def test_a14_cross_migration_attempt_with_checkpoint_rejected(temp_db_path, verified_ipc_actor, ipc_correlation):
     """Prove recovery on migration-B strictly rejects an attempt from migration-A even if migration-A's attempt has a valid checkpoint in the database."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     rec_port = RecordingExecutionPort(is_in_progress=True)
     caller.binding_registry.register(
         EngineBindingDescriptor(
@@ -1133,11 +1133,11 @@ def test_a14_cross_migration_attempt_with_checkpoint_rejected(temp_db_path, ipc_
 
 
     # 1. Start mig-alpha and establish its attempt and checkpoint
-    _setup_planned_and_initialized_migration(caller, "mig-alpha", ipc_actor, ipc_correlation, "M1")
+    _setup_planned_and_initialized_migration(caller, "mig-alpha", verified_ipc_actor, ipc_correlation, "M1")
     cmd_start_alpha = make_command(
         request_type="migration.start",
         payload={"migration_id": "mig-alpha", "mode": "M1"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
     )
     res_start_alpha = caller.handle_command(cmd_start_alpha)
@@ -1176,11 +1176,11 @@ def test_a14_cross_migration_attempt_with_checkpoint_rejected(temp_db_path, ipc_
         )
 
     # 2. Start and cancel mig-beta
-    _setup_planned_and_initialized_migration(caller, "mig-beta", ipc_actor, ipc_correlation, "M1")
+    _setup_planned_and_initialized_migration(caller, "mig-beta", verified_ipc_actor, ipc_correlation, "M1")
     cmd_start_beta = make_command(
         request_type="migration.start",
         payload={"migration_id": "mig-beta", "mode": "M1"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
     )
     res_start_beta = caller.handle_command(cmd_start_beta)
@@ -1189,7 +1189,7 @@ def test_a14_cross_migration_attempt_with_checkpoint_rejected(temp_db_path, ipc_
     cmd_cancel_beta = make_command(
         request_type="migration.cancel",
         payload={"migration_id": "mig-beta"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
     )
     caller.handle_command(cmd_cancel_beta)
@@ -1198,7 +1198,7 @@ def test_a14_cross_migration_attempt_with_checkpoint_rejected(temp_db_path, ipc_
     cmd_recov_cross = make_command(
         request_type="migration.recover",
         payload={"migration_id": "mig-beta", "source_attempt_id": att_alpha},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
     )
     res_recov_cross = caller.handle_command(cmd_recov_cross)
@@ -1220,11 +1220,11 @@ def test_a14_cross_migration_attempt_with_checkpoint_rejected(temp_db_path, ipc_
 # A-15: PROJECT-SCOPED PROJECTIONS
 # ==============================================================================
 
-def test_a15_projection_scope_isolation(temp_db_path, ipc_actor):
+def test_a15_projection_scope_isolation(temp_db_path, verified_ipc_actor):
     """Prove ProjectionService isolates query projections across tenant, workspace, and project dimensions."""
     uow = SQLiteUnitOfWork(db_path=temp_db_path)
     proj_service = ProjectionService()
-    pipeline_actor = PipelineActorContext.from_ipc(ipc_actor)
+    pipeline_actor = PipelineActorContext.from_ipc(verified_ipc_actor)
 
     with uow:
         proj_service.update_projection(

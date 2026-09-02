@@ -49,6 +49,9 @@ class SecurityBaselineConfig:
     # Clock Skew & Rollback Floor
     clock_skew_threshold_seconds: float = 5.0  # Bounds: 0.1s - 60.0s
 
+    # PKI & Certificate Lifecycle
+    pki_cert_expiry_warning_seconds: int = 2592000  # Default 30 days (bounds: 1d to 90d, i.e. 86400s to 7776000s)
+
     def __post_init__(self) -> None:
         """Enforce immutable security floors and valid bounds."""
         if self.pbkdf2_iterations < 600000:
@@ -90,6 +93,8 @@ class SecurityBaselineConfig:
             raise SecurityConfigValidationError("max_role_inheritance_depth must be between 1 and 50")
         if not (0.1 <= self.clock_skew_threshold_seconds <= 60.0):
             raise SecurityConfigValidationError("clock_skew_threshold_seconds must be between 0.1s and 60.0s")
+        if not (86400 <= self.pki_cert_expiry_warning_seconds <= 7776000):
+            raise SecurityConfigValidationError("pki_cert_expiry_warning_seconds must be between 86400s (1d) and 7776000s (90d)")
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert config to dictionary."""
@@ -110,4 +115,6 @@ class SecurityBaselineConfig:
             "audit_key_rotation_days": self.audit_key_rotation_days,
             "max_role_inheritance_depth": self.max_role_inheritance_depth,
             "clock_skew_threshold_seconds": self.clock_skew_threshold_seconds,
+            "pki_cert_expiry_warning_seconds": self.pki_cert_expiry_warning_seconds,
         }
+

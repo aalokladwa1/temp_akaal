@@ -230,7 +230,10 @@ class TestP311WholeP3HostileIntegrationAudit(unittest.TestCase):
 
     def test_B01_full_forward_pipeline_journey_created_to_completed(self):
         """B01: Full continuous lifecycle journey from CREATED through COMPLETED with real stage progression."""
+        from tests.conftest import require_postgres
+        require_postgres("localhost", 5432)
         # 1. Lifecycle initialization
+
         lc_init = self.lifecycle_coordinator.initialize_lifecycle(
             migration_id=self.migration_id,
             job_id=self.job_id,
@@ -669,7 +672,10 @@ class TestP311WholeP3HostileIntegrationAudit(unittest.TestCase):
 
     def test_S01_buffer_backpressure_and_catching_up_transition(self):
         """S01: Rapidly accumulating buffer backlog transitions state to CATCHING_UP."""
+        from tests.conftest import require_postgres
+        require_postgres("localhost", 5432)
         self.sync_coordinator.start_continuous_sync(self.identity, starting_position=PostgresLSNPosition("0/1000"))
+
         buf = self.sync_coordinator.apply_coordinator.active_buffers[self.cdc_session_id]
 
         # Push 10 transactions

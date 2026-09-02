@@ -220,8 +220,7 @@ class RowDeduplicator:
                 non_surv["_dedup_reason"] = f"Duplicate suppressed under survivor strategy {strat}."
                 duplicates.append(non_surv)
 
-        # Sort survivors deterministically by key hash to preserve consistency regardless of arrival
-        survivors.sort(key=lambda r: self.compute_key_hash(r, key_columns))
+        # Maintain natural arrival order from input stream
 
         metrics = {
             "total_input": len(records),

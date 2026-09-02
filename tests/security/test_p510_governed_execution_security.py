@@ -1029,7 +1029,22 @@ def test_atk_49_dispatcher_zero_trust_keystore_precedence(test_keystore, monkeyp
 
 def test_atk_50_caller_self_asserted_admin_ignored(tmp_path):
     uow = SQLiteUnitOfWork(db_path=str(tmp_path / "self_admin.db"))
-    caller = PipelineUnifiedCaller(shared_uow=uow)
+    uow.initialize_schema()
+    # C1 fix (Target 1): central_authz is now mandatory for protected operations to fail
+    # closed, so this test must wire a REAL, legitimate grant for user-attacker -- the
+    # point of the test is that the self-asserted "is_admin"/"roles": ["admin"] fields in
+    # the payload are ignored (they grant nothing); only this real RBAC grant matters.
+    uow.tenants.create_tenant("tenant-atk", "Tenant ATK")
+    uow.principals.create(tenant_id="tenant-atk", principal_id="user-attacker", principal_type="HUMAN", username="user-attacker")
+    uow.roles.create_role("tenant-atk", "creator", "Creator Role")
+    uow.role_permissions.assign_permission("tenant-atk", "creator", PermissionRegistry.MIGRATION_CREATE, "user-attacker")
+    uow.role_grants.grant_role("grant-atk-1", "tenant-atk", GrantSubjectType.PRINCIPAL.value, "user-attacker", "creator", GrantResourceType.SYSTEM.value, "root", "user-attacker")
+    uow.connection.commit()  # setup writes must be committed before handle_command's own `with uow:` BEGINs
+    ga = GroupAuthority(uow.groups, uow.principals)
+    rbac = RBACAuthority(uow.roles, uow.role_permissions, uow.role_grants)
+    abac = ABACAuthority(uow.abac_policies)
+    authz_engine = CentralAuthorizationEngine(uow.tenants, uow.principals, ga, rbac, abac)
+    caller = PipelineUnifiedCaller(shared_uow=uow, central_authz=authz_engine)
     raw_env = {
         "envelope_id": "env-atk-1",
         "actor_context": {
@@ -1222,9 +1237,29 @@ def test_atk_58_stale_fencing_epoch_blocks_batch_transaction():
         writer.write_batch(table_name="users", batch=batch, target_schema="public")
 
 
+def _wired_caller_for_tenant_1(uow) -> "PipelineUnifiedCaller":
+    """
+    C1 fix (Target 1): central_authz is now mandatory for protected operations to fail
+    closed. These idempotency-focused tests need a legitimately authorized user-1 in
+    tenant-1 so idempotency-key behavior (not authorization) is what's actually exercised.
+    """
+    uow.initialize_schema()
+    uow.tenants.create_tenant("tenant-1", "Tenant 1")
+    uow.principals.create(tenant_id="tenant-1", principal_id="user-1", principal_type="HUMAN", username="user-1")
+    uow.roles.create_role("tenant-1", "creator", "Creator Role")
+    uow.role_permissions.assign_permission("tenant-1", "creator", PermissionRegistry.MIGRATION_CREATE, "user-1")
+    uow.role_grants.grant_role("grant-idem-1", "tenant-1", GrantSubjectType.PRINCIPAL.value, "user-1", "creator", GrantResourceType.SYSTEM.value, "root", "user-1")
+    uow.connection.commit()  # setup writes must be committed before handle_command's own `with uow:` BEGINs
+    ga = GroupAuthority(uow.groups, uow.principals)
+    rbac = RBACAuthority(uow.roles, uow.role_permissions, uow.role_grants)
+    abac = ABACAuthority(uow.abac_policies)
+    authz_engine = CentralAuthorizationEngine(uow.tenants, uow.principals, ga, rbac, abac)
+    return PipelineUnifiedCaller(shared_uow=uow, central_authz=authz_engine)
+
+
 def test_atk_59_command_idempotency_replay_identical_result(tmp_path):
     uow = SQLiteUnitOfWork(db_path=str(tmp_path / "idem.db"))
-    caller = PipelineUnifiedCaller(shared_uow=uow)
+    caller = _wired_caller_for_tenant_1(uow)
     payload = {"mode": "M1", "source_dsn": "sqlite:////tmp/s.db", "target_dsn": "sqlite:////tmp/t.db"}
     
     # 1. First execution
@@ -1253,8 +1288,8 @@ def test_atk_59_command_idempotency_replay_identical_result(tmp_path):
 
 def test_atk_60_command_idempotency_conflict_detection(tmp_path):
     uow = SQLiteUnitOfWork(db_path=str(tmp_path / "idem_conf.db"))
-    caller = PipelineUnifiedCaller(shared_uow=uow)
-    
+    caller = _wired_caller_for_tenant_1(uow)
+
     raw_env1 = {
         "envelope_id": "env-c1",
         "actor_context": {"principal_id": "user-1", "tenant_id": "tenant-1", "actor_type": "user"},

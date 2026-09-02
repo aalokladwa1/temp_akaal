@@ -24,12 +24,17 @@ class MockConfig:
         self.mock_max_rows = 250
 
 
+from tests.conftest import require_postgres
+
+
 class TestGBCheckpointResume(unittest.IsolatedAsyncioTestCase):
 
     async def asyncSetUp(self):
+        require_postgres("source-db.example.com", 5432)
         # 1. Create a temporary DB file path
         self.temp_db_fd, self.temp_db_path = tempfile.mkstemp(suffix=".db")
         os.close(self.temp_db_fd)
+
         
         # 2. Initialize DB-backed Checkpoint Manager with disk file
         self.storage = SQLiteCheckpointStorageAdapter(self.temp_db_path)

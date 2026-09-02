@@ -461,6 +461,14 @@ class SQLitePrincipalRepository:
         row = cur.fetchone()
         return row["security_revision"] if row else 1
 
+    def update_metadata(self, tenant_id: str, principal_id: str, metadata: Dict[str, Any], updated_at: str = "") -> None:
+        """Merge-replace the principal's metadata JSON blob (used by JIT identity lifecycle to record federation provenance)."""
+        ts = updated_at or TimeAuthority.utc_iso_now()
+        self.conn.execute(
+            "UPDATE enterprise_principals SET metadata = ?, updated_at = ? WHERE tenant_id = ? AND principal_id = ?",
+            (json.dumps(metadata), ts, tenant_id, principal_id),
+        )
+
 
 class SQLiteCredentialRepository:
     def __init__(self, conn: sqlite3.Connection) -> None:
@@ -523,18 +531,23 @@ class SQLiteSessionRepository:
         bound_security_revision: int,
         client_ip: Optional[str] = None,
         user_agent: Optional[str] = None,
+        authentication_assurance: str = "NONE",
+        credential_mechanism: Optional[str] = None,
+        trust_domain: Optional[str] = None,
     ) -> None:
         self.conn.execute(
             """
             INSERT INTO enterprise_sessions (
                 session_id, tenant_id, principal_id, session_token_hash, issued_at,
                 last_activity_at, absolute_expires_at, idle_timeout_seconds, is_revoked,
-                revocation_reason, client_ip, user_agent, bound_security_revision
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, ?, ?, ?)
+                revocation_reason, client_ip, user_agent, bound_security_revision,
+                authentication_assurance, credential_mechanism, trust_domain
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, ?, ?, ?, ?, ?, ?)
             """,
             (
                 session_id, tenant_id, principal_id, session_token_hash, issued_at,
                 last_activity_at, absolute_expires_at, idle_timeout_seconds, client_ip, user_agent, bound_security_revision,
+                authentication_assurance, credential_mechanism, trust_domain,
             ),
         )
 
@@ -1045,3 +1058,175 @@ class SQLiteSecurityAuditRepository:
             d["details"] = json.loads(d["details"])
             results.append(d)
         return results
+
+
+# ===========================================================================
+# P7.5 — MFA Factor / Challenge Repository
+# ===========================================================================
+
+class SQLiteMFARepository:
+    """Durable storage for MFA factors (enrolled authenticators) and issued challenges."""
+
+    def __init__(self, conn: sqlite3.Connection) -> None:
+        self.conn = conn
+
+    def save_factor(
+        self,
+        factor_id: str,
+        tenant_id: str,
+        principal_id: str,
+        factor_type: str,
+        encrypted_secret_blob: bytes,
+        status: str,
+        created_at: str,
+    ) -> None:
+        self.conn.execute(
+            """
+            INSERT INTO mfa_factors (
+                factor_id, tenant_id, principal_id, factor_type, encrypted_secret_blob,
+                status, failed_attempts, created_at, last_used_at
+            ) VALUES (?, ?, ?, ?, ?, ?, 0, ?, NULL)
+            """,
+            (factor_id, tenant_id, principal_id, factor_type, encrypted_secret_blob, status, created_at),
+        )
+
+    def get_factor(self, tenant_id: str, factor_id: str) -> Optional[Dict[str, Any]]:
+        cur = self.conn.execute(
+            "SELECT * FROM mfa_factors WHERE tenant_id = ? AND factor_id = ?", (tenant_id, factor_id)
+        )
+        row = cur.fetchone()
+        return dict(row) if row else None
+
+    def list_active_factors(self, tenant_id: str, principal_id: str) -> List[Dict[str, Any]]:
+        cur = self.conn.execute(
+            "SELECT * FROM mfa_factors WHERE tenant_id = ? AND principal_id = ? AND status = 'ACTIVE'",
+            (tenant_id, principal_id),
+        )
+        return [dict(r) for r in cur.fetchall()]
+
+    def disable_factor(self, tenant_id: str, factor_id: str) -> None:
+        self.conn.execute(
+            "UPDATE mfa_factors SET status = 'DISABLED' WHERE tenant_id = ? AND factor_id = ?",
+            (tenant_id, factor_id),
+        )
+
+    def activate_factor(self, tenant_id: str, factor_id: str) -> None:
+        self.conn.execute(
+            "UPDATE mfa_factors SET status = 'ACTIVE' WHERE tenant_id = ? AND factor_id = ?",
+            (tenant_id, factor_id),
+        )
+
+    def record_use(self, tenant_id: str, factor_id: str, used_at: str, reset_failures: bool) -> None:
+        if reset_failures:
+            self.conn.execute(
+                "UPDATE mfa_factors SET last_used_at = ?, failed_attempts = 0 WHERE tenant_id = ? AND factor_id = ?",
+                (used_at, tenant_id, factor_id),
+            )
+        else:
+            self.conn.execute(
+                "UPDATE mfa_factors SET failed_attempts = failed_attempts + 1 WHERE tenant_id = ? AND factor_id = ?",
+                (tenant_id, factor_id),
+            )
+
+    def create_challenge(
+        self,
+        challenge_id: str,
+        tenant_id: str,
+        principal_id: str,
+        factor_id: str,
+        purpose: str,
+        code_hash: str,
+        issued_at: str,
+        expires_at: str,
+    ) -> None:
+        self.conn.execute(
+            """
+            INSERT INTO mfa_challenges (
+                challenge_id, tenant_id, principal_id, factor_id, purpose, code_hash,
+                issued_at, expires_at, consumed, attempt_count
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0)
+            """,
+            (challenge_id, tenant_id, principal_id, factor_id, purpose, code_hash, issued_at, expires_at),
+        )
+
+    def get_challenge(self, tenant_id: str, challenge_id: str) -> Optional[Dict[str, Any]]:
+        cur = self.conn.execute(
+            "SELECT * FROM mfa_challenges WHERE tenant_id = ? AND challenge_id = ?", (tenant_id, challenge_id)
+        )
+        row = cur.fetchone()
+        return dict(row) if row else None
+
+    def increment_attempt(self, tenant_id: str, challenge_id: str) -> int:
+        self.conn.execute(
+            "UPDATE mfa_challenges SET attempt_count = attempt_count + 1 WHERE tenant_id = ? AND challenge_id = ?",
+            (tenant_id, challenge_id),
+        )
+        cur = self.conn.execute(
+            "SELECT attempt_count FROM mfa_challenges WHERE tenant_id = ? AND challenge_id = ?",
+            (tenant_id, challenge_id),
+        )
+        row = cur.fetchone()
+        return row["attempt_count"] if row else 0
+
+    def consume_challenge(self, tenant_id: str, challenge_id: str) -> None:
+        self.conn.execute(
+            "UPDATE mfa_challenges SET consumed = 1 WHERE tenant_id = ? AND challenge_id = ?",
+            (tenant_id, challenge_id),
+        )
+
+    def claim_challenge_for_consumption(self, tenant_id: str, challenge_id: str) -> bool:
+        """
+        Atomic compare-and-swap consume: flips consumed 0->1 in a single statement and
+        reports whether THIS caller was the one who won the race. Concurrent callers
+        racing to redeem the same challenge will have exactly one succeed here; all
+        others get False and must fail closed rather than proceeding to verify a code
+        against a challenge someone else already claimed (hostile-review B9 finding: a
+        prior non-atomic read-then-write pattern allowed every concurrent racer to
+        successfully redeem a single-use challenge).
+        """
+        cur = self.conn.execute(
+            "UPDATE mfa_challenges SET consumed = 1 WHERE tenant_id = ? AND challenge_id = ? AND consumed = 0",
+            (tenant_id, challenge_id),
+        )
+        return cur.rowcount == 1
+
+
+# ===========================================================================
+# P7.5 — SCIM External Identity Mapping Repository
+# ===========================================================================
+
+class SQLiteSCIMMappingRepository:
+    """
+    Durable idempotency map between an external SCIM provider's resource identity
+    and the canonical AKAAL principal, enabling reconciliation and duplicate-delivery safety.
+    """
+
+    def __init__(self, conn: sqlite3.Connection) -> None:
+        self.conn = conn
+
+    def upsert_mapping(
+        self,
+        tenant_id: str,
+        scim_provider_id: str,
+        scim_external_id: str,
+        principal_id: str,
+        synced_at: str,
+    ) -> None:
+        self.conn.execute(
+            """
+            INSERT INTO scim_provider_mappings (
+                tenant_id, scim_provider_id, scim_external_id, principal_id, last_synced_at
+            ) VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(tenant_id, scim_provider_id, scim_external_id)
+            DO UPDATE SET principal_id = excluded.principal_id, last_synced_at = excluded.last_synced_at
+            """,
+            (tenant_id, scim_provider_id, scim_external_id, principal_id, synced_at),
+        )
+
+    def get_mapping(self, tenant_id: str, scim_provider_id: str, scim_external_id: str) -> Optional[Dict[str, Any]]:
+        cur = self.conn.execute(
+            "SELECT * FROM scim_provider_mappings WHERE tenant_id = ? AND scim_provider_id = ? AND scim_external_id = ?",
+            (tenant_id, scim_provider_id, scim_external_id),
+        )
+        row = cur.fetchone()
+        return dict(row) if row else None

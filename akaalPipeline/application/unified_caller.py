@@ -53,6 +53,7 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
         bind_gateway: bool = False,
         central_authz: Optional[Any] = None,
         threat_detector: Optional[Any] = None,
+        session_manager: Optional[Any] = None,
     ) -> None:
         if db_path is None and shared_uow is None:
             raise ValueError("PipelineUnifiedCaller requires an explicit db_path or shared_uow.")
@@ -60,6 +61,13 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
         self._shared_uow = shared_uow
         self.central_authz = central_authz
         self.threat_detector = threat_detector
+        # Existing Campaign A/B trusted session authority (akaalPipeline.identity.sessions.
+        # SessionManager). When configured, a caller presenting BOTH envelope.actor.session_id
+        # and envelope.actor.session_token is re-authenticated through this authority instead
+        # of trusting whatever authentication_state/authentication_assurance the wire envelope
+        # itself claims -- see handle_command() below. Optional and defaults to None so callers
+        # that do not wire session-based authentication keep today's untrusted-CLAIMED behavior.
+        self.session_manager = session_manager
 
         self.repository = SQLiteMigrationRepository(db_path=self.db_path)
 
@@ -313,7 +321,74 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
                     request_id=request_id,
                 ),
             )
-        pipeline_actor = PipelineActorContext.from_ipc(envelope.actor)
+        # C1 hostile-review fix: envelope.actor is untrusted wire input at this northbound
+        # boundary (DESERIALIZATION != AUTHENTICATION). trusted_boundary=False downgrades
+        # any self-asserted AUTHENTICATED/elevated-assurance claim to CLAIMED/NONE unless a
+        # prior authoritative authenticator (federation/session/service-token validation)
+        # has already re-minted this envelope's actor via a trusted path before reaching
+        # here. No test or production caller in this repository currently exercises this
+        # method, so this closes a real, previously-unexercised bypass rather than
+        # changing observed behavior.
+        pipeline_actor = PipelineActorContext.from_ipc(envelope.actor, trusted_boundary=False)
+
+        # Verified-authentication-assurance bridge: if this caller is wired with the
+        # existing durable session authority (akaalPipeline.identity.sessions.SessionManager)
+        # AND the wire envelope presents both a session_id and its raw bearer session_token,
+        # re-derive the actor context through that trusted authority instead of trusting the
+        # untrusted-CLAIMED reconstruction above. The assurance/credential/trust-domain used
+        # here come from what was captured at session-ESTABLISHMENT time (i.e. what a real
+        # federation/MFA verification already proved), never from anything this request's
+        # envelope itself asserts. Any resolution failure (invalid/expired/revoked/tampered/
+        # mismatched session) fails CLOSED -- it does not silently fall back to the untrusted
+        # path, since that would let a forged session_id/session_token pair downgrade back to
+        # an unauthenticated CLAIMED actor instead of being rejected outright.
+        if self.session_manager is not None and envelope.actor.session_id and envelope.actor.session_token:
+            from akaalPipeline.contracts.errors import UnauthorizedError as _SessionUnauthorizedError
+            try:
+                import dataclasses as _dataclasses
+                verified_actor = self.session_manager.resolve_authenticated_context(
+                    tenant_id=pipeline_actor.organization_id,
+                    session_id=envelope.actor.session_id,
+                    raw_token=envelope.actor.session_token,
+                )
+                # The trusted session bridge re-derives SECURITY-TRUST dimensions from
+                # the verified session. Request-scoping dimensions (workspace/project/
+                # environment) are preserved from the caller. However, caller-provided
+                # roles and scopes are UNTRUSTED wire claims and MUST NEVER become
+                # trusted authorization grants. Authoritative roles are resolved from
+                # durable server-side storage via CentralAuthorizationEngine, and
+                # unverified wire scopes are stripped.
+                authoritative_roles: Tuple[str, ...] = ()
+                if getattr(self, "central_authz", None) is not None and hasattr(self.central_authz, "get_authoritative_roles"):
+                    try:
+                        authoritative_roles = tuple(sorted(
+                            self.central_authz.get_authoritative_roles(
+                                tenant_id=verified_actor.organization_id,
+                                principal_id=verified_actor.actor_id,
+                            )
+                        ))
+                    except Exception:
+                        authoritative_roles = ()
+
+                pipeline_actor = _dataclasses.replace(
+                    verified_actor,
+                    workspace_id=pipeline_actor.workspace_id,
+                    project_id=pipeline_actor.project_id,
+                    environment=pipeline_actor.environment,
+                    roles=authoritative_roles,
+                    scopes=(),
+                )
+            except _SessionUnauthorizedError as sess_exc:
+                return CallerResult(
+                    status=CallerResultStatus.ERROR,
+                    error=make_error(
+                        IPCErrorCategory.UNAUTHORIZED,
+                        code="SESSION_AUTHENTICATION_REJECTED",
+                        message=f"Trusted session authentication failed: {sess_exc}",
+                        correlation_id=correlation_id,
+                        request_id=request_id,
+                    ),
+                )
 
         # Reject SYSTEM actor spoofing from external envelope
         if pipeline_actor.actor_type.lower() == "system" and envelope.actor.provenance != "internal-core":
@@ -376,10 +451,29 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
             request_type = envelope.request_type
 
             # Central Authorization Check (Dynamic RBAC + ABAC)
-            if getattr(self, "central_authz", None) is not None:
+            # Missing/unconfigured authorization authority must NEVER mean allow. Every
+            # command reaching this point is a protected operation; a caller that forgot
+            # to wire central_authz is a configuration-security failure, not an implicit
+            # bypass. Fail closed explicitly rather than silently skipping the check.
+            if getattr(self, "central_authz", None) is None:
+                return CallerResult(
+                    status=CallerResultStatus.ERROR,
+                    error=make_error(
+                        IPCErrorCategory.FORBIDDEN,
+                        code="AUTHORIZATION_AUTHORITY_UNAVAILABLE",
+                        message=(
+                            "Protected operation rejected: no authorization authority "
+                            "(central_authz) is configured for this caller. Missing "
+                            "authorization authority must never be treated as allow."
+                        ),
+                        correlation_id=correlation_id,
+                        request_id=request_id,
+                    ),
+                )
+            if True:  # central_authz confirmed present above; block kept intact to minimize diff risk
                 from akaalPipeline.contracts.errors import ForbiddenError, UnauthorizedError
                 from akaalPipeline.security.permission_registry import PermissionRegistry
-                from akaalPipeline.contracts.enums import SecurityAlertSeverity
+                from akaalPipeline.contracts.enums import AuthenticationAssurance, SecurityAlertSeverity
                 perm_map = {
                     "migration.create": PermissionRegistry.MIGRATION_CREATE,
                     "create_migration": PermissionRegistry.MIGRATION_CREATE,
@@ -420,6 +514,19 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
                 }
                 perm = perm_map.get(request_type, PermissionRegistry.MIGRATION_READ)
                 res_id = envelope.payload.get("migration_id", "root") if isinstance(envelope.payload, dict) else "root"
+                # P7.5/P7.6 integration: irreversible/high-impact protected operations require
+                # elevated authentication assurance (only ever real when raised by verified
+                # MFA/federation -- see akaalPipeline.security.mfa / .federation.manager --
+                # never by a caller-supplied boolean). Read/plan/configure operations are
+                # unaffected (required_assurance stays None, preserving existing behavior).
+                _HIGH_ASSURANCE_PERMISSIONS = {
+                    PermissionRegistry.MIGRATION_EXECUTE,
+                    PermissionRegistry.MIGRATION_CANCEL,
+                    PermissionRegistry.MIGRATION_RECOVER,
+                    PermissionRegistry.GOVERNANCE_APPROVAL_SUBMIT,
+                    PermissionRegistry.OPERATIONS_RETENTION_EXECUTE,
+                }
+                required_assurance = AuthenticationAssurance.HIGH if perm in _HIGH_ASSURANCE_PERMISSIONS else None
                 try:
                     self.central_authz.authorize(
                         actor_context=pipeline_actor,
@@ -427,6 +534,7 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
                         resource_type="migration",
                         resource_id=res_id,
                         raise_exceptions=True,
+                        required_assurance=required_assurance,
                     )
                 except (ForbiddenError, UnauthorizedError) as auth_exc:
                     if getattr(self, "threat_detector", None) is not None:
@@ -1236,7 +1344,15 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
                     request_id=request_id,
                 ),
             )
-        pipeline_actor = PipelineActorContext.from_ipc(envelope.actor)
+        # C1 hostile-review fix: envelope.actor is untrusted wire input at this northbound
+        # boundary (DESERIALIZATION != AUTHENTICATION). trusted_boundary=False downgrades
+        # any self-asserted AUTHENTICATED/elevated-assurance claim to CLAIMED/NONE unless a
+        # prior authoritative authenticator (federation/session/service-token validation)
+        # has already re-minted this envelope's actor via a trusted path before reaching
+        # here. No test or production caller in this repository currently exercises this
+        # method, so this closes a real, previously-unexercised bypass rather than
+        # changing observed behavior.
+        pipeline_actor = PipelineActorContext.from_ipc(envelope.actor, trusted_boundary=False)
 
         uow = self._create_uow()
         try:

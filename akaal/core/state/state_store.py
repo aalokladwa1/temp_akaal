@@ -163,6 +163,14 @@ class CentralStateStore(IStateStore):
                 pass
         return results
 
+    def get_latest_state(self, category: str = "default") -> Optional[Dict[str, Any]]:
+        """Retrieves the most recent state entry for a given category."""
+        entries = self.get_category(category)
+        if entries:
+            return list(entries.values())[-1]
+        return None
+
+
     def get_progress(self, migration_id: str) -> Dict[str, Any]:
         val = self.get_state(migration_id, default=None, category="progress")
         if isinstance(val, dict):

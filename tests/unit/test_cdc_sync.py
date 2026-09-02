@@ -233,14 +233,18 @@ async def test_supervisor_graceful_shutdown():
 
 # --- 6. Adapters Integration Tests ---
 
+from tests.conftest import require_postgres
+
 @pytest.mark.asyncio
 async def test_all_adapters_fetch_cdc_changes():
+    require_postgres("source-db.example.com")
     adapters = [
         PostgreSQLAdapter(MockConfig("source-db.example.com")),
         MySQLAdapter(MockConfig("target-db.example.com")),
         OracleAdapter(MockConfig("oracle-prod.example.com")),
         MSSQLAdapter(MockConfig("postgres-target.example.com"))
     ]
+
 
     for adapter in adapters:
         await adapter.connect()

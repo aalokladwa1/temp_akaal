@@ -25,8 +25,8 @@ from akaal.reporting.models.canonical_models import (
     EvidenceManifestItem,
     SERIALIZATION_VERSION,
 )
-from akaal.schema.compatibility.comparison_engine import RiskAssessment
 from akaal.validation.domain.reconciliation import ReconciliationEvidence, ValidationExecutionMode
+
 
 logger = logging.getLogger("akaal.reporting.engine.canonical_reporting")
 
@@ -52,8 +52,9 @@ class CanonicalReportingAuthority:
         source_info: Dict[str, Any],
         target_info: Dict[str, Any],
         execution_summary: Dict[str, Any],
-        schema_risk: Optional[RiskAssessment] = None,
+        schema_risk: Optional[Any] = None,
         reconciliation_evidence: Optional[ReconciliationEvidence] = None,
+
         governance_approval_approved: bool = True,
         governance_approval_required: bool = False,
         warnings: Optional[List[str]] = None,
@@ -179,8 +180,9 @@ class CanonicalReportingAuthority:
         job_id: str,
         run_id: str,
         report_type: CanonicalReportType,
-        schema_risk: Optional[RiskAssessment],
+        schema_risk: Optional[Any],
         reconciliation_evidence: Optional[ReconciliationEvidence],
+
         governance_approval_approved: bool,
         governance_approval_required: bool,
         err_list: List[str],

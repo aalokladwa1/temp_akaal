@@ -46,7 +46,8 @@ from akaalIPC.application.router import IPCRouter
 from akaalEngine.cdc.api import CDCAuthority
 from akaalEngine.runtime.distributed.coordinator import DistributedCoordinator, resolve_stable_node_id
 from akaalEngine.runtime.resources.admission import ResourceAdmissionController, ResourceRequirement
-from tests.pipeline.conftest import make_command, make_query
+from tests.pipeline.conftest import authorized_caller, make_command, make_query, provision_verified_actor
+from akaalPipeline.state.unit_of_work import SQLiteUnitOfWork
 
 
 @pytest.fixture
@@ -62,9 +63,33 @@ def temp_db_path():
 
 @pytest.fixture
 def caller(temp_db_path):
-    uc = PipelineUnifiedCaller(db_path=temp_db_path)
+    uc = authorized_caller(db_path=temp_db_path)
     yield uc
     uc.close()
+
+
+def make_verified_actor(db_path, org_id="tenant-alpha", ws_id="ws-main", proj_id="proj-1"):
+    """
+    Like `make_actor()`, but carries a REAL, durably-provisioned session (via the same
+    akaalPipeline.identity.sessions.SessionManager trusted authority PipelineUnifiedCaller's
+    production bridge resolves through), bound to `db_path`. Needed only for the specific
+    HIGH-assurance-gated operations (migration.start/cancel/recover, etc.) -- see
+    akaalPipeline.application.unified_caller's _HIGH_ASSURANCE_PERMISSIONS -- since
+    `make_actor()` alone carries no verified authentication assurance evidence.
+    """
+    principal_id = f"actor-{org_id}"
+    uow = SQLiteUnitOfWork(db_path=db_path)
+    uow.initialize_schema()
+    actor = provision_verified_actor(uow, tenant_id=org_id, principal_id=principal_id)
+    uow.close()
+    return ActorContext(
+        actor=ActorReference(actor_id=principal_id, actor_type="human", display_name="Test Operator"),
+        organization_id=org_id,
+        workspace_id=ws_id,
+        project_id=proj_id,
+        session_id=actor.session_id,
+        session_token=actor.session_token,
+    )
 
 
 def make_actor(org_id="tenant-alpha", ws_id="ws-main", proj_id="proj-1", roles=("admin", "operator")):
@@ -313,9 +338,9 @@ def test_p6_1_pause_resume_across_execution_modes_m1_to_m8(caller):
         assert r_res.result["state"] == "ACTIVE"
 
 
-def test_p6_1_conflicting_commands_deterministic_fencing(caller):
+def test_p6_1_conflicting_commands_deterministic_fencing(caller, temp_db_path):
     """Verify terminal cancellation cannot be resumed and cancelled state blocks pause/resume."""
-    actor = make_actor()
+    actor = make_verified_actor(temp_db_path)
     corr = CorrelationContext.new()
 
     res_c = caller.handle_command(make_command("migration.create", {"name": "Cancel Conflict", "mode": "M1_BULK"}, actor, corr))
@@ -520,7 +545,7 @@ def test_p6_4_node_drain_crash_and_restart_reconstruction(temp_db_path):
     corr = CorrelationContext.new()
 
     # Session 1: Drain node
-    caller1 = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller1 = authorized_caller(db_path=temp_db_path)
     q_env = make_query("fleet.status", {}, actor_ctx, corr)
     res_fleet = caller1.handle_query(q_env)
     assert res_fleet.status == CallerResultStatus.OK
@@ -533,7 +558,7 @@ def test_p6_4_node_drain_crash_and_restart_reconstruction(temp_db_path):
     caller1.close()
 
     # Session 2 (Simulating Process Restart): Verify drain state reconstructed from SQLite
-    caller2 = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller2 = authorized_caller(db_path=temp_db_path)
     res_fleet2 = caller2.handle_query(make_query("fleet.status", {}, actor_ctx, corr))
     assert res_fleet2.status == CallerResultStatus.OK
     node_after_restart = [n for n in res_fleet2.result["nodes"] if n["node_id"] == target_node][0]
@@ -581,9 +606,9 @@ def test_p6_4_active_executions_vs_assigned_workloads(caller):
 # P6 HOSTILE ADVERSARIAL CONCURRENCY & FAILURE-INJECTION TESTS
 # ============================================================================
 
-def test_p6_1_adversarial_concurrency_pause_vs_terminate(caller):
+def test_p6_1_adversarial_concurrency_pause_vs_terminate(caller, temp_db_path):
     """Verify deterministic resolution when pause and cancel/terminate collide."""
-    actor = make_actor()
+    actor = make_verified_actor(temp_db_path)
     corr = CorrelationContext.new()
 
     res_c = caller.handle_command(make_command("migration.create", {"name": "Collide Test", "mode": "M1_BULK"}, actor, corr))
@@ -648,7 +673,7 @@ def test_p6_1_crash_after_accepted_before_dispatch(temp_db_path):
     corr = CorrelationContext.new()
 
     # Session 1: Create active migration
-    caller1 = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller1 = authorized_caller(db_path=temp_db_path)
     res_c = caller1.handle_command(make_command("migration.create", {"name": "Case A Mig", "mode": "M1_BULK"}, actor, corr))
     mig_id = res_c.result["migration_id"]
     with caller1._create_uow() as uow:
@@ -676,7 +701,7 @@ def test_p6_1_crash_after_accepted_before_dispatch(temp_db_path):
     conn.close()
 
     # Session 2: Post-restart inspection
-    caller2 = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller2 = authorized_caller(db_path=temp_db_path)
     with caller2._create_uow() as uow:
         agg_recheck = caller2.repository.get_by_id(mig_id, connection=uow.connection)
         # Aggregate remains ACTIVE; system does NOT infer APPLIED
@@ -706,7 +731,7 @@ def test_p6_1_crash_during_apply(temp_db_path):
     actor = make_actor()
     corr = CorrelationContext.new()
 
-    caller1 = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller1 = authorized_caller(db_path=temp_db_path)
     res_c = caller1.handle_command(make_command("migration.create", {"name": "Case B Mig", "mode": "M1_BULK"}, actor, corr))
     mig_id = res_c.result["migration_id"]
     with caller1._create_uow() as uow:
@@ -718,7 +743,7 @@ def test_p6_1_crash_during_apply(temp_db_path):
     caller1.close()
 
     # Stale attempt fencing rejects old execution token
-    caller2 = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller2 = authorized_caller(db_path=temp_db_path)
     res_stale = caller2.handle_command(
         make_command("migration.pause", {"migration_id": mig_id, "target_execution_id": "attempt-epoch-0-stale"}, actor, corr)
     )
@@ -747,7 +772,7 @@ def test_p6_1_physical_success_before_applied_persistence(temp_db_path):
     actor = make_actor()
     corr = CorrelationContext.new()
 
-    caller1 = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller1 = authorized_caller(db_path=temp_db_path)
     res_c = caller1.handle_command(make_command("migration.create", {"name": "Case C Mig", "mode": "M1_BULK"}, actor, corr))
     mig_id = res_c.result["migration_id"]
     with caller1._create_uow() as uow:
@@ -759,7 +784,7 @@ def test_p6_1_physical_success_before_applied_persistence(temp_db_path):
     caller1.close()
 
     # Reconnect and issue pause command again (simulating caller retrying uncommitted operation)
-    caller2 = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller2 = authorized_caller(db_path=temp_db_path)
     res_retry = caller2.handle_command(make_command("migration.pause", {"migration_id": mig_id}, actor, corr))
     assert res_retry.status == CallerResultStatus.OK
     assert res_retry.result["idempotent"] is True
@@ -786,7 +811,7 @@ def test_p6_1_applied_persisted_response_lost(temp_db_path):
     actor = make_actor()
     corr = CorrelationContext.new()
 
-    caller1 = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller1 = authorized_caller(db_path=temp_db_path)
     res_c = caller1.handle_command(make_command("migration.create", {"name": "Case D Mig", "mode": "M1_BULK"}, actor, corr))
     mig_id = res_c.result["migration_id"]
     with caller1._create_uow() as uow:
@@ -807,7 +832,7 @@ def test_p6_1_applied_persisted_response_lost(temp_db_path):
     caller1.close()
 
     # Session 2: Replay with same idempotency key (simulating retry after lost response)
-    caller2 = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller2 = authorized_caller(db_path=temp_db_path)
     res_p2 = caller2.handle_command(pause_cmd)
     assert res_p2.status == CallerResultStatus.OK
     assert res_p2.result["idempotent"] is True
@@ -833,7 +858,7 @@ def test_p6_1_indeterminate_physical_outcome(temp_db_path):
     actor = make_actor()
     corr = CorrelationContext.new()
 
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     # Attempting to pause non-existent migration fails closed with structured INVALID_REQUEST
     res_indet = caller.handle_command(make_command("migration.pause", {"migration_id": "mig-nonexistent-999"}, actor, corr))
     assert res_indet.status == CallerResultStatus.ERROR
@@ -859,7 +884,7 @@ def test_p6_1_ambiguous_failed_persisted_no_automatic_redispatch(temp_db_path):
     corr = CorrelationContext.new()
 
     # Session 1: Create active migration and simulate crash during indeterminate execution
-    caller1 = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller1 = authorized_caller(db_path=temp_db_path)
     res_c = caller1.handle_command(make_command("migration.create", {"name": "Ambiguous Mig", "mode": "M1_BULK"}, actor, corr))
     mig_id = res_c.result["migration_id"]
     with caller1._create_uow() as uow:
@@ -914,7 +939,7 @@ def test_p6_1_ambiguous_failed_persisted_no_automatic_redispatch(temp_db_path):
     caller1.close()
 
     # Session 2: Post-crash restart / reconstruction
-    caller2 = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller2 = authorized_caller(db_path=temp_db_path)
     with caller2._create_uow() as uow:
         # Verify journal truth after restart
         op_recheck = caller2.operation_service.get_by_id(op_id, uow.connection)
@@ -955,7 +980,7 @@ def test_p6_2_log_1_correlation_identity(caplog, temp_db_path):
     test_corr_id = "corr-identity-test-777"
     corr = CorrelationContext(correlation_id=test_corr_id, request_id="req-777", causation_id=None)
 
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     with caplog.at_level(logging.INFO):
         res = caller.handle_command(make_command("migration.create", {"name": "Log Test Mig", "mode": "M1_BULK"}, actor, corr))
         assert res.status == CallerResultStatus.OK
@@ -965,7 +990,7 @@ def test_p6_2_log_1_correlation_identity(caplog, temp_db_path):
 def test_p6_2_log_2_correlation_isolation(caplog, temp_db_path):
     """LOG-2: Two separate operations do not cross-contaminate correlation identities."""
     actor = make_actor()
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
 
     corr_a = CorrelationContext(correlation_id="corr-alpha-111", request_id="req-a", causation_id=None)
     corr_b = CorrelationContext(correlation_id="corr-beta-222", request_id="req-b", causation_id=None)
@@ -1005,7 +1030,7 @@ def test_p6_2_log_4_logger_failure_isolation(temp_db_path):
     try:
         actor = make_actor()
         corr = CorrelationContext.new()
-        caller = PipelineUnifiedCaller(db_path=temp_db_path)
+        caller = authorized_caller(db_path=temp_db_path)
         res = caller.handle_command(make_command("migration.create", {"name": "Isolated Log Mig", "mode": "M1_BULK"}, actor, corr))
         assert res.status == CallerResultStatus.OK
         caller.close()
@@ -1143,7 +1168,7 @@ def test_p6_2_sub_4_subscriber_failure_isolation(temp_db_path):
     """SUB-4: Subscriber consumer failure does not block runtime producer."""
     actor = make_actor()
     corr = CorrelationContext.new()
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
 
     # Core migration command succeeds independently of subscription state
     res = caller.handle_command(make_command("migration.create", {"name": "Sub Isolation Mig", "mode": "M1_BULK"}, actor, corr))
@@ -1173,7 +1198,7 @@ def test_p6_2_sub_6_slow_subscriber_isolation(temp_db_path):
     """SUB-6: Slow pull subscriber polling does not stall pipeline execution."""
     actor = make_actor()
     corr = CorrelationContext.new()
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
 
     # Pipeline operations proceed at full speed without waiting for subscriber ack
     res1 = caller.handle_command(make_command("migration.create", {"name": "Speed Mig 1", "mode": "M1_BULK"}, actor, corr))
@@ -1296,7 +1321,7 @@ def test_p6_4_drain_permission_enforcement_and_unauthorized_rejection(temp_db_pa
     """Verify unprivileged actors cannot drain or undrain nodes."""
     unprivileged_actor = make_actor(roles=("viewer", "analyst"))
     corr = CorrelationContext.new()
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
 
     drain_cmd = make_command("fleet.drain_node", {"node_id": "node-target-1"}, unprivileged_actor, corr)
     res_drain = caller.handle_command(drain_cmd)

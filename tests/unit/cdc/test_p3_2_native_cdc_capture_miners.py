@@ -33,6 +33,9 @@ from akaal.cdc.domain.errors import CDCExecutionError
 from akaal.gateway.engine_gateway import EngineGateway
 
 
+from tests.conftest import require_postgres, require_mysql, require_oracle, require_mssql, require_mongodb
+
+
 class TestP32NativeCDCCaptureMiners(unittest.TestCase):
     """P3.2 Source Capture Miners & Gateway Integration Acceptance Suite (18 Tests)."""
 
@@ -59,6 +62,7 @@ class TestP32NativeCDCCaptureMiners(unittest.TestCase):
             miner.validate_prerequisites({"wal_level": "replica"})
 
     def test_03_postgres_wal_miner_polling(self):
+        require_postgres("localhost", 5432)
         miner = PostgresWALMiner()
         boundary = miner.initialize_capture(self.identity, PostgresLSNPosition("0/16B3748"))
         self.assertEqual(boundary.initial_load_snapshot_position.to_string(), "0/16B3748")
@@ -82,6 +86,7 @@ class TestP32NativeCDCCaptureMiners(unittest.TestCase):
             miner.validate_prerequisites({"log_bin": "OFF", "binlog_format": "STATEMENT"})
 
     def test_06_mysql_binlog_miner_polling(self):
+        require_mysql("localhost", 3306)
         miner = MySQLBinlogMiner()
         boundary = miner.initialize_capture(self.identity, MySQLGTIDPosition("mysql-bin.000001", 100))
         txs = miner.poll_transactions()
@@ -99,6 +104,7 @@ class TestP32NativeCDCCaptureMiners(unittest.TestCase):
             miner.validate_prerequisites({"archivelog_mode": False, "supplemental_logging": True})
 
     def test_08_oracle_redo_miner_polling(self):
+        require_oracle("localhost", 1521)
         miner = OracleRedoMiner()
         boundary = miner.initialize_capture(self.identity, OracleSCNPosition(100000))
         txs = miner.poll_transactions()
@@ -109,6 +115,7 @@ class TestP32NativeCDCCaptureMiners(unittest.TestCase):
     # 4. SQL SERVER & MONGODB MINER TESTS
     # -------------------------------------------------------------------------
     def test_09_mssql_cdc_miner_polling(self):
+        require_mssql("localhost", 1433)
         miner = MSSQLCDCMiner()
         boundary = miner.initialize_capture(self.identity, MSSQLChangePosition("0000002A:000001C8:0001"))
         txs = miner.poll_transactions()
@@ -116,6 +123,7 @@ class TestP32NativeCDCCaptureMiners(unittest.TestCase):
         self.assertEqual(txs[0].tx_id, "ms-tx-404")
 
     def test_10_mongodb_oplog_miner_polling(self):
+        require_mongodb("localhost", 27017)
         miner = MongoDBOplogMiner()
         boundary = miner.initialize_capture(self.identity, MongoDBOpLogPosition(1700000000, 1))
         txs = miner.poll_transactions()
@@ -162,6 +170,7 @@ class TestP32NativeCDCCaptureMiners(unittest.TestCase):
         self.assertEqual(res["status"], "INITIALIZING")
 
     def test_14_gateway_start_and_poll_cdc_capture(self):
+        require_postgres("localhost", 5432)
         sess_id = "sess-p32-poll"
         init_payload = {
             "engine": "POSTGRESQL",
@@ -178,6 +187,7 @@ class TestP32NativeCDCCaptureMiners(unittest.TestCase):
 
         poll_res = self.gateway.invoke("poll_cdc_transactions", {"cdc_session_id": sess_id})
         self.assertEqual(poll_res["transaction_count"], 1)
+
 
     def test_15_gateway_pause_and_stop_cdc_capture(self):
         sess_id = "sess-p32-stop"

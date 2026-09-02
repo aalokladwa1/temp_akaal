@@ -142,6 +142,12 @@ class TransformationEngine:
         for rule in compiled.compiled_rules:
             col = rule.column_name
             try:
+                # 0. Conditional Rule Execution Guard
+                if rule.condition_ast:
+                    cond_val = ExpressionCompiler.evaluate(rule.condition_ast, new_row)
+                    if not bool(cond_val):
+                        continue
+
                 # 1. Lookup Transformation
                 if rule.rule_type == RuleType.LOOKUP and rule.lookup_definition:
                     self.lookup_resolver.register_lookup(rule.lookup_definition)
@@ -169,14 +175,26 @@ class TransformationEngine:
                         )
                     new_row[col] = resolved_val
 
-                # 2. Expression / Cleansing AST Evaluation
+                # 2. Type Conversion
+                elif rule.rule_type == RuleType.TYPE_CONVERSION and rule.target_type:
+                    val = new_row.get(col)
+                    if val is not None:
+                        if rule.target_type in ("str", "string"):
+                            new_row[col] = str(val)
+                        elif rule.target_type in ("int", "integer"):
+                            new_row[col] = int(val)
+                        elif rule.target_type in ("float", "double"):
+                            new_row[col] = float(val)
+
+                # 3. Expression / Cleansing AST Evaluation
                 elif rule.expression_ast:
                     new_row[col] = ExpressionCompiler.evaluate(rule.expression_ast, new_row)
 
-                # 3. Default Value Assignment
+                # 4. Default Value Assignment
                 elif rule.rule_type == RuleType.DEFAULT:
                     if new_row.get(col) is None:
                         new_row[col] = rule.default_value
+
 
             except Exception as exc:
                 diag = TransformationDiagnostic(

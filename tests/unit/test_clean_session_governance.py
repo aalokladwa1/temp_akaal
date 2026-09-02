@@ -1,5 +1,6 @@
 import unittest
 from akaal.gateway.engine_gateway import EngineGateway
+from tests.conftest import require_oracle
 
 class TestCleanSessionGovernanceAndLifecycle(unittest.TestCase):
 
@@ -15,7 +16,9 @@ class TestCleanSessionGovernanceAndLifecycle(unittest.TestCase):
         self.assertEqual(len(queue_res.get("approvals", [])), 0, "Clean startup must have 0 approvals")
 
     def test_canonical_lifecycle_and_fail_closed_governance(self):
+        require_oracle("localhost", 1521)
         # 2. DISCOVER & PREFLIGHT
+
         preflight_res = self.gateway.invoke("run_preflight", {
             "source_engine": "Oracle 19c",
             "target_engine": "PostgreSQL 16",

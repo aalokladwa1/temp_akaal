@@ -51,7 +51,7 @@ from akaalPipeline.ports.engine import EngineInvocationRequest, EngineInvocation
 from akaalPipeline.security.context import PipelineActorContext
 from akaalPipeline.state.artifacts import ImmutableArtifact
 from akaalPipeline.state.unit_of_work import SQLiteUnitOfWork
-from tests.pipeline.conftest import make_command, make_query
+from tests.pipeline.conftest import authorized_caller, make_command, make_query
 
 
 class MultiNodeTrackingPort(ExecutionPort):
@@ -163,18 +163,18 @@ def _register_universal_binding(caller: PipelineUnifiedCaller, port: ExecutionPo
 # 1. CANONICAL TOPOLOGY TESTS (M1 - M8)
 # ==============================================================================
 
-def test_m1_multi_node_execution_sequence(temp_db_path, ipc_actor, ipc_correlation):
+def test_m1_multi_node_execution_sequence(temp_db_path, verified_ipc_actor, ipc_correlation):
     """M1 executes schema_prep -> data_transport in exact sequence."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     port = MultiNodeTrackingPort()
     _register_universal_binding(caller, port)
-    _setup_migration(caller, "mig-m1", ipc_actor, ipc_correlation, "M1")
+    _setup_migration(caller, "mig-m1", verified_ipc_actor, ipc_correlation, "M1")
 
     res = caller.handle_command(
         make_command(
             request_type="migration.start",
             payload={"migration_id": "mig-m1", "mode": "M1"},
-            actor=ipc_actor,
+            actor=verified_ipc_actor,
             correlation=ipc_correlation,
         )
     )
@@ -198,18 +198,18 @@ def test_m1_multi_node_execution_sequence(temp_db_path, ipc_actor, ipc_correlati
         assert node_rows[1]["graph_node_id"] == "n-data-transport" and node_rows[1]["state"] == "SUCCEEDED"
 
 
-def test_m2_three_node_execution_sequence(temp_db_path, ipc_actor, ipc_correlation):
+def test_m2_three_node_execution_sequence(temp_db_path, verified_ipc_actor, ipc_correlation):
     """M2 executes schema_prep -> cdc_start -> data_transport -> cdc_sync -> val_compare in exact sequence."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     port = MultiNodeTrackingPort()
     _register_universal_binding(caller, port)
-    _setup_migration(caller, "mig-m2", ipc_actor, ipc_correlation, "M2")
+    _setup_migration(caller, "mig-m2", verified_ipc_actor, ipc_correlation, "M2")
 
     res = caller.handle_command(
         make_command(
             request_type="migration.start",
             payload={"migration_id": "mig-m2", "mode": "M2"},
-            actor=ipc_actor,
+            actor=verified_ipc_actor,
             correlation=ipc_correlation,
         )
     )
@@ -218,18 +218,18 @@ def test_m2_three_node_execution_sequence(temp_db_path, ipc_actor, ipc_correlati
     assert port.invoked_nodes == ["n-schema-prep", "n-cdc-start", "n-data-transport", "n-cdc-sync", "n-val-compare"]
 
 
-def test_m3_two_node_cdc_sequence(temp_db_path, ipc_actor, ipc_correlation):
+def test_m3_two_node_cdc_sequence(temp_db_path, verified_ipc_actor, ipc_correlation):
     """M3 executes cdc_capture -> cdc_apply in sequence."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     port = MultiNodeTrackingPort()
     _register_universal_binding(caller, port)
-    _setup_migration(caller, "mig-m3", ipc_actor, ipc_correlation, "M3")
+    _setup_migration(caller, "mig-m3", verified_ipc_actor, ipc_correlation, "M3")
 
     res = caller.handle_command(
         make_command(
             request_type="migration.start",
             payload={"migration_id": "mig-m3", "mode": "M3"},
-            actor=ipc_actor,
+            actor=verified_ipc_actor,
             correlation=ipc_correlation,
         )
     )
@@ -238,18 +238,18 @@ def test_m3_two_node_cdc_sequence(temp_db_path, ipc_actor, ipc_correlation):
     assert port.invoked_nodes == ["n-cdc-capture", "n-cdc-apply"]
 
 
-def test_m4_incremental_sequence(temp_db_path, ipc_actor, ipc_correlation):
+def test_m4_incremental_sequence(temp_db_path, verified_ipc_actor, ipc_correlation):
     """M4 executes incremental_extract -> incremental_apply in sequence."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     port = MultiNodeTrackingPort()
     _register_universal_binding(caller, port)
-    _setup_migration(caller, "mig-m4", ipc_actor, ipc_correlation, "M4")
+    _setup_migration(caller, "mig-m4", verified_ipc_actor, ipc_correlation, "M4")
 
     res = caller.handle_command(
         make_command(
             request_type="migration.start",
             payload={"migration_id": "mig-m4", "mode": "M4"},
-            actor=ipc_actor,
+            actor=verified_ipc_actor,
             correlation=ipc_correlation,
         )
     )
@@ -258,18 +258,18 @@ def test_m4_incremental_sequence(temp_db_path, ipc_actor, ipc_correlation):
     assert port.invoked_nodes == ["n-inc-extract", "n-inc-apply"]
 
 
-def test_m5_state_sync_sequence(temp_db_path, ipc_actor, ipc_correlation):
+def test_m5_state_sync_sequence(temp_db_path, verified_ipc_actor, ipc_correlation):
     """M5 executes state_diff -> state_reconcile in sequence."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     port = MultiNodeTrackingPort()
     _register_universal_binding(caller, port)
-    _setup_migration(caller, "mig-m5", ipc_actor, ipc_correlation, "M5")
+    _setup_migration(caller, "mig-m5", verified_ipc_actor, ipc_correlation, "M5")
 
     res = caller.handle_command(
         make_command(
             request_type="migration.start",
             payload={"migration_id": "mig-m5", "mode": "M5"},
-            actor=ipc_actor,
+            actor=verified_ipc_actor,
             correlation=ipc_correlation,
         )
     )
@@ -278,18 +278,18 @@ def test_m5_state_sync_sequence(temp_db_path, ipc_actor, ipc_correlation):
     assert port.invoked_nodes == ["n-state-diff", "n-state-reconcile"]
 
 
-def test_m6_schema_sequence(temp_db_path, ipc_actor, ipc_correlation):
+def test_m6_schema_sequence(temp_db_path, verified_ipc_actor, ipc_correlation):
     """M6 executes schema_extract -> schema_apply in sequence."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     port = MultiNodeTrackingPort()
     _register_universal_binding(caller, port)
-    _setup_migration(caller, "mig-m6", ipc_actor, ipc_correlation, "M6")
+    _setup_migration(caller, "mig-m6", verified_ipc_actor, ipc_correlation, "M6")
 
     res = caller.handle_command(
         make_command(
             request_type="migration.start",
             payload={"migration_id": "mig-m6", "mode": "M6"},
-            actor=ipc_actor,
+            actor=verified_ipc_actor,
             correlation=ipc_correlation,
         )
     )
@@ -298,18 +298,18 @@ def test_m6_schema_sequence(temp_db_path, ipc_actor, ipc_correlation):
     assert port.invoked_nodes == ["n-schema-extract", "n-schema-apply"]
 
 
-def test_m7_single_node_data_transport(temp_db_path, ipc_actor, ipc_correlation):
+def test_m7_single_node_data_transport(temp_db_path, verified_ipc_actor, ipc_correlation):
     """M7 executes single node data_transport."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     port = MultiNodeTrackingPort()
     _register_universal_binding(caller, port)
-    _setup_migration(caller, "mig-m7", ipc_actor, ipc_correlation, "M7")
+    _setup_migration(caller, "mig-m7", verified_ipc_actor, ipc_correlation, "M7")
 
     res = caller.handle_command(
         make_command(
             request_type="migration.start",
             payload={"migration_id": "mig-m7", "mode": "M7"},
-            actor=ipc_actor,
+            actor=verified_ipc_actor,
             correlation=ipc_correlation,
         )
     )
@@ -318,18 +318,18 @@ def test_m7_single_node_data_transport(temp_db_path, ipc_actor, ipc_correlation)
     assert port.invoked_nodes == ["n-data-transport"]
 
 
-def test_m8_single_node_validation_compare(temp_db_path, ipc_actor, ipc_correlation):
+def test_m8_single_node_validation_compare(temp_db_path, verified_ipc_actor, ipc_correlation):
     """M8 executes single node validation_compare."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     port = MultiNodeTrackingPort()
     _register_universal_binding(caller, port)
-    _setup_migration(caller, "mig-m8", ipc_actor, ipc_correlation, "M8")
+    _setup_migration(caller, "mig-m8", verified_ipc_actor, ipc_correlation, "M8")
 
     res = caller.handle_command(
         make_command(
             request_type="migration.start",
             payload={"migration_id": "mig-m8", "mode": "M8"},
-            actor=ipc_actor,
+            actor=verified_ipc_actor,
             correlation=ipc_correlation,
         )
     )
@@ -342,18 +342,18 @@ def test_m8_single_node_validation_compare(temp_db_path, ipc_actor, ipc_correlat
 # 2. DEPENDENCY GATING & FAILURE SEMANTICS
 # ==============================================================================
 
-def test_predecessor_failure_blocks_successor_and_fails_plan(temp_db_path, ipc_actor, ipc_correlation):
+def test_predecessor_failure_blocks_successor_and_fails_plan(temp_db_path, verified_ipc_actor, ipc_correlation):
     """When node 1 fails, node 2 remains BLOCKED and is never dispatched."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     port = MultiNodeTrackingPort(failure_nodes=["n-schema-prep"])
     _register_universal_binding(caller, port)
-    _setup_migration(caller, "mig-fail-pred", ipc_actor, ipc_correlation, "M1")
+    _setup_migration(caller, "mig-fail-pred", verified_ipc_actor, ipc_correlation, "M1")
 
     res = caller.handle_command(
         make_command(
             request_type="migration.start",
             payload={"migration_id": "mig-fail-pred", "mode": "M1"},
-            actor=ipc_actor,
+            actor=verified_ipc_actor,
             correlation=ipc_correlation,
         )
     )
@@ -375,9 +375,9 @@ def test_predecessor_failure_blocks_successor_and_fails_plan(temp_db_path, ipc_a
         assert cur_pe.fetchone()["status"] == "FAILED"
 
 
-def test_mid_execution_unbound_capability_fails_closed(temp_db_path, ipc_actor, ipc_correlation):
+def test_mid_execution_unbound_capability_fails_closed(temp_db_path, verified_ipc_actor, ipc_correlation):
     """When node 2 capability has no registered binding, node 1 succeeds and node 2 fails with UNBOUND."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     port = MultiNodeTrackingPort()
     # Register binding ONLY for schema_prep (missing data_transport)
     caller.binding_registry.register(
@@ -390,13 +390,13 @@ def test_mid_execution_unbound_capability_fails_closed(temp_db_path, ipc_actor, 
             supported_modes={MigrationMode.M1_BULK},
         )
     )
-    _setup_migration(caller, "mig-mid-unbound", ipc_actor, ipc_correlation, "M1")
+    _setup_migration(caller, "mig-mid-unbound", verified_ipc_actor, ipc_correlation, "M1")
 
     res = caller.handle_command(
         make_command(
             request_type="migration.start",
             payload={"migration_id": "mig-mid-unbound", "mode": "M1"},
-            actor=ipc_actor,
+            actor=verified_ipc_actor,
             correlation=ipc_correlation,
         )
     )
@@ -418,18 +418,18 @@ def test_mid_execution_unbound_capability_fails_closed(temp_db_path, ipc_actor, 
         assert rows[1]["state"] == "FAILED"
 
 
-def test_mid_execution_engine_crash_fails_closed(temp_db_path, ipc_actor, ipc_correlation):
+def test_mid_execution_engine_crash_fails_closed(temp_db_path, verified_ipc_actor, ipc_correlation):
     """When node 2 engine crashes with an unhandled exception, node 2 transitions to FAILED and returns UNAVAILABLE."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     port = MultiNodeTrackingPort(crash_nodes=["n-data-transport"])
     _register_universal_binding(caller, port)
-    _setup_migration(caller, "mig-mid-crash", ipc_actor, ipc_correlation, "M1")
+    _setup_migration(caller, "mig-mid-crash", verified_ipc_actor, ipc_correlation, "M1")
 
     res = caller.handle_command(
         make_command(
             request_type="migration.start",
             payload={"migration_id": "mig-mid-crash", "mode": "M1"},
-            actor=ipc_actor,
+            actor=verified_ipc_actor,
             correlation=ipc_correlation,
         )
     )
@@ -455,18 +455,18 @@ def test_mid_execution_engine_crash_fails_closed(temp_db_path, ipc_actor, ipc_co
 # 3. ATTEMPT, LEASE, AND FENCING ISOLATION
 # ==============================================================================
 
-def test_each_node_acquires_distinct_attempt_lease_fence(temp_db_path, ipc_actor, ipc_correlation):
+def test_each_node_acquires_distinct_attempt_lease_fence(temp_db_path, verified_ipc_actor, ipc_correlation):
     """Prove each node in the DAG acquires its own unique attempt ID, lease ID, and fence epoch."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     port = MultiNodeTrackingPort()
     _register_universal_binding(caller, port)
-    _setup_migration(caller, "mig-fence-iso", ipc_actor, ipc_correlation, "M2")
+    _setup_migration(caller, "mig-fence-iso", verified_ipc_actor, ipc_correlation, "M2")
 
     res = caller.handle_command(
         make_command(
             request_type="migration.start",
             payload={"migration_id": "mig-fence-iso", "mode": "M2"},
-            actor=ipc_actor,
+            actor=verified_ipc_actor,
             correlation=ipc_correlation,
         )
     )
@@ -502,19 +502,19 @@ def test_each_node_acquires_distinct_attempt_lease_fence(temp_db_path, ipc_actor
 # 4. PARTIAL PROGRESS & CRASH RESUME INVARIANTS
 # ==============================================================================
 
-def test_crash_recovery_resumes_from_ready_nodes(temp_db_path, ipc_actor, ipc_correlation):
+def test_crash_recovery_resumes_from_ready_nodes(temp_db_path, verified_ipc_actor, ipc_correlation):
     """Prove that reopening the database reconstructs execution state without re-executing completed nodes."""
-    caller1 = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller1 = authorized_caller(db_path=temp_db_path)
     # Simulate port that crashes on node 3 of M2 (n-data-transport)
     port1 = MultiNodeTrackingPort(crash_nodes=["n-data-transport"])
     _register_universal_binding(caller1, port1)
-    _setup_migration(caller1, "mig-resume", ipc_actor, ipc_correlation, "M2")
+    _setup_migration(caller1, "mig-resume", verified_ipc_actor, ipc_correlation, "M2")
 
     res1 = caller1.handle_command(
         make_command(
             request_type="migration.start",
             payload={"migration_id": "mig-resume", "mode": "M2"},
-            actor=ipc_actor,
+            actor=verified_ipc_actor,
             correlation=ipc_correlation,
         )
     )
@@ -522,7 +522,7 @@ def test_crash_recovery_resumes_from_ready_nodes(temp_db_path, ipc_actor, ipc_co
     assert port1.invoked_nodes == ["n-schema-prep", "n-cdc-start", "n-data-transport"]
 
     # Re-open database with a new caller instance (simulating full process restart)
-    caller2 = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller2 = authorized_caller(db_path=temp_db_path)
     port2 = MultiNodeTrackingPort()  # Healthy port
     _register_universal_binding(caller2, port2)
 
@@ -538,7 +538,7 @@ def test_crash_recovery_resumes_from_ready_nodes(temp_db_path, ipc_actor, ipc_co
         agg = caller2.repository.get_by_id("mig-resume", connection=uow.connection)
         plan_art = caller2.artifact_registry.get(agg.plan_id, conn=uow.connection)
         plan = ExecutionPlan.from_dict(plan_art.content)
-        pipeline_actor = PipelineActorContext.from_ipc(ipc_actor)
+        pipeline_actor = PipelineActorContext.from_ipc(verified_ipc_actor)
 
     outcome = caller2.plan_coordinator.advance_plan_execution(
         execution_id=pe.execution_id,
@@ -561,12 +561,12 @@ def test_crash_recovery_resumes_from_ready_nodes(temp_db_path, ipc_actor, ipc_co
 # 5. CANCELLATION FENCING ACROSS ACTIVE AND BLOCKED NODES
 # ==============================================================================
 
-def test_cancellation_fences_active_node_and_cancels_blocked_nodes(temp_db_path, ipc_actor, ipc_correlation):
+def test_cancellation_fences_active_node_and_cancels_blocked_nodes(temp_db_path, verified_ipc_actor, ipc_correlation):
     """Prove cancellation revokes active attempt lease and transitions all remaining nodes to CANCELLED."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     port = MultiNodeTrackingPort()
     _register_universal_binding(caller, port)
-    _setup_migration(caller, "mig-cancel-nodes", ipc_actor, ipc_correlation, "M2")
+    _setup_migration(caller, "mig-cancel-nodes", verified_ipc_actor, ipc_correlation, "M2")
 
     # Manually materialize plan execution to set initial states
     uow = SQLiteUnitOfWork(db_path=temp_db_path)
@@ -574,7 +574,7 @@ def test_cancellation_fences_active_node_and_cancels_blocked_nodes(temp_db_path,
         agg = caller.repository.get_by_id("mig-cancel-nodes", connection=uow.connection)
         plan_art = caller.artifact_registry.get(agg.plan_id, conn=uow.connection)
         plan = ExecutionPlan.from_dict(plan_art.content)
-        p_actor = PipelineActorContext.from_ipc(ipc_actor)
+        p_actor = PipelineActorContext.from_ipc(verified_ipc_actor)
         pe = caller.plan_coordinator.materialize_plan_execution(plan, agg, p_actor, "fp-test", uow.connection)
 
     # Cancel migration
@@ -582,7 +582,7 @@ def test_cancellation_fences_active_node_and_cancels_blocked_nodes(temp_db_path,
         make_command(
             request_type="migration.cancel",
             payload={"migration_id": "mig-cancel-nodes", "reason": "Operator abort"},
-            actor=ipc_actor,
+            actor=verified_ipc_actor,
             correlation=ipc_correlation,
         )
     )
@@ -602,18 +602,18 @@ def test_cancellation_fences_active_node_and_cancels_blocked_nodes(temp_db_path,
 # 6. NODE LEVEL OUTBOX AND AUDIT EVENTS
 # ==============================================================================
 
-def test_node_level_provenance_and_audit_events(temp_db_path, ipc_actor, ipc_correlation):
+def test_node_level_provenance_and_audit_events(temp_db_path, verified_ipc_actor, ipc_correlation):
     """Prove each node dispatch and completion emits dedicated domain events and audit trail records."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     port = MultiNodeTrackingPort()
     _register_universal_binding(caller, port)
-    _setup_migration(caller, "mig-events", ipc_actor, ipc_correlation, "M1")
+    _setup_migration(caller, "mig-events", verified_ipc_actor, ipc_correlation, "M1")
 
     res = caller.handle_command(
         make_command(
             request_type="migration.start",
             payload={"migration_id": "mig-events", "mode": "M1"},
-            actor=ipc_actor,
+            actor=verified_ipc_actor,
             correlation=ipc_correlation,
         )
     )
@@ -645,9 +645,9 @@ def test_node_level_provenance_and_audit_events(temp_db_path, ipc_actor, ipc_cor
 # 7. COMPLEX CUSTOM DAG TOPOLOGY: DIAMOND DAG
 # ==============================================================================
 
-def test_custom_diamond_dag_execution(temp_db_path, ipc_actor, ipc_correlation):
+def test_custom_diamond_dag_execution(temp_db_path, verified_ipc_actor, ipc_correlation):
     """Prove Diamond DAG: A -> (B, C) -> D. D is dispatched only after BOTH B and C succeed."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     port = MultiNodeTrackingPort()
     _register_universal_binding(caller, port)
 
@@ -656,7 +656,7 @@ def test_custom_diamond_dag_execution(temp_db_path, ipc_actor, ipc_correlation):
         make_command(
             request_type="migration.create",
             payload={"migration_id": "mig-diamond", "mode": "M1"},
-            actor=ipc_actor,
+            actor=verified_ipc_actor,
             correlation=ipc_correlation,
         )
     )
@@ -695,7 +695,7 @@ def test_custom_diamond_dag_execution(temp_db_path, ipc_actor, ipc_correlation):
         make_command(
             request_type="migration.initialize",
             payload={"migration_id": "mig-diamond"},
-            actor=ipc_actor,
+            actor=verified_ipc_actor,
             correlation=ipc_correlation,
         )
     )
@@ -705,7 +705,7 @@ def test_custom_diamond_dag_execution(temp_db_path, ipc_actor, ipc_correlation):
         make_command(
             request_type="migration.start",
             payload={"migration_id": "mig-diamond", "mode": "M1"},
-            actor=ipc_actor,
+            actor=verified_ipc_actor,
             correlation=ipc_correlation,
         )
     )
@@ -722,19 +722,19 @@ def test_custom_diamond_dag_execution(temp_db_path, ipc_actor, ipc_correlation):
 # 8. HOSTILE ADJUDICATION TESTS: N-01 THROUGH N-05 VERIFICATION
 # ==============================================================================
 
-def test_n01_atomic_ready_node_claim_prevents_duplicate_dispatch(temp_db_path, ipc_actor, ipc_correlation):
+def test_n01_atomic_ready_node_claim_prevents_duplicate_dispatch(temp_db_path, verified_ipc_actor, ipc_correlation):
     """N-01: Atomic CAS claim WHERE node_execution_id = ? AND state = 'READY' prevents double claim."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     port = MultiNodeTrackingPort()
     _register_universal_binding(caller, port)
-    _setup_migration(caller, "mig-n01", ipc_actor, ipc_correlation, "M1")
+    _setup_migration(caller, "mig-n01", verified_ipc_actor, ipc_correlation, "M1")
 
     uow = SQLiteUnitOfWork(db_path=temp_db_path)
     with uow:
         agg = caller.repository.get_by_id("mig-n01", connection=uow.connection)
         plan_art = caller.artifact_registry.get(agg.plan_id, conn=uow.connection)
         plan = ExecutionPlan.from_dict(plan_art.content)
-        p_actor = PipelineActorContext.from_ipc(ipc_actor)
+        p_actor = PipelineActorContext.from_ipc(verified_ipc_actor)
         pe = caller.plan_coordinator.materialize_plan_execution(plan, agg, p_actor, "fp-n01", uow.connection)
 
         # Manually claim the first node to DISPATCHED state
@@ -763,18 +763,18 @@ def test_n01_atomic_ready_node_claim_prevents_duplicate_dispatch(temp_db_path, i
     assert len(port.invocations) == 0
 
 
-def test_n02_finite_plan_completion_transitions_to_completed(temp_db_path, ipc_actor, ipc_correlation):
+def test_n02_finite_plan_completion_transitions_to_completed(temp_db_path, verified_ipc_actor, ipc_correlation):
     """N-02: Successful finite plans (M1, M4-M8) transition migration aggregate to COMPLETED."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     port = MultiNodeTrackingPort()
     _register_universal_binding(caller, port)
-    _setup_migration(caller, "mig-n02-finite", ipc_actor, ipc_correlation, "M1")
+    _setup_migration(caller, "mig-n02-finite", verified_ipc_actor, ipc_correlation, "M1")
 
     res = caller.handle_command(
         make_command(
             request_type="migration.start",
             payload={"migration_id": "mig-n02-finite", "mode": "M1"},
-            actor=ipc_actor,
+            actor=verified_ipc_actor,
             correlation=ipc_correlation,
         )
     )
@@ -790,7 +790,7 @@ def test_n02_finite_plan_completion_transitions_to_completed(temp_db_path, ipc_a
         make_command(
             request_type="migration.start",
             payload={"migration_id": "mig-n02-finite", "mode": "M1"},
-            actor=ipc_actor,
+            actor=verified_ipc_actor,
             correlation=ipc_correlation,
         )
     )
@@ -798,14 +798,14 @@ def test_n02_finite_plan_completion_transitions_to_completed(temp_db_path, ipc_a
     assert res_restart.error.code == "INVALID_TRANSITION"
 
 
-def test_n03_recovery_preserves_succeeded_nodes_and_recovers_dag(temp_db_path, ipc_actor, ipc_correlation):
+def test_n03_recovery_preserves_succeeded_nodes_and_recovers_dag(temp_db_path, verified_ipc_actor, ipc_correlation):
     """N-03: Recovery preserves already SUCCEEDED nodes, resets incomplete nodes to READY,
     and binds replacement attempt authority to the recovered node without orphaning authority.
     """
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     port = MultiNodeTrackingPort()
     _register_universal_binding(caller, port)
-    _setup_migration(caller, "mig-n03-rec", ipc_actor, ipc_correlation, "M2")
+    _setup_migration(caller, "mig-n03-rec", verified_ipc_actor, ipc_correlation, "M2")
 
     # Manually simulate execution where Node 1 succeeded and Node 2 failed/cancelled
     uow = SQLiteUnitOfWork(db_path=temp_db_path)
@@ -814,7 +814,7 @@ def test_n03_recovery_preserves_succeeded_nodes_and_recovers_dag(temp_db_path, i
         plan_art = caller.artifact_registry.get(agg.plan_id, conn=uow.connection)
         init_art = caller.artifact_registry.get(agg.initialization_id, conn=uow.connection)
         plan = ExecutionPlan.from_dict(plan_art.content)
-        p_actor = PipelineActorContext.from_ipc(ipc_actor)
+        p_actor = PipelineActorContext.from_ipc(verified_ipc_actor)
         pe = caller.plan_coordinator.materialize_plan_execution(plan, agg, p_actor, init_art.fingerprint, uow.connection)
 
 
@@ -846,7 +846,7 @@ def test_n03_recovery_preserves_succeeded_nodes_and_recovers_dag(temp_db_path, i
         make_command(
             request_type="migration.recover",
             payload={"migration_id": "mig-n03-rec", "source_attempt_id": "att-old"},
-            actor=ipc_actor,
+            actor=verified_ipc_actor,
             correlation=ipc_correlation,
         )
     )
@@ -891,9 +891,9 @@ def test_n03_recovery_preserves_succeeded_nodes_and_recovers_dag(temp_db_path, i
     assert node2_req.lease_id == recov_lease
 
 
-def test_n04_stale_result_reconciliation_transitions_node_to_failed(temp_db_path, ipc_actor, ipc_correlation):
+def test_n04_stale_result_reconciliation_transitions_node_to_failed(temp_db_path, verified_ipc_actor, ipc_correlation):
     """N-04: StaleResultError in result reconciliation transitions node and plan to FAILED with STALE_RESULT."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
 
     # Custom port that returns an invalid/stale fence epoch
     class StaleFencedPort(ExecutionPort):
@@ -921,14 +921,14 @@ def test_n04_stale_result_reconciliation_transitions_node_to_failed(temp_db_path
             supported_modes={MigrationMode.M1_BULK},
         )
     )
-    _setup_migration(caller, "mig-n04-stale", ipc_actor, ipc_correlation, "M1")
+    _setup_migration(caller, "mig-n04-stale", verified_ipc_actor, ipc_correlation, "M1")
 
     uow = SQLiteUnitOfWork(db_path=temp_db_path)
     with uow:
         agg = caller.repository.get_by_id("mig-n04-stale", connection=uow.connection)
         plan_art = caller.artifact_registry.get(agg.plan_id, conn=uow.connection)
         plan = ExecutionPlan.from_dict(plan_art.content)
-        p_actor = PipelineActorContext.from_ipc(ipc_actor)
+        p_actor = PipelineActorContext.from_ipc(verified_ipc_actor)
         pe = caller.plan_coordinator.materialize_plan_execution(plan, agg, p_actor, "fp-n04", uow.connection)
 
     outcome = caller.plan_coordinator.advance_plan_execution(
@@ -952,9 +952,9 @@ def test_n04_stale_result_reconciliation_transitions_node_to_failed(temp_db_path
         assert "STALE_RESULT" in ne_row["error"]
 
 
-def test_n05_and_n08_asynchronous_engine_completion_with_autonomous_redrive(temp_db_path, ipc_actor, ipc_correlation):
+def test_n05_and_n08_asynchronous_engine_completion_with_autonomous_redrive(temp_db_path, verified_ipc_actor, ipc_correlation):
     """N-05 & N-08: Reconciling async node completion autonomously dispatches ready successors without manual intervention."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
 
     # Async port returns is_in_progress=True and tracks all invocations
     class AsyncTrackingPort(ExecutionPort):
@@ -986,14 +986,14 @@ def test_n05_and_n08_asynchronous_engine_completion_with_autonomous_redrive(temp
             supported_modes={MigrationMode.M1_BULK},
         )
     )
-    _setup_migration(caller, "mig-n05-async", ipc_actor, ipc_correlation, "M1")
+    _setup_migration(caller, "mig-n05-async", verified_ipc_actor, ipc_correlation, "M1")
 
     # 1. Start migration -> accepted, Node 1 is dispatched to async port
     res_start = caller.handle_command(
         make_command(
             request_type="migration.start",
             payload={"migration_id": "mig-n05-async", "mode": "M1"},
-            actor=ipc_actor,
+            actor=verified_ipc_actor,
             correlation=ipc_correlation,
         )
     )
@@ -1039,7 +1039,7 @@ def test_n05_and_n08_asynchronous_engine_completion_with_autonomous_redrive(temp
             },
         },
     )
-    res_comp1 = caller.reconcile_node_completion(comp1, ipc_actor)
+    res_comp1 = caller.reconcile_node_completion(comp1, verified_ipc_actor)
     assert res_comp1.status.value == "OK"
     assert res_comp1.result["status"] == "RUNNING"
 
@@ -1084,7 +1084,7 @@ def test_n05_and_n08_asynchronous_engine_completion_with_autonomous_redrive(temp
             },
         },
     )
-    res_comp2 = caller.reconcile_node_completion(comp2, ipc_actor)
+    res_comp2 = caller.reconcile_node_completion(comp2, verified_ipc_actor)
     assert res_comp2.status.value == "OK"
     assert res_comp2.result["status"] == "SUCCEEDED"
 
@@ -1101,16 +1101,16 @@ def test_n05_and_n08_asynchronous_engine_completion_with_autonomous_redrive(temp
         assert op_row["status"] == "SUCCEEDED"
 
 
-def test_n06_exact_attempt_and_lease_provenance_enforced(temp_db_path, ipc_actor, ipc_correlation):
+def test_n06_exact_attempt_and_lease_provenance_enforced(temp_db_path, verified_ipc_actor, ipc_correlation):
     """N-06: ResultReconciler strictly rejects results referencing a foreign attempt or lease ID."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     uow = SQLiteUnitOfWork(db_path=temp_db_path)
 
     with uow:
         lease = caller.lease_manager.acquire_lease(
             lease_id="lease-auth-1",
             attempt_id="att-auth-1",
-            owner_id=ipc_actor.actor.actor_id,
+            owner_id=verified_ipc_actor.actor.actor_id,
             expires_at=(datetime.now(timezone.utc) + timedelta(seconds=300)).isoformat(),
             initialization_fingerprint="fp-auth-1",
             conn=uow.connection,
@@ -1159,9 +1159,9 @@ def test_n06_exact_attempt_and_lease_provenance_enforced(temp_db_path, ipc_actor
             )
 
 
-def test_n07_asynchronous_terminal_operation_reconciled_via_query(temp_db_path, ipc_actor, ipc_correlation):
+def test_n07_asynchronous_terminal_operation_reconciled_via_query(temp_db_path, verified_ipc_actor, ipc_correlation):
     """N-07: Querying operation status after asynchronous DAG completion accurately reports SUCCEEDED."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
 
     class SingleNodeAsyncPort(ExecutionPort):
         def __init__(self):
@@ -1192,13 +1192,13 @@ def test_n07_asynchronous_terminal_operation_reconciled_via_query(temp_db_path, 
             supported_modes={MigrationMode.M7_DATA_ONLY},
         )
     )
-    _setup_migration(caller, "mig-n07-op", ipc_actor, ipc_correlation, "M7")
+    _setup_migration(caller, "mig-n07-op", verified_ipc_actor, ipc_correlation, "M7")
 
     res_start = caller.handle_command(
         make_command(
             request_type="migration.start",
             payload={"migration_id": "mig-n07-op", "mode": "M7"},
-            actor=ipc_actor,
+            actor=verified_ipc_actor,
             correlation=ipc_correlation,
         )
     )
@@ -1242,7 +1242,7 @@ def test_n07_asynchronous_terminal_operation_reconciled_via_query(temp_db_path, 
             },
         },
     )
-    res_comp = caller.reconcile_node_completion(comp, ipc_actor)
+    res_comp = caller.reconcile_node_completion(comp, verified_ipc_actor)
     assert res_comp.status.value == "OK"
     assert res_comp.result["status"] == "SUCCEEDED"
 
@@ -1250,7 +1250,7 @@ def test_n07_asynchronous_terminal_operation_reconciled_via_query(temp_db_path, 
     query_op = make_query(
         request_type="operation.get",
         payload={"operation_id": op_ref.operation_id},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
     )
     res_query = caller.handle_query(query_op)
@@ -1258,12 +1258,12 @@ def test_n07_asynchronous_terminal_operation_reconciled_via_query(temp_db_path, 
     assert res_query.result["status"] == "SUCCEEDED"
 
 
-def test_n03_branching_recovery_binds_to_exact_selected_node_and_checkpoint(temp_db_path, ipc_actor, ipc_correlation):
+def test_n03_branching_recovery_binds_to_exact_selected_node_and_checkpoint(temp_db_path, verified_ipc_actor, ipc_correlation):
     """N-03: In a branching DAG with multiple ready incomplete nodes, recovery binds specifically
 
     to the node that owned the source attempt and propagates the selected checkpoint to EngineInvocationRequest.
     """
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     port = MultiNodeTrackingPort()
     _register_universal_binding(caller, port)
 
@@ -1286,7 +1286,7 @@ def test_n03_branching_recovery_binds_to_exact_selected_node_and_checkpoint(temp
     plan = ExecutionPlan.create("plan-branch-recov", "mig-branch-recov", MigrationMode.M2_BULK_CDC, nodes, edges)
 
 
-    _setup_migration(caller, "mig-branch-recov", ipc_actor, ipc_correlation, "M2")
+    _setup_migration(caller, "mig-branch-recov", verified_ipc_actor, ipc_correlation, "M2")
 
     uow = SQLiteUnitOfWork(db_path=temp_db_path)
     with uow:
@@ -1309,7 +1309,7 @@ def test_n03_branching_recovery_binds_to_exact_selected_node_and_checkpoint(temp
 
 
         init_art = caller.artifact_registry.get(agg.initialization_id, conn=uow.connection)
-        p_actor = PipelineActorContext.from_ipc(ipc_actor)
+        p_actor = PipelineActorContext.from_ipc(verified_ipc_actor)
         pe = caller.plan_coordinator.materialize_plan_execution(plan, agg, p_actor, init_art.fingerprint, uow.connection)
 
         # Simulate state: n-root SUCCEEDED, n-branch-b (attempt: att-b), n-branch-c (attempt: att-c) both failed/cancelled
@@ -1370,7 +1370,7 @@ def test_n03_branching_recovery_binds_to_exact_selected_node_and_checkpoint(temp
                 "source_attempt_id": "att-c",
                 "checkpoint_id": "cp-c-val-100",
             },
-            actor=ipc_actor,
+            actor=verified_ipc_actor,
             correlation=ipc_correlation,
         )
     )

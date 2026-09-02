@@ -29,6 +29,7 @@ class DataTransformer:
         new_rules: List[NewTransformationRule] = []
         for r in rules:
             ast = ExpressionCompiler.parse_simple_expression(r.expression) if r.expression else None
+            cond_ast = ExpressionCompiler.parse_simple_expression(r.condition) if getattr(r, "condition", None) else None
             new_rules.append(
                 NewTransformationRule(
                     rule_id=f"rule-{r.column_name}",
@@ -36,11 +37,14 @@ class DataTransformer:
                     rule_type=RuleType(r.rule_type) if r.rule_type in RuleType.__members__ else RuleType.EXPRESSION,
                     expression_ast=ast,
                     expression_text=r.expression,
+                    condition_ast=cond_ast,
+                    condition_text=getattr(r, "condition", None),
                     default_value=r.default_value,
                     target_type=r.target_type,
                     priority=r.priority,
                 )
             )
+
 
         definition = TransformationDefinition(object_name=table_name, rules=new_rules)
         engine = TransformationEngine(definition)

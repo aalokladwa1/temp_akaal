@@ -103,6 +103,11 @@ class TLSVerificationError(ConnectionEngineException):
     """Raised when TLS handshake, certificate validation, or mTLS identity verification fails."""
 
 
+class ConnectivityPolicyDeniedError(ConnectionEngineException):
+    """P7.9: raised when the resolved physical route/TLS binding does not satisfy the
+    EndpointSpec's required connectivity protection tier. Fails closed before connect."""
+
+
 class AuthenticationError(ConnectionEngineException):
     """Raised when credential verification or identity token validation fails at the endpoint."""
 

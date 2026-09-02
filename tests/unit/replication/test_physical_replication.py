@@ -106,6 +106,8 @@ class TestCanonicalPhysicalReplication(unittest.IsolatedAsyncioTestCase):
 
     @patch("oracledb.connect")
     def test_oracle_physical_reader_mock(self, mock_connect):
+        from tests.conftest import require_oracle
+        require_oracle("localhost", 1521)
         mock_conn = MagicMock()
         mock_cursor = MagicMock()
         mock_connect.return_value = mock_conn
@@ -142,6 +144,8 @@ class TestCanonicalPhysicalReplication(unittest.IsolatedAsyncioTestCase):
 
     @patch("psycopg2.connect")
     def test_postgresql_physical_writer_mock(self, mock_connect):
+        from tests.conftest import require_postgres
+        require_postgres("localhost", 5432)
         mock_conn = MagicMock()
         mock_cursor = MagicMock()
         mock_connect.return_value = mock_conn
@@ -154,6 +158,7 @@ class TestCanonicalPhysicalReplication(unittest.IsolatedAsyncioTestCase):
             "port": 5432,
             "database": "pg_analytics",
         })
+
 
         meta = BatchMetadata(
             batch_id="batch-001",

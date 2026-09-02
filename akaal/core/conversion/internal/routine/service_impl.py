@@ -56,9 +56,48 @@ class RoutineConversionService(IProcedureConversionService):
                 diagnostics=(diag,)
             )
 
+        # Semantic & Transaction Analysis
+        from akaal.core.conversion.internal.analyzer.transactions import TransactionAnalyzer
+        tx_analyzer = TransactionAnalyzer(parser.all_tokens, request.source_ddl)
+        tx_behavior, unsupported_tx, review_reqs = tx_analyzer.analyze()
+
+        diagnostics = []
+        success = True
+        for unsup in unsupported_tx:
+            diagnostics.append(Diagnostic(
+                code=f"UNSUPPORTED_{unsup.construct_type}",
+                severity=DiagnosticSeverity.ERROR,
+                category=DiagnosticCategory.COMPATIBILITY,
+                message=unsup.description,
+                related_object=aoir.name
+            ))
+            success = False
+
+        if not success:
+            report = ObjectCompatibilityReport(
+                target_object_name=aoir.name,
+                compatibility_tier=ObjectCompatibilityTier.UNSUPPORTED,
+                dimensions=(),
+                disposition=CertificationDisposition.BLOCKED,
+                manual_review_reasons=()
+            )
+            rollback = RoutineRollbackPlan(
+                action_type=RollbackActionKind.UNSAFE_ABORT,
+                target_object_name=aoir.name,
+                rollback_sql_template=""
+            )
+            return ConversionResponse(
+                target_sql="",
+                rollback_plan=rollback,
+                compatibility_report=report,
+                success=False,
+                diagnostics=tuple(diagnostics)
+            )
+
         # Select target renderer
         if tgt_dialect == "postgresql" or tgt_dialect == "postgres":
             renderer = PostgreSQLRoutineRenderer(aoir)
+
         elif tgt_dialect == "mysql":
             renderer = MySQLRoutineRenderer(aoir)
         elif tgt_dialect == "oracle":

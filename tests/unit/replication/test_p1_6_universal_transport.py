@@ -75,6 +75,11 @@ class TestP16UniversalTransportFoundation(unittest.TestCase):
 
     def test_04_reader_contract_compliance_all_four_engines(self):
         """Verify all four readers fulfill open_partition, read_batch, and close contracts."""
+        from tests.conftest import require_oracle, require_postgres, require_mysql, require_mssql
+        require_oracle("127.0.0.1", 1521)
+        require_postgres("127.0.0.1", 5432)
+        require_mysql("127.0.0.1", 3306)
+        require_mssql("127.0.0.1", 1433)
         dummy_params = {"mock_mode": True, "username": "user", "password": "pass", "host": "127.0.0.1", "database": "db"}
         partition = TransportPartition(
             partition_id="part-101",
@@ -93,6 +98,11 @@ class TestP16UniversalTransportFoundation(unittest.TestCase):
 
     def test_05_writer_contract_compliance_all_four_engines(self):
         """Verify all four writers fulfill write_batch, commit, rollback, and close contracts."""
+        from tests.conftest import require_oracle, require_postgres, require_mysql, require_mssql
+        require_oracle("127.0.0.1", 1521)
+        require_postgres("127.0.0.1", 5432)
+        require_mysql("127.0.0.1", 3306)
+        require_mssql("127.0.0.1", 1433)
         dummy_params = {"mock_mode": True, "username": "user", "password": "pass", "host": "127.0.0.1", "database": "db"}
         batch_meta = BatchMetadata(batch_id="b-1", partition_id="p-1", table_name="CUSTOMERS", sequence=1, row_count=2)
         sample_data = [(1, "Alice", 100.0), (2, "Bob", 200.0)]
@@ -111,6 +121,7 @@ class TestP16UniversalTransportFoundation(unittest.TestCase):
             writer.commit()
             writer.rollback()
             writer.close()
+
 
     def test_06_unsupported_engine_fails_closed(self):
         """Verify requesting an unregistered engine raises ValueError UNSUPPORTED_CAPABILITY."""

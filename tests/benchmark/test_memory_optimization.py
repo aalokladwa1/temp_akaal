@@ -18,9 +18,11 @@ from akaal.agents.manager.manager_agent import ManagerAgent
 from akaal.core.models.project import ConnectionConfig, MigrationProject
 from akaal.core.models.task import Task
 from akaal.adapters.adapter_registry import create_adapter
+from tests.conftest import require_postgres
 
 
 class TestMemoryOptimization(unittest.IsolatedAsyncioTestCase):
+
 
     async def asyncSetUp(self):
         # Database configs
@@ -90,7 +92,11 @@ class TestMemoryOptimization(unittest.IsolatedAsyncioTestCase):
                 pass
 
     async def _migrate_table(self, project, table_name, parameters, **kwargs):
+
+        require_postgres("localhost", 5432)
         use_adaptive = parameters.get("use_adaptive", getattr(project, "use_adaptive_batch", False))
+
+
         min_size = parameters.get("min_size", getattr(project, "minimum_batch_size", 10))
         init_size = parameters.get("init_size", getattr(project, "initial_batch_size", 500))
         max_size = parameters.get("max_size", getattr(project, "maximum_batch_size", 5000))

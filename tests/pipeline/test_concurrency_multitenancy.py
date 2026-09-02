@@ -15,12 +15,12 @@ from akaalPipeline.operations.leases import LeaseManager
 from akaalPipeline.state.aggregates import MigrationAggregate
 from akaalPipeline.state.repositories import SQLiteMigrationRepository
 from akaalPipeline.state.unit_of_work import SQLiteUnitOfWork
-from tests.pipeline.conftest import make_command, make_query
+from tests.pipeline.conftest import authorized_caller, make_command, make_query
 
 
 def test_multi_migration_tenant_isolation(temp_db_path, ipc_actor, ipc_correlation):
     """Prove two independent migrations for different tenants operate concurrently without state leak."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
 
     cmd_tenant1 = make_command(
         request_type="migration.create",

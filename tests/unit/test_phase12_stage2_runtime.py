@@ -9,6 +9,9 @@ from akaal.core.models.project import ConnectionConfig
 from akaal.core.models.enums import SystemType, MigrationStrategy
 
 
+from tests.conftest import require_postgres
+
+
 def test_stage2_pipeline_initialization():
     pipeline = AkaalPipeline()
     assert pipeline.runtime_state == MigrationRuntimeState.CREATED
@@ -17,7 +20,9 @@ def test_stage2_pipeline_initialization():
 
 @pytest.mark.asyncio
 async def test_stage2_unified_migration_runtime_execution(tmp_path):
+    require_postgres("source-db.example.com", 5432)
     workspace = str(tmp_path / "akaal_stage2_ws")
+
 
     source_cfg = ConnectionConfig(
         system_type=SystemType.POSTGRESQL,

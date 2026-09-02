@@ -44,7 +44,7 @@ from akaalPipeline.security.context import PipelineActorContext
 from akaalPipeline.state.aggregates import MigrationAggregate
 from akaalPipeline.state.artifacts import ImmutableArtifact
 from akaalPipeline.state.unit_of_work import SQLiteUnitOfWork
-from tests.pipeline.conftest import make_command, make_query
+from tests.pipeline.conftest import authorized_caller, make_command, make_query, provision_verified_actor
 
 
 class RecordingExecutionPort(ExecutionPort):
@@ -148,9 +148,9 @@ def _setup_planned_and_initialized_migration(
 # A-01: COMPLETE IDEMPOTENCY AUTHORITY TESTS
 # ==============================================================================
 
-def test_a01_accepted_start_idempotency_replay(temp_db_path, ipc_actor, ipc_correlation):
+def test_a01_accepted_start_idempotency_replay(temp_db_path, verified_ipc_actor, ipc_correlation):
     """Prove accepted migration.start returns exact operation reference on replay without duplicate dispatch."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     rec_port = RecordingExecutionPort(should_succeed=True)
     caller.binding_registry.register(
         EngineBindingDescriptor(
@@ -163,12 +163,12 @@ def test_a01_accepted_start_idempotency_replay(temp_db_path, ipc_actor, ipc_corr
         )
     )
 
-    _setup_planned_and_initialized_migration(caller, "mig-idemp-1", ipc_actor, ipc_correlation, "M1")
+    _setup_planned_and_initialized_migration(caller, "mig-idemp-1", verified_ipc_actor, ipc_correlation, "M1")
 
     cmd = make_command(
         request_type="migration.start",
         payload={"migration_id": "mig-idemp-1", "mode": "M1"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
         idempotency_key="idemp-key-start-1",
     )
@@ -187,15 +187,15 @@ def test_a01_accepted_start_idempotency_replay(temp_db_path, ipc_actor, ipc_corr
 
 
 
-def test_a01_error_idempotency_replay(temp_db_path, ipc_actor, ipc_correlation):
+def test_a01_error_idempotency_replay(temp_db_path, verified_ipc_actor, ipc_correlation):
     """Prove unbound error response is stored and replayed with exact error code and category."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
-    _setup_planned_and_initialized_migration(caller, "mig-idemp-err-1", ipc_actor, ipc_correlation, "M1")
+    caller = authorized_caller(db_path=temp_db_path)
+    _setup_planned_and_initialized_migration(caller, "mig-idemp-err-1", verified_ipc_actor, ipc_correlation, "M1")
 
     cmd = make_command(
         request_type="migration.start",
         payload={"migration_id": "mig-idemp-err-1", "mode": "M1"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
         idempotency_key="idemp-key-err-1",
     )
@@ -209,13 +209,13 @@ def test_a01_error_idempotency_replay(temp_db_path, ipc_actor, ipc_correlation):
     assert res2.error.category == IPCErrorCategory.UNBOUND
 
 
-def test_a01_same_key_different_command_conflict(temp_db_path, ipc_actor, ipc_correlation):
+def test_a01_same_key_different_command_conflict(temp_db_path, verified_ipc_actor, ipc_correlation):
     """Prove same key with changed payload fingerprint fails closed with IDEMPOTENCY_CONFLICT."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     cmd1 = make_command(
         request_type="migration.create",
         payload={"migration_id": "mig-c1", "name": "Mig 1", "mode": "M1"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
         idempotency_key="shared-key-1",
     )
@@ -225,7 +225,7 @@ def test_a01_same_key_different_command_conflict(temp_db_path, ipc_actor, ipc_co
     cmd2 = make_command(
         request_type="migration.create",
         payload={"migration_id": "mig-c2-conflict", "name": "Mig 2 Different", "mode": "M1"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
         idempotency_key="shared-key-1",
     )
@@ -234,13 +234,13 @@ def test_a01_same_key_different_command_conflict(temp_db_path, ipc_actor, ipc_co
     assert res2.error.category == IPCErrorCategory.IDEMPOTENCY_CONFLICT
 
 
-def test_a01_same_textual_key_across_tenants_does_not_collide(temp_db_path, ipc_actor, ipc_correlation):
+def test_a01_same_textual_key_across_tenants_does_not_collide(temp_db_path, verified_ipc_actor, ipc_correlation):
     """Prove same textual key used by Tenant A and Tenant B does not collide or leak state."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     cmd_tenant_a = make_command(
         request_type="migration.create",
         payload={"migration_id": "mig-tenant-a-1", "name": "Mig A", "mode": "M1"},
-        actor=ipc_actor,  # org-acme
+        actor=verified_ipc_actor,  # org-acme
         correlation=ipc_correlation,
         idempotency_key="reused-key-123",
     )
@@ -266,13 +266,13 @@ def test_a01_same_textual_key_across_tenants_does_not_collide(temp_db_path, ipc_
     assert res_b.result["migration_id"] == "mig-tenant-b-1"
 
 
-def test_a01_same_textual_key_across_workspaces_does_not_collide(temp_db_path, ipc_actor, ipc_correlation):
+def test_a01_same_textual_key_across_workspaces_does_not_collide(temp_db_path, verified_ipc_actor, ipc_correlation):
     """Prove same textual key used by Workspace 1 and Workspace 2 does not collide."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     cmd_ws1 = make_command(
         request_type="migration.create",
         payload={"migration_id": "mig-ws1-1", "name": "Mig WS1", "mode": "M1"},
-        actor=ipc_actor,  # ws-main
+        actor=verified_ipc_actor,  # ws-main
         correlation=ipc_correlation,
         idempotency_key="ws-reused-key",
     )
@@ -297,13 +297,13 @@ def test_a01_same_textual_key_across_workspaces_does_not_collide(temp_db_path, i
     assert res2.result["migration_id"] == "mig-ws2-1"
 
 
-def test_a01_same_textual_key_across_projects_does_not_collide(temp_db_path, ipc_actor, ipc_correlation):
+def test_a01_same_textual_key_across_projects_does_not_collide(temp_db_path, verified_ipc_actor, ipc_correlation):
     """Prove same textual key used by Project 1 and Project 2 does not collide."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     cmd_p1 = make_command(
         request_type="migration.create",
         payload={"migration_id": "mig-p1-1", "name": "Mig P1", "mode": "M1"},
-        actor=ipc_actor,  # proj-db
+        actor=verified_ipc_actor,  # proj-db
         correlation=ipc_correlation,
         idempotency_key="proj-reused-key",
     )
@@ -328,13 +328,13 @@ def test_a01_same_textual_key_across_projects_does_not_collide(temp_db_path, ipc
     assert res2.result["migration_id"] == "mig-p2-1"
 
 
-def test_a01_same_textual_key_across_commands_does_not_collide(temp_db_path, ipc_actor, ipc_correlation):
+def test_a01_same_textual_key_across_commands_does_not_collide(temp_db_path, verified_ipc_actor, ipc_correlation):
     """Prove same key used on migration.create and migration.cancel does not collide."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     cmd_create = make_command(
         request_type="migration.create",
         payload={"migration_id": "mig-cmd-diff", "name": "Cmd Diff", "mode": "M1"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
         idempotency_key="cmd-key-multi",
     )
@@ -344,7 +344,7 @@ def test_a01_same_textual_key_across_commands_does_not_collide(temp_db_path, ipc
     cmd_cancel = make_command(
         request_type="migration.cancel",
         payload={"migration_id": "mig-cmd-diff"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
         idempotency_key="cmd-key-multi",
     )
@@ -353,13 +353,13 @@ def test_a01_same_textual_key_across_commands_does_not_collide(temp_db_path, ipc
     assert res_k.result["state"] == "CANCELLED"
 
 
-def test_a01_restart_idempotency_replay(temp_db_path, ipc_actor, ipc_correlation):
+def test_a01_restart_idempotency_replay(temp_db_path, verified_ipc_actor, ipc_correlation):
     """Prove idempotency replay survives caller process restart on disk."""
-    caller1 = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller1 = authorized_caller(db_path=temp_db_path)
     cmd = make_command(
         request_type="migration.create",
         payload={"migration_id": "mig-restart-idemp", "name": "Restart Mig", "mode": "M1"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
         idempotency_key="restart-key-1",
     )
@@ -367,7 +367,7 @@ def test_a01_restart_idempotency_replay(temp_db_path, ipc_actor, ipc_correlation
     assert res1.status.value == "OK"
 
     # Process restart: new caller instance on same SQLite file
-    caller2 = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller2 = authorized_caller(db_path=temp_db_path)
     res2 = caller2.handle_command(cmd)
     assert res2.status.value == "OK"
     assert res2.result["migration_id"] == "mig-restart-idemp"
@@ -408,13 +408,13 @@ def test_a02_all_concrete_pipeline_error_subclasses_to_ipc_error():
 # A-03: COMPLETE THREE-DIMENSION AUTHORIZATION
 # ==============================================================================
 
-def test_a03_cross_tenant_migration_read_fails(temp_db_path, ipc_actor, ipc_correlation):
+def test_a03_cross_tenant_migration_read_fails(temp_db_path, verified_ipc_actor, ipc_correlation):
     """Prove tenant A cannot read tenant B's migration."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     cmd = make_command(
         request_type="migration.create",
         payload={"migration_id": "mig-tenant-a", "name": "Tenant A Mig", "mode": "M1"},
-        actor=ipc_actor,  # org-acme
+        actor=verified_ipc_actor,  # org-acme
         correlation=ipc_correlation,
     )
     caller.handle_command(cmd)
@@ -436,13 +436,13 @@ def test_a03_cross_tenant_migration_read_fails(temp_db_path, ipc_actor, ipc_corr
     assert res.error.category == IPCErrorCategory.FORBIDDEN
 
 
-def test_a03_cross_workspace_read_fails(temp_db_path, ipc_actor, ipc_correlation):
+def test_a03_cross_workspace_read_fails(temp_db_path, verified_ipc_actor, ipc_correlation):
     """Prove actor in workspace-1 cannot read migration in workspace-2 under same tenant."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     cmd = make_command(
         request_type="migration.create",
         payload={"migration_id": "mig-ws-1", "name": "WS1 Mig", "mode": "M1"},
-        actor=ipc_actor,  # ws-main
+        actor=verified_ipc_actor,  # ws-main
         correlation=ipc_correlation,
     )
     caller.handle_command(cmd)
@@ -464,13 +464,13 @@ def test_a03_cross_workspace_read_fails(temp_db_path, ipc_actor, ipc_correlation
     assert res.error.category == IPCErrorCategory.FORBIDDEN
 
 
-def test_a03_cross_project_read_fails(temp_db_path, ipc_actor, ipc_correlation):
+def test_a03_cross_project_read_fails(temp_db_path, verified_ipc_actor, ipc_correlation):
     """Prove actor in project-1 cannot read migration in project-2 under same tenant & workspace."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     cmd = make_command(
         request_type="migration.create",
         payload={"migration_id": "mig-proj-1", "name": "Proj1 Mig", "mode": "M1"},
-        actor=ipc_actor,  # proj-db
+        actor=verified_ipc_actor,  # proj-db
         correlation=ipc_correlation,
     )
     caller.handle_command(cmd)
@@ -492,13 +492,13 @@ def test_a03_cross_project_read_fails(temp_db_path, ipc_actor, ipc_correlation):
     assert res.error.category == IPCErrorCategory.FORBIDDEN
 
 
-def test_a03_cross_tenant_operation_read_fails(temp_db_path, ipc_actor, ipc_correlation):
+def test_a03_cross_tenant_operation_read_fails(temp_db_path, verified_ipc_actor, ipc_correlation):
     """Prove reading operation of tenant A by tenant B fails closed."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     cmd = make_command(
         request_type="migration.create",
         payload={"migration_id": "mig-op-scope-1", "name": "Op Mig", "mode": "M1"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
     )
     caller.handle_command(cmd)
@@ -518,13 +518,13 @@ def test_a03_cross_tenant_operation_read_fails(temp_db_path, ipc_actor, ipc_corr
     assert res.error.category in (IPCErrorCategory.FORBIDDEN, IPCErrorCategory.INVALID_REQUEST)
 
 
-def test_a03_cross_project_cancellation_fails(temp_db_path, ipc_actor, ipc_correlation):
+def test_a03_cross_project_cancellation_fails(temp_db_path, verified_ipc_actor, ipc_correlation):
     """Prove actor in project-1 cannot cancel migration in project-2."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     cmd_create = make_command(
         request_type="migration.create",
         payload={"migration_id": "mig-proj-cancel", "name": "Proj Cancel", "mode": "M1"},
-        actor=ipc_actor,  # proj-db
+        actor=verified_ipc_actor,  # proj-db
         correlation=ipc_correlation,
     )
     caller.handle_command(cmd_create)
@@ -546,13 +546,13 @@ def test_a03_cross_project_cancellation_fails(temp_db_path, ipc_actor, ipc_corre
     assert res.error.category == IPCErrorCategory.FORBIDDEN
 
 
-def test_a03_cross_project_recovery_fails(temp_db_path, ipc_actor, ipc_correlation):
+def test_a03_cross_project_recovery_fails(temp_db_path, verified_ipc_actor, ipc_correlation):
     """Prove actor in project-1 cannot recover migration in project-2."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     cmd_create = make_command(
         request_type="migration.create",
         payload={"migration_id": "mig-proj-recov", "name": "Proj Recov", "mode": "M1"},
-        actor=ipc_actor,  # proj-db
+        actor=verified_ipc_actor,  # proj-db
         correlation=ipc_correlation,
     )
     caller.handle_command(cmd_create)
@@ -560,7 +560,7 @@ def test_a03_cross_project_recovery_fails(temp_db_path, ipc_actor, ipc_correlati
     cmd_cancel = make_command(
         request_type="migration.cancel",
         payload={"migration_id": "mig-proj-recov"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
     )
     caller.handle_command(cmd_cancel)
@@ -582,13 +582,13 @@ def test_a03_cross_project_recovery_fails(temp_db_path, ipc_actor, ipc_correlati
     assert res.error.category == IPCErrorCategory.FORBIDDEN
 
 
-def test_a03_unauthorized_cancellation_fails(temp_db_path, ipc_actor, ipc_correlation):
+def test_a03_unauthorized_cancellation_fails(temp_db_path, verified_ipc_actor, ipc_correlation):
     """Prove cancelling migration of tenant A by actor in tenant B fails closed."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     cmd_create = make_command(
         request_type="migration.create",
         payload={"migration_id": "mig-unauth-cancel", "name": "Cancel Target", "mode": "M1"},
-        actor=ipc_actor,  # org-acme
+        actor=verified_ipc_actor,  # org-acme
         correlation=ipc_correlation,
     )
     caller.handle_command(cmd_create)
@@ -608,13 +608,13 @@ def test_a03_unauthorized_cancellation_fails(temp_db_path, ipc_actor, ipc_correl
     assert res.error.category == IPCErrorCategory.FORBIDDEN
 
 
-def test_a03_unauthorized_recovery_fails(temp_db_path, ipc_actor, ipc_correlation):
+def test_a03_unauthorized_recovery_fails(temp_db_path, verified_ipc_actor, ipc_correlation):
     """Prove recovering migration of tenant A by actor in tenant B fails closed."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     cmd_create = make_command(
         request_type="migration.create",
         payload={"migration_id": "mig-unauth-recov", "name": "Recov Target", "mode": "M1"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
     )
     caller.handle_command(cmd_create)
@@ -622,7 +622,7 @@ def test_a03_unauthorized_recovery_fails(temp_db_path, ipc_actor, ipc_correlatio
     cmd_cancel = make_command(
         request_type="migration.cancel",
         payload={"migration_id": "mig-unauth-recov"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
     )
     caller.handle_command(cmd_cancel)
@@ -671,15 +671,15 @@ def test_a01_idempotent_result_overwrite_rejected(temp_db_path):
 
 def test_a03_cross_project_operation_query_rejected(temp_db_path, ipc_correlation):
     """Prove operation query by an actor in project-2 targeting an operation created in project-1 fails closed."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
-    actor_p1 = ActorContext(
-        actor=ActorReference(actor_id="user-1", actor_type="user", display_name="Actor P1"),
-        organization_id="org-acme",
-        workspace_id="ws-main",
-        project_id="proj-db-1",
-        environment="development",
-        roles=("operator",),
+    caller = authorized_caller(db_path=temp_db_path)
+    _uow = SQLiteUnitOfWork(db_path=temp_db_path)
+    _uow.initialize_schema()
+    actor_p1 = provision_verified_actor(
+        _uow, "org-acme", "user-1",
+        workspace_id="ws-main", project_id="proj-db-1", environment="development",
+        roles=("operator",), display_name="Actor P1",
     )
+    _uow.close()
     actor_p2 = ActorContext(
         actor=ActorReference(actor_id="user-2", actor_type="user", display_name="Actor P2"),
         organization_id="org-acme",
@@ -732,13 +732,13 @@ def test_a03_cross_project_operation_query_rejected(temp_db_path, ipc_correlatio
 # A-04: MANDATORY GOVERNANCE & ZERO AUTO-CREATE
 # ==============================================================================
 
-def test_a04_nonexistent_migration_start_rejected(temp_db_path, ipc_actor, ipc_correlation):
+def test_a04_nonexistent_migration_start_rejected(temp_db_path, verified_ipc_actor, ipc_correlation):
     """Prove start on nonexistent migration is rejected with INVALID_REQUEST and does NOT auto-create."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     cmd = make_command(
         request_type="migration.start",
         payload={"migration_id": "mig-does-not-exist", "mode": "M1"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
     )
     res = caller.handle_command(cmd)
@@ -752,15 +752,15 @@ def test_a04_nonexistent_migration_start_rejected(temp_db_path, ipc_actor, ipc_c
         assert cur.fetchone()[0] == 0
 
 
-def test_a04_wrong_mode_start_rejected(temp_db_path, ipc_actor, ipc_correlation):
+def test_a04_wrong_mode_start_rejected(temp_db_path, verified_ipc_actor, ipc_correlation):
     """Prove starting a configured M1 migration with mode=M3 in payload is rejected."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
-    _setup_planned_and_initialized_migration(caller, "mig-mode-mismatch", ipc_actor, ipc_correlation, "M1")
+    caller = authorized_caller(db_path=temp_db_path)
+    _setup_planned_and_initialized_migration(caller, "mig-mode-mismatch", verified_ipc_actor, ipc_correlation, "M1")
 
     cmd = make_command(
         request_type="migration.start",
         payload={"migration_id": "mig-mode-mismatch", "mode": "M3"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
     )
     res = caller.handle_command(cmd)
@@ -768,13 +768,13 @@ def test_a04_wrong_mode_start_rejected(temp_db_path, ipc_actor, ipc_correlation)
     assert res.error.category == IPCErrorCategory.INVALID_REQUEST
 
 
-def test_a04_illegal_lifecycle_start_rejected(temp_db_path, ipc_actor, ipc_correlation):
+def test_a04_illegal_lifecycle_start_rejected(temp_db_path, verified_ipc_actor, ipc_correlation):
     """Prove starting a migration in DRAFT state before planning/initialization is rejected."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     cmd_create = make_command(
         request_type="migration.create",
         payload={"migration_id": "mig-draft-only", "name": "Draft Mig", "mode": "M1"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
     )
     caller.handle_command(cmd_create)
@@ -782,7 +782,7 @@ def test_a04_illegal_lifecycle_start_rejected(temp_db_path, ipc_actor, ipc_corre
     cmd_start = make_command(
         request_type="migration.start",
         payload={"migration_id": "mig-draft-only", "mode": "M1"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
     )
     res = caller.handle_command(cmd_start)
@@ -792,7 +792,7 @@ def test_a04_illegal_lifecycle_start_rejected(temp_db_path, ipc_actor, ipc_corre
 
 def test_a04_start_without_required_approval_fails(temp_db_path, ipc_correlation):
     """Prove migration.start requiring governance approval without valid policy decision fails closed."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     actor_gov = ActorContext(
         actor=ActorReference(actor_id="user-nonadmin", actor_type="user", display_name="Operator"),
         organization_id="org-acme",
@@ -816,7 +816,7 @@ def test_a04_start_without_required_approval_fails(temp_db_path, ipc_correlation
 
 def test_a04_caller_cannot_bypass_approval_with_payload_flag(temp_db_path, ipc_correlation):
     """Prove caller cannot bypass mandatory governance by sending skip_approval=True or require_approval=False."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     actor_gov = ActorContext(
         actor=ActorReference(actor_id="user-nonadmin", actor_type="user", display_name="Operator"),
         organization_id="org-acme",
@@ -840,7 +840,7 @@ def test_a04_caller_cannot_bypass_approval_with_payload_flag(temp_db_path, ipc_c
 
 def test_a04_caller_supplied_unpersisted_payload_decision_fails(temp_db_path, ipc_correlation):
     """Prove caller passing an unpersisted payload_decision dict directly cannot forge approval."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     actor_gov = ActorContext(
         actor=ActorReference(actor_id="user-nonadmin", actor_type="user", display_name="Operator"),
         organization_id="org-acme",
@@ -869,10 +869,10 @@ def test_a04_caller_supplied_unpersisted_payload_decision_fails(temp_db_path, ip
     assert res.error.category == IPCErrorCategory.FORBIDDEN
 
 
-def test_a04_expired_persisted_approval_fails(temp_db_path, ipc_actor, ipc_correlation):
+def test_a04_expired_persisted_approval_fails(temp_db_path, verified_ipc_actor, ipc_correlation):
     """Prove expired persisted approval decision is rejected during start admission."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
-    _setup_planned_and_initialized_migration(caller, "mig-exp-appr", ipc_actor, ipc_correlation, "M1")
+    caller = authorized_caller(db_path=temp_db_path)
+    _setup_planned_and_initialized_migration(caller, "mig-exp-appr", verified_ipc_actor, ipc_correlation, "M1")
 
     past_iso = (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat()
     # Register expired approval artifact
@@ -915,10 +915,10 @@ def test_a04_expired_persisted_approval_fails(temp_db_path, ipc_actor, ipc_corre
     assert res.error.category == IPCErrorCategory.FORBIDDEN
 
 
-def test_a04_stale_approval_fingerprint_fails(temp_db_path, ipc_actor, ipc_correlation):
+def test_a04_stale_approval_fingerprint_fails(temp_db_path, verified_ipc_actor, ipc_correlation):
     """Prove policy decision with mismatched target artifact fingerprint is rejected."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
-    _setup_planned_and_initialized_migration(caller, "mig-stale-appr", ipc_actor, ipc_correlation, "M1")
+    caller = authorized_caller(db_path=temp_db_path)
+    _setup_planned_and_initialized_migration(caller, "mig-stale-appr", verified_ipc_actor, ipc_correlation, "M1")
 
     uow = SQLiteUnitOfWork(db_path=temp_db_path)
     with uow:
@@ -960,23 +960,20 @@ def test_a04_stale_approval_fingerprint_fails(temp_db_path, ipc_actor, ipc_corre
 
 def test_a04_persisted_approval_with_authorized_admin_issuer_passes(temp_db_path, ipc_correlation):
     """Prove that an authoritative persisted approval issued by an admin allows execution."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
-    actor_admin = ActorContext(
-        actor=ActorReference(actor_id="user-admin", actor_type="user", display_name="Admin"),
-        organization_id="org-acme",
-        workspace_id="ws-main",
-        project_id="proj-db",
-        environment="production",
-        roles=("admin", "governor"),
+    caller = authorized_caller(db_path=temp_db_path)
+    _uow = SQLiteUnitOfWork(db_path=temp_db_path)
+    _uow.initialize_schema()
+    actor_admin = provision_verified_actor(
+        _uow, "org-acme", "user-admin",
+        workspace_id="ws-main", project_id="proj-db", environment="production",
+        roles=("admin", "governor"), display_name="Admin",
     )
-    actor_operator = ActorContext(
-        actor=ActorReference(actor_id="user-op", actor_type="user", display_name="Operator"),
-        organization_id="org-acme",
-        workspace_id="ws-main",
-        project_id="proj-db",
-        environment="production",
-        roles=("operator",),
+    actor_operator = provision_verified_actor(
+        _uow, "org-acme", "user-op",
+        workspace_id="ws-main", project_id="proj-db", environment="production",
+        roles=("operator",), display_name="Operator",
     )
+    _uow.close()
     _setup_planned_and_initialized_migration(caller, "mig-valid-appr", actor_admin, ipc_correlation, "M1")
 
     # Admin issues approval
@@ -1012,23 +1009,20 @@ def test_a04_persisted_approval_with_authorized_admin_issuer_passes(temp_db_path
 
 def test_a04_approval_resource_mismatch_fails(temp_db_path, ipc_correlation):
     """Prove an approval issued for migration-A cannot be reused to start migration-B even with matching fingerprint."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
-    actor_admin = ActorContext(
-        actor=ActorReference(actor_id="user-admin", actor_type="user", display_name="Admin"),
-        organization_id="org-acme",
-        workspace_id="ws-main",
-        project_id="proj-db",
-        environment="production",
-        roles=("admin",),
+    caller = authorized_caller(db_path=temp_db_path)
+    _uow = SQLiteUnitOfWork(db_path=temp_db_path)
+    _uow.initialize_schema()
+    actor_admin = provision_verified_actor(
+        _uow, "org-acme", "user-admin",
+        workspace_id="ws-main", project_id="proj-db", environment="production",
+        roles=("admin",), display_name="Admin",
     )
-    actor_op = ActorContext(
-        actor=ActorReference(actor_id="user-op", actor_type="user", display_name="Operator"),
-        organization_id="org-acme",
-        workspace_id="ws-main",
-        project_id="proj-db",
-        environment="production",
-        roles=("operator",),
+    actor_op = provision_verified_actor(
+        _uow, "org-acme", "user-op",
+        workspace_id="ws-main", project_id="proj-db", environment="production",
+        roles=("operator",), display_name="Operator",
     )
+    _uow.close()
     _setup_planned_and_initialized_migration(caller, "mig-res-a", actor_admin, ipc_correlation, "M1")
     _setup_planned_and_initialized_migration(caller, "mig-res-b", actor_admin, ipc_correlation, "M1")
 
@@ -1056,23 +1050,20 @@ def test_a04_approval_resource_mismatch_fails(temp_db_path, ipc_correlation):
 
 def test_a04_approval_action_mismatch_fails(temp_db_path, ipc_correlation):
     """Prove an approval issued for a non-start action (e.g. migration.cancel) cannot authorize migration.start."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
-    actor_admin = ActorContext(
-        actor=ActorReference(actor_id="user-admin", actor_type="user", display_name="Admin"),
-        organization_id="org-acme",
-        workspace_id="ws-main",
-        project_id="proj-db",
-        environment="production",
-        roles=("admin",),
+    caller = authorized_caller(db_path=temp_db_path)
+    _uow = SQLiteUnitOfWork(db_path=temp_db_path)
+    _uow.initialize_schema()
+    actor_admin = provision_verified_actor(
+        _uow, "org-acme", "user-admin",
+        workspace_id="ws-main", project_id="proj-db", environment="production",
+        roles=("admin",), display_name="Admin",
     )
-    actor_op = ActorContext(
-        actor=ActorReference(actor_id="user-op", actor_type="user", display_name="Operator"),
-        organization_id="org-acme",
-        workspace_id="ws-main",
-        project_id="proj-db",
-        environment="production",
-        roles=("operator",),
+    actor_op = provision_verified_actor(
+        _uow, "org-acme", "user-op",
+        workspace_id="ws-main", project_id="proj-db", environment="production",
+        roles=("operator",), display_name="Operator",
     )
+    _uow.close()
     _setup_planned_and_initialized_migration(caller, "mig-act-mismatch", actor_admin, ipc_correlation, "M1")
 
     # Issue approval for cancel action instead of start
@@ -1099,14 +1090,13 @@ def test_a04_approval_action_mismatch_fails(temp_db_path, ipc_correlation):
 
 def test_a04_approval_subject_mismatch_fails(temp_db_path, ipc_correlation):
     """Prove an approval restricted to actor-X cannot be consumed by actor-Y."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
-    actor_admin = ActorContext(
-        actor=ActorReference(actor_id="user-admin", actor_type="user", display_name="Admin"),
-        organization_id="org-acme",
-        workspace_id="ws-main",
-        project_id="proj-db",
-        environment="production",
-        roles=("admin",),
+    caller = authorized_caller(db_path=temp_db_path)
+    _uow = SQLiteUnitOfWork(db_path=temp_db_path)
+    _uow.initialize_schema()
+    actor_admin = provision_verified_actor(
+        _uow, "org-acme", "user-admin",
+        workspace_id="ws-main", project_id="proj-db", environment="production",
+        roles=("admin",), display_name="Admin",
     )
     actor_alice = ActorContext(
         actor=ActorReference(actor_id="user-alice", actor_type="user", display_name="Alice"),
@@ -1116,14 +1106,12 @@ def test_a04_approval_subject_mismatch_fails(temp_db_path, ipc_correlation):
         environment="production",
         roles=("operator",),
     )
-    actor_bob = ActorContext(
-        actor=ActorReference(actor_id="user-bob", actor_type="user", display_name="Bob"),
-        organization_id="org-acme",
-        workspace_id="ws-main",
-        project_id="proj-db",
-        environment="production",
-        roles=("operator",),
+    actor_bob = provision_verified_actor(
+        _uow, "org-acme", "user-bob",
+        workspace_id="ws-main", project_id="proj-db", environment="production",
+        roles=("operator",), display_name="Bob",
     )
+    _uow.close()
     _setup_planned_and_initialized_migration(caller, "mig-subj-mismatch", actor_admin, ipc_correlation, "M1")
 
     # Issue approval specifically bound to Alice
@@ -1154,13 +1142,13 @@ def test_a04_approval_subject_mismatch_fails(temp_db_path, ipc_correlation):
 # A-05: CONFIGURATION INVALIDATION
 # ==============================================================================
 
-def test_a05_material_configuration_change_invalidates_initialization(temp_db_path, ipc_actor, ipc_correlation):
+def test_a05_material_configuration_change_invalidates_initialization(temp_db_path, verified_ipc_actor, ipc_correlation):
     """Prove modifying material source_connection resets initialization and plan, forcing CONFIGURING state."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     cmd_create = make_command(
         request_type="migration.create",
         payload={"migration_id": "mig-inval-1", "name": "Inval Mig", "mode": "M1"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
     )
     caller.handle_command(cmd_create)
@@ -1168,7 +1156,7 @@ def test_a05_material_configuration_change_invalidates_initialization(temp_db_pa
     cmd_plan = make_command(
         request_type="migration.plan",
         payload={"migration_id": "mig-inval-1"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
     )
     caller.handle_command(cmd_plan)
@@ -1176,7 +1164,7 @@ def test_a05_material_configuration_change_invalidates_initialization(temp_db_pa
     cmd_init = make_command(
         request_type="migration.initialize",
         payload={"migration_id": "mig-inval-1"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
     )
     res_init = caller.handle_command(cmd_init)
@@ -1191,7 +1179,7 @@ def test_a05_material_configuration_change_invalidates_initialization(temp_db_pa
             "expected_revision": 3,
             "configuration": {"source_connection": "pg://prod-db:5432/db1", "target_connection": "pg://target:5432/db2"},
         },
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
     )
     res_conf = caller.handle_command(cmd_config)
@@ -1205,9 +1193,9 @@ def test_a05_material_configuration_change_invalidates_initialization(temp_db_pa
 # A-06: DURABLE ACCEPTANCE BEFORE DISPATCH
 # ==============================================================================
 
-def test_a06_engine_call_count_zero_when_acceptance_commit_fails(temp_db_path, ipc_actor, ipc_correlation):
+def test_a06_engine_call_count_zero_when_acceptance_commit_fails(temp_db_path, verified_ipc_actor, ipc_correlation):
     """Prove engine port is never invoked if admission transaction commit fails."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     rec_port = RecordingExecutionPort(should_succeed=True)
     caller.binding_registry.register(
         EngineBindingDescriptor(
@@ -1220,7 +1208,7 @@ def test_a06_engine_call_count_zero_when_acceptance_commit_fails(temp_db_path, i
         )
     )
 
-    _setup_planned_and_initialized_migration(caller, "mig-lock-1", ipc_actor, ipc_correlation, "M1")
+    _setup_planned_and_initialized_migration(caller, "mig-lock-1", verified_ipc_actor, ipc_correlation, "M1")
 
     actor_other = ActorContext(
         actor=ActorReference(actor_id="user-bad", actor_type="user", display_name="Bad Actor"),
@@ -1238,9 +1226,9 @@ def test_a06_engine_call_count_zero_when_acceptance_commit_fails(temp_db_path, i
     assert rec_port.call_count == 0
 
 
-def test_a06_accepted_operation_survives_dispatch_failure(temp_db_path, ipc_actor, ipc_correlation):
+def test_a06_accepted_operation_survives_dispatch_failure(temp_db_path, verified_ipc_actor, ipc_correlation):
     """Prove operation journal record is safely committed in Phase 1 even if engine dispatch fails."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     failing_port = RecordingExecutionPort(should_succeed=False)
     caller.binding_registry.register(
         EngineBindingDescriptor(
@@ -1253,12 +1241,12 @@ def test_a06_accepted_operation_survives_dispatch_failure(temp_db_path, ipc_acto
         )
     )
 
-    _setup_planned_and_initialized_migration(caller, "mig-fail-disp-1", ipc_actor, ipc_correlation, "M1")
+    _setup_planned_and_initialized_migration(caller, "mig-fail-disp-1", verified_ipc_actor, ipc_correlation, "M1")
 
     cmd = make_command(
         request_type="migration.start",
         payload={"migration_id": "mig-fail-disp-1", "mode": "M1"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
     )
     res = caller.handle_command(cmd)
@@ -1274,13 +1262,13 @@ def test_a06_accepted_operation_survives_dispatch_failure(temp_db_path, ipc_acto
         assert row["status"] == "FAILED"
 
 
-def test_a06_engine_port_exception_transitions_operation_to_failed_and_stages_events(temp_db_path, ipc_actor, ipc_correlation):
+def test_a06_engine_port_exception_transitions_operation_to_failed_and_stages_events(temp_db_path, verified_ipc_actor, ipc_correlation):
     """Prove that if the engine port raises an unhandled exception during dispatch, the operation transitions to FAILED and stages outbox/audit events rather than stranding in ACCEPTED."""
     class CrashingExecutionPort:
         def execute_task(self, req):
             raise RuntimeError("Engine crashed during physical task execution")
 
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     caller.binding_registry.register(
         EngineBindingDescriptor(
             binding_id="bind-crashing",
@@ -1292,12 +1280,12 @@ def test_a06_engine_port_exception_transitions_operation_to_failed_and_stages_ev
         )
     )
 
-    _setup_planned_and_initialized_migration(caller, "mig-crash-disp", ipc_actor, ipc_correlation, "M1")
+    _setup_planned_and_initialized_migration(caller, "mig-crash-disp", verified_ipc_actor, ipc_correlation, "M1")
 
     cmd = make_command(
         request_type="migration.start",
         payload={"migration_id": "mig-crash-disp", "mode": "M1"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
     )
     res = caller.handle_command(cmd)
@@ -1333,10 +1321,10 @@ def test_a06_engine_port_exception_transitions_operation_to_failed_and_stages_ev
 # ==============================================================================
 
 
-def test_a07_start_without_plan_fails_closed(temp_db_path, ipc_actor, ipc_correlation):
+def test_a07_start_without_plan_fails_closed(temp_db_path, verified_ipc_actor, ipc_correlation):
     """Prove start fails closed with NOT_READY if migration was not planned, with 0 engine calls and 0 created plan artifacts."""
 
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     rec_port = RecordingExecutionPort(should_succeed=True)
     caller.binding_registry.register(
         EngineBindingDescriptor(
@@ -1347,7 +1335,7 @@ def test_a07_start_without_plan_fails_closed(temp_db_path, ipc_actor, ipc_correl
     cmd_create = make_command(
         request_type="migration.create",
         payload={"migration_id": "mig-no-plan", "name": "No Plan Mig", "mode": "M1"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
     )
     caller.handle_command(cmd_create)
@@ -1364,7 +1352,7 @@ def test_a07_start_without_plan_fails_closed(temp_db_path, ipc_actor, ipc_correl
     cmd_start = make_command(
         request_type="migration.start",
         payload={"migration_id": "mig-no-plan", "mode": "M1"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
     )
     res = caller.handle_command(cmd_start)
@@ -1378,9 +1366,9 @@ def test_a07_start_without_plan_fails_closed(temp_db_path, ipc_actor, ipc_correl
         assert cur.fetchone()[0] == 0
 
 
-def test_a07_start_without_initialization_fails_closed(temp_db_path, ipc_actor, ipc_correlation):
+def test_a07_start_without_initialization_fails_closed(temp_db_path, verified_ipc_actor, ipc_correlation):
     """Prove start fails closed with NOT_READY if migration was not initialized, with 0 engine calls and 0 created init artifacts."""
-    caller = PipelineUnifiedCaller(db_path=temp_db_path)
+    caller = authorized_caller(db_path=temp_db_path)
     rec_port = RecordingExecutionPort(should_succeed=True)
     caller.binding_registry.register(
         EngineBindingDescriptor(
@@ -1391,7 +1379,7 @@ def test_a07_start_without_initialization_fails_closed(temp_db_path, ipc_actor, 
     cmd_create = make_command(
         request_type="migration.create",
         payload={"migration_id": "mig-no-init", "name": "No Init Mig", "mode": "M1"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
     )
     caller.handle_command(cmd_create)
@@ -1399,7 +1387,7 @@ def test_a07_start_without_initialization_fails_closed(temp_db_path, ipc_actor, 
     cmd_plan = make_command(
         request_type="migration.plan",
         payload={"migration_id": "mig-no-init"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
     )
     caller.handle_command(cmd_plan)
@@ -1418,7 +1406,7 @@ def test_a07_start_without_initialization_fails_closed(temp_db_path, ipc_actor, 
     cmd_start = make_command(
         request_type="migration.start",
         payload={"migration_id": "mig-no-init", "mode": "M1"},
-        actor=ipc_actor,
+        actor=verified_ipc_actor,
         correlation=ipc_correlation,
     )
     res = caller.handle_command(cmd_start)

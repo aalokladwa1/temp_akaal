@@ -77,16 +77,16 @@ class CDCConflictQuarantineManager:
                 raise CDCExecutionError(fail)
 
     def _persist_quarantines(self) -> None:
-        """Persists sanitized quarantine records into CentralStateStore."""
+        """Persists quarantine records into CentralStateStore."""
         if not self.state_store:
             return
         with self._lock:
-            from akaal.privacy.sanitizer import LogAndDiagnosticSanitizer
             data = {
-                qid: LogAndDiagnosticSanitizer.sanitize_quarantine_record(q.to_dict())
+                qid: q.to_dict()
                 for qid, q in self.quarantines.items()
             }
             self.state_store.set_state(f"cdc_quarantine_records_{self.topology_id}", data, category="quarantine_manager")
+
 
     def quarantine_entity(
         self,

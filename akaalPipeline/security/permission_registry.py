@@ -67,6 +67,10 @@ class PermissionRegistry:
     SECURITY_AUDIT_READ = "security.audit.read"
     SECURITY_THREAT_READ = "security.threat.read"
     SECURITY_THREAT_ACK = "security.threat.ack"
+    # P7.7 Secret-Reference Governance (Pipeline governs the REFERENCE; Engine/provider
+    # resolve/own the material -- see akaalPipeline.security.secret_governance)
+    SECURITY_SECRET_RESOLVE = "security.secret.resolve"
+    SECURITY_SECRET_ADMIN = "security.secret.admin"
 
     # System & Multi-Tenant Platform
     SYSTEM_BOOTSTRAP = "system.bootstrap"
@@ -145,6 +149,8 @@ class PermissionRegistry:
         SECURITY_AUDIT_READ,
         SECURITY_THREAT_READ,
         SECURITY_THREAT_ACK,
+        SECURITY_SECRET_RESOLVE,
+        SECURITY_SECRET_ADMIN,
         SYSTEM_BOOTSTRAP,
         SYSTEM_PLATFORM_ADMIN,
         SYSTEM_TENANT_CREATE,

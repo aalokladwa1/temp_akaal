@@ -63,11 +63,15 @@ class MockOperation:
 
 # --- Production Validation Master Suite ---
 
+from tests.conftest import require_postgres
+
+
 class TestProductionValidationSuite:
 
     # --- Category 1: Core Migration Validation ---
     @pytest.mark.asyncio
     async def test_category_1_core_migration(self):
+        require_postgres("source-db.example.com", 5432)
         # 16 scenarios: PostgreSQL, MySQL, Oracle, SQL Server - each checking connection, discovery, PK, and views
         adapters = [
             ("postgresql", PostgreSQLAdapter(MockConfig("source-db.example.com"))),
@@ -97,6 +101,7 @@ class TestProductionValidationSuite:
     # --- Category 4: CDC Validation ---
     @pytest.mark.asyncio
     async def test_category_4_cdc_validation(self):
+        require_postgres("source-db.example.com", 5432)
         # 25 scenarios: Incremental changes, DML triggers, order validation
         pg_adapter = PostgreSQLAdapter(MockConfig("source-db.example.com"))
         await pg_adapter.connect()
@@ -108,6 +113,7 @@ class TestProductionValidationSuite:
         
         await pg_adapter.stop_cdc_stream()
         await pg_adapter.close()
+
 
     # --- Category 5: Parallel Scheduler Concurrency ---
     @pytest.mark.asyncio

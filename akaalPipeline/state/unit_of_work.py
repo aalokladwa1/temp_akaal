@@ -16,12 +16,14 @@ from akaalPipeline.state.repositories import (
     SQLiteGovernanceApprovalRepository,
     SQLiteGroupRepository,
     SQLiteKeyringRepository,
+    SQLiteMFARepository,
     SQLiteMigrationRepository,
     SQLitePrincipalRepository,
     SQLiteProjectRepository,
     SQLiteRoleGrantRepository,
     SQLiteRolePermissionRepository,
     SQLiteRoleRepository,
+    SQLiteSCIMMappingRepository,
     SQLiteSecurityAuditRepository,
     SQLiteServiceTokenRepository,
     SQLiteSessionRepository,
@@ -145,6 +147,14 @@ class SQLiteUnitOfWork(UnitOfWorkPort):
     def audit_ledger(self) -> SQLiteSecurityAuditRepository:
         return SQLiteSecurityAuditRepository(self._get_conn())
 
+    @property
+    def mfa(self) -> SQLiteMFARepository:
+        return SQLiteMFARepository(self._get_conn())
+
+    @property
+    def scim_mappings(self) -> SQLiteSCIMMappingRepository:
+        return SQLiteSCIMMappingRepository(self._get_conn())
+
     def _init_all_tables(self) -> None:
         conn = self._get_conn()
         conn.executescript("""
@@ -235,6 +245,9 @@ class SQLiteUnitOfWork(UnitOfWorkPort):
                 client_ip TEXT,
                 user_agent TEXT,
                 bound_security_revision INTEGER NOT NULL,
+                authentication_assurance TEXT NOT NULL DEFAULT 'NONE',
+                credential_mechanism TEXT,
+                trust_domain TEXT,
                 PRIMARY KEY (tenant_id, session_id),
                 FOREIGN KEY (tenant_id, principal_id) REFERENCES enterprise_principals(tenant_id, principal_id) ON DELETE CASCADE
             );
@@ -750,6 +763,46 @@ class SQLiteUnitOfWork(UnitOfWorkPort):
                 PRIMARY KEY (incident_id, alert_id)
             );
 
+            -- =========================================================
+            -- P7.5 MFA + SCIM Identity Lifecycle Tables
+            -- =========================================================
+            CREATE TABLE IF NOT EXISTS mfa_factors (
+                factor_id TEXT NOT NULL,
+                tenant_id TEXT NOT NULL,
+                principal_id TEXT NOT NULL,
+                factor_type TEXT NOT NULL CHECK(factor_type IN ('TOTP')),
+                encrypted_secret_blob BLOB NOT NULL,
+                status TEXT NOT NULL CHECK(status IN ('PENDING_ACTIVATION', 'ACTIVE', 'DISABLED')),
+                failed_attempts INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL,
+                last_used_at TEXT,
+                PRIMARY KEY (tenant_id, factor_id),
+                FOREIGN KEY (tenant_id, principal_id) REFERENCES enterprise_principals(tenant_id, principal_id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS mfa_challenges (
+                challenge_id TEXT NOT NULL,
+                tenant_id TEXT NOT NULL,
+                principal_id TEXT NOT NULL,
+                factor_id TEXT NOT NULL,
+                purpose TEXT NOT NULL,
+                code_hash TEXT NOT NULL,
+                issued_at TEXT NOT NULL,
+                expires_at TEXT NOT NULL,
+                consumed INTEGER NOT NULL DEFAULT 0,
+                attempt_count INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (tenant_id, challenge_id)
+            );
+
+            CREATE TABLE IF NOT EXISTS scim_provider_mappings (
+                tenant_id TEXT NOT NULL,
+                scim_provider_id TEXT NOT NULL,
+                scim_external_id TEXT NOT NULL,
+                principal_id TEXT NOT NULL,
+                last_synced_at TEXT NOT NULL,
+                PRIMARY KEY (tenant_id, scim_provider_id, scim_external_id)
+            );
+
             CREATE TABLE IF NOT EXISTS notification_deliveries (
                 delivery_id TEXT PRIMARY KEY,
                 tenant_id TEXT NOT NULL DEFAULT 'default-tenant',
@@ -774,6 +827,15 @@ class SQLiteUnitOfWork(UnitOfWorkPort):
         cols = [r[1] for r in conn.execute("PRAGMA table_info(migrations);").fetchall()]
         if "active_fence_epoch" not in cols:
             conn.execute("ALTER TABLE migrations ADD COLUMN active_fence_epoch INTEGER NOT NULL DEFAULT 1;")
+
+        # Session assurance columns if missing (verified-authentication-assurance bridge)
+        sess_cols = [r[1] for r in conn.execute("PRAGMA table_info(enterprise_sessions);").fetchall()]
+        if "authentication_assurance" not in sess_cols:
+            conn.execute("ALTER TABLE enterprise_sessions ADD COLUMN authentication_assurance TEXT NOT NULL DEFAULT 'NONE';")
+        if "credential_mechanism" not in sess_cols:
+            conn.execute("ALTER TABLE enterprise_sessions ADD COLUMN credential_mechanism TEXT;")
+        if "trust_domain" not in sess_cols:
+            conn.execute("ALTER TABLE enterprise_sessions ADD COLUMN trust_domain TEXT;")
 
         # Schedules columns if missing
         sched_cols = [r[1] for r in conn.execute("PRAGMA table_info(schedules);").fetchall()]

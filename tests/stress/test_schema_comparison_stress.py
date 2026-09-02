@@ -104,9 +104,10 @@ class TestSchemaComparisonStress(unittest.TestCase):
         
         start_time = time.perf_counter()
         
-        with concurrent.futures.ProcessPoolExecutor(max_workers=num_workers) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
             futures = [executor.submit(run_stress_worker, runs_per_worker) for _ in range(num_workers)]
             results = [f.result() for f in futures]
+
             
         duration = time.perf_counter() - start_time
         total_runs = sum(results)

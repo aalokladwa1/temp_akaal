@@ -122,10 +122,13 @@ class TestP321CDCCaptureHostileAudit(unittest.TestCase):
     # -------------------------------------------------------------------------
     def test_attack_05_capture_miner_cannot_advance_applied_position(self):
         """ATTACK: Verify that miners only update captured position on boundary, not applied or acknowledged."""
+        from tests.conftest import require_postgres
+        require_postgres("localhost", 5432)
         coord = CDCCaptureCoordinator()
         init_res = coord.initialize_cdc_capture("POSTGRESQL", "mig-A", "job-A", "run-A", "sess-pos-test", {"engine": "POSTGRESQL", "lsn": "0/1000000"})
         coord.start_cdc_capture("sess-pos-test")
         coord.poll_cdc_transactions("sess-pos-test")
+
 
         boundary = coord.consistency_boundaries["sess-pos-test"]
         self.assertIsNotNone(boundary.last_durably_captured_position)

@@ -5,13 +5,15 @@ Unit tests for CDCCoordinator, CDCClient, and Platform4Facade.
 import pytest
 from akaal.api.facades.platform4 import Platform4Facade as Platform7FacadeWrapper
 from akaal.cdc.api.client import CDCClient
-from akaal.cdc.api.facade import Platform4Facade
 from akaal.cdc.contracts.event import CDCEvent, ChangeType
+from tests.conftest import require_postgres
 
 
 @pytest.mark.asyncio
 async def test_cdc_client_and_facade_flow():
+    require_postgres("localhost", 5432)
     p7_wrapper = Platform7FacadeWrapper()
+
     facade = Platform4Facade()
 
     # Capabilities check via Platform 7 facade wrapper

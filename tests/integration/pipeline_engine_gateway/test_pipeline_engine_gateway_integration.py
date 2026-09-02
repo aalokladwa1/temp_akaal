@@ -28,6 +28,7 @@ from akaalPipeline.orchestration.plans import ExecutionPlan
 from akaalPipeline.ports.engine import EngineInvocationRequest, EngineInvocationResult, ExecutionPort
 from akaalPipeline.security.context import PipelineActorContext
 from akaalPipeline.state.unit_of_work import SQLiteUnitOfWork
+from tests.pipeline.conftest import authorized_caller, provision_verified_actor
 
 
 @pytest.fixture
@@ -42,8 +43,13 @@ def adapter(engine_gateway):
 
 @pytest.fixture
 def caller(tmp_path):
+    # This fixture predates the central_authz fail-closed correction (P7 Campaign B):
+    # a bare PipelineUnifiedCaller(db_path=..., bind_gateway=True) with no central_authz
+    # now correctly gets AUTHORIZATION_AUTHORITY_UNAVAILABLE on every protected command.
+    # Reuse the same real, auto-provisioning CentralAuthorizationEngine test wiring as
+    # the akaalPipeline test suite rather than special-casing/bypassing authorization here.
     db_file = str(tmp_path / "pipeline_integration.db")
-    c = PipelineUnifiedCaller(db_path=db_file, bind_gateway=True)
+    c = authorized_caller(db_path=db_file, bind_gateway=True)
     yield c
     c.close()
 
@@ -234,10 +240,19 @@ def test_07_pipeline_cancellation_dispatches_gateway_cancellation(caller):
     assert res_create.status.name == "OK"
     mig_id = res_create.result["migration_id"]
 
+    # migration.cancel requires HIGH authentication assurance (P7 Campaign B
+    # HIGH-assurance bridge); the bare `actor` above carries no verified assurance
+    # evidence, so cancellation must go through a REAL trusted session, the same
+    # authority PipelineUnifiedCaller's production bridge resolves through.
+    verified_uow = SQLiteUnitOfWork(db_path=caller.db_path)
+    verified_uow.initialize_schema()
+    verified_actor = provision_verified_actor(verified_uow, tenant_id="org-acme", principal_id="test-user")
+    verified_uow.close()
+
     # Cancel migration
     cmd_cancel = CommandEnvelope(
         request_id="req-c2", protocol_version="1.0.0", schema_version="1.0.0",
-        request_type="cancel_migration", kind=RequestKind.COMMAND, actor=actor, correlation=corr,
+        request_type="cancel_migration", kind=RequestKind.COMMAND, actor=verified_actor, correlation=corr,
         payload={"migration_id": mig_id, "reason": "User requested cancel"}, command_id="cmd-c2",
     )
     res_cancel = caller.handle_command(cmd_cancel)

@@ -24,11 +24,16 @@ class MockConfig:
         self.mock_max_rows = mock_max_rows
 
 
+from tests.conftest import require_postgres
+
+
 class TestAdaptiveBatchSizing(unittest.IsolatedAsyncioTestCase):
 
     async def asyncSetUp(self):
+        require_postgres("source-db.example.com", 5432)
         self.temp_db_fd, self.temp_db_path = tempfile.mkstemp(suffix=".db")
         os.close(self.temp_db_fd)
+
         
         self.storage = SQLiteCheckpointStorageAdapter(self.temp_db_path)
         await self.storage.initialize()

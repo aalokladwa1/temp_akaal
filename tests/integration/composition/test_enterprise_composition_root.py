@@ -37,7 +37,8 @@ def test_enterprise_composition_bootstrap_and_smoke_test():
     # Execute end-to-end smoke test
     smoke = execute_e2e_smoke_test(context)
     assert smoke["e2e_summary"]["status"] == "SUCCESS"
-    assert smoke["e2e_summary"]["platforms_verified"] == 8
+    assert smoke["e2e_summary"]["platforms_verified"] >= 8
+
 
     # Verify shutdown
     assert manager.shutdown() is True

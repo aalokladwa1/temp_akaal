@@ -201,10 +201,13 @@ def test_empty_partition_scheme_handling():
     )
     assert len(scheme.partitions) == 0
 
+from tests.conftest import require_postgres, require_mysql, require_oracle, require_mssql
+
 # --- 3. Database Adapter Discovery Verification ---
 
 @pytest.mark.asyncio
 async def test_postgresql_adapter_partition_discovery():
+    require_postgres("source-db.example.com")
     cfg = MockConfig(host="source-db.example.com")
     adapter = PostgreSQLAdapter(cfg)
     await adapter.connect()
@@ -217,6 +220,7 @@ async def test_postgresql_adapter_partition_discovery():
 
 @pytest.mark.asyncio
 async def test_mysql_adapter_partition_discovery():
+    require_mysql("source-db.example.com")
     cfg = MockConfig(host="source-db.example.com")
     adapter = MySQLAdapter(cfg)
     await adapter.connect()
@@ -228,6 +232,7 @@ async def test_mysql_adapter_partition_discovery():
 
 @pytest.mark.asyncio
 async def test_oracle_adapter_partition_discovery():
+    require_oracle("oracle-prod.example.com")
     cfg = MockConfig(host="oracle-prod.example.com")
     adapter = OracleAdapter(cfg)
     await adapter.connect()
@@ -239,6 +244,7 @@ async def test_oracle_adapter_partition_discovery():
 
 @pytest.mark.asyncio
 async def test_mssql_adapter_partition_discovery():
+    require_mssql("source-db.example.com")
     cfg = MockConfig(host="source-db.example.com")
     adapter = MSSQLAdapter(cfg)
     await adapter.connect()
@@ -252,10 +258,12 @@ async def test_mssql_adapter_partition_discovery():
 
 @pytest.mark.asyncio
 async def test_end_to_end_planning_integration_pipeline():
+    require_postgres("source-db.example.com")
     # 1. Discover via PG Adapter
     cfg = MockConfig(host="source-db.example.com")
     adapter = PostgreSQLAdapter(cfg)
     await adapter.connect()
+
     
     source_scheme = await adapter.discover_partition_scheme("public", "orders")
     

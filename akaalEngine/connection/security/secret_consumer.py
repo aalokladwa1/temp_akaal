@@ -3,6 +3,45 @@ akaalEngine.connection.security.secret_consumer
 ===============================================
 Ephemeral secret reference resolution, bounded lifetime execution, rotation notification,
 and zero-persistence credential handling.
+
+P7.7 CANONICAL SECRETS AUTHORITY SPLIT (hostile-review decision, evidence-based):
+
+    Pipeline (akaalPipeline)     -- currently owns NO secret-reference governance
+                                     authority. `akaal/core/credential_vault.py`
+                                     (`InProcessCredentialVault`) is a frozen, read-only
+                                     legacy in-memory reference store; it is NOT a
+                                     governance/policy authority and is out of Campaign B
+                                     scope. This is an honest gap, not silently invented
+                                     away: any future secret-reference *authorization
+                                     policy* (which tenant/role may resolve which
+                                     reference) belongs in akaalPipeline/security/ and
+                                     does not yet exist.
+
+    Engine SecretConsumer (here) -- THE canonical physical resolution/consumption
+                                     boundary. Resolves a secret reference to an ephemeral,
+                                     bounded-lifetime, wipeable value immediately before
+                                     driver/provider consumption. Never persists plaintext.
+                                     This responsibility is unchanged and un-duplicated by
+                                     Campaign B.
+
+    External Vault/provider       -- owns the actual secret material / dynamic-credential
+    (e.g. VaultKVSecretProvider)     authority. Registered as a SecretResolverCallback on
+                                     THIS SecretConsumer (extends, does not replace, this
+                                     boundary) -- see
+                                     akaalEngine.connection.security.providers.vault_provider.
+
+    KeyStoreAuthority              -- owns CRYPTOGRAPHIC KEY custody/lifecycle only
+    (akaalPipeline.security.         (Ed25519/AES-GCM/HMAC via Master-Root-Key envelope
+     keystore)                       encryption, and now pluggable cloud KMS/HSM providers
+                                     via akaalPipeline.security.kms_provider). It is
+                                     explicitly NOT a generic secrets/credential vault
+                                     merely because it performs encryption -- callers must
+                                     not route arbitrary application secrets through it.
+
+No fifth "vault" authority was created to close this gap. If/when Pipeline-side secret-
+reference governance is authorized, it should be built as a thin policy layer that calls
+into `CentralAuthorizationEngine` for the access decision and issues resolvable
+references for THIS SecretConsumer to consume -- not a new storage/custody authority.
 """
 
 from __future__ import annotations

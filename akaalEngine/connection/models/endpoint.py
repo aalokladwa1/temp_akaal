@@ -218,6 +218,7 @@ class EndpointSpec(SafeReprMixin):
     region: Optional[str] = None
     account_id: Optional[str] = None
     custom_metadata: Mapping[str, str] = field(default_factory=dict)
+    required_connectivity_tier: Optional[str] = None  # P7.9: e.g. "TLS"/"MTLS"/"TUNNEL"/"PRIVATE_PATH", set by upstream policy
 
     def __post_init__(self) -> None:
         if self.endpoints is not None:
@@ -244,4 +245,5 @@ class EndpointSpec(SafeReprMixin):
             "region": self.region,
             "account_id": self.account_id,
             "custom_metadata": dict(self.custom_metadata),
+            "required_connectivity_tier": self.required_connectivity_tier,
         }
