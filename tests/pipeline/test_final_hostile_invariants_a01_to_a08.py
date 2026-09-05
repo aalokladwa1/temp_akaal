@@ -433,7 +433,12 @@ def test_a03_cross_tenant_migration_read_fails(temp_db_path, verified_ipc_actor,
     )
     res = caller.handle_query(query_b)
     assert res.status.value == "ERROR"
-    assert res.error.category == IPCErrorCategory.FORBIDDEN
+    # P7.13 item 7: a cross-tenant read is now externally indistinguishable from a
+    # genuine not-found (TENANT_BOUNDARY_VIOLATION maps to the same category/code as
+    # NOT_FOUND in PipelineError.to_ipc_error()) so an unauthorized caller cannot use
+    # the error response to learn that mig-tenant-a exists in a different tenant.
+    assert res.error.category == IPCErrorCategory.INVALID_REQUEST
+    assert res.error.code == "NOT_FOUND"
 
 
 def test_a03_cross_workspace_read_fails(temp_db_path, verified_ipc_actor, ipc_correlation):
@@ -461,7 +466,9 @@ def test_a03_cross_workspace_read_fails(temp_db_path, verified_ipc_actor, ipc_co
     )
     res = caller.handle_query(query_ws)
     assert res.status.value == "ERROR"
-    assert res.error.category == IPCErrorCategory.FORBIDDEN
+    # P7.13 item 7: see test_a03_cross_tenant_migration_read_fails above.
+    assert res.error.category == IPCErrorCategory.INVALID_REQUEST
+    assert res.error.code == "NOT_FOUND"
 
 
 def test_a03_cross_project_read_fails(temp_db_path, verified_ipc_actor, ipc_correlation):
@@ -489,7 +496,9 @@ def test_a03_cross_project_read_fails(temp_db_path, verified_ipc_actor, ipc_corr
     )
     res = caller.handle_query(query_proj)
     assert res.status.value == "ERROR"
-    assert res.error.category == IPCErrorCategory.FORBIDDEN
+    # P7.13 item 7: see test_a03_cross_tenant_migration_read_fails above.
+    assert res.error.category == IPCErrorCategory.INVALID_REQUEST
+    assert res.error.code == "NOT_FOUND"
 
 
 def test_a03_cross_tenant_operation_read_fails(temp_db_path, verified_ipc_actor, ipc_correlation):
@@ -723,7 +732,9 @@ def test_a03_cross_project_operation_query_rejected(temp_db_path, ipc_correlatio
     )
     res_q = caller.handle_query(q_env)
     assert res_q.status.value == "ERROR"
-    assert res_q.error.category == IPCErrorCategory.FORBIDDEN
+    # P7.13 item 7: see test_a03_cross_tenant_migration_read_fails above.
+    assert res_q.error.category == IPCErrorCategory.INVALID_REQUEST
+    assert res_q.error.code == "NOT_FOUND"
 
 
 

@@ -100,9 +100,16 @@ class PipelineEngineGatewayAdapter(
         mig_id = payload.get("migration_id") or req.payload.get("migration_id")
         run_id = req.attempt_id or payload.get("run_id") or payload.get("attempt_id")
         job_id = req.graph_node_id or req.checkpoint_id or payload.get("job_id") or payload.get("batch_id")
-        tenant_id = payload.get("tenant_id") or payload.get("organization_id")
-        workspace_id = payload.get("workspace_id")
-        project_id = payload.get("project_id")
+        # P7.10/P7.13: tenant/workspace/project scope MUST come from the trusted
+        # EngineInvocationRequest fields (set by the Pipeline caller from its own
+        # already-verified PipelineActorContext), never from `payload` -- payload
+        # may echo untrusted caller-supplied request fields (e.g. a wire envelope's
+        # own payload dict), and trusting a "tenant_id"/"organization_id" key found
+        # there would let a caller influence the security-context an Engine
+        # operation executes/is tagged under merely by including that key.
+        tenant_id = req.tenant_id
+        workspace_id = req.workspace_id
+        project_id = req.project_id
         fencing_epoch = req.fence_epoch
 
         if not mig_id or not run_id or not job_id:

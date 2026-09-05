@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Mapping, Optional, Protocol, runtime_checkable
+from typing import Any, Mapping, Optional, Protocol, Sequence, runtime_checkable
 
 
 @dataclass(frozen=True)
@@ -27,6 +27,16 @@ class EngineInvocationRequest:
     timeout_seconds: int = 300
     fencing_token_envelope: Optional[Mapping[str, Any]] = None
     execution_authorization_artifact: Optional[Mapping[str, Any]] = None
+    # P7.10/P7.13: trusted tenant/workspace/project scope, set by the Pipeline caller
+    # from its own already-verified PipelineActorContext -- NEVER from `payload`,
+    # which may echo untrusted wire-caller-supplied fields. Engine-side adapters
+    # (akaalPipeline/adapters/engine_gateway.py::_build_context) must read tenant
+    # scope from here, not from payload, so a caller cannot influence the security
+    # context an Engine operation executes under merely by including
+    # "tenant_id"/"organization_id" keys in its request payload.
+    tenant_id: Optional[str] = None
+    workspace_id: Optional[str] = None
+    project_id: Optional[str] = None
 
 
 

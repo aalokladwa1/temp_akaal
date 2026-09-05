@@ -103,9 +103,19 @@ class DiscoverySessionCoordinator:
     def resolve_discovery_strategy(
         self,
         provider_id: str,
+        required_capability: Optional[str] = None,
     ) -> Tuple[BaseDiscoveryStrategy, Optional[ResolvedStrategyHandle]]:
         """
         Resolves the concrete DiscoveryStrategy for a provider via Extensions Authority.
+
+        required_capability: when supplied, the resolved handle's declared capability truth
+        is checked via ResolvedStrategyHandle.require_capability() before the strategy is
+        returned -- a provider that has explicitly declared this capability unsupported (or
+        never declared it at all) is rejected rather than silently handed back for the
+        caller to invoke anyway. Optional and defaults to None (no gating) so existing
+        callers that don't yet pass an operation-specific capability name are unaffected;
+        this is the same negative-capability enforcement primitive P7A.4 wired into CDC,
+        now available here too rather than being CDC-exclusive.
         """
         prov_id = ProviderId(provider_id)
         auth_id = AuthorityId("discovery")
@@ -113,7 +123,10 @@ class DiscoverySessionCoordinator:
             handle = self._ext_auth.resolve_strategy(
                 provider_id=prov_id,
                 authority_id=auth_id,
+                required_capabilities=[required_capability] if required_capability else None,
             )
+            if required_capability:
+                handle.require_capability(required_capability)
             strategy_instance = handle.strategy_instance
             if callable(strategy_instance) and not isinstance(strategy_instance, BaseDiscoveryStrategy):
                 strategy_instance = strategy_instance()

@@ -12,6 +12,9 @@ from akaalEngine.discovery.strategies.nosql.neo4j import Neo4jDiscoveryStrategy
 from akaalEngine.discovery.strategies.nosql.opensearch import OpenSearchDiscoveryStrategy
 from akaalEngine.discovery.strategies.nosql.redis import RedisDiscoveryStrategy
 from akaalEngine.discovery.strategies.nosql.scylladb import ScyllaDBDiscoveryStrategy
+from akaalEngine.discovery.strategies.nosql.dynamodb import DynamoDBDiscoveryStrategy
+from akaalEngine.discovery.strategies.nosql.couchbase import CouchbaseDiscoveryStrategy
+from akaalEngine.discovery.strategies.nosql.cosmosdb import CosmosDBDiscoveryStrategy
 
 __all__ = [
     "MongoDBDiscoveryStrategy",
@@ -22,4 +25,7 @@ __all__ = [
     "KeyDBDiscoveryStrategy",
     "ElasticsearchDiscoveryStrategy",
     "OpenSearchDiscoveryStrategy",
+    "DynamoDBDiscoveryStrategy",
+    "CouchbaseDiscoveryStrategy",
+    "CosmosDBDiscoveryStrategy",
 ]

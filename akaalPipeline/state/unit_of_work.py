@@ -885,9 +885,16 @@ class SQLiteUnitOfWork(UnitOfWorkPort):
                 self.commit()
 
     def commit(self) -> None:
-        if self._in_transaction and self._conn:
+        # Bug fix: previously guarded on `self._conn`, which is only ever set when this
+        # UnitOfWork opened its own connection -- in shared_connection mode `self._conn`
+        # stays None forever, so this silently no-op'd and _in_transaction never cleared,
+        # leaving every subsequent `with uow:` unable to BEGIN a new transaction
+        # ("cannot start a transaction within a transaction"). Use the actual active
+        # connection (self._conn or self._shared_conn) so both modes commit correctly.
+        conn = self._conn or self._shared_conn
+        if self._in_transaction and conn:
             try:
-                self._conn.commit()
+                conn.commit()
             except sqlite3.Error as err:
                 self.rollback()
                 raise PersistenceError("Error committing transaction", cause=err) from err
@@ -895,9 +902,10 @@ class SQLiteUnitOfWork(UnitOfWorkPort):
                 self._in_transaction = False
 
     def rollback(self) -> None:
-        if self._in_transaction and self._conn:
+        conn = self._conn or self._shared_conn
+        if self._in_transaction and conn:
             try:
-                self._conn.rollback()
+                conn.rollback()
             except sqlite3.Error:
                 pass
             finally:

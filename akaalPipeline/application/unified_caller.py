@@ -1,7 +1,7 @@
 import logging
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Any, Mapping, Optional
+from typing import Any, Mapping, Optional, Tuple
 
 logger = logging.getLogger("akaalPipeline.application.unified_caller")
 from akaalIPC.protocol.envelopes import CommandEnvelope, OperationReference, QueryEnvelope
@@ -273,6 +273,97 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
             return self._shared_uow
         return SQLiteUnitOfWork(db_path=self.db_path)
 
+    def _resolve_trusted_actor(
+        self,
+        envelope: Any,
+        correlation_id: str,
+        request_id: str,
+    ) -> Tuple[Optional[PipelineActorContext], Optional[CallerResult]]:
+        """
+        Shared trusted-actor resolution for both handle_command and handle_query.
+        Returns (pipeline_actor, None) on success, or (None, error_result) on failure --
+        callers must check the second element and return it verbatim on failure.
+
+        Behavior (identical for commands and queries -- there is no security reason a
+        query should be resolved less trustworthily than a command):
+        1. Reject a missing actor outright.
+        2. Downgrade any wire-asserted AUTHENTICATED/elevated-assurance claim to CLAIMED/NONE
+           (DESERIALIZATION != AUTHENTICATION) via PipelineActorContext.from_ipc(trusted_boundary=False).
+        3. If this caller is wired with a durable SessionManager AND the envelope presents both
+           session_id and session_token, re-derive the actor through that trusted authority --
+           assurance/credential/trust-domain come from session-ESTABLISHMENT time, never from
+           anything this request's envelope itself asserts. Failure here fails CLOSED.
+        4. Reject external callers asserting SYSTEM actor identity.
+        """
+        if envelope.actor is None or envelope.actor.actor is None:
+            return None, CallerResult(
+                status=CallerResultStatus.ERROR,
+                error=make_error(
+                    IPCErrorCategory.UNAUTHORIZED,
+                    code="MISSING_ACTOR_CONTEXT",
+                    message="Request envelope has no actor context.",
+                    correlation_id=correlation_id,
+                    request_id=request_id,
+                ),
+            )
+
+        pipeline_actor = PipelineActorContext.from_ipc(envelope.actor, trusted_boundary=False)
+
+        if self.session_manager is not None and envelope.actor.session_id and envelope.actor.session_token:
+            from akaalPipeline.contracts.errors import UnauthorizedError as _SessionUnauthorizedError
+            try:
+                import dataclasses as _dataclasses
+                verified_actor = self.session_manager.resolve_authenticated_context(
+                    tenant_id=pipeline_actor.organization_id,
+                    session_id=envelope.actor.session_id,
+                    raw_token=envelope.actor.session_token,
+                )
+                authoritative_roles: Tuple[str, ...] = ()
+                if getattr(self, "central_authz", None) is not None and hasattr(self.central_authz, "get_authoritative_roles"):
+                    try:
+                        authoritative_roles = tuple(sorted(
+                            self.central_authz.get_authoritative_roles(
+                                tenant_id=verified_actor.organization_id,
+                                principal_id=verified_actor.actor_id,
+                            )
+                        ))
+                    except Exception:
+                        authoritative_roles = ()
+
+                pipeline_actor = _dataclasses.replace(
+                    verified_actor,
+                    workspace_id=pipeline_actor.workspace_id,
+                    project_id=pipeline_actor.project_id,
+                    environment=pipeline_actor.environment,
+                    roles=authoritative_roles,
+                    scopes=(),
+                )
+            except _SessionUnauthorizedError as sess_exc:
+                return None, CallerResult(
+                    status=CallerResultStatus.ERROR,
+                    error=make_error(
+                        IPCErrorCategory.UNAUTHORIZED,
+                        code="SESSION_AUTHENTICATION_REJECTED",
+                        message=f"Trusted session authentication failed: {sess_exc}",
+                        correlation_id=correlation_id,
+                        request_id=request_id,
+                    ),
+                )
+
+        if pipeline_actor.actor_type.lower() == "system" and envelope.actor.provenance != "internal-core":
+            return None, CallerResult(
+                status=CallerResultStatus.ERROR,
+                error=make_error(
+                    IPCErrorCategory.UNAUTHORIZED,
+                    code="SYSTEM_ACTOR_SPOOFING_PROHIBITED",
+                    message="External callers are prohibited from asserting system actor identity.",
+                    correlation_id=correlation_id,
+                    request_id=request_id,
+                ),
+            )
+
+        return pipeline_actor, None
+
     def handle_command(self, envelope: Any) -> CallerResult:
         if isinstance(envelope, dict):
             from akaalIPC.protocol.envelopes import CommandEnvelope, CorrelationContext
@@ -309,99 +400,9 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
         correlation_id = envelope.correlation.correlation_id if envelope.correlation else str(uuid.uuid4())
         request_id = envelope.request_id
 
-        # 1. Convert IPC ActorContext to PipelineActorContext & validate authorization
-        if envelope.actor is None or envelope.actor.actor is None:
-            return CallerResult(
-                status=CallerResultStatus.ERROR,
-                error=make_error(
-                    IPCErrorCategory.UNAUTHORIZED,
-                    code="MISSING_ACTOR_CONTEXT",
-                    message="Command envelope has no actor context.",
-                    correlation_id=correlation_id,
-                    request_id=request_id,
-                ),
-            )
-        # C1 hostile-review fix: envelope.actor is untrusted wire input at this northbound
-        # boundary (DESERIALIZATION != AUTHENTICATION). trusted_boundary=False downgrades
-        # any self-asserted AUTHENTICATED/elevated-assurance claim to CLAIMED/NONE unless a
-        # prior authoritative authenticator (federation/session/service-token validation)
-        # has already re-minted this envelope's actor via a trusted path before reaching
-        # here. No test or production caller in this repository currently exercises this
-        # method, so this closes a real, previously-unexercised bypass rather than
-        # changing observed behavior.
-        pipeline_actor = PipelineActorContext.from_ipc(envelope.actor, trusted_boundary=False)
-
-        # Verified-authentication-assurance bridge: if this caller is wired with the
-        # existing durable session authority (akaalPipeline.identity.sessions.SessionManager)
-        # AND the wire envelope presents both a session_id and its raw bearer session_token,
-        # re-derive the actor context through that trusted authority instead of trusting the
-        # untrusted-CLAIMED reconstruction above. The assurance/credential/trust-domain used
-        # here come from what was captured at session-ESTABLISHMENT time (i.e. what a real
-        # federation/MFA verification already proved), never from anything this request's
-        # envelope itself asserts. Any resolution failure (invalid/expired/revoked/tampered/
-        # mismatched session) fails CLOSED -- it does not silently fall back to the untrusted
-        # path, since that would let a forged session_id/session_token pair downgrade back to
-        # an unauthenticated CLAIMED actor instead of being rejected outright.
-        if self.session_manager is not None and envelope.actor.session_id and envelope.actor.session_token:
-            from akaalPipeline.contracts.errors import UnauthorizedError as _SessionUnauthorizedError
-            try:
-                import dataclasses as _dataclasses
-                verified_actor = self.session_manager.resolve_authenticated_context(
-                    tenant_id=pipeline_actor.organization_id,
-                    session_id=envelope.actor.session_id,
-                    raw_token=envelope.actor.session_token,
-                )
-                # The trusted session bridge re-derives SECURITY-TRUST dimensions from
-                # the verified session. Request-scoping dimensions (workspace/project/
-                # environment) are preserved from the caller. However, caller-provided
-                # roles and scopes are UNTRUSTED wire claims and MUST NEVER become
-                # trusted authorization grants. Authoritative roles are resolved from
-                # durable server-side storage via CentralAuthorizationEngine, and
-                # unverified wire scopes are stripped.
-                authoritative_roles: Tuple[str, ...] = ()
-                if getattr(self, "central_authz", None) is not None and hasattr(self.central_authz, "get_authoritative_roles"):
-                    try:
-                        authoritative_roles = tuple(sorted(
-                            self.central_authz.get_authoritative_roles(
-                                tenant_id=verified_actor.organization_id,
-                                principal_id=verified_actor.actor_id,
-                            )
-                        ))
-                    except Exception:
-                        authoritative_roles = ()
-
-                pipeline_actor = _dataclasses.replace(
-                    verified_actor,
-                    workspace_id=pipeline_actor.workspace_id,
-                    project_id=pipeline_actor.project_id,
-                    environment=pipeline_actor.environment,
-                    roles=authoritative_roles,
-                    scopes=(),
-                )
-            except _SessionUnauthorizedError as sess_exc:
-                return CallerResult(
-                    status=CallerResultStatus.ERROR,
-                    error=make_error(
-                        IPCErrorCategory.UNAUTHORIZED,
-                        code="SESSION_AUTHENTICATION_REJECTED",
-                        message=f"Trusted session authentication failed: {sess_exc}",
-                        correlation_id=correlation_id,
-                        request_id=request_id,
-                    ),
-                )
-
-        # Reject SYSTEM actor spoofing from external envelope
-        if pipeline_actor.actor_type.lower() == "system" and envelope.actor.provenance != "internal-core":
-            return CallerResult(
-                status=CallerResultStatus.ERROR,
-                error=make_error(
-                    IPCErrorCategory.UNAUTHORIZED,
-                    code="SYSTEM_ACTOR_SPOOFING_PROHIBITED",
-                    message="External callers are prohibited from asserting system actor identity.",
-                    correlation_id=correlation_id,
-                    request_id=request_id,
-                ),
-            )
+        pipeline_actor, actor_error = self._resolve_trusted_actor(envelope, correlation_id, request_id)
+        if actor_error is not None:
+            return actor_error
 
         payload_fp = canonical_fingerprint(envelope.payload)
         uow = self._create_uow()
@@ -596,7 +597,9 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
 
             elif request_type in ("migration.cancel", "cancel_migration"):
                 with uow:
-                    res = self.command_handlers.handle_cancel_migration(envelope.payload, pipeline_actor, uow)
+                    res = self.command_handlers.handle_cancel_migration(
+                        envelope.payload, pipeline_actor, uow, correlation_id=correlation_id
+                    )
                     if envelope.idempotency_key:
                         self.idempotency_service.record_idempotent_result(
                             envelope.idempotency_key,
@@ -1091,12 +1094,13 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
                     if agg is None:
                         raise PipelineError(PipelineErrorCode.INVALID_REQUEST, f"Migration {mig_id!r} not found.")
 
-                    if agg.tenant_id != pipeline_actor.organization_id:
-                        raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Migration {mig_id!r} not found or unauthorized for tenant.")
-                    if pipeline_actor.workspace_id and agg.workspace_id and agg.workspace_id != pipeline_actor.workspace_id:
-                        raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Migration {mig_id!r} belongs to a different workspace.")
-                    if pipeline_actor.project_id and agg.project_id and agg.project_id != pipeline_actor.project_id:
-                        raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Migration {mig_id!r} belongs to a different project.")
+                    pipeline_actor.enforce_resource_scope(
+                        resource_tenant_id=agg.tenant_id,
+                        resource_workspace_id=agg.workspace_id,
+                        resource_project_id=agg.project_id,
+                        resource_kind="Migration",
+                        resource_id=mig_id,
+                    )
 
                     # 2. Validate requested mode against configured migration mode
                     requested_mode_str = envelope.payload.get("mode")
@@ -1333,26 +1337,14 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
         correlation_id = envelope.correlation.correlation_id
         request_id = envelope.request_id
 
-        if envelope.actor is None or envelope.actor.actor is None:
-            return CallerResult(
-                status=CallerResultStatus.ERROR,
-                error=make_error(
-                    IPCErrorCategory.UNAUTHORIZED,
-                    code="MISSING_ACTOR_CONTEXT",
-                    message="Query envelope has no actor context.",
-                    correlation_id=correlation_id,
-                    request_id=request_id,
-                ),
-            )
-        # C1 hostile-review fix: envelope.actor is untrusted wire input at this northbound
-        # boundary (DESERIALIZATION != AUTHENTICATION). trusted_boundary=False downgrades
-        # any self-asserted AUTHENTICATED/elevated-assurance claim to CLAIMED/NONE unless a
-        # prior authoritative authenticator (federation/session/service-token validation)
-        # has already re-minted this envelope's actor via a trusted path before reaching
-        # here. No test or production caller in this repository currently exercises this
-        # method, so this closes a real, previously-unexercised bypass rather than
-        # changing observed behavior.
-        pipeline_actor = PipelineActorContext.from_ipc(envelope.actor, trusted_boundary=False)
+        # P7A.6: queries now resolve through the identical trusted-actor path as commands
+        # (previously this method only ever downgraded wire claims to CLAIMED/NONE with no
+        # session bridge at all, and per the prior comment here was never exercised by any
+        # test or production caller -- the new REST API layer is the first real caller, so
+        # this closes that gap rather than reusing the previous no-bridge behavior).
+        pipeline_actor, actor_error = self._resolve_trusted_actor(envelope, correlation_id, request_id)
+        if actor_error is not None:
+            return actor_error
 
         uow = self._create_uow()
         try:
@@ -1363,8 +1355,37 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
                     agg = self.query_service.get_migration(mig_id, actor=pipeline_actor, conn=uow.connection)
                     return CallerResult(status=CallerResultStatus.OK, result=agg.to_dict())
                 elif request_type in ("migration.list", "list_migrations"):
-                    aggs = self.query_service.list_migrations(actor=pipeline_actor, conn=uow.connection)
-                    return CallerResult(status=CallerResultStatus.OK, result={"migrations": [a.to_dict() for a in aggs]})
+                    # Bounded, SQL-level pagination -- never an unbounded list endpoint.
+                    # limit/offset are optional payload params; omitting them still applies
+                    # a safe default cap rather than fetching every row.
+                    DEFAULT_LIST_LIMIT = 100
+                    MAX_LIST_LIMIT = 500
+                    raw_limit = envelope.payload.get("limit")
+                    limit = min(int(raw_limit), MAX_LIST_LIMIT) if raw_limit is not None else DEFAULT_LIST_LIMIT
+                    offset = int(envelope.payload.get("offset", 0))
+                    status_filter = envelope.payload.get("status")
+                    mode_filter = envelope.payload.get("mode")
+                    aggs = self.query_service.list_migrations(
+                        actor=pipeline_actor,
+                        conn=uow.connection,
+                        limit=limit,
+                        offset=offset,
+                        status=status_filter,
+                        mode=mode_filter,
+                    )
+                    total = self.query_service.count_migrations(
+                        actor=pipeline_actor,
+                        conn=uow.connection,
+                        status=status_filter,
+                        mode=mode_filter,
+                    )
+                    return CallerResult(status=CallerResultStatus.OK, result={
+                        "migrations": [a.to_dict() for a in aggs],
+                        "limit": limit,
+                        "offset": offset,
+                        "total": total,
+                        "next_offset": offset + limit if offset + limit < total else None,
+                    })
                 elif request_type in ("operation.get", "get_operation"):
                     op_id = envelope.payload.get("operation_id")
                     op = self.query_service.get_operation(op_id, actor=pipeline_actor, conn=uow.connection)

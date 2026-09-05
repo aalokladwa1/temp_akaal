@@ -13,6 +13,7 @@ from akaalEngine.extensions.models.compatibility import CompatibilityRange
 from akaalEngine.extensions.models.enums import ExtensionLifecycleState, ExtensionOrigin, IsolationMode, TrustTier
 from akaalEngine.extensions.models.identity import ExtensionId, ProviderId
 from akaalEngine.extensions.models.provider import ProviderContribution
+from akaalEngine.extensions.sandbox.permissions import PermissionRequest
 
 
 @dataclass(frozen=True)
@@ -20,6 +21,12 @@ class ExtensionManifest:
     """
     The root manifest describing an extension bundle.
     Defines identity, SemVer, engine compatibility, origin, trust, isolation, and provider contributions.
+
+    publisher_id and permission_request are declared here (not just on PackageProvenance) because
+    for THIRD_PARTY_PACKAGE origin, PackageIntegrityValidator's signed canonical envelope binds
+    THESE exact manifest fields -- a package cannot be re-labeled with a different publisher or
+    have its requested permissions silently escalated after signing without invalidating the
+    signature (see supply_chain/canonical.py).
     """
     extension_id: ExtensionId
     version: str
@@ -32,6 +39,8 @@ class ExtensionManifest:
     authors: Sequence[str] = field(default_factory=tuple)
     license: Optional[str] = None
     website: Optional[str] = None
+    publisher_id: Optional[str] = None
+    permission_request: Optional[PermissionRequest] = None
     provider_contributions: Sequence[ProviderContribution] = field(default_factory=tuple)
 
     def __post_init__(self) -> None:

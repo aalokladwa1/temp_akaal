@@ -17,13 +17,17 @@ from akaalEngine.extensions.errors.taxonomy import (
     ExtensionNotFoundError,
     ExtensionRegistrationError,
     IncompatibleEngineVersionError,
+    PackageProvenanceMissingError,
 )
-from akaalEngine.extensions.models.enums import ExtensionLifecycleState
+from akaalEngine.extensions.models.enums import ExtensionLifecycleState, ExtensionOrigin
 from akaalEngine.extensions.models.events import ExtensionEvent, ExtensionEventType
 from akaalEngine.extensions.models.extension import ExtensionManifest
 from akaalEngine.extensions.models.identity import ExtensionId, RegistryGeneration
+from akaalEngine.extensions.models.provenance import PackageProvenance
 from akaalEngine.extensions.spi.authority_contract import AuthorityContractRegistry
 from akaalEngine.extensions.spi.validators import ManifestValidator
+from akaalEngine.extensions.supply_chain.integrity import PackageIntegrityValidator
+from akaalEngine.extensions.supply_chain.trust_store import PublisherTrustStore
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +49,9 @@ class RegistrationTransaction:
         bridge_mutations: Sequence[Callable[[], None]] = (),
         bridge_rollbacks: Sequence[Callable[[], None]] = (),
         allow_replace: bool = False,
+        package_provenance: Optional[PackageProvenance] = None,
+        package_artifact_bytes: Optional[bytes] = None,
+        trust_store: Optional[PublisherTrustStore] = None,
     ) -> RegistrySnapshot:
         ext_id = candidate_manifest.extension_id
 
@@ -62,12 +69,37 @@ class RegistrationTransaction:
                 f"Extension '{ext_id}' requires engine version '{candidate_manifest.engine_version_range.raw_expression}', but current engine is '{ENGINE_VERSION}': {comp_res.diagnostic}"
             )
 
-        # 3. Ownership & Duplicate checks
+        # 3. Ownership & Duplicate checks -- deliberately precedes supply-chain verification: hijack/
+        # duplicate protection must hold even against an attacker who also supplies a validly-signed
+        # package, so identity/ownership legality is established before spending any trust on it.
         OwnershipManager.validate_admission_ownership(
             snapshot=current_snapshot,
             candidate_manifest=candidate_manifest,
             allow_replace=allow_replace,
         )
+
+        # 3.5 Supply-chain integrity: mandatory for THIRD_PARTY_PACKAGE origin. A third-party
+        # package admitted without verified provenance would defeat the entire trust model, so
+        # this is not opt-in -- absence of provenance for that origin is itself a rejection.
+        if candidate_manifest.origin == ExtensionOrigin.THIRD_PARTY_PACKAGE:
+            if package_provenance is None or package_artifact_bytes is None or trust_store is None:
+                raise PackageProvenanceMissingError(
+                    f"Extension '{ext_id}' has origin THIRD_PARTY_PACKAGE and requires verified "
+                    f"package_provenance, package_artifact_bytes, and a trust_store to be admitted; "
+                    f"none may be omitted."
+                )
+            if package_provenance.extension_id != ext_id.value or package_provenance.version != candidate_manifest.version:
+                raise PackageProvenanceMissingError(
+                    f"Package provenance identity ('{package_provenance.extension_id}' "
+                    f"v{package_provenance.version}) does not match manifest identity "
+                    f"('{ext_id.value}' v{candidate_manifest.version})."
+                )
+            PackageIntegrityValidator.validate_package(
+                provenance=package_provenance,
+                artifact_bytes=package_artifact_bytes,
+                trust_store=trust_store,
+                manifest=candidate_manifest,
+            )
 
         # 4. Prepare candidate manifest list
         updated_manifests: List[ExtensionManifest] = []

@@ -43,8 +43,26 @@ class MigrationRepositoryPort(ABC):
         """Load aggregate by migration ID."""
 
     @abstractmethod
-    def list_all(self, tenant_id: Optional[str] = None, connection: Optional[sqlite3.Connection] = None) -> List[MigrationAggregate]:
-        """List aggregates matching optional tenant_id."""
+    def list_all(
+        self,
+        tenant_id: Optional[str] = None,
+        connection: Optional[sqlite3.Connection] = None,
+        limit: Optional[int] = None,
+        offset: int = 0,
+        workspace_id: Optional[str] = None,
+        project_id: Optional[str] = None,
+    ) -> List[MigrationAggregate]:
+        """List aggregates matching optional tenant/workspace/project scope, bounded by limit/offset at the SQL level."""
+
+    @abstractmethod
+    def count_all(
+        self,
+        tenant_id: Optional[str] = None,
+        connection: Optional[sqlite3.Connection] = None,
+        workspace_id: Optional[str] = None,
+        project_id: Optional[str] = None,
+    ) -> int:
+        """Returns the total row count matching optional tenant/workspace/project scope (for pagination totals)."""
 
 
 class SQLiteMigrationRepository(MigrationRepositoryPort):
@@ -208,7 +226,47 @@ class SQLiteMigrationRepository(MigrationRepositoryPort):
             if owns_conn:
                 conn.close()
 
-    def list_all(self, tenant_id: Optional[str] = None, connection: Optional[sqlite3.Connection] = None) -> List[MigrationAggregate]:
+    @staticmethod
+    def _build_filter_clause(
+        tenant_id: Optional[str],
+        workspace_id: Optional[str],
+        project_id: Optional[str],
+        status: Optional[str] = None,
+        mode: Optional[str] = None,
+    ) -> Tuple[str, Tuple[Any, ...]]:
+        clauses: List[str] = []
+        params: List[Any] = []
+        if tenant_id:
+            clauses.append("tenant_id = ?")
+            params.append(tenant_id)
+        if workspace_id:
+            # Matches query_service's prior in-memory semantics: an unscoped (NULL/empty)
+            # workspace_id row is always visible; a scoped row must match exactly.
+            clauses.append("(workspace_id IS NULL OR workspace_id = '' OR workspace_id = ?)")
+            params.append(workspace_id)
+        if project_id:
+            clauses.append("(project_id IS NULL OR project_id = '' OR project_id = ?)")
+            params.append(project_id)
+        if status:
+            clauses.append("state = ?")
+            params.append(status.strip().upper())
+        if mode:
+            clauses.append("mode = ?")
+            params.append(mode.strip().upper())
+        where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+        return where, tuple(params)
+
+    def list_all(
+        self,
+        tenant_id: Optional[str] = None,
+        connection: Optional[sqlite3.Connection] = None,
+        limit: Optional[int] = None,
+        offset: int = 0,
+        workspace_id: Optional[str] = None,
+        project_id: Optional[str] = None,
+        status: Optional[str] = None,
+        mode: Optional[str] = None,
+    ) -> List[MigrationAggregate]:
         owns_conn = False
         conn = connection
         if conn is None:
@@ -216,10 +274,15 @@ class SQLiteMigrationRepository(MigrationRepositoryPort):
             owns_conn = True
 
         try:
-            if tenant_id:
-                cur = conn.execute("SELECT * FROM migrations WHERE tenant_id = ?", (tenant_id,))
-            else:
-                cur = conn.execute("SELECT * FROM migrations")
+            where, params_t = self._build_filter_clause(
+                tenant_id, workspace_id, project_id, status=status, mode=mode
+            )
+            sql = f"SELECT * FROM migrations{where} ORDER BY migration_id ASC"
+            params: Tuple[Any, ...] = params_t
+            if limit is not None:
+                sql += " LIMIT ? OFFSET ?"
+                params = params + (limit, offset)
+            cur = conn.execute(sql, params)
             rows = cur.fetchall()
             results = []
             for row in rows:
@@ -242,6 +305,30 @@ class SQLiteMigrationRepository(MigrationRepositoryPort):
                 }
                 results.append(MigrationAggregate.from_dict(data))
             return results
+        finally:
+            if owns_conn:
+                conn.close()
+
+    def count_all(
+        self,
+        tenant_id: Optional[str] = None,
+        connection: Optional[sqlite3.Connection] = None,
+        workspace_id: Optional[str] = None,
+        project_id: Optional[str] = None,
+        status: Optional[str] = None,
+        mode: Optional[str] = None,
+    ) -> int:
+        owns_conn = False
+        conn = connection
+        if conn is None:
+            conn = self._get_connection()
+            owns_conn = True
+        try:
+            where, params = self._build_filter_clause(
+                tenant_id, workspace_id, project_id, status=status, mode=mode
+            )
+            cur = conn.execute(f"SELECT COUNT(*) AS c FROM migrations{where}", params)
+            return cur.fetchone()["c"]
         finally:
             if owns_conn:
                 conn.close()

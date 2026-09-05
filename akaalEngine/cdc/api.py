@@ -42,6 +42,11 @@ from akaalEngine.cdc.models.event import ChangeEvent, ChangeOperation
 from akaalEngine.cdc.models.position import CDCSourcePosition
 from akaalEngine.cdc.policy.migration_mode import MigrationModeSelector
 from akaalEngine.cdc.snapshot.handshake import SnapshotCDCHandshakeEngine
+from akaalEngine.extensions.authority import ExtensionsAuthority
+from akaalEngine.extensions.errors.taxonomy import ExtensionEngineException
+from akaalEngine.extensions.models.identity import AuthorityId, ProviderId
+from akaalEngine.extensions.resolution.handles import ResolvedStrategyHandle
+from akaalEngine.extensions.spi.authority_contract import AuthorityContractDefinition
 
 logger = logging.getLogger("akaalEngine.cdc.api")
 
@@ -72,6 +77,7 @@ class CDCAuthority:
         data_processing_authority: Optional[Any] = None,
         transport_authority: Optional[Any] = None,
         active_adapter: Optional[Any] = None,
+        extensions_authority: Optional[ExtensionsAuthority] = None,
         capture_poll_interval_ms: int = 100,
         max_events_per_fetch: int = 1000,
         max_fetch_bytes_sec: int = 10 * 1024 * 1024,
@@ -83,6 +89,16 @@ class CDCAuthority:
         self.data_processing_authority = data_processing_authority
         self.transport_authority = transport_authority
         self.active_adapter = active_adapter
+        self._ext_auth = extensions_authority
+        if self._ext_auth is not None:
+            self._ext_auth.register_authority_contract(
+                AuthorityContractDefinition(
+                    authority_id=AuthorityId("cdc"),
+                    contract_version="1.0.0",
+                    description="CDC source adapter contract (Authority #10)",
+                    expected_base_type=ICDCSourceAdapter,
+                )
+            )
 
         self.capture_poll_interval_ms = capture_poll_interval_ms
         self.max_events_per_fetch = max_events_per_fetch
@@ -224,6 +240,49 @@ class CDCAuthority:
         """Connects a physical CDC provider capture/apply adapter."""
         with self._lock:
             self.active_adapter = adapter
+
+    def resolve_adapter_for_provider(
+        self,
+        provider_id: str,
+        required_capability: Optional[str] = None,
+    ) -> ResolvedStrategyHandle:
+        """
+        Resolves a real CDC source adapter for `provider_id` from the Extensions authority
+        (authority_id="cdc") rather than requiring a manually-constructed adapter via
+        set_active_adapter(). Sets it as the active adapter and returns the lease handle
+        so the caller can release it and, before invoking a capability-gated operation,
+        call handle.require_capability(name) to fail closed on an unsupported/undeclared
+        capability -- this is the CDC-specific enforcement point for negative capability
+        declarations (e.g. a connector declaring CDC_CAPTURE=NO cannot be silently invoked
+        for capture through this path).
+
+        Requires this CDCAuthority to have been constructed with extensions_authority set;
+        the manual set_active_adapter() path remains available and unaffected for callers
+        that construct adapters directly.
+        """
+        if self._ext_auth is None:
+            raise ExtensionEngineException(
+                "CDCAuthority was constructed without extensions_authority; "
+                "resolve_adapter_for_provider() requires it. Use set_active_adapter() directly instead.",
+                error_code="CDC_EXTENSIONS_NOT_CONFIGURED",
+            )
+
+        handle = self._ext_auth.resolve_strategy(
+            provider_id=provider_id,
+            authority_id=AuthorityId("cdc"),
+            required_capabilities=[required_capability] if required_capability else None,
+        )
+        if not isinstance(handle.strategy_instance, ICDCSourceAdapter):
+            handle.release()
+            raise ExtensionEngineException(
+                f"Resolved 'cdc' strategy for provider '{provider_id}' does not implement "
+                f"ICDCSourceAdapter (got {type(handle.strategy_instance).__name__}).",
+                error_code="CDC_STRATEGY_CONTRACT_MISMATCH",
+            )
+
+        with self._lock:
+            self.active_adapter = handle.strategy_instance
+        return handle
 
     def initialize_stream(self, migration_id: str = "default", starting_position: Optional[CDCSourcePosition] = None) -> CDCSnapshot:
         """Initializes CDC replication stream via active provider adapter."""

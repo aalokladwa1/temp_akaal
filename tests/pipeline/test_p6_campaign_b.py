@@ -1846,7 +1846,12 @@ def test_operations_gateway_context_and_tenant_security(test_db_path, admin_acto
     )
     res_leak = gateway.execute_query(q_leak)
     assert res_leak.status.value == "ERROR"
-    assert res_leak.error.category == IPCErrorCategory.FORBIDDEN
+    # P7.13 item 7: cross-tenant resource access now presents externally the same as a
+    # genuine not-found (PipelineErrorCode.TENANT_BOUNDARY_VIOLATION maps to NOT_FOUND's
+    # category/code in PipelineError.to_ipc_error()), so an unauthorized caller cannot
+    # use the error response to learn that this alert exists in another tenant.
+    assert res_leak.error.category == IPCErrorCategory.INVALID_REQUEST
+    assert res_leak.error.code == "NOT_FOUND"
 
 
 # =============================================================================

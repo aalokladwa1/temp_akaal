@@ -84,6 +84,7 @@ class CentralAuthorizationEngine:
         cache_manager: Optional[AuthorizationCacheManager] = None,
         sod_engine: Optional[SeparationOfDutiesEngine] = None,
         jit_authority: Optional[JITPrivilegeAuthority] = None,
+        audit_service: Optional[Any] = None,
     ) -> None:
         self.tenant_repo = tenant_repo
         self.principal_repo = principal_repo
@@ -93,6 +94,68 @@ class CentralAuthorizationEngine:
         self.cache_manager = cache_manager or AuthorizationCacheManager()
         self.sod_engine = sod_engine or SeparationOfDutiesEngine()
         self.jit_authority = jit_authority
+        # P7.11: akaalPipeline.events.audit.SecurityAuditService, reusing the canonical
+        # hash-chained security_audit_ledger (#12-adjacent, not a duplicate evidence/
+        # audit authority). No composition root anywhere in akaalIPC/akaalPipeline/
+        # akaalEngine constructs CentralAuthorizationEngine (grep-confirmed: it is only
+        # ever built by test fixtures, e.g. tests/pipeline/conftest.py -- a read-only
+        # path this codebase cannot modify), so an explicit-opt-in-only design would
+        # leave this permanently unwired. Default to a real SecurityAuditService bound
+        # to `tenant_repo`'s OWN already-injected connection (no new connection, no new
+        # authority, no global/singleton state -- one instance per engine instance,
+        # exactly mirroring this engine's own lifetime and transaction boundary) unless
+        # the caller explicitly overrides it (including passing `False` to explicitly
+        # disable auditing for a specific engine instance, e.g. a throwaway/isolated
+        # test engine that must not write to a shared ledger). This can only ever ADD
+        # audit evidence -- it never changes any allow/deny decision.
+        if audit_service is False:
+            self.audit_service = None
+        elif audit_service is not None:
+            self.audit_service = audit_service
+        else:
+            try:
+                from akaalPipeline.events.audit import SecurityAuditService
+                from akaalPipeline.state.repositories import SQLiteSecurityAuditRepository
+
+                self.audit_service = SecurityAuditService(SQLiteSecurityAuditRepository(tenant_repo.conn))
+            except Exception:
+                # Fail-closed for the DECISION path is unaffected either way; if the
+                # default audit wiring itself cannot be constructed (e.g. a test double
+                # tenant_repo with no real `.conn`), simply go unrecorded rather than
+                # raising out of an authorization engine's constructor.
+                self.audit_service = None
+
+    def _record_protected_operation_audit(
+        self,
+        actor_context: "PipelineActorContext",
+        decision: "AuthorizationDecision",
+    ) -> None:
+        if self.audit_service is None:
+            return
+        try:
+            from akaalPipeline.contracts.enums import AuditDecision
+
+            self.audit_service.record_event(
+                tenant_id=decision.tenant_id,
+                actor_id=decision.principal_id,
+                actor_type=getattr(actor_context, "principal_type", "UNKNOWN"),
+                event_type="authorization.protected_operation",
+                resource_type=decision.resource_type,
+                resource_id=decision.resource_id,
+                action=decision.permission_id,
+                decision=AuditDecision.ALLOW if decision.allowed else AuditDecision.DENY,
+                details={
+                    "reason_code": decision.reason_code,
+                    "reason": decision.reason,
+                    "assurance": decision.assurance,
+                    "correlation_id": decision.correlation_id,
+                },
+            )
+        except Exception:
+            # Evidence-recording failure must never retroactively change an
+            # already-made ALLOW/DENY decision (that would make audit persistence
+            # itself an availability-based authorization bypass surface).
+            pass
 
     def authorize(
         self,
@@ -375,25 +438,30 @@ class CentralAuthorizationEngine:
             required_assurance=required_assurance,
         )
         if not base.allowed:
+            self._record_protected_operation_audit(actor_context, base)
             return base
 
         if required_jit_grant_id is not None:
             if self.jit_authority is None:
-                return AuthorizationDecision(
+                decision = AuthorizationDecision(
                     allowed=False, tenant_id=base.tenant_id, principal_id=base.principal_id,
                     permission_id=permission_id, resource_type=resource_type, resource_id=resource_id,
                     reason_code="JIT_AUTHORITY_UNAVAILABLE",
                     reason="Protected operation requires a JIT grant, but no JITPrivilegeAuthority is wired into this engine.",
                     assurance=base.assurance,
                 )
+                self._record_protected_operation_audit(actor_context, decision)
+                return decision
             if not self.jit_authority.is_grant_valid(base.tenant_id, required_jit_grant_id):
-                return AuthorizationDecision(
+                decision = AuthorizationDecision(
                     allowed=False, tenant_id=base.tenant_id, principal_id=base.principal_id,
                     permission_id=permission_id, resource_type=resource_type, resource_id=resource_id,
                     reason_code="JIT_GRANT_EXPIRED_OR_MISSING",
                     reason=f"Required JIT grant {required_jit_grant_id!r} is not active/unexpired.",
                     assurance=base.assurance,
                 )
+                self._record_protected_operation_audit(actor_context, decision)
+                return decision
 
         if requester_id is not None and approver_ids is not None:
             ok, violations = self.sod_engine.validate_approval(
@@ -403,14 +471,17 @@ class CentralAuthorizationEngine:
                 approver_roles=approver_roles or [],
             )
             if not ok:
-                return AuthorizationDecision(
+                decision = AuthorizationDecision(
                     allowed=False, tenant_id=base.tenant_id, principal_id=base.principal_id,
                     permission_id=permission_id, resource_type=resource_type, resource_id=resource_id,
                     reason_code="SOD_VIOLATION",
                     reason=f"Separation of Duties violation: {'; '.join(violations)}",
                     assurance=base.assurance,
                 )
+                self._record_protected_operation_audit(actor_context, decision)
+                return decision
 
+        self._record_protected_operation_audit(actor_context, base)
         return base
 
     def get_authoritative_roles(

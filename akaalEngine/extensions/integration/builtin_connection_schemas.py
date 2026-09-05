@@ -139,6 +139,70 @@ def build_connection_provider_schema(provider_id_str: str) -> Optional[Configura
             ),
         )
 
+    elif pid == "cockroachdb":
+        return ConfigurationSchema(
+            schema_id="cockroachdb-connection-config",
+            schema_version="1.0.0",
+            description="Configuration schema for CockroachDB distributed SQL provider (PostgreSQL wire-compatible)",
+            fields=(
+                ConfigurationField(name="host", field_type=ConfigurationFieldType.STRING, description="CockroachDB node or load-balancer hostname", is_required=True, ui_group="Network"),
+                ConfigurationField(name="port", field_type=ConfigurationFieldType.INTEGER, description="CockroachDB SQL port", default_value=26257, constraint=ConfigurationConstraint(min_value=1, max_value=65535), ui_group="Network"),
+                ConfigurationField(name="database_name", field_type=ConfigurationFieldType.STRING, description="Target database name", default_value="defaultdb", ui_group="Target"),
+                ConfigurationField(name="username", field_type=ConfigurationFieldType.STRING, description="Database username", is_required=True, ui_group="Authentication"),
+                ConfigurationField(name="password_ref", field_type=ConfigurationFieldType.SECRET_REF, description="Reference pointer to password secret", ui_group="Authentication"),
+                ConfigurationField(name="sslmode", field_type=ConfigurationFieldType.STRING, description="TLS verification mode", default_value="verify-full", constraint=ConfigurationConstraint(allowed_values=("disable", "require", "verify-ca", "verify-full")), ui_group="Security"),
+                ConfigurationField(name="connect_timeout", field_type=ConfigurationFieldType.INTEGER, description="TCP connect timeout in seconds", default_value=15, ui_group="Connection"),
+            ),
+        )
+
+    elif pid == "yugabytedb":
+        return ConfigurationSchema(
+            schema_id="yugabytedb-connection-config",
+            schema_version="1.0.0",
+            description="Configuration schema for YugabyteDB distributed SQL provider (YSQL, PostgreSQL wire-compatible)",
+            fields=(
+                ConfigurationField(name="host", field_type=ConfigurationFieldType.STRING, description="YugabyteDB node or load-balancer hostname", is_required=True, ui_group="Network"),
+                ConfigurationField(name="port", field_type=ConfigurationFieldType.INTEGER, description="YugabyteDB YSQL port", default_value=5433, constraint=ConfigurationConstraint(min_value=1, max_value=65535), ui_group="Network"),
+                ConfigurationField(name="database_name", field_type=ConfigurationFieldType.STRING, description="Target database name", default_value="yugabyte", ui_group="Target"),
+                ConfigurationField(name="username", field_type=ConfigurationFieldType.STRING, description="Database username", is_required=True, ui_group="Authentication"),
+                ConfigurationField(name="password_ref", field_type=ConfigurationFieldType.SECRET_REF, description="Reference pointer to password secret", ui_group="Authentication"),
+                ConfigurationField(name="sslmode", field_type=ConfigurationFieldType.STRING, description="TLS verification mode", default_value="prefer", constraint=ConfigurationConstraint(allowed_values=("disable", "prefer", "require", "verify-ca", "verify-full")), ui_group="Security"),
+                ConfigurationField(name="connect_timeout", field_type=ConfigurationFieldType.INTEGER, description="TCP connect timeout in seconds", default_value=15, ui_group="Connection"),
+            ),
+        )
+
+    elif pid == "tidb":
+        return ConfigurationSchema(
+            schema_id="tidb-connection-config",
+            schema_version="1.0.0",
+            description="Configuration schema for TiDB distributed SQL provider (MySQL wire-compatible)",
+            fields=(
+                ConfigurationField(name="host", field_type=ConfigurationFieldType.STRING, description="TiDB server hostname or IP address", is_required=True, ui_group="Network"),
+                ConfigurationField(name="port", field_type=ConfigurationFieldType.INTEGER, description="TiDB SQL port", default_value=4000, constraint=ConfigurationConstraint(min_value=1, max_value=65535), ui_group="Network"),
+                ConfigurationField(name="database_name", field_type=ConfigurationFieldType.STRING, description="Target database name", ui_group="Target"),
+                ConfigurationField(name="username", field_type=ConfigurationFieldType.STRING, description="Database username", is_required=True, ui_group="Authentication"),
+                ConfigurationField(name="password_ref", field_type=ConfigurationFieldType.SECRET_REF, description="Reference pointer to password secret", ui_group="Authentication"),
+                ConfigurationField(name="charset", field_type=ConfigurationFieldType.STRING, description="Character set encoding", default_value="utf8mb4", ui_group="Connection"),
+                ConfigurationField(name="connect_timeout", field_type=ConfigurationFieldType.INTEGER, description="TCP connect timeout in seconds", default_value=15, ui_group="Connection"),
+            ),
+        )
+
+    elif pid == "singlestore":
+        return ConfigurationSchema(
+            schema_id="singlestore-connection-config",
+            schema_version="1.0.0",
+            description="Configuration schema for SingleStore distributed hybrid rowstore/columnstore provider (MySQL wire-compatible)",
+            fields=(
+                ConfigurationField(name="host", field_type=ConfigurationFieldType.STRING, description="SingleStore aggregator hostname or IP address", is_required=True, ui_group="Network"),
+                ConfigurationField(name="port", field_type=ConfigurationFieldType.INTEGER, description="SingleStore SQL port", default_value=3306, constraint=ConfigurationConstraint(min_value=1, max_value=65535), ui_group="Network"),
+                ConfigurationField(name="database_name", field_type=ConfigurationFieldType.STRING, description="Target database name", ui_group="Target"),
+                ConfigurationField(name="username", field_type=ConfigurationFieldType.STRING, description="Database username", is_required=True, ui_group="Authentication"),
+                ConfigurationField(name="password_ref", field_type=ConfigurationFieldType.SECRET_REF, description="Reference pointer to password secret", ui_group="Authentication"),
+                ConfigurationField(name="charset", field_type=ConfigurationFieldType.STRING, description="Character set encoding", default_value="utf8mb4", ui_group="Connection"),
+                ConfigurationField(name="connect_timeout", field_type=ConfigurationFieldType.INTEGER, description="TCP connect timeout in seconds", default_value=15, ui_group="Connection"),
+            ),
+        )
+
     elif pid == "snowflake":
         return ConfigurationSchema(
             schema_id="snowflake-connection-config",
@@ -197,6 +261,21 @@ def build_connection_provider_schema(provider_id_str: str) -> Optional[Configura
                 ConfigurationField(name="access_token_ref", field_type=ConfigurationFieldType.SECRET_REF, description="Reference pointer to Databricks Personal Access Token (PAT)", is_required=True, ui_group="Authentication"),
                 ConfigurationField(name="catalog", field_type=ConfigurationFieldType.STRING, description="Unity Catalog name", ui_group="Target"),
                 ConfigurationField(name="schema_name", field_type=ConfigurationFieldType.STRING, description="Default schema name", default_value="default", ui_group="Target"),
+            ),
+        )
+
+    elif pid == "clickhouse":
+        return ConfigurationSchema(
+            schema_id="clickhouse-connection-config",
+            schema_version="1.0.0",
+            description="Configuration schema for ClickHouse columnar OLAP warehouse provider",
+            fields=(
+                ConfigurationField(name="host", field_type=ConfigurationFieldType.STRING, description="ClickHouse server hostname or IP address", is_required=True, ui_group="Network"),
+                ConfigurationField(name="port", field_type=ConfigurationFieldType.INTEGER, description="ClickHouse HTTP interface port", default_value=8123, constraint=ConfigurationConstraint(min_value=1, max_value=65535), ui_group="Network"),
+                ConfigurationField(name="database_name", field_type=ConfigurationFieldType.STRING, description="Target database name", default_value="default", ui_group="Target"),
+                ConfigurationField(name="username", field_type=ConfigurationFieldType.STRING, description="ClickHouse username", default_value="default", ui_group="Authentication"),
+                ConfigurationField(name="password_ref", field_type=ConfigurationFieldType.SECRET_REF, description="Reference pointer to ClickHouse password secret", ui_group="Authentication"),
+                ConfigurationField(name="connect_timeout", field_type=ConfigurationFieldType.INTEGER, description="Connect timeout in seconds", default_value=15, ui_group="Connection"),
             ),
         )
 
@@ -276,6 +355,37 @@ def build_connection_provider_schema(provider_id_str: str) -> Optional[Configura
             ),
         )
 
+    elif pid == "couchbase":
+        return ConfigurationSchema(
+            schema_id="couchbase-connection-config",
+            schema_version="1.0.0",
+            description="Configuration schema for Couchbase N1QL document database provider",
+            fields=(
+                ConfigurationField(name="host", field_type=ConfigurationFieldType.STRING, description="Couchbase cluster node hostname", is_required=True, ui_group="Network"),
+                ConfigurationField(name="bucket", field_type=ConfigurationFieldType.STRING, description="Target Couchbase bucket name", ui_group="Target"),
+                ConfigurationField(name="scope", field_type=ConfigurationFieldType.STRING, description="Couchbase scope name", default_value="_default", ui_group="Target"),
+                ConfigurationField(name="collection", field_type=ConfigurationFieldType.STRING, description="Couchbase collection name", default_value="_default", ui_group="Target"),
+                ConfigurationField(name="connection_string", field_type=ConfigurationFieldType.STRING, description="Full Couchbase connection string override (e.g. couchbases://host)", ui_group="Network"),
+                ConfigurationField(name="username", field_type=ConfigurationFieldType.STRING, description="Couchbase username", is_required=True, ui_group="Authentication"),
+                ConfigurationField(name="password_ref", field_type=ConfigurationFieldType.SECRET_REF, description="Reference pointer to Couchbase password secret", is_required=True, ui_group="Authentication"),
+            ),
+        )
+
+    elif pid == "dynamodb":
+        return ConfigurationSchema(
+            schema_id="dynamodb-connection-config",
+            schema_version="1.0.0",
+            description="Configuration schema for AWS DynamoDB managed NoSQL provider",
+            fields=(
+                ConfigurationField(name="region", field_type=ConfigurationFieldType.STRING, description="AWS Region", default_value="us-east-1", is_required=True, ui_group="Network"),
+                ConfigurationField(name="table_name", field_type=ConfigurationFieldType.STRING, description="Target DynamoDB table name", ui_group="Target"),
+                ConfigurationField(name="endpoint_url", field_type=ConfigurationFieldType.STRING, description="Custom endpoint URL (for DynamoDB Local or VPC endpoints)", ui_group="Network"),
+                ConfigurationField(name="access_key_id_ref", field_type=ConfigurationFieldType.SECRET_REF, description="Reference pointer to AWS Access Key ID secret (omitted if using ambient IAM)", ui_group="Authentication"),
+                ConfigurationField(name="secret_access_key_ref", field_type=ConfigurationFieldType.SECRET_REF, description="Reference pointer to AWS Secret Access Key secret", ui_group="Authentication"),
+                ConfigurationField(name="session_token_ref", field_type=ConfigurationFieldType.SECRET_REF, description="Reference pointer to AWS STS Temporary Session Token secret", ui_group="Authentication"),
+            ),
+        )
+
     elif pid == "kafka":
         return ConfigurationSchema(
             schema_id="kafka-connection-config",
@@ -331,6 +441,53 @@ def build_connection_provider_schema(provider_id_str: str) -> Optional[Configura
                 ConfigurationField(name="topic_id", field_type=ConfigurationFieldType.STRING, description="Target Pub/Sub topic identifier", ui_group="Target"),
                 ConfigurationField(name="subscription_id", field_type=ConfigurationFieldType.STRING, description="Source Pub/Sub subscription identifier", ui_group="Target"),
                 ConfigurationField(name="service_account_json_ref", field_type=ConfigurationFieldType.SECRET_REF, description="Reference pointer to GCP Service Account JSON key secret (omitted if using ambient ADC)", ui_group="Authentication"),
+            ),
+        )
+
+    elif pid == "rabbitmq":
+        return ConfigurationSchema(
+            schema_id="rabbitmq-connection-config",
+            schema_version="1.0.0",
+            description="Configuration schema for RabbitMQ AMQP 0-9-1 message broker provider",
+            fields=(
+                ConfigurationField(name="host", field_type=ConfigurationFieldType.STRING, description="RabbitMQ broker hostname or IP address", is_required=True, ui_group="Network"),
+                ConfigurationField(name="port", field_type=ConfigurationFieldType.INTEGER, description="RabbitMQ AMQP port", default_value=5672, constraint=ConfigurationConstraint(min_value=1, max_value=65535), ui_group="Network"),
+                ConfigurationField(name="virtual_host", field_type=ConfigurationFieldType.STRING, description="RabbitMQ virtual host", default_value="/", ui_group="Target"),
+                ConfigurationField(name="username", field_type=ConfigurationFieldType.STRING, description="RabbitMQ username", default_value="guest", ui_group="Authentication"),
+                ConfigurationField(name="password_ref", field_type=ConfigurationFieldType.SECRET_REF, description="Reference pointer to RabbitMQ password secret", ui_group="Authentication"),
+                ConfigurationField(name="connect_timeout", field_type=ConfigurationFieldType.INTEGER, description="TCP connect timeout in seconds", default_value=15, ui_group="Connection"),
+            ),
+        )
+
+    elif pid == "pulsar":
+        return ConfigurationSchema(
+            schema_id="pulsar-connection-config",
+            schema_version="1.0.0",
+            description="Configuration schema for Apache Pulsar distributed messaging provider",
+            fields=(
+                ConfigurationField(name="host", field_type=ConfigurationFieldType.STRING, description="Pulsar broker hostname or IP address", is_required=True, ui_group="Network"),
+                ConfigurationField(name="port", field_type=ConfigurationFieldType.INTEGER, description="Pulsar binary protocol port", default_value=6650, constraint=ConfigurationConstraint(min_value=1, max_value=65535), ui_group="Network"),
+                ConfigurationField(name="tenant", field_type=ConfigurationFieldType.STRING, description="Pulsar tenant name", default_value="public", ui_group="Target"),
+                ConfigurationField(name="namespace", field_type=ConfigurationFieldType.STRING, description="Pulsar namespace name", default_value="default", ui_group="Target"),
+                ConfigurationField(name="service_url", field_type=ConfigurationFieldType.STRING, description="Full Pulsar service URL override (e.g. pulsar+ssl://host:6651)", ui_group="Network"),
+                ConfigurationField(name="admin_url", field_type=ConfigurationFieldType.STRING, description="Pulsar Admin REST API base URL (default http://host:8080) used for topic/tenant/namespace discovery", ui_group="Network"),
+                ConfigurationField(name="auth_token_ref", field_type=ConfigurationFieldType.SECRET_REF, description="Reference pointer to Pulsar JWT authentication token secret", ui_group="Authentication"),
+                ConfigurationField(name="connect_timeout", field_type=ConfigurationFieldType.INTEGER, description="Connect timeout in seconds", default_value=15, ui_group="Connection"),
+            ),
+        )
+
+    elif pid == "influxdb":
+        return ConfigurationSchema(
+            schema_id="influxdb-connection-config",
+            schema_version="1.0.0",
+            description="Configuration schema for InfluxDB time-series database provider",
+            fields=(
+                ConfigurationField(name="host", field_type=ConfigurationFieldType.STRING, description="InfluxDB server hostname or IP address", is_required=True, ui_group="Network"),
+                ConfigurationField(name="port", field_type=ConfigurationFieldType.INTEGER, description="InfluxDB HTTP API port", default_value=8086, constraint=ConfigurationConstraint(min_value=1, max_value=65535), ui_group="Network"),
+                ConfigurationField(name="org", field_type=ConfigurationFieldType.STRING, description="InfluxDB organization name", ui_group="Target"),
+                ConfigurationField(name="bucket", field_type=ConfigurationFieldType.STRING, description="Target InfluxDB bucket name", ui_group="Target"),
+                ConfigurationField(name="url", field_type=ConfigurationFieldType.STRING, description="Full InfluxDB URL override (e.g. https://host:8086)", ui_group="Network"),
+                ConfigurationField(name="auth_token_ref", field_type=ConfigurationFieldType.SECRET_REF, description="Reference pointer to InfluxDB API token secret", is_required=True, ui_group="Authentication"),
             ),
         )
 
@@ -401,6 +558,150 @@ def build_connection_provider_schema(provider_id_str: str) -> Optional[Configura
                 ConfigurationField(name="user", field_type=ConfigurationFieldType.STRING, description="HDFS username", default_value="hdfs", ui_group="Authentication"),
                 ConfigurationField(name="root_path", field_type=ConfigurationFieldType.STRING, description="HDFS root directory path", default_value="/", ui_group="Target"),
                 ConfigurationField(name="use_webhdfs", field_type=ConfigurationFieldType.BOOLEAN, description="Use WebHDFS REST API rather than native RPC", default_value=True, ui_group="Connection"),
+            ),
+        )
+
+    elif pid == "teradata":
+        return ConfigurationSchema(
+            schema_id="teradata-connection-config",
+            schema_version="1.0.0",
+            description="Configuration schema for Teradata MPP data warehouse provider",
+            fields=(
+                ConfigurationField(name="host", field_type=ConfigurationFieldType.STRING, description="Teradata COP/node hostname or IP address", is_required=True, ui_group="Network"),
+                ConfigurationField(name="database_name", field_type=ConfigurationFieldType.STRING, description="Default database name", ui_group="Target"),
+                ConfigurationField(name="username", field_type=ConfigurationFieldType.STRING, description="Database username", is_required=True, ui_group="Authentication"),
+                ConfigurationField(name="password_ref", field_type=ConfigurationFieldType.SECRET_REF, description="Reference pointer to password secret", ui_group="Authentication"),
+                ConfigurationField(name="logmech", field_type=ConfigurationFieldType.STRING, description="Logon mechanism", default_value="TD2", constraint=ConfigurationConstraint(allowed_values=("TD2", "LDAP", "KRB5", "TDNEGO")), ui_group="Authentication"),
+                ConfigurationField(name="encryptdata", field_type=ConfigurationFieldType.BOOLEAN, description="Encrypt session data", default_value=False, ui_group="Security"),
+            ),
+        )
+
+    elif pid == "vertica":
+        return ConfigurationSchema(
+            schema_id="vertica-connection-config",
+            schema_version="1.0.0",
+            description="Configuration schema for Vertica columnar MPP analytical database provider",
+            fields=(
+                ConfigurationField(name="host", field_type=ConfigurationFieldType.STRING, description="Vertica node hostname or IP address", is_required=True, ui_group="Network"),
+                ConfigurationField(name="port", field_type=ConfigurationFieldType.INTEGER, description="Vertica SQL port", default_value=5433, constraint=ConfigurationConstraint(min_value=1, max_value=65535), ui_group="Network"),
+                ConfigurationField(name="database_name", field_type=ConfigurationFieldType.STRING, description="Target database name", is_required=True, ui_group="Target"),
+                ConfigurationField(name="username", field_type=ConfigurationFieldType.STRING, description="Database username", is_required=True, ui_group="Authentication"),
+                ConfigurationField(name="password_ref", field_type=ConfigurationFieldType.SECRET_REF, description="Reference pointer to password secret", ui_group="Authentication"),
+                ConfigurationField(name="connect_timeout", field_type=ConfigurationFieldType.INTEGER, description="TCP connect timeout in seconds", default_value=15, ui_group="Connection"),
+            ),
+        )
+
+    elif pid == "sap_hana":
+        return ConfigurationSchema(
+            schema_id="sap-hana-connection-config",
+            schema_version="1.0.0",
+            description="Configuration schema for SAP HANA in-memory relational database provider",
+            fields=(
+                ConfigurationField(name="host", field_type=ConfigurationFieldType.STRING, description="SAP HANA instance hostname or IP address", is_required=True, ui_group="Network"),
+                ConfigurationField(name="port", field_type=ConfigurationFieldType.INTEGER, description="SAP HANA SQL port", default_value=30015, constraint=ConfigurationConstraint(min_value=1, max_value=65535), ui_group="Network"),
+                ConfigurationField(name="database_name", field_type=ConfigurationFieldType.STRING, description="Tenant database name (MDC)", ui_group="Target"),
+                ConfigurationField(name="username", field_type=ConfigurationFieldType.STRING, description="Database username", is_required=True, ui_group="Authentication"),
+                ConfigurationField(name="password_ref", field_type=ConfigurationFieldType.SECRET_REF, description="Reference pointer to password secret", ui_group="Authentication"),
+                ConfigurationField(name="encrypt", field_type=ConfigurationFieldType.BOOLEAN, description="Encrypt session data (TLS)", default_value=True, ui_group="Security"),
+            ),
+        )
+
+    elif pid == "sap_ase":
+        return ConfigurationSchema(
+            schema_id="sap-ase-connection-config",
+            schema_version="1.0.0",
+            description="Configuration schema for SAP ASE (Sybase Adaptive Server Enterprise) provider",
+            fields=(
+                ConfigurationField(name="host", field_type=ConfigurationFieldType.STRING, description="SAP ASE server hostname or IP address", is_required=True, ui_group="Network"),
+                ConfigurationField(name="port", field_type=ConfigurationFieldType.INTEGER, description="SAP ASE TDS port", default_value=5000, constraint=ConfigurationConstraint(min_value=1, max_value=65535), ui_group="Network"),
+                ConfigurationField(name="database_name", field_type=ConfigurationFieldType.STRING, description="Target database name", ui_group="Target"),
+                ConfigurationField(name="username", field_type=ConfigurationFieldType.STRING, description="Database username", is_required=True, ui_group="Authentication"),
+                ConfigurationField(name="password_ref", field_type=ConfigurationFieldType.SECRET_REF, description="Reference pointer to password secret", ui_group="Authentication"),
+            ),
+        )
+
+    elif pid == "informix":
+        return ConfigurationSchema(
+            schema_id="informix-connection-config",
+            schema_version="1.0.0",
+            description="Configuration schema for IBM Informix relational database provider",
+            fields=(
+                ConfigurationField(name="host", field_type=ConfigurationFieldType.STRING, description="Informix server hostname or IP address", is_required=True, ui_group="Network"),
+                ConfigurationField(name="port", field_type=ConfigurationFieldType.INTEGER, description="Informix onsoctcp port", default_value=9088, constraint=ConfigurationConstraint(min_value=1, max_value=65535), ui_group="Network"),
+                ConfigurationField(name="database_name", field_type=ConfigurationFieldType.STRING, description="Target database name", is_required=True, ui_group="Target"),
+                ConfigurationField(name="username", field_type=ConfigurationFieldType.STRING, description="Database username", is_required=True, ui_group="Authentication"),
+                ConfigurationField(name="password_ref", field_type=ConfigurationFieldType.SECRET_REF, description="Reference pointer to password secret", ui_group="Authentication"),
+                ConfigurationField(name="informix_server", field_type=ConfigurationFieldType.STRING, description="Informix INFORMIXSERVER instance name", default_value="ol_informix", ui_group="Connection"),
+            ),
+        )
+
+    elif pid == "cosmosdb":
+        return ConfigurationSchema(
+            schema_id="cosmosdb-connection-config",
+            schema_version="1.0.0",
+            description="Configuration schema for Azure Cosmos DB distributed multi-model database provider",
+            fields=(
+                ConfigurationField(name="endpoint", field_type=ConfigurationFieldType.STRING, description="Cosmos DB account endpoint URL", is_required=True, ui_group="Network"),
+                ConfigurationField(name="key_ref", field_type=ConfigurationFieldType.SECRET_REF, description="Reference pointer to Cosmos DB account key secret", is_required=True, ui_group="Authentication"),
+                ConfigurationField(name="database", field_type=ConfigurationFieldType.STRING, description="Target Cosmos DB database name", is_required=True, ui_group="Target"),
+                ConfigurationField(name="container_name", field_type=ConfigurationFieldType.STRING, description="Target Cosmos DB container name", ui_group="Target"),
+            ),
+        )
+
+    elif pid == "spanner":
+        return ConfigurationSchema(
+            schema_id="spanner-connection-config",
+            schema_version="1.0.0",
+            description="Configuration schema for Google Cloud Spanner distributed relational database provider",
+            fields=(
+                ConfigurationField(name="project_id", field_type=ConfigurationFieldType.STRING, description="GCP project ID", is_required=True, ui_group="Target"),
+                ConfigurationField(name="instance_id", field_type=ConfigurationFieldType.STRING, description="Spanner instance ID", is_required=True, ui_group="Target"),
+                ConfigurationField(name="database_id", field_type=ConfigurationFieldType.STRING, description="Spanner database ID", is_required=True, ui_group="Target"),
+                ConfigurationField(name="service_account_json_ref", field_type=ConfigurationFieldType.SECRET_REF, description="Reference pointer to GCP service account credentials JSON", ui_group="Authentication"),
+            ),
+        )
+
+    elif pid == "salesforce":
+        return ConfigurationSchema(
+            schema_id="salesforce-connection-config",
+            schema_version="1.0.0",
+            description="Configuration schema for Salesforce SaaS/application platform provider",
+            fields=(
+                ConfigurationField(name="domain", field_type=ConfigurationFieldType.STRING, description="Salesforce login domain ('login' or 'test')", default_value="login", ui_group="Network"),
+                ConfigurationField(name="username", field_type=ConfigurationFieldType.STRING, description="Salesforce username", ui_group="Authentication"),
+                ConfigurationField(name="password_ref", field_type=ConfigurationFieldType.SECRET_REF, description="Reference pointer to password secret", ui_group="Authentication"),
+                ConfigurationField(name="security_token_ref", field_type=ConfigurationFieldType.SECRET_REF, description="Reference pointer to security token secret", ui_group="Authentication"),
+                ConfigurationField(name="consumer_key", field_type=ConfigurationFieldType.STRING, description="Connected App OAuth2 consumer key", ui_group="Authentication"),
+                ConfigurationField(name="consumer_secret_ref", field_type=ConfigurationFieldType.SECRET_REF, description="Reference pointer to OAuth2 consumer secret", ui_group="Authentication"),
+            ),
+        )
+
+    elif pid == "sap_application":
+        return ConfigurationSchema(
+            schema_id="sap-application-connection-config",
+            schema_version="1.0.0",
+            description="Configuration schema for the SAP Application Ecosystem provider (capability-driven RFC/BAPI, IDoc, and OData interface modes)",
+            fields=(
+                ConfigurationField(name="interface_mode", field_type=ConfigurationFieldType.STRING, description="Interface mode", default_value="odata", constraint=ConfigurationConstraint(allowed_values=("odata", "rfc_bapi", "idoc")), ui_group="Connection"),
+                ConfigurationField(name="host", field_type=ConfigurationFieldType.STRING, description="SAP Application Server hostname (RFC/IDoc) or Gateway base URL (OData)", is_required=True, ui_group="Network"),
+                ConfigurationField(name="system_number", field_type=ConfigurationFieldType.STRING, description="SAP system number (RFC/BAPI, IDoc modes)", default_value="00", ui_group="Network"),
+                ConfigurationField(name="client", field_type=ConfigurationFieldType.STRING, description="SAP client (RFC/BAPI, IDoc modes)", default_value="100", ui_group="Target"),
+                ConfigurationField(name="service_path", field_type=ConfigurationFieldType.STRING, description="OData service path (OData mode)", ui_group="Target"),
+                ConfigurationField(name="username", field_type=ConfigurationFieldType.STRING, description="SAP username", is_required=True, ui_group="Authentication"),
+                ConfigurationField(name="password_ref", field_type=ConfigurationFieldType.SECRET_REF, description="Reference pointer to password secret", ui_group="Authentication"),
+            ),
+        )
+
+    elif pid == "servicenow":
+        return ConfigurationSchema(
+            schema_id="servicenow-connection-config",
+            schema_version="1.0.0",
+            description="Configuration schema for ServiceNow SaaS/application platform provider",
+            fields=(
+                ConfigurationField(name="instance", field_type=ConfigurationFieldType.STRING, description="ServiceNow instance name or full base URL", is_required=True, ui_group="Network"),
+                ConfigurationField(name="username", field_type=ConfigurationFieldType.STRING, description="ServiceNow username", ui_group="Authentication"),
+                ConfigurationField(name="password_ref", field_type=ConfigurationFieldType.SECRET_REF, description="Reference pointer to password secret", ui_group="Authentication"),
+                ConfigurationField(name="access_token_ref", field_type=ConfigurationFieldType.SECRET_REF, description="Reference pointer to OAuth2 access token secret", ui_group="Authentication"),
             ),
         )
 

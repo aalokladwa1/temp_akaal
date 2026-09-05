@@ -79,7 +79,25 @@ class PipelineActorContext:
 
     @property
     def tenant_id(self) -> str:
-        """Tenant identifier scope. Fails closed if organization_id is omitted or empty."""
+        """
+        Tenant identifier scope. Substitutes the fixed literal "default-tenant" when
+        organization_id is omitted or empty -- this is a coalesce, NOT a fail-closed
+        rejection (contrary to earlier wording here). "default-tenant" carries no
+        special privilege anywhere in this codebase: it is an ordinary tenant_id
+        string subject to the exact same ACTIVE-tenant + ACTIVE-principal + RBAC
+        grant checks as any other tenant (see CentralAuthorizationEngine._authorize_internal).
+        It cannot itself establish membership or grant authorization -- a caller still
+        needs a real, pre-provisioned, active principal record under that literal
+        tenant_id for any permission check to succeed. This exact behavior is a
+        frozen, hostile-tested Campaign A contract (see
+        tests/security/test_p71_canonical_security_foundation.py::
+        test_p71_10_tenant_isolation_and_tampering, "Missing organization_id
+        defaults to 'default-tenant', never a global all-access tenant") and must
+        not be silently changed to a raise without a fresh owner authorization,
+        since call sites throughout akaalPipeline/operations and
+        akaalPipeline/application rely on this exact coalescing default for
+        single-tenant/un-scoped internal query paths.
+        """
         return self.organization_id or "default-tenant"
 
     @property
@@ -89,6 +107,58 @@ class PipelineActorContext:
     @property
     def principal_type(self) -> str:
         return self.actor_type
+
+    def enforce_resource_scope(
+        self,
+        *,
+        resource_tenant_id: Optional[str],
+        resource_workspace_id: Optional[str] = None,
+        resource_project_id: Optional[str] = None,
+        resource_kind: str = "resource",
+        resource_id: str = "",
+    ) -> None:
+        """
+        Canonical P7.10 tenant/workspace/project isolation enforcement.
+
+        Knowing a resource identifier is never proof of membership: a caller
+        authenticated in one tenant must never be able to read or mutate a
+        resource that belongs to a different tenant/workspace/project merely
+        by supplying that resource's identifier. This is the single reusable
+        enforcement point for that check -- callers must not hand-roll their
+        own tenant-comparison logic (see akaalPipeline/application/query_service.py
+        and akaalPipeline/application/command_handlers.py).
+
+        Fails closed: raises `akaalPipeline.contracts.errors.PipelineError`
+        (TENANT_BOUNDARY_VIOLATION) on any mismatch, including when the resource
+        carries no tenant_id at all but this actor does (a resource without an
+        owning tenant is never implicitly "shared").
+
+        P7.13 item 7: TENANT_BOUNDARY_VIOLATION (not POLICY_DENIED) is used
+        deliberately -- PipelineError.to_ipc_error() maps it to the same
+        externally observable category+code+message as a genuine "resource does
+        not exist" (NOT_FOUND), so an unauthorized caller cannot use the error
+        response to learn whether a resource exists in another tenant versus not
+        existing at all. The precise reason (this exception's own .code/.message)
+        remains available to any in-process/internal caller, e.g. audit/evidence
+        recording, that receives the exception directly.
+        """
+        from akaalPipeline.contracts.errors import PipelineError, PipelineErrorCode
+
+        if resource_tenant_id != self.organization_id:
+            raise PipelineError(
+                PipelineErrorCode.TENANT_BOUNDARY_VIOLATION,
+                f"{resource_kind} {resource_id!r} not found or unauthorized for tenant.",
+            )
+        if self.workspace_id and resource_workspace_id and resource_workspace_id != self.workspace_id:
+            raise PipelineError(
+                PipelineErrorCode.TENANT_BOUNDARY_VIOLATION,
+                f"{resource_kind} {resource_id!r} belongs to a different workspace.",
+            )
+        if self.project_id and resource_project_id and resource_project_id != self.project_id:
+            raise PipelineError(
+                PipelineErrorCode.TENANT_BOUNDARY_VIOLATION,
+                f"{resource_kind} {resource_id!r} belongs to a different project.",
+            )
 
     @property
     def is_authenticated(self) -> bool:

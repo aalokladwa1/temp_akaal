@@ -1679,28 +1679,55 @@ def test_atk_66_hook_recovery_preserves_initialized_config(db_conn, actor, coord
 
 
 def test_atk_67_error_taxonomy_policy_denial_vs_integrity_vs_not_found(db_conn, sample_plan, actor, sample_migration, coordinator):
-    """Attack 67: Distinguishes POLICY_DENIED, NOT_FOUND, and SEAL_MISMATCH error categories."""
+    """Attack 67: Distinguishes NOT_FOUND, TENANT_BOUNDARY_VIOLATION, and SEAL_MISMATCH
+    error categories INTERNALLY (for audit/forensic reconstruction), while proving that
+    a tenant-boundary violation and a genuine not-found are externally indistinguishable
+    (P7.13 item 7 -- an unauthorized caller must not be able to use the error response
+    alone to learn whether a resource exists in another tenant versus not existing at all).
+    """
     # Case 1: NOT_FOUND on recovery of nonexistent checkpoint
     coordinator.materialize_plan_execution(sample_plan, sample_migration, actor, "init-fp-tax", db_conn)
     with pytest.raises(PipelineError) as exc_nf:
         coordinator.recover_plan_execution("mig-p511-01", actor, db_conn, checkpoint_id="cp-nonexistent")
     assert exc_nf.value.code == PipelineErrorCode.NOT_FOUND
 
-    # Case 2: POLICY_DENIED on tenant mismatch
+    # Case 2: TENANT_BOUNDARY_VIOLATION on tenant mismatch -- internally distinct from
+    # NOT_FOUND (precise reason preserved for audit/evidence), but its to_ipc_error()
+    # representation (what a caller actually receives) is identical to Case 1's.
     actor_other = PipelineActorContext(actor_id="usr-other", actor_type=PrincipalType.HUMAN, organization_id="tenant-OTHER")
     with pytest.raises(PipelineError) as exc_pd:
         coordinator.materialize_plan_execution(sample_plan, sample_migration, actor_other, "init-fp-tax", db_conn)
-    assert exc_pd.value.code == PipelineErrorCode.POLICY_DENIED
+    assert exc_pd.value.code == PipelineErrorCode.TENANT_BOUNDARY_VIOLATION
+    assert exc_pd.value.code != exc_nf.value.code, "internal codes must remain distinguishable for forensic reconstruction"
+
+    # Compare externally observable representations. Case 1 (checkpoint) and Case 2
+    # (migration) are different resource types, so their messages naturally differ --
+    # that alone is not an enumeration signal. The security property under test is that
+    # TENANT_BOUNDARY_VIOLATION's external category/code are identical to a genuine
+    # NOT_FOUND's (both resolve to PipelineErrorCode.NOT_FOUND's category/code), and that
+    # the tenant-mismatch message itself contains no cross-tenant-existence-revealing
+    # wording (e.g. no literal "unauthorized for tenant" / "belongs to a different").
+    ipc_nf = exc_nf.value.to_ipc_error()
+    ipc_pd = exc_pd.value.to_ipc_error()
+    assert ipc_pd.category == ipc_nf.category, "externally observable category must match a genuine not-found"
+    assert ipc_pd.code == ipc_nf.code == PipelineErrorCode.NOT_FOUND.value, "externally observable code must match a genuine not-found"
+    for leaking_phrase in ("unauthorized for tenant", "belongs to a different", "tenant mismatch", "tenant-OTHER"):
+        assert leaking_phrase.lower() not in ipc_pd.message.lower(), (
+            f"externally observable message must not reveal cross-tenant existence via {leaking_phrase!r}"
+        )
 
 
 
 def test_atk_68_dynamic_provider_truth_28_physical_providers():
-    """Attack 68: Exactly 28 physical providers discovered dynamically from canonical Authority #1 Connection."""
+    """Attack 68: The original 28 physical providers remain dynamically discoverable from
+    canonical Authority #1 Connection, and the catalog's live size is self-consistent
+    (not frozen at 28 -- the fleet grows as later campaigns adopt providers; this test's
+    job is to prove dynamic truth, not to pin a historical count)."""
     from akaalEngine.connection.catalog.provider_catalog import default_provider_catalog
     cat = default_provider_catalog
     providers = cat.list_providers() if hasattr(cat, "list_providers") else cat.providers
-    assert len(providers) == 28
     provider_ids = {getattr(p, "provider_id", getattr(p, "id", str(p))) for p in providers}
+    assert len(provider_ids) >= 28
     expected_28 = {
         "azure_blob", "bigquery", "cassandra", "databricks", "elasticsearch",
         "eventhubs", "gcs", "hdfs", "ibm_db2", "kafka", "keydb", "kinesis",
@@ -1708,7 +1735,7 @@ def test_atk_68_dynamic_provider_truth_28_physical_providers():
         "oracle", "postgresql", "pubsub", "redis", "redshift", "s3", "scylladb",
         "snowflake", "sqlite",
     }
-    assert provider_ids == expected_28
+    assert expected_28.issubset(provider_ids)
 
 
 def test_atk_69_secret_canary_not_leaked_in_config_error():

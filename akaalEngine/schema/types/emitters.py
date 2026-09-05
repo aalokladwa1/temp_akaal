@@ -26,11 +26,11 @@ class ProviderTypeEmitters:
         tgt = str(target_provider).strip().lower()
 
         # Relational Targets
-        if tgt in ("postgresql", "postgres"):
+        if tgt in ("postgresql", "postgres", "cockroachdb", "yugabytedb"):
             return cls._emit_postgresql(ctype)
         elif tgt == "oracle":
             return cls._emit_oracle(ctype)
-        elif tgt in ("mysql", "mariadb"):
+        elif tgt in ("mysql", "mariadb", "tidb", "singlestore"):
             return cls._emit_mysql(ctype)
         elif tgt in ("mssql", "sqlserver"):
             return cls._emit_mssql(ctype)
@@ -48,13 +48,15 @@ class ProviderTypeEmitters:
             return cls._emit_redshift(ctype)
         elif tgt == "databricks":
             return cls._emit_databricks(ctype)
+        elif tgt == "clickhouse":
+            return cls._emit_clickhouse(ctype)
 
         # CQL Targets
         elif tgt in ("cassandra", "scylladb"):
             return cls._emit_cql(ctype)
 
         # Non-relational / Structural Targets
-        elif tgt in ("mongodb", "elasticsearch", "opensearch", "kafka", "kinesis", "eventhubs", "event_hubs", "pubsub", "pub_sub", "s3", "gcs", "azureblob", "azure_blob", "minio", "hdfs", "redis", "keydb", "neo4j"):
+        elif tgt in ("mongodb", "elasticsearch", "opensearch", "kafka", "kinesis", "eventhubs", "event_hubs", "pubsub", "pub_sub", "rabbitmq", "pulsar", "dynamodb", "couchbase", "influxdb", "s3", "gcs", "azureblob", "azure_blob", "minio", "hdfs", "redis", "keydb", "neo4j"):
             return TargetTypeEmission(
                 target_engine=target_provider,
                 target_native_type="STRUCTURAL_ONLY",
@@ -532,6 +534,50 @@ class ProviderTypeEmitters:
         elif cat in (CanonicalTypeCategory.JSON, CanonicalTypeCategory.XML):
             return TargetTypeEmission(target_engine="DATABRICKS", target_native_type="VARIANT")
         return TargetTypeEmission(target_engine="DATABRICKS", target_native_type="STRING")
+
+    # ------------------------------------------------------------------
+    # ClickHouse Emitter
+    # ------------------------------------------------------------------
+    @classmethod
+    def _emit_clickhouse(cls, c: CanonicalType) -> TargetTypeEmission:
+        nullable = bool(c.extra.get("nullable"))
+
+        def _wrap(native: str) -> str:
+            return f"Nullable({native})" if nullable else native
+
+        cat = c.category
+        if cat == CanonicalTypeCategory.EXACT_NUMERIC:
+            if c.precision is not None and c.scale is not None and c.scale > 0:
+                p = min(c.precision, 76)
+                s = min(c.scale, p)
+                return TargetTypeEmission(target_engine="CLICKHOUSE", target_native_type=_wrap(f"Decimal({p},{s})"), extra={"target_precision": p, "target_scale": s})
+            signed = c.is_signed
+            if c.bits == 8:
+                return TargetTypeEmission(target_engine="CLICKHOUSE", target_native_type=_wrap("Int8" if signed else "UInt8"))
+            elif c.bits == 16:
+                return TargetTypeEmission(target_engine="CLICKHOUSE", target_native_type=_wrap("Int16" if signed else "UInt16"))
+            elif c.bits == 64:
+                return TargetTypeEmission(target_engine="CLICKHOUSE", target_native_type=_wrap("Int64" if signed else "UInt64"))
+            return TargetTypeEmission(target_engine="CLICKHOUSE", target_native_type=_wrap("Int32" if signed else "UInt32"))
+        elif cat == CanonicalTypeCategory.APPROX_NUMERIC:
+            if c.bits == 32:
+                return TargetTypeEmission(target_engine="CLICKHOUSE", target_native_type=_wrap("Float32"))
+            return TargetTypeEmission(target_engine="CLICKHOUSE", target_native_type=_wrap("Float64"))
+        elif cat == CanonicalTypeCategory.CHARACTER:
+            return TargetTypeEmission(target_engine="CLICKHOUSE", target_native_type=_wrap("String"))
+        elif cat == CanonicalTypeCategory.BINARY:
+            return TargetTypeEmission(target_engine="CLICKHOUSE", target_native_type=_wrap("String"), warning_message="ClickHouse has no dedicated binary type; String is used as a byte-string container.")
+        elif cat == CanonicalTypeCategory.BOOLEAN:
+            return TargetTypeEmission(target_engine="CLICKHOUSE", target_native_type=_wrap("Bool"))
+        elif cat == CanonicalTypeCategory.DATETIME:
+            if c.extra.get("date_only"):
+                return TargetTypeEmission(target_engine="CLICKHOUSE", target_native_type=_wrap("Date"))
+            return TargetTypeEmission(target_engine="CLICKHOUSE", target_native_type=_wrap("DateTime64(3)"))
+        elif cat in (CanonicalTypeCategory.JSON, CanonicalTypeCategory.XML):
+            return TargetTypeEmission(target_engine="CLICKHOUSE", target_native_type="String", safety=ConversionSafety.LOSSY, warning_message="Structured JSON/XML is flattened to a String column in ClickHouse without a dedicated JSON column type enabled.")
+        elif cat == CanonicalTypeCategory.ARRAY:
+            return TargetTypeEmission(target_engine="CLICKHOUSE", target_native_type="Array(String)", safety=ConversionSafety.COMPATIBLE_WITH_TRANSFORMATION)
+        return TargetTypeEmission(target_engine="CLICKHOUSE", target_native_type=_wrap("String"))
 
     # ------------------------------------------------------------------
     # 11. Cassandra / ScyllaDB (CQL) Emitter

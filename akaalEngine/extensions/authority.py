@@ -18,7 +18,9 @@ from akaalEngine.extensions.configuration.validator import ConfigurationValidato
 from akaalEngine.extensions.dependencies.diagnostics import DependencyDiagnosticReport
 from akaalEngine.extensions.dependencies.inspector import DependencyInspector, default_dependency_inspector
 from akaalEngine.extensions.errors.taxonomy import (
+    ExtensionHandleLeakError,
     ExtensionNotFoundError,
+    LifecycleTransitionError,
     ProviderNotFoundError,
 )
 from akaalEngine.extensions.integration.builtin_connection_bootstrap import (
@@ -51,9 +53,11 @@ from akaalEngine.extensions.models.sanitized import (
     SanitizedProviderDescriptor,
     SanitizedStrategyDescriptor,
 )
+from akaalEngine.extensions.models.provenance import PackageProvenance
 from akaalEngine.extensions.models.strategy import StrategyContribution
 from akaalEngine.extensions.resolution.handles import ResolvedStrategyHandle
 from akaalEngine.extensions.resolution.resolver import StrategyResolver, default_strategy_resolver
+from akaalEngine.extensions.supply_chain.trust_store import PublisherTrustStore
 from akaalEngine.extensions.spi.authority_contract import (
     AuthorityContractDefinition,
     AuthorityContractRegistry,
@@ -254,9 +258,14 @@ class ExtensionsAuthority:
         self,
         manifest: ExtensionManifest,
         allow_replace: bool = False,
+        package_provenance: Optional[PackageProvenance] = None,
+        package_artifact_bytes: Optional[bytes] = None,
+        trust_store: Optional[PublisherTrustStore] = None,
     ) -> int:
         """
         Registers or replaces an extension manifest atomically.
+        For manifests with origin=THIRD_PARTY_PACKAGE, package_provenance/package_artifact_bytes/
+        trust_store are mandatory -- the underlying transaction fails closed without them.
         Returns the new published registry generation number.
         """
         # Check existing extension state for replacement
@@ -284,6 +293,9 @@ class ExtensionsAuthority:
             allow_replace=allow_replace,
             bridge_mutations=bridge_mutations,
             bridge_rollbacks=bridge_rollbacks,
+            package_provenance=package_provenance,
+            package_artifact_bytes=package_artifact_bytes,
+            trust_store=trust_store,
         )
 
         # Update lifecycle state
@@ -320,7 +332,6 @@ class ExtensionsAuthority:
         # Check active handle leases before unregistering
         active_count = self._lease_tracker.get_extension_active_count(ext_id)
         if active_count > 0:
-            from akaalEngine.extensions.errors.taxonomy import ExtensionHandleLeakError
             raise ExtensionHandleLeakError(
                 f"Cannot unregister extension '{ext_id}': {active_count} active strategy handle leases exist. Must drain or release leases before removal."
             )
@@ -378,6 +389,27 @@ class ExtensionsAuthority:
             reason=reason,
         )
 
+    def quarantine_extension(
+        self,
+        extension_id: str | ExtensionId,
+        reason: str,
+    ) -> ExtensionLifecycleSnapshot:
+        """
+        Forces an installed extension into FAULTED state outside the normal runtime-failure path --
+        used when a signer certificate is revoked, a trust root is withdrawn, or an operator otherwise
+        determines a previously-admitted package can no longer be trusted. FAULTED already blocks
+        replacement without explicit operator recovery (see register_extension), so quarantine is a
+        real, enforced restriction, not an advisory flag. Reachable from every non-terminal lifecycle
+        state per the existing legal-transition table.
+        """
+        ext_id = extension_id if isinstance(extension_id, ExtensionId) else ExtensionId(extension_id)
+        return self._lifecycle_mgr.transition_state(
+            extension_id=ext_id,
+            new_state=ExtensionLifecycleState.FAULTED,
+            generation=self._registry.get_generation(),
+            reason=f"Quarantined: {reason}",
+        )
+
     def get_lifecycle_snapshot(self, extension_id: str | ExtensionId) -> Optional[ExtensionLifecycleSnapshot]:
         """Returns lifecycle snapshot for an extension."""
         ext_id = extension_id if isinstance(extension_id, ExtensionId) else ExtensionId(extension_id)
@@ -390,6 +422,81 @@ class ExtensionsAuthority:
     def register_authority_contract(self, contract: AuthorityContractDefinition) -> None:
         """Registers a contract definition for an Engine Authority."""
         self._contract_registry.register_contract(contract)
+
+    def get_authority_contract(self, authority_id: str | AuthorityId) -> Optional[AuthorityContractDefinition]:
+        """Returns the registered contract definition for an Engine Authority, if any."""
+        auth_id = authority_id if isinstance(authority_id, AuthorityId) else AuthorityId(authority_id)
+        return self._contract_registry.get_contract(auth_id)
+
+    def inspect_strategy(
+        self,
+        provider_id: str | ProviderId,
+        authority_id: str | AuthorityId,
+        strategy_id: Optional[str | StrategyId] = None,
+        required_contract_version: Optional[str] = None,
+    ) -> SanitizedStrategyDescriptor:
+        """
+        Inspects provider/strategy metadata and declared capabilities WITHOUT instantiating
+        or exposing executable physical authority.
+        """
+        return self._resolver.inspect_strategy(
+            provider_id=provider_id,
+            authority_id=authority_id,
+            strategy_id=strategy_id,
+            required_contract_version=required_contract_version,
+        )
+
+    def resolve_executable_strategy(
+        self,
+        provider_id: str | ProviderId,
+        authority_id: str | AuthorityId,
+        operation: str,
+        strategy_id: Optional[str | StrategyId] = None,
+        required_contract_version: Optional[str] = None,
+        additional_required_capabilities: Optional[Sequence[str]] = None,
+    ) -> ResolvedStrategyHandle:
+        """
+        Resolves an executable strategy handle.
+        Security-critical: `operation` is strictly MANDATORY (no default None).
+        The canonical authority maps `operation` to required capabilities and positively
+        establishes them BEFORE physical strategy instantiation.
+        """
+        return self._resolver.resolve_executable_strategy(
+            provider_id=provider_id,
+            authority_id=authority_id,
+            operation=operation,
+            strategy_id=strategy_id,
+            required_contract_version=required_contract_version,
+            additional_required_capabilities=additional_required_capabilities,
+        )
+
+    def resolve_for_discovery(
+        self,
+        provider_id: str | ProviderId,
+        operation: str = "SCHEMA_DISCOVERY",
+        strategy_id: Optional[str | StrategyId] = None,
+    ) -> ResolvedStrategyHandle:
+        """Typed resolution for discovery operations with structural capability gating."""
+        return self.resolve_executable_strategy(
+            provider_id=provider_id,
+            authority_id=AuthorityId("discovery"),
+            operation=operation,
+            strategy_id=strategy_id,
+        )
+
+    def resolve_for_cdc(
+        self,
+        provider_id: str | ProviderId,
+        operation: str = "CDC_STREAM",
+        strategy_id: Optional[str | StrategyId] = None,
+    ) -> ResolvedStrategyHandle:
+        """Typed resolution for CDC operations with structural capability gating."""
+        return self.resolve_executable_strategy(
+            provider_id=provider_id,
+            authority_id=AuthorityId("cdc"),
+            operation=operation,
+            strategy_id=strategy_id,
+        )
 
     def resolve_strategy(
         self,

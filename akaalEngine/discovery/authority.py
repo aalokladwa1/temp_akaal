@@ -27,6 +27,7 @@ from akaalEngine.discovery.spi.strategy import BaseDiscoveryStrategy
 from akaalEngine.discovery.strategies import ALL_DISCOVERY_STRATEGIES
 from akaalEngine.extensions.authority import ExtensionsAuthority, default_extensions_authority
 from akaalEngine.extensions.integration.builtin_connection_bootstrap import BUILTIN_CONNECTION_EXTENSION_ID
+from akaalEngine.extensions.models.capability import CapabilityDeclaration
 from akaalEngine.extensions.models.compatibility import CompatibilityRange
 from akaalEngine.extensions.models.extension import ExtensionManifest
 from akaalEngine.extensions.models.identity import AuthorityId, ExtensionId, ProviderId, StrategyId
@@ -108,6 +109,15 @@ class DiscoveryAuthority:
                         contract_version_range=CompatibilityRange(">=1.0.0"),
                         strategy_factory=strat_cls,
                         implementation_version="1.0.0",
+                        # Truthful: every ALL_DISCOVERY_STRATEGIES concrete class implements
+                        # BaseDiscoveryStrategy's full abstract contract, including
+                        # discover_namespaces/discover_objects_page (schema discovery) and
+                        # sample_data (data sampling) -- these capabilities are genuinely
+                        # supported, not just declared to satisfy a gate.
+                        capabilities=(
+                            CapabilityDeclaration(capability_name="SCHEMA_DISCOVERY", is_supported=True),
+                            CapabilityDeclaration(capability_name="DATA_SAMPLING", is_supported=True),
+                        ),
                     )
                     strategies.append(strat_contrib)
 
@@ -166,8 +176,13 @@ class DiscoveryAuthority:
             if cached is not None:
                 return cached
 
-        # 1. Resolve strategy from Extensions (outermost lifecycle boundary)
-        strategy, handle = self._coordinator.resolve_discovery_strategy(spec.provider_id)
+        # 1. Resolve strategy from Extensions (outermost lifecycle boundary). Capability-
+        # gated: a provider that declares SCHEMA_DISCOVERY unsupported (or never declares
+        # it) is rejected here, before any strategy method is invoked -- closing the real
+        # bypass where this call previously omitted required_capability entirely.
+        strategy, handle = self._coordinator.resolve_discovery_strategy(
+            spec.provider_id, required_capability="SCHEMA_DISCOVERY"
+        )
         timed_out = False
         try:
             # 2. Acquire read-only session lease from Connection Authority
@@ -219,7 +234,9 @@ class DiscoveryAuthority:
         Executes bounded, low-impact preview sampling on an object with sensitive data redaction.
         Guarantees deterministic cleanup across all failure paths.
         """
-        strategy, handle = self._coordinator.resolve_discovery_strategy(spec.provider_id)
+        strategy, handle = self._coordinator.resolve_discovery_strategy(
+            spec.provider_id, required_capability="DATA_SAMPLING"
+        )
         timed_out = False
         try:
             lease = self._coordinator.acquire_discovery_session(spec=spec, timeout_seconds=timeout_seconds + 5.0)

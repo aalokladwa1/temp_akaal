@@ -103,3 +103,45 @@ class ExtensionLoadingError(ExtensionEngineException):
     """Raised when loading an extension module or entry point fails."""
     def __init__(self, message: str, details: Optional[Mapping[str, Any]] = None) -> None:
         super().__init__(message, error_code="EXTENSION_LOADING_FAILED", details=details)
+
+
+class PackageProvenanceMissingError(ExtensionEngineException):
+    """Raised when a third-party package is admitted without required provenance."""
+    def __init__(self, message: str, details: Optional[Mapping[str, Any]] = None) -> None:
+        super().__init__(message, error_code="PACKAGE_PROVENANCE_MISSING", details=details)
+
+
+class PackageDigestMismatchError(ExtensionEngineException):
+    """Raised when a package artifact's computed digest does not match its declared provenance digest."""
+    def __init__(self, message: str, details: Optional[Mapping[str, Any]] = None) -> None:
+        super().__init__(message, error_code="PACKAGE_DIGEST_MISMATCH", details=details)
+
+
+class PackageCertificateInvalidError(ExtensionEngineException):
+    """Raised when a package signer certificate or its chain fails structural/temporal validation."""
+    def __init__(self, message: str, details: Optional[Mapping[str, Any]] = None) -> None:
+        super().__init__(message, error_code="PACKAGE_CERTIFICATE_INVALID", details=details)
+
+
+class PackageTrustRootUnknownError(ExtensionEngineException):
+    """Raised when a package signer certificate chain does not terminate at a registered trust anchor."""
+    def __init__(self, message: str, details: Optional[Mapping[str, Any]] = None) -> None:
+        super().__init__(message, error_code="PACKAGE_TRUST_ROOT_UNKNOWN", details=details)
+
+
+class PackageCertificateRevokedError(ExtensionEngineException):
+    """Raised when a package signer certificate has been revoked by its trust root."""
+    def __init__(self, message: str, details: Optional[Mapping[str, Any]] = None) -> None:
+        super().__init__(message, error_code="PACKAGE_CERTIFICATE_REVOKED", details=details)
+
+
+class PackageSignatureInvalidError(ExtensionEngineException):
+    """Raised when a package's cryptographic signature over its artifact digest does not verify."""
+    def __init__(self, message: str, details: Optional[Mapping[str, Any]] = None) -> None:
+        super().__init__(message, error_code="PACKAGE_SIGNATURE_INVALID", details=details)
+
+
+class CapabilityNotSupportedError(ExtensionEngineException):
+    """Raised when a caller invokes a capability a resolved strategy has explicitly declared unsupported."""
+    def __init__(self, message: str, details: Optional[Mapping[str, Any]] = None) -> None:
+        super().__init__(message, error_code="CAPABILITY_NOT_SUPPORTED", details=details)

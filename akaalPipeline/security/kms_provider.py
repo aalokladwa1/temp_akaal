@@ -68,6 +68,48 @@ class KeyReference:
     rotation_capability: Optional[str] = None     # e.g. "AUTOMATIC_ANNUAL" | "MANUAL_ONLY" | "UNKNOWN" -- provider-reported
 
 
+class KeyTenantMismatchError(RuntimeError):
+    """
+    Raised when a caller's authoritative tenant context does not match the tenant a
+    KeyReference is scoped to. A KeyReference is a capability-shaped object: none of
+    generate_key/sign/verify/encrypt/decrypt/rotate_key/revoke_key below receive a
+    caller/actor context (the KeyManagementProvider Protocol is intentionally
+    caller-agnostic, matching every real cloud KMS SDK), so tenant enforcement cannot
+    happen inside those provider methods themselves without changing that Protocol's
+    signature for all five implementations -- which would be a redesign, not a fix.
+
+    require_key_tenant_match() is the canonical, single enforcement point for the
+    invariant "knowing a KeyReference is never proof of tenant ownership" (mirrors
+    akaalPipeline.security.context.PipelineActorContext.enforce_resource_scope for
+    migrations/schedules/etc). A caller dispatching to a KeyManagementProvider MUST
+    call this first with its own authoritative actor_context.tenant_id. As of this
+    writing there is no live caller anywhere in akaalIPC/akaalPipeline/akaalEngine
+    that constructs a KeyReference and dispatches a sign/verify/encrypt/decrypt/
+    rotate_key/revoke_key call (grep-confirmed) -- this function exists so that the
+    first real caller has a correct, ready-made enforcement primitive to use rather
+    than one being invented ad hoc (or omitted) at integration time.
+    """
+
+
+def require_key_tenant_match(actor_tenant_id: Optional[str], ref: "KeyReference") -> None:
+    """
+    Fail closed if `ref` is scoped to a different tenant than the caller's own
+    authoritative tenant_id. A KeyReference with no tenant_id recorded (e.g. the
+    platform-internal EXECUTION_SIGNING/AUDIT_SEAL/TOKEN_ENCRYPT/RECEIPT_SIGNING keys
+    that akaalPipeline/security/keystore.py's security_keyring table has no tenant_id
+    column for at all -- these are single deployment-wide platform integrity keys, not
+    per-tenant CMKs) is never treated as belonging to the caller merely because no
+    mismatch was found; it is left unresolved for the caller's own policy to decide
+    whether an untenanted key purpose is permitted for that operation.
+    """
+    if ref.tenant_id is not None and actor_tenant_id is not None and ref.tenant_id != actor_tenant_id:
+        raise KeyTenantMismatchError(
+            f"KeyReference {ref.key_id!r} (provider={ref.provider!r}) is scoped to tenant "
+            f"{ref.tenant_id!r}, which does not match the caller's authoritative tenant "
+            f"{actor_tenant_id!r}."
+        )
+
+
 @runtime_checkable
 class KeyManagementProvider(Protocol):
     """Provider-neutral key lifecycle + cryptographic-operation contract."""

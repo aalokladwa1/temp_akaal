@@ -15,7 +15,9 @@ from akaalEngine.extensions.lifecycle.notifications import NotificationDispatche
 from akaalEngine.extensions.models.events import ExtensionEvent, ExtensionEventType
 from akaalEngine.extensions.models.extension import ExtensionManifest
 from akaalEngine.extensions.models.identity import ExtensionId, RegistryGeneration
+from akaalEngine.extensions.models.provenance import PackageProvenance
 from akaalEngine.extensions.spi.authority_contract import AuthorityContractRegistry, default_contract_registry
+from akaalEngine.extensions.supply_chain.trust_store import PublisherTrustStore
 
 
 class ExtensionRegistry:
@@ -66,6 +68,9 @@ class ExtensionRegistry:
         allow_replace: bool = False,
         bridge_mutations: Sequence[Callable[[], None]] = (),
         bridge_rollbacks: Sequence[Callable[[], None]] = (),
+        package_provenance: Optional[PackageProvenance] = None,
+        package_artifact_bytes: Optional[bytes] = None,
+        trust_store: Optional[PublisherTrustStore] = None,
     ) -> RegistrySnapshot:
         """Atomically registers an extension manifest, publishing a new snapshot on success."""
         with self._write_lock:
@@ -76,6 +81,9 @@ class ExtensionRegistry:
                 bridge_mutations=bridge_mutations,
                 bridge_rollbacks=bridge_rollbacks,
                 allow_replace=allow_replace,
+                package_provenance=package_provenance,
+                package_artifact_bytes=package_artifact_bytes,
+                trust_store=trust_store,
             )
             # Atomic publish
             self._current_snapshot = new_snapshot

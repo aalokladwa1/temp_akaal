@@ -6,6 +6,7 @@ CommandHandlerRegistry mapping command request types to transaction handlers.
 from __future__ import annotations
 
 import json
+import logging
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Dict, List, Mapping, Optional
@@ -29,6 +30,7 @@ from akaalPipeline.state.history import LifecycleHistoryRecord
 from akaalPipeline.state.repositories import SQLiteMigrationRepository
 from akaalPipeline.state.unit_of_work import SQLiteUnitOfWork
 
+logger = logging.getLogger(__name__)
 
 from akaalPipeline.orchestration.compiler import GraphCompiler
 from akaalPipeline.orchestration.graph_validation import GraphValidator
@@ -162,12 +164,13 @@ class CommandHandlerRegistry:
         if agg is None:
             raise PipelineError(PipelineErrorCode.INVALID_REQUEST, f"Migration {migration_id!r} not found.")
 
-        if agg.tenant_id != actor.organization_id:
-            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Migration {migration_id!r} not found or unauthorized for tenant.")
-        if actor.workspace_id and agg.workspace_id and agg.workspace_id != actor.workspace_id:
-            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Migration {migration_id!r} belongs to a different workspace.")
-        if actor.project_id and agg.project_id and agg.project_id != actor.project_id:
-            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Migration {migration_id!r} belongs to a different project.")
+        actor.enforce_resource_scope(
+            resource_tenant_id=agg.tenant_id,
+            resource_workspace_id=agg.workspace_id,
+            resource_project_id=agg.project_id,
+            resource_kind="Migration",
+            resource_id=migration_id,
+        )
 
         old_state = agg.state.value
         agg.update_configuration(config, expected_revision=expected_rev)
@@ -211,18 +214,29 @@ class CommandHandlerRegistry:
         payload: Mapping[str, Any],
         actor: PipelineActorContext,
         uow: SQLiteUnitOfWork,
+        correlation_id: Optional[str] = None,
     ) -> Mapping[str, Any]:
         migration_id = payload["migration_id"]
         agg = self.repository.get_by_id(migration_id, connection=uow.connection)
         if agg is None:
             raise PipelineError(PipelineErrorCode.INVALID_REQUEST, f"Migration {migration_id!r} not found.")
 
-        if agg.tenant_id != actor.organization_id:
-            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Migration {migration_id!r} not found or unauthorized for tenant.")
-        if actor.workspace_id and agg.workspace_id and agg.workspace_id != actor.workspace_id:
-            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Migration {migration_id!r} belongs to a different workspace.")
-        if actor.project_id and agg.project_id and agg.project_id != actor.project_id:
-            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Migration {migration_id!r} belongs to a different project.")
+        actor.enforce_resource_scope(
+            resource_tenant_id=agg.tenant_id,
+            resource_workspace_id=agg.workspace_id,
+            resource_project_id=agg.project_id,
+            resource_kind="Migration",
+            resource_id=migration_id,
+        )
+
+        if "expected_revision" in payload and payload["expected_revision"] is not None:
+            expected_rev = int(payload["expected_revision"])
+            if agg.revision != expected_rev:
+                raise PipelineError(
+                    PipelineErrorCode.REVISION_CONFLICT,
+                    f"Migration revision conflict: expected {expected_rev}, actual {agg.revision}.",
+                    details={"actual_revision": agg.revision, "expected_revision": expected_rev},
+                )
 
         if agg.state in (MigrationLifecycleState.COMPLETED, MigrationLifecycleState.CANCELLED):
             raise PipelineError(
@@ -273,7 +287,7 @@ class CommandHandlerRegistry:
                 fence_req = EngineInvocationRequest(
                     contract_version="1.0.0",
                     binding_id=binding.binding_id,
-                    correlation_id=f"cancel-fence-{migration_id}",
+                    correlation_id=correlation_id or f"cancel-fence-{migration_id}",
                     operation_id=f"cancel-fence-op-{uuid.uuid4().hex}",
                     attempt_id=cancelled_attempt_id or f"att-cancel-{uuid.uuid4().hex}",
                     invocation_id=f"inv-cancel-fence-{uuid.uuid4().hex}",
@@ -287,6 +301,9 @@ class CommandHandlerRegistry:
                         "worker_id": "cancel_controller",
                         "run_id": cancelled_attempt_id,
                     },
+                    tenant_id=actor.organization_id,
+                    workspace_id=actor.workspace_id,
+                    project_id=actor.project_id,
                 )
                 try:
                     fence_res = binding.port_instance.execute_task(fence_req)
@@ -306,7 +323,7 @@ class CommandHandlerRegistry:
                     cancel_req = EngineInvocationRequest(
                         contract_version="1.0.0",
                         binding_id=binding.binding_id,
-                        correlation_id=f"cancel-{migration_id}",
+                        correlation_id=correlation_id or f"cancel-{migration_id}",
                         operation_id=f"cancel-op-{uuid.uuid4().hex}",
                         attempt_id=cancelled_attempt_id or f"att-cancel-{uuid.uuid4().hex}",
                         invocation_id=f"inv-cancel-{uuid.uuid4().hex}",
@@ -321,6 +338,9 @@ class CommandHandlerRegistry:
                             "task_id": t_id,
                             "run_id": cancelled_attempt_id,
                         },
+                        tenant_id=actor.organization_id,
+                        workspace_id=actor.workspace_id,
+                        project_id=actor.project_id,
                     )
                     try:
                         c_res = binding.port_instance.execute_task(cancel_req)
@@ -479,12 +499,13 @@ class CommandHandlerRegistry:
         if agg is None:
             raise PipelineError(PipelineErrorCode.INVALID_REQUEST, f"Migration {migration_id!r} not found.")
 
-        if agg.tenant_id != actor.organization_id:
-            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Migration {migration_id!r} not found or unauthorized for tenant.")
-        if actor.workspace_id and agg.workspace_id and agg.workspace_id != actor.workspace_id:
-            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Migration {migration_id!r} belongs to a different workspace.")
-        if actor.project_id and agg.project_id and agg.project_id != actor.project_id:
-            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Migration {migration_id!r} belongs to a different project.")
+        actor.enforce_resource_scope(
+            resource_tenant_id=agg.tenant_id,
+            resource_workspace_id=agg.workspace_id,
+            resource_project_id=agg.project_id,
+            resource_kind="Migration",
+            resource_id=migration_id,
+        )
 
         if agg.state not in (MigrationLifecycleState.FAILED, MigrationLifecycleState.CANCELLED):
             raise PipelineError(
@@ -673,12 +694,13 @@ class CommandHandlerRegistry:
         if agg is None:
             raise PipelineError(PipelineErrorCode.INVALID_REQUEST, f"Migration {migration_id!r} not found.")
 
-        if agg.tenant_id != actor.organization_id:
-            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Migration {migration_id!r} not found or unauthorized for tenant.")
-        if actor.workspace_id and agg.workspace_id and agg.workspace_id != actor.workspace_id:
-            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Migration {migration_id!r} belongs to a different workspace.")
-        if actor.project_id and agg.project_id and agg.project_id != actor.project_id:
-            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Migration {migration_id!r} belongs to a different project.")
+        actor.enforce_resource_scope(
+            resource_tenant_id=agg.tenant_id,
+            resource_workspace_id=agg.workspace_id,
+            resource_project_id=agg.project_id,
+            resource_kind="Migration",
+            resource_id=migration_id,
+        )
 
         plan = GraphCompiler.compile_plan(f"plan-{migration_id}", migration_id, agg.mode, agg.configuration)
         GraphValidator.validate_plan(plan)
@@ -713,12 +735,13 @@ class CommandHandlerRegistry:
         if agg is None:
             raise PipelineError(PipelineErrorCode.INVALID_REQUEST, f"Migration {migration_id!r} not found.")
 
-        if agg.tenant_id != actor.organization_id:
-            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Migration {migration_id!r} not found or unauthorized for tenant.")
-        if actor.workspace_id and agg.workspace_id and agg.workspace_id != actor.workspace_id:
-            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Migration {migration_id!r} belongs to a different workspace.")
-        if actor.project_id and agg.project_id and agg.project_id != actor.project_id:
-            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Migration {migration_id!r} belongs to a different project.")
+        actor.enforce_resource_scope(
+            resource_tenant_id=agg.tenant_id,
+            resource_workspace_id=agg.workspace_id,
+            resource_project_id=agg.project_id,
+            resource_kind="Migration",
+            resource_id=migration_id,
+        )
 
         plan_art_id = agg.plan_id or f"art-plan-{migration_id}"
         try:
@@ -771,12 +794,13 @@ class CommandHandlerRegistry:
         if agg is None:
             raise PipelineError(PipelineErrorCode.INVALID_REQUEST, f"Migration {migration_id!r} not found.")
 
-        if agg.tenant_id != actor.organization_id:
-            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Migration {migration_id!r} not found or unauthorized for tenant.")
-        if actor.workspace_id and agg.workspace_id and agg.workspace_id != actor.workspace_id:
-            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Migration {migration_id!r} belongs to a different workspace.")
-        if actor.project_id and agg.project_id and agg.project_id != actor.project_id:
-            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Migration {migration_id!r} belongs to a different project.")
+        actor.enforce_resource_scope(
+            resource_tenant_id=agg.tenant_id,
+            resource_workspace_id=agg.workspace_id,
+            resource_project_id=agg.project_id,
+            resource_kind="Migration",
+            resource_id=migration_id,
+        )
 
         # Require admin or governor role to issue approval
         if not any(r in ("admin", "governor", "security_officer", "compliance") for r in actor.roles):
@@ -869,12 +893,13 @@ class CommandHandlerRegistry:
         if agg is None:
             raise PipelineError(PipelineErrorCode.INVALID_REQUEST, f"Migration {migration_id!r} not found.")
 
-        if agg.tenant_id != actor.organization_id:
-            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Migration {migration_id!r} not found or unauthorized for tenant.")
-        if actor.workspace_id and agg.workspace_id and agg.workspace_id != actor.workspace_id:
-            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Migration {migration_id!r} belongs to a different workspace.")
-        if actor.project_id and agg.project_id and agg.project_id != actor.project_id:
-            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Migration {migration_id!r} belongs to a different project.")
+        actor.enforce_resource_scope(
+            resource_tenant_id=agg.tenant_id,
+            resource_workspace_id=agg.workspace_id,
+            resource_project_id=agg.project_id,
+            resource_kind="Migration",
+            resource_id=migration_id,
+        )
 
         # Stale execution fencing check
         target_execution = payload.get("target_execution_id") or payload.get("execution_id") or payload.get("attempt_id")
@@ -953,6 +978,9 @@ class CommandHandlerRegistry:
                         "semantic_operation": "PAUSE_EXECUTION",
                         "task_id": t_id,
                     },
+                    tenant_id=actor.organization_id,
+                    workspace_id=actor.workspace_id,
+                    project_id=actor.project_id,
                 )
                 try:
                     binding.port_instance.execute_task(pause_req)
@@ -1011,12 +1039,13 @@ class CommandHandlerRegistry:
         if agg is None:
             raise PipelineError(PipelineErrorCode.INVALID_REQUEST, f"Migration {migration_id!r} not found.")
 
-        if agg.tenant_id != actor.organization_id:
-            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Migration {migration_id!r} not found or unauthorized for tenant.")
-        if actor.workspace_id and agg.workspace_id and agg.workspace_id != actor.workspace_id:
-            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Migration {migration_id!r} belongs to a different workspace.")
-        if actor.project_id and agg.project_id and agg.project_id != actor.project_id:
-            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Migration {migration_id!r} belongs to a different project.")
+        actor.enforce_resource_scope(
+            resource_tenant_id=agg.tenant_id,
+            resource_workspace_id=agg.workspace_id,
+            resource_project_id=agg.project_id,
+            resource_kind="Migration",
+            resource_id=migration_id,
+        )
 
         # Stale execution fencing check
         target_execution = payload.get("target_execution_id") or payload.get("execution_id") or payload.get("attempt_id")
@@ -1086,6 +1115,9 @@ class CommandHandlerRegistry:
                         "semantic_operation": "RESUME_EXECUTION",
                         "task_id": t_id,
                     },
+                    tenant_id=actor.organization_id,
+                    workspace_id=actor.workspace_id,
+                    project_id=actor.project_id,
                 )
                 try:
                     binding.port_instance.execute_task(resume_req)
@@ -1145,8 +1177,13 @@ class CommandHandlerRegistry:
         if agg is None:
             raise PipelineError(PipelineErrorCode.INVALID_REQUEST, f"Migration {migration_id!r} not found.")
 
-        if agg.tenant_id != actor.organization_id:
-            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Migration {migration_id!r} not found or unauthorized for tenant.")
+        actor.enforce_resource_scope(
+            resource_tenant_id=agg.tenant_id,
+            resource_workspace_id=agg.workspace_id,
+            resource_project_id=agg.project_id,
+            resource_kind="Migration",
+            resource_id=migration_id,
+        )
 
         max_events = payload.get("max_events_per_fetch")
         max_bytes = payload.get("max_fetch_bytes_sec")
@@ -1227,8 +1264,13 @@ class CommandHandlerRegistry:
         if agg is None:
             raise PipelineError(PipelineErrorCode.INVALID_REQUEST, f"Migration {migration_id!r} not found.")
 
-        if agg.tenant_id != actor.organization_id:
-            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Migration {migration_id!r} unauthorized for tenant.")
+        actor.enforce_resource_scope(
+            resource_tenant_id=agg.tenant_id,
+            resource_workspace_id=agg.workspace_id,
+            resource_project_id=agg.project_id,
+            resource_kind="Migration",
+            resource_id=migration_id,
+        )
 
         from akaalPipeline.contracts.enums import MisfirePolicy, OverlapPolicy, ScheduleLifecycleState, ScheduleType
         from akaalPipeline.operations.schedules import ScheduleRecord

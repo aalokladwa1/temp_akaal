@@ -236,6 +236,17 @@ class PipelineErrorCode(str, Enum):
     INELIGIBLE = "INELIGIBLE"
     NOT_READY = "NOT_READY"
     POLICY_DENIED = "POLICY_DENIED"
+    # P7.13 item 7: distinct from POLICY_DENIED (a same-tenant permission denial on a
+    # resource the caller already legitimately knows exists) -- this specifically marks
+    # "resource exists but belongs to a different tenant/workspace/project scope than the
+    # caller's own". Kept internally distinguishable for audit/evidence/forensic records
+    # (see akaalPipeline.security.context.PipelineActorContext.enforce_resource_scope and
+    # akaalPipeline.execution.coordinator.PlanExecutionCoordinator.materialize_plan_execution,
+    # the two raise sites), but PipelineError.to_ipc_error() deliberately maps it to the
+    # SAME externally observable category+code as NOT_FOUND so an unauthorized caller
+    # cannot use the error response alone to learn whether a resource exists in another
+    # tenant versus not existing at all.
+    TENANT_BOUNDARY_VIOLATION = "TENANT_BOUNDARY_VIOLATION"
     LEASE_CONFLICT = "LEASE_CONFLICT"
     UNABLE_TO_ACQUIRE_LEASE = "UNABLE_TO_ACQUIRE_LEASE"
     STALE_RESULT = "STALE_RESULT"

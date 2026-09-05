@@ -2,7 +2,8 @@
 tests.unit.engine_extensions.test_adopted_schemas_completeness
 =============================================================
 Verifies that Authority #2 Extensions exposes complete, valid, truthful
-ConfigurationSchema metadata for all 28 adopted Connection providers.
+ConfigurationSchema metadata for all adopted Connection providers (originally 28,
+growing as P7A Campaign B adds providers).
 """
 
 from __future__ import annotations
@@ -24,11 +25,12 @@ from akaalEngine.extensions.models.identity import ProviderId
 
 def test_all_28_adopted_providers_have_truthful_configuration_schemas():
     registered_ids = default_provider_catalog.list_providers()
-    assert len(registered_ids) == 28, f"Expected 28 adopted providers, found {len(registered_ids)}"
+    expected_count = len(registered_ids)  # fleet size grows as P7A Campaign B adds providers; verify completeness, not a frozen count
+    assert expected_count >= 28, f"Expected at least the original 28 adopted providers, found {expected_count}"
 
     manifest = BuiltinConnectionBootstrap.adopt_connection_providers()
     assert manifest.extension_id == BUILTIN_CONNECTION_EXTENSION_ID
-    assert len(manifest.provider_contributions) == 28
+    assert len(manifest.provider_contributions) == expected_count
 
     for prov_contrib in manifest.provider_contributions:
         prov_id_str = prov_contrib.provider_id.value

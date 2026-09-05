@@ -298,23 +298,63 @@ def test_09_capability_truth_and_event_publishing(adapter):
 
 
 def test_10_retryability_tenancy_and_resource_ownership(engine_gateway):
-    """Proves retryable flag survives mapping, tenancy context captures workspace/project, and ownership is safe."""
+    """Proves retryable flag survives mapping, tenancy context captures workspace/project from
+    the TRUSTED EngineInvocationRequest fields (set by the Pipeline caller from its own
+    already-verified PipelineActorContext -- see akaalPipeline/execution/coordinator.py and
+    akaalPipeline/application/command_handlers.py), and that ownership is safe."""
     # Test safe ownership: passing an external gateway sets _owns_gateway = False
     adp_external = PipelineEngineGatewayAdapter(gateway=engine_gateway, owns_gateway=False)
     assert adp_external._owns_gateway is False
     adp_external.close()  # Must NOT shut down external gateway
 
-    # Verify context retains workspace and project
+    # Verify context retains workspace and project from the trusted request fields.
     req = EngineInvocationRequest(
         contract_version="1.0.0", binding_id="b1", correlation_id="c1", operation_id="op1",
         attempt_id="att1", invocation_id="inv1", lease_id="l1", fence_epoch=1,
         graph_node_id="n1", initialization_fingerprint="fp1",
-        payload={"migration_id": "mig-t1", "organization_id": "org-1", "workspace_id": "ws-100", "project_id": "proj-200"}
+        payload={"migration_id": "mig-t1"},
+        tenant_id="org-1", workspace_id="ws-100", project_id="proj-200",
     )
     ctx = adp_external._build_context(req)
     assert ctx.tenant_id == "org-1"
     assert ctx.workspace_id == "ws-100"
     assert ctx.project_id == "proj-200"
+
+    # P7.10 security invariant: untrusted payload MUST NOT establish or override trusted
+    # tenant identity. A caller cannot forge/override the tenant/workspace/project the
+    # Engine executes/tags an operation under merely by including those keys in `payload`
+    # (payload is, in production, an echo of the original untrusted wire caller's request --
+    # see akaalPipeline/application/unified_caller.py::handle_command, which passes
+    # `payload=envelope.payload` straight through to plan-execution dispatch).
+    forged_req = EngineInvocationRequest(
+        contract_version="1.0.0", binding_id="b1", correlation_id="c2", operation_id="op2",
+        attempt_id="att2", invocation_id="inv2", lease_id="l2", fence_epoch=1,
+        graph_node_id="n2", initialization_fingerprint="fp2",
+        payload={
+            "migration_id": "mig-t1",
+            "tenant_id": "tenant-ATTACKER-FORGED",
+            "organization_id": "tenant-ATTACKER-FORGED",
+            "workspace_id": "ws-ATTACKER-FORGED",
+            "project_id": "proj-ATTACKER-FORGED",
+        },
+        tenant_id="org-1", workspace_id="ws-100", project_id="proj-200",
+    )
+    forged_ctx = adp_external._build_context(forged_req)
+    assert forged_ctx.tenant_id == "org-1", "forged payload tenant_id must NOT override the trusted request field"
+    assert forged_ctx.workspace_id == "ws-100", "forged payload workspace_id must NOT override the trusted request field"
+    assert forged_ctx.project_id == "proj-200", "forged payload project_id must NOT override the trusted request field"
+
+    # Control: with no trusted tenant fields set at all (a caller that hasn't been updated
+    # to supply them), context falls back to None rather than silently trusting payload --
+    # this is a fail-closed default, not a fail-open one.
+    untrusted_only_req = EngineInvocationRequest(
+        contract_version="1.0.0", binding_id="b1", correlation_id="c3", operation_id="op3",
+        attempt_id="att3", invocation_id="inv3", lease_id="l3", fence_epoch=1,
+        graph_node_id="n3", initialization_fingerprint="fp3",
+        payload={"migration_id": "mig-t1", "tenant_id": "tenant-ATTACKER-FORGED"},
+    )
+    untrusted_ctx = adp_external._build_context(untrusted_only_req)
+    assert untrusted_ctx.tenant_id is None, "absent trusted tenant_id must never fall back to payload"
 
 
 def test_11_acquire_execution_fence_operation(adapter):

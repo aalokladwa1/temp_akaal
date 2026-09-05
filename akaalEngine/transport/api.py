@@ -15,6 +15,7 @@ from akaalEngine.transport.drivers.files import FileSourceReader, FileTargetWrit
 from akaalEngine.transport.drivers.generic_sql import GenericSQLSourceReader, GenericSQLTargetWriter
 from akaalEngine.transport.drivers.oracle import OracleSourceReader
 from akaalEngine.transport.drivers.postgres import PostgreSQLTargetWriter
+from akaalEngine.transport.drivers.registry import default_transport_driver_registry
 from akaalEngine.transport.flow.backpressure import BoundedStreamBuffer, BufferState
 from akaalEngine.transport.flow.limiter import TokenBucketBandwidthLimiter
 from akaalEngine.transport.flow.sizer import AdaptiveTransportSizer
@@ -97,6 +98,33 @@ class TransportAuthority:
         self.ambiguous_commit_count = 0
         self.checkpoint_rejection_count = 0
 
+    def resolve_source_reader_for_provider(self, provider_id: str, **driver_kwargs: Any) -> SourceReader:
+        """
+        Resolves and instantiates the real, provider-native SourceReader for `provider_id`
+        from the dynamic transport driver registry (`transport.drivers.registry`) -- the
+        canonical, extensible replacement for assuming only the 4 statically-imported SQL/
+        file drivers exist. Fails closed with TransportCapabilityError if the provider has
+        no registered physical source-read implementation (truthful, not a silent no-op).
+        """
+        reg = default_transport_driver_registry.get(provider_id)
+        if reg is None or reg.reader_cls is None:
+            raise TransportCapabilityError(
+                f"No registered SourceReader for provider '{provider_id}'. "
+                f"Registered providers: {default_transport_driver_registry.list_providers()}"
+            )
+        return reg.reader_cls(**driver_kwargs)
+
+    def resolve_target_writer_for_provider(self, provider_id: str, **driver_kwargs: Any) -> TargetWriter:
+        """Resolves and instantiates the real, provider-native TargetWriter for `provider_id`.
+        See resolve_source_reader_for_provider() for the fail-closed contract."""
+        reg = default_transport_driver_registry.get(provider_id)
+        if reg is None or reg.writer_cls is None:
+            raise TransportCapabilityError(
+                f"No registered TargetWriter for provider '{provider_id}'. "
+                f"Registered providers: {default_transport_driver_registry.list_providers()}"
+            )
+        return reg.writer_cls(**driver_kwargs)
+
     def compute_payload_checksum(self, payload_bytes: bytes, scope: ChecksumScope) -> Tuple[str, str]:
         """Calculates transport payload integrity checksum with explicit scope."""
         h = hashlib.sha256(payload_bytes).hexdigest()
@@ -170,11 +198,19 @@ class TransportAuthority:
         migration_id: Optional[str] = None,
         run_id: Optional[str] = None,
         security_revalidator: Optional[Callable[[], bool]] = None,
+        resume_from_position: Optional[Any] = None,
     ) -> int:
         """
         Executes full transport pipeline for a partition:
         SourceReader -> BoundedBuffer -> DataProcessing -> TargetWriter -> Durability Checkpoint.
         Revalidates security and fencing barriers at partition entry, batch boundaries, and pre-commit.
+
+        `resume_from_position` carries a provider-native continuation value (a real
+        DynamoDB LastEvaluatedKey dict, a ClickHouse/Couchbase integer OFFSET, an InfluxDB
+        Flux range-start ISO timestamp, a SQL keyset value, etc.) recovered from a prior
+        run's persisted checkpoint -- it is passed straight through to
+        `reader.open_partition(partition, last_committed_key=...)`, the real resume
+        mechanism each provider-native SourceReader already implements.
         """
         # 1. Fencing and Security Checks before Source Fetch
         self._validate_fencing(fencing_token)
@@ -186,8 +222,12 @@ class TransportAuthority:
         if writer and hasattr(writer, "bind_identity"):
             writer.bind_identity(migration_id=mig_id, batch_id=r_id)
 
-        reader.open_partition(partition)
+        reader.open_partition(partition, last_committed_key=resume_from_position)
         total_written = 0
+
+        telem = self.telemetry_authority
+        if telem is not None and hasattr(telem, "record_counter"):
+            telem.record_counter("transport_partition_execution_started_total", 1.0, {"migration_id": mig_id, "partition_id": partition.partition_id})
 
         try:
             while True:
@@ -254,10 +294,23 @@ class TransportAuthority:
                     self.rows_written_total += written
                     self.bytes_written_total += write_batch.metadata.size_bytes
 
+                # Real per-batch telemetry -- actual observed counts, never synthetic.
+                if telem is not None:
+                    if hasattr(telem, "record_counter"):
+                        telem.record_counter("transport_rows_read_total", len(batch.rows), {"migration_id": mig_id, "partition_id": partition.partition_id})
+                        telem.record_counter("transport_rows_written_total", written, {"migration_id": mig_id, "partition_id": partition.partition_id})
+                        telem.record_counter("transport_bytes_written_total", write_batch.metadata.size_bytes, {"migration_id": mig_id, "partition_id": partition.partition_id})
+                    if hasattr(telem, "set_gauge"):
+                        telem.set_gauge("transport_last_batch_sequence", popped_batch.metadata.sequence_number, {"migration_id": mig_id, "partition_id": partition.partition_id})
+
                 # Advance Durable Checkpoint ONLY after Target Write is Proven
                 if self.durability_authority and fencing_token and hasattr(self.durability_authority, "save_checkpoint"):
                     from akaalEngine.durability.models import MigrationCheckpoint
                     writer_ep = getattr(writer, "endpoint_identity", None)
+                    # Real provider-native continuation position (LastEvaluatedKey, OFFSET,
+                    # Flux range-start, etc.) -- see `resume_position` on the provider-native
+                    # readers in transport/drivers/*.py -- never a fabricated placeholder.
+                    read_position = getattr(reader, "resume_position", None)
                     chk = MigrationCheckpoint(
                         migration_id=mig_id,
                         job_id=batch_id_current,
@@ -266,9 +319,11 @@ class TransportAuthority:
                         endpoint_identity=writer_ep,
                         metadata={
                             "table_name": partition.table_name,
+                            "schema_name": partition.schema_name,
                             "last_sequence": popped_batch.metadata.sequence_number,
                             "partition_id": partition.partition_id,
                             "endpoint_identity": writer_ep,
+                            "read_position": read_position,
                         },
                     )
                     try:
@@ -279,8 +334,14 @@ class TransportAuthority:
                         logger.error(f"[TransportAuthority] Checkpoint save failed for migration '{mig_id}': {exc}")
                         raise TransportWriteError(f"Checkpoint persistence failed for migration '{mig_id}': {exc}")
 
+            if telem is not None and hasattr(telem, "record_counter"):
+                telem.record_counter("transport_partition_execution_completed_total", 1.0, {"migration_id": mig_id, "partition_id": partition.partition_id})
             return total_written
 
+        except Exception:
+            if telem is not None and hasattr(telem, "record_counter"):
+                telem.record_counter("transport_partition_execution_failed_total", 1.0, {"migration_id": mig_id, "partition_id": partition.partition_id})
+            raise
         finally:
             reader.close()
 
@@ -425,3 +486,89 @@ class TransportAuthority:
                 "checkpoint_rejection_count": self.checkpoint_rejection_count,
             }
             return TransportSnapshot(metrics)
+
+
+# Register the pre-existing statically-imported drivers into the same dynamic registry used
+# by resolve_source_reader_for_provider()/resolve_target_writer_for_provider(), so provider
+# resolution is uniform across the original drivers and every provider-native driver added
+# afterward -- this does not change any existing driver's behavior, only how it is looked up.
+default_transport_driver_registry.register("sqlite", reader_cls=GenericSQLSourceReader, writer_cls=GenericSQLTargetWriter)
+default_transport_driver_registry.register("mysql", reader_cls=GenericSQLSourceReader, writer_cls=GenericSQLTargetWriter)
+default_transport_driver_registry.register("mariadb", reader_cls=GenericSQLSourceReader, writer_cls=GenericSQLTargetWriter)
+default_transport_driver_registry.register("mssql", reader_cls=GenericSQLSourceReader, writer_cls=GenericSQLTargetWriter)
+default_transport_driver_registry.register("ibm_db2", reader_cls=GenericSQLSourceReader, writer_cls=GenericSQLTargetWriter)
+default_transport_driver_registry.register("postgresql", reader_cls=GenericSQLSourceReader, writer_cls=PostgreSQLTargetWriter)
+default_transport_driver_registry.register("oracle", reader_cls=OracleSourceReader, writer_cls=None)
+default_transport_driver_registry.register("file", reader_cls=FileSourceReader, writer_cls=FileTargetWriter)
+
+# P7A Campaign B first-10 independence hardening: real provider-native physical data-plane
+# drivers, registered dynamically (never a hardcoded if/elif) so providers 39-48 can be added
+# later purely by registering a new driver module.
+from akaalEngine.transport.drivers.cockroachdb import CockroachDBTargetWriter
+from akaalEngine.transport.drivers.yugabytedb import YugabyteDBTargetWriter
+default_transport_driver_registry.register("cockroachdb", reader_cls=GenericSQLSourceReader, writer_cls=CockroachDBTargetWriter)
+default_transport_driver_registry.register("yugabytedb", reader_cls=GenericSQLSourceReader, writer_cls=YugabyteDBTargetWriter)
+# TiDB/SingleStore are MySQL-wire-compatible: GenericSQL(Source/Target) is now paramstyle-aware
+# (resolves psycopg2/pymysql's real 'pyformat' style rather than assuming '?'), so it is a
+# genuinely correct, not merely convenient, physical driver for these two -- shared low-level
+# SQL execution mechanics only, never a Connection/Discovery provider-identity collapse.
+default_transport_driver_registry.register("tidb", reader_cls=GenericSQLSourceReader, writer_cls=GenericSQLTargetWriter)
+default_transport_driver_registry.register("singlestore", reader_cls=GenericSQLSourceReader, writer_cls=GenericSQLTargetWriter)
+
+from akaalEngine.transport.drivers.clickhouse import ClickHouseSourceReader, ClickHouseTargetWriter
+default_transport_driver_registry.register("clickhouse", reader_cls=ClickHouseSourceReader, writer_cls=ClickHouseTargetWriter)
+
+from akaalEngine.transport.drivers.dynamodb import DynamoDBSourceReader, DynamoDBTargetWriter
+default_transport_driver_registry.register("dynamodb", reader_cls=DynamoDBSourceReader, writer_cls=DynamoDBTargetWriter)
+
+from akaalEngine.transport.drivers.couchbase import CouchbaseSourceReader, CouchbaseTargetWriter
+default_transport_driver_registry.register("couchbase", reader_cls=CouchbaseSourceReader, writer_cls=CouchbaseTargetWriter)
+
+from akaalEngine.transport.drivers.influxdb import InfluxDBSourceReader, InfluxDBTargetWriter
+default_transport_driver_registry.register("influxdb", reader_cls=InfluxDBSourceReader, writer_cls=InfluxDBTargetWriter)
+
+from akaalEngine.transport.drivers.rabbitmq import RabbitMQSourceReader, RabbitMQTargetWriter
+default_transport_driver_registry.register("rabbitmq", reader_cls=RabbitMQSourceReader, writer_cls=RabbitMQTargetWriter)
+
+from akaalEngine.transport.drivers.pulsar import PulsarSourceReader, PulsarTargetWriter
+default_transport_driver_registry.register("pulsar", reader_cls=PulsarSourceReader, writer_cls=PulsarTargetWriter)
+
+# P7A Campaign B remaining-10 independence hardening (providers #39-48): real
+# provider-native physical data-plane drivers, registered dynamically -- see
+# akaalEngine/transport/drivers/{teradata,vertica,sap_hana,sap_ase,informix,cosmosdb,
+# spanner,salesforce,servicenow}.py. #47 (SAP application ecosystem) is intentionally
+# NOT registered here -- its RFC/BAPI/IDoc/OData interface boundary is a genuine
+# unresolved owner decision (see progress.md), not a silently-skipped implementation.
+from akaalEngine.transport.drivers.teradata import TeradataSourceReader, TeradataTargetWriter
+default_transport_driver_registry.register("teradata", reader_cls=TeradataSourceReader, writer_cls=TeradataTargetWriter)
+
+from akaalEngine.transport.drivers.vertica import VerticaSourceReader, VerticaTargetWriter
+default_transport_driver_registry.register("vertica", reader_cls=VerticaSourceReader, writer_cls=VerticaTargetWriter)
+
+from akaalEngine.transport.drivers.sap_hana import SAPHANASourceReader, SAPHANATargetWriter
+default_transport_driver_registry.register("sap_hana", reader_cls=SAPHANASourceReader, writer_cls=SAPHANATargetWriter)
+
+from akaalEngine.transport.drivers.sap_ase import SAPASESourceReader, SAPASETargetWriter
+default_transport_driver_registry.register("sap_ase", reader_cls=SAPASESourceReader, writer_cls=SAPASETargetWriter)
+
+from akaalEngine.transport.drivers.informix import InformixSourceReader, InformixTargetWriter
+default_transport_driver_registry.register("informix", reader_cls=InformixSourceReader, writer_cls=InformixTargetWriter)
+
+from akaalEngine.transport.drivers.cosmosdb import CosmosDBSourceReader, CosmosDBTargetWriter
+default_transport_driver_registry.register("cosmosdb", reader_cls=CosmosDBSourceReader, writer_cls=CosmosDBTargetWriter)
+
+from akaalEngine.transport.drivers.spanner import SpannerSourceReader, SpannerTargetWriter
+default_transport_driver_registry.register("spanner", reader_cls=SpannerSourceReader, writer_cls=SpannerTargetWriter)
+
+from akaalEngine.transport.drivers.salesforce import SalesforceSourceReader, SalesforceTargetWriter
+default_transport_driver_registry.register("salesforce", reader_cls=SalesforceSourceReader, writer_cls=SalesforceTargetWriter)
+
+from akaalEngine.transport.drivers.servicenow import ServiceNowSourceReader, ServiceNowTargetWriter
+default_transport_driver_registry.register("servicenow", reader_cls=ServiceNowSourceReader, writer_cls=ServiceNowTargetWriter)
+
+# Provider #47 (SAP Application Ecosystem): owner-resolved 2026-09-05 scope -- ONE
+# canonical provider family, capability-driven RFC/BAPI + IDoc + OData interface modes
+# selected via connection_params["interface_mode"], never three separate provider
+# entries. See akaalEngine/transport/drivers/sap_application.py.
+from akaalEngine.transport.drivers.sap_application import SAPApplicationSourceReader, SAPApplicationTargetWriter
+default_transport_driver_registry.register("sap_application", reader_cls=SAPApplicationSourceReader, writer_cls=SAPApplicationTargetWriter)

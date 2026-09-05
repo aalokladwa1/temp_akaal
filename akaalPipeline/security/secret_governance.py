@@ -68,6 +68,7 @@ def authorize_secret_reference_access(
     actor_context: PipelineActorContext,
     request: SecretReferenceRequest,
     correlation_id: Optional[str] = None,
+    audit_service: Optional[Any] = None,
 ) -> AuthorizationDecision:
     """
     The single Pipeline-side governance gate for secret-reference use. Reuses the
@@ -78,9 +79,28 @@ def authorize_secret_reference_access(
     operation, including cross-tenant reference use (a reference request always carries
     the REQUESTING actor's own tenant_id via actor_context; there is no mechanism here for
     a caller to assert a different tenant's scope for a reference lookup).
+
+    NOTED LIMITATION (not fixed here -- would change the resource-identity shape
+    consumed elsewhere and risks unintended behavior change): the RBAC/ABAC
+    resource_id used below is `provider:purpose`, not `request.target_resource_id`.
+    Authorization is therefore scoped to (tenant, principal, provider, purpose),
+    not to the specific target resource (e.g. a specific migration) -- a principal
+    holding SECURITY_SECRET_RESOLVE for a given provider/purpose in their own
+    tenant can request references for that provider/purpose against any
+    target_resource_id in that same tenant. This is a same-tenant breadth
+    question (secret-resolve authority modeled as principal-level, not
+    per-migration-ownership), not a cross-tenant leak -- tenant isolation itself
+    is still enforced via actor_context.tenant_id above.
+
+    P7.11: when `audit_service` (akaalPipeline.events.audit.SecurityAuditService)
+    is supplied, every secret-reference authorization decision (allow or deny) is
+    recorded through the canonical hash-chained security_audit_ledger. Only the
+    opaque reference/provider/purpose are recorded (via
+    SecretReferenceRequest.sanitized_abac_context()) -- never secret material.
+    Recording failure never changes the already-made decision.
     """
     resource_id = f"{request.provider}:{request.purpose}"
-    return engine.authorize_with_decision(
+    decision = engine.authorize_with_decision(
         actor_context,
         permission_id=PermissionRegistry.SECURITY_SECRET_RESOLVE,
         resource_type="SECRET_REFERENCE",
@@ -88,3 +108,27 @@ def authorize_secret_reference_access(
         extra_abac_context=request.sanitized_abac_context(),
         correlation_id=correlation_id,
     )
+    if audit_service is not None:
+        try:
+            from akaalPipeline.contracts.enums import AuditDecision
+
+            audit_service.record_event(
+                tenant_id=decision.tenant_id,
+                actor_id=decision.principal_id,
+                actor_type=getattr(actor_context, "principal_type", "UNKNOWN"),
+                event_type="secret.reference_access",
+                resource_type="SECRET_REFERENCE",
+                resource_id=resource_id,
+                action=PermissionRegistry.SECURITY_SECRET_RESOLVE,
+                decision=AuditDecision.ALLOW if decision.allowed else AuditDecision.DENY,
+                details={
+                    "reason_code": decision.reason_code,
+                    "target_resource_type": request.target_resource_type,
+                    "target_resource_id": request.target_resource_id,
+                    "credential_type": request.credential_type,
+                    "correlation_id": correlation_id,
+                },
+            )
+        except Exception:
+            pass
+    return decision

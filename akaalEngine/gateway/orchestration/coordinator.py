@@ -367,6 +367,24 @@ class GatewayCoordinator:
             reader = payload.get("source_reader") or payload.get("reader")
             writer = payload.get("target_writer") or payload.get("writer")
             partition = payload.get("partition")
+
+            # Auto-resolve the real provider-native SourceReader/TargetWriter from the
+            # TransportDriverRegistry when the caller supplied a provider_id + connection
+            # params instead of pre-built driver objects -- this is what makes
+            # EXECUTE_BULK_MIGRATION reachable purely from provider identity, the missing
+            # link between "Gateway can describe a provider" and "Gateway can move data
+            # for it" that this hardening pass closes.
+            if reader is None and payload.get("source_provider_id"):
+                reader = self.transport_authority.resolve_source_reader_for_provider(
+                    payload["source_provider_id"],
+                    connection_params=payload.get("source_connection_params", {}),
+                )
+            if writer is None and payload.get("target_provider_id"):
+                writer = self.transport_authority.resolve_target_writer_for_provider(
+                    payload["target_provider_id"],
+                    connection_params=payload.get("target_connection_params", {}),
+                )
+
             if not reader or not writer or not partition:
                 from akaalEngine.transport.models.errors import TransportError
                 raise TransportError("Transport execution requires active SourceReader, TargetWriter, and TransportPartition instances.")
@@ -377,12 +395,43 @@ class GatewayCoordinator:
                 ks = self.keystore
                 ctx_t_id = context.tenant_id
                 ctx_m_id = context.migration_id
-                sec_reval = lambda: verify_execution_authorization(
-                    artifact=authz_art,
-                    expected_tenant_id=ctx_t_id,
-                    expected_migration_id=ctx_m_id,
-                    keystore=ks,
-                )
+                # execute_partition_transport() calls this same revalidator at partition
+                # entry AND at every batch boundary (by design, to catch mid-execution
+                # revocation) -- and GatewayDispatcher.dispatch() (the sole real external
+                # entry point into this coordinator; see akaalEngine/gateway/routing/
+                # dispatcher.py) already independently ran its OWN
+                # verify_execution_authorization() admission check against this exact
+                # artifact, with replay-checking enabled, before this coordinator method
+                # was ever invoked. Replay-uniqueness (rejecting a signed artifact reused
+                # across SEPARATE admissions) is therefore already enforced at that
+                # admission layer; re-enforcing it here would consume the SAME nonce a
+                # second time and falsely reject every request as "replay detected" on its
+                # very first Stage C barrier call, and every subsequent batch even more so.
+                # This barrier's job is re-verifying the credential (signature, expiration,
+                # tenant/migration identity, live revocation status) is STILL valid as
+                # execution proceeds, not re-litigating whether it was fresh on arrival --
+                # so check_replay is always disabled here. Found via first-10-provider
+                # hostile multi-barrier testing (see tests/security/
+                # test_p7a_campaign_b_first10_tenant_isolation.py).
+                def sec_reval() -> bool:
+                    return verify_execution_authorization(
+                        artifact=authz_art,
+                        expected_tenant_id=ctx_t_id,
+                        expected_migration_id=ctx_m_id,
+                        keystore=ks,
+                        check_replay=False,
+                    )
+                    return result
+            # Real restart support: if the caller asks to resume (or omits an explicit
+            # position but a prior durable checkpoint exists for this migration), recover
+            # the provider-native continuation position from the REAL Durability authority
+            # rather than requiring the caller to track it out-of-band.
+            resume_position = payload.get("resume_from_position")
+            if resume_position is None and payload.get("resume_from_checkpoint") and self.durability_authority is not None:
+                prior = self.durability_authority.get_latest_checkpoint(context.migration_id)
+                if prior is not None and isinstance(prior.metadata, dict):
+                    resume_position = prior.metadata.get("read_position")
+
             transport_snap = self.transport_authority.execute_partition_transport(
                 reader=reader,
                 writer=writer,
@@ -392,6 +441,7 @@ class GatewayCoordinator:
                 migration_id=context.migration_id,
                 run_id=context.run_id,
                 security_revalidator=sec_reval,
+                resume_from_position=resume_position,
             )
         else:
             from akaalEngine.transport.models.errors import TransportError
@@ -399,7 +449,17 @@ class GatewayCoordinator:
 
         # Stage D: Create Durability checkpoint (#5) - DO NOT SUPPRESS FAILURES
         from akaalEngine.durability.models import MigrationCheckpoint, FencingToken
-        if hasattr(self.durability_authority, "issue_fencing_token"):
+        # Reuse the SAME token (same resource_id/epoch scope) the per-batch checkpoints
+        # inside execute_partition_transport() already saved with, when the caller supplied
+        # one -- issuing a brand-new token scoped only to `context.migration_id` here would
+        # start an entirely independent epoch counter for a DIFFERENT fencing resource_id
+        # (bare migration_id vs "migration_id/run_id"), which can carry a lower epoch number
+        # than the per-batch checkpoints already persisted for this same migration_id and
+        # get rejected as a stale monotonic-epoch rollback by the checkpoint registry.
+        caller_token = payload.get("fencing_token")
+        if caller_token is not None and hasattr(caller_token, "fencing_epoch"):
+            token = caller_token
+        elif hasattr(self.durability_authority, "issue_fencing_token"):
             token = self.durability_authority.issue_fencing_token(context.migration_id, "gateway")
         else:
             token = FencingToken(

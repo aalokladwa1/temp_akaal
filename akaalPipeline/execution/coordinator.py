@@ -111,20 +111,27 @@ class PlanExecutionCoordinator:
         operation_id: Optional[str] = None,
     ) -> PlanExecutionRecord:
         """Materializes durable plan execution and initial node execution states in DB."""
-        # Enforce tenant/workspace/project scoping
+        # Enforce tenant/workspace/project scoping. TENANT_BOUNDARY_VIOLATION (not
+        # POLICY_DENIED) is used deliberately -- see PipelineActorContext.
+        # enforce_resource_scope's docstring (akaalPipeline/security/context.py) and
+        # PipelineError.to_ipc_error() (akaalPipeline/contracts/errors.py): it maps to
+        # the same externally observable response as a genuine NOT_FOUND, so an
+        # unauthorized caller cannot learn from the error alone whether this migration
+        # exists in another tenant versus not existing at all. The precise reason
+        # remains available internally via this exception's own .code/.message.
         if migration.tenant_id != actor.organization_id:
             raise PipelineError(
-                PipelineErrorCode.POLICY_DENIED,
+                PipelineErrorCode.TENANT_BOUNDARY_VIOLATION,
                 f"Migration {migration.migration_id!r} tenant mismatch.",
             )
         if actor.workspace_id and migration.workspace_id and actor.workspace_id != migration.workspace_id:
             raise PipelineError(
-                PipelineErrorCode.POLICY_DENIED,
+                PipelineErrorCode.TENANT_BOUNDARY_VIOLATION,
                 f"Migration {migration.migration_id!r} workspace mismatch.",
             )
         if actor.project_id and migration.project_id and actor.project_id != migration.project_id:
             raise PipelineError(
-                PipelineErrorCode.POLICY_DENIED,
+                PipelineErrorCode.TENANT_BOUNDARY_VIOLATION,
                 f"Migration {migration.migration_id!r} project mismatch.",
             )
 
@@ -802,6 +809,9 @@ class PlanExecutionCoordinator:
                 payload=dispatch_payload,
                 checkpoint_id=node_to_dispatch.checkpoint_id,
                 execution_authorization_artifact=authz_token,
+                tenant_id=actor.organization_id,
+                workspace_id=actor.workspace_id,
+                project_id=actor.project_id,
             )
 
 

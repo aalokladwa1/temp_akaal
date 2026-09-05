@@ -162,12 +162,28 @@ class ProviderCatalog:
                 OracleProviderStrategy,
                 MSSQLProviderStrategy,
                 IBMDb2ProviderStrategy,
+                CockroachDBProviderStrategy,
+                YugabyteDBProviderStrategy,
+                TiDBProviderStrategy,
+                SingleStoreProviderStrategy,
+                TeradataProviderStrategy,
+                VerticaProviderStrategy,
+                SAPHANAProviderStrategy,
+                SAPASEProviderStrategy,
+                InformixProviderStrategy,
+                SpannerProviderStrategy,
+            )
+            from akaalEngine.connection.providers.application import (
+                SalesforceProviderStrategy,
+                ServiceNowProviderStrategy,
+                SAPApplicationProviderStrategy,
             )
             from akaalEngine.connection.providers.warehouse import (
                 SnowflakeProviderStrategy,
                 BigQueryProviderStrategy,
                 RedshiftProviderStrategy,
                 DatabricksProviderStrategy,
+                ClickHouseProviderStrategy,
             )
             from akaalEngine.connection.providers.nosql import (
                 MongoDBProviderStrategy,
@@ -178,12 +194,17 @@ class ProviderCatalog:
                 KeyDBProviderStrategy,
                 ElasticsearchProviderStrategy,
                 OpenSearchProviderStrategy,
+                DynamoDBProviderStrategy,
+                CouchbaseProviderStrategy,
+                CosmosDBProviderStrategy,
             )
             from akaalEngine.connection.providers.streaming import (
                 KafkaProviderStrategy,
                 KinesisProviderStrategy,
                 EventHubsProviderStrategy,
                 PubSubProviderStrategy,
+                RabbitMQProviderStrategy,
+                PulsarProviderStrategy,
             )
             from akaalEngine.connection.providers.storage import (
                 S3ProviderStrategy,
@@ -191,6 +212,9 @@ class ProviderCatalog:
                 AzureBlobProviderStrategy,
                 MinIOProviderStrategy,
                 HDFSProviderStrategy,
+            )
+            from akaalEngine.connection.providers.timeseries import (
+                InfluxDBProviderStrategy,
             )
 
             strategies: list[BaseProviderStrategy] = [
@@ -202,11 +226,26 @@ class ProviderCatalog:
                 OracleProviderStrategy(),
                 MSSQLProviderStrategy(),
                 IBMDb2ProviderStrategy(),
+                CockroachDBProviderStrategy(),  # P7A Campaign B, provider #31
+                YugabyteDBProviderStrategy(),  # P7A Campaign B
+                TiDBProviderStrategy(),  # P7A Campaign B
+                SingleStoreProviderStrategy(),  # P7A Campaign B
+                TeradataProviderStrategy(),  # P7A Campaign B, provider #39
+                VerticaProviderStrategy(),  # P7A Campaign B, provider #40
+                SAPHANAProviderStrategy(),  # P7A Campaign B, provider #41
+                SAPASEProviderStrategy(),  # P7A Campaign B, provider #42
+                InformixProviderStrategy(),  # P7A Campaign B, provider #43
+                SpannerProviderStrategy(),  # P7A Campaign B, provider #45
+                # Application (SaaS)
+                SalesforceProviderStrategy(),  # P7A Campaign B, provider #46
+                ServiceNowProviderStrategy(),  # P7A Campaign B, provider #48
+                SAPApplicationProviderStrategy(),  # P7A Campaign B, provider #47
                 # Warehouse
                 SnowflakeProviderStrategy(),
                 BigQueryProviderStrategy(),
                 RedshiftProviderStrategy(),
                 DatabricksProviderStrategy(),
+                ClickHouseProviderStrategy(),  # P7A Campaign B
                 # NoSQL
                 MongoDBProviderStrategy(),
                 CassandraProviderStrategy(),
@@ -216,17 +255,24 @@ class ProviderCatalog:
                 KeyDBProviderStrategy(),
                 ElasticsearchProviderStrategy(),
                 OpenSearchProviderStrategy(),
+                DynamoDBProviderStrategy(),  # P7A Campaign B
+                CouchbaseProviderStrategy(),  # P7A Campaign B
+                CosmosDBProviderStrategy(),  # P7A Campaign B, provider #44
                 # Streaming
                 KafkaProviderStrategy(),
                 KinesisProviderStrategy(),
                 EventHubsProviderStrategy(),
                 PubSubProviderStrategy(),
+                RabbitMQProviderStrategy(),  # P7A Campaign B
+                PulsarProviderStrategy(),  # P7A Campaign B
                 # Storage
                 S3ProviderStrategy(),
                 GCSProviderStrategy(),
                 AzureBlobProviderStrategy(),
                 MinIOProviderStrategy(),
                 HDFSProviderStrategy(),
+                # Time-series
+                InfluxDBProviderStrategy(),  # P7A Campaign B
             ]
 
             for s in strategies:

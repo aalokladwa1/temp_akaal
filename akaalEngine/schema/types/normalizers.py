@@ -38,11 +38,11 @@ class ProviderTypeNormalizers:
         l = length if length is not None else inline_l
 
         # Relational
-        if prov in ("postgresql", "postgres"):
+        if prov in ("postgresql", "postgres", "cockroachdb", "yugabytedb"):
             return cls._normalize_postgresql(raw, l, p, s, meta)
         elif prov == "oracle":
             return cls._normalize_oracle(raw, l, p, s, meta)
-        elif prov in ("mysql", "mariadb"):
+        elif prov in ("mysql", "mariadb", "tidb", "singlestore"):
             return cls._normalize_mysql(raw, l, p, s, meta)
         elif prov in ("mssql", "sqlserver"):
             return cls._normalize_mssql(raw, l, p, s, meta)
@@ -60,6 +60,8 @@ class ProviderTypeNormalizers:
             return cls._normalize_redshift(raw, l, p, s, meta)
         elif prov == "databricks":
             return cls._normalize_databricks(raw, l, p, s, meta)
+        elif prov == "clickhouse":
+            return cls._normalize_clickhouse(raw, l, p, s, meta)
 
         # NoSQL / Specialized
         elif prov == "mongodb":
@@ -72,9 +74,15 @@ class ProviderTypeNormalizers:
             return cls._normalize_redis(raw, meta)
         elif prov in ("elasticsearch", "opensearch"):
             return cls._normalize_elasticsearch(raw, meta)
+        elif prov == "dynamodb":
+            return cls._normalize_dynamodb(raw, meta)
+        elif prov == "couchbase":
+            return cls._normalize_couchbase(raw, meta)
+        elif prov == "influxdb":
+            return cls._normalize_influxdb(raw, meta)
 
         # Streaming
-        elif prov in ("kafka", "kinesis", "eventhubs", "event_hubs", "pubsub", "pub_sub"):
+        elif prov in ("kafka", "kinesis", "eventhubs", "event_hubs", "pubsub", "pub_sub", "rabbitmq", "pulsar"):
             return cls._normalize_streaming(raw, meta)
 
         # Storage / Datasets
@@ -476,6 +484,52 @@ class ProviderTypeNormalizers:
         return CanonicalType(category=CanonicalTypeCategory.UNKNOWN, raw_vendor_type=raw)
 
     # ------------------------------------------------------------------
+    # ClickHouse Normalizer
+    # ------------------------------------------------------------------
+    @classmethod
+    def _normalize_clickhouse(cls, raw: str, l: Optional[int], p: Optional[int], s: Optional[int], meta: Mapping[str, Any]) -> CanonicalType:
+        # ClickHouse's own type system -- fixed-width signed/unsigned integers, explicit
+        # Float32/64, arbitrary-precision Decimal, and a real Nullable(...) wrapper type,
+        # none of which map cleanly onto any relational vendor already handled above.
+        clean = raw.strip()
+        nullable = False
+        if clean.startswith("Nullable(") and clean.endswith(")"):
+            nullable = True
+            clean = clean[len("Nullable("):-1]
+
+        base = re.sub(r"\(.*?\)", "", clean).strip()
+
+        if base in ("Int8", "UInt8"):
+            return CanonicalType(category=CanonicalTypeCategory.EXACT_NUMERIC, raw_vendor_type=raw, bits=8, is_signed=not base.startswith("U"), extra={"nullable": nullable})
+        elif base in ("Int16", "UInt16"):
+            return CanonicalType(category=CanonicalTypeCategory.EXACT_NUMERIC, raw_vendor_type=raw, bits=16, is_signed=not base.startswith("U"), extra={"nullable": nullable})
+        elif base in ("Int32", "UInt32"):
+            return CanonicalType(category=CanonicalTypeCategory.EXACT_NUMERIC, raw_vendor_type=raw, bits=32, is_signed=not base.startswith("U"), extra={"nullable": nullable})
+        elif base in ("Int64", "UInt64"):
+            return CanonicalType(category=CanonicalTypeCategory.EXACT_NUMERIC, raw_vendor_type=raw, bits=64, is_signed=not base.startswith("U"), extra={"nullable": nullable})
+        elif base in ("Int128", "UInt128", "Int256", "UInt256"):
+            return CanonicalType(category=CanonicalTypeCategory.EXACT_NUMERIC, raw_vendor_type=raw, extra={"nullable": nullable, "wide_integer": True})
+        elif base == "Float32":
+            return CanonicalType(category=CanonicalTypeCategory.APPROX_NUMERIC, raw_vendor_type=raw, bits=32, extra={"nullable": nullable})
+        elif base == "Float64":
+            return CanonicalType(category=CanonicalTypeCategory.APPROX_NUMERIC, raw_vendor_type=raw, bits=64, extra={"nullable": nullable})
+        elif base.startswith("Decimal"):
+            return CanonicalType(category=CanonicalTypeCategory.EXACT_NUMERIC, raw_vendor_type=raw, precision=p or 38, scale=s or 0, extra={"nullable": nullable})
+        elif base in ("String", "FixedString"):
+            return CanonicalType(category=CanonicalTypeCategory.CHARACTER, raw_vendor_type=raw, length=l, extra={"nullable": nullable})
+        elif base == "Bool":
+            return CanonicalType(category=CanonicalTypeCategory.BOOLEAN, raw_vendor_type=raw, extra={"nullable": nullable})
+        elif base in ("Date", "Date32"):
+            return CanonicalType(category=CanonicalTypeCategory.DATETIME, raw_vendor_type=raw, extra={"date_only": True, "nullable": nullable})
+        elif base.startswith("DateTime"):
+            return CanonicalType(category=CanonicalTypeCategory.DATETIME, raw_vendor_type=raw, is_timezone_aware=True, extra={"nullable": nullable})
+        elif base in ("Array", "Tuple", "Map", "Nested"):
+            return CanonicalType(category=CanonicalTypeCategory.ARRAY if base == "Array" else CanonicalTypeCategory.JSON, raw_vendor_type=raw, extra={"clickhouse_complex": base, "nullable": nullable})
+        elif base == "UUID":
+            return CanonicalType(category=CanonicalTypeCategory.CHARACTER, raw_vendor_type=raw, extra={"uuid": True, "nullable": nullable})
+        return CanonicalType(category=CanonicalTypeCategory.UNKNOWN, raw_vendor_type=raw, extra={"nullable": nullable})
+
+    # ------------------------------------------------------------------
     # 11. MongoDB Normalizer
     # ------------------------------------------------------------------
     @classmethod
@@ -570,6 +624,72 @@ class ProviderTypeNormalizers:
             return CanonicalType(category=CanonicalTypeCategory.ARRAY, raw_vendor_type=raw)
         elif clean == "stream":
             return CanonicalType(category=CanonicalTypeCategory.BINARY, raw_vendor_type=raw)
+        return CanonicalType(category=CanonicalTypeCategory.UNKNOWN, raw_vendor_type=raw)
+
+    @classmethod
+    def _normalize_dynamodb(cls, raw: str, meta: Mapping[str, Any]) -> CanonicalType:
+        # DynamoDB's native AttributeValue type codes (S/N/B/BOOL/NULL/L/M/SS/NS/BS) are a
+        # small, well-defined, closed type system -- mapped explicitly rather than lumped
+        # into a generic NoSQL fallback.
+        code = raw.strip().upper()
+        if code == "S":
+            return CanonicalType(category=CanonicalTypeCategory.CHARACTER, raw_vendor_type=raw)
+        elif code == "N":
+            # DynamoDB's "N" is an arbitrary-precision decimal string, not a fixed-width
+            # numeric type -- EXACT_NUMERIC with no assumed precision/scale is truthful.
+            return CanonicalType(category=CanonicalTypeCategory.EXACT_NUMERIC, raw_vendor_type=raw)
+        elif code == "B":
+            return CanonicalType(category=CanonicalTypeCategory.BINARY, raw_vendor_type=raw)
+        elif code == "BOOL":
+            return CanonicalType(category=CanonicalTypeCategory.BOOLEAN, raw_vendor_type=raw)
+        elif code == "NULL":
+            return CanonicalType(category=CanonicalTypeCategory.UNKNOWN, raw_vendor_type=raw)
+        elif code in ("L", "M"):
+            return CanonicalType(category=CanonicalTypeCategory.JSON, raw_vendor_type=raw)
+        elif code in ("SS", "NS", "BS"):
+            return CanonicalType(category=CanonicalTypeCategory.ARRAY, raw_vendor_type=raw)
+        return CanonicalType(category=CanonicalTypeCategory.UNKNOWN, raw_vendor_type=raw)
+
+    @classmethod
+    def _normalize_couchbase(cls, raw: str, meta: Mapping[str, Any]) -> CanonicalType:
+        # N1QL/JSON value types as reported by N1QL's INFER statement -- a real, distinct
+        # type vocabulary from MongoDB's BSON types (e.g. no separate int32/int64/decimal128).
+        clean = raw.strip().lower()
+        if clean == "string":
+            return CanonicalType(category=CanonicalTypeCategory.CHARACTER, raw_vendor_type=raw)
+        elif clean == "number":
+            return CanonicalType(category=CanonicalTypeCategory.EXACT_NUMERIC, raw_vendor_type=raw)
+        elif clean == "boolean":
+            return CanonicalType(category=CanonicalTypeCategory.BOOLEAN, raw_vendor_type=raw)
+        elif clean in ("object", "array"):
+            return CanonicalType(category=CanonicalTypeCategory.JSON, raw_vendor_type=raw)
+        elif clean in ("null", "missing"):
+            return CanonicalType(category=CanonicalTypeCategory.UNKNOWN, raw_vendor_type=raw)
+        elif clean == "binary":
+            return CanonicalType(category=CanonicalTypeCategory.BINARY, raw_vendor_type=raw)
+        return CanonicalType(category=CanonicalTypeCategory.UNKNOWN, raw_vendor_type=raw)
+
+    @classmethod
+    def _normalize_influxdb(cls, raw: str, meta: Mapping[str, Any]) -> CanonicalType:
+        # InfluxDB's genuinely small type system: tags are always indexed strings; fields
+        # are one of float/integer/uinteger/boolean/string. `raw` here is expected to be
+        # either the literal "TAG" marker (see discovery's ColumnPhysicalMetadata.native_type
+        # "TAG (indexed string)") or one of InfluxDB's field value type names.
+        clean = raw.strip().lower()
+        if clean.startswith("tag"):
+            return CanonicalType(category=CanonicalTypeCategory.CHARACTER, raw_vendor_type=raw, extra={"influxdb_tag": True})
+        elif "float" in clean:
+            return CanonicalType(category=CanonicalTypeCategory.APPROX_NUMERIC, raw_vendor_type=raw, bits=64)
+        elif "uinteger" in clean or "unsigned" in clean:
+            return CanonicalType(category=CanonicalTypeCategory.EXACT_NUMERIC, raw_vendor_type=raw, bits=64, is_signed=False)
+        elif "integer" in clean or clean == "int":
+            return CanonicalType(category=CanonicalTypeCategory.EXACT_NUMERIC, raw_vendor_type=raw, bits=64)
+        elif "boolean" in clean or clean == "bool":
+            return CanonicalType(category=CanonicalTypeCategory.BOOLEAN, raw_vendor_type=raw)
+        elif "string" in clean or clean.startswith("field"):
+            return CanonicalType(category=CanonicalTypeCategory.CHARACTER, raw_vendor_type=raw)
+        elif clean in ("timestamp", "_time"):
+            return CanonicalType(category=CanonicalTypeCategory.DATETIME, raw_vendor_type=raw, is_timezone_aware=True)
         return CanonicalType(category=CanonicalTypeCategory.UNKNOWN, raw_vendor_type=raw)
 
     # ------------------------------------------------------------------

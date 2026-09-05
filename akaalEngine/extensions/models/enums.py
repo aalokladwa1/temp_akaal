@@ -28,9 +28,9 @@ class TrustTier(str, Enum):
 class IsolationMode(str, Enum):
     """Truthful declaration of extension execution isolation."""
     IN_PROCESS = "IN_PROCESS"                # Runs in engine Python process
-    SUBPROCESS_UNSUPPORTED = "SUBPROCESS"    # Subprocess execution (contract-reserved, unsupported in P0-P4)
-    WASM_UNSUPPORTED = "WASM"                # WebAssembly sandbox (contract-reserved, unsupported in P0-P4)
-    REMOTE_UNSUPPORTED = "REMOTE"            # Remote gRPC/IPC worker (contract-reserved, unsupported in P0-P4)
+    SUBPROCESS = "SUBPROCESS"                # Real separate-OS-process isolation (P7A.3, akaalEngine.extensions.sandbox)
+    WASM_UNSUPPORTED = "WASM"                # WebAssembly sandbox (contract-reserved, no WASM runtime in this repo/environment)
+    REMOTE_UNSUPPORTED = "REMOTE"            # Remote gRPC/IPC worker (contract-reserved, no remote worker infrastructure exists)
 
 
 class ExtensionLifecycleState(str, Enum):

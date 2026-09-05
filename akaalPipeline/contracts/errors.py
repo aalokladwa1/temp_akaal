@@ -60,14 +60,36 @@ class PipelineError(Exception):
             PipelineErrorCode.CONTRACT_INCOMPATIBLE: IPCErrorCategory.PROTOCOL_INCOMPATIBLE,
             PipelineErrorCode.PERSISTENCE_FAILURE: IPCErrorCategory.INTERNAL_ERROR,
             PipelineErrorCode.INTERNAL_ERROR: IPCErrorCategory.INTERNAL_ERROR,
+            # P7.13 item 7: externally indistinguishable from a genuine NOT_FOUND (same
+            # category AND same external code below) -- see PipelineErrorCode.TENANT_
+            # BOUNDARY_VIOLATION's docstring. The precise internal reason (self.code,
+            # self.message, self.details on THIS PipelineError instance, before this
+            # conversion) remains available to any in-process caller -- e.g. audit/
+            # evidence recording -- that receives the exception/actor directly rather
+            # than only this externally-serialized IPCError.
+            PipelineErrorCode.TENANT_BOUNDARY_VIOLATION: IPCErrorCategory.INVALID_REQUEST,
         }
+
+        # External code string: identical to category_map above for every code EXCEPT
+        # TENANT_BOUNDARY_VIOLATION, which is deliberately re-labeled to the same
+        # external code as NOT_FOUND (not its own distinct value) so that neither the
+        # category nor the code string lets an unauthorized caller distinguish "this
+        # resource belongs to a different tenant" from "this resource does not exist".
+        is_tenant_boundary = self.code == PipelineErrorCode.TENANT_BOUNDARY_VIOLATION
+        external_code = PipelineErrorCode.NOT_FOUND.value if is_tenant_boundary else self.code.value
+        # External message is also generic/existence-neutral for the same reason as the
+        # code above -- "unauthorized for tenant" phrasing would itself confirm the
+        # resource exists. self.message (this exception's own attribute) keeps the
+        # precise wording for any in-process/internal consumer.
+        external_message = "Resource not found." if is_tenant_boundary else self.message
+        external_details = {} if is_tenant_boundary else self.details
 
         cat = category_map.get(self.code, IPCErrorCategory.INTERNAL_ERROR)
         return make_error(
             cat,
-            code=self.code.value,
-            message=self.message,
-            details=self.details,
+            code=external_code,
+            message=external_message,
+            details=external_details,
             correlation_id=self.correlation_id,
         )
 

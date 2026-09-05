@@ -27,12 +27,14 @@ def test_unsupported_isolation_modes_rejected():
     from akaalEngine.extensions.models.enums import IsolationMode, TrustTier
     from akaalEngine.extensions.errors.taxonomy import ExtensionRegistrationError
 
-    # IN_PROCESS is supported and returns cleanly
+    # IN_PROCESS and SUBPROCESS are physically implemented (see P7A.3 akaalEngine.extensions.sandbox)
+    # and return cleanly.
     assert IsolationManager.verify_isolation_mode(IsolationMode.IN_PROCESS, TrustTier.COMMUNITY) == IsolationMode.IN_PROCESS
+    assert IsolationManager.verify_isolation_mode(IsolationMode.SUBPROCESS, TrustTier.COMMUNITY) == IsolationMode.SUBPROCESS
 
-    # SUBPROCESS_UNSUPPORTED, WASM_UNSUPPORTED, REMOTE_UNSUPPORTED fail closed
+    # WASM_UNSUPPORTED, REMOTE_UNSUPPORTED still fail closed -- no WASM runtime or remote
+    # worker infrastructure exists in this repository/environment.
     for unsupported in (
-        IsolationMode.SUBPROCESS_UNSUPPORTED,
         IsolationMode.WASM_UNSUPPORTED,
         IsolationMode.REMOTE_UNSUPPORTED,
     ):

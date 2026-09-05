@@ -6,7 +6,7 @@ Pipeline side-effect-free query service.
 from __future__ import annotations
 
 import sqlite3
-from typing import Any, List, Mapping, Optional
+from typing import Any, Dict, List, Mapping, Optional
 from akaalPipeline.contracts.errors import PipelineError, PipelineErrorCode
 from akaalPipeline.operations.models import OperationRecord
 from akaalPipeline.operations.service import OperationService
@@ -36,13 +36,18 @@ class PipelineQueryService:
         if agg is None:
             raise PipelineError(PipelineErrorCode.INVALID_REQUEST, f"Migration {migration_id!r} not found.")
 
-        if actor is not None:
-            if agg.tenant_id and agg.tenant_id != actor.organization_id:
-                raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Migration {migration_id!r} not found or unauthorized for tenant.")
-            if actor.workspace_id and agg.workspace_id and agg.workspace_id != actor.workspace_id:
-                raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Migration {migration_id!r} belongs to a different workspace.")
-            if actor.project_id and agg.project_id and agg.project_id != actor.project_id:
-                raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Migration {migration_id!r} belongs to a different project.")
+        # P7.10: tenant-scope enforcement is mandatory, not opt-in. A missing actor
+        # is a caller defect, never an implicit grant -- fail closed rather than
+        # silently returning cross-tenant data to an unidentified caller.
+        if actor is None:
+            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Migration {migration_id!r} requires an authenticated actor context.")
+        actor.enforce_resource_scope(
+            resource_tenant_id=agg.tenant_id,
+            resource_workspace_id=agg.workspace_id,
+            resource_project_id=agg.project_id,
+            resource_kind="Migration",
+            resource_id=migration_id,
+        )
 
         return agg
 
@@ -51,14 +56,46 @@ class PipelineQueryService:
         actor: Optional[PipelineActorContext] = None,
         tenant_id: Optional[str] = None,
         conn: Optional[sqlite3.Connection] = None,
+        limit: Optional[int] = None,
+        offset: int = 0,
+        status: Optional[str] = None,
+        mode: Optional[str] = None,
     ) -> List[MigrationAggregate]:
+        """
+        Bounded, SQL-level pagination: limit/offset (and tenant/workspace/project scoping)
+        are applied by the repository's own query, not by fetching every row and slicing
+        the Python list afterward -- so the backend work itself stays bounded regardless
+        of how large the underlying migration collection grows.
+        """
         effective_tenant = actor.organization_id if actor else tenant_id
-        migrations = self.repository.list_all(tenant_id=effective_tenant, connection=conn)
-        if actor and actor.workspace_id:
-            migrations = [m for m in migrations if not m.workspace_id or m.workspace_id == actor.workspace_id]
-        if actor and actor.project_id:
-            migrations = [m for m in migrations if not m.project_id or m.project_id == actor.project_id]
-        return migrations
+        return self.repository.list_all(
+            tenant_id=effective_tenant,
+            connection=conn,
+            limit=limit,
+            offset=offset,
+            workspace_id=actor.workspace_id if actor else None,
+            project_id=actor.project_id if actor else None,
+            status=status,
+            mode=mode,
+        )
+
+    def count_migrations(
+        self,
+        actor: Optional[PipelineActorContext] = None,
+        tenant_id: Optional[str] = None,
+        conn: Optional[sqlite3.Connection] = None,
+        status: Optional[str] = None,
+        mode: Optional[str] = None,
+    ) -> int:
+        effective_tenant = actor.organization_id if actor else tenant_id
+        return self.repository.count_all(
+            tenant_id=effective_tenant,
+            connection=conn,
+            workspace_id=actor.workspace_id if actor else None,
+            project_id=actor.project_id if actor else None,
+            status=status,
+            mode=mode,
+        )
 
 
     def get_operation(
@@ -73,16 +110,17 @@ class PipelineQueryService:
         if op is None:
             raise PipelineError(PipelineErrorCode.INVALID_REQUEST, f"Operation {operation_id!r} not found.")
 
-        if actor is not None:
-            op_org = getattr(op.actor, "organization_id", None)
-            if op_org and op_org != actor.organization_id:
-                raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Operation {operation_id!r} not found or unauthorized for tenant.")
-            op_ws = getattr(op.actor, "workspace_id", None)
-            if actor.workspace_id and op_ws and op_ws != actor.workspace_id:
-                raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Operation {operation_id!r} belongs to a different workspace.")
-            op_proj = getattr(op.actor, "project_id", None)
-            if actor.project_id and op_proj and op_proj != actor.project_id:
-                raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Operation {operation_id!r} belongs to a different project.")
+        if actor is None:
+            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Operation {operation_id!r} requires an authenticated actor context.")
+        op_org = getattr(op.actor, "organization_id", None)
+        if op_org:
+            actor.enforce_resource_scope(
+                resource_tenant_id=op_org,
+                resource_workspace_id=getattr(op.actor, "workspace_id", None),
+                resource_project_id=getattr(op.actor, "project_id", None),
+                resource_kind="Operation",
+                resource_id=operation_id,
+            )
         return op
 
     def evaluate_mutability(
@@ -99,8 +137,15 @@ class PipelineQueryService:
         if migration_id and conn:
             agg = self.repository.get_by_id(migration_id, connection=conn)
             if agg:
-                if actor and agg.tenant_id != actor.organization_id:
-                    raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Migration {migration_id!r} unauthorized for tenant.")
+                if actor is None:
+                    raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Migration {migration_id!r} requires an authenticated actor context.")
+                actor.enforce_resource_scope(
+                    resource_tenant_id=agg.tenant_id,
+                    resource_workspace_id=agg.workspace_id,
+                    resource_project_id=agg.project_id,
+                    resource_kind="Migration",
+                    resource_id=migration_id,
+                )
                 state = agg.state
                 mode = agg.mode
         res = OperationalMutabilityResolver.evaluate(parameter_name, current_state=state, mode=mode)
@@ -191,8 +236,9 @@ class PipelineQueryService:
         if sch is None:
             raise PipelineError(PipelineErrorCode.INVALID_REQUEST, f"Schedule {schedule_id!r} not found.")
 
-        if actor and sch.tenant_id != actor.organization_id:
-            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Schedule {schedule_id!r} unauthorized for tenant.")
+        if actor is None:
+            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Schedule {schedule_id!r} requires an authenticated actor context.")
+        actor.enforce_resource_scope(resource_tenant_id=sch.tenant_id, resource_kind="Schedule", resource_id=schedule_id)
 
         return sch.to_dict()
 
@@ -226,8 +272,9 @@ class PipelineQueryService:
         if occ is None:
             raise PipelineError(PipelineErrorCode.INVALID_REQUEST, f"Occurrence {occurrence_id!r} not found.")
 
-        if actor and occ.tenant_id != actor.organization_id:
-            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Occurrence {occurrence_id!r} unauthorized for tenant.")
+        if actor is None:
+            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Occurrence {occurrence_id!r} requires an authenticated actor context.")
+        actor.enforce_resource_scope(resource_tenant_id=occ.tenant_id, resource_kind="ScheduleOccurrence", resource_id=occurrence_id)
 
         return occ.to_dict()
 
@@ -245,8 +292,9 @@ class PipelineQueryService:
         if sch is None:
             raise PipelineError(PipelineErrorCode.INVALID_REQUEST, f"Schedule {schedule_id!r} not found.")
 
-        if actor and sch.tenant_id != actor.organization_id:
-            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Schedule {schedule_id!r} unauthorized for tenant.")
+        if actor is None:
+            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Schedule {schedule_id!r} requires an authenticated actor context.")
+        actor.enforce_resource_scope(resource_tenant_id=sch.tenant_id, resource_kind="Schedule", resource_id=schedule_id)
 
         occs = service.list_occurrences(schedule_id, conn, limit=limit)
         return [o.to_dict() for o in occs]
@@ -298,8 +346,9 @@ class PipelineQueryService:
         if op is None:
             raise PipelineError(PipelineErrorCode.INVALID_REQUEST, f"Retention operation {retention_op_id!r} not found.")
 
-        if actor and op.tenant_id != actor.organization_id:
-            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Retention operation {retention_op_id!r} unauthorized for tenant.")
+        if actor is None:
+            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Retention operation {retention_op_id!r} requires an authenticated actor context.")
+        actor.enforce_resource_scope(resource_tenant_id=op.tenant_id, resource_kind="RetentionOperation", resource_id=retention_op_id)
 
         return op.to_dict()
 
@@ -411,8 +460,9 @@ class PipelineQueryService:
         alert = service.get_alert_by_id(alert_id, conn)
         if not alert:
             raise PipelineError(PipelineErrorCode.NOT_FOUND, f"Alert {alert_id!r} not found.")
-        if actor and alert.tenant_id != actor.organization_id:
-            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Alert {alert_id!r} unauthorized for tenant.")
+        if actor is None:
+            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Alert {alert_id!r} requires an authenticated actor context.")
+        actor.enforce_resource_scope(resource_tenant_id=alert.tenant_id, resource_kind="Alert", resource_id=alert_id)
         return alert.to_dict()
 
     def list_incidents(
@@ -443,8 +493,9 @@ class PipelineQueryService:
         incident = service.get_incident(incident_id, conn)
         if not incident:
             raise PipelineError(PipelineErrorCode.NOT_FOUND, f"Incident {incident_id!r} not found.")
-        if actor and incident.tenant_id != actor.organization_id:
-            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Incident {incident_id!r} unauthorized for tenant.")
+        if actor is None:
+            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Incident {incident_id!r} requires an authenticated actor context.")
+        actor.enforce_resource_scope(resource_tenant_id=incident.tenant_id, resource_kind="Incident", resource_id=incident_id)
         return incident.to_dict()
 
     def get_incident_timeline(
@@ -459,8 +510,9 @@ class PipelineQueryService:
         incident = service.get_incident(incident_id, conn)
         if not incident:
             raise PipelineError(PipelineErrorCode.NOT_FOUND, f"Incident {incident_id!r} not found.")
-        if actor and incident.tenant_id != actor.organization_id:
-            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Incident {incident_id!r} unauthorized for tenant.")
+        if actor is None:
+            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Incident {incident_id!r} requires an authenticated actor context.")
+        actor.enforce_resource_scope(resource_tenant_id=incident.tenant_id, resource_kind="Incident", resource_id=incident_id)
         timeline = service.get_timeline(incident_id, conn)
         return [t.to_dict() for t in timeline]
 

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import Mapping, Optional, Sequence
 
+from akaalEngine.extensions.truth.authority_store import CertificationAuthorityStore
 from akaalEngine.extensions.dependencies.diagnostics import DependencyDiagnosticReport
 from akaalEngine.extensions.models.capability import CapabilityDeclaration, CapabilityTruth
 from akaalEngine.extensions.models.enums import ExtensionLifecycleState, ProofLevel
@@ -30,6 +31,11 @@ class CapabilityTruthResolver:
         dep_report: Optional[DependencyDiagnosticReport] = None,
         proof_references: Sequence[ProofReference] = (),
         certifications: Sequence[CertificationReference] = (),
+        authority_store: Optional[CertificationAuthorityStore] = None,
+        extension_id: Optional[str] = None,
+        extension_version: Optional[str] = None,
+        provider_id: Optional[str] = None,
+        strategy_id: Optional[str] = None,
     ) -> CapabilityTruth:
         cap_name_norm = capability_name.strip().upper()
 
@@ -38,8 +44,8 @@ class CapabilityTruthResolver:
                 capability_name=cap_name_norm,
                 is_supported=False,
                 proof_level=ProofLevel.DECLARED,
-                is_dependency_satisfied=True,
-                diagnostic=f"Capability '{cap_name_norm}' is not declared or explicitly unsupported.",
+                is_dependency_satisfied=False,
+                diagnostic=getattr(declaration, "notes", None) or f"Capability '{cap_name_norm}' is not declared or explicitly unsupported.",
             )
 
         # Check lifecycle state: if UNAVAILABLE or FAULTED, it cannot be supported
@@ -75,6 +81,11 @@ class CapabilityTruthResolver:
             declaration=declaration,
             proof_references=proof_references,
             certifications=certifications,
+            authority_store=authority_store,
+            extension_id=extension_id,
+            extension_version=extension_version,
+            provider_id=provider_id,
+            strategy_id=strategy_id,
         )
 
         return CapabilityTruth(

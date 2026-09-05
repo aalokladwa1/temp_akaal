@@ -20,6 +20,10 @@ from akaalEngine.connection.providers.relational import (
     OracleProviderStrategy,
     MSSQLProviderStrategy,
     IBMDb2ProviderStrategy,
+    CockroachDBProviderStrategy,
+    YugabyteDBProviderStrategy,
+    TiDBProviderStrategy,
+    SingleStoreProviderStrategy,
 )
 
 from akaalEngine.connection.providers.warehouse import (
@@ -27,6 +31,7 @@ from akaalEngine.connection.providers.warehouse import (
     BigQueryProviderStrategy,
     RedshiftProviderStrategy,
     DatabricksProviderStrategy,
+    ClickHouseProviderStrategy,
 )
 
 from akaalEngine.connection.providers.nosql import (
@@ -38,6 +43,8 @@ from akaalEngine.connection.providers.nosql import (
     KeyDBProviderStrategy,
     ElasticsearchProviderStrategy,
     OpenSearchProviderStrategy,
+    DynamoDBProviderStrategy,
+    CouchbaseProviderStrategy,
 )
 
 from akaalEngine.connection.providers.streaming import (
@@ -45,6 +52,8 @@ from akaalEngine.connection.providers.streaming import (
     KinesisProviderStrategy,
     EventHubsProviderStrategy,
     PubSubProviderStrategy,
+    RabbitMQProviderStrategy,
+    PulsarProviderStrategy,
 )
 
 from akaalEngine.connection.providers.storage import (
@@ -53,6 +62,10 @@ from akaalEngine.connection.providers.storage import (
     AzureBlobProviderStrategy,
     MinIOProviderStrategy,
     HDFSProviderStrategy,
+)
+
+from akaalEngine.connection.providers.timeseries import (
+    InfluxDBProviderStrategy,
 )
 
 __all__ = [
@@ -69,11 +82,16 @@ __all__ = [
     "OracleProviderStrategy",
     "MSSQLProviderStrategy",
     "IBMDb2ProviderStrategy",
+    "CockroachDBProviderStrategy",
+    "YugabyteDBProviderStrategy",
+    "TiDBProviderStrategy",
+    "SingleStoreProviderStrategy",
     # Warehouse
     "SnowflakeProviderStrategy",
     "BigQueryProviderStrategy",
     "RedshiftProviderStrategy",
     "DatabricksProviderStrategy",
+    "ClickHouseProviderStrategy",
     # NoSQL
     "MongoDBProviderStrategy",
     "CassandraProviderStrategy",
@@ -83,15 +101,21 @@ __all__ = [
     "KeyDBProviderStrategy",
     "ElasticsearchProviderStrategy",
     "OpenSearchProviderStrategy",
+    "DynamoDBProviderStrategy",
+    "CouchbaseProviderStrategy",
     # Streaming
     "KafkaProviderStrategy",
     "KinesisProviderStrategy",
     "EventHubsProviderStrategy",
     "PubSubProviderStrategy",
+    "RabbitMQProviderStrategy",
+    "PulsarProviderStrategy",
     # Storage
     "S3ProviderStrategy",
     "GCSProviderStrategy",
     "AzureBlobProviderStrategy",
     "MinIOProviderStrategy",
     "HDFSProviderStrategy",
+    # Time-series
+    "InfluxDBProviderStrategy",
 ]

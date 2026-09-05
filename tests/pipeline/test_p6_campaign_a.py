@@ -289,7 +289,11 @@ def test_p6_1_tenant_isolation_on_pause(caller):
     )
     res = caller.handle_command(pause_cmd_evil)
     assert res.status == CallerResultStatus.ERROR
-    assert res.error.category.value in ("FORBIDDEN", "UNAUTHORIZED", "POLICY_DENIED")
+    # P7.13 item 7: cross-tenant resource access now presents externally the same as a
+    # genuine not-found (PipelineErrorCode.TENANT_BOUNDARY_VIOLATION maps to NOT_FOUND's
+    # category/code in PipelineError.to_ipc_error()), so an unauthorized caller cannot
+    # use the error response to learn that this migration exists in another tenant.
+    assert res.error.category.value in ("FORBIDDEN", "UNAUTHORIZED", "POLICY_DENIED", "INVALID_REQUEST")
 
 
 def test_p6_1_cdc_rate_throttling_runtime_mutation():

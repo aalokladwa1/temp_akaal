@@ -11,6 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Optional, Sequence
 
+from akaalEngine.extensions.errors.taxonomy import CapabilityNotSupportedError
 from akaalEngine.extensions.lifecycle.leases import HandleLeaseTracker, LeaseToken, default_lease_tracker
 from akaalEngine.extensions.models.capability import CapabilityTruth
 from akaalEngine.extensions.models.identity import (
@@ -46,6 +47,29 @@ class ResolvedStrategyHandle:
     def is_capability_supported(self, capability_name: str) -> bool:
         cap = self.capabilities.get(capability_name.strip().upper())
         return cap.is_supported if cap else False
+
+    def require_capability(self, capability_name: str) -> CapabilityTruth:
+        """
+        Fail-closed capability gate: raises CapabilityNotSupportedError unless the resolved
+        strategy has an affirmatively supported (and dependency-satisfied) declaration for
+        `capability_name`. A missing declaration is treated identically to an explicit
+        is_supported=False -- silence is never treated as support.
+        """
+        key = capability_name.strip().upper()
+        cap = self.capabilities.get(key)
+        if cap is None or not cap.is_supported:
+            diagnostic = cap.diagnostic if cap is not None else "no capability declaration present"
+            raise CapabilityNotSupportedError(
+                f"Strategy '{self.strategy_id}' (provider '{self.provider_id}', authority "
+                f"'{self.authority_id}') does not support capability '{key}': {diagnostic}.",
+                details={
+                    "provider_id": str(self.provider_id),
+                    "authority_id": str(self.authority_id),
+                    "strategy_id": str(self.strategy_id),
+                    "capability_name": key,
+                },
+            )
+        return cap
 
     def __enter__(self) -> ResolvedStrategyHandle:
         return self

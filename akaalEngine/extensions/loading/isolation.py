@@ -19,6 +19,8 @@ class IsolationManager:
     Enforces that only physically implemented isolation modes (IN_PROCESS) may be registered/activated.
     """
 
+    _PHYSICALLY_IMPLEMENTED = (IsolationMode.IN_PROCESS, IsolationMode.SUBPROCESS)
+
     @classmethod
     def verify_isolation_mode(
         cls,
@@ -27,12 +29,15 @@ class IsolationManager:
     ) -> IsolationMode:
         """
         Validates isolation mode against available engine capabilities.
-        In P0-P4, only IN_PROCESS is physically implemented.
-        SUBPROCESS, WASM, and REMOTE fail closed with ExtensionRegistrationError.
+        IN_PROCESS (no isolation, engine's own process) and SUBPROCESS (real separate OS
+        process, see akaalEngine.extensions.sandbox.process_isolation.SubprocessSandbox)
+        are physically implemented. WASM and REMOTE fail closed: no WASM runtime is
+        installed and no remote worker infrastructure exists in this repository.
         """
-        if requested_mode == IsolationMode.IN_PROCESS:
-            return IsolationMode.IN_PROCESS
+        if requested_mode in cls._PHYSICALLY_IMPLEMENTED:
+            return requested_mode
 
         raise ExtensionRegistrationError(
-            f"Isolation mode '{requested_mode.value}' is not physically implemented in the Engine. Only 'IN_PROCESS' execution is supported."
+            f"Isolation mode '{requested_mode.value}' is not physically implemented in the Engine. "
+            f"Only {', '.join(m.value for m in cls._PHYSICALLY_IMPLEMENTED)} execution is supported."
         )

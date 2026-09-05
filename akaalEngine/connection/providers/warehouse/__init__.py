@@ -8,10 +8,12 @@ from akaalEngine.connection.providers.warehouse.snowflake import SnowflakeProvid
 from akaalEngine.connection.providers.warehouse.bigquery import BigQueryProviderStrategy
 from akaalEngine.connection.providers.warehouse.redshift import RedshiftProviderStrategy
 from akaalEngine.connection.providers.warehouse.databricks import DatabricksProviderStrategy
+from akaalEngine.connection.providers.warehouse.clickhouse import ClickHouseProviderStrategy
 
 __all__ = [
     "SnowflakeProviderStrategy",
     "BigQueryProviderStrategy",
     "RedshiftProviderStrategy",
     "DatabricksProviderStrategy",
+    "ClickHouseProviderStrategy",
 ]

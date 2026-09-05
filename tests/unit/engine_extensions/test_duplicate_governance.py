@@ -24,7 +24,7 @@ from akaalEngine.extensions.spi.authority_contract import (
 )
 
 
-def _create_simple_manifest(ext_id: str, prov_id: str, origin: ExtensionOrigin = ExtensionOrigin.THIRD_PARTY_PACKAGE) -> ExtensionManifest:
+def _create_simple_manifest(ext_id: str, prov_id: str, origin: ExtensionOrigin = ExtensionOrigin.LOCAL_WORKSPACE) -> ExtensionManifest:
     default_contract_registry.register_contract(
         AuthorityContractDefinition(
             authority_id=AuthorityId("transport"),

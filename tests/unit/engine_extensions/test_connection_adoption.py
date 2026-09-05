@@ -16,7 +16,7 @@ def test_connection_providers_adoption_completeness():
     ext_auth = ExtensionsAuthority.get_instance()
     adopted_provs = ext_auth.list_providers()
 
-    assert len(adopted_provs) == 28
+    assert len(adopted_provs) >= 28  # original Campaign A fleet; grows as P7A Campaign B adds providers
 
     expected_28 = [
         "sqlite", "postgresql", "mysql", "mariadb", "oracle", "mssql", "ibm_db2",
