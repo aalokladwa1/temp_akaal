@@ -37,7 +37,7 @@ import { ProjectItem } from '../../../core/models/migration-view.models';
           <div class="p-6 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-col justify-between gap-5">
             <div class="flex flex-col gap-3">
               <div class="flex items-center justify-between">
-                <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200">{{ proj.key }}</span>
+                <span class="px-2.5 py-0.5 rounded-md text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200">{{ proj.key }}</span>
                 <span class="text-xs font-semibold text-slate-500">{{ proj.membersCount }} Members</span>
               </div>
               <h3 class="text-base font-bold text-slate-900">{{ proj.name }}</h3>

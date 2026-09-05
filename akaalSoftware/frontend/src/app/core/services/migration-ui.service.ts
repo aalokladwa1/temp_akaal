@@ -18,7 +18,13 @@ import {
   TopologyNode,
   SelectedScopeRule,
   TableMappingItem,
-  CodeTranspilerItem
+  CodeTranspilerItem,
+  SourceVerificationResult,
+  TargetVerificationResult,
+  CollisionPolicyType,
+  DiscoveryDepthTier,
+  ScopeCompoundRule,
+  NetworkRouteType
 } from '../models/migration-view.models';
 
 export interface WizardDraftState {
@@ -26,6 +32,9 @@ export interface WizardDraftState {
   description: string;
   environment: string;
   priority: 'LOW' | 'NORMAL' | 'HIGH' | 'CRITICAL';
+  criticalityTier: 'TIER_1' | 'TIER_2' | 'TIER_3';
+  downtimeRequirement: 'ZERO_DOWNTIME' | 'MAINTENANCE_WINDOW' | null;
+  tags: string[];
   owner: string;
   projectId?: string;
   mode: MigrationMode;
@@ -39,8 +48,12 @@ export interface WizardDraftState {
   sourceUsername: string;
   sourceSecretRef: string;
   sourceTls: boolean;
-  sourceNetworkRoute: 'DIRECT' | 'SSH_BASTION' | 'PROXY' | 'PRIVATE_ENDPOINT' | 'CUSTOM';
+  sourceNetworkRoute: NetworkRouteType;
   sourceBastionHost?: string;
+  sourceParams?: Record<string, any>;
+  sourceSaveToVault?: boolean;
+  sourceVerified?: boolean;
+  sourceVerificationResult?: SourceVerificationResult;
 
   targetConnectionMode: 'SAVED' | 'NEW';
   targetConnectionId?: string;
@@ -51,12 +64,37 @@ export interface WizardDraftState {
   targetUsername: string;
   targetSecretRef: string;
   targetTls: boolean;
-  targetNetworkRoute: 'DIRECT' | 'SSH_BASTION' | 'PROXY' | 'PRIVATE_ENDPOINT' | 'CUSTOM';
+  targetNetworkRoute: NetworkRouteType;
   targetBastionHost?: string;
+  targetParams?: Record<string, any>;
+  targetSaveToVault?: boolean;
+  targetVerified?: boolean;
+  targetVerificationResult?: TargetVerificationResult;
+  collisionPolicy?: CollisionPolicyType;
+  productionCollisionAcknowledged?: boolean;
+  targetSchema?: string;
+  targetAutoCreateSchema?: boolean;
+  targetIngestionEngine?: string;
 
   discoveryDepth: 'QUICK' | 'STANDARD' | 'DEEP' | 'COMPLIANCE';
+  discoveryDepthTier?: DiscoveryDepthTier;
+  discoveryHash?: string;
   selectedTopologyNodes: string[];
   scopeRules: SelectedScopeRule[];
+  compoundRules?: ScopeCompoundRule[];
+  includeParentDependencies?: boolean;
+  includeDownstreamDependencies?: boolean;
+  unresolvedFkCount?: number;
+  ignoreFkWarnings?: boolean;
+  isScopeSaved?: boolean;
+  isScopeFrozen?: boolean;
+  isScopeLocked?: boolean;
+  hasCdcBlockers?: boolean;
+  hasIncrementalBlockers?: boolean;
+  scopeFingerprint?: string;
+  hasStep5Blockers?: boolean;
+  step5BlockerCount?: number;
+  step5GovernanceCount?: number;
 
   activeStudioTab: 'MAPPING' | 'TRANSPILER';
   tableMapping: TableMappingItem;
@@ -169,7 +207,7 @@ export class MigrationUiService {
 
   public wizardConfigDomains = computed<ConfigDomainGroup[]>(() => {
     const draft = this.wizardDraft();
-    return this.fixtures.getDynamicConfigDomains(draft.mode);
+    return this.fixtures.getDynamicConfigDomains(draft.mode || 'M1_BULK');
   });
 
   // Save Lifecycle Signal
@@ -185,7 +223,7 @@ export class MigrationUiService {
   // Computed Execution Plan incorporating custom operator-authored Approval Barriers
   public wizardExecutionPlan = computed<ExecutionPlanViewModel>(() => {
     const draft = this.wizardDraft();
-    const basePlan = this.fixtures.getExecutionPlanForMode(draft.mode);
+    const basePlan = this.fixtures.getExecutionPlanForMode(draft.mode || 'M1_BULK');
     const customBarriers = this.draftCustomBarriers();
 
     // Adjust pre-existing barrier defaults based on environment
@@ -233,6 +271,38 @@ export class MigrationUiService {
     };
   });
 
+  // Global Destructive Action Confirmation Modal State
+  public isDestructiveConfirmModalOpen = signal<boolean>(false);
+  public dropConfirmationInput = signal<string>('');
+
+  public openDestructiveModal(): void {
+    this.dropConfirmationInput.set('');
+    this.isDestructiveConfirmModalOpen.set(true);
+  }
+
+  public closeDestructiveModal(): void {
+    this.isDestructiveConfirmModalOpen.set(false);
+    this.dropConfirmationInput.set('');
+  }
+
+  public confirmDestructiveAction(): void {
+    if (this.dropConfirmationInput().trim() === 'DROP TARGET TABLES') {
+      this.updateDraft({
+        collisionPolicy: 'DROP_AND_RECREATE',
+        productionCollisionAcknowledged: true
+      });
+      this.closeDestructiveModal();
+    }
+  }
+
+  public cancelDestructiveAction(): void {
+    this.closeDestructiveModal();
+    this.updateDraft({
+      collisionPolicy: 'FAIL_ON_COLLISION',
+      productionCollisionAcknowledged: false
+    });
+  }
+
   constructor(fixtures?: MigrationDevFixturesAdapter) {
     if (fixtures) {
       this.fixtures = fixtures;
@@ -252,36 +322,54 @@ export class MigrationUiService {
     return {
       name: '',
       description: '',
-      environment: 'Production',
+      environment: '' as any,
       priority: 'NORMAL',
+      criticalityTier: 'TIER_2',
+      downtimeRequirement: null,
+      tags: [],
       owner: 'Aalok Ladwa',
-      mode: 'M1_BULK',
+      mode: '' as any,
 
-      sourceConnectionMode: 'SAVED',
-      sourceConnectionId: 'conn-01',
-      sourceProvider: 'Oracle',
-      sourceHost: 'ora-rac-01.corp.internal',
-      sourcePort: 1521,
-      sourceDatabase: 'ORCLPDB',
-      sourceUsername: 'c##akaal_miner',
-      sourceSecretRef: 'vault://secret/prod/oracle_pass',
+      sourceConnectionMode: '' as any,
+      sourceConnectionId: '',
+      sourceProvider: '' as any,
+      sourceHost: '',
+      sourcePort: 0,
+      sourceDatabase: '',
+      sourceUsername: '',
+      sourceSecretRef: '',
       sourceTls: true,
       sourceNetworkRoute: 'DIRECT',
+      sourceVerified: false,
+      sourceSaveToVault: false,
+      sourceParams: {},
 
-      targetConnectionMode: 'SAVED',
-      targetConnectionId: 'conn-02',
-      targetProvider: 'PostgreSQL',
-      targetHost: 'aurora-pg.aws.internal',
-      targetPort: 5432,
-      targetDatabase: 'app_production',
-      targetUsername: 'akaal_app',
-      targetSecretRef: 'vault://secret/prod/pg_pass',
+      targetConnectionMode: '' as any,
+      targetConnectionId: '',
+      targetProvider: '' as any,
+      targetHost: '',
+      targetPort: 0,
+      targetDatabase: '',
+      targetUsername: '',
+      targetSecretRef: '',
       targetTls: true,
       targetNetworkRoute: 'DIRECT',
+      targetBastionHost: '',
+      targetParams: {},
+      targetSaveToVault: false,
+      targetVerified: false,
+      collisionPolicy: 'FAIL_ON_COLLISION',
+      productionCollisionAcknowledged: false,
+      targetSchema: '',
+      targetAutoCreateSchema: true,
+      targetIngestionEngine: '',
 
       discoveryDepth: 'STANDARD',
-      selectedTopologyNodes: ['schema-sct', 'grp-tables', 'tbl-cust', 'tbl-acc', 'tbl-tx', 'tbl-audit'],
+      discoveryDepthTier: undefined,
+      discoveryHash: undefined,
+      selectedTopologyNodes: [],
       scopeRules: [],
+      isScopeSaved: true,
 
       activeStudioTab: 'MAPPING',
       tableMapping: this.fixtures.getTableMapping(),
@@ -639,16 +727,65 @@ export class MigrationUiService {
   public isStepValid(stepNum: number): boolean {
     const d = this.wizardDraft();
     switch (stepNum) {
-      case 1:
-        return d.name.trim().length > 0;
-      case 2:
-        return d.sourceConnectionMode === 'SAVED' ? !!d.sourceConnectionId : !!d.sourceProvider;
-      case 3:
-        return d.targetConnectionMode === 'SAVED' ? !!d.targetConnectionId : !!d.targetProvider;
-      case 4:
-        return d.selectedTopologyNodes.length > 0;
-      case 5:
-        return true;
+      case 1: {
+        const name = (d.name || '').trim();
+        const isNameValid = name.length >= 3 && name.length <= 64 && /^[a-zA-Z0-9_ -]+$/.test(name);
+        const isEnvValid = ['Production', 'Non-Production', 'Staging', 'Development', 'QA', 'Sandbox', 'Disaster Recovery'].includes(d.environment);
+        const isModeValid = ['M1_BULK', 'M2_BULK_CDC', 'M3_CDC', 'M4_INCREMENTAL', 'M5_STATE_SYNC', 'M6_SCHEMA_ONLY', 'M7_DATA_ONLY'].includes(d.mode);
+        return isNameValid && isEnvValid && isModeValid;
+      }
+      case 2: {
+        const isVerified = !!d.sourceVerified && !d.sourceVerificationResult?.hasBlockingIssues;
+        if (d.sourceConnectionMode === 'SAVED') {
+          return !!d.sourceConnectionId && isVerified;
+        } else {
+          return !!d.sourceProvider && isVerified;
+        }
+      }
+      case 3: {
+        const isVerified =
+          !!d.targetVerified &&
+          !d.targetVerificationResult?.hasBlockingIssues &&
+          !d.targetVerificationResult?.compatibility?.isBlocked;
+        const isConnSelected =
+          d.targetConnectionMode === 'SAVED'
+            ? !!d.targetConnectionId
+            : !!d.targetProvider;
+        const isProd = d.environment === 'Production';
+        const hasConflicts = (d.targetVerificationResult?.targetContents?.conflictingObjectsCount || 0) > 0;
+        const isDestructive =
+          d.collisionPolicy === 'DROP_AND_RECREATE' ||
+          d.collisionPolicy === 'TRUNCATE_EXISTING' ||
+          d.collisionPolicy === 'TRUNCATE_AND_LOAD';
+        const isAckSatisfied =
+          !(isProd && hasConflicts && isDestructive) || !!d.productionCollisionAcknowledged;
+
+        // Self-targeting guard
+        const isSameEndpoint =
+          !!d.sourceHost &&
+          !!d.targetHost &&
+          d.sourceHost.toLowerCase().trim() === d.targetHost.toLowerCase().trim() &&
+          (d.sourceDatabase || '').toLowerCase().trim() === (d.targetDatabase || '').toLowerCase().trim();
+        const hasDifferentSchema = !!d.targetSchema && d.targetSchema.trim() !== '' && d.targetSchema.trim() !== (d.sourceDatabase || '').trim();
+        const isSelfTargetBlocked = isSameEndpoint && !hasDifferentSchema;
+
+        return isConnSelected && isVerified && isAckSatisfied && !isSelfTargetBlocked;
+      }
+      case 4: {
+        if (d.isScopeFrozen !== undefined) {
+          return d.isScopeFrozen;
+        }
+        if (d.isScopeSaved !== undefined && !d.isScopeSaved) {
+          return false;
+        }
+        const hasNodes = (d.selectedTopologyNodes || []).length > 0;
+        const fkResolved = (d.unresolvedFkCount || 0) === 0 || !!d.ignoreFkWarnings;
+        return hasNodes && fkResolved;
+      }
+      case 5: {
+        const hasScope = (d.selectedTopologyNodes || []).length > 0;
+        return hasScope && !d.hasStep5Blockers;
+      }
       case 6:
         return true;
       case 7:
@@ -679,5 +816,74 @@ export class MigrationUiService {
       currentStep: 1
     }));
     this.triggerAutoSave();
+  }
+
+  public launchDraftMigration(): string {
+    const draft = this.wizardDraft();
+    const newId = `mig-${Date.now().toString().slice(-4)}`;
+    const newMigration: MigrationPortfolioItem = {
+      id: newId,
+      name: draft.name || `${draft.sourceProvider} to ${draft.targetProvider} Migration`,
+      sourceEngine: draft.sourceProvider,
+      sourceInstance: `${draft.sourceHost || 'source-db.internal'}:${draft.sourcePort}`,
+      targetEngine: draft.targetProvider,
+      targetInstance: `${draft.targetHost || 'target-db.internal'}:${draft.targetPort}`,
+      mode: draft.mode,
+      environment: draft.environment,
+      lifecycleState: 'RUNNING',
+      currentStage: 'Worker Partitions Initializing',
+      progressPercent: 0,
+      health: 'HEALTHY',
+      attentionCount: 0,
+      requiresApproval: draft.customBarriersCount > 0,
+      planVersion: `v${draft.planVersion}.0`,
+      planFingerprint: 'Pending canonical compilation',
+      etaString: 'Calculating',
+      updatedAt: new Date().toISOString()
+    };
+
+    this.portfolioMigrations.update(list => [newMigration, ...list]);
+    this.selectedMigrationId.set(newId);
+    return newId;
+  }
+
+  public canLockScope(): boolean {
+    const d = this.wizardDraft();
+    const hasNodes = (d.selectedTopologyNodes || []).length > 0;
+    const fkResolved = (d.unresolvedFkCount || 0) === 0 || !!d.ignoreFkWarnings;
+    const isCdc = d.mode === 'M2_BULK_CDC' || d.mode === 'M3_CDC';
+    const cdcResolved = !isCdc || !d.hasCdcBlockers;
+    const isIncremental = d.mode === 'M4_INCREMENTAL';
+    const incResolved = !isIncremental || !d.hasIncrementalBlockers;
+    return hasNodes && fkResolved && cdcResolved && incResolved;
+  }
+
+  public lockScope(): void {
+    if (!this.canLockScope()) return;
+    const d = this.wizardDraft();
+    const snapshotHash = d.discoveryHash || '7f9a2b8e';
+    const scopeData = (d.selectedTopologyNodes || []).slice().sort().join(',');
+    let hash = 0;
+    for (let i = 0; i < scopeData.length; i++) {
+      hash = (hash << 5) - hash + scopeData.charCodeAt(i);
+      hash |= 0;
+    }
+    const hex = Math.abs(hash).toString(16).padStart(8, '0');
+    const fingerprint = `${hex}a3f89b1c`.slice(0, 16);
+
+    this.updateDraft({
+      isScopeLocked: true,
+      isScopeFrozen: true,
+      isScopeSaved: true,
+      scopeFingerprint: fingerprint
+    });
+  }
+
+  public unlockScope(): void {
+    this.updateDraft({
+      isScopeLocked: false,
+      isScopeFrozen: false,
+      isScopeSaved: false
+    });
   }
 }

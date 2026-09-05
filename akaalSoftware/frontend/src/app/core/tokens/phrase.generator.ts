@@ -26,13 +26,17 @@ export function generateGreetingContext(
   const displayName = userName?.trim() ? userName.trim() : 'Operator';
   const greeting = `${greetingPrefix}, ${displayName}.`;
 
-  // 2. Formatted local date (e.g. Thursday, 27 August)
+  // 2. Formatted local date (e.g. Tuesday, 1 September 2026)
   const options: Intl.DateTimeFormatOptions = { 
     weekday: 'long', 
     day: 'numeric', 
-    month: 'long' 
+    month: 'long',
+    year: 'numeric'
   };
-  const formattedDate = now.toLocaleDateString('en-GB', options);
+  // Format with explicit comma: "Tuesday, 1 September 2026"
+  const weekday = now.toLocaleDateString('en-GB', { weekday: 'long' });
+  const dayMonthYear = now.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+  const formattedDate = `${weekday}, ${dayMonthYear}`;
 
   // 3. Small curated deterministic state phrase system (Strict priority)
   let statePhrase = 'All quiet where it matters.';

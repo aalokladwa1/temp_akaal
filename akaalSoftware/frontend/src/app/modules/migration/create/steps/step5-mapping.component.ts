@@ -1,9 +1,14 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Step5MappingStoreService } from '../../../../core/services/step5-mapping-store.service';
 import { MigrationUiService } from '../../../../core/services/migration-ui.service';
 import { LucideIconComponent } from '../../../../shared/components/lucide-icon.component';
-import { CodeTranspilerItem, TableMappingItem, ColumnMappingRow } from '../../../../core/models/migration-view.models';
+import { MappingOverviewComponent } from './mapping-overview.component';
+import { MappingStructureComponent } from './mapping-structure.component';
+import { MappingFieldsComponent } from './mapping-fields.component';
+import { MappingControlsComponent } from './mapping-controls.component';
+import { TranspilerWorkspaceComponent } from './transpiler-workspace.component';
 
 @Component({
   selector: 'app-step5-mapping',
@@ -11,398 +16,331 @@ import { CodeTranspilerItem, TableMappingItem, ColumnMappingRow } from '../../..
   imports: [
     CommonModule,
     FormsModule,
-    LucideIconComponent
+    LucideIconComponent,
+    MappingOverviewComponent,
+    MappingStructureComponent,
+    MappingFieldsComponent,
+    MappingControlsComponent,
+    TranspilerWorkspaceComponent
   ],
+  host: {
+    class: 'flex flex-1 flex-col w-full h-full min-h-0'
+  },
   template: `
-    <div class="flex flex-col gap-6 animate-in fade-in duration-150 text-xs select-none">
+    <div class="w-full h-full flex flex-col gap-3 min-h-0 font-sans text-xs select-none relative">
       
-      <!-- Header -->
-      <div class="flex items-center justify-between pb-2 border-b border-slate-200">
-        <div class="flex items-center gap-2">
-          <div class="w-8 h-8 rounded-lg bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center font-bold">
-            <app-lucide-icon name="table-properties" [size]="16"></app-lucide-icon>
+      <!-- ========================================================================= -->
+      <!-- ROW 1: TOP CONTEXT LINE & MASTER WORKSPACE SWITCHER                       -->
+      <!-- ========================================================================= -->
+      <header class="h-11 px-4 bg-white border border-slate-200 rounded-lg flex items-center justify-between shrink-0">
+        
+        <!-- Left: Context Line (Source -> Target, Mode, Scoped Counts) -->
+        <div class="flex items-center gap-2.5 min-w-0">
+          <div class="flex items-center gap-1.5 font-bold text-slate-900 text-xs">
+            <span class="truncate">{{ ms.wizardDraft().sourceProvider }}</span>
+            <app-lucide-icon name="arrow-right" [size]="12" class="text-slate-400 shrink-0"></app-lucide-icon>
+            <span class="truncate">{{ ms.wizardDraft().targetProvider }}</span>
           </div>
-          <div>
-            <h2 class="text-base font-bold text-slate-900">Step 5 &bull; MAPPING &amp; CODE TRANSPILATION</h2>
-            <p class="text-xs text-slate-500 font-medium">Table routing, column type coercion, PII masking, deduplication, and code conversion.</p>
-          </div>
-        </div>
 
-        <div class="flex items-center gap-2">
-          <span class="text-slate-500 font-medium">Fidelity:</span>
-          <span class="px-2.5 py-1 rounded-md bg-blue-50 text-blue-700 font-bold border border-blue-200 font-mono">
-            {{ ms.wizardDraft().sourceProvider }} &rarr; {{ ms.wizardDraft().targetProvider }}
+          <span class="h-3.5 w-[1px] bg-slate-300 shrink-0"></span>
+
+          <!-- Migration Mode Tag -->
+          <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-50 border border-slate-200 text-slate-700 shrink-0 font-semibold uppercase">
+            {{ ms.wizardDraft().mode }}
           </span>
+
+          <span class="h-3.5 w-[1px] bg-slate-300 shrink-0"></span>
+
+          <!-- Object Count Summary -->
+          <span class="text-xs text-slate-500 font-medium shrink-0">
+            {{ store.objects().length }} scoped object{{ store.objects().length === 1 ? '' : 's' }}
+          </span>
+
+          <!-- Controls Active Chip -->
+          @if (hasActiveDataControls()) {
+            <span class="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-700 font-semibold shrink-0">
+              <app-lucide-icon name="shield" [size]="10"></app-lucide-icon>
+              <span>Data Controls Active</span>
+            </span>
+          }
         </div>
-      </div>
 
-      <!-- Studio Dual-Tab Navigation -->
-      <div class="flex items-center gap-2 p-1 rounded-xl bg-slate-100/80 border border-slate-200 w-fit">
-        <button
-          type="button"
-          (click)="activeStudioTab.set('MAPPING')"
-          class="h-8 px-4 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
-          [class.bg-white]="activeStudioTab() === 'MAPPING'"
-          [class.text-blue-700]="activeStudioTab() === 'MAPPING'"
-          [class.shadow-2xs]="activeStudioTab() === 'MAPPING'"
-          [class.text-slate-600]="activeStudioTab() !== 'MAPPING'">
-          <app-lucide-icon name="table-properties" [size]="14"></app-lucide-icon>
-          <span>Table &amp; Column Mapping Studio</span>
-        </button>
+        <!-- Right: Master Workspace Segmented Control: [ Mapping Studio ] vs [ Transpiler Studio ] -->
+        <div class="flex items-center gap-2 shrink-0">
+          <div class="flex items-center rounded-lg border border-slate-200 bg-slate-100 p-0.5">
+            <button
+              type="button"
+              (click)="store.setWorkspace('MAPPING')"
+              class="h-7 px-3 rounded-md text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 hover:bg-blue-50 hover:text-blue-700"
+              [class.bg-white]="store.activeWorkspace() === 'MAPPING'"
+              [class.text-blue-700]="store.activeWorkspace() === 'MAPPING'"
+              [class.border]="store.activeWorkspace() === 'MAPPING'"
+              [class.border-slate-200]="store.activeWorkspace() === 'MAPPING'"
+              [class.text-slate-600]="store.activeWorkspace() !== 'MAPPING'">
+              <app-lucide-icon name="layers" [size]="12"></app-lucide-icon>
+              <span>Mapping Studio</span>
+            </button>
 
-        <button
-          type="button"
-          (click)="activeStudioTab.set('TRANSPILER')"
-          class="h-8 px-4 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
-          [class.bg-white]="activeStudioTab() === 'TRANSPILER'"
-          [class.text-blue-700]="activeStudioTab() === 'TRANSPILER'"
-          [class.shadow-2xs]="activeStudioTab() === 'TRANSPILER'"
-          [class.text-slate-600]="activeStudioTab() !== 'TRANSPILER'">
-          <app-lucide-icon name="code" [size]="14"></app-lucide-icon>
-          <span>Code Transpiler Studio (SCT Workbench)</span>
-        </button>
-      </div>
-
-      <!-- =============================================================== -->
-      <!-- TAB 1: TABLE & COLUMN MAPPING STUDIO (3-COLUMN LAYOUT)          -->
-      <!-- =============================================================== -->
-      @if (activeStudioTab() === 'MAPPING') {
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-          
-          <!-- LEFT (22%): Source Table Tree -->
-          <div class="lg:col-span-3 flex flex-col gap-3 p-4 rounded-xl bg-white border border-slate-200/90 shadow-2xs">
-            <div class="pb-2 border-b border-slate-100 flex items-center justify-between">
-              <span class="font-bold text-slate-900 uppercase tracking-wider text-[11px]">Source Objects</span>
-              <span class="text-[10px] font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded font-mono">{{ ms.wizardDraft().sourceProvider }}</span>
-            </div>
-
-            <div class="flex flex-col gap-1.5 max-h-[500px] overflow-y-auto">
-              @for (tbl of sourceTables; track tbl.name) {
-                <div
-                  (click)="selectedTableName = tbl.name"
-                  class="p-2.5 rounded-lg border-2 cursor-pointer transition-all flex flex-col gap-1 hover:border-blue-300"
-                  [class.border-blue-600]="selectedTableName === tbl.name"
-                  [class.bg-blue-50]="selectedTableName === tbl.name"
-                  [class.border-slate-200]="selectedTableName !== tbl.name"
-                  [class.bg-white]="selectedTableName !== tbl.name">
-                  
-                  <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-1.5">
-                      <app-lucide-icon name="table" [size]="13" class="text-slate-500"></app-lucide-icon>
-                      <span class="font-bold text-slate-900 text-xs truncate">{{ tbl.name }}</span>
-                    </div>
-                    <span class="text-[10px] font-mono text-slate-500">{{ tbl.columnsCount }} cols</span>
-                  </div>
-
-                  <div class="flex items-center justify-between text-[10.5px] text-slate-400">
-                    <span>{{ tbl.rows }} rows</span>
-                    <span class="text-emerald-700 font-bold">100% mapped</span>
-                  </div>
-                </div>
+            <button
+              type="button"
+              (click)="store.setWorkspace('TRANSPILER')"
+              [disabled]="!store.isTranspilerApplicable()"
+              class="h-7 px-3 rounded-md text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-40 disabled:pointer-events-none hover:bg-blue-50 hover:text-blue-700"
+              [class.bg-white]="store.activeWorkspace() === 'TRANSPILER'"
+              [class.text-blue-700]="store.activeWorkspace() === 'TRANSPILER'"
+              [class.border]="store.activeWorkspace() === 'TRANSPILER'"
+              [class.border-slate-200]="store.activeWorkspace() === 'TRANSPILER'"
+              [class.text-slate-600]="store.activeWorkspace() !== 'TRANSPILER'"
+              [title]="store.transpilerDisabledReason() || 'Open Procedural Transpilation Studio'">
+              <app-lucide-icon name="code-2" [size]="12"></app-lucide-icon>
+              <span>Transpiler Studio</span>
+              @if (store.isTranspilerApplicable() && store.codeObjects().length > 0) {
+                <span class="text-[10px] px-1.5 py-0.2 rounded font-bold"
+                  [class.bg-blue-100]="store.activeWorkspace() === 'TRANSPILER'"
+                  [class.text-blue-800]="store.activeWorkspace() === 'TRANSPILER'"
+                  [class.bg-slate-200]="store.activeWorkspace() !== 'TRANSPILER'"
+                  [class.text-slate-600]="store.activeWorkspace() !== 'TRANSPILER'">
+                  {{ store.codeObjects().length }}
+                </span>
               }
-            </div>
+            </button>
           </div>
+        </div>
 
-          <!-- CENTER (56%): Mapping & Policies Canvas -->
-          <div class="lg:col-span-6 flex flex-col gap-4 p-5 rounded-xl bg-white border border-slate-200/90 shadow-2xs">
+      </header>
+
+      <!-- ========================================================================= -->
+      <!-- ROW 2: MAPPING STUDIO SECONDARY TAB STRIP (ONLY WHEN MAPPING IS ACTIVE)    -->
+      <!-- ========================================================================= -->
+      @if (store.activeWorkspace() === 'MAPPING') {
+        <nav aria-label="Mapping Studio Views" class="h-9 px-1 flex items-center justify-between shrink-0">
+          <div class="flex items-center rounded-lg border border-slate-200 bg-slate-100 p-0.5">
             
-            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div class="flex flex-col">
-                <span class="font-bold text-slate-900 text-xs">Table Mapping: {{ selectedTableName }} &rarr; public.{{ selectedTableName.toLowerCase() }}</span>
-                <span class="text-[11px] text-slate-500 font-medium">5 Columns Mapped &bull; 1 PII Redaction Rule &bull; Deduplication Enabled</span>
-              </div>
+            <!-- 1. Overview -->
+            <button
+              type="button"
+              (click)="store.setSubWorkspace('OVERVIEW')"
+              class="h-7 px-3 rounded-md text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 hover:bg-blue-50 hover:text-blue-700"
+              [class.bg-white]="store.activeSubWorkspace() === 'OVERVIEW'"
+              [class.text-blue-700]="store.activeSubWorkspace() === 'OVERVIEW'"
+              [class.border]="store.activeSubWorkspace() === 'OVERVIEW'"
+              [class.border-slate-200]="store.activeSubWorkspace() === 'OVERVIEW'"
+              [class.text-slate-600]="store.activeSubWorkspace() !== 'OVERVIEW'">
+              <app-lucide-icon name="layout-dashboard" [size]="12"></app-lucide-icon>
+              <span>Overview</span>
+              @if (store.metrics().needsReviewCount > 0 || store.metrics().blockedCount > 0) {
+                <span class="text-[10px] px-1.5 py-0.2 rounded font-bold"
+                  [class.bg-amber-100]="store.activeSubWorkspace() === 'OVERVIEW'"
+                  [class.text-amber-800]="store.activeSubWorkspace() === 'OVERVIEW'"
+                  [class.bg-amber-50]="store.activeSubWorkspace() !== 'OVERVIEW'"
+                  [class.text-amber-700]="store.activeSubWorkspace() !== 'OVERVIEW'">
+                  {{ store.metrics().needsReviewCount + store.metrics().blockedCount }}
+                </span>
+              }
+            </button>
 
-              <!-- Internal Sub-Tabs -->
-              <div class="flex items-center gap-1 p-0.5 rounded-lg bg-slate-100 border border-slate-200">
-                <button
-                  type="button"
-                  (click)="mappingSubTab = 'COLUMNS'"
-                  class="h-6 px-2.5 rounded text-[11px] font-bold transition-all cursor-pointer"
-                  [class.bg-white]="mappingSubTab === 'COLUMNS'"
-                  [class.text-blue-700]="mappingSubTab === 'COLUMNS'"
-                  [class.shadow-2xs]="mappingSubTab === 'COLUMNS'"
-                  [class.text-slate-600]="mappingSubTab !== 'COLUMNS'">
-                  Columns
-                </button>
-                <button
-                  type="button"
-                  (click)="mappingSubTab = 'PII'"
-                  class="h-6 px-2.5 rounded text-[11px] font-bold transition-all cursor-pointer"
-                  [class.bg-white]="mappingSubTab === 'PII'"
-                  [class.text-blue-700]="mappingSubTab === 'PII'"
-                  [class.shadow-2xs]="mappingSubTab === 'PII'"
-                  [class.text-slate-600]="mappingSubTab !== 'PII'">
-                  PII &amp; Masking
-                </button>
-                <button
-                  type="button"
-                  (click)="mappingSubTab = 'DEDUP'"
-                  class="h-6 px-2.5 rounded text-[11px] font-bold transition-all cursor-pointer"
-                  [class.bg-white]="mappingSubTab === 'DEDUP'"
-                  [class.text-blue-700]="mappingSubTab === 'DEDUP'"
-                  [class.shadow-2xs]="mappingSubTab === 'DEDUP'"
-                  [class.text-slate-600]="mappingSubTab !== 'DEDUP'">
-                  Deduplication
-                </button>
+            <!-- 2. Structure -->
+            <button
+              type="button"
+              (click)="store.setSubWorkspace('STRUCTURE')"
+              class="h-7 px-3 rounded-md text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 hover:bg-blue-50 hover:text-blue-700"
+              [class.bg-white]="store.activeSubWorkspace() === 'STRUCTURE'"
+              [class.text-blue-700]="store.activeSubWorkspace() === 'STRUCTURE'"
+              [class.border]="store.activeSubWorkspace() === 'STRUCTURE'"
+              [class.border-slate-200]="store.activeSubWorkspace() === 'STRUCTURE'"
+              [class.text-slate-600]="store.activeSubWorkspace() !== 'STRUCTURE'">
+              <app-lucide-icon name="network" [size]="12"></app-lucide-icon>
+              <span>Structure</span>
+            </button>
+
+            <!-- 3. Fields -->
+            <button
+              type="button"
+              (click)="store.setSubWorkspace('FIELDS')"
+              class="h-7 px-3 rounded-md text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 hover:bg-blue-50 hover:text-blue-700"
+              [class.bg-white]="store.activeSubWorkspace() === 'FIELDS'"
+              [class.text-blue-700]="store.activeSubWorkspace() === 'FIELDS'"
+              [class.border]="store.activeSubWorkspace() === 'FIELDS'"
+              [class.border-slate-200]="store.activeSubWorkspace() === 'FIELDS'"
+              [class.text-slate-600]="store.activeSubWorkspace() !== 'FIELDS'">
+              <app-lucide-icon name="table" [size]="12"></app-lucide-icon>
+              <span>Fields</span>
+              <span class="text-[10px] px-1.5 py-0.2 rounded font-bold"
+                [class.bg-blue-100]="store.activeSubWorkspace() === 'FIELDS'"
+                [class.text-blue-800]="store.activeSubWorkspace() === 'FIELDS'"
+                [class.bg-slate-200]="store.activeSubWorkspace() !== 'FIELDS'"
+                [class.text-slate-600]="store.activeSubWorkspace() !== 'FIELDS'">
+                {{ store.objects().length }}
+              </span>
+            </button>
+
+            <!-- 4. Data Controls -->
+            <button
+              type="button"
+              (click)="store.setSubWorkspace('CONTROLS')"
+              class="h-7 px-3 rounded-md text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 hover:bg-blue-50 hover:text-blue-700"
+              [class.bg-white]="store.activeSubWorkspace() === 'CONTROLS'"
+              [class.text-blue-700]="store.activeSubWorkspace() === 'CONTROLS'"
+              [class.border]="store.activeSubWorkspace() === 'CONTROLS'"
+              [class.border-slate-200]="store.activeSubWorkspace() === 'CONTROLS'"
+              [class.text-slate-600]="store.activeSubWorkspace() !== 'CONTROLS'">
+              <app-lucide-icon name="shield" [size]="12"></app-lucide-icon>
+              <span>Data Controls</span>
+            </button>
+
+          </div>
+        </nav>
+      }
+
+      <!-- ========================================================================= -->
+      <!-- WORKSPACE CONTENT CANVAS                                                  -->
+      <!-- ========================================================================= -->
+      <div class="flex-1 min-h-0 flex flex-col">
+        
+        <!-- Workspace 1: Mapping Studio -->
+        @if (store.activeWorkspace() === 'MAPPING') {
+          @if (store.activeSubWorkspace() === 'OVERVIEW') {
+            <app-mapping-overview class="w-full h-full flex flex-col min-h-0" />
+          } @else if (store.activeSubWorkspace() === 'STRUCTURE') {
+            <app-mapping-structure class="w-full h-full flex min-h-0" />
+          } @else if (store.activeSubWorkspace() === 'FIELDS') {
+            <app-mapping-fields class="w-full h-full flex min-h-0" />
+          } @else if (store.activeSubWorkspace() === 'CONTROLS') {
+            <app-mapping-controls class="w-full h-full flex flex-col min-h-0" />
+          }
+        }
+
+        <!-- Workspace 2: Transpiler Studio -->
+        @if (store.activeWorkspace() === 'TRANSPILER') {
+          <app-transpiler-workspace class="w-full h-full flex flex-col min-h-0" />
+        }
+
+      </div>
+
+      <!-- ========================================================================= -->
+      <!-- MODAL 1: UNSAVED CHANGE PROTECTION DIALOG                                 -->
+      <!-- ========================================================================= -->
+      @if (store.pendingNavigation(); as pending) {
+        <div class="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-6 animate-in fade-in duration-100">
+          <div class="bg-white border border-slate-200 rounded-lg w-full max-w-md flex flex-col p-5 gap-3">
+            
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center shrink-0">
+                <app-lucide-icon name="alert-circle" [size]="16" class="text-amber-600"></app-lucide-icon>
               </div>
+              <h3 class="font-bold text-sm text-slate-900">{{ pending.title }}</h3>
             </div>
 
-            <!-- SUB-TAB 1: COLUMNS TABLE -->
-            @if (mappingSubTab === 'COLUMNS') {
-              <div class="flex flex-col divide-y divide-slate-100 border border-slate-200 rounded-lg overflow-hidden">
-                <div class="grid grid-cols-12 gap-2 px-3 py-2 bg-slate-50 text-[10.5px] font-bold text-slate-600 uppercase tracking-wider">
-                  <div class="col-span-4">Source Column</div>
-                  <div class="col-span-2">Source Type</div>
-                  <div class="col-span-3">Target Column</div>
-                  <div class="col-span-3">Target Type</div>
-                </div>
+            <p class="text-xs text-slate-600 leading-relaxed font-normal">
+              {{ pending.description }}
+            </p>
 
-                @for (col of tableMapping.columns; track col.id) {
-                  <div class="grid grid-cols-12 gap-2 px-3 py-2.5 items-center hover:bg-slate-50/70 transition-colors text-xs">
-                    <div class="col-span-4 flex items-center gap-1.5 font-bold text-slate-900 font-mono">
-                      @if (col.isPrimaryKey) {
-                        <span class="px-1 py-0.2 rounded bg-amber-100 text-amber-900 text-[9px] font-extrabold">PK</span>
-                      }
-                      <span class="truncate">{{ col.sourceColumn }}</span>
-                    </div>
+            <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 mt-1">
+              <button
+                type="button"
+                (click)="store.cancelPendingNavigation()"
+                class="h-8 px-3 rounded border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs cursor-pointer transition-colors">
+                Stay / Cancel
+              </button>
+              <button
+                type="button"
+                (click)="store.discardPendingNavigation()"
+                class="h-8 px-3 rounded border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold text-xs cursor-pointer transition-colors">
+                Discard Changes
+              </button>
+              <button
+                type="button"
+                (click)="store.applyAndProceedPendingNavigation()"
+                class="h-8 px-3.5 rounded bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs cursor-pointer transition-colors">
+                Apply Changes
+              </button>
+            </div>
 
-                    <div class="col-span-2 font-mono text-[11px] text-slate-500 truncate">{{ col.sourceType }}</div>
+          </div>
+        </div>
+      }
 
-                    <div class="col-span-3">
-                      <input
-                        type="text"
-                        [(ngModel)]="col.targetColumn"
-                        class="h-7 px-2 w-full rounded bg-white border border-slate-200 text-xs font-semibold font-mono text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500" />
-                    </div>
+      <!-- ========================================================================= -->
+      <!-- MODAL 2: STRUCTURAL DEPENDENCY IMPACT MODAL                               -->
+      <!-- ========================================================================= -->
+      @if (store.showImpactModal() && store.impactModalObject(); as obj) {
+        <div class="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-6 animate-in fade-in duration-100">
+          <div class="bg-white border border-slate-200 rounded-lg w-full max-w-xl flex flex-col max-h-[85vh] overflow-hidden">
+            
+            <div class="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/70 shrink-0">
+              <div class="flex items-center gap-2">
+                <app-lucide-icon name="network" [size]="16" class="text-indigo-600"></app-lucide-icon>
+                <span class="font-bold text-sm text-slate-900">Structural Dependency Impact: {{ obj.sourceName }}</span>
+              </div>
+              <button
+                type="button"
+                (click)="store.closeImpactModal()"
+                class="text-slate-400 hover:text-slate-600 cursor-pointer">
+                <app-lucide-icon name="x" [size]="16"></app-lucide-icon>
+              </button>
+            </div>
 
-                    <div class="col-span-3">
-                      <input
-                        type="text"
-                        [(ngModel)]="col.targetType"
-                        class="h-7 px-2 w-full rounded bg-white border border-slate-200 text-xs font-semibold font-mono text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+            <div class="p-4 overflow-y-auto flex flex-col gap-3">
+              <div class="p-3 bg-indigo-50/50 border border-indigo-200 rounded-md">
+                <span class="font-bold text-xs text-indigo-900">
+                  This resource has {{ obj.structuralImpact.dependentObjectsCount }} downstream dependencies.
+                </span>
+                <p class="text-xs text-indigo-800 leading-relaxed font-normal pt-1">
+                  Excluding or re-routing this object affects related foreign keys, views, triggers, and routines. Note that formal waiver approval occurs in Step 8: Govern.
+                </p>
+              </div>
+
+              <!-- Dependencies List -->
+              <div class="flex flex-col gap-2">
+                <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Affected Objects</span>
+                @for (dep of obj.structuralImpact.dependentObjects; track dep.name) {
+                  <div class="p-2.5 rounded border border-slate-200 bg-white flex items-center justify-between">
+                    <div class="flex flex-col">
+                      <div class="flex items-center gap-2">
+                        <span class="font-bold text-xs text-slate-900">{{ dep.name }}</span>
+                        <span class="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-slate-100 text-slate-600">
+                          {{ dep.type }}
+                        </span>
+                      </div>
+                      <span class="text-[11px] text-slate-500 font-medium">{{ dep.impactDescription }}</span>
                     </div>
                   </div>
                 }
               </div>
-            }
-
-            <!-- SUB-TAB 2: PII & MASKING POLICIES -->
-            @if (mappingSubTab === 'PII') {
-              <div class="flex flex-col gap-3">
-                <div class="p-3.5 rounded-lg bg-amber-50/70 border border-amber-200/80 flex items-start gap-2.5">
-                  <app-lucide-icon name="shield-alert" [size]="16" class="text-amber-600 shrink-0 mt-0.5"></app-lucide-icon>
-                  <div class="flex flex-col gap-0.5">
-                    <span class="font-bold text-amber-950 text-xs">PII Masking &amp; Data Obfuscation</span>
-                    <span class="text-amber-900 text-[11px] leading-relaxed">
-                      Transformations are applied in-flight inside the stream worker. Raw unmasked values never touch target tables or intermediate journals.
-                    </span>
-                  </div>
-                </div>
-
-                <div class="grid grid-cols-1 gap-2.5">
-                  <div class="p-3 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-between">
-                    <div class="flex flex-col gap-0.5">
-                      <span class="font-bold text-slate-900 font-mono">SSN_NO &rarr; ssn_masked</span>
-                      <span class="text-[11px] text-slate-500">Pattern: Format-Preserving Redaction (XXX-XX-####)</span>
-                    </div>
-                    <span class="px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-bold text-[10.5px]">SSN_REDACT</span>
-                  </div>
-                </div>
-              </div>
-            }
-
-            <!-- SUB-TAB 3: DEDUPLICATION & DATA QUALITY -->
-            @if (mappingSubTab === 'DEDUP') {
-              <div class="flex flex-col gap-3">
-                <div class="p-3.5 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-between">
-                  <div class="flex flex-col gap-0.5">
-                    <span class="font-bold text-slate-900">In-Flight Row Deduplication</span>
-                    <span class="text-[11px] text-slate-500">Deduplicate multiple updates occurring within same micro-batch window.</span>
-                  </div>
-                  <input type="checkbox" [(ngModel)]="tableMapping.dedupEnabled" class="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer" />
-                </div>
-
-                <div class="grid grid-cols-2 gap-3">
-                  <div class="flex flex-col gap-1">
-                    <label class="font-bold text-slate-800 text-[11px]">Survivor Resolution Rule</label>
-                    <select [(ngModel)]="tableMapping.dedupSurvivorRule" class="h-8 px-2.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-semibold">
-                      <option value="LATEST_TIMESTAMP">Latest Commit Timestamp (LWW)</option>
-                      <option value="HIGHEST_SEQUENCE">Highest SCN / Sequence Number</option>
-                      <option value="SOURCE_PRIORITY">Source System Priority</option>
-                    </select>
-                  </div>
-                  <div class="flex flex-col gap-1">
-                    <label class="font-bold text-slate-800 text-[11px]">Target Conflict Policy</label>
-                    <select [(ngModel)]="tableMapping.conflictPolicy" class="h-8 px-2.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-semibold">
-                      <option value="OVERWRITE">Upsert / Overwrite Existing Target Row</option>
-                      <option value="IGNORE">Ignore Duplicate Target Row</option>
-                      <option value="FAIL_ON_CONFLICT">Fail &amp; Divert to Quarantine DLQ</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-            }
-
-          </div>
-
-          <!-- RIGHT (22%): Target Table Tree -->
-          <div class="lg:col-span-3 flex flex-col gap-3 p-4 rounded-xl bg-white border border-slate-200/90 shadow-2xs">
-            <div class="pb-2 border-b border-slate-100 flex items-center justify-between">
-              <span class="font-bold text-slate-900 uppercase tracking-wider text-[11px]">Target Schemas</span>
-              <span class="text-[10px] font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded font-mono">{{ ms.wizardDraft().targetProvider }}</span>
             </div>
 
-            <div class="flex flex-col gap-1.5 max-h-[500px] overflow-y-auto">
-              <div class="p-2.5 rounded-lg bg-slate-50 border border-slate-200 flex flex-col gap-1">
-                <span class="font-bold text-slate-900 font-mono text-xs">public.accounts</span>
-                <span class="text-[10.5px] text-slate-500 font-medium">PostgreSQL Table &bull; 5 columns</span>
-                <span class="text-[10px] text-emerald-700 font-bold">1:1 DDL Target Ready</span>
-              </div>
-              <div class="p-2.5 rounded-lg bg-slate-50 border border-slate-200 flex flex-col gap-1">
-                <span class="font-bold text-slate-900 font-mono text-xs">public.customers</span>
-                <span class="text-[10.5px] text-slate-500 font-medium">PostgreSQL Table &bull; 8 columns</span>
-              </div>
-            </div>
-          </div>
-
-        </div>
-      }
-
-      <!-- =============================================================== -->
-      <!-- TAB 2: CODE TRANSPILER STUDIO (SCT WORKBENCH 3-COLUMN LAYOUT)   -->
-      <!-- =============================================================== -->
-      @if (activeStudioTab() === 'TRANSPILER') {
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-          
-          <!-- LEFT (22%): Source Code Tree -->
-          <div class="lg:col-span-3 flex flex-col gap-3 p-4 rounded-xl bg-white border border-slate-200/90 shadow-2xs">
-            <div class="pb-2 border-b border-slate-100 flex items-center justify-between">
-              <span class="font-bold text-slate-900 uppercase tracking-wider text-[11px]">Code Objects (Oracle)</span>
-              <span class="text-[10px] font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded font-mono">PL/SQL</span>
-            </div>
-
-            <div class="flex flex-col gap-1.5 max-h-[520px] overflow-y-auto">
-              @for (item of transpilerItems; track item.id) {
-                <div
-                  (click)="selectedTranspilerItem = item"
-                  class="p-2.5 rounded-lg border-2 cursor-pointer transition-all flex flex-col gap-1 hover:border-blue-300"
-                  [class.border-blue-600]="selectedTranspilerItem.id === item.id"
-                  [class.bg-blue-50]="selectedTranspilerItem.id === item.id"
-                  [class.border-slate-200]="selectedTranspilerItem.id !== item.id"
-                  [class.bg-white]="selectedTranspilerItem.id !== item.id">
-                  
-                  <div class="flex items-center justify-between">
-                    <span class="font-bold text-slate-900 font-mono text-xs truncate">{{ item.name }}</span>
-                    <span class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 font-bold text-[9.5px] uppercase">{{ item.objectType }}</span>
-                  </div>
-
-                  <div class="flex items-center justify-between text-[10.5px] text-slate-500">
-                    <span>Complexity: {{ item.complexityScore }}/10</span>
-                    <span class="font-bold text-blue-700">{{ formatConversionStatus(item.conversionStatus) }}</span>
-                  </div>
-                </div>
-              }
-            </div>
-          </div>
-
-          <!-- CENTER (56%): Dual Stacked Source & Proposed Editors -->
-          <div class="lg:col-span-6 flex flex-col gap-4">
-            
-            <!-- TOP EDITOR: SOURCE SQL -->
-            <div class="p-4 rounded-xl bg-white border border-slate-200/90 shadow-2xs flex flex-col gap-2">
-              <div class="flex items-center justify-between pb-2 border-b border-slate-100">
-                <div class="flex items-center gap-2">
-                  <span class="font-bold text-slate-900 uppercase tracking-wider text-[11px]">Source SQL: {{ selectedTranspilerItem.name }}</span>
-                  <span class="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 font-mono font-bold text-[10px]">{{ selectedTranspilerItem.sourceLanguage }}</span>
-                </div>
-                <span class="text-[11px] text-slate-400 font-mono">Read-Only Abstract Syntax</span>
-              </div>
-
-              <textarea
-                rows="8"
-                readonly
-                [value]="selectedTranspilerItem.sourceSql"
-                class="p-3 w-full rounded-lg bg-slate-900 text-slate-100 text-xs font-mono font-medium focus:outline-none leading-relaxed resize-none"></textarea>
-            </div>
-
-            <!-- BOTTOM EDITOR: TARGET / PROPOSED SQL -->
-            <div class="p-4 rounded-xl bg-white border border-slate-200/90 shadow-2xs flex flex-col gap-2">
-              <div class="flex items-center justify-between pb-2 border-b border-slate-100">
-                <div class="flex items-center gap-2">
-                  <span class="font-bold text-slate-900 uppercase tracking-wider text-[11px]">Proposed Target DDL: public.{{ selectedTranspilerItem.name.toLowerCase() }}</span>
-                  <span class="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-mono font-bold text-[10px]">{{ selectedTranspilerItem.targetLanguage }}</span>
-                </div>
-                <span class="text-[11px] text-slate-500 font-medium">Editable Transpiled Proposal</span>
-              </div>
-
-              <textarea
-                rows="8"
-                [(ngModel)]="selectedTranspilerItem.targetSql"
-                class="p-3 w-full rounded-lg bg-slate-900 text-emerald-300 text-xs font-mono font-medium focus:outline-none leading-relaxed resize-none"></textarea>
-
-              <!-- AST Findings / Transpiler Warnings -->
-              @if (selectedTranspilerItem.findings && selectedTranspilerItem.findings.length > 0) {
-                <div class="flex flex-col gap-1.5 pt-2 border-t border-slate-100">
-                  <span class="font-bold text-slate-800 text-[11px]">AST Analysis &amp; Semantic Notes:</span>
-                  @for (finding of selectedTranspilerItem.findings; track finding.code) {
-                    <div class="p-2 rounded bg-amber-50 text-amber-900 border border-amber-200 text-[11px] flex items-start gap-1.5">
-                      <app-lucide-icon name="alert-triangle" [size]="13" class="text-amber-600 shrink-0 mt-0.5"></app-lucide-icon>
-                      <span class="leading-relaxed"><strong>Line {{ finding.line }} [{{ finding.code }}]:</strong> {{ finding.message }}</span>
-                    </div>
-                  }
-                </div>
-              }
+            <div class="p-3 border-t border-slate-200 bg-slate-50 flex items-center justify-end shrink-0">
+              <button
+                type="button"
+                (click)="store.closeImpactModal()"
+                class="h-8 px-4 rounded bg-slate-800 hover:bg-slate-900 text-white font-semibold text-xs cursor-pointer">
+                Done Inspecting
+              </button>
             </div>
 
           </div>
-
-          <!-- RIGHT (22%): Target Code Tree -->
-          <div class="lg:col-span-3 flex flex-col gap-3 p-4 rounded-xl bg-white border border-slate-200/90 shadow-2xs">
-            <div class="pb-2 border-b border-slate-100 flex items-center justify-between">
-              <span class="font-bold text-slate-900 uppercase tracking-wider text-[11px]">Target Routines</span>
-              <span class="text-[10px] font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded font-mono">PL/pgSQL</span>
-            </div>
-
-            <div class="flex flex-col gap-2 max-h-[520px] overflow-y-auto">
-              <div class="p-2.5 rounded-lg bg-slate-50 border border-slate-200 flex flex-col gap-1">
-                <span class="font-bold text-slate-900 font-mono text-xs">public.p_subtype_003</span>
-                <span class="text-[10.5px] text-slate-500 font-medium">PostgreSQL Stored Procedure</span>
-                <span class="text-[10px] text-blue-700 font-bold">Conversion Proposed</span>
-              </div>
-            </div>
-          </div>
-
         </div>
       }
 
     </div>
   `
 })
-export class Step5MappingComponent {
-  public ms = inject(MigrationUiService);
+export class Step5MappingComponent implements OnInit {
+  public readonly store = inject(Step5MappingStoreService);
+  public readonly ms = inject(MigrationUiService);
 
-  public activeStudioTab = signal<'MAPPING' | 'TRANSPILER'>('MAPPING');
-  public mappingSubTab: 'COLUMNS' | 'PII' | 'DEDUP' = 'COLUMNS';
+  ngOnInit(): void {
+    this.store.initializeFromDraft();
+  }
 
-  public selectedTableName = 'ACCOUNTS';
-  public sourceTables = [
-    { name: 'ACCOUNTS', columnsCount: 5, rows: '18.6M' },
-    { name: 'CUSTOMERS', columnsCount: 8, rows: '14.2M' },
-    { name: 'TRANSACTIONS', columnsCount: 12, rows: '16.8M' },
-    { name: 'AUDIT_LOGS', columnsCount: 6, rows: '2.8M' }
-  ];
-
-  public tableMapping: TableMappingItem = this.ms.wizardDraft().tableMapping;
-  public transpilerItems: CodeTranspilerItem[] = this.ms.wizardDraft().codeTranspilerItems;
-  public selectedTranspilerItem: CodeTranspilerItem = this.transpilerItems[0];
-
-  public formatConversionStatus(status: string): string {
-    switch (status) {
-      case 'CONVERSION_PROPOSED': return 'Proposal Generated';
-      case 'NEEDS_REVIEW': return 'Needs Review';
-      case 'READY_FOR_BACKEND_VALIDATION': return 'Ready for Validation';
-      case 'UNSUPPORTED_CONSTRUCT': return 'Unsupported Construct';
-      default: return 'Not Evaluated';
-    }
+  public hasActiveDataControls(): boolean {
+    const m = this.store.metrics();
+    return (
+      m.totalPrivacyCount > 0 ||
+      m.totalCleansingCount > 0 ||
+      m.totalFilterCount > 0 ||
+      m.totalDedupCount > 0 ||
+      m.totalQualityCount > 0
+    );
   }
 }

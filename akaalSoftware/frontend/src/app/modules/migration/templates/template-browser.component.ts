@@ -29,8 +29,8 @@ import { MigrationTemplateItem } from '../../../core/models/migration-view.model
           <div class="p-6 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-col justify-between gap-5">
             <div class="flex flex-col gap-3">
               <div class="flex items-center justify-between">
-                <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200">{{ t.version }}</span>
-                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">{{ t.strength }}</span>
+                <span class="px-2.5 py-0.5 rounded-md text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200">{{ t.version }}</span>
+                <span class="px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">{{ t.strength }}</span>
               </div>
               <h3 class="text-base font-bold text-slate-900">{{ t.title }}</h3>
               <p class="text-xs text-slate-600 font-medium leading-relaxed">{{ t.description }}</p>

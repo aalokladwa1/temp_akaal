@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "akaal-frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "akaalSoftware/frontend", "run", "start"],
+      "port": 4200
+    }
+  ]
+}

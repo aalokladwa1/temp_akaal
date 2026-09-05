@@ -52,38 +52,56 @@ body {
   user-select: none;
 }
 
-/* Ensure secondary text is dark and high-contrast across all views */
-.text-slate-400 {
-  color: #475569 !important;
+
+
+/* Universal Custom Scrollbar across the entire UI */
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
 }
 
-.text-slate-500 {
-  color: #334155 !important;
-}
-
-.text-slate-600 {
-  color: #1e293b !important;
-}
-
-/* Custom scrollbar for main content */
-main::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-main::-webkit-scrollbar-track {
+*::-webkit-scrollbar-track {
   background: transparent;
 }
 
-main::-webkit-scrollbar-thumb {
+*::-webkit-scrollbar-thumb {
   background: #cbd5e1;
-  border-radius: 4px;
+  border-radius: 9999px;
 }
 
-main::-webkit-scrollbar-thumb:hover {
+*::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Firefox scrollbar support */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
 }
 
 .active-nav-blue svg {
   color: #ffffff !important;
 }
+
+/* Global Design System Search Box & Input Clearance */
+.search-box-wrapper {
+  position: relative !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+.search-box-wrapper input,
+.gds-search-input {
+  padding-left: 36px !important;
+}
+
+/* Disable native Edge/IE password reveal and clear buttons to prevent icon overlapping */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none !important;
+}
+

@@ -7,45 +7,76 @@
 // ----------------------------------------------------------------------------
 export type ProviderCategory =
   | 'RELATIONAL'
+  | 'DISTRIBUTED_SQL'
   | 'WAREHOUSE'
+  | 'NOSQL'
   | 'NOSQL_GRAPH_SEARCH'
   | 'STREAMING'
-  | 'STORAGE';
+  | 'STORAGE'
+  | 'SAAS';
 
 export type PhysicalProviderId =
-  // Relational (7)
-  | 'Oracle'
+  | 'SQLite'
   | 'PostgreSQL'
   | 'MySQL'
-  | 'Microsoft SQL Server'
   | 'MariaDB'
-  | 'SQLite'
+  | 'Oracle'
+  | 'Oracle Database'
+  | 'Microsoft SQL Server'
+  | 'Microsoft SQL Server (MSSQL)'
   | 'IBM Db2'
-  // Warehouses / Lakehouses (4)
+  | 'IBM Db2 LUW'
+  | 'SAP HANA'
+  | 'SAP ASE'
+  | 'SAP ASE (Sybase)'
+  | 'IBM Informix'
+  | 'CockroachDB'
+  | 'YugabyteDB'
+  | 'TiDB'
+  | 'SingleStore'
+  | 'SingleStore (MemSQL)'
+  | 'Google Cloud Spanner'
   | 'Snowflake'
+  | 'Snowflake Data Cloud'
   | 'Google BigQuery'
   | 'Amazon Redshift'
+  | 'Databricks'
   | 'Databricks / Delta Lake'
-  // NoSQL / Graph / Search (8)
+  | 'ClickHouse'
+  | 'Teradata'
+  | 'Teradata Vantage'
+  | 'OpenText Vertica'
   | 'MongoDB'
   | 'Apache Cassandra'
   | 'ScyllaDB'
   | 'Neo4j'
+  | 'Neo4j Graph Database'
   | 'Redis'
   | 'KeyDB'
   | 'Elasticsearch'
   | 'OpenSearch'
-  // Streaming (4)
+  | 'Apache Couchbase'
+  | 'Amazon DynamoDB'
+  | 'Azure Cosmos DB'
+  | 'InfluxDB'
   | 'Apache Kafka'
   | 'Amazon Kinesis'
+  | 'Amazon Kinesis Data Streams'
   | 'Azure Event Hubs'
   | 'Google Cloud Pub/Sub'
-  // Storage (5)
+  | 'Apache Pulsar'
+  | 'RabbitMQ'
   | 'Amazon S3'
+  | 'Amazon S3 Object Storage'
   | 'Google Cloud Storage'
+  | 'Google Cloud Storage (GCS)'
   | 'Azure Blob Storage'
   | 'MinIO'
-  | 'Apache HDFS';
+  | 'MinIO Object Storage'
+  | 'Apache HDFS'
+  | 'Salesforce'
+  | 'ServiceNow'
+  | 'SAP Application Ecosystem';
 
 export interface PhysicalProviderMeta {
   id: PhysicalProviderId;
@@ -170,8 +201,16 @@ export interface ActivityEventItem {
 // ----------------------------------------------------------------------------
 // 4. CONNECTIONS VAULT (2.3)
 // ----------------------------------------------------------------------------
-export type NetworkRouteType = 'DIRECT' | 'SSH_BASTION' | 'PROXY' | 'PRIVATE_ENDPOINT' | 'CUSTOM';
-export type ConnectionHealthStatus = 'CONNECTED' | 'DEGRADED' | 'UNREACHABLE' | 'AUTH_FAILED' | 'UNKNOWN';
+export type NetworkRouteType =
+  | 'DIRECT'
+  | 'SSH_BASTION'
+  | 'HTTP_PROXY'
+  | 'SOCKS5_PROXY'
+  | 'PROXY'
+  | 'PRIVATE_ENDPOINT'
+  | 'DNS_HAPPY_EYEBALLS'
+  | 'CUSTOM';
+export type ConnectionHealthStatus = 'CONNECTED' | 'DEGRADED' | 'UNREACHABLE' | 'AUTH_FAILED' | 'UNKNOWN' | 'ATTENTION' | 'DISCONNECTED';
 
 export type ProbeStageName = 'NETWORK' | 'TLS' | 'AUTHENTICATION' | 'IDENTITY' | 'PERMISSIONS' | 'PREREQUISITES' | 'CAPABILITIES';
 export type ProbeStageStatus = 'NOT_TESTED' | 'TESTING' | 'PASSED' | 'FAILED' | 'WARNING' | 'SKIPPED';
@@ -182,6 +221,174 @@ export interface ProbeStageResult {
   status: ProbeStageStatus;
   detail: string;
   latencyMs?: number;
+}
+
+export interface PhysicalAttestedIdentity {
+  systemVersion: string;
+  instanceName?: string;
+  catalogOrDatabase?: string;
+  role?: string;
+}
+
+export interface CapabilityDiscoveryItem {
+  name: string;
+  status: 'AVAILABLE' | 'UNAVAILABLE' | 'CONDITIONAL';
+  detail?: string;
+}
+
+
+
+export interface VerificationStageResult {
+  status: 'PENDING' | 'TESTING' | 'PASSED' | 'FAILED' | 'ATTENTION';
+  detail?: string;
+  durationMs?: number;
+}
+
+export interface VerificationCapabilities {
+  name: string;
+  status: 'AVAILABLE' | 'UNAVAILABLE' | 'CONDITIONAL';
+}
+
+export interface SourceVerificationResult {
+  fingerprint: string;
+  isVerified: boolean;
+  hasBlockingIssues: boolean;
+  overallLatencyMs?: number;
+  latencyMs?: number;
+
+  // The 7-Phase Verification Protocol
+  parameterValidation?: VerificationStageResult;
+  routeResolution?: VerificationStageResult;
+  transportHandshake?: VerificationStageResult & {
+    cipher?: string;
+    protocol?: string;
+  };
+  authentication?: VerificationStageResult;
+  identityAttestation?: VerificationStageResult & {
+    serverVersion?: string;
+    engineType?: string;
+    identity?: PhysicalAttestedIdentity;
+  };
+  capabilityProbe?: VerificationStageResult & {
+    capabilities: (VerificationCapabilities | CapabilityDiscoveryItem)[];
+  };
+  permissionAudit?: VerificationStageResult & {
+    permissions: string[];
+  };
+
+  // Backwards-compatible legacy probe representations
+  physicalConnection?: {
+    status: 'PASSED' | 'FAILED' | 'TESTING';
+    latencyMs?: number;
+    detail?: string;
+  };
+  capabilityDiscovery?: {
+    status: 'PASSED' | 'FAILED' | 'TESTING';
+    capabilities: CapabilityDiscoveryItem[];
+    detail?: string;
+  };
+  permissionProbe?: {
+    status: 'PASSED' | 'FAILED' | 'TESTING' | 'ATTENTION';
+    permissions: string[];
+    detail?: string;
+  };
+
+  failedPhase?: 'PARAMETER_VALIDATION' | 'ROUTE_RESOLUTION' | 'TRANSPORT_HANDSHAKE' | 'AUTHENTICATION' | 'IDENTITY_ATTESTATION' | 'CAPABILITY_PROBE' | 'PERMISSION_AUDIT';
+  errorCategory?: string;
+  blockedReason?: string;
+  remediationSql?: string;
+  remediationAction?: string;
+  allowModeDowngrade?: boolean;
+  downgradeModeTarget?: MigrationMode;
+}
+
+export type CollisionPolicyType =
+  | 'FAIL_IF_NOT_EMPTY'
+  | 'FAIL_ON_COLLISION'
+  | 'TRUNCATE_EXISTING'
+  | 'TRUNCATE_AND_LOAD'
+  | 'DROP_AND_RECREATE'
+  | 'UPSERT_MERGE'
+  | 'APPEND_EXISTING'
+  | 'RENAME_AND_BACKUP';
+
+export interface TargetVerificationResult {
+  fingerprint: string;
+  isVerified: boolean;
+  hasBlockingIssues: boolean;
+  blockedReason?: string;
+  latencyMs: number;
+
+  // 1. Target Verification Base
+  physicalConnection: {
+    status: 'PASSED' | 'FAILED' | 'TESTING';
+    latencyMs: number;
+    detail?: string;
+  };
+  identityAttestation: {
+    status: 'PASSED' | 'FAILED' | 'TESTING';
+    systemVersion: string;
+    instanceName?: string;
+    catalogOrDatabase?: string;
+    role?: string;
+  };
+  writeAuthority: {
+    status: 'PASSED' | 'FAILED' | 'TESTING';
+    permissions: string[];
+    detail?: string;
+  };
+  ingestionCapability: {
+    status: 'PASSED' | 'FAILED' | 'TESTING';
+    preferredStrategy: string;
+    fallbackStrategy: string;
+    directPathAvailable: boolean;
+    privilegesVerified: boolean;
+  };
+  sandboxCapability: {
+    status: 'PASSED' | 'FAILED' | 'TESTING';
+    supported: boolean;
+    detail: string;
+  };
+  storageHeadroom: {
+    status: 'SUFFICIENT' | 'INSUFFICIENT' | 'PROVIDER_MANAGED' | 'NOT_MEASURABLE';
+    sourceFootprint?: string;
+    targetAvailable?: string;
+    requiredHeadroom?: string;
+    displayStatus: string;
+  };
+
+  // 2. Route Compatibility (Source -> Target Pair)
+  compatibility: {
+    sourceProvider: PhysicalProviderId;
+    sourceVersion: string;
+    targetProvider: PhysicalProviderId;
+    targetVersion: string;
+    topology: 'Homogeneous' | 'Heterogeneous';
+    schemaConversion: 'Supported' | 'Review required' | 'Unsupported';
+    dataTypeMapping: {
+      status: 'Direct map' | 'Review required' | 'Unsupported';
+      reviewCount: number;
+      detail: string;
+    };
+    proceduralConversion: {
+      status: 'Supported' | 'Review required' | 'Not applicable' | 'Unsupported';
+      analyzedCount: number;
+      automaticCount: number;
+      reviewCount: number;
+      detail?: string;
+    };
+    isBlocked: boolean;
+    blockerReason?: string;
+  };
+
+  // 3. Target Contents & Collisions
+  targetContents: {
+    existingObjectsDetected: boolean;
+    tableCount: number;
+    viewCount: number;
+    indexCount: number;
+    conflictingObjectsCount: number;
+  };
 }
 
 export interface ConnectionItem {
@@ -278,7 +485,233 @@ export interface ProjectMember {
 // ----------------------------------------------------------------------------
 // 6. DISCOVERY, SCOPE & TOPOLOGY (STEP 4)
 // ----------------------------------------------------------------------------
-export type DiscoveryDepth = 'QUICK' | 'STANDARD' | 'DEEP' | 'COMPLIANCE';
+export type DiscoveryDepthTier = 'QUICK' | 'STANDARD' | 'DEEP' | 'COMPLIANCE' | 'SHALLOW' | 'FULL_WITH_SAMPLING';
+
+export interface DiscoveredObjectPartition {
+  name: string;
+  type: string;
+  sizeBytes?: number;
+  range?: string;
+}
+
+export interface DiscoveredObjectItem {
+  id: string;
+  name: string;
+  type: 'TABLE' | 'VIEW' | 'MATERIALIZED_VIEW' | 'PROCEDURE' | 'FUNCTION' | 'PACKAGE' | 'TRIGGER' | 'SEQUENCE' | 'TYPE' | 'COLLECTION' | 'TOPIC' | 'BUCKET' | 'FILE' | 'GRAPH_LABEL' | 'INDEX';
+  typeName: string; // e.g. 'Table', 'View', 'Package', 'Procedure', 'Topic', 'Collection'
+  schemaName: string;
+  dbName?: string;
+  catalogName?: string;
+  estimatedRows?: number;
+  estimatedSizeBytes?: number;
+  primaryKey?: string;
+  hasPrimaryKey: boolean;
+  cdcStatus: 'READY' | 'ATTENTION' | 'BLOCKED' | 'NOT_APPLICABLE';
+  cdcDetail?: string;
+  targetCompatibility: 'READY' | 'REVIEW' | 'UNSUPPORTED' | 'TARGET_EXISTS';
+  targetDetail?: string;
+  partitionsCount?: number;
+  partitions?: DiscoveredObjectPartition[];
+  lobCount?: number;
+  upstreamDependencies?: { name: string; type: string }[];
+  downstreamDependencies?: { name: string; type: string }[];
+  sampleRows?: Record<string, any>[];
+  isSelected: boolean;
+}
+
+export interface DiscoveryTreeNode {
+  id: string;
+  label: string;
+  type: string; // 'Instance' | 'Database' | 'Catalog' | 'Schema' | 'Dataset' | 'Object Group' | 'Table' | 'View' | 'Package' | 'Procedure' | 'Function' | 'Trigger' | 'Collection' | 'Topic' | 'Bucket' | 'Prefix'
+  icon: string;
+  isExpanded: boolean;
+  isSelected: boolean;
+  isPartial?: boolean;
+  childrenCount: number;
+  leafObjectIds: string[];
+  children?: DiscoveryTreeNode[];
+}
+
+export interface SourceColumnFact {
+  name: string;
+  type: string;
+  isNullable: boolean;
+  isPrimaryKey: boolean;
+  isForeignKey: boolean;
+  foreignKeyTarget?: string;
+  defaultValue?: string;
+  isLob?: boolean;
+  isMonotonicCandidate?: boolean;
+}
+
+export interface SourceConstraintFact {
+  name: string;
+  type: 'PRIMARY KEY' | 'FOREIGN KEY' | 'UNIQUE' | 'CHECK' | 'EXCLUSION';
+  definition: string;
+  status: 'VALIDATED' | 'DEFERRED';
+}
+
+export interface SourceIndexFact {
+  name: string;
+  type: string;
+  columns: string[];
+  isUnique: boolean;
+  accessMethod?: string;
+}
+
+export interface SourceParameterFact {
+  name: string;
+  mode: 'IN' | 'OUT' | 'INOUT';
+  type: string;
+  defaultValue?: string;
+}
+
+export interface SourceSequenceFact {
+  currentValue: number;
+  startValue: number;
+  incrementBy: number;
+  minValue: number;
+  maxValue: number;
+  isCycling: boolean;
+}
+
+export interface TargetColumnProjection {
+  name: string;
+  type: string;
+  sourceColumnName: string;
+  conversionBadge: 'AUTOMATIC' | 'EXACT' | 'REVIEW' | 'COERCED' | 'OVERRIDE';
+  dataTypeOverride?: {
+    targetType: string;
+    precision?: number;
+    scale?: number;
+    length?: number;
+    reason?: string;
+  };
+  isNullable: boolean;
+  isPrimaryKey: boolean;
+}
+
+export interface TargetConstraintProjection {
+  name: string;
+  type: string;
+  definition: string;
+  status: string;
+}
+
+export interface TargetIndexProjection {
+  name: string;
+  type: string;
+  columns: string[];
+  isUnique: boolean;
+}
+
+export interface TargetGeneratedArtifact {
+  id: string;
+  name: string;
+  type: string;
+  schemaName: string;
+  sql: string;
+  conversionState: 'AUTOMATIC' | 'REVIEW' | 'ACTION_REQUIRED' | 'UNSUPPORTED' | 'CUSTOM_OVERRIDE';
+  diagnosticsCount: number;
+}
+
+export interface ProceduralDiagnosticItem {
+  id: string;
+  severity: 'WARNING' | 'REVIEW' | 'ACTION';
+  line?: number;
+  column?: number;
+  message: string;
+  remediation?: string;
+}
+
+export interface TargetValidationReport {
+  strategy: 'Transactional sandbox' | 'Isolated temporary schema' | 'Parser / dry-run validation';
+  status: 'PASSED' | 'FAILED' | 'STALE' | 'NOT_VALIDATED' | 'VALIDATING';
+  ddlCompilation: 'PASSED' | 'FAILED';
+  typeResolution: 'PASSED' | 'FAILED';
+  references: 'PASSED' | 'FAILED';
+  permissions: 'PASSED' | 'FAILED';
+  detail: string;
+}
+
+export interface CompiledTargetProjection {
+  targetName: string;
+  targetSchemaName: string;
+  targetDbName?: string;
+  targetType: string;
+  targetTypeName: string;
+  conversionState: 'AUTOMATIC' | 'REVIEW' | 'ACTION_REQUIRED' | 'UNSUPPORTED' | 'CUSTOM_OVERRIDE';
+  columns?: TargetColumnProjection[];
+  constraints?: TargetConstraintProjection[];
+  indexes?: TargetIndexProjection[];
+  convertedSql?: string;
+  originalGeneratedSql?: string;
+  isOverrideActive?: boolean;
+  overrideReason?: string;
+  generatedArtifacts?: TargetGeneratedArtifact[];
+  diagnostics: ProceduralDiagnosticItem[];
+  validationStatus: 'PASSED' | 'FAILED' | 'STALE' | 'NOT_VALIDATED' | 'VALIDATING';
+  validationReport?: TargetValidationReport;
+  provenanceFingerprint: string;
+  isSupportedRoute: boolean;
+  unsupportedReason?: string;
+}
+
+export interface DiscoveredObjectDetail extends DiscoveredObjectItem {
+  columns?: SourceColumnFact[];
+  constraints?: SourceConstraintFact[];
+  indexes?: SourceIndexFact[];
+  parameters?: SourceParameterFact[];
+  sequenceProps?: SourceSequenceFact[];
+  sourceSql?: string;
+  sourceSpec?: string;
+  sourceBody?: string;
+  members?: { name: string; type: string; signature: string }[];
+  mongoProps?: { validator?: string; sharded?: boolean; shardKey?: string; indexCount?: number };
+  kafkaProps?: { partitionsCount?: number; keyFormat?: string; valueFormat?: string; schemaRegistrySubject?: string; compression?: string };
+  storageProps?: { format?: string; compression?: string; pathPattern?: string; partitionColumns?: string[] };
+  neo4jProps?: { propertyKeys?: string[]; indexedProperties?: string[]; relationshipTypes?: string[] };
+  redisProps?: { dbIndex?: number; keyPattern?: string; keyType?: string; memoryBytes?: number };
+  targetProjection?: CompiledTargetProjection;
+}
+
+export interface TargetTreeNode {
+  id: string;
+  label: string;
+  type: string;
+  icon: string;
+  isExpanded: boolean;
+  isSelected?: boolean;
+  sourceObjectId?: string;
+  childrenCount: number;
+  children?: TargetTreeNode[];
+  isCompatibilityHelper?: boolean;
+}
+
+export interface ScopeCompoundRule {
+  id: string;
+  action: 'INCLUDE' | 'EXCLUDE';
+  targetField: 'SCHEMA' | 'TABLE' | 'OBJECT_NAME' | 'TYPE' | 'CLASSIFICATION';
+  operator: 'MATCHES_GLOB' | 'REGEX' | 'EQUALS';
+  pattern: string;
+  isActive: boolean;
+}
+
+export interface ScopeAnalysisReport {
+  executionMode: string;
+  rootObjectsCount: number;
+  dependentObjectsCount: number;
+  dependencyLevelsCount: number;
+  circularDependencyGroups: string[][];
+  largeObjectsCount: number;
+  partitionedObjectsCount: number;
+  physicalPartitionsCount: number;
+  cdcReadyCount: number;
+  cdcAttentionCount: number;
+  missingPrimaryKeyCount: number;
+  loggingRequiredCount: number;
+  lobBearingCount: number;
+}
 
 export interface TopologyNode {
   id: string;
