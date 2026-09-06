@@ -47,6 +47,7 @@ from akaalEngine.discovery.strategies.storage import (
     HDFSDiscoveryStrategy,
     MinIODiscoveryStrategy,
     S3DiscoveryStrategy,
+    OCIObjectStorageDiscoveryStrategy,
 )
 from akaalEngine.discovery.strategies.timeseries import (
     InfluxDBDiscoveryStrategy,
@@ -115,12 +116,13 @@ ALL_DISCOVERY_STRATEGIES = [
     PubSubDiscoveryStrategy,
     RabbitMQDiscoveryStrategy,  # P7A Campaign B
     PulsarDiscoveryStrategy,  # P7A Campaign B
-    # Storage (5)
+    # Storage (6)
     S3DiscoveryStrategy,
     GCSDiscoveryStrategy,
     AzureBlobDiscoveryStrategy,
     MinIODiscoveryStrategy,
     HDFSDiscoveryStrategy,
+    OCIObjectStorageDiscoveryStrategy,  # P7B Group 1 (§8), provider #49
     # Time-series (1)
     InfluxDBDiscoveryStrategy,  # P7A Campaign B
 ]
@@ -179,5 +181,6 @@ __all__ = [
     "AzureBlobDiscoveryStrategy",
     "MinIODiscoveryStrategy",
     "HDFSDiscoveryStrategy",
+    "OCIObjectStorageDiscoveryStrategy",
     "InfluxDBDiscoveryStrategy",
 ]

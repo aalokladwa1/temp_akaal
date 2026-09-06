@@ -294,7 +294,36 @@ class OracleAuthenticationHandler(AuthenticationHandler):
 
 
 class CloudIAMAuthenticationHandler(AuthenticationHandler):
-    """Handles Cloud IAM Workload Identity, AWS IAM Role, Azure Entra ID, GCP ADC, OCI."""
+    """
+    Handles Cloud IAM Workload Identity, AWS IAM Role, Azure Entra ID, GCP ADC, OCI.
+
+    P7B.3: performs real cloud-native identity resolution (STS role assumption / Entra
+    token acquisition / GCP ADC refresh / OCI signer wrapping) via
+    akaalEngine.fabric.workload_identity, attaching the resolved, bounded-lifetime
+    `CloudIdentityContext` under `creds["cloud_identity"]` for the caller to consume.
+    CRITICAL: a successfully resolved CloudIdentityContext is NEVER itself AKAAL
+    authorization -- see akaalEngine.fabric.workload_identity.boundary. This handler
+    performs authentication only; it makes no authorization decision.
+
+    Round-5 hostile-review closure: a resolved, NON-EXPIRED CloudIdentityContext's
+    actual usable material (AWS temporary access key/secret/session token; an Azure
+    bearer token) is now copied into the same canonical credential keys every other
+    AuthenticationHandler in this module populates (`access_key_id`/`secret_access_key`/
+    `session_token`/`token`) -- so a provider's `connect()` (e.g.
+    S3ProviderStrategy.connect, which reads exactly these keys) genuinely authenticates
+    with the resolved workload identity's real material, not merely carries it as inert
+    metadata. An EXPIRED identity is never used this way (see `is_expired()` check
+    below) -- expiry always fails closed into the same soft passthrough as any other
+    resolution failure, never a silent use of stale credentials.
+
+    If cloud resolution cannot be attempted (SDK not installed, no live cloud
+    infrastructure in this environment, or additional_params insufficient), fails soft
+    into the pre-P7B passthrough shape (role_arn/auth_type/additional_params) with the
+    resolution failure truthfully recorded under `cloud_identity_error` rather than
+    silently claiming success -- this preserves backward compatibility for callers that
+    only need the raw auth_spec fields (e.g. constructing a driver connection string) and
+    do not require a live-resolved identity.
+    """
 
     def extract_credentials(
         self,
@@ -302,11 +331,91 @@ class CloudIAMAuthenticationHandler(AuthenticationHandler):
         secret_consumer: SecretConsumer,
     ) -> dict[str, Any]:
         auth_type_val = auth_spec.auth_type.value if hasattr(auth_spec.auth_type, "value") else str(auth_spec.auth_type)
-        return {
+        additional_params = dict(getattr(auth_spec, "additional_params", {}))
+        creds: dict[str, Any] = {
             "role_arn": getattr(auth_spec, "role_arn", None),
             "auth_type": auth_type_val,
-            "additional_params": dict(getattr(auth_spec, "additional_params", {})),
+            "additional_params": additional_params,
         }
+
+        try:
+            cloud_identity = self._resolve_cloud_identity(auth_type_val, auth_spec, additional_params)
+            if cloud_identity is not None:
+                if cloud_identity.is_expired():
+                    # Fail closed: an expired identity is never wired into usable
+                    # credentials, even though resolution itself "succeeded" moments
+                    # too late. Treated identically to a resolution failure.
+                    creds["cloud_identity_error"] = f"Resolved {cloud_identity.provider.value} identity is expired; refusing to use it."
+                else:
+                    creds["cloud_identity"] = cloud_identity
+                    self._populate_physical_credentials(creds, cloud_identity)
+        except Exception as exc:  # noqa: BLE001 -- deliberately soft-fail; see docstring
+            creds["cloud_identity_error"] = redact_text(str(exc))
+
+        return creds
+
+    @staticmethod
+    def _populate_physical_credentials(creds: dict[str, Any], cloud_identity: Any) -> None:
+        """Copies a resolved, non-expired CloudIdentityContext's real material into the
+        canonical credential keys provider strategies actually read at connect() time --
+        this is what makes workload identity resolution genuinely consumed rather than
+        inert metadata. Never overwrites a value already resolved through another
+        (e.g. explicit secret-reference) path."""
+        claims = cloud_identity.raw_claims
+        if cloud_identity.provider.value == "AWS":
+            if claims.get("access_key_id") and not creds.get("access_key_id"):
+                creds["access_key_id"] = claims["access_key_id"]
+            if claims.get("secret_access_key") and not creds.get("secret_access_key"):
+                creds["secret_access_key"] = claims["secret_access_key"]
+            if claims.get("session_token") and not creds.get("session_token"):
+                creds["session_token"] = claims["session_token"]
+                creds["aws_session_token"] = claims["session_token"]
+        elif cloud_identity.provider.value == "AZURE":
+            if claims.get("bearer_token") and not creds.get("token"):
+                creds["token"] = claims["bearer_token"]
+        elif cloud_identity.provider.value == "GCP":
+            if claims.get("credentials_object") is not None and creds.get("gcp_credentials_object") is None:
+                creds["gcp_credentials_object"] = claims["credentials_object"]
+        elif cloud_identity.provider.value == "OCI":
+            if claims.get("signer") is not None and creds.get("oci_signer") is None:
+                creds["oci_signer"] = claims["signer"]
+
+    @staticmethod
+    def _resolve_cloud_identity(auth_type_val: str, auth_spec: Any, additional_params: Mapping[str, Any]):
+        from akaalEngine.fabric.workload_identity import (
+            resolve_aws_workload_identity,
+            resolve_azure_workload_identity,
+            resolve_gcp_workload_identity,
+            resolve_oci_workload_identity,
+        )
+
+        if auth_type_val in ("AWS_IAM_ROLE", "IAM_WORKLOAD_IDENTITY"):
+            role_arn = getattr(auth_spec, "role_arn", None)
+            return resolve_aws_workload_identity(role_arn_to_assume=role_arn)
+
+        if auth_type_val == "AZURE_ENTRA_ID":
+            subscription_id = additional_params.get("subscription_id")
+            if not subscription_id:
+                return None
+            return resolve_azure_workload_identity(subscription_id=subscription_id)
+
+        if auth_type_val == "GCP_ADC":
+            project_id = additional_params.get("project_id")
+            return resolve_gcp_workload_identity(project_id=project_id)
+
+        if auth_type_val == "OCI_INSTANCE_PRINCIPAL":
+            # Requires an already-constructed signer + its claims; this handler does not
+            # construct OCI signers itself (that is a live-infrastructure concern outside
+            # generic credential extraction). Only attempted when the caller has supplied
+            # everything needed via additional_params.
+            signer = additional_params.get("oci_signer")
+            principal_id = additional_params.get("oci_principal_id")
+            tenancy_ocid = additional_params.get("oci_tenancy_ocid")
+            if not (signer and principal_id and tenancy_ocid):
+                return None
+            return resolve_oci_workload_identity(signer=signer, principal_id=principal_id, tenancy_ocid=tenancy_ocid)
+
+        return None
 
 
 class AuthenticationManager:

@@ -93,6 +93,21 @@ class GCSProviderStrategy(BaseProviderStrategy):
         project_id = spec.account_id or spec.options.get("project_id")
         sa_info = credentials.get("service_account_json") or credentials.get("service_account_info")
 
+        # 0. Round-5 hostile-review closure: a resolved workload identity (ADC/WIF via
+        # akaalEngine.fabric.workload_identity.resolve_gcp_workload_identity) carries a
+        # live google.auth.credentials.Credentials OBJECT, not an exportable JSON
+        # service-account key (that is the whole point of ADC/WIF -- there is no static
+        # key to export). Without this branch, a resolved workload identity fell through
+        # to step 3's blind `storage.Client(project=project_id)`, which performs its OWN
+        # internal ADC resolution -- silently DISCARDING the actual identity AKAAL just
+        # resolved (e.g. a specific WIF-federated principal) in favor of whatever
+        # environment-ambient identity the SDK happens to find on its own. This is now
+        # fixed: when present, the resolved credentials object is passed through
+        # explicitly, so the identity actually used is genuinely the one AKAAL resolved.
+        gcp_credentials_object = credentials.get("gcp_credentials_object")
+        if gcp_credentials_object is not None:
+            return storage.Client(project=project_id, credentials=gcp_credentials_object)
+
         # 1. Explicit Service Account Authentication
         if sa_info:
             try:
