@@ -28,7 +28,7 @@ import { CockpitEventsDockComponent } from './components/cockpit-events-dock.com
     CockpitEventsDockComponent
   ],
   template: `
-    <div class="min-h-screen bg-slate-50/50 flex flex-col font-sans text-slate-800 antialiased selection:bg-slate-900 selection:text-white pb-16">
+    <div class="min-h-screen bg-slate-50/50 flex flex-col font-sans text-slate-800 antialiased selection:bg-blue-100 selection:text-blue-900 pb-16">
       
       <!-- Sticky Navigation / Command Header -->
       <app-cockpit-header />

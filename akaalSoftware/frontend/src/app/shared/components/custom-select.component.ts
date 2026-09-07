@@ -10,10 +10,11 @@ import {
   OnChanges,
   OnInit,
   OnDestroy,
-  SimpleChanges
+  SimpleChanges,
+  forwardRef
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { FormsModule, ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 import { LucideIconComponent } from './lucide-icon.component';
 
 export interface CustomSelectOption {
@@ -35,6 +36,13 @@ export interface GroupedSelectOption {
   selector: 'app-custom-select',
   standalone: true,
   imports: [CommonModule, FormsModule, LucideIconComponent],
+  providers: [
+    {
+      provide: NG_VALUE_ACCESSOR,
+      useExisting: forwardRef(() => CustomSelectComponent),
+      multi: true
+    }
+  ],
   template: `
     <div class="relative w-full text-xs select-none antialiased">
       
@@ -43,18 +51,17 @@ export interface GroupedSelectOption {
         type="button"
         (click)="toggleOpen($event)"
         [disabled]="disabled"
-        class="w-full bg-white border border-slate-200 flex items-center justify-between text-left text-xs font-medium text-slate-800 hover:border-slate-300 transition-colors cursor-pointer focus:outline-none focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-        [class.h-7]="size === 'sm'"
-        [class.px-2]="size === 'sm'"
-        [class.rounded]="size === 'sm'"
+        class="w-full bg-white hover:bg-slate-50 border border-slate-200 flex items-center justify-between text-left text-xs font-medium text-slate-800 transition-colors cursor-pointer focus:outline-none focus:border-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+        [class.h-7.5]="size === 'sm'"
+        [class.px-2.5]="size === 'sm'"
+        [class.rounded-lg]="true"
         [class.h-9]="size !== 'sm'"
         [class.px-3]="size !== 'sm'"
-        [class.rounded-lg]="size !== 'sm'"
-        [class.border-blue-500]="isOpen()">
+        [class.border-blue-600]="isOpen()">
         
-        <div class="flex items-center gap-1.5 min-w-0 flex-1">
+        <div class="flex items-center gap-2 min-w-0 flex-1">
           @if (selectedOption()?.icon; as iconName) {
-            <app-lucide-icon [name]="iconName" [size]="size === 'sm' ? 12 : 14" class="text-slate-500 shrink-0"></app-lucide-icon>
+            <app-lucide-icon [name]="iconName" [size]="size === 'sm' ? 12 : 13" class="text-slate-500 shrink-0"></app-lucide-icon>
           }
           <span class="truncate" [class.text-slate-400]="!selectedOption()">
             {{ selectedLabel() }}
@@ -68,15 +75,15 @@ export interface GroupedSelectOption {
 
         <app-lucide-icon
           name="chevron-down"
-          [size]="size === 'sm' ? 12 : 14"
-          class="text-slate-400 shrink-0 ml-1 transition-transform duration-150"
+          [size]="13"
+          class="text-slate-400 shrink-0 ml-1.5 transition-transform duration-150"
           [class.rotate-180]="isOpen()"></app-lucide-icon>
       </button>
 
-      <!-- Dropdown Floating Popup -->
+      <!-- Dropdown Floating Popup (Step 1 Global Design System) -->
       @if (isOpen()) {
         <div
-          class="absolute left-0 z-50 bg-white border border-slate-200 rounded-xl p-1.5 flex flex-col gap-1 animate-in fade-in zoom-in-95 duration-100 max-h-72 overflow-y-auto min-w-[280px] w-full max-w-lg whitespace-normal shadow-none"
+          class="absolute left-0 right-0 z-50 bg-white border border-slate-200 rounded-lg p-1 flex flex-col gap-0.5 shadow-lg animate-in fade-in duration-100 max-h-64 overflow-y-auto w-full min-w-[200px]"
           [class.top-full]="!openUpward()"
           [class.mt-1.5]="!openUpward()"
           [class.bottom-full]="openUpward()"
@@ -88,16 +95,17 @@ export interface GroupedSelectOption {
             <div class="relative px-1 pb-1 pt-0.5 border-b border-slate-100 mb-0.5">
               <input
                 type="text"
-                [(ngModel)]="searchQuery"
+                [ngModel]="searchQuery()"
+                (ngModelChange)="searchQuery.set($event)"
                 [placeholder]="searchPlaceholder"
-                class="w-full h-8 pl-8 pr-7 bg-slate-50 border border-slate-200 focus:border-blue-500 rounded-lg text-xs font-medium text-slate-900 focus:outline-none transition-all placeholder:text-slate-400" />
+                class="w-full h-8 pl-8 pr-7 bg-slate-50 border border-slate-200 focus:border-blue-600 rounded-md text-xs font-medium text-slate-900 focus:outline-none transition-all placeholder:text-slate-400" />
               <app-lucide-icon name="search" [size]="13" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></app-lucide-icon>
               @if (searchQuery()) {
                 <button
                   type="button"
                   (click)="searchQuery.set('')"
                   class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer">
-                  <app-lucide-icon name="x-circle" [size]="13"></app-lucide-icon>
+                  <app-lucide-icon name="x" [size]="13"></app-lucide-icon>
                 </button>
               }
             </div>
@@ -117,14 +125,14 @@ export interface GroupedSelectOption {
               </div>
             }
             @if (filteredGroupedOptions().length === 0) {
-              <div class="py-6 text-center text-slate-400 text-xs">No matching options found</div>
+              <div class="py-4 text-center text-slate-400 text-xs">No matching options found</div>
             }
           } @else {
             @for (opt of filteredOptions(); track opt.value) {
               <ng-container *ngTemplateOutlet="optionTemplate; context: { $implicit: opt }"></ng-container>
             }
             @if (filteredOptions().length === 0) {
-              <div class="py-6 text-center text-slate-400 text-xs">No matching options found</div>
+              <div class="py-4 text-center text-slate-400 text-xs">No matching options found</div>
             }
           }
 
@@ -134,17 +142,18 @@ export interface GroupedSelectOption {
               type="button"
               [disabled]="opt.disabled"
               (click)="selectOption(opt.value, $event)"
-              class="px-2.5 py-2 rounded-lg text-left transition-colors flex items-start justify-between cursor-pointer w-full gap-2.5 disabled:opacity-40 disabled:cursor-not-allowed"
+              [attr.data-value]="opt.value"
+              class="w-full text-left px-2.5 py-1.5 rounded-md text-xs font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50 transition-colors flex items-center justify-between cursor-pointer gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
               [class.bg-blue-50]="isSelected(opt.value)"
-              [class.hover:bg-slate-50]="!isSelected(opt.value) && !opt.disabled">
+              [class.text-blue-700]="isSelected(opt.value)">
               
-              <div class="flex items-start gap-2.5 min-w-0 flex-1">
+              <div class="flex items-center gap-2 min-w-0 flex-1">
                 @if (opt.icon) {
-                  <app-lucide-icon [name]="opt.icon" [size]="14" class="text-slate-500 shrink-0 mt-0.5"></app-lucide-icon>
+                  <app-lucide-icon [name]="opt.icon" [size]="13" class="text-slate-500 shrink-0"></app-lucide-icon>
                 }
                 <div class="flex flex-col min-w-0 flex-1">
                   <div class="flex items-center gap-1.5 flex-wrap">
-                    <span class="font-semibold text-xs text-slate-900 leading-snug">
+                    <span class="font-medium text-xs leading-snug">
                       {{ opt.label }}
                     </span>
                     @if (opt.badge) {
@@ -154,7 +163,7 @@ export interface GroupedSelectOption {
                     }
                   </div>
                   @if (opt.desc) {
-                    <span class="text-[11px] text-slate-500 font-normal leading-relaxed mt-0.5">
+                    <span class="text-[10.5px] text-slate-400 font-normal leading-tight mt-0.5">
                       {{ opt.desc }}
                     </span>
                   }
@@ -162,7 +171,7 @@ export interface GroupedSelectOption {
               </div>
 
               @if (isSelected(opt.value)) {
-                <app-lucide-icon name="check" [size]="14" class="text-blue-600 shrink-0 mt-0.5"></app-lucide-icon>
+                <app-lucide-icon name="check" [size]="13" class="text-blue-600 shrink-0 ml-1.5"></app-lucide-icon>
               }
             </button>
           </ng-template>
@@ -173,7 +182,7 @@ export interface GroupedSelectOption {
     </div>
   `
 })
-export class CustomSelectComponent implements OnInit, OnChanges, OnDestroy {
+export class CustomSelectComponent implements ControlValueAccessor, OnInit, OnChanges, OnDestroy {
   @Input() options: CustomSelectOption[] = [];
   @Input() value: any;
   @Input() placeholder: string = 'Select an option...';
@@ -189,6 +198,9 @@ export class CustomSelectComponent implements OnInit, OnChanges, OnDestroy {
   public optionsSignal = signal<CustomSelectOption[]>([]);
   public valueSignal = signal<any>(undefined);
   public searchQuery = signal<string>('');
+
+  private onChange: (val: any) => void = () => {};
+  private onTouched: () => void = () => {};
 
   public hasGroups = computed<boolean>(() => {
     return this.optionsSignal().some(o => !!o.group);
@@ -260,8 +272,27 @@ export class CustomSelectComponent implements OnInit, OnChanges, OnDestroy {
       this.optionsSignal.set(changes['options'].currentValue || []);
     }
     if (changes['value']) {
-      this.valueSignal.set(changes['value'].currentValue);
+      this.value = changes['value'].currentValue;
+      this.valueSignal.set(this.value);
     }
+  }
+
+  // ControlValueAccessor Implementation
+  writeValue(val: any): void {
+    this.value = val;
+    this.valueSignal.set(val);
+  }
+
+  registerOnChange(fn: any): void {
+    this.onChange = fn;
+  }
+
+  registerOnTouched(fn: any): void {
+    this.onTouched = fn;
+  }
+
+  setDisabledState(isDisabled: boolean): void {
+    this.disabled = isDisabled;
   }
 
   public isSelected(optValue: any): boolean {
@@ -298,6 +329,8 @@ export class CustomSelectComponent implements OnInit, OnChanges, OnDestroy {
     this.value = val;
     this.valueSignal.set(val);
     this.valueChange.emit(val);
+    this.onChange(val);
+    this.onTouched();
     this.isOpen.set(false);
   }
 

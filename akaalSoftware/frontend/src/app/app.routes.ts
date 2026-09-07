@@ -3,6 +3,10 @@ import { DashboardComponent } from './modules/dashboard/dashboard.component';
 import { MigrationPortfolioComponent } from './modules/migration/portfolio/migration-portfolio.component';
 import { CreateMigrationWizardComponent } from './modules/migration/create/create-migration-wizard.component';
 import { ProjectsComponent } from './modules/migration/projects/projects.component';
+import { CreateInitiativeComponent } from './modules/migration/projects/create/create-initiative.component';
+import { InitiativeWorkspaceComponent } from './modules/migration/projects/workspace/initiative-workspace.component';
+import { CreateProjectComponent } from './modules/migration/projects/create-project/create-project.component';
+import { ProjectWorkspaceComponent } from './modules/migration/projects/project-workspace/project-workspace.component';
 import { ConnectionsComponent } from './modules/migration/connections/connections.component';
 import { GlobalHistoryComponent } from './modules/migration/history/global-history.component';
 import { TemplateBrowserComponent } from './modules/migration/templates/template-browser.component';
@@ -10,7 +14,7 @@ import { MigrationWorkspaceComponent } from './modules/migration/workspace/migra
 import { CockpitComponent } from './modules/migration/cockpit/cockpit.component';
 import { ValidationPortfolioComponent } from './modules/validation/validation-portfolio.component';
 import { NewValidationWizardComponent } from './modules/validation/create/new-validation-wizard.component';
-import { ValidationMissionControlComponent } from './modules/validation/mission-control/validation-mission-control.component';
+import { ValidationWorkstationComponent } from './modules/validation/workstation/validation-workstation.component';
 import { MonitoringLandingComponent } from './modules/placeholders/monitoring-landing.component';
 import { ReportsLandingComponent } from './modules/placeholders/reports-landing.component';
 import { AdminLandingComponent } from './modules/placeholders/admin-landing.component';
@@ -30,18 +34,32 @@ export const routes: Routes = [
   { path: 'validation', component: ValidationPortfolioComponent },
   { path: 'validation/new', component: NewValidationWizardComponent },
   { path: 'validation/new/:step', component: NewValidationWizardComponent },
-  { path: 'validation/:validationId', component: ValidationMissionControlComponent },
+  { path: 'validation/:validationId', component: ValidationWorkstationComponent },
   { path: 'migration/validation', component: ValidationPortfolioComponent },
   { path: 'migration/validation/new', component: NewValidationWizardComponent },
   { path: 'migration/validation/new/:step', component: NewValidationWizardComponent },
-  { path: 'migration/validation/:validationId', component: ValidationMissionControlComponent },
+  { path: 'migration/validation/:validationId', component: ValidationWorkstationComponent },
 
   // Migration Operations (2.1 to 2.8)
   { path: 'migration', component: MigrationPortfolioComponent },
   { path: 'migration/portfolio', component: MigrationPortfolioComponent },
   { path: 'migration/create', component: CreateMigrationWizardComponent },
+  
+  // Projects & Initiatives (Submodule of Migration)
   { path: 'migration/projects', component: ProjectsComponent },
-  { path: 'migration/projects/:projectId', component: ProjectsComponent },
+  { path: 'migration/projects/new', component: CreateProjectComponent },
+  { path: 'migration/projects/:projectId', component: ProjectWorkspaceComponent },
+  { path: 'migration/projects/:projectId/:tab', component: ProjectWorkspaceComponent },
+  { path: 'migration/initiatives', component: ProjectsComponent },
+  { path: 'migration/initiatives/new', component: CreateInitiativeComponent },
+  { path: 'migration/initiatives/:initiativeId', component: InitiativeWorkspaceComponent },
+  { path: 'migration/initiatives/:initiativeId/:tab', component: InitiativeWorkspaceComponent },
+  { path: 'projects', redirectTo: 'migration/projects', pathMatch: 'full' },
+  { path: 'projects/new', redirectTo: 'migration/projects/new', pathMatch: 'full' },
+  { path: 'projects/:projectId', redirectTo: 'migration/projects/:projectId', pathMatch: 'full' },
+  { path: 'initiatives', redirectTo: 'migration/initiatives', pathMatch: 'full' },
+  { path: 'initiatives/new', redirectTo: 'migration/initiatives/new', pathMatch: 'full' },
+  { path: 'initiatives/:initiativeId', redirectTo: 'migration/initiatives/:initiativeId', pathMatch: 'full' },
   { path: 'migration/connections', component: ConnectionsComponent },
   { path: 'migration/history', component: GlobalHistoryComponent },
   { path: 'migration/templates', component: TemplateBrowserComponent },

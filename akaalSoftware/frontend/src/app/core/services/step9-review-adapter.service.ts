@@ -84,6 +84,30 @@ export class Step9ReviewAdapterService {
     const mode = draft.mode || 'M2_BULK_CDC';
     const groups: MigrationReviewGroup[] = [];
 
+    // Project Affiliation Group (if project-scoped creation)
+    if (draft.projectId) {
+      groups.push({
+        id: 'PROJECT_AFFILIATION',
+        title: 'Project Context & Scope',
+        subtitle: 'Workspace project ownership & governance alignment',
+        upstreamStep: 1,
+        upstreamStepLabel: 'Review in Definition \u2192',
+        fields: [
+          {
+            label: 'Project Context',
+            value: draft.projectId,
+            detail: 'Scoped to workspace project boundary'
+          },
+          {
+            label: 'Portfolio Ownership',
+            value: 'Direct Project Migration',
+            badge: 'PROJECT SCOPED',
+            badgeColor: 'bg-blue-50 text-blue-700 border-blue-200'
+          }
+        ]
+      });
+    }
+
     // Group 1: Scope & Data (Step 4)
     const tableNodes = (draft.selectedTopologyNodes || []).filter(id => !id.startsWith('schema-') && !id.startsWith('db-'));
     const tableCount = tableNodes.length > 0 ? tableNodes.length : 303;

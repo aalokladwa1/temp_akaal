@@ -55,7 +55,7 @@ export interface ReviewFieldItem {
 }
 
 export interface MigrationReviewGroup {
-  id: 'SCOPE_DATA' | 'DATA_CONTROLS' | 'EXECUTION' | 'PLAN' | 'GOVERNANCE_READINESS';
+  id: 'SCOPE_DATA' | 'DATA_CONTROLS' | 'EXECUTION' | 'PLAN' | 'GOVERNANCE_READINESS' | 'PROJECT_AFFILIATION';
   title: string;
   subtitle: string;
   upstreamStep: number;

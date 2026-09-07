@@ -142,10 +142,10 @@ import { LucideIconComponent } from '../../../shared/components/lucide-icon.comp
       @if (vs.activeDifferenceTab() === 'merkle') {
         <div class="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-col gap-3">
           <span class="font-bold text-slate-900">Hierarchical XXHash64 Merkle Tree</span>
-          <div class="p-3.5 rounded-xl bg-slate-900 text-slate-200 font-mono text-xs max-h-60 overflow-y-auto">
-            <p>ROOT: {{ vs.merkleTree().range }} &bull; Source Hash: <span class="text-blue-400">{{ vs.merkleTree().sourceHash }}</span> | Target: <span class="text-rose-400">{{ vs.merkleTree().targetHash }}</span> (MISMATCH)</p>
-            <p class="pl-4 pt-1">&boxur;&bull; Left Branch (1..10000000): Mismatch localized to leaf-p3 (5000001..7500000)</p>
-            <p class="pl-4">&boxur;&bull; Right Branch (10000001..18600000): Identical (100% matched)</p>
+          <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 font-mono text-xs max-h-60 overflow-y-auto leading-relaxed shadow-2xs">
+            <p>ROOT: {{ vs.merkleTree().range }} &bull; Source Hash: <span class="text-blue-700 font-bold">{{ vs.merkleTree().sourceHash }}</span> | Target: <span class="text-rose-700 font-bold">{{ vs.merkleTree().targetHash }}</span> (MISMATCH)</p>
+            <p class="pl-4 pt-1 text-slate-600">&boxur;&bull; Left Branch (1..10000000): Mismatch localized to leaf-p3 (5000001..7500000)</p>
+            <p class="pl-4 text-emerald-700">&boxur;&bull; Right Branch (10000001..18600000): Identical (100% matched)</p>
           </div>
         </div>
       }

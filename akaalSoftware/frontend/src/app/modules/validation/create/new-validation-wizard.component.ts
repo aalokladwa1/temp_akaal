@@ -263,6 +263,7 @@ export class NewValidationWizardComponent implements OnInit, OnDestroy {
   private routeSub?: Subscription;
 
   public showExitModal = signal<boolean>(false);
+  public projectId = signal<string | null>(null);
 
   // Canonical 8 Steps
   public readonly steps: StepRailItem[] = [
@@ -333,6 +334,10 @@ export class NewValidationWizardComponent implements OnInit, OnDestroy {
         if (stepQuery) {
           this.activateStepFromParam(stepQuery);
         }
+        const proj = queryParams?.get?.('projectId');
+        if (proj) {
+          this.projectId.set(proj);
+        }
       });
       this.routeSub.add(querySub);
     }
@@ -377,8 +382,13 @@ export class NewValidationWizardComponent implements OnInit, OnDestroy {
 
   public exitToValidationHome(): void {
     this.showExitModal.set(false);
+    const pid = this.projectId();
     this.vs.resetDraft();
-    this.router.navigate(['/migration/validation']);
+    if (pid) {
+      this.router.navigate(['/migration/projects', pid, 'validations']);
+    } else {
+      this.router.navigate(['/migration/validation']);
+    }
   }
 
   public goToStep(stepIndex: number): void {
@@ -412,8 +422,13 @@ export class NewValidationWizardComponent implements OnInit, OnDestroy {
 
   public initializeValidation(): void {
     if (this.isCurrentStepValid()) {
+      const pid = this.projectId();
       this.vs.resetDraft();
-      this.router.navigate(['/migration/validation']);
+      if (pid) {
+        this.router.navigate(['/migration/projects', pid, 'validations']);
+      } else {
+        this.router.navigate(['/migration/validation']);
+      }
     }
   }
 }
