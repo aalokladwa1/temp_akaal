@@ -171,6 +171,20 @@ class SiteRegistry:
         with self._lock:
             return list(self._by_id.values())
 
+    def current_fencing_epoch(self, site_id: str) -> int:
+        """
+        Read-only accessor (P7B.24/P7B.25) -- returns the last-consumed fencing epoch for
+        site_id (0 if none has ever been issued). Purely informational: it grants no
+        authority and mutates nothing. Callers (site coordination liveness tracking,
+        distributed ownership/lease acquisition) use this to detect a heartbeat, lease
+        renewal, or ownership claim carrying a fencing generation that is stale relative
+        to the current authoritative epoch -- without needing a second, parallel fencing
+        ledger.
+        """
+        with self._lock:
+            self.get(site_id)  # raises UnknownSiteError for a truly unknown site -- fail safe
+            return self._last_epoch_by_site.get(site_id, 0)
+
     @staticmethod
     def _with(site: ExecutionSite, **overrides: Any) -> ExecutionSite:
         fields = {

@@ -42,7 +42,7 @@ class SQLiteDDLEmitter(BaseTargetDDLEmitter):
         col_defs = []
         for col in table.columns:
             c_name = IdentifierSanitizer.sanitize_identifier(col.name, "SQLITE")
-            emission = ProviderTypeEmitters.emit_target_type(col.canonical_type, "SQLITE")
+            emission = ProviderTypeEmitters.emit("SQLITE", col.canonical_type)
             col_sql = f"{c_name} {emission.target_native_type}"
 
             if not col.nullable:

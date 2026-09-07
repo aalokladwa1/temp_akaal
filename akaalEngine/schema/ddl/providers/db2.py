@@ -51,7 +51,7 @@ class Db2DDLEmitter(BaseTargetDDLEmitter):
         col_defs = []
         for col in table.columns:
             c_name = IdentifierSanitizer.sanitize_identifier(col.name, "DB2")
-            emission = ProviderTypeEmitters.emit_target_type(col.canonical_type, "DB2")
+            emission = ProviderTypeEmitters.emit("DB2", col.canonical_type)
             col_sql = f"{c_name} {emission.target_native_type}"
 
             if not col.nullable:

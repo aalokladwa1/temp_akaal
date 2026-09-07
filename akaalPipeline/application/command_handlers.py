@@ -29,6 +29,9 @@ from akaalPipeline.state.aggregates import MigrationAggregate
 from akaalPipeline.state.history import LifecycleHistoryRecord
 from akaalPipeline.state.repositories import SQLiteMigrationRepository
 from akaalPipeline.state.unit_of_work import SQLiteUnitOfWork
+from akaalEngine.intelligence.api import IntelligenceKernel
+from akaalEngine.intelligence.models.context import IntelligenceContext
+from akaalEngine.intelligence.models.request import IntelligenceRequest, IntelligenceTask
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +54,7 @@ class CommandHandlerRegistry:
         artifact_registry: Optional[ArtifactRegistry] = None,
         checkpoint_manager: Optional[CheckpointManager] = None,
         plan_coordinator: Optional[Any] = None,
+        intelligence_kernel: Optional[IntelligenceKernel] = None,
     ) -> None:
 
         self.repository = repository
@@ -62,6 +66,7 @@ class CommandHandlerRegistry:
         self.artifact_registry = artifact_registry or ArtifactRegistry()
         self.checkpoint_manager = checkpoint_manager or CheckpointManager(self.execution_controller.lease_manager)
         self.plan_coordinator = plan_coordinator
+        self.intelligence_kernel = intelligence_kernel or IntelligenceKernel()
 
         from akaalPipeline.operations.schedules import ScheduleService
         from akaalPipeline.operations.retention import OperationalRetentionService
@@ -1708,6 +1713,73 @@ class CommandHandlerRegistry:
         res = self.notification_service.dispatch(req, uow.connection, actor=actor)
         self.audit_service.record_event(actor, "notification.dispatched", res.delivery_id, uow.connection)
         return res.to_dict()
+
+    def handle_submit_intelligence_request(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        """P7C.1: submits an IntelligenceRequest to the Intelligence Kernel and
+        persists the resulting IntelligenceArtifact. The kernel never itself grants
+        authorization or executes anything -- authorization for this command already
+        happened upstream (PermissionRegistry.INTELLIGENCE_SUBMIT) before this handler
+        runs, exactly like every other command handler here."""
+        task = IntelligenceTask(str(payload["task"]).upper())
+        subject_type = str(payload["subject_type"])
+        subject_id = str(payload["subject_id"])
+        subject_version = str(payload["subject_version"])
+        parameters = payload.get("parameters") or {}
+        capability = payload.get("capability")
+
+        request = IntelligenceRequest(
+            task=task,
+            tenant_id=actor.tenant_id,
+            workspace_id=actor.workspace_id,
+            project_id=actor.project_id,
+            subject_type=subject_type,
+            subject_id=subject_id,
+            subject_version=subject_version,
+            requested_by=actor.actor_id,
+            parameters=parameters,
+            capability=capability,
+        )
+        context = IntelligenceContext.from_actor(
+            actor,
+            subject_type=subject_type,
+            subject_id=subject_id,
+            subject_version=subject_version,
+        )
+        artifact = self.intelligence_kernel.submit_request(request, context, uow.connection)
+        self.audit_service.record_event(actor, "intelligence.artifact.generated", artifact.artifact_id, uow.connection)
+        return artifact.to_dict()
+
+    def handle_record_intelligence_outcome(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        """P7C brief §14 item 23 (outcome-tracking foundation): records what
+        actually happened after an intelligence artifact's recommendation was
+        acted on. Tenant enforcement happens inside IntelligenceKernel.
+        record_outcome itself (compares against the artifact's own tenant_id),
+        not merely via the actor's own tenant_id being passed through."""
+        artifact_id = str(payload["artifact_id"])
+        outcome_status = str(payload["outcome_status"]).upper()
+        detail = str(payload.get("detail", ""))
+        metrics = payload.get("metrics") or {}
+
+        outcome = self.intelligence_kernel.record_outcome(
+            artifact_id=artifact_id,
+            tenant_id=actor.tenant_id,
+            outcome_status=outcome_status,
+            conn=uow.connection,
+            detail=detail,
+            metrics=metrics,
+        )
+        self.audit_service.record_event(actor, "intelligence.outcome.recorded", outcome.outcome_id, uow.connection)
+        return outcome.to_dict()
 
 
 

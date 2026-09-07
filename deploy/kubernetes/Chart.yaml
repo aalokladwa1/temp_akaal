@@ -1,6 +1,15 @@
 apiVersion: v2
-name: akaal-workflow-engine
-description: Production Helm chart for AKAAL Enterprise Migration Platform
+name: akaal-worker-fabric
+description: >
+  P7B.20 -- Helm chart for the AKAAL elastic worker fabric (P7B.22) execution capacity
+  at a Kubernetes-kind akaalEngine.fabric.execution_site.ExecutionSite. This chart
+  deploys WORKER infrastructure only -- it has no notion of Migration/ExecutionPlan
+  truth, which remains the canonical akaalEngine runtime's responsibility, reached by the
+  worker image at container startup, never by anything in this chart.
 type: application
 version: 1.0.0
-appVersion: "10.6.0"
+appVersion: "1.0.0"
+keywords:
+  - akaal
+  - p7b-group-2
+  - worker-fabric

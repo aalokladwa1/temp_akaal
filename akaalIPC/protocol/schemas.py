@@ -184,6 +184,14 @@ def register_core_pipeline_schemas(registry: SchemaRegistry) -> None:
             return "Payload must be a JSON object (mapping)."
         return None
 
+    def _validate_intelligence_submit(payload: Any) -> Optional[str]:
+        if not isinstance(payload, Mapping):
+            return "Payload must be a JSON object (mapping)."
+        for field_name in ("task", "subject_type", "subject_id", "subject_version"):
+            if field_name not in payload or not str(payload[field_name]).strip():
+                return f"Payload must contain non-empty '{field_name}'."
+        return None
+
     # Commands
     cmd_types = [
         "migration.create", "migration.configure", "migration.plan", "migration.initialize",
@@ -202,6 +210,27 @@ def register_core_pipeline_schemas(registry: SchemaRegistry) -> None:
             registry.register(SchemaDescriptor(ct, "1.0", RequestKind.COMMAND, _allow_any_mapping))
         except DuplicateSchemaRegistrationError:
             pass
+    try:
+        registry.register(
+            SchemaDescriptor("intelligence.submit", "1.0", RequestKind.COMMAND, _validate_intelligence_submit)
+        )
+    except DuplicateSchemaRegistrationError:
+        pass
+
+    def _validate_intelligence_outcome_record(payload: Any) -> Optional[str]:
+        if not isinstance(payload, Mapping):
+            return "Payload must be a JSON object (mapping)."
+        for field_name in ("artifact_id", "outcome_status"):
+            if field_name not in payload or not str(payload[field_name]).strip():
+                return f"Payload must contain non-empty '{field_name}'."
+        return None
+
+    try:
+        registry.register(
+            SchemaDescriptor("intelligence.outcome.record", "1.0", RequestKind.COMMAND, _validate_intelligence_outcome_record)
+        )
+    except DuplicateSchemaRegistrationError:
+        pass
 
     # Queries
     query_types = [
@@ -214,6 +243,9 @@ def register_core_pipeline_schemas(registry: SchemaRegistry) -> None:
         "alert.list", "alert.get",
         "incident.list", "incident.get", "incident.timeline",
         "notification.list",
+        "intelligence.artifact.get", "intelligence.artifact.list",
+        "intelligence.mediation.evaluate",
+        "intelligence.outcome.list",
     ]
     for qt in query_types:
         try:

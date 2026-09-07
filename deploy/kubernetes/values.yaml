@@ -1,17 +1,72 @@
-replicaCount: 3
+# AKAAL worker-fabric Helm values.
+#
+# SECURE DEFAULTS ARE NOT OPT-IN HERE: image.tag has no floating default (a caller MUST
+# pin an explicit version -- there is deliberately no "latest"), security contexts are
+# non-root/read-only-root/drop-all by default, networkPolicy defaults to enabled
+# (deny-by-default egress), and RBAC defaults to a namespaced Role (never a ClusterRole
+# or cluster-admin binding). See templates/*.yaml -- none of these are template-time
+# escape hatches to a wildcard permission; they mirror the same structural defaults as
+# akaalEngine.fabric.k8s_runtime.pod_spec (P7B.18).
+
+nameOverride: ""
+fullnameOverride: ""
 
 image:
-  repository: akaal/workflow-engine
+  repository: akaal/worker-fabric
+  # No default tag on purpose -- a caller MUST supply an explicit, pinned tag (or
+  # digest via image.digest below). Deploying with an unpinned "latest" tag is exactly
+  # the kind of non-reproducible, hard-to-audit deployment this chart refuses to default
+  # to.
+  tag: ""
+  digest: ""
   pullPolicy: IfNotPresent
-  tag: "latest"
+
+imagePullSecrets: []
+
+replicaCount: 3
+
+serviceAccount:
+  create: true
+  name: ""
+  # No default annotations -- a caller wiring real cloud workload identity (IRSA/
+  # Workload Identity/Managed Identity) supplies annotations explicitly; this chart
+  # never guesses or defaults one.
+  annotations: {}
 
 resources:
-  limits:
-    cpu: 2000m
-    memory: 4096Mi
   requests:
     cpu: 500m
-    memory: 1024Mi
+    memory: 512Mi
+  limits:
+    cpu: "2"
+    memory: 2Gi
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  fsGroup: 65532
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  privileged: false
+  capabilities:
+    drop: ["ALL"]
+  seccompProfile:
+    type: RuntimeDefault
+
+# Every entry becomes an env var sourced via valueFrom.secretKeyRef against an
+# ALREADY-EXISTING Kubernetes Secret -- this chart never accepts or renders a literal
+# secret value anywhere (no `value:` field exists in the template for this list).
+secretEnv: []
+# - envVarName: AKAAL_WORKER_TOKEN
+#   secretName: akaal-worker-credentials
+#   secretKey: token
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2
 
 autoscaling:
   enabled: true
@@ -20,6 +75,17 @@ autoscaling:
   targetCPUUtilizationPercentage: 70
   targetMemoryUtilizationPercentage: 80
 
-podDisruptionBudget:
+networkPolicy:
   enabled: true
-  minAvailable: 2
+  # Deny-by-default egress; caller lists explicit allowed destinations (e.g. the
+  # control-plane API endpoint, DNS). An empty list here means "no egress permitted",
+  # never "unrestricted" -- unrestricted egress is not this chart's default under any
+  # configuration.
+  allowedEgressCIDRs: []
+  allowDNS: true
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+terminationGracePeriodSeconds: 30
