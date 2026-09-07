@@ -1,3 +1,4 @@
+import time
 import unittest
 from akaal.gateway.engine_gateway import EngineGateway
 
@@ -116,6 +117,26 @@ class TestDay23ControlPlaneReconciliation(unittest.TestCase):
         # Execute Transport
         start_res = self.gateway.invoke("start_transport", {"migration_id": mig_id})
         self.assertIn(start_res.get("status"), ["success", "accepted", "transport_running"])
+
+        # start_transport spawns a REAL background thread (EngineGateway._bg_execute)
+        # that attempts genuine physical connections to the (deliberately
+        # unreachable in this test environment) source/target ports and then
+        # writes its own terminal status (FAILED, since the ports refuse the
+        # connection) to the same state_store key this test is about to override.
+        # Without waiting for that background write to land first, this test's
+        # own override below races the background thread non-deterministically --
+        # whichever write lands last wins, and depending on OS-level TCP
+        # connection-refused timing either write can land last. Waiting for the
+        # background thread's write to settle to a terminal status first makes
+        # this test's own override deterministically the final, stable write
+        # `get_runtime_snapshot` will read -- a test-fixture-only fix; the
+        # background threading/async execution behavior itself is correct and
+        # untouched.
+        for _ in range(100):
+            bg_status = self.gateway.state_store.get_state(f"{mig_id}_status", category="runtime")
+            if isinstance(bg_status, dict) and bg_status.get("status") in ("FAILED", "COMPLETED"):
+                break
+            time.sleep(0.05)
 
         self.gateway.state_store.update_progress(mig_id, {
             "rows_migrated": 5,

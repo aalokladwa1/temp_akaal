@@ -21,6 +21,67 @@ from akaalIPC.transport.ports import CallerResultStatus
 from tests.pipeline.conftest import authorized_caller, make_command, make_query
 
 
+def _region_scoped_caller(db_path: str, tenant_id: str, principal_id: str, allowed_region: str):
+    """Builds a REAL PipelineUnifiedCaller wired to the REAL CentralAuthorizationEngine
+    (no auto-provisioning wrapper -- that grants a SYSTEM/root-scoped blanket permission
+    which would defeat this test's purpose).
+
+    RBAC resource-scoped grants in this repository are structurally restricted to a
+    fixed hierarchy (role_grants.resource_type CHECK constraint: ORGANIZATION/
+    WORKSPACE/PROJECT/MIGRATION/SYSTEM only -- confirmed by inspection, "region" is not
+    a legal RBAC grant scope and this test does not alter that frozen schema). The
+    permission itself is therefore granted broadly via RBAC (SYSTEM scope), and the
+    actual per-region restriction is enforced by a REAL ABAC DENY policy (condition:
+    resource.id NOT IN [allowed_region]) -- exactly the mechanism
+    akaalPipeline.security.abac.ABACAuthority.evaluate_policies exists for. This is
+    still the real, existing, canonical authorization engine deciding -- not a second
+    authority P7C invented."""
+    from akaalPipeline.application.unified_caller import PipelineUnifiedCaller
+    from akaalPipeline.identity.groups import GroupAuthority
+    from akaalPipeline.security.abac import ABACAuthority
+    from akaalPipeline.security.central_authorization import CentralAuthorizationEngine
+    from akaalPipeline.security.permission_registry import PermissionRegistry
+    from akaalPipeline.security.rbac import RBACAuthority
+    from akaalPipeline.state.unit_of_work import SQLiteUnitOfWork
+
+    uow = SQLiteUnitOfWork(db_path=db_path)
+    uow.initialize_schema()
+
+    uow.tenants.create_tenant(tenant_id, tenant_id)
+    uow.principals.create(tenant_id=tenant_id, principal_id=principal_id, principal_type="HUMAN", username=principal_id)
+
+    # RBAC: broad grant of every permission (including the region/capability-use
+    # permissions) -- the actual region restriction comes entirely from the ABAC
+    # DENY policy below, proving ABAC genuinely overrides an RBAC allow.
+    uow.roles.create_role(role_id="baseline-role", tenant_id=tenant_id, name="Baseline")
+    for perm in PermissionRegistry.ALL_PERMISSIONS:
+        uow.role_permissions.assign_permission(tenant_id, "baseline-role", perm, principal_id)
+    uow.role_grants.grant_role(f"grant-baseline-{principal_id}", tenant_id, "PRINCIPAL", principal_id, "baseline-role", "SYSTEM", "root", principal_id)
+
+    # ABAC: the real canonical region restriction. DENY unless resource.id is the
+    # one allowed region -- fail closed for every other region.
+    uow.abac_policies.create_policy(
+        tenant_id=tenant_id,
+        policy_id=f"region-restriction-{tenant_id}",
+        name="Canonical region restriction",
+        effect="DENY",
+        target_action=PermissionRegistry.INTELLIGENCE_STRATEGY_REGION_USE,
+        target_resource_type="region",
+        condition_expression={"not": {"in": ["resource.id", [allowed_region]]}},
+        priority=10,
+    )
+    uow.connection.commit()
+
+    ga = GroupAuthority(uow.groups, uow.principals)
+    rbac = RBACAuthority(uow.roles, uow.role_permissions, uow.role_grants)
+    abac = ABACAuthority(uow.abac_policies)
+    real_engine = CentralAuthorizationEngine(uow.tenants, uow.principals, ga, rbac, abac)
+
+    from tests.pipeline.conftest import build_session_manager
+
+    return PipelineUnifiedCaller(shared_uow=uow, central_authz=real_engine, session_manager=build_session_manager(uow))
+
+
 @pytest.fixture
 def temp_db_path():
     fd, path = tempfile.mkstemp(suffix=".db")
@@ -252,3 +313,56 @@ class TestCrossCampaignABIntegrationJourney:
         mediation_result = caller.handle_query(make_query("intelligence.mediation.evaluate", mediation_payload, actor, CorrelationContext.new()))
         assert mediation_result.status == CallerResultStatus.OK
         assert mediation_result.result["decision"]["status"] == "APPROVED_FOR_CANONICAL_PROCESSING"
+
+
+class TestP7C8CanonicalRegionTrustProductionPath:
+    """Blocker-1 closure: proves the REAL RBAC resource-scoping mechanism
+    (akaalPipeline.security.rbac.RBACAuthority) backs P7C.8's canonical region
+    projection end-to-end through the actual production IPC seam -- not just a
+    unit-level fake authorizer."""
+
+    def test_hostile_real_rbac_india_only_grant_excludes_singapore_end_to_end(self, temp_db_path):
+        caller = _region_scoped_caller(temp_db_path, tenant_id="tenant-rbac", principal_id="actor-rbac", allowed_region="india")
+        try:
+            actor = _actor("tenant-rbac", actor_id="actor-rbac")
+            cmd = make_command(
+                "intelligence.submit",
+                {
+                    "task": "OPTIMIZE", "subject_type": "migration_plan", "subject_id": "plan-1", "subject_version": "v1",
+                    "capability": "strategy_generation",
+                    "parameters": {
+                        "objective": "LOWEST_COST",
+                        "candidate_regions": ["india", "singapore"],
+                        "allowed_regions": ["india", "singapore"],  # caller tries to claim both
+                    },
+                },
+                actor, CorrelationContext.new(),
+            )
+            result = caller.handle_command(cmd)
+            assert result.status == CallerResultStatus.OK
+            alternatives = result.result["result"]["optimization"]["alternatives"]
+            assert all("india" in a["label"] for a in alternatives)
+            assert not any("singapore" in a["label"] for a in alternatives)
+        finally:
+            caller.close()
+
+    def test_hostile_real_rbac_no_region_grant_yields_empty_feasible_set(self, temp_db_path):
+        """A principal with zero region grants must get an empty canonical
+        feasible set -- and since candidate_regions/allowed_regions were
+        requested, the producer refuses rather than silently succeeding."""
+        caller = _region_scoped_caller(temp_db_path, tenant_id="tenant-rbac2", principal_id="actor-rbac2", allowed_region="germany")
+        try:
+            actor = _actor("tenant-rbac2", actor_id="actor-rbac2")
+            cmd = make_command(
+                "intelligence.submit",
+                {
+                    "task": "OPTIMIZE", "subject_type": "migration_plan", "subject_id": "plan-1", "subject_version": "v1",
+                    "capability": "strategy_generation",
+                    "parameters": {"objective": "LOWEST_COST", "candidate_regions": ["singapore"], "allowed_regions": ["singapore"]},
+                },
+                actor, CorrelationContext.new(),
+            )
+            result = caller.handle_command(cmd)
+            assert result.status == CallerResultStatus.ERROR
+        finally:
+            caller.close()

@@ -106,7 +106,10 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
             self.repository,
         )
         self.intelligence_kernel = IntelligenceKernel()
-        register_all_campaign_b_producers(self.intelligence_kernel)
+        register_all_campaign_b_producers(
+            self.intelligence_kernel,
+            strategy_constraint_resolver=self._build_strategy_constraint_resolver(),
+        )
         self.command_handlers = CommandHandlerRegistry(
             self.repository,
             self.operation_service,
@@ -244,6 +247,96 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
                 side_effect=SideEffectClassification.READ_ONLY,
             )
         )
+
+    def _build_strategy_constraint_resolver(self):
+        """Builds the P7C.8 canonical residency/capability constraint resolver
+        (akaalEngine.intelligence.knowledge.constraint_projection), backed by
+        the REAL CentralAuthorizationEngine -- never a second residency
+        authority. Returns None if no central_authz is configured (P7C.8 then
+        fails closed on any residency/capability-scoped request rather than
+        trusting caller-only claims -- see strategy_generation.py).
+
+        The per-region/per-capability authorization checks reuse the SAME
+        trust boundary already established for the enclosing intelligence.
+        submit command: by the time a Campaign B producer runs, the caller has
+        already passed real trusted-actor resolution + INTELLIGENCE_SUBMIT
+        authorization (see handle_command) for this exact request. This
+        resolver's synthetic PipelineActorContext (tenant_id + requested_by +
+        freshly-fetched authoritative roles) is a re-derivation for a SECOND,
+        finer-grained permission check within that already-authenticated
+        request -- it does not fabricate new trust, it reuses established trust
+        to ask the real engine a more specific question.
+        """
+        if self.central_authz is None:
+            return None
+
+        from akaalEngine.intelligence.knowledge.constraint_projection import project_trusted_constraints
+        from akaalPipeline.security.permission_registry import PermissionRegistry
+
+        def resolver(request: Any, context: Any):
+            # The REAL authenticated actor for THIS exact request, threaded
+            # through via IntelligenceContext.extra_dimensions by
+            # command_handlers.handle_submit_intelligence_request -- never a
+            # synthetic/re-derived identity.
+            actor_id = context.extra_dimensions.get("actor_id", request.requested_by)
+            roles_raw = context.extra_dimensions.get("actor_roles", "")
+            roles: Tuple[str, ...] = tuple(r for r in roles_raw.split(",") if r)
+
+            def _region_authorizer(tenant_id: str, region: str) -> bool:
+                return self._authorize_strategy_resource(
+                    tenant_id, actor_id, roles, PermissionRegistry.INTELLIGENCE_STRATEGY_REGION_USE, "region", region
+                )
+
+            def _capability_authorizer(tenant_id: str, region: str, capability: str) -> bool:
+                return self._authorize_strategy_resource(
+                    tenant_id, actor_id, roles, PermissionRegistry.INTELLIGENCE_STRATEGY_CAPABILITY_USE,
+                    "region_capability", f"{region}:{capability}",
+                )
+
+            candidate_regions = frozenset(request.parameters.get("candidate_regions") or [request.parameters.get("candidate_region", "default")])
+            required_capability = request.parameters.get("required_capability")
+            capability_universe = frozenset({str(required_capability)}) if required_capability else None
+            return project_trusted_constraints(
+                request.tenant_id,
+                candidate_regions=candidate_regions,
+                region_authorizer=_region_authorizer,
+                capability_universe=capability_universe,
+                capability_authorizer=_capability_authorizer if capability_universe else None,
+            )
+
+        return resolver
+
+    def _authorize_strategy_resource(
+        self, tenant_id: str, actor_id: str, roles: Tuple[str, ...], permission_id: str, resource_type: str, resource_id: str
+    ) -> bool:
+        from akaalPipeline.contracts.enums import AuthenticationAssurance, AuthenticationState
+        from akaalPipeline.contracts.errors import ForbiddenError, UnauthorizedError
+        from akaalPipeline.security.context import PipelineActorContext
+
+        try:
+            actor_context = PipelineActorContext(
+                actor_id=actor_id,
+                actor_type="human",
+                organization_id=tenant_id,
+                roles=roles,
+                authentication_state=AuthenticationState.AUTHENTICATED,
+                authentication_assurance=AuthenticationAssurance.MEDIUM,
+                provenance="internal-core",
+            )
+            return bool(
+                self.central_authz.authorize(
+                    actor_context=actor_context,
+                    permission_id=permission_id,
+                    resource_type=resource_type,
+                    resource_id=resource_id,
+                    raise_exceptions=True,
+                )
+            )
+        except (ForbiddenError, UnauthorizedError):
+            return False
+        except Exception:
+            # Missing authority/unexpected failure must never be treated as allow.
+            return False
 
     def bind_engine_gateway(self, gateway: Optional[Any] = None) -> None:
         from akaalPipeline.adapters.engine_gateway import PipelineEngineGatewayAdapter
