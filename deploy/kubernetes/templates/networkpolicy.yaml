@@ -1,0 +1,32 @@
+{{- if .Values.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "akaal-worker-fabric.fullname" . }}
+  labels:
+    {{- include "akaal-worker-fabric.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "akaal-worker-fabric.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  policyTypes:
+    - Ingress
+    - Egress
+  # No ingress rules -- deny all inbound by default (workers are not servers; they pull
+  # work, they do not accept connections).
+  ingress: []
+  egress:
+    {{- if .Values.networkPolicy.allowDNS }}
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    {{- end }}
+    {{- range .Values.networkPolicy.allowedEgressCIDRs }}
+    - to:
+        - ipBlock:
+            cidr: {{ . | quote }}
+    {{- end }}
+{{- end }}

@@ -43,6 +43,8 @@ from akaalPipeline.state.aggregates import MigrationAggregate
 from akaalPipeline.state.artifacts import ArtifactRegistry, ImmutableArtifact
 from akaalPipeline.state.repositories import SQLiteMigrationRepository
 from akaalPipeline.state.unit_of_work import SQLiteUnitOfWork, UnitOfWorkPort
+from akaalEngine.intelligence.api import IntelligenceKernel
+from akaalEngine.intelligence.producers.bootstrap import register_all_campaign_b_producers
 
 
 class PipelineUnifiedCaller(UnifiedCallerPort):
@@ -103,6 +105,8 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
             self.audit_service,
             self.repository,
         )
+        self.intelligence_kernel = IntelligenceKernel()
+        register_all_campaign_b_producers(self.intelligence_kernel)
         self.command_handlers = CommandHandlerRegistry(
             self.repository,
             self.operation_service,
@@ -112,10 +116,12 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
             self.audit_service,
             self.artifact_registry,
             plan_coordinator=self.plan_coordinator,
+            intelligence_kernel=self.intelligence_kernel,
         )
         self.query_service = PipelineQueryService(
             self.repository,
             self.operation_service,
+            intelligence_kernel=self.intelligence_kernel,
         )
         self.schedule_service = self.command_handlers.schedule_service
         self.retention_service = self.command_handlers.retention_service
@@ -512,6 +518,8 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
                     "delete_schedule": PermissionRegistry.OPERATIONS_SCHEDULE_DELETE,
                     "retention.execute": PermissionRegistry.OPERATIONS_RETENTION_EXECUTE,
                     "execute_retention": PermissionRegistry.OPERATIONS_RETENTION_EXECUTE,
+                    "intelligence.submit": PermissionRegistry.INTELLIGENCE_SUBMIT,
+                    "intelligence.outcome.record": PermissionRegistry.INTELLIGENCE_SUBMIT,
                 }
                 perm = perm_map.get(request_type, PermissionRegistry.MIGRATION_READ)
                 res_id = envelope.payload.get("migration_id", "root") if isinstance(envelope.payload, dict) else "root"
@@ -1295,8 +1303,39 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
 
                 return CallerResult(status=CallerResultStatus.ACCEPTED, operation=op_ref)
 
+            elif request_type == "intelligence.submit":
+                with uow:
+                    res = self.command_handlers.handle_submit_intelligence_request(envelope.payload, pipeline_actor, uow)
+                    if envelope.idempotency_key:
+                        self.idempotency_service.record_idempotent_result(
+                            envelope.idempotency_key,
+                            pipeline_actor.organization_id,
+                            envelope.command_id,
+                            payload_fp,
+                            res,
+                            uow.connection,
+                            workspace_id=pipeline_actor.workspace_id,
+                            project_id=pipeline_actor.project_id,
+                            command_name=envelope.request_type,
+                        )
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
 
-
+            elif request_type == "intelligence.outcome.record":
+                with uow:
+                    res = self.command_handlers.handle_record_intelligence_outcome(envelope.payload, pipeline_actor, uow)
+                    if envelope.idempotency_key:
+                        self.idempotency_service.record_idempotent_result(
+                            envelope.idempotency_key,
+                            pipeline_actor.organization_id,
+                            envelope.command_id,
+                            payload_fp,
+                            res,
+                            uow.connection,
+                            workspace_id=pipeline_actor.workspace_id,
+                            project_id=pipeline_actor.project_id,
+                            command_name=envelope.request_type,
+                        )
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
 
 
 
@@ -1489,6 +1528,31 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
                     limit = int(envelope.payload.get("limit", 50))
                     res = self.query_service.list_notification_deliveries(actor=pipeline_actor, conn=uow.connection, limit=limit)
                     return CallerResult(status=CallerResultStatus.OK, result={"deliveries": res})
+                elif request_type in ("intelligence.artifact.get", "get_intelligence_artifact"):
+                    artifact_id = envelope.payload.get("artifact_id", "")
+                    res = self.query_service.get_intelligence_artifact(artifact_id, actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=res)
+                elif request_type in ("intelligence.mediation.evaluate", "evaluate_action_mediation"):
+                    res = self.query_service.evaluate_action_mediation(
+                        envelope.payload,
+                        actor=pipeline_actor,
+                        conn=uow.connection,
+                        central_authz=self.central_authz,
+                        artifact_registry=self.artifact_registry,
+                    )
+                    return CallerResult(status=CallerResultStatus.OK, result=res)
+                elif request_type in ("intelligence.outcome.list", "list_intelligence_outcomes"):
+                    artifact_id = envelope.payload.get("artifact_id", "")
+                    res = self.query_service.list_intelligence_outcomes(artifact_id, actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result={"outcomes": res})
+                elif request_type in ("intelligence.artifact.list", "list_intelligence_artifacts"):
+                    limit = int(envelope.payload.get("limit", 100))
+                    offset = int(envelope.payload.get("offset", 0))
+                    subject_id = envelope.payload.get("subject_id")
+                    res = self.query_service.list_intelligence_artifacts(
+                        actor=pipeline_actor, conn=uow.connection, subject_id=subject_id, limit=limit, offset=offset
+                    )
+                    return CallerResult(status=CallerResultStatus.OK, result={"artifacts": res})
                 else:
                     raise PipelineError(
                         PipelineErrorCode.INVALID_REQUEST,

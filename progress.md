@@ -122,13 +122,17 @@ M8 must preserve non-mutating validation semantics.
 | P7A Campaign A (P7A.1–P7A.6) | **OWNER ACCEPTED & FROZEN** (owner-authorized, 2026-09-04) — independent roadmap track from P7 Campaign A/B/C above; do not conflate | See §32 |
 | P7A Campaign B (P7A.7–P7A.12) | **OWNER ACCEPTED & FROZEN** (owner-authorized, 2026-09-05) — connector expansion 20/20 complete, fleet 28→48. Historical "ACTIVE, NOT FROZEN" text below (and throughout §33) is **SUPERSEDED BY §34**. | See §34 (authoritative), §33 (history) |
 | **P7A (whole phase, Campaign A + Campaign B)** | **OWNER ACCEPTED & FROZEN — 10/10 for locally proven scope** (owner-authorized, 2026-09-05). Regression-protected baseline. Must not be reopened, redesigned, or weakened without new explicit owner authorization and a concrete demonstrated defect. | **See §34 — authoritative final record** |
-| P7B/P7C/P7D | Future, independent of P7 and P7A. **Not started. No agent may begin any of these without separate explicit owner authorization** — P7A being frozen does not imply the next phase has begun. | Do not conflate with any Campaign A above |
+| P7B Group 1 (Campaign A + Campaign B, P7B.1–P7B.10) | **OWNER ACCEPTED & FROZEN — 10/10 for locally proven scope** (owner-authorized, 2026-09-06). Regression-protected baseline. Fleet 48→49 (OCI Object Storage added). Must not be reopened, redesigned, or weakened without new explicit owner authorization and a concrete demonstrated defect. | **See §35 — final record; §41 — whole-phase authoritative** |
+| P7B Group 2 (Campaign C + Campaign D, P7B.11–P7B.23) | **OWNER ACCEPTED & FROZEN** (owner-authorized, 2026-09-06) — distributed topology/placement (Campaign C) + cloud-native execution fabric (Campaign D) implemented, wired as MANDATORY/load-bearing from the canonical `akaalPipeline` orchestration seam, hostile-tested across three closure rounds. Regression-protected baseline. Must not be reopened, redesigned, or weakened without new explicit owner authorization and a concrete demonstrated defect. | **See §39 — final record; §41 — whole-phase authoritative** |
+| P7B Group 3 (Campaign E + Campaign F, P7B.24–P7B.35) | **OWNER ACCEPTED & FROZEN** (owner-authorized, 2026-09-07) — distributed site coordination, ownership/leasing/fencing (made load-bearing via a universal physical-effect ownership gate, not just data_transport), multi-region/multi-cloud, DR/geo-failover, partition safety, GitOps/fleet lifecycle, and production-integrated telemetry/Evidence/explainability. Worker BUSY-lifecycle leak and checkpoint/ownership separation hostile-proven and closed. Regression-protected baseline. Must not be reopened, redesigned, or weakened without new explicit owner authorization and a concrete demonstrated defect. | **See §40 — final record; §41 — whole-phase authoritative** |
+| **P7B (whole phase, Group 1 + Group 2 + Group 3, P7B.1–P7B.35)** | **COMPLETED — OWNER ACCEPTED & FROZEN** (owner-authorized, 2026-09-07). Regression-protected baseline. Must not be reopened, redesigned, or weakened without new explicit owner authorization and a concrete demonstrated defect. | **See §41 — authoritative final record** |
+| P7C / P7D | Future. **NOT STARTED. No agent may begin any of this without separate explicit owner authorization** — the whole of P7B being frozen does not imply P7C/P7D has begun. | Do not conflate with any campaign above |
 
 ---
 
 ## 10. Current Active Position
 
-**THIS SECTION IS SUPERSEDED BY §34 FOR CURRENT STATE.** Preserved below as the historical mid-campaign snapshot; do not treat it as current.
+**THIS SECTION IS SUPERSEDED BY §41 FOR CURRENT STATE (whole P7B phase, COMPLETED — OWNER ACCEPTED & FROZEN, 2026-09-07; §34 remains the authoritative record for P7A specifically).** Preserved below as the historical mid-campaign snapshot; do not treat it as current.
 
 **P7A Campaign A (P7A.1–P7A.6) is OWNER ACCEPTED & FROZEN as of 2026-09-04** (see §32), on top of the already-frozen **P7 Campaign C (P7.10–P7.13)** (OWNER ACCEPTED & FROZEN, 2026-09-02, §31) and **P7 Campaign B (P7.5–P7.9)** (FROZEN, 2026-09-02, §27). Do not reopen any of these three without new explicit owner authorization and a concrete demonstrated defect (§9 permanent invariant).
 
@@ -616,45 +620,118 @@ Campaign B HIGH-assurance bridge (including the role/scope trust-boundary correc
 
 ## 30. NEXT SESSION START HERE
 
-**P7A IS COMPLETED AND FROZEN. DO NOT REOPEN IT.** See §34 for the full authoritative final freeze record. This block is the compact pointer — read §34 in full before doing anything else.
+**P7A AND THE WHOLE OF P7B (GROUP 1 + GROUP 2 + GROUP 3, P7B.1–P7B.35) ARE ALL COMPLETED AND FROZEN. DO NOT REOPEN ANY OF THEM.** See **§41 for the full authoritative whole-P7B-phase final freeze record** (current, supersedes everything below). §40/§39/§35/§34 remain the authoritative per-group/per-phase detail records. This block is the compact pointer — read §41 in full before doing anything else.
 
 ```
-CURRENT STATE (authoritative, 2026-09-05, final):
+CURRENT STATE (authoritative, 2026-09-07, final):
   P0-P6                    FROZEN (per supplied baseline, unchanged this session)
   P7 Campaign B (P7.5-P7.9)          FROZEN, 2026-09-02 — §27
   P7 Campaign C (P7.10-P7.13)        OWNER ACCEPTED & FROZEN, 2026-09-02 — §31
   P7A Campaign A (P7A.1-P7A.6)       OWNER ACCEPTED & FROZEN, 2026-09-04 — §32
   P7A Campaign B (P7A.7-P7A.12)      OWNER ACCEPTED & FROZEN, 2026-09-05 — §33 (history) + §34 (authoritative)
   P7A (WHOLE PHASE)                  OWNER ACCEPTED & FROZEN — 10/10 FOR LOCALLY PROVEN SCOPE — §34
-  P7B / P7C / P7D                    NOT STARTED. No agent may begin these without separate,
-                                      explicit new owner authorization — P7A being frozen does
-                                      NOT imply the next phase has begun.
+  P7B GROUP 1 (Campaign A+B, P7B.1-P7B.10)  OWNER ACCEPTED & FROZEN — 10/10 FOR LOCALLY
+                                      PROVEN SCOPE, 2026-09-06 — §35
+  P7B GROUP 2 (Campaign C+D, P7B.11-P7B.23)  OWNER ACCEPTED & FROZEN, 2026-09-06 — §39.
+                                      Distributed topology/placement + cloud-native execution
+                                      fabric, wired MANDATORY/load-bearing from the canonical
+                                      akaalPipeline orchestration seam.
+  P7B GROUP 3 (Campaign E+F, P7B.24-P7B.35)  OWNER ACCEPTED & FROZEN, 2026-09-07 — §40.
+                                      Distributed site coordination, ownership/leasing/fencing
+                                      made load-bearing via a UNIVERSAL physical-effect
+                                      ownership gate (every non-READ_ONLY capability, not only
+                                      data_transport), multi-region/multi-cloud, DR/geo-
+                                      failover, partition safety, GitOps/fleet lifecycle,
+                                      production-integrated telemetry/Evidence/explainability.
+                                      Worker BUSY-lifecycle leak and checkpoint/ownership
+                                      separation hostile-proven and closed.
+  P7B (WHOLE PHASE, P7B.1-P7B.35)    COMPLETED — OWNER ACCEPTED & FROZEN, 2026-09-07 — §41
+                                      (authoritative). Supersedes every "NEXT/NOT STARTED"/
+                                      "IMPLEMENTED, NOT YET FROZEN"/"freeze candidate"
+                                      statement for any P7B group anywhere in this file
+                                      (§9, this section's own historical text above, §36/§37/
+                                      §38 "NOT YET FROZEN" notes, §39.8/§40.12 "next action"
+                                      text) — all superseded by §41.
+  P7C / P7D                          NOT STARTED. No agent may begin either without
+                                      separate, explicit new owner authorization — the whole
+                                      of P7B being frozen does NOT imply P7C/P7D has begun.
 
-FLEET:                 48/48 canonical physical providers (28 frozen P4 baseline + 20 Campaign-B
-                        expansion — First-10 #29-38 + Remaining-10 #39-48). Dynamic, derived from
-                        canonical registry/catalog state — never hardcoded. See §34.18.
+FLEET:                 49/49 canonical physical providers (28 frozen P4 baseline + 20 P7A
+                        Campaign-B expansion + 1 P7B Group-1 addition, OCI Object Storage).
+                        Dynamic, derived from canonical registry/catalog state — never
+                        hardcoded. Unchanged by P7B Group 2 or Group 3 (both add placement/
+                        execution-fabric/distributed-coordination intelligence, not new
+                        physical data-movement providers). See §34.18 (P7A: 48/48), §35.13
+                        (P7B Group 1: 49/49), §41.5 (whole-P7B, re-confirmed 2026-09-07: 49/49).
 CAMPAIGN-B EXPANSION:   20/20 providers implemented = 100% complete. See §34.4-§34.7.
 REMAINING-10 MATRIX:    230/230 locally actionable acceptance cells (23 categories x 10 providers)
                         backed by direct executable evidence or truthful N/A. See §34.17.
-GOVERNING REGRESSION:   Final: 5551 passed / 160 skipped / 0 failed (root `tests/` collection).
-                        See §34.19 for the full chronology (5102->5427->5446->5551) and why each
-                        number changed.
+P7B GROUP 1 SCOPE:      Campaign A (P7B.1-P7B.5: Environment, Resource Identity, Workload
+                        Identity, Secrets, Execution Site) + Campaign B (P7B.6-P7B.10:
+                        Connectivity, Private Connectivity, Reachability, Remote Execution,
+                        Route Planning). New package `akaalEngine/fabric/`. See §35.2-§35.12.
+P7B GROUP 2 SCOPE:      Campaign C (P7B.11-P7B.17: Topology, Locality, Capability, Policy,
+                        Residency, Optimization, Cost) + Campaign D (P7B.18-P7B.23: Kubernetes
+                        Runtime, Operator/CRDs, Helm, Terraform, Worker Fabric, Self-Healing) +
+                        mandatory production wiring into `akaalPipeline.execution.coordinator.
+                        PlanExecutionCoordinator`. New packages `akaalEngine/fabric/{topology,
+                        locality,placement,k8s_runtime,worker_fabric}/`,
+                        `akaalPipeline/orchestration/fabric_gate.py`,
+                        `akaalPipeline/adapters/fabric_engine_gateway.py`. See §39.2-§39.6.
+P7B GROUP 3 SCOPE:      Campaign E (P7B.24-P7B.29: Site Coordination, Ownership/Leasing/
+                        Fencing, Multi-Region, Multi-Cloud, DR/Geo-Failover, Partition Safety)
+                        + Campaign F (P7B.30-P7B.35: GitOps/Fleet Lifecycle, Fleet Upgrade
+                        Management, Observability, Explainability, Governance/Evidence,
+                        Whole-Fabric Hostile Acceptance) + the universal ownership gate/
+                        worker-lifecycle/checkpoint-separation production corrections. New
+                        packages `akaalEngine/fabric/{site_coordination,ownership,
+                        regional_operation,multi_cloud,failover,gitops,fleet_lifecycle}/`,
+                        `akaalEngine/fabric/{telemetry_integration,explainability,
+                        group3_evidence}.py`. See §40.3-§40.4.
+GOVERNING REGRESSION:   P7A final: 5551 passed / 160 skipped / 0 failed. P7B Group 1 final:
+                        5,927 passed / 166 skipped / 2 failed (pre-existing, unrelated). P7B
+                        Group 2 final: 6,198 passed / 165 skipped / 0 unexplained failures.
+                        P7B Group 3 / whole-P7B final (current, supersedes all earlier numbers
+                        as the entering baseline for any future work): **6,380 passed / 165
+                        skipped / 0 failed** (root `tests/` collection), against one
+                        historically-documented, independently-reproduced pre-existing P0-era
+                        wall-clock/timing flake (unrelated to P7B, passed clean on the
+                        governing run). See §34.19 (P7A chronology), §35.21 (P7B Group-1),
+                        §39.7 (P7B Group-2), §40.8/§40.10/§41.6 (P7B Group-3/whole-phase final
+                        numbers and explanation).
 KNOWN LOCALLY REACHABLE
-CAMPAIGN-B DEFECTS AT FREEZE:  0.
-LOCAL PROOF LEVEL:      IMPLEMENTED + INTEGRATION_PROVEN throughout. LIVE_PROVEN: NOT claimed for
-                        any provider. Live/external-provider proof remains EXTERNAL_DEFERRED where
-                        genuine vendor infrastructure/proprietary SDKs are unavailable (e.g. pyrfc/
-                        SAP NetWeaver RFC SDK). This does not weaken the local freeze.
+DEFECTS AT FREEZE:      P7A Campaign-B: 0 (§34.17). P7B Group 1: 0 (§35.24). P7B Group 2: 0
+                        (§39.7). P7B Group 3: 0 (§40.8) — real defects (a cross-tenant
+                        locality-substitution gap, a coordinator name-shadowing bug in Group
+                        2; a universal-ownership-gate physical-effect bypass covering non-
+                        data_transport capabilities, a worker BUSY-lifecycle leak, and two
+                        latent bugs inside that leak's own fix — a DRAINING-worker
+                        resurrection risk and a premature binding-release race — in Group 3)
+                        were FOUND and FIXED during hostile review, not left open; zero known
+                        ones remain in either group.
+LOCAL PROOF LEVEL:      IMPLEMENTED + UNIT_PROVEN/INTEGRATION_PROVEN throughout P7A and the
+                        whole of P7B's topology/locality/placement/worker-fabric/ownership/
+                        fencing/failover/Pipeline-wiring logic. P7B Group 2's Helm/Terraform
+                        artifacts are LOCALLY_VERIFIED (static YAML/regex inspection only — no
+                        `helm`/`terraform` binary exists in this environment, verified not
+                        assumed). LIVE_PROVEN: NOT claimed for any provider, any P7B fabric
+                        capability, or any Kubernetes/Terraform/Helm/live-cloud/live-multi-
+                        region/live-multi-cloud capability. All such live/external proof
+                        remains EXTERNAL_DEFERRED where genuine vendor infrastructure/tooling
+                        is unavailable — see §41.7 for the exact current boundary list. This
+                        does not weaken any of the frozen phases/groups.
 SAP APPLICATION ECOSYSTEM:  ONE canonical provider (`sap_application`), capability-driven
                         interface modes {odata, rfc_bapi, idoc} — never counted as separate
                         provider-fleet entries. See §34.7.
 
 NEXT ACTION FOR A FRESH SESSION:
-  Read §34 in full (the authoritative final P7A freeze record) once. Do NOT resume any P7A
-  implementation work. Do NOT begin P7B/P7C/P7D or any other new phase on your own initiative —
-  determine and follow only the next EXPLICIT owner-authorized roadmap scope. If the owner has
-  not yet specified the next phase, the correct action is to wait / ask, not to invent further
-  P7A work or self-select a next phase.
+  Read §41 in full (the authoritative final whole-P7B-phase freeze record; read §40/§39/§35/
+  §34 too if per-group/per-phase detail is needed) once. Do NOT resume any P7A or P7B
+  (Group 1, 2, or 3) implementation work. Do NOT begin P7C, P7D, or any other new phase on
+  your own initiative — determine and follow only the next EXPLICIT owner-authorized roadmap
+  scope. If the owner has not yet specified the next phase, the correct action is to wait /
+  ask, not to invent further work or self-select a next phase. Do not claim any P7C/P7D
+  implementation exists merely because P7B foundations may be reusable by it.
   Do NOT perform git writes without explicit owner authorization.
   Do NOT modify progress.md except for a genuinely new owner-authorized checkpoint operation.
 
@@ -1919,3 +1996,1958 @@ This §34 update is a **documentation/checkpoint operation only**. No production
 ### 34.26 Exact next action for a fresh session
 
 **P7A IS COMPLETED AND FROZEN. DO NOT REOPEN IT.** A fresh session's correct first action is to read this §34 in full (not §29/§30's superseded historical text, and not §33 alone), confirm current repository state still matches this record (a quick `git status`/spot-check is sufficient — a full re-audit is not required unless something looks inconsistent), and then **determine and follow only the next explicit owner-authorized roadmap scope.** Do not resume any P7A implementation work. Do not self-select or begin P7B, P7C, P7D, or any other phase merely because P7A is now frozen — freezing P7A authorizes closing P7A, not opening whatever comes next. If the owner has not yet specified the next phase when a fresh session begins, the correct action is to report the current frozen state and await instruction, not to invent further work.
+
+**SUPERSEDED FOR CURRENT STATE BY §35.** P7B Group 1 (Campaign A + Campaign B, P7B.1–P7B.10) was subsequently authorized, implemented across six owner-directed hostile-review rounds, and **OWNER ACCEPTED & FROZEN** on 2026-09-06. §34 above remains the accurate, unchanged, permanent record of the P7A freeze and its invariants — nothing in P7B Group 1 reopened, weakened, or altered P7A. Read §35 for the current authoritative roadmap position.
+
+---
+
+## 35. P7B GROUP 1 FINAL FREEZE RECORD — OWNER ACCEPTED & FROZEN — 10/10 FOR LOCALLY PROVEN SCOPE (2026-09-06)
+
+**THIS IS THE CURRENT, AUTHORITATIVE RECORD FOR P7B GROUP 1 (Campaign A + Campaign B, P7B.1–P7B.10).** It supersedes every "not started," "ACTIVE," or "candidate" statement about P7B Group 1 anywhere earlier in this document (§9, §30). Where anything conflicts with §35, §35 governs. **P7A (§34) is unaffected and remains separately frozen** — P7B Group 1 is a new, additive phase built on top of frozen P7A authorities, never a reopening of them.
+
+### 35.1 Final owner decision
+
+```
+P7B GROUP 1 — CAMPAIGN A + CAMPAIGN B — P7B.1-P7B.10
+OWNER ACCEPTED & FROZEN
+FINAL RATING: 10/10 FOR LOCALLY PROVEN SCOPE
+DATE: 2026-09-06
+AUTHORIZED BY: Owner, after six hostile-review/correction rounds and a final owner-issued
+closure list (6 named blockers) that were each independently verified closed with
+executable evidence before acceptance was issued.
+```
+
+Group 1 is now regression-protected baseline and **must not be reopened, redesigned, weakened, or casually modified by P7B Group 2 or any later phase** absent a new, concrete, demonstrated defect and fresh explicit owner authorization (§9's permanent rule, unchanged).
+
+Live AWS/Azure/GCP/OCI infrastructure proof, and OCI resource-*type* confirmation that genuinely requires a live `GetResource`-shaped call, remain `EXTERNAL_DEFERRED`. This does not reduce the local freeze rating and must never be rewritten as `LIVE_PROVEN`.
+
+### 35.2 Scope and sub-phase status
+
+```
+Campaign A (Environment & Trust Foundation):
+  P7B.1  Canonical Environment Model                          FROZEN
+  P7B.2  Cloud Resource Identity & Discovery                   FROZEN
+  P7B.3  Workload Identity & Cloud Authentication               FROZEN
+  P7B.4  Secrets, Keys & Certificate Integration                FROZEN
+  P7B.5  Execution Site Trust & Registration                    FROZEN
+
+Campaign B (Hybrid Connectivity & Data-Movement Fabric):
+  P7B.6  Connectivity Fabric                                    FROZEN
+  P7B.7  Cloud-Native Private Connectivity                      FROZEN
+  P7B.8  Network Path Discovery & Reachability                  FROZEN
+  P7B.9  Hybrid Relay / Remote Execution                        FROZEN
+  P7B.10 Data Movement Route Planning                           FROZEN
+```
+
+### 35.3 Canonical architecture built (new package, additive to P7A/P7 authorities)
+
+```
+akaalEngine/fabric/                          -- new P7B Group-1 package (Environment,
+  environment/        (P7B.1)                   Resource Identity, Workload Identity,
+  resource_identity/  (P7B.2)                   Execution Site, Connectivity, Reachability,
+  workload_identity/  (P7B.3)                   Remote Execution, Route Planning) plus
+  execution_site/     (P7B.5)                   a thin durability adapter and a thin
+  connectivity/       (P7B.6, P7B.7)            Evidence-#12 adapter — never a second
+  reachability/       (P7B.8)                   durability/Evidence authority.
+  route_planning/     (P7B.10)
+  remote_execution/   (P7B.9)
+  durability.py        (namespacing/serialization only, over the REAL Authority #5
+                        SQLiteWalBackend/StateRecord)
+  evidence.py           (fact-building only, over the REAL Authority #12
+                        EvidenceAuthority.create_evidence_artifact)
+```
+
+Conceptual data flow (proven end-to-end, §35.10):
+
+```
+PHYSICAL / CLOUD RESOURCE
+  -> Environment (P7B.1) -> Resource Identity (P7B.2) -> Workload Identity (P7B.3)
+  -> Execution Site trust (P7B.5) -> Connectivity (P7B.6/7) -> Reachability (P7B.8)
+  -> Movement Route (P7B.10) -> Remote Execution Assignment (P7B.9)
+  -> mandatory Fabric execution/revalidation boundary
+  -> EXISTING canonical TransportAuthority -> TransportDriverRegistry
+  -> real SourceReader/TargetWriter -> physical provider boundary
+  -> EXISTING canonical durability/checkpoint/telemetry/Evidence authorities
+```
+
+### 35.4 P7B.1 — Canonical Environment Model
+
+`Environment` (frozen dataclass) with non-interchangeable boundary types: `AWSBoundary` (12-digit account), `AzureBoundary` (subscription + optional tenant UUID), `GCPBoundary` (project ID **or** project number — both legitimate, never treated as equivalent to each other), `OCIBoundary` (tenancy/compartment OCID), `OnPremBoundary`, `KubernetesBoundary`, `GenericExecutionBoundary` (VM/bare-metal). `EnvironmentRegistry` dedupes by physical boundary (not by id — prevents locator-shopping), rejects same-id/different-boundary collisions, and rejects a caller registering with a pre-declared trust_state above `UNKNOWN` (self-elevation). Fresh-process reconstruction proven against the real Authority #5 backend (§35.14). `jurisdiction` is never inferred from region — only ever set explicitly.
+
+### 35.5 P7B.2 — Cloud Resource Identity & Discovery
+
+Per-cloud locators (`AWSResourceLocator`/`AzureResourceLocator`/`GCPResourceLocator`/`OCIResourceLocator`) plus a strict `ResourceProofLevel` ladder (`EXISTS < DISCOVERED < REACHABLE < AUTHORIZED < TRUSTED_FOR_EXECUTION`) — discovery adapters can only ever produce up to `REACHABLE`; `AUTHORIZED`/`TRUSTED_FOR_EXECUTION` require a separate, explicit step and are structurally unreachable from a `ResourceDiscoveryRecord` constructor.
+
+**Real cross-boundary vulnerabilities found and fixed by hostile testing (not hypothetical):**
+- Azure: resource-ID keyword casing was over-strict (real Azure API/CLI casing variants rejected) — fixed with case-insensitive keyword matching.
+- Azure: the subscription-match check was a blanket substring search — a resource genuinely in subscription B whose resource-group NAME happened to contain subscription A's GUID as literal text would have falsely validated against subscription A. Fixed by extracting the actual subscription segment via an anchored capture group and comparing only that.
+- GCP: project-match check was `f"projects/{project_id}" in resource_name` — a prefix-collision vulnerability (`"projects/proj1"` is a substring of `"projects/proj1-evil/..."`). Fixed with exact path-segment comparison.
+- AWS and OCI were audited for the same defect class and confirmed NOT vulnerable (AWS extracts the account segment positionally via `arn.split(":")[4]`; OCI OCIDs do not embed a parseable compartment/tenancy substring to be confused).
+
+AWS ARN validation accepts all real partitions (`aws`, `aws-cn`, `aws-us-gov`, `aws-iso*`) and genuine accountless global ARNs (e.g. S3 bucket ARNs) — the original pattern hardcoded the standard partition and a mandatory account segment, rejecting legitimate identities.
+
+### 35.6 P7B.3 — Workload Identity & Cloud Authentication
+
+Real resolvers for all four clouds (`resolve_aws_workload_identity` / `resolve_azure_workload_identity` / `resolve_gcp_workload_identity` / `resolve_oci_workload_identity`), routed through `akaalEngine/connection/security/authentication.py :: CloudIAMAuthenticationHandler`. **Cloud authentication remains structurally separate from AKAAL authorization** (`CloudAuthenticationBoundary.authorize_akaal_action` always delegates to a caller-supplied callback — provably contains no authorization logic of its own).
+
+Real defects found and fixed (workload identity was initially resolved but never actually reached a provider connection — inert metadata):
+- AWS: STS `AssumeRole` response capture kept only `AccessKeyId`, silently dropping `SecretAccessKey`/`SessionToken` — the two fields required to use temporary credentials at all. Fixed; now all three flow into the provider's real `connect()` call (proven against the real `S3ProviderStrategy.connect()` by intercepting `boto3.client` itself).
+- Azure: the resolved bearer token was never carried anywhere. Fixed; now reaches `creds["token"]`.
+- GCP: the resolved `google.auth.credentials.Credentials` object (ADC/WIF has no exportable JSON key — there is nothing else to carry) was never wired into `GCSProviderStrategy.connect()`, which fell through to the SDK's own ambient resolution, silently discarding the specific identity AKAAL resolved. Fixed with a `credentials["gcp_credentials_object"]` seam, proven against the real `connect()` by intercepting `storage.Client`.
+- OCI: same class of defect for the resolved `signer` object against `OCIObjectStorageProviderStrategy.connect()`. Fixed with `credentials["oci_signer"]`.
+
+All four fixes are additive-only — every pre-existing credential path (explicit service-account JSON, ambient ADC, config-file API-key auth, fresh instance-principal signer construction) is proven unchanged when the new keys are absent. Expired/invalid/wrong-boundary identities never populate usable credentials (fail closed, proven for all four clouds).
+
+### 35.7 P7B.4 — Secrets, Keys & Certificate Integration
+
+Five `SecretResolverCallback`-conformant providers (AWS Secrets Manager, Azure Key Vault, GCP Secret Manager, OCI Vault, Kubernetes Secret volume-mount references), all registered on the existing canonical `akaalEngine.connection.security.secret_consumer.SecretConsumer` — **no second secret authority created.** Hostile-tested: wrong administrative boundary, missing/rotated/revoked secrets, malformed/binary/oversized provider responses, nested-exception credential redaction.
+
+**Real vulnerability found and fixed:** `KubernetesSecretRefProvider` checked the literal reference path against an allowlist of mount roots, but did not resolve symlinks — a symlink placed inside an allowed mount root (directly, or via a nested symlink chain) could point outside it and be followed by `open()`. Fixed by additionally resolving the fully symlink-followed real path (`os.path.realpath`, following the entire chain) and re-checking it against the same allowlist before the file is opened; a legitimate symlink whose target is also inside the allowed root (Kubernetes' own atomic-update `..data` convention) continues to work. OS-level symlink-creation tests correctly skip in this Windows sandbox (requires elevated privilege); the identical guard logic is additionally unit-proven via dependency injection so the fix itself is not merely asserted.
+
+### 35.8 P7B.5 — Execution Site Trust & Registration
+
+`ExecutionSite` + `SiteRegistry`: strict ladder `UNREGISTERED < REGISTERED < IDENTITY_VERIFIED < TRUSTED` (REVOKED always below all). Every transition requires an externally-supplied decision function (`SiteIdentityVerifier`, `SiteAuthorizationCallback`) — no internal default-allow anywhere. Kubernetes is one `SiteKind` among four (`KUBERNETES`, `CLOUD_VM`, `ON_PREM_VM`, `BARE_METAL`), never a universal runtime requirement.
+
+**Real defect found and fixed:** `register()` had no collision check at all — re-registering an existing `site_id` with a different `environment_id`/`claimed_security_identity` silently overwrote the record, including an already-TRUSTED one (a second, unrelated physical site could hijack a registered site_id). Fixed with `SiteIdentityCollisionError`; re-registration is only accepted when identity-defining fields are unchanged.
+
+Fencing epochs are strictly monotonic per site (replay/stale rejected), proven under real concurrent contention (32-thread races: exactly one winner per contested epoch). Fresh-process reconstruction (trust state + tenant binding + fencing epoch) proven against the real Authority #5 backend (§35.14).
+
+### 35.9 P7B.6/P7B.7 — Connectivity Fabric + Cloud-Native Private Connectivity
+
+`ConnectivityEdge` + `ReachabilityEvidence`, layered above the existing physical routing primitives (`akaalEngine.connection.routing.{dns,ssh,proxy,private_endpoint}` — real SSH host-key pinning, real HTTP CONNECT/SOCKS5, all reused, none reimplemented). `CloudNativeConnectivityMechanism` enumerates the real AWS/Azure/GCP/OCI private-connectivity products (PrivateLink/Private Link/PSC/DRG, Transit Gateway/ExpressRoute/Interconnect/FastConnect, etc.) — AKAAL references and validates these, never provisions them.
+
+**Real defects found and fixed (evidence-substitution class):**
+- `ReachabilityEvidence` originally carried no binding to which edge it was actually produced for — any evidence object could be handed to any edge's `elevate_to_proven()`. Fixed with mandatory `bound_edge_id`; a mismatch is rejected outright, and `ReachabilityProber` always rebinds evidence to the real edge being probed regardless of what an untrusted probe function claims.
+- A merely-public or TLS-only probe result could elevate a private-required edge to `PROVEN` ("public path proves private path"). Fixed with an `achieved_privacy` tier (`PUBLIC < TLS < PRIVATE < MTLS`); a private edge requires evidence of at least `PRIVATE` tier.
+
+**Absolute law preserved and enforced in the type system, not by convention:** `CONFIGURED NETWORK != PROVEN NETWORK`; `PRIVATE ENDPOINT CONFIGURED != PRIVATE CONNECTIVITY PROVEN`; `TCP_SUCCESS` can never imply `TLS_PROVEN`/`PRIVATE_PATH_PROVEN`.
+
+### 35.10 P7B.8 — Network Path Discovery & Reachability
+
+Real TCP-connect probing (`default_tcp_probe`) distinguishing DNS failure / timeout / connection-refused, dependency-injectable for tests. Bidirectional probing distinguishes source-reachable/target-unreachable from the reverse — never collapsed to one boolean. Re-probing is never cached (a route proven at plan time is re-evaluated, never trusted indefinitely).
+
+### 35.11 P7B.9 — Hybrid Relay / Remote Execution
+
+`RemoteExecutionAssignment` (signed via `AssignmentSigner`/`AssignmentVerifier` Protocol seam — a default `HMACAssignmentSigner`/`Verifier` for dev/test, KMS/asymmetric-signing-ready for production; no default key exists anywhere — omitting one is a hard `TypeError`). `verify_assignment` checks the signature FIRST, then tenant/plan/site/seal fields, then expiry.
+
+**The critical architectural finding and its closure:** `verify_assignment` is stateless (like JWT verification) — a site revoked *after* assignment issuance still passes it. The closure is `akaalEngine.fabric.remote_execution.execute_assignment_via_transport`, the **sole sanctioned entry point** for running a `RemoteExecutionAssignment` through the real, unmodified canonical `TransportAuthority.execute_partition_transport`. It does not expose a `security_revalidator` parameter at all — one is always built internally from (a) the mandatory signature check and (b) an optional-but-load-bearing `live_trust_check` against the live `SiteRegistry`, called before every batch read/write/commit (TransportAuthority's own existing, unmodified revalidation points). Proven: a site revoked mid-flight is caught before the next physical operation, with **zero rows reaching the external boundary** for the rejected attempt. A repository-wide audit found the one other production path capable of this (`akaalEngine/gateway/orchestration/coordinator.py`'s optional, payload-supplied `security_revalidator`) currently has **no live Fabric-assignment caller** — recorded as a boundary condition for whichever future integration wires Fabric into Gateway (it must compose through `execute_assignment_via_transport`, never a raw callback), not a present defect.
+
+No second TransportAuthority, execution engine, or checkpoint/retry system was created — `execute_assignment_via_transport` is a thin, mandatory-binding wrapper.
+
+### 35.12 P7B.10 — Data Movement Route Planning
+
+`RoutePlanner`/`MovementRoute`: BFS path selection excluding failed/stale edges and any edge an authorization callback rejects (cross-tenant edges cannot be silently traversed). `MovementRoute` has no `execute()` method — route planning chooses path, the existing `TransportAuthority` moves data.
+
+**Made load-bearing this freeze (previously a real gap — "a helper nobody calls is not a security control"):** `MovementRoute.topology_fingerprint()`/`is_stale_against()` are now wired directly into `execute_assignment_via_transport`'s mandatory revalidation closure via optional `route`/`current_edges_provider` parameters, checked on every one of TransportAuthority's existing revalidation points. Proven: an edge removed, marked stale, or failed between planning and execution — including a topology mutation occurring **mid-stream**, between the first and second batch — is caught before the next physical write, with zero rows reaching the target beyond what had already legitimately committed.
+
+### 35.13 OCI Object Storage — provider #49
+
+P7B Group 1 added OCI Object Storage as **physical provider #49** (`akaalEngine/connection/providers/storage/oci_object_storage.py` + matching discovery strategy), following the exact registration pattern of S3/GCS/Azure Blob/MinIO — registered through `ProviderCatalog`, `ALL_DISCOVERY_STRATEGIES`, the extensions schema, and the schema normalizer/emitter routing group. Proven: namespace/compartment/bucket identity and isolation (wrong-compartment discovery returns empty, never another tenant's buckets), real multi-page pagination via native `next_start_with` continuation, malformed/stale continuation-token fail-safety, permission-denied/throttling mid-pagination, a fresh-process-style continuation proof (the opaque cursor string persisted and resumed from a brand-new strategy instance and client), bounded-loop termination against a pathological never-terminating provider response, secret redaction, and the workload-signer consumption fix (§35.6). No CDC/transaction/exactly-once claim is made for object storage (truthfully not applicable). LIVE OCI infrastructure proof remains `EXTERNAL_DEFERRED`.
+
+**Fleet is now 49/49, dynamically derived** (`len(default_provider_catalog.list_providers()) == 49`, confirmed at freeze — never hardcoded).
+
+### 35.14 Managed-cloud database topology composition
+
+Proven for one representative managed database per cloud, composing Fabric's environment/resource-identity/execution-site/route context around the EXISTING, frozen physical DB connectors — **no new managed-database connector was created**:
+
+```
+AWS RDS/Aurora        -> existing "postgresql" connector
+Azure SQL/MI          -> existing "mssql" connector
+GCP Cloud SQL/AlloyDB -> existing "postgresql" connector
+OCI Autonomous/Base/Exadata -> existing "oracle" connector
+```
+
+Each proven through the full chain: `Environment` -> `AWS/Azure/GCP/OCIResourceLocator` -> trusted+tenant-bound `ExecutionSite` -> proven `ConnectivityEdge`s -> usable `MovementRoute` -> `ProviderCatalog.get_strategy(...)` resolving the real, unmodified, already-certified connector class.
+
+### 35.15 Route -> canonical Transport integration (the headline P7B Group-1 proof)
+
+Forensically traced and proven as a real, unmocked call path (not merely modeled): `RoutePlanner.plan_route` -> `TransportAuthority.resolve_source_reader_for_provider("file")`/`resolve_target_writer_for_provider("file")` (the real, already-registered `TransportDriverRegistry` entry) -> `execute_assignment_via_transport` -> `TransportAuthority.execute_partition_transport` (real, unmodified) -> `FileSourceReader`/`FileTargetWriter` against real local files -> a real `MigrationCheckpoint` saved with the fabric-derived `fencing_epoch`. Nothing in `TransportAuthority`, `TransportDriverRegistry`, or the driver classes was mocked — the only doubles are the legitimate external boundary (real local files) and, in one test, a durability-authority stand-in whose real counterpart is separately fresh-process-proven (§35.16). A tampered/rejected assignment attempt reaches **zero rows written** to the physical target, proven by direct file-content inspection.
+
+### 35.16 Durability / fresh-process reconstruction
+
+Canonical Authority #5 (`SQLiteWalBackend`/`StateRecord`, checksum-verified on every read, secret-sanitized on every write) is reused directly — `akaalEngine/fabric/durability.py` (`FabricDurabilityStore`) owns namespacing/serialization only, zero independent checksum/versioning logic. Proven: `PROCESS A` registers/trusts/binds/assigns -> destroyed -> a genuinely fresh `PROCESS B` (new registry objects, new backend handle, same on-disk store) reconstructs Environment trust state, Site trust/tenant-binding, and the per-site fencing epoch (replay protection survives restart — a post-restart attempt to reuse an already-consumed epoch is rejected). Direct-tamper (SQL row edit bypassing the canonical write path) is caught by the existing checksum verification. A payload with a *valid* checksum but a semantically invalid enum value (simulating a bug elsewhere, not tampering) is also caught, for both Environment and Site records. Direct inspection of serialized durable records confirms zero secret/signing-key/cloud-token/provider-credential material is ever persisted.
+
+### 35.17 Concurrency
+
+32-thread and 20/30-trial races proven for: duplicate physical-boundary registration (exactly one winner), same-id-conflicting-boundary registration, identity-verification + trust-elevation racing on the same site, tenant-binding races, fencing-epoch contention (exactly one winner per contested epoch, monotonic thereafter), cross-component races (verify vs. revoke vs. assign; tenant-rebind vs. execute; route-edge-removal vs. concurrent planning) — in every case proving no unsafe committed physical/security state resulted, not merely "no crash" or "no deadlock."
+
+### 35.18 Telemetry and Evidence #12
+
+Telemetry: the existing canonical `telemetry_authority` seam on `TransportAuthority` is reused (no second telemetry authority). **Real gap found and fixed:** a pre-flight fencing/security rejection (before the read loop starts) previously emitted zero telemetry at all. Fixed with one new, distinctly-named counter, `transport_partition_execution_rejected_total`, additive only — pre-existing `_started_total`/`_failed_total` semantics are unchanged and proven unchanged.
+
+Evidence #12: `akaalEngine/fabric/evidence.py` builds real `EvidenceFact`/`EvidenceProvenance` objects and hands them to the existing, unmodified `EvidenceAuthority.create_evidence_artifact` (confirmed authority-agnostic — requires no constructor-injected sub-authority for this call) — no second Evidence authority created. Wired into `execute_assignment_via_transport` as an optional parameter, emitting one artifact per execution outcome (accepted, or rejected with an accurately classified reason code — forged signature, expired assignment, tenant/plan/site/seal mismatch, stale route, revoked/rebound site — extracted from the real exception chain, not collapsed to one generic code). **Self-found-and-closed defect:** evidence emission is now wrapped so a broken evidence backend can never mask a genuinely successful migration as failed, nor replace a real security-rejection exception with an evidence-backend error — Evidence remains a recorded side effect of a decision already made, never a gate on it, and never itself authorization/governance/reporting.
+
+### 35.19 Cross-tenant hostile proof
+
+Proven for every Group-1 locator (environment ID, cloud resource locator, execution-site ID, connectivity-edge ID, route, staging reference, assignment, secret reference, cloud identity, OCI bucket/object) across discovery, planning, assignment, execution, and post-restart reconstruction: possession of a locator/identifier never grants membership, trust, or authorization. Frozen P7 Campaign-C anti-enumeration invariants (§31) are unaffected — Group 1 introduced no new enumeration surface.
+
+### 35.20 Duplicate-authority audit — clean
+
+Zero new `class *Authority`/`*Engine`/`*Runtime`/`*Executor`/`*Scheduler`/`*Controller` definitions anywhere in `akaalEngine/fabric/`. Every load-bearing class's responsibility and the canonical authority it reuses (never duplicates):
+
+| Class | Reuses (never duplicates) |
+|---|---|
+| `EnvironmentRegistry` / `SiteRegistry` | Authority #5 durability (via the thin adapter, §35.16); delegates all cryptographic identity verification to a caller-supplied verifier (e.g. real SPIFFE, §12) |
+| `RoutePlanner` / `MovementRoute` | Nothing to duplicate (genuinely new Group-1 concept); has no `execute()` — data movement remains TransportAuthority's job |
+| `RemoteExecutionControlPlane` | `SiteRegistry.assign_execution` for 100% of trust/tenant/fencing decisions |
+| `execute_assignment_via_transport` | The real, unmodified `TransportAuthority.execute_partition_transport` — zero independent transport/checkpoint/retry logic |
+| `FabricDurabilityStore` | The real `SQLiteWalBackend`/`StateRecord` (Authority #5) — namespacing/serialization only |
+| `akaalEngine/fabric/evidence.py` | The real `EvidenceAuthority.create_evidence_artifact` (Authority #12) — fact-building only |
+| `HMACAssignmentSigner`/`Verifier` | Explicit Protocol seam for real KMS/asymmetric substitution — no key custody owned |
+| `CloudAuthenticationBoundary` | Always delegates the actual AKAAL authorization decision to a caller-supplied callback (in production, `CentralAuthorizationEngine`, §12) — structurally contains no authorization logic of its own |
+
+No second migration planner, ExecutionPlan authority, TransportAuthority, TransportDriverRegistry, CDC engine, checkpoint engine, durability engine, retry engine, validation authority, schema/mapping/transformation authority, secrets authority, Evidence authority, telemetry authority, authorization engine, approval authority, connector registry/certification authority, or migration-lifecycle authority exists anywhere in this diff.
+
+### 35.21 Final governing regression evidence
+
+```
+5,927 passed / 166 skipped / 2 failed   (root `tests/` collection — final governing run)
+```
+
+The 2 failures are the same pre-existing `requests`-dependency-truth/environment-drift failures present before P7B Group 1 began (`test_is_dependency_available_truthfully_reports_missing_driver_in_this_sandbox[servicenow]` and `test_sap_application_is_dependency_available_reports_partial_truthfully` — both fail because the `requests` package is genuinely present in this sandbox, which their hardcoded "absent" assumption predates; neither test, nor the file it lives in, was touched by any P7B Group-1 change, confirmed via `git status`). **These are recorded as failing, not silently rewritten as passed.** The previously-observed intermittent legacy timing flake (`test_day23_reconciliation.py`, frozen `akaal/`-adjacent, documented in §34.19 as a pre-existing order/timing-dependent flake) passed clean in this final governing run — consistent with it being a genuine flake, not something P7B Group 1 fixed or masked.
+
+Skip count grew from P7A's baseline 160 to 166 (+6: 3 genuine OS-level symlink-creation-requires-elevated-privilege skips in this Windows sandbox, §35.7, plus pre-existing conditional skips) — no test collection regressed.
+
+### 35.22 Static/final hostile audits — clean at freeze
+
+- Compile/import: clean (`py_compile` across every changed file).
+- `git diff --check`: clean.
+- Zero-fake production scan: clean (the only `NotImplementedError` occurrences are legitimate abstract-base-class markers, verified).
+- Zero new TODO/FIXME in any P7B Group-1 production file.
+- Zero secret/signing-key/cloud-token/credential leakage — verified by direct serialized-payload/log/telemetry/Evidence inspection with recognizable canary values, throughout.
+- Duplicate-authority audit: clean (§35.20).
+- Fleet count: dynamic, never hardcoded (§35.13).
+- `akaalSoftware/` untouched (confirmed via `git status` throughout).
+- Frozen legacy `akaal/` untouched at the source level (confirmed via `git status` throughout — only bytecode-cache churn from test execution, no source edits).
+- Zero unauthorized Git writes during the entire implementation.
+
+### 35.23 Dependency truth at freeze
+
+`requests` is genuinely installed in this sandbox (pre-existing — not installed during this work; no `pip install` command was ever run). `boto3`, `azure-identity`, `azure-keyvault-secrets`, `google-auth`, `google-cloud-secret-manager`, `oci`, `paramiko`, `pika`, `pulsar-client` are genuinely absent, confirmed by direct import probe. Every cloud-SDK-touching code path is dependency-gated and fails closed when its SDK is absent — proven, not assumed. No dependency manifest exists repository-wide (pre-existing `CURRENT_ENGINEERING_REPRODUCIBILITY_DEBT`, §18, unrelated to and not resolved by this phase).
+
+Proof-level distinctions maintained throughout (§8's permanent invariant, exact language): every P7B Group-1 capability sits at `IMPLEMENTED` + `UNIT_PROVEN` or `INTEGRATION_PROVEN` (the Route -> canonical Transport chain, §35.15, and fresh-process durability, §35.16, are genuinely `INTEGRATION_PROVEN` against real, unmocked canonical authorities). **None sits at `LIVE_PROVEN`.**
+
+### 35.24 Final acceptance record
+
+```
+P7B GROUP 1 — OWNER ACCEPTED & FROZEN
+Scope:                                Campaign A (P7B.1-P7B.5) + Campaign B (P7B.6-P7B.10)
+Rating:                                10/10 for locally proven scope
+Fleet:                                 48 -> 49 canonical physical providers (+ OCI Object Storage)
+New package:                           akaalEngine/fabric/ (Environment, Resource Identity,
+                                        Workload Identity, Execution Site, Connectivity,
+                                        Reachability, Remote Execution, Route Planning)
+Real defects found and fixed
+across six hostile-review rounds:      Azure resource-ID casing + cross-subscription substring
+                                        collision; GCP cross-project prefix collision; AWS
+                                        ARN partition/accountless-resource over-validation;
+                                        AWS STS/Azure/GCP/OCI workload-identity material never
+                                        reaching provider connect(); Kubernetes secret symlink
+                                        escape; Site identity-collision (registration hijack);
+                                        Environment self-elevation gap; ReachabilityEvidence
+                                        unbound/privacy-tier evidence substitution; mandatory
+                                        security revalidation omittable for Fabric execution;
+                                        route/topology staleness not load-bearing; pre-flight
+                                        transport-rejection telemetry gap; Evidence-backend
+                                        outage able to mask a real outcome.
+Known locally reachable
+P7B Group-1 defects at freeze:         0
+Governing regression:                  5,927 passed / 166 skipped / 2 failed (§35.21;
+                                        the 2 are pre-existing, unrelated, reconfirmed)
+Live/external provider proof:          EXTERNAL_DEFERRED (AWS/Azure/GCP/OCI live infrastructure;
+                                        OCI resource-type confirmation requiring a live call)
+Git operations performed:              NONE (read-only Git inspection only, throughout)
+```
+
+### 35.25 Freeze invariants for Group 2 and beyond
+
+Additive to, not a replacement for, §8, §34.23, and all preceding invariant lists. All remain in force simultaneously.
+
+- Environment ID != authorization. Site ID != authorization. Cloud authentication != AKAAL authorization. Resource discovery != resource ownership. Reachability != permission.
+- Configured network != proven network. TCP reachability != TLS/private-path proof. Private endpoint configured != private connectivity proven.
+- Registration != trust. Assignment signature != authorization (signature verification is checked IN ADDITION to canonical authorization, never instead of it).
+- Route plan != execution permission. Stale topology/route must not continue authorized Fabric execution — this is now load-bearing (§35.12), not merely modeled.
+- Negative capability cannot instantiate physical behavior. External/live proof cannot be fabricated.
+- Remote execution cannot become a second AKAAL runtime/transport/checkpoint/retry authority — the canonical `TransportAuthority`/`TransportDriverRegistry`/durability/telemetry/Evidence authorities remain authoritative, consumed through the mandatory `execute_assignment_via_transport` boundary, never re-implemented.
+- The 49-provider canonical fleet (48 P7A + OCI Object Storage) is regression-protected; must remain dynamically derived, never hardcoded.
+- Cloud-provider semantics must never be normalized into false equivalence (AWS account != Azure subscription != GCP project != OCI tenancy; each retains its own native validation).
+- Any future Fabric -> Gateway integration must compose through `execute_assignment_via_transport`'s mandatory revalidation, never a raw caller-supplied `security_revalidator` payload callback (§35.11).
+- P7B Group 2 (and any later phase) may consume P7B Group-1 fabric authorities but must not create duplicate environment/resource-identity/workload-identity/execution-site/connectivity/route/remote-execution authorities, and must not begin without separate, explicit, fresh owner authorization — **P7B Group 1 being frozen does not itself authorize Group 2.**
+
+### 35.26 Working-tree and Git truth at this checkpoint
+
+This §35 update is a **documentation/checkpoint operation only** — no production code, test code, or configuration was modified to produce this section; every fact recorded reflects work already completed, tested, and reported in the same continuity across the six P7B Group-1 hostile-review rounds preceding this checkpoint. `git rev-parse HEAD` = `1bd8640` (unchanged by this checkpoint). `git status --porcelain -- akaalSoftware/ akaal/` returns no source-level changes (bytecode-cache churn from test execution only). **Zero Git writes were performed** — no `add`, `commit`, `push`, `pull`, `reset`, `checkout`, `restore`, `stash`, `rebase`, or `merge`. Only `progress.md` was intentionally changed by this checkpoint operation.
+
+### 35.27 Exact next action for a fresh session
+
+**P7B GROUP 1 IS COMPLETED AND FROZEN. DO NOT REOPEN IT.** A fresh session's correct first action is to read this §35 in full, confirm current repository state still matches it (a quick `git status`/spot-check is sufficient), and then determine and follow only the next explicit owner-authorized roadmap scope.
+
+**P7B GROUP 2 — Campaign C + Campaign D — P7B.11–P7B.23 — is the next authorized roadmap position, but is NOT STARTED.** Do not begin any Group-2 implementation without separate, explicit, fresh owner authorization — freezing Group 1 authorizes closing Group 1, not opening Group 2. Group-2 scope, for orientation only (none of it exists yet):
+
+```
+P7B.11 Canonical Topology Graph
+P7B.12 Data Locality Model
+P7B.13 Capability-Aware Placement
+P7B.14 Policy-Aware Scheduling
+P7B.15 Locality & Data-Sovereignty Enforcement
+P7B.16 Placement Optimization
+P7B.17 Cost/Egress/Capacity Intelligence
+P7B.18 Kubernetes Production Runtime
+P7B.19 AKAAL Kubernetes Operator & CRDs
+P7B.20 Helm Platform
+P7B.21 Terraform-First IaC
+P7B.22 Elastic Worker Fabric
+P7B.23 Self-Healing & Rolling Operations
+```
+
+Do not claim any Group-2 implementation exists merely because Group-1 fabric foundations (Environment, Execution Site, Connectivity, Route Planning) may be reusable by it — reusability is not implementation. If the owner has not yet authorized Group 2 when a fresh session begins, the correct action is to report this frozen state and await instruction, not to invent further work.
+
+## 36. P7B GROUP 2 — CAMPAIGN C (P7B.11–P7B.17) — IMPLEMENTED, NOT YET FROZEN
+
+**"NOT YET FROZEN" IS SUPERSEDED BY §39 — P7B Group 2 (Campaign C, this section; Campaign
+D, §37; the mandatory production-wiring closure, §38) was subsequently OWNER ACCEPTED &
+FROZEN on 2026-09-06. Read §39 for the current authoritative record.** §36/§37/§38 remain
+as the accurate, unchanged historical implementation/closure record leading up to that
+freeze.
+
+Owner-authorized session, 2026-09-06. Scope: P7B.11–P7B.17 only (Campaign C, distributed
+topology/locality/placement intelligence). **Campaign D (P7B.18–P7B.23) is explicitly
+NOT started by this session** — see §36.6.
+
+### 36.1 What was built
+
+New package `akaalEngine/fabric/topology/` (P7B.11):
+```
+models.py   -- TopologyNode/TopologyEdge (opaque refs into Environment/ExecutionSite/
+               resource locators -- no duplicate identity), tenant-scoped, provenance-
+               tracked, generation-versioned. snapshot_fingerprint() mirrors P7B.10's
+               MovementRoute.topology_fingerprint()/is_stale_against() pattern at the
+               whole-graph level.
+graph.py    -- TopologyRegistry (collision-protected, cross-tenant-refusing registration)
+               + TopologyGraph (immutable, tenant-scoped, BFS traversal snapshot).
+               Topology presence/edges are explicitly documented as NEVER authorization/
+               permission (module docstrings, enforced by never importing or calling
+               anything in akaalPipeline.security).
+```
+
+New package `akaalEngine/fabric/locality/` (P7B.12):
+```
+models.py    -- LocalityRecord across 11 dimensions (cloud_provider/country/jurisdiction/
+                sovereignty_zone/region/AZ/datacenter/network/k8s_cluster/execution_site/
+                storage_location), LocalityConfidence (UNKNOWN/CLAIMED/PROVEN) strictly
+                enforced -- proven_value_for()/satisfies() refuse anything below PROVEN
+                or stale, returning None (not False) for "cannot determine" so callers
+                fail closed rather than silently treating unknown as non-compliant OR
+                compliant.
+registry.py  -- LocalityRegistry, tenant-scoped, role-scoped (SOURCE/TARGET/STAGING/
+                RELAY/EXECUTION_SITE/NETWORK_HOP/VALIDATION_EVIDENCE_DESTINATION),
+                preserves full observation history.
+```
+
+New package `akaalEngine/fabric/placement/` (P7B.13–17), each stage a pure function/module,
+never a new Authority/Engine/Runtime/Scheduler class:
+```
+capability.py -- P7B.13: evaluate_capability() -- exact-match capability requirement
+                 against ExecutionSite.capabilities; UNREGISTERED/REVOKED sites never
+                 capable regardless of advertised capabilities; resource-capacity checks
+                 refuse to assume sufficiency without a provenance-bearing CapacityOffer.
+policy.py     -- P7B.14: evaluate_policy() -- delegates 100% of the authorization
+                 decision to a mandatory, caller-supplied callback (mirrors
+                 SiteRegistry.assign_execution's authorization_callback discipline
+                 exactly); None callback is a hard error, never default-allow; non-bool
+                 return is a hard error, never coerced.
+residency.py  -- P7B.15: evaluate_residency() -- checks a ResidencyPolicy against every
+                 named role in the FULL movement path (not just source/target); unknown/
+                 stale/missing locality for any required role fails the whole evaluation
+                 closed unless the policy explicitly sets allow_unknown=True.
+engine.py     -- P7B.13-15 composition: evaluate_candidates() enforces the fixed order
+                 CAPABILITY -> AUTHORIZATION -> RESIDENCY per candidate; a rejected
+                 candidate is never passed to a later stage; zero accepted candidates is
+                 the explicit, callers-must-honor NO COMPLIANT PLACEMENT outcome.
+cost.py       -- P7B.17: estimate_cost() -- CostConfidence UNKNOWN/STALE/ESTIMATED;
+                 never fabricates a price; a zero-byte movement is ESTIMATED-zero,
+                 distinct from UNKNOWN-because-unmeasured.
+optimize.py   -- P7B.16: rank_candidates() -- ranks ONLY the accepted-candidate set
+                 engine.py already produced (structurally cannot see rejected
+                 candidates); deterministic (site_id lexicographic tiebreak); NaN/inf
+                 inputs scrubbed to "no signal" (never propagated into the score);
+                 unknown cost contributes 0, never an assumed penalty or advantage
+                 (documented in-test as an explicit, intentional choice).
+```
+
+Durability (Authority #5) extended, not duplicated: `akaalEngine/fabric/durability.py`
+gained `save_topology_node/edge`, `save_locality_record`,
+`reconstruct_topology_registry`, `reconstruct_locality_registry` -- same
+SQLiteWalBackend/StateRecord backend as P7B.1/P7B.5, same fresh-process
+(`_register_reconstructed*`) rehydration discipline. Topology node/edge generation and
+locality current-record state are class-A authoritative durable state; full locality
+history is intentionally NOT durably persisted (documented as a scope decision, not an
+oversight).
+
+### 36.2 What was deliberately NOT built (duplicate-authority avoidance)
+
+- No second ExecutionPlan, planner, or scheduler. `CapabilityRequirement`/
+  `ResidencyPolicy` are caller-supplied inputs this session's tests construct directly;
+  in production a caller reads the real canonical ExecutionPlan and derives these itself
+  — this package never reaches into `akaalPipeline.orchestration`.
+  `akaal/distributed/scheduler/*` (frozen, read-only, pre-existing `SchedulingPolicy`/
+  `LocalityAware`/`AntiAffinity` classes discovered during this session's forensic
+  recon) was read for precedent only, never extended or imported.
+- No second authorization engine. `policy.py` never imports or duplicates
+  `akaalPipeline.security.central_authorization` — it only ever calls a caller-supplied
+  callback, exactly like `SiteRegistry.assign_execution`.
+- No second Evidence/telemetry system. Not yet wired into Evidence #12 emission from
+  this package directly — none of P7B.11-17's placement decisions are themselves an
+  execution-time fact the way `akaalEngine.fabric.evidence`'s existing
+  fabric-execution-accepted/rejected facts are; wiring a placement-decision Evidence fact
+  is left for whichever future integration point actually calls `evaluate_candidates`
+  from a real migration-execution path (out of this session's scope, which built the
+  placement primitives, not their production call site).
+
+### 36.3 Test evidence
+
+31 new test files → +98 tests added to `tests/unit/engine_fabric/` this session (350 ->
+448 passed, 3 skipped, unchanged skip set). Every new module has positive, hostile
+(forged identity, cross-tenant, unknown-locality-must-stay-unknown, NaN/inf, empty/
+negative inputs, missing-callback, non-bool-callback), restart-reconstruction, and scale
+(4,000 topology nodes/edges; 5,000 ranked placement candidates) coverage. The directive's
+named India/Singapore/EU-transit/unknown-jurisdiction hostile acceptance scenarios are
+each an explicit test (`test_p7b16_placement_engine_composition.py`,
+`test_p7b15_residency_sovereignty.py`).
+
+Full-repo regression (`tests/`, excluding one confirmed pre-existing test-isolation flake
+in `tests/unit/planner/test_p5_1_enterprise_planning_authority.py` unrelated to any file
+this session touched — passes in isolation, fails only under full-suite ordering, same
+class of flake as the one already documented at §34.19/§35.21): **6,040 passed / 165
+skipped / 0 failed.** (The two ServiceNow/SAP `requests`-dependency-truth failures
+recorded at Group-1 freeze §35.21 are absent from this run — environment-dependent, not
+caused by this session; not independently investigated further, as neither test's
+subject area was touched.)
+
+### 36.4 Proof level
+
+IMPLEMENTED / UNIT_PROVEN / INTEGRATION_PROVEN for all of P7B.11-17 (real production
+classes, real durability backend, real cross-module composition in
+`test_p7b16_placement_engine_composition.py`). **LIVE_PROVEN: not applicable** — this
+scope has no external system to prove live against (topology/locality/placement are pure
+in-process reasoning over caller-supplied/canonical-fabric-derived state); there is
+nothing here structurally analogous to "a live AWS call" the way P7B.1-10 had.
+
+### 36.5 Duplicate-authority audit (§8/§35.20 discipline, reapplied)
+
+Grep of `akaalEngine/fabric/{topology,locality,placement}/` for `class .*(Authority|Engine|Runtime|Executor|Scheduler|Controller|Manager|Planner|Registry|Store)` finds only `TopologyRegistry` and `LocalityRegistry` — both are the same sanctioned "collision-protected registration/query bookkeeping" pattern as the frozen `EnvironmentRegistry`/`SiteRegistry`, confirmed to grant no trust/authorization as a side effect of registration (identical to the Group-1 precedent). No `*Authority`, `*Engine`, `*Runtime`, `*Scheduler`, `*Controller`, or `*Planner` class was introduced anywhere in this session's work; `placement/engine.py` and `placement/optimize.py` are plain modules containing only pure functions, named for their P7B directive section, not for a class inside them.
+
+### 36.6 Campaign D (P7B.18–23) — IMPLEMENTED, NOT YET FROZEN
+
+Same session, continued after explicit owner confirmation to replace (not extend)
+`deploy/kubernetes/` and `deploy/terraform/` (both were confirmed orphaned pre-Group-2
+scaffolding — see the now-superseded §36.6 finding in the prior revision of this
+section).
+
+**Hard environment constraint, verified directly (not assumed):** this environment has
+no `helm` binary, no `terraform` binary, and no `kubernetes` Python client installed
+(`shutil.which`/`pip` checks, reproduced as standing assertions in
+`test_p7b20_helm_chart_static.py::test_helm_binary_genuinely_unavailable_in_this_environment`
+and `test_p7b21_terraform_static.py::test_terraform_binary_genuinely_unavailable_in_this_environment`).
+Every Campaign D capability is therefore genuinely capped below LIVE_PROVEN — this is a
+verified environment fact, not a session limitation glossed over.
+
+**What was built:**
+
+```
+akaalEngine/fabric/k8s_runtime/     -- P7B.18 + P7B.19
+  pod_spec.py  -- pure spec-construction (no client dependency, no network I/O by
+                  construction). privileged/hostNetwork/hostPID/hostIPC/hostPath have NO
+                  parameter anywhere in the module's API (structural, not defaulted-off)
+                  -- proven by signature introspection in tests, not just output
+                  inspection. SecretReference never carries a literal value, only
+                  (env_var_name, secret_name, secret_key) -> valueFrom.secretKeyRef.
+                  ResourceRequirements' 4 fields are all mandatory.
+  crd.py       -- P7B.19: AkaalWorkerPoolSpec (the ONLY CRD spec shape) has no field for
+                  Migration/ExecutionPlan/checkpoint/CDC-offset/validation/approval/any
+                  secret -- binds to a migration only via an opaque assignment_reference
+                  string. reconcile_worker_pool() is pure diff logic (no I/O, no API
+                  calls); proven idempotent (duplicate reconciliation calls produce an
+                  identical plan) and proven to never count REVOKED/STALE/wrong-tenant/
+                  wrong-site workers toward "desired state satisfied".
+
+akaalEngine/fabric/worker_fabric/   -- P7B.22 + P7B.23
+  models.py    -- WorkerNode/WorkerCapacity, explicitly documented as distinct from and
+                  never importing/extending the two pre-existing "node" concepts found
+                  during forensic recon (`akaalPipeline.fleet.fleet_service` control-
+                  plane node ops; `akaalEngine.runtime.distributed.coordinator` leader
+                  election) -- both read, neither touched.
+  registry.py  -- WorkerRegistry. Fencing law reuses SiteRegistry/SiteAssignment's exact
+                  epoch-monotonicity discipline (P7B.5/9), never a second scheme:
+                  register()/replace_worker() refuse any fencing_epoch <= the slot's
+                  last-recorded epoch (StaleWorkerFencingError); a REVOKED worker can
+                  never heartbeat back to life (closes "stale worker returns after
+                  replacement"/"old worker returns after rollback" structurally, not by
+                  convention). Cross-tenant reads fail as UnknownWorkerError (no
+                  existence leak), matching LocalityRegistry's discipline.
+  scaling.py   -- P7B.22 scale-out/in recommendation from AGGREGATE fleet state only;
+                  a single worker's metrics can never dominate the decision (tested).
+  rollout.py   -- P7B.23 rolling-upgrade batch planning: drains up to max_unavailable
+                  old-version workers per batch, never breaching min_available,
+                  deterministic (lowest-fencing-epoch-first) selection. Old/new version
+                  overlap during rollout is proven SAFE-and-expected (a passing test, not
+                  an error case) -- BECAUSE registry.py's fencing is what actually
+                  prevents unsafe replay, not this module.
+
+akaalEngine/fabric/durability.py extended (not duplicated) with
+  save_worker/load_worker/list_worker_keys/reconstruct_worker_registry -- fencing epoch
+  is class-A durable state here too, for the same reason site fencing is.
+
+deploy/kubernetes/  -- P7B.20: REPLACED the stale 2020-era akaal-workflow-engine/ECS-era
+  scaffolding with a real Helm chart (Chart.yaml, values.yaml, _helpers.tpl,
+  serviceaccount/deployment/rbac/networkpolicy/hpa/pdb templates) for the worker-fabric
+  workload. values.yaml has NO default image tag (no floating "latest"); security
+  contexts are non-root/read-only-root/drop-ALL-capabilities/no-privilege-escalation
+  unconditionally; RBAC is a namespaced Role (never ClusterRole/cluster-admin) with only
+  get/list on pods; NetworkPolicy denies all ingress and defaults egress to DNS-only.
+  Proof level: LOCALLY_VERIFIED via real YAML parsing (Chart.yaml/values.yaml, which
+  contain no Go-template syntax) plus targeted text/regex inspection of the Go-templated
+  files (Chart.yaml/values.yaml are NOT templated, so real `yaml.safe_load` applies to
+  them; the `templates/*.yaml` files are checked by comment-stripped text/regex
+  inspection since they are not valid standalone YAML) — explicitly NOT `helm template`/
+  `helm lint`/`helm install --dry-run` proof (no `helm` binary present).
+
+deploy/terraform/   -- P7B.21: REPLACED the single-resource AWS-only ECS stub with real,
+  genuinely load-bearing, individually toggled (`enable_aws`/`enable_azure`/`enable_gcp`/
+  `enable_oci`/`enable_kubernetes`, all defaulting to false) prerequisite resources per
+  cloud -- AWS IRSA role + minimally-scoped staging-bucket policy, Azure user-assigned
+  identity + federated credential, GCP service account + workload-identity binding (no
+  downloaded JSON key), OCI dynamic group + policy scoped to one named staging bucket,
+  Kubernetes namespace + service account with per-cloud identity annotations. No
+  ClusterAdmin/Owner/Editor/AdministratorAccess grant anywhere; no wildcard IAM
+  action/resource; no `0.0.0.0/0`; no hardcoded credential; no output name suggesting
+  secret material; every resource individually gated by its own enable flag (verified by
+  regex sweep, not just eyeballed). Proof level: LOCALLY_VERIFIED via regex/text sweep of
+  the checked-in `.tf` files (no `terraform` binary present) — explicitly NOT `terraform
+  validate`/`terraform plan`/`terraform apply` proof.
+```
+
+**What was deliberately NOT built:** no controller-runtime/kopf-based live reconciliation
+loop (no such dependency installed, and none is required to prove the reconciliation
+DECISION logic in `crd.py`, which is what actually matters and is what's tested); no
+second scheduling/placement decision inside the Kubernetes layer (Kubernetes decides
+node-within-cluster only, per the substrate-neutrality/scheduling-boundary laws in
+`k8s_runtime/__init__.py`'s docstring); no CRD or Terraform state field capable of
+holding Migration/ExecutionPlan/secret material (structurally absent, not merely
+undocumented).
+
+**Test evidence:** +117 tests this sub-session (P7B.18: 17, P7B.19: 14, P7B.20: 16,
+P7B.21: 11, P7B.22: 27+13 durability/concurrency, P7B.23: 12) → fabric suite 388 (end of
+§36 Campaign C) → 545 passed, 3 skipped. Full-repo regression: 6,155 passed / 165 skipped
+/ 0 failed against the two known/deselected pre-existing flakes (the
+`test_p5_1_enterprise_planning_authority` flake already documented above, plus one newly
+observed this session — `tests/unit/engine_discovery/test_final_three_blockers.py::
+test_enforced_operation_timeout_causes_partial_snapshot`, confirmed to pass in isolation
+and fail only under full-suite ordering/timing, same class of pre-existing flake,
+confirmed unrelated to anything touched this session via `git status`/scope check —
+`engine_discovery` was never touched).
+
+**Duplicate-authority audit:** grep of the new `k8s_runtime/`/`worker_fabric/` packages
+for `class .*(Authority|Engine|Runtime|Executor|Scheduler|Controller|Manager|Planner|Registry|Store)`
+finds only `WorkerRegistry` (same sanctioned bookkeeping-only pattern as
+`TopologyRegistry`/`EnvironmentRegistry`/`SiteRegistry`). `k8s_runtime.pod_spec`,
+`k8s_runtime.crd`, `worker_fabric.scaling`, and `worker_fabric.rollout` are plain modules
+of pure functions, no class named `*Authority`/`*Engine`/`*Controller` anywhere.
+
+**Proof level for all of Campaign D: IMPLEMENTED / UNIT_PROVEN / INTEGRATION_PROVEN
+(pod-spec/CRD-reconciliation/worker-fencing logic exercised against real production
+classes) / LOCALLY_VERIFIED (Helm/Terraform file content). LIVE_PROVEN is
+EXTERNAL_DEFERRED for all of P7B.18-21** (no live cluster, no `helm`/`terraform` binary,
+no real cloud account in this environment) exactly as predicted in the prior revision of
+this section.
+
+### 36.7 Exact next action for a fresh session
+
+**All of P7B Group 2 (Campaign C P7B.11-17 AND Campaign D P7B.18-23) is now implemented
+and hostile-tested but NOT FROZEN.** No owner acceptance/freeze review has occurred;
+treat the whole of §36 as UNDER_REVIEW until the owner explicitly freezes it (the same
+"only the owner freezes" law as every prior campaign in this file).
+
+Full Group-2 status:
+```
+P7B.11 Canonical Topology Graph               -- IMPLEMENTED, INTEGRATION_PROVEN
+P7B.12 Data Locality Model                     -- IMPLEMENTED, INTEGRATION_PROVEN
+P7B.13 Capability-Aware Placement              -- IMPLEMENTED, INTEGRATION_PROVEN
+P7B.14 Policy-Aware Scheduling                 -- IMPLEMENTED, INTEGRATION_PROVEN
+P7B.15 Locality & Data-Sovereignty Enforcement -- IMPLEMENTED, INTEGRATION_PROVEN
+P7B.16 Placement Optimization                  -- IMPLEMENTED, INTEGRATION_PROVEN
+P7B.17 Cost/Egress/Capacity Intelligence       -- IMPLEMENTED, INTEGRATION_PROVEN
+P7B.18 Kubernetes Production Runtime           -- IMPLEMENTED, INTEGRATION_PROVEN; LIVE_PROVEN EXTERNAL_DEFERRED
+P7B.19 AKAAL Kubernetes Operator & CRDs        -- IMPLEMENTED, INTEGRATION_PROVEN; LIVE_PROVEN EXTERNAL_DEFERRED
+P7B.20 Helm Platform                           -- IMPLEMENTED, LOCALLY_VERIFIED (static); LIVE/helm-tool proof EXTERNAL_DEFERRED
+P7B.21 Terraform-First IaC                     -- IMPLEMENTED, LOCALLY_VERIFIED (static); LIVE/terraform-tool proof EXTERNAL_DEFERRED
+P7B.22 Elastic Worker Fabric                   -- IMPLEMENTED, INTEGRATION_PROVEN
+P7B.23 Self-Healing & Rolling Operations       -- IMPLEMENTED, INTEGRATION_PROVEN
+```
+
+Not yet done, and explicitly out of this session's scope: (a) owner freeze review of all
+of §36; (b) live-infrastructure proof for P7B.18-21 if/when real Kubernetes/Terraform/
+Helm tooling and cloud accounts become available in this environment; (c) wiring
+Campaign C's `placement.engine.evaluate_candidates` and Campaign D's
+`k8s_runtime.crd.reconcile_worker_pool`/`worker_fabric` into an actual production call
+site reached from real migration-execution code (this session built and hostile-tested
+the primitives; it did not wire a live end-to-end Flow-A/B/C/D integration test of the
+kind described in the original Group-2 directive's §40, since that requires the not-yet-
+built production call site, not merely the primitives — a fresh session picking this up
+should treat "wire these into a real invocation path" as the next concrete task, not
+"build more primitives").
+
+Git state at end of §36.7: `git rev-parse HEAD` = `f395d74` (unchanged — no commit made;
+all new files, and the deploy/kubernetes+deploy/terraform replacements, are uncommitted
+working-tree changes pending explicit user instruction to commit).
+
+## 37. P7B GROUP 2 — PRODUCTION-PATH INTEGRATION (owner-identified blockers 1–7, closed)
+
+Same day, follow-up session. The owner reviewed §36 and correctly identified that
+everything built there — Campaign C's placement primitives AND Campaign D's worker
+fabric/K8s primitives — was NOT load-bearing: no actual migration-execution call site
+consumed a `PlacementDecision`, so a real migration could bypass topology/locality/
+capability/policy/residency/optimization/cost reasoning entirely, and worker
+revocation/draining/fencing/rolling-replacement were unproven against a real execution.
+Seven blockers were raised; all seven are addressed below.
+
+### 37.1 Blocker 1–2 — placement wired into the real Group-1 execution boundary
+
+New module **`akaalEngine/fabric/placement/binding.py`**:
+- `PlacementDecision` — immutable record binding: `decision_id`, tenant/workspace/
+  project/migration/plan identity, `execution_identity_seal_fingerprint`,
+  `correlation_id`, `selected_site_id`, `topology_fingerprint` (from a caller-supplied
+  `TopologyGraph` snapshot), `fencing_epoch`, TTL (`expires_at`). `is_stale()` mirrors
+  `MovementRoute.is_stale_against()` (P7B.10) at the placement level: expired TTL OR
+  topology-fingerprint drift both count as stale.
+- `decide_placement(...)` — THE production entry point for Campaign C. Runs
+  `placement.engine.evaluate_candidates` (unmodified) then `placement.optimize.
+  rank_candidates` (unmodified); raises `NoCompliantPlacementError` (carrying full
+  per-candidate rejection reasons) if zero candidates survive filtering. There is no
+  code path to obtain a `PlacementDecision` when this happens — this is the entire
+  mechanism, not a convention.
+
+New module **`akaalEngine/fabric/placement/execution.py`**:
+- `execute_via_placement(...)` — THE ONLY function that turns a `PlacementDecision` into
+  live execution. **Has no `site_id` parameter and no `assignment` parameter at all**
+  (verified by signature introspection in tests, exactly like `k8s_runtime.pod_spec`'s
+  missing-hostNetwork pattern) — the only site it can ever execute against is
+  `decision.selected_site_id`, read-only, and the assignment is always built internally
+  via the unmodified `RemoteExecutionControlPlane.issue_assignment`.
+- Composes a RICHER `live_trust_check` closure — reusing, not replacing, Group-1's
+  existing mandatory revalidation seam in `execute_assignment_via_transport` — that
+  additionally re-verifies: (a) assignment/decision binding integrity (site_id +
+  correlation_id match — closes assignment substitution), (b) live topology freshness,
+  (c) an optional `residency_recheck` callback, (d) the bound `WorkerNode`'s current
+  state/fencing_epoch (closes worker revocation / rolling-replacement / duplicate-worker
+  scenarios), (e) any caller-supplied `extra_live_trust_check` (e.g. SiteRegistry trust,
+  composed exactly as Group-1's own round-4 tests already require — never replaced).
+- Zero new TransportAuthority, zero new fencing scheme, zero new executor class (grep-
+  confirmed: only plain error classes and one data record are defined in either module).
+
+### 37.2 Blocker 3 — Kubernetes worker boundary made load-bearing
+
+`bind_worker_for_placement(...)` selects and reserves (IDLE -> BUSY) an already-
+registered `WorkerNode` at the placement-selected site (never fabricates one; raises
+`WorkerNotAvailableError` if none schedulable — no fallback to a different site). For a
+`SiteKind.KUBERNETES` site, a `pod_spec_factory` is REQUIRED (raises
+`KubernetesPodSpecRequiredError` otherwise) and its output is verified to be a real
+`kind: "Pod"` mapping — proven in tests using the ACTUAL
+`k8s_runtime.pod_spec.build_worker_pod_spec` (P7B.18), not a stub. Once bound, execution
+proceeds through the identical `execute_via_placement` call as any other substrate — the
+Operator/CRD layer (P7B.19) manages infrastructure only; the canonical runtime underneath
+is substrate-independent, exactly as the substrate-neutrality law requires.
+
+### 37.3 Blocker 4–5 — genuine local E2E through production classes, India scenario included
+
+New test file **`tests/unit/engine_fabric/test_p7b_group2_production_wiring.py`** (22
+tests) proves the full chain — ExecutionPlan-derived requirements -> topology -> locality
+-> capability -> policy -> sovereignty -> optimization/cost -> `PlacementDecision` ->
+worker binding -> `RemoteExecutionAssignment` -> `execute_assignment_via_transport` ->
+real `TransportAuthority` -> physical file read/write — using the EXACT real-class
+pattern already established in Group-1's `test_p7b_round4_mandatory_revalidation.py`
+(real `TransportAuthority()`, real file-based `SourceReader`/`TargetWriter`, real
+`RemoteExecutionControlPlane`, real `SiteRegistry`). The India/Singapore/incapable/
+unauthorized 4-candidate scenario (§25 of the original directive) is run through this
+production entry point, not just the Campaign-C-only unit test: the same
+`PlacementDecision` that passed residency/policy is the one that ultimately reaches
+`TransportAuthority` and performs the physical write.
+
+The negative case (only Singapore remains) is proven with `_NeverCalledTransport`, a
+double whose `execute_partition_transport` raises `AssertionError` if ever invoked —
+true zero-physical-call proof, not an inferred one: `decide_placement` raises
+`NoCompliantPlacementError` before any assignment, worker binding, or transport object is
+ever reached. The unknown-jurisdiction scenario is proven the same way.
+
+### 37.4 Blocker 6 — post-wiring hostile bypass/recovery matrix
+
+All named scenarios proven against the WIRED path (not the primitives in isolation):
+topology mutation after placement, stale placement replay (expired TTL), policy/
+residency change between placement and execution (via `residency_recheck`, proven
+through a REAL `TransportAuthority` reaching its own pre-flight security gate — zero rows
+written), site revocation both BEFORE assignment issuance (caught even earlier, inside
+Group-1's own unmodified `SiteRegistry.assign_execution`) and BETWEEN issuance and
+physical execution (caught via the composed `live_trust_check`), worker revocation
+between bind and execution, worker replaced via rolling upgrade mid-flight (fencing
+epoch mismatch detected, refused), scale-in/DRAINING during execution (proven to NOT
+abort in-flight work — draining means no new assignments, never kill active work),
+duplicate worker binding attempt (second `bind_worker_for_placement` call finds no
+schedulable worker), assignment substitution (defense-in-depth
+`PlacementBindingIntegrityError`, proven reachable via a stub control plane since the
+normal path structurally cannot trigger it), and tenant/workspace/project/plan
+substitution (structurally impossible — `PlacementDecision` is a frozen dataclass,
+verified via `dataclasses.FrozenInstanceError`, and `execute_via_placement` has no
+override parameter for any of those fields, verified by signature introspection).
+
+**A genuine, previously-unknown defect was found during this hostile pass and fixed, not
+merely documented:** `akaalEngine.fabric.placement.residency.evaluate_residency` had NO
+tenant cross-check at all — a `LocalityRecord` genuinely proven for a DIFFERENT tenant
+would have silently satisfied THIS tenant's residency policy merely by being placed under
+the right `site_id` dict key (a real cross-tenant locality substitution vulnerability,
+exactly the class the original directive's §27 hostile matrix named). Fixed by adding an
+opt-in `expected_tenant_id` parameter to `evaluate_residency`, threaded through
+`placement.engine.evaluate_candidates` (new optional `tenant_id` parameter, backward-
+compatible — existing Campaign-C-only callers/tests are unaffected) and always supplied
+by `decide_placement` (the production entry point). Regression tests added at both the
+unit level (`test_p7b15_residency_sovereignty.py`) and through the full production path
+(`test_cross_tenant_locality_record_rejected_through_decide_placement`).
+
+### 37.5 Blocker 7 — final reconciliation
+
+- Full fabric suite: **570 passed, 3 skipped** (up from 545 in §36; +25 tests this
+  sub-session: 22 new production-wiring tests + 3 new cross-tenant-residency regression
+  tests, net of consolidating the earlier `test_p7b16_placement_engine_composition.py`
+  count unchanged).
+- Full-repo regression: **6,179 passed / 165 skipped / 0 unexplained failures**, against
+  two deselected pre-existing flakes, BOTH independently re-verified in isolation this
+  session (not merely asserted from memory): the `test_p5_1_enterprise_planning_
+  authority` flake (§36.6, passes in isolation) and `tests/unit/test_day23_
+  reconciliation.py::...::test_p0_7_telemetry_provenance_and_zero_synthetic_workers` —
+  THE SAME recurring flake already documented at §34.19/§35.21 as "order/timing-
+  dependent... confirmed to have passed clean" — re-run 3x in isolation this session,
+  passed 2/3 (a `throughput_mbps` wall-clock-rate calculation occasionally computing None
+  under fast execution), confirming genuine timing-dependence, not a regression: this
+  session never touched `tests/unit/test_day23_reconciliation.py` or its underlying
+  `akaal/`-adjacent control-plane code.
+- Duplicate-authority audit: `grep "^class "` over `placement/binding.py` and
+  `placement/execution.py` finds only error classes (`PlacementBindingError`,
+  `NoCompliantPlacementError`, `StalePlacementError`, `PlacementExecutionError`,
+  `WorkerNotAvailableError`, `PlacementBindingIntegrityError`,
+  `KubernetesPodSpecRequiredError`) and one immutable data record (`PlacementDecision`)
+  — zero `*Authority`/`*Engine`/`*Runtime`/`*Executor`/`*Scheduler`/`*Controller` classes.
+- Secret-leakage sweep of both new modules: zero hardcoded credential-shaped literals.
+- Cross-tenant suite: extended (§37.4) with the newly-fixed residency tenant check.
+- Zero locally actionable Group-2 gaps remain OPEN from the owner's seven blockers.
+
+### 37.6 What remains explicitly out of scope (unchanged from §36.7, restated)
+
+Owner freeze review of §36+§37 has not occurred (only the owner freezes). Live
+Kubernetes/Terraform/Helm/cloud infrastructure proof remains EXTERNAL_DEFERRED — no
+`helm`/`terraform` binary or `kubernetes` Python client exists in this environment
+(verified, not assumed). Wiring this production entry point into the actual upstream
+`akaalPipeline` orchestration call site (so that literally every real migration in the
+whole system is forced through `decide_placement`/`execute_via_placement` rather than
+only being ABLE to, when a caller chooses this path) remains a further, separate,
+larger integration task — deliberately not attempted this session, since it requires
+touching frozen `akaalPipeline` orchestration code, which is a materially bigger and
+riskier change than hardening this new Group-2 boundary itself. A fresh session treating
+this as the next task should scope it explicitly with the owner first, given the size and
+risk of that specific change.
+
+Git state at end of §37: `git rev-parse HEAD` = `f395d74` (unchanged — no commit made;
+all §36+§37 work remains uncommitted working-tree changes pending explicit user
+instruction to commit).
+
+## 38. P7B GROUP 2 — FINAL BLOCKER CLOSED: MANDATORY PLACEMENT FROM akaalPipeline
+
+Same day, final follow-up. The owner correctly identified that §36+§37 built a strong,
+hostile-tested placement/execution boundary that NOTHING in the actual canonical
+`akaalPipeline` orchestration path was required to use — a real migration could reach
+physical execution while never consulting topology/locality/capability/policy/residency/
+optimization at all. This section closes that gap at its root: the canonical Pipeline
+orchestration seam itself.
+
+### 38.1 The seam
+
+Forensic recon (this sub-session) found the exact, single, existing seam where an
+immutable `ExecutionPlan` becomes physical work:
+`akaalPipeline.execution.coordinator.PlanExecutionCoordinator.advance_plan_execution`
+builds an `EngineInvocationRequest` and calls `matching_binding.port_instance.
+execute_task(req)` — a typed `akaalPipeline.ports.engine.ExecutionPort` Protocol, whose
+only pre-existing concrete implementation is `akaalPipeline.adapters.engine_gateway.
+PipelineEngineGatewayAdapter -> akaalEngine.gateway.api.EngineGateway`.
+`akaalPipeline.application.unified_caller.PipelineUnifiedCaller` (the real Caller/IPC
+entry) constructs and delegates to this exact coordinator. Confirmed via forensic grep:
+**zero existing dormant flag anywhere in `akaalPipeline` for "does this plan need
+distributed/fabric placement"** — this had to be added as new, explicit, canonical
+plan-embedded state, not surfaced from something hidden.
+
+### 38.2 What was built (integration seam, not architecture expansion)
+
+```
+akaalPipeline/orchestration/fabric_gate.py   -- NEW, small
+  plan_requires_fabric_placement(plan) -- reads plan.configuration["fabric_placement"]
+    ["required"] -- part of ExecutionPlan's OWN immutable, canonically-fingerprinted
+    configuration (ExecutionPlan.create() computes and freezes it once) -- NEVER a
+    runtime/dispatch-time caller override. This is the "smallest repository-native rule"
+    the owner asked for, given none existed to reuse.
+  FabricPlacementBinding / FabricPlacementBindingStore -- bookkeeping only (same
+    sanctioned pattern as TopologyRegistry/WorkerRegistry): execution_id -> (decision,
+    site, worker). require() never fabricates a missing binding.
+  FabricGateDependencies -- ONE dataclass bundling every Group-2 registry/resolver the
+    coordinator needs (topology/candidate/locality/residency-policy providers, worker &
+    site registries, control plane, signing key, transport-authority factory, optional
+    K8s pod-spec factory) -- injected as a single optional PlanExecutionCoordinator
+    constructor argument, keeping the coordinator's own signature change minimal.
+
+akaalPipeline/adapters/fabric_engine_gateway.py   -- NEW, one ExecutionPort adapter
+  FabricPlacementExecutionPort: re-verifies placement/worker freshness (reusing
+  PlacementDecision.is_stale + the newly-exported akaalEngine.fabric.placement.
+  execution.worker_still_valid -- same checks execute_via_placement's own composed
+  live_trust_check already performs, never a second scheme) before EVERY dispatch. For
+  the data_transport capability specifically (Pipeline's one physical-bulk-movement
+  capability), it builds real reader/writer via TransportAuthority's own existing
+  resolve_source_reader_for_provider/resolve_target_writer_for_provider and calls the
+  unmodified execute_via_placement. For every other capability (schema_prep, cdc_*,
+  validation_*), it delegates unchanged to the existing PipelineEngineGatewayAdapter --
+  the gate still applies, the mechanism is not force-fit where it doesn't belong.
+
+akaalPipeline/execution/coordinator.py   -- SURGICALLY PATCHED (PlanExecutionCoordinator
+  remains the same, single, canonical class -- no new orchestrator/planner/executor)
+  * __init__ gains one new optional `fabric_dependencies` parameter (default None) --
+    every existing call site/test is unaffected (410 tests/pipeline/ + 76 test_p511_*
+    all pass unmodified).
+  * materialize_plan_execution: if the plan requires fabric placement, runs the full
+    decide_placement + bind_worker_for_placement chain BEFORE the idempotency check,
+    BEFORE execution_id is generated, BEFORE any SQL row is written. NoCompliantPlacement
+    Error (or any other placement/binding failure) propagates immediately -- NO
+    PlanExecutionRecord is ever created, meaning nothing downstream can ever dispatch
+    physical work for that attempt. Trusted tenant/workspace/project context is read
+    EXCLUSIVELY from the already-verified `actor`/`migration`, never from
+    plan.configuration (closing the same class of smuggling the residency tenant fix
+    already closed one layer down).
+  * advance_plan_execution: new "Step A.2" gate, inserted in the exact same shape/place
+    as the pre-existing "Step A.1" M8 non-mutation gate immediately above it -- for any
+    node with a real physical side effect (not READ_ONLY) in a fabric-required plan,
+    requires a live, fresh FabricPlacementBinding or fails the node+plan closed via the
+    same `_mark_node_and_plan_failed` path, before dispatch is attempted. Immediately
+    after, the binding for the `data_transport` capability is UNCONDITIONALLY overridden
+    to the Group-2 `FabricPlacementExecutionPort` binding -- there is no branch anywhere
+    in this method that dispatches a fabric-required plan's data_transport node through
+    any other port_instance (proven by a hostile test registering a decoy binding that
+    raises `AssertionError` if ever reached).
+  * `_release_fabric_binding` hooked into the three existing terminal-state paths
+    (`_mark_plan_succeeded`, `_mark_node_and_plan_failed`, `cancel_plan_execution`).
+
+A genuine, previously-latent coordinator bug was found and fixed during this
+integration (not introduced by it): the pre-existing M8 gate's `from akaalPipeline.
+contracts.enums import SideEffectClassification` INSIDE that conditional block makes
+Python treat the name as local to the WHOLE `advance_plan_execution` function (Python
+scoping: any assignment/import anywhere in a function body makes that name local
+throughout), silently shadowing the correct module-level import for any code added
+after it in the same function that runs on a path where the M8 block didn't execute --
+exactly the `UnboundLocalError` this session's own new Step A.2 code hit on first run.
+Fixed locally (Step A.2 does its own defensively-named local import,
+`_SideEffectClassification`) without touching the existing M8 block.
+```
+
+### 38.3 Test evidence
+
+New file `tests/pipeline/test_p7b_group2_pipeline_mandatory_placement.py` (19 tests),
+driving the REAL `PlanExecutionCoordinator.materialize_plan_execution`/
+`advance_plan_execution` (the identical methods `PipelineUnifiedCaller` itself calls)
+with a real `ExecutionPlan` (via `ExecutionPlan.create`, genuinely fingerprinted), real
+`SQLiteUnitOfWork`/`SQLiteMigrationRepository`, real `TransportAuthority`, real file-
+based reader/writer, real `SiteRegistry`/`WorkerRegistry`/`TopologyRegistry`/
+`RemoteExecutionControlPlane`. Scope note: the outer IPC-envelope/RBAC/session layers
+are not re-exercised (unrelated to this integration, already covered by the 410+76
+pre-existing tests confirmed unaffected).
+
+Covers, each through the actual Pipeline seam (not the lower-level placement API):
+India-only compliant success; India-only NO COMPLIANT PLACEMENT (Mumbai unavailable,
+Singapore cheaper/capable/authorized but wrong country) with proof of **zero
+PlanExecutionRecord rows created, zero target file rows, zero schema-node dispatch**;
+unknown-staging-locality fail-closed; cross-tenant locality substitution fail-closed
+(the newly-discovered-and-fixed residency tenant check, now proven load-bearing from
+Pipeline); stale placement via topology mutation between materialize and advance (schema
+node still dispatches -- correctly scoped to physical-effect nodes only -- data_transport
+correctly refused); worker revoked between materialize/advance; site revoked between
+materialize/advance (both at the earliest point Group-1's own `SiteRegistry.
+assign_execution` would catch it AND via the composed live_trust_check, whichever fires
+first); the structural no-bypass proof (a decoy `NeverCalledPort` registered under the
+same capability, never reached); the complementary "non-fabric plan still works exactly
+as before" proof; "fabric-required plan against an unconfigured coordinator fails closed,
+never falls back"; Kubernetes site reaching the REAL `k8s_runtime.pod_spec.
+build_worker_pod_spec` from the actual Pipeline path, and failing closed without a
+pod_spec_factory; VM and bare-metal sites succeeding with zero Kubernetes/CRD/Helm
+involvement; M6 (schema-only, no data_transport node at all) succeeding; M1/M4/M7
+(finite modes) all succeeding.
+
+### 38.4 Final regression (entering baseline superseded)
+
+- `tests/pipeline/` + `tests/security/` + `tests/unit/engine_fabric/` together:
+  **1,526 passed, 3 skipped, 0 failed.**
+- Full repository: **6,198 passed / 165 skipped / 0 unexplained failures**, against
+  THREE deselected pre-existing flakes, all independently re-verified in isolation across
+  this session (not merely cited): `test_p5_1_enterprise_planning_authority` (§36.6),
+  `test_final_three_blockers.py::test_enforced_operation_timeout_causes_partial_snapshot`
+  (§37.5), and `test_day23_reconciliation.py::...::test_p0_7_telemetry_provenance_and_
+  zero_synthetic_workers` (re-run 3x in isolation this sub-session, passed 2/3, confirmed
+  genuine wall-clock-timing flake in a `throughput_mbps` rate calculation, in code this
+  session never touched).
+- `git diff --check`: no whitespace errors (only harmless LF-will-become-CRLF notices).
+- Secret-leakage sweep of all three new/modified files: clean.
+- Duplicate-authority audit: `grep "^class "` over both new files finds only error
+  classes, one plain bookkeeping store (`FabricPlacementBindingStore`, same sanctioned
+  pattern as every other fabric registry), one dependency-bundling dataclass, and one
+  `ExecutionPort` adapter (the existing, intended extension point) -- zero `*Authority`/
+  `*Engine`/`*Runtime`/`*Executor`/`*Scheduler`/`*Controller`/`*Planner` classes.
+  `PlanExecutionCoordinator` remains the one and only Pipeline orchestration authority.
+
+### 38.5 Final acceptance conditions — status
+
+```
+Production enforcement    -- MET: plan_requires_fabric_placement() reads immutable,
+                              plan-embedded state; caller cannot override at dispatch time.
+No bypass                 -- MET within this integration's boundary: no coordinator code
+                              path dispatches a fabric-required plan's data_transport node
+                              through any port other than FabricPlacementExecutionPort
+                              (proven via decoy-binding hostile test). NOT YET EXTENDED to
+                              every conceivable future Pipeline entry point outside
+                              PlanExecutionCoordinator -- see 38.6 scope note.
+Residency                 -- MET, load-bearing from Pipeline through to (simulated)
+                              physical I/O, proven via real TransportAuthority.
+Tenant isolation           -- MET: cross-tenant locality substitution fails closed through
+                              the actual Pipeline path, not just the lower-level API.
+Freshness                 -- MET: stale placement (topology drift) fails closed before
+                              physical dispatch.
+Site trust                -- MET: revoked site fails closed, whichever layer catches it
+                              first (Group-1 issuance-time check or composed live check).
+Fencing                   -- MET: reuses P7B.5/9/22/23's existing epoch-monotonicity
+                              ladders unmodified; no second fencing scheme introduced.
+Kubernetes                 -- MET: real k8s_runtime.pod_spec builder reached from the
+                              actual Pipeline path; fails closed without it.
+Non-Kubernetes             -- MET: VM/bare-metal sites succeed with zero K8s/CRD/Helm
+                              involvement.
+Canonical runtime          -- MET: physical execution remains 100% owned by the existing,
+                              unmodified TransportAuthority/EngineGateway machinery.
+Regression                 -- MET: 6,198 passed / 165 skipped / 0 unexplained failures.
+Authority audit             -- MET: zero duplicate authorities created.
+Local reconciliation
+  Known locally actionable Group-2 gaps: 0
+  Locally actionable incomplete Group-2 cells: 0
+  Known locally reachable Group-2 security defects: 0
+    (one WAS found and fixed this sub-session -- the pre-existing M8-block name-shadowing
+    UnboundLocalError -- see 38.2; zero known ones remain open)
+```
+
+### 38.6 Scope note carried forward (unchanged from §36.7/§37.6)
+
+This closes the gap at `PlanExecutionCoordinator` -- the confirmed single, canonical seam
+where `ExecutionPlan` becomes physical work, and the exact seam `PipelineUnifiedCaller`
+itself delegates to. It does not (and was not asked to) rewrite `PipelineUnifiedCaller`'s
+own `handle_command` to thread `fabric_dependencies` through automatically, nor does it
+re-verify the outer IPC/RBAC/session layers (unrelated to Group-2, unchanged, still
+covered by their own 410+76 pre-existing passing tests). Live Kubernetes/Terraform/Helm/
+cloud infrastructure proof remains EXTERNAL_DEFERRED as documented throughout §36/§37 --
+no such tooling exists in this environment, verified not assumed.
+
+Git state at end of §38: `git rev-parse HEAD` = `f395d74` (unchanged -- no commit made;
+all §36+§37+§38 work remains uncommitted working-tree changes pending explicit user
+instruction to commit).
+
+---
+
+## 39. P7B GROUP 2 FINAL FREEZE RECORD — OWNER ACCEPTED & FROZEN (2026-09-06)
+
+**THIS IS THE CURRENT, AUTHORITATIVE RECORD FOR P7B GROUP 2 (Campaign C + Campaign D,
+P7B.11–P7B.23, plus the mandatory production-wiring closure).** It supersedes every
+"NOT STARTED," "NOT YET FROZEN," or "UNDER_REVIEW" statement about P7B Group 2 anywhere
+earlier in this document (§9, §30 historical text, §36.7, §37.6, §38's own "final
+acceptance conditions" table, which is now superseded by acceptance rather than merely
+met). Where anything conflicts with §39, §39 governs. **P7A (§34) and P7B Group 1 (§35)
+are unaffected and remain separately frozen** — P7B Group 2 is a new, additive phase
+built on top of frozen P7A/P7B-Group-1 authorities, never a reopening of them.
+
+### 39.1 Final owner decision
+
+```
+P7B GROUP 2 — CAMPAIGN C + CAMPAIGN D — P7B.11-P7B.23
+(+ MANDATORY PRODUCTION-WIRING CLOSURE INTO akaalPipeline)
+OWNER ACCEPTED & FROZEN
+DATE: 2026-09-06
+AUTHORIZED BY: Owner, after three sequential closure rounds: (1) initial Campaign C+D
+implementation and hostile review; (2) an owner-identified seven-blocker production-path
+integration correction (placement wired into the real Group-1 execution boundary,
+Kubernetes worker boundary made load-bearing, genuine local E2E through production
+classes, India-sovereignty proof, post-wiring hostile bypass/recovery matrix, full
+reconciliation); (3) a final owner-identified blocker (Group-2 placement was not yet
+MANDATORY from the actual canonical akaalPipeline orchestration seam) closed by wiring
+`PlanExecutionCoordinator` itself. Each round's fixes were independently re-verified with
+executable evidence before the next round began, and before final acceptance was issued.
+```
+
+Group 2 is now regression-protected baseline and **must not be reopened, redesigned,
+weakened, or casually modified by P7C, P7D, or any later phase** absent a new, concrete,
+demonstrated defect and fresh explicit owner authorization (§9's permanent rule,
+unchanged).
+
+Live Kubernetes cluster, Terraform apply, Helm install, and live AWS/Azure/GCP/OCI
+infrastructure proof all remain `EXTERNAL_DEFERRED` — no such tooling or infrastructure
+exists in this environment (verified directly: no `helm`/`terraform` binary, no
+`kubernetes` Python client, confirmed via standing test assertions, not assumed). This
+does not reduce the local freeze rating and must never be rewritten as `LIVE_PROVEN`.
+
+### 39.2 Scope and sub-phase status
+
+```
+Campaign C (Distributed Topology & Intelligent Placement):
+  P7B.11  Canonical Topology Graph                              FROZEN
+  P7B.12  Data Locality Model                                   FROZEN
+  P7B.13  Capability-Aware Placement                             FROZEN
+  P7B.14  Policy-Aware Scheduling                                FROZEN
+  P7B.15  Locality & Data-Sovereignty Enforcement                FROZEN
+  P7B.16  Placement Optimization                                 FROZEN
+  P7B.17  Cost/Egress/Capacity Intelligence                      FROZEN
+
+Campaign D (Cloud-Native Execution Fabric):
+  P7B.18  Kubernetes Production Runtime                          FROZEN
+  P7B.19  AKAAL Kubernetes Operator & CRDs                       FROZEN
+  P7B.20  Helm Platform                                          FROZEN (LOCALLY_VERIFIED)
+  P7B.21  Terraform-First IaC                                    FROZEN (LOCALLY_VERIFIED)
+  P7B.22  Elastic Worker Fabric                                  FROZEN
+  P7B.23  Self-Healing & Rolling Operations                      FROZEN
+
+Production-wiring closure (not a numbered P7B.x item — the integration correction that
+makes Campaign C+D controls unavoidable wherever Group-2 semantics apply):
+  akaalPipeline.execution.coordinator.PlanExecutionCoordinator integration    FROZEN
+```
+
+### 39.3 Canonical architecture built (new packages/modules, additive to P7A/P7B-Group-1/akaalPipeline authorities)
+
+```
+akaalEngine/fabric/topology/          P7B.11 -- TopologyNode/TopologyEdge/TopologyGraph/
+                                       TopologyRegistry (tenant-scoped, collision-protected,
+                                       generation-versioned, fingerprint-based staleness).
+akaalEngine/fabric/locality/          P7B.12 -- LocalityRecord (11 dimensions, strict
+                                       UNKNOWN/CLAIMED/PROVEN ladder)/LocalityRegistry.
+akaalEngine/fabric/placement/         P7B.13-17 -- capability.py/policy.py/residency.py/
+                                       engine.py (capability->authorization->residency
+                                       composition)/optimize.py/cost.py, plus the production
+                                       integration: binding.py (decide_placement/
+                                       PlacementDecision/NoCompliantPlacementError) and
+                                       execution.py (execute_via_placement -- the sole
+                                       sanctioned way to turn a PlacementDecision into live
+                                       execution through the unmodified Group-1
+                                       execute_assignment_via_transport/TransportAuthority).
+akaalEngine/fabric/k8s_runtime/       P7B.18-19 -- pod_spec.py (structurally-secure Pod spec
+                                       builder -- no privileged/hostNetwork/hostPID/hostIPC/
+                                       hostPath parameter exists anywhere in its API) + crd.py
+                                       (AkaalWorkerPoolSpec/reconcile_worker_pool -- pure,
+                                       idempotent diff logic, no field capable of holding
+                                       Migration/ExecutionPlan/secret truth).
+akaalEngine/fabric/worker_fabric/     P7B.22-23 -- WorkerNode/WorkerRegistry (fencing-epoch
+                                       monotonicity reusing the exact SiteRegistry/
+                                       SiteAssignment discipline)/scaling.py/rollout.py.
+deploy/kubernetes/, deploy/terraform/ P7B.20-21 -- real Helm chart + real multi-cloud
+                                       Terraform prerequisite modules, replacing confirmed-
+                                       orphaned 2020-era scaffolding (owner-approved replace
+                                       decision).
+akaalEngine/fabric/durability.py      EXTENDED (not duplicated), same canonical Authority
+  (modified, not new)                 #5 SQLiteWalBackend/StateRecord backend P7B Group 1
+                                       already established -- added save_topology_node/
+                                       save_topology_edge/reconstruct_topology_registry
+                                       (P7B.11), save_locality_record/
+                                       reconstruct_locality_registry (P7B.12), and
+                                       save_worker/reconstruct_worker_registry (P7B.22),
+                                       each following the identical fresh-process
+                                       rehydration (`_register_reconstructed*`) discipline
+                                       already used for Environment/ExecutionSite.
+akaalPipeline/orchestration/
+  fabric_gate.py                      Production-wiring closure -- applicability
+                                       (plan_requires_fabric_placement, reading
+                                       ExecutionPlan's own immutable configuration, never a
+                                       caller override) + FabricPlacementBindingStore +
+                                       FabricGateDependencies (one injected dependency
+                                       bundle for PlanExecutionCoordinator).
+akaalPipeline/adapters/
+  fabric_engine_gateway.py            Production-wiring closure -- FabricPlacementExecutionPort,
+                                       the one new ExecutionPort adapter, gating every
+                                       dispatch on live placement/worker validity and routing
+                                       the data_transport capability through the unmodified
+                                       execute_via_placement.
+akaalPipeline/execution/coordinator.py  SURGICALLY PATCHED (same single canonical
+                                       PlanExecutionCoordinator class, no new orchestrator) --
+                                       mandatory placement gate in materialize_plan_execution
+                                       (before any durable row is written) and a Step A.2
+                                       dispatch gate + unconditional data_transport binding
+                                       override in advance_plan_execution, both additive and
+                                       optional (fabric_dependencies defaults to None; every
+                                       pre-existing non-fabric call site/test unaffected).
+```
+
+Zero new `*Authority`/`*Engine`/`*Runtime`/`*Executor`/`*Scheduler`/`*Controller`/
+`*Planner` classes anywhere in this scope (confirmed by repeated `grep "^class "` audits
+across every round). `PlanExecutionCoordinator` remains the one and only Pipeline
+orchestration authority; `TransportAuthority`/`RemoteExecutionControlPlane`/
+`SiteRegistry` remain unmodified and unduplicated.
+
+Complete new-file inventory (every file this phase added or modified — nothing above is
+a partial list):
+```
+NEW production code (18 files):
+  akaalEngine/fabric/topology/__init__.py, models.py, graph.py
+  akaalEngine/fabric/locality/__init__.py, models.py, registry.py
+  akaalEngine/fabric/placement/__init__.py, capability.py, policy.py, residency.py,
+    engine.py, optimize.py, cost.py, binding.py, execution.py
+  akaalEngine/fabric/k8s_runtime/__init__.py, pod_spec.py, crd.py
+  akaalEngine/fabric/worker_fabric/__init__.py, models.py, registry.py, scaling.py,
+    rollout.py
+  akaalPipeline/orchestration/fabric_gate.py
+  akaalPipeline/adapters/fabric_engine_gateway.py
+
+MODIFIED production code (2 files):
+  akaalEngine/fabric/durability.py        (extended -- see above)
+  akaalPipeline/execution/coordinator.py  (surgically patched -- see above)
+
+REPLACED deploy/ scaffolding (owner-approved), 9 files:
+  deploy/kubernetes/Chart.yaml, values.yaml,
+    templates/_helpers.tpl, serviceaccount.yaml, deployment.yaml, rbac.yaml,
+    networkpolicy.yaml, hpa.yaml, pdb.yaml
+  deploy/terraform/main.tf, providers.tf, variables.tf, outputs.tf
+
+NEW test files (19 files, ~330 individual tests across all three closure rounds):
+  tests/unit/engine_fabric/
+    test_p7b11_topology_graph.py            -- P7B.11 positive/hostile/cross-tenant/restart
+    test_p7b11_topology_scale.py            -- P7B.11 4,000-node/edge scale sanity
+    test_p7b12_locality_model.py            -- P7B.12 UNKNOWN/CLAIMED/PROVEN discipline
+    test_p7b1112_topology_locality_durability.py -- P7B.11/12 real restart-through-SQLite
+    test_p7b13_capability_placement.py      -- P7B.13
+    test_p7b14_policy_scheduling.py         -- P7B.14
+    test_p7b15_residency_sovereignty.py     -- P7B.15 incl. cross-tenant-locality regression
+    test_p7b16_placement_engine_composition.py -- India/Singapore/incapable/unauthorized
+    test_p7b16_placement_optimization.py    -- P7B.16 determinism/NaN/scale
+    test_p7b17_cost_intelligence.py         -- P7B.17
+    test_p7b18_k8s_pod_spec.py              -- P7B.18 structural-impossibility hostile matrix
+    test_p7b19_k8s_operator_crd.py          -- P7B.19 reconciliation idempotency
+    test_p7b20_helm_chart_static.py         -- P7B.20 static YAML/regex validation
+    test_p7b21_terraform_static.py          -- P7B.21 static regex validation
+    test_p7b22_elastic_worker_fabric.py     -- P7B.22 fencing/self-healing
+    test_p7b22_worker_durability_and_concurrency.py -- P7B.22 restart + 64-thread race
+    test_p7b23_self_healing_rollout.py      -- P7B.23 rolling-upgrade batch planning
+    test_p7b_group2_production_wiring.py    -- decide_placement->execute_via_placement E2E
+  tests/pipeline/
+    test_p7b_group2_pipeline_mandatory_placement.py -- the final-blocker Pipeline-seam suite
+```
+
+Note for whoever next runs `git status`: a large number of pre-existing, unrelated
+`.akaal/reports/*.json` files also show as modified in the working tree. These are
+pytest-run-generated report artifacts (rewritten by the test suite itself on every run,
+long before this phase's work began) — not something this phase's implementation
+touched, authored, or depends on. They are called out here only so a fresh session
+reading `git status` does not mistake normal test-run churn for undocumented Group-2
+changes.
+
+### 39.4 Real defects found and fixed during hostile review (not left open)
+
+1. **Cross-tenant locality substitution** (found during the production-wiring hostile
+   pass): `akaalEngine.fabric.placement.residency.evaluate_residency` had NO tenant
+   cross-check at all — a `LocalityRecord` genuinely proven for a DIFFERENT tenant would
+   have silently satisfied this tenant's residency policy merely by being placed under
+   the right `site_id` dict key. Fixed via an opt-in `expected_tenant_id` parameter,
+   threaded through `placement.engine.evaluate_candidates` (backward-compatible) and
+   always supplied by `decide_placement` and, one layer up, by
+   `PlanExecutionCoordinator._decide_and_bind_fabric_placement` (reading tenant
+   exclusively from the already-verified `actor`/`migration`, never from
+   `plan.configuration`). Proven closed at both the unit level and through the full
+   Pipeline production path.
+2. **Latent coordinator name-shadowing bug** (found while adding the Step A.2 gate): a
+   pre-existing local `from akaalPipeline.contracts.enums import SideEffectClassification`
+   inside the M8 validation-only gate makes Python treat that name as local to the WHOLE
+   `advance_plan_execution` function body (ordinary Python scoping — an assignment/import
+   anywhere in a function makes the name local throughout it), silently shadowing the
+   correct module-level import for any later code in the same function on a path where
+   the M8 block never executed. This is a real, general latent defect this session's own
+   new code happened to trip over first; fixed locally (Step A.2 uses its own
+   defensively-named `_SideEffectClassification` import) without touching or destabilizing
+   the existing, hostile-tested M8 block.
+
+Zero known locally reachable Group-2 security defects remain open.
+
+### 39.5 Duplicate-authority audit (§8/§35.20/§36.5/§37 discipline, reapplied at freeze)
+
+Grep of every new/modified file across `akaalEngine/fabric/{topology,locality,placement,
+k8s_runtime,worker_fabric}/`, `akaalPipeline/orchestration/fabric_gate.py`, and
+`akaalPipeline/adapters/fabric_engine_gateway.py` for `class .*(Authority|Engine|Runtime|
+Executor|Scheduler|Controller|Manager|Planner|Registry|Store)` finds only the same
+sanctioned bookkeeping-registry pattern already established by frozen P7B Group-1 code
+(`TopologyRegistry`, `LocalityRegistry`, `WorkerRegistry`, `FabricPlacementBindingStore`
+— none grants trust/authorization as a side effect of registration), one dependency-
+bundling dataclass (`FabricGateDependencies`), and one `ExecutionPort` adapter
+(`FabricPlacementExecutionPort` — the existing, intended Pipeline extension point). No
+`*Authority`/`*Engine`/`*Runtime`/`*Scheduler`/`*Controller`/`*Planner` class was
+introduced anywhere in Group 2.
+
+### 39.6 What P7B Group 2 does NOT do (scope boundary, honestly preserved)
+
+- Does not wire `akaalPipeline.application.unified_caller.PipelineUnifiedCaller`'s own
+  `handle_command` IPC layer to auto-thread `fabric_dependencies` — the mandatory gate
+  lives in `PlanExecutionCoordinator` itself (the confirmed single seam
+  `PipelineUnifiedCaller` already delegates to), but a future session wiring
+  `fabric_dependencies` into `PipelineUnifiedCaller.__init__` for full IPC-boundary
+  convenience remains a small, separate, explicitly-scoped follow-up if the owner wants
+  it — not required for the mandatory-enforcement invariant, which is already met at the
+  coordinator.
+- Does not obtain real AWS/Azure/GCP/OCI/Kubernetes infrastructure or credentials — every
+  live-infrastructure capability remains `EXTERNAL_DEFERRED`, truthfully, throughout.
+- Does not force every AKAAL migration through Kubernetes or distributed placement —
+  `plan_requires_fabric_placement` defaults to `False`; local/on-prem/VM/bare-metal
+  execution is fully preserved and proven unaffected (410+76 pre-existing
+  `tests/pipeline/`+`tests/security/` tests pass unmodified; VM/bare-metal fabric-required
+  sites also proven to succeed with zero Kubernetes/CRD/Helm involvement).
+- Does not create a second ExecutionPlan, planner, runtime, transport, checkpoint, retry,
+  durability, CDC, validation, authorization, policy, Evidence, or telemetry authority.
+
+### 39.7 Final governing evidence
+
+```
+Fabric suite (tests/unit/engine_fabric/):        570 passed / 3 skipped
+Pipeline+Security+Fabric combined:                1,526 passed / 3 skipped / 0 failed
+                                                   (tests/pipeline/ + tests/security/ +
+                                                   tests/unit/engine_fabric/)
+Full repository regression (final):               6,198 passed / 165 skipped / 0
+                                                   unexplained failures
+Deselected pre-existing flakes (3, all
+independently re-verified in isolation this
+session, none caused by Group-2 work):
+  - test_p5_1_enterprise_planning_authority::
+    test_12_stale_approval_fingerprint_mismatch_fails_closed (order-dependent; passes
+    isolated)
+  - engine_discovery/test_final_three_blockers.py::
+    test_enforced_operation_timeout_causes_partial_snapshot (timing-dependent; passes
+    isolated)
+  - test_day23_reconciliation.py::...::
+    test_p0_7_telemetry_provenance_and_zero_synthetic_workers (wall-clock throughput-rate
+    timing flake, already documented at §34.19/§35.21 as recurring/pre-existing; re-run
+    3x isolated this session, passed 2/3; code this session never touched)
+Known locally reachable
+P7B Group-2 defects at freeze:                    0 (two were found and fixed during
+                                                   hostile review -- §39.4 -- zero remain)
+Local proof level:                                IMPLEMENTED / UNIT_PROVEN /
+                                                   INTEGRATION_PROVEN throughout Campaign C,
+                                                   Campaign D's Kubernetes/CRD/worker-fabric
+                                                   logic, and the akaalPipeline production
+                                                   wiring. LOCALLY_VERIFIED (static
+                                                   inspection only) for Helm/Terraform file
+                                                   content.
+Live/external infrastructure proof:               EXTERNAL_DEFERRED (no helm/terraform
+                                                   binary, no kubernetes client, no live
+                                                   cloud account in this environment --
+                                                   verified, not assumed)
+git diff --check:                                 clean (no whitespace errors)
+Secret-leakage sweep:                             clean across every new/modified file
+Git operations performed:                         NONE (no commit; all Group-2 work remains
+                                                   uncommitted working-tree changes pending
+                                                   explicit owner instruction to commit)
+```
+
+### 39.8 Exact next action for a fresh session
+
+**P7A, P7B GROUP 1, AND P7B GROUP 2 ARE ALL COMPLETED AND FROZEN. DO NOT REOPEN ANY OF
+THEM.** A fresh session's correct first action is to read this §39 in full (§35/§34 too
+if earlier-phase detail is needed), confirm current repository state still matches it (a
+quick `git status`/spot-check is sufficient), and then determine and follow only the next
+explicit owner-authorized roadmap scope (P7C, P7D, or whatever the owner specifies next).
+
+Do not claim any P7C/P7D implementation exists merely because P7B Group-2 foundations
+(topology/locality/placement/worker-fabric/Kubernetes/Terraform/Helm/Pipeline-wiring) may
+be reusable by it — reusability is not implementation. If the owner has not yet
+authorized the next phase when a fresh session begins, the correct action is to report
+this frozen state and await instruction, not to invent further work or self-select a next
+phase.
+
+**SUPERSEDED (2026-09-07) — see §40 (Group 3) and §41 (whole-P7B, authoritative).** P7B
+Group 3 (Campaign E + Campaign F, P7B.24–P7B.35) was subsequently implemented, hostile-
+reviewed across multiple correction rounds (including two owner-directed hostile-
+convergence passes), and **OWNER ACCEPTED & FROZEN**. The whole P7B phase (Group 1 +
+Group 2 + Group 3, P7B.1–P7B.35) is now **COMPLETED, OWNER ACCEPTED & FROZEN**. §41 is the
+current, authoritative record for the entire P7B phase; read it first.
+
+---
+
+## 40. P7B GROUP 3 FINAL FREEZE RECORD — OWNER ACCEPTED & FROZEN (2026-09-07)
+
+**THIS SECTION SUPERSEDES ITSELF ONLY BY §41 (the whole-P7B combined record).** Where
+anything below conflicts with §41, §41 governs; §41 does not restate this section's
+per-file detail, so both remain load-bearing reference material.
+
+### 40.1 Final owner decision
+
+```
+P7B GROUP 3 — DISTRIBUTED COORDINATION & OPERATIONAL SAFETY
+Campaign E (P7B.24-P7B.29) + Campaign F (P7B.30-P7B.35)
+OWNER ACCEPTED & FROZEN
+DATE: 2026-09-07
+AUTHORIZED BY: Owner (explicit instruction: "P7B — Cloud + Hybrid + Data Fabric Platform —
+COMPLETED, OWNER ACCEPTED & FROZEN", following two owner-directed hostile-convergence
+passes that found and closed real production defects before acceptance)
+```
+
+Group 3 adds distributed coordination and operational safety **around** the canonical
+execution chain Group 1/Group 2 already established (§35, §39) — it does not replace it,
+and it introduces no second migration/placement/runtime/checkpoint/CDC/telemetry/Evidence
+authority (§40.9).
+
+### 40.2 Final P7B.24–P7B.35 sub-phase status
+
+```
+P7B.24  Distributed Site Coordination                          FROZEN (§40.3)
+P7B.25  Ownership, Leasing & Fencing                            FROZEN (§40.3) — load-bearing
+P7B.26  Multi-Region Operation                                  FROZEN (§40.3)
+P7B.27  Multi-Cloud Operation                                   FROZEN (§40.3)
+P7B.28  Disaster Recovery & Geo-Failover                        FROZEN (§40.3)
+P7B.29  Network Partition & Degraded Operation                  FROZEN (§40.3)
+P7B.30  GitOps & Fleet Lifecycle                                FROZEN (§40.3)
+P7B.31  Fleet Configuration & Upgrade Management                FROZEN (§40.3)
+P7B.32  Fabric Observability (Telemetry)                        FROZEN (§40.4) — production-integrated
+P7B.33  Topology/Placement/Failover Explainability              FROZEN (§40.4) — production-integrated
+P7B.34  Fabric Governance, Audit & Evidence #12 Integration      FROZEN (§40.4) — production-integrated
+P7B.35  Whole-Fabric Hostile Acceptance                         COMPLETED — this freeze record
+                                                                  IS the P7B.35 deliverable
+```
+
+### 40.3 What was built — Campaign E + Campaign F (new packages, additive to P7B Group 1/2)
+
+All new packages live under `akaalEngine/fabric/` and compose strictly over the frozen
+P7B.5 `SiteRegistry`, Durability Authority #5 `FencingTokenManager`, and the frozen
+Group-2 `evaluate_candidates`/`decide_placement` — none of them is a second trust,
+fencing, or placement authority (§40.9).
+
+```
+akaalEngine/fabric/site_coordination/    P7B.24 -- SiteCoordinator: heartbeat/liveness on
+  models.py, coordinator.py               top of SiteRegistry; 8-value CoordinationView
+                                           (REGISTERED/TRUSTED_PENDING_CONTACT/AVAILABLE/
+                                           DEGRADED/DRAINING/UNAVAILABLE_STALE/
+                                           PARTITIONED_UNCERTAIN/REVOKED), never a single
+                                           healthy/unhealthy boolean. Heartbeat never
+                                           mutates trust/tenant state. Added one read-only
+                                           accessor, `SiteRegistry.current_fencing_epoch`.
+
+akaalEngine/fabric/ownership/            P7B.25 -- OwnershipManager: distributed execution
+  models.py, manager.py                   ownership bound to tenant/workspace/project/
+                                           migration/plan/plan_fingerprint/seal/execution/
+                                           placement/site/worker/correlation. Acquire/
+                                           renew/transfer/validate/release/force_fence.
+                                           Fencing generations minted through the SAME
+                                           `FencingTokenManager` ledger P7B.9 already uses
+                                           -- no second fencing universe. ABA-protected by
+                                           construction (a fresh generation is only ever
+                                           minted when no ACTIVE, unexpired record exists).
+                                           `assignment_id` is deliberately UPDATABLE on
+                                           renewal (a fresh signed assignment is legitimately
+                                           reissued per physical dispatch); cross-context
+                                           assignment substitution is closed instead by
+                                           `assignment_consistent_with_ownership`, a
+                                           dedicated point-of-use consistency check.
+                                           Extended `FabricDurabilityStore`
+                                           (`akaalEngine/fabric/durability.py`) with
+                                           ownership persistence + `reconstruct_ownership_
+                                           manager` -- same Authority #5 backend, no second
+                                           persistence authority.
+
+akaalEngine/fabric/regional_operation/   P7B.26 -- pure candidate curation by P7B.24
+  models.py, evaluator.py                 liveness + region grouping (ExecutionSite.region);
+                                           makes NO placement/capability/authorization/
+                                           residency decision itself -- curated candidates
+                                           are always handed to the UNMODIFIED Group-2
+                                           `evaluate_candidates` for the real decision.
+
+akaalEngine/fabric/multi_cloud/          P7B.27 -- identical discipline to P7B.26, but
+  models.py, evaluator.py                 groups/curates by cloud identity resolved
+                                           STRICTLY from each site's registered
+                                           Environment (P7B.1) -- never a caller-supplied
+                                           label; two different AWS accounts (etc.) are
+                                           never conflated into one bucket.
+
+akaalEngine/fabric/failover/             P7B.28 -- `attempt_failover`: the ONE
+  models.py, coordinator.py               orchestration function implementing detect ->
+                                           establish current ownership -> fence stale
+                                           owner (only when the responsible site's P7B.24
+                                           CoordinationView independently confirms failure)
+                                           -> re-evaluate placement (Group-2, unmodified)
+                                           -> issue new ownership. Never "failure -> blindly
+                                           start another migration": a still-healthy site's
+                                           active ownership is left alone (NOT_REQUIRED).
+
+(P7B.29 is composition-only: no new module. Split-brain/partition/isolated-worker/
+control-plane-loss safety is a structural CONSEQUENCE of P7B.24 liveness +
+P7B.25 fencing + P7B.28's fence-before-reassign discipline, hostile-tested directly
+under genuine thread concurrency in
+tests/unit/engine_fabric/test_p7b29_network_partition_degraded_operation.py.)
+
+akaalEngine/fabric/gitops/               P7B.30 -- `FleetDesiredState` structurally CANNOT
+  models.py, reconciler.py                carry migration runtime/checkpoint/CDC/
+                                           validation/approval/ownership/fencing state or
+                                           secrets (no field exists for any of it; the one
+                                           open `config` field is additionally scanned for
+                                           secret-shaped content). `reconcile_fleet_state`
+                                           is a pure read over the UNMODIFIED P7B.22
+                                           `WorkerRegistry` -- reports IN_SYNC/PENDING/
+                                           DRIFTED/INCOMPATIBLE/PARTIALLY_APPLIED, applies
+                                           nothing itself.
+
+akaalEngine/fabric/fleet_lifecycle/      P7B.31 -- `RuntimeCompatibilityPolicy` (explicit
+  models.py                               caller-approved allowed-version set, no default-
+                                           allow) + `RevisionHistory` (append-only desired-
+                                           state revision log with rollback-as-new-revision
+                                           semantics). Composes with the EXISTING P7B.22/23
+                                           `WorkerRegistry`/`plan_rollout_batch` -- no
+                                           second worker registry or rollout planner.
+
+akaalEngine/fabric/telemetry_integration.py   P7B.32 -- pure event/label builder functions
+                                                for Group-3 events, for callers to hand to
+                                                the EXISTING `akaalEngine.telemetry.api.
+                                                TelemetryAuthority`. No parameter anywhere
+                                                is secret-shaped (structurally verified).
+
+akaalEngine/fabric/explainability.py     P7B.33 -- `explain_placement`/`explain_failover`/
+                                           `explain_ownership_decision`: pure, stateless
+                                           formatters over already-produced decision
+                                           artifacts (`PlacementEvaluationResult`/
+                                           `FailoverResult`/ownership acquire-or-reject
+                                           outcome) -- no second decision engine, no global
+                                           mutable state (proven cross-tenant-contamination-
+                                           free by construction).
+
+akaalEngine/fabric/group3_evidence.py    P7B.34 -- `emit_ownership_decision_evidence` +
+                                           per-event fact builders, mirroring
+                                           `akaalEngine.fabric.evidence`'s exact P7B
+                                           Group-1 pattern for the events Group-1 Evidence
+                                           integration did not yet cover. Every call
+                                           routes through the SAME, real, unmodified
+                                           `akaalEngine.evidence.api.EvidenceAuthority.
+                                           create_evidence_artifact` -- no second Evidence
+                                           authority.
+```
+
+### 40.4 Production integration — ownership/telemetry/Evidence/explainability made load-bearing
+
+This is the part of Group 3 that a hostile self-review (this session, two owner-directed
+convergence passes) found **genuinely missing on the first implementation pass** — every
+module above existed and was hostile-tested in isolation, but nothing in the real
+`akaalPipeline.execution.coordinator.PlanExecutionCoordinator` dispatch path required or
+even called `OwnershipManager` for a fabric-required plan. That gap is now closed:
+
+- **`FabricGateDependencies`** (`akaalPipeline/orchestration/fabric_gate.py`) gained four
+  new optional fields: `ownership_manager`, `evidence_authority`, `telemetry_authority`,
+  `explanation_sink`. All default to `None`, preserving every pre-existing non-fabric and
+  Group-2-only call site's exact behavior.
+- **`PlanExecutionCoordinator._decide_and_bind_fabric_placement`** now raises
+  `PipelineError(POLICY_DENIED)` if a fabric-required plan reaches it with
+  `fabric_dependencies.ownership_manager is None` — mirroring EXACTLY how it already
+  refuses a fabric-required plan with no `fabric_dependencies` configured at all.
+  Ownership applicability derives from the SAME canonical, plan-embedded
+  `fabric_placement.required` signal Group-2 placement already uses; there is no second,
+  caller-choosable flag.
+- **`PlanExecutionCoordinator._acquire_ownership_gate`** (new method) is called from
+  `advance_plan_execution`'s Step A.2 for EVERY non-`READ_ONLY` node of a fabric-required
+  plan — not only `data_transport`. **This closed a real, found-not-assumed production
+  bypass:** `FabricPlacementExecutionPort` only ever overrode binding resolution for
+  `data_transport`; every other physical-effect capability (`cdc_capture`, `cdc_apply`,
+  `incremental_apply`, `schema_apply`, `state_reconcile`, etc. — see
+  `akaalPipeline.adapters.engine_gateway.CAPABILITY_SEMANTIC_MAP`) was dispatched through
+  its own, independently-resolved `ExecutionPort` with **zero ownership/fencing
+  protection**, even for a fabric-required plan. The gate keys off
+  `SideEffectClassification` (READ_ONLY vs. everything else, the same signal Step A.2's
+  pre-existing placement-freshness check already used), never a capability-name
+  whitelist — proven to generalize to a capability never previously exercised
+  (`schema_apply`,
+  `test_schema_apply_capability_is_ownership_gated_via_side_effect_not_name_whitelist`).
+  `acquire_ownership_for_physical_capability` (`akaalEngine/fabric/placement/execution.py`)
+  is the shared helper both `execute_via_placement` (data_transport) and this gate use —
+  one ownership-acquisition code path, not two.
+- **`execute_via_placement`** now acquires ownership before any physical I/O when
+  `ownership_manager` is supplied, and RENEWS it (not merely validates it) on every one of
+  `execute_assignment_via_transport`'s existing pre-read/pre-batch/pre-write revalidation
+  points — a stale/superseded owner is rejected the instant its captured
+  lease_id/fencing_generation no longer matches current, and a legitimate long-running
+  transfer keeps its own lease alive and re-confirms current site trust on every
+  checkpoint. `ownership_manager=None` (the default) preserves every existing Group-1/2
+  test's exact behavior unchanged.
+- **Worker BUSY lifecycle leak — found and fixed.** `bind_worker_for_placement` marks a
+  worker BUSY once per execution; historically only `execute_via_placement`'s own
+  internal cleanup ever returned it to IDLE. For every OTHER physical-effect capability
+  (exactly the ones the universal ownership gate above now also protects), the bound
+  worker leaked BUSY **forever** — a real capacity-exhaustion/scheduling-degradation
+  defect, not a cosmetic one. Fixed with ONE canonical finalization function,
+  `akaalEngine.fabric.placement.execution.finalize_worker_after_dispatch`, called from
+  BOTH `execute_via_placement`'s own `finally` (refactored to use it, eliminating
+  duplicated logic — this also fixed a **second, latent pre-existing bug**: the old
+  inline cleanup unconditionally called `heartbeat(state=IDLE)`, which would have
+  incorrectly un-drained a worker put into DRAINING mid-dispatch, since `WorkerRegistry.
+  heartbeat` only blocks a REVOKED worker) and from `advance_plan_execution`'s real
+  dispatch call site (`matching_binding.port_instance.execute_task(req)`, the single
+  place every capability — data_transport included — passes through). Finalization only
+  ever transitions a worker whose CURRENT live state is still BUSY back to IDLE; REVOKED/
+  DRAINING/UNHEALTHY/STALE are never touched (no resurrection), and calling it twice for
+  data_transport (once inside `execute_via_placement`, once at the outer coordinator
+  boundary) is a proven-safe no-op, not a double release. **A second real bug in the fix
+  itself was found and corrected by the fix's own hostile exception-path test:** the
+  worker reference must be captured BEFORE dispatch, not re-fetched from
+  `self._fabric_binding_store` inside `finally` — `_mark_node_and_plan_failed` already
+  releases that binding as part of failing the plan, so the naive re-fetch found nothing
+  to finalize on exactly the exception path that mattered most.
+- **Checkpoint/ownership separation — explicitly hostile-proven, not merely asserted.**
+  Using the real, unmodified `akaalPipeline.recovery.checkpoints.CheckpointManager` +
+  `akaalPipeline.operations.leases.LeaseManager` (the exact instance
+  `PlanExecutionCoordinator` itself holds as `self.lease_manager`): fencing Group-3
+  ownership leaves the `checkpoints` table byte-for-byte untouched; a post-checkpoint
+  ownership transfer (Owner A/N → fenced → Owner B/N+1) never rolls back or replays the
+  checkpoint, and `recover_plan_execution` given that `checkpoint_id` references the
+  same, already-advanced checkpoint verbatim; `CheckpointManager` independently rejects a
+  forged/stale lease+fence_epoch regardless of Group-3 ownership state, proving no
+  weakening of Group-1's frozen checkpoint validation. **OWNERSHIP != CHECKPOINT. LEASE
+  != CHECKPOINT. FENCING GENERATION != CHECKPOINT.**
+- **Telemetry/Evidence/explainability failure independence — proven, not assumed.**
+  Dedicated tests simulate a completely broken `EvidenceAuthority`, `TelemetryAuthority`,
+  and explanation sink (every call raises) around both a legitimate success and a
+  legitimate ownership rejection: the real security/execution outcome is provably
+  unchanged either way. **TELEMETRY != EXECUTION TRUTH. EVIDENCE != AUTHORIZATION.
+  EXPLANATION != AUTHORITY.**
+
+### 40.5 The mandatory sovereignty-under-failure scenario — proven at three depths
+
+India-only migration → Mumbai execution site fails → Singapore is healthy/capable/
+reachable/cheaper → Singapore is rejected; if no compliant site remains, the correct
+outcome is no placement, never a residency violation to preserve availability:
+
+1. **Placement-level** (P7B.26): `curate_regional_candidates` excludes the failed site by
+   liveness alone; the UNMODIFIED Group-2 `evaluate_candidates` independently rejects
+   Singapore on the RESIDENCY stage.
+2. **Ownership+failover composition** (P7B.28): `attempt_failover` fences Mumbai's
+   ownership (site confirmed failed) but grants NO new ownership to Singapore — the
+   correct terminal state is "no active owner," never "Singapore takes over."
+3. **Real production coordinator** (§40.4): the existing, unchanged
+   `test_india_only_mumbai_unavailable_singapore_cheaper_but_noncompliant_no_execution`
+   (Group-2's own frozen test, in
+   `tests/pipeline/test_p7b_group2_pipeline_mandatory_placement.py`) continues to pass
+   with Group-3 ownership now mandatory and active throughout — residency survives
+   failover through the actual dispatch path, not only in isolated Group-3 modules.
+
+### 40.6 Mid-DAG failover — real, local, INTEGRATION_PROVEN sequence
+
+`test_real_mid_dag_failover_fences_old_owner_replaces_site_and_resumes` drives the exact
+sequence, through real `PlanExecutionCoordinator`/`SiteRegistry`/`WorkerRegistry`/
+`OwnershipManager`/`FencingTokenManager`/`RemoteExecutionControlPlane`/`TransportAuthority`
+and real local file I/O (no mocks on the AKAAL side of the boundary):
+
+```
+real dispatch to Site A (data_transport genuinely fails -- missing source file)
+  -> Site A's ownership (epoch N) remains ACTIVE (a site's own failure does not
+     self-fence it -- fencing is a distinct, deliberate recovery action)
+  -> OwnershipManager.force_fence(reason="site A presumed dead")
+  -> Group-2 decide_placement re-run with Site A excluded from candidacy
+     (representing live site-health monitoring having already determined A is down)
+  -> Site B selected, worker B bound
+  -> recover_plan_execution (real, unmodified -- resets the FAILED node to READY,
+     preserves the already-SUCCEEDED schema_prep node)
+  -> source data made available; advance_plan_execution resumes
+  -> real physical write succeeds on Site B; new ownership epoch N+1 > N
+  -> old Site A ownership (epoch N) permanently rejected on both validate() and
+     renew() -- ABA protection proven through the real production composition, not
+     only at the OwnershipManager unit level
+```
+
+The equivalent sequence was independently re-proven for a WORKER replacement (rolling
+upgrade) instead of a site failure
+(`test_old_worker_replaced_during_rolling_upgrade_cannot_resume_dispatch`), and for
+provider-commit idempotency
+(`test_ownership_churn_after_successful_commit_never_causes_a_re_dispatch`: ownership
+churn AFTER a real physical commit never causes a duplicate write — canonical
+node-execution state, never Group-3 ownership, remains the sole authority on "did this
+physical write already happen").
+
+### 40.7 M1–M8 reconciliation
+
+M1/M4/M7 (bulk/incremental/data-only) dispatch through the universal ownership gate
+exactly as before (pre-existing Group-2 parametrized test, unchanged, still green with
+ownership now mandatory). M2 (bulk+CDC) and M3 (CDC-only) were additionally proven with a
+genuinely distinct `cdc_apply`-capability node (not merely a relabeled `data_transport`
+node) dispatched to its own, independently-resolved `ExecutionPort` — positive dispatch,
+conflicting-ownership rejection, and (for M3) worker-lifecycle finalization all proven
+through the real coordinator. M5 (state-based sync) was proven the same way against a
+`state_reconcile`-capability node. M6 (schema-only) legitimately has no `data_transport`
+node at all — proven the gate does not fabricate a data-movement path where canonical
+mode semantics say there should be none. M8 (validation-only) was re-proven AFTER the
+universal ownership gate was added specifically to confirm the frozen M8
+mutation-prohibition gate (Step A.1, which runs BEFORE Step A.2's ownership gate) still
+fires on M8 grounds first — ownership succeeding never becomes a backdoor around the
+frozen validation-only physical-effect restriction.
+
+### 40.8 Test evidence (Group 3, exact, collection-verified)
+
+```
+P7B.24-P7B.34 unit suites (tests/unit/engine_fabric/test_p7b24_*.py ... test_p7b34_*.py,
+  11 files):                                          146 tests, all passing
+
+Production coordinator integration
+  (tests/pipeline/test_p7b_group2_pipeline_mandatory_placement.py,
+  grown from Group-2's original 19 to):                53 tests, all passing
+  (covers: ownership mandatory-gate enforcement, universal physical-effect capability
+  coverage incl. cdc_apply/schema_apply/state_reconcile, worker-lifecycle finalization
+  incl. exception/revoked/draining/repeated-dispatch/double-release-safety, checkpoint/
+  ownership separation, mid-DAG failover, rolling-upgrade old-worker-rejection,
+  telemetry/Evidence/explainability production emission + failure independence, and
+  every pre-existing Group-2 hostile scenario unchanged)
+
+Full akaalEngine/fabric/ suite (Group 1 + Group 2 + Group 3 combined):
+                                                        719 tests collected
+
+Full repository regression (final, this freeze):       6,380 passed / 165 skipped /
+                                                        0 failed
+  (one historically-documented, independently-reproduced wall-clock/environment flake --
+  tests/unit/test_day23_reconciliation.py::...::
+  test_p0_7_telemetry_provenance_and_zero_synthetic_workers, P0-era, code this session
+  never touched -- passed clean on the governing run recorded above; see §40.10)
+
+Duplicate-authority audit:      CLEAN -- grep for `^class .*(Authority|Engine|Runtime|
+                                 Executor|Scheduler|Controller|Planner)` across every
+                                 new/modified Group-3 file matches only the pre-existing,
+                                 frozen `RoutePlanner` (P7B.10)
+Secret-leakage sweep:           CLEAN across every new/modified file
+Zero-fake sweep (TODO/FIXME/
+  NotImplementedError/mock
+  production/placeholder/
+  hard-coded success/silent
+  bypass):                      CLEAN
+git diff --check:                CLEAN (only a pre-existing LF->CRLF normalization
+                                 notice, not a whitespace error)
+```
+
+### 40.9 Duplicate-authority audit (§8/§35.20/§36.5/§37/§39.5 discipline, reapplied)
+
+Zero new `*Authority`/`*Engine`/`*Runtime`/`*Executor`/`*Scheduler`/`*Controller`/
+`*Planner` classes anywhere in Group 3's new or modified files. `OwnershipManager` and
+`SiteCoordinator` follow the exact same sanctioned bookkeeping-registry pattern already
+established by frozen P7B Group-1/2 code (`SiteRegistry`, `WorkerRegistry`) — neither
+grants trust/authorization as a side effect of registration; every trust/tenant/fencing
+decision remains delegated to the existing `SiteRegistry`/`FencingTokenManager`. No
+second placement engine (P7B.26/27 curate candidates only; the real decision is always
+the unmodified Group-2 `evaluate_candidates`). No second checkpoint/CDC/durability
+authority (§40.4's checkpoint-separation proof). No second Evidence/telemetry authority
+(P7B.32/34 are pure builder functions handed to the real, existing
+`TelemetryAuthority`/`EvidenceAuthority`). No second worker-lifecycle authority (one
+finalization function, reused, not duplicated, §40.4).
+
+### 40.10 Independently-verified pre-existing flake (not a Group-3 defect)
+
+`tests/unit/test_day23_reconciliation.py::TestDay23ControlPlaneReconciliation::
+test_p0_7_telemetry_provenance_and_zero_synthetic_workers` appeared once as a failure
+during this freeze's verification cycle (an anomalous PostgreSQL-connection-refused
+message on port 5433 accompanied that one run), then passed cleanly on two independent
+isolated re-runs immediately after, and passed cleanly again on the final governing full-
+repository run recorded in §40.8. This is P0-era code this session never touched, and
+matches the EXACT test already documented as a recurring/pre-existing wall-clock/
+timing-sensitive flake at §39.7 (itself citing §34.19/§35.21). Re-confirmed here per this
+freeze's own re-verification requirement, not merely re-cited from memory.
+
+### 40.11 What Group 3 does NOT do (scope boundary, honestly preserved)
+
+- Does not obtain real AWS/Azure/GCP/OCI/Kubernetes infrastructure, live regional
+  outages, live multi-cloud failover, or production-scale multi-controller network
+  partitions — every genuinely LIVE distributed-infrastructure capability remains
+  `EXTERNAL_DEFERRED`, truthfully, throughout. Locally-testable ownership/fencing/
+  concurrency/checkpoint/worker-lifecycle behavior (proven via real threads, real
+  SQLite-backed durability, and the real coordinator) is never mislabeled
+  `EXTERNAL_DEFERRED` merely to avoid testing it.
+- Does not build a live fault-injection seam into `TransportAuthority`/`CheckpointManager`
+  for the precise "provider commits, local acknowledgement has not yet completed"
+  ambiguity window beyond what those frozen Group-1 authorities' own existing idempotency/
+  retry semantics already govern; Group-3 ownership is proven to never reinterpret
+  provider outcome (§40.4/§40.6) but this specific ambiguity window was not independently
+  re-instrumented this session.
+- Does not force CDC/incremental capabilities through `execute_via_placement`'s reader/
+  writer/partition contract (architecturally wrong for stream-shaped semantics) — they
+  keep their own, separately-resolved `ExecutionPort`, now ownership-gated by the
+  universal gate (§40.4) rather than by being rerouted through the data_transport path.
+- Does not create a second migration lifecycle, placement, fencing, checkpoint, CDC,
+  telemetry, or Evidence authority anywhere (§40.9).
+- Does not force every AKAAL migration through distributed ownership — ownership is
+  mandatory only when `fabric_placement.required=True` AND `fabric_dependencies` (with a
+  real `ownership_manager`) is configured on the coordinator; local/on-prem/VM/bare-metal
+  and every non-fabric execution path is unaffected, exactly as Group 2 already
+  established for placement itself.
+
+### 40.12 Exact next action for a fresh session
+
+**P7A, P7B GROUP 1, P7B GROUP 2, AND P7B GROUP 3 ARE ALL COMPLETED AND FROZEN — THE WHOLE
+P7B PHASE IS FROZEN. DO NOT REOPEN ANY OF THEM.** See §41 for the authoritative whole-
+phase record. A fresh session's correct first action is to read §41 in full (this §40 for
+Group-3 per-file detail if needed), confirm current repository state still matches it (a
+quick `git status`/spot-check is sufficient), and then determine and follow only the next
+explicit owner-authorized roadmap scope (P7C or whatever the owner specifies next). Do not
+self-select or begin P7C without separate explicit owner authorization.
+
+---
+
+## 41. P7B FINAL FREEZE RECORD — WHOLE PHASE (GROUP 1 + GROUP 2 + GROUP 3) — OWNER ACCEPTED & FROZEN (2026-09-07)
+
+**THIS IS THE CURRENT, AUTHORITATIVE RECORD FOR THE ENTIRE P7B PHASE** (Group 1: Campaign
+A+B, P7B.1–P7B.10; Group 2: Campaign C+D, P7B.11–P7B.23; Group 3: Campaign E+F,
+P7B.24–P7B.35). It supersedes every "ACTIVE", "NOT FROZEN", "IMPLEMENTED, NOT YET FROZEN",
+"freeze candidate", "awaiting owner acceptance" statement anywhere else in this document
+regarding P7B, including in §9, §10, §36, §37, §38, §39.8, and §40.12. Those sections are
+preserved as historical/forensic record of how this state was reached and remain useful
+for that purpose, but they are **not current**. Where anything in this document conflicts
+with this §41, §41 governs.
+
+### 41.1 Final owner decision
+
+```
+P7B — CLOUD + HYBRID + DATA FABRIC PLATFORM
+OWNER ACCEPTED & FROZEN
+DATE: 2026-09-07
+AUTHORIZED BY: Owner (explicit instruction: "P7B — Cloud + Hybrid + Data Fabric Platform —
+COMPLETED, OWNER ACCEPTED & FROZEN")
+```
+
+P7B.1–P7B.35 are complete within their proven scope. P7B is now regression-protected
+baseline and **must not be reopened, redesigned, weakened, or casually modified by later
+phases** absent a new, concrete, demonstrated defect and fresh explicit owner
+authorization (the same standing rule already governing every earlier frozen phase, §9).
+
+### 41.2 Group-by-group final status
+
+```
+Group 1 (Campaign A + Campaign B, P7B.1-P7B.10)    OWNER ACCEPTED & FROZEN -- §35
+Group 2 (Campaign C + Campaign D, P7B.11-P7B.23)   OWNER ACCEPTED & FROZEN -- §39
+Group 3 (Campaign E + Campaign F, P7B.24-P7B.35)   OWNER ACCEPTED & FROZEN -- §40
+```
+
+### 41.3 Governing execution pathway (the truth this whole phase built toward — repository-native, not manufactured)
+
+```
+Operator Intent
+  -> Canonical 9-Step Workflow (§6)
+  -> Canonical Migration Model / Plan Compiler
+  -> Immutable ExecutionPlan (akaalPipeline.orchestration.plans.ExecutionPlan)
+  -> akaalPipeline (canonical orchestration authority)
+  -> PlanExecutionCoordinator (akaalPipeline.execution.coordinator -- THE ONE canonical
+     Pipeline orchestration authority, unchanged in identity throughout all of P7B)
+  -> Fabric applicability (plan_requires_fabric_placement -- read from the plan's own
+     immutable, fingerprinted configuration, never a caller/dispatch-time override)
+  -> Group-2 topology / locality / capability / policy / residency
+     (akaalEngine.fabric.{topology,locality,placement}, unmodified by Group 3)
+  -> Group-2 placement (decide_placement / PlacementDecision, unmodified by Group 3)
+  -> worker binding (bind_worker_for_placement, Group 2, unmodified)
+  -> Group-3 universal ownership gate (mandatory when fabric_dependencies.
+     ownership_manager is configured -- PlanExecutionCoordinator._acquire_ownership_gate,
+     §40.4) -- lease/fencing validated for EVERY physical-effect capability, not only
+     data_transport
+  -> Group-1 assignment / route (RemoteExecutionControlPlane / RoutePlanner, unmodified)
+  -> canonical AKAAL runtime / Transport / CDC / checkpoint / validation
+     (execute_assignment_via_transport, TransportAuthority, CheckpointManager,
+     Validation #11 -- all unmodified by P7B)
+  -> physical provider (49/49 canonical fleet, §41.5)
+  -> canonical Telemetry (#7) / Evidence (#12) / Group-3 explainability -- observational
+     only, never a gate (§40.4)
+```
+
+Group 3 (distributed coordination, ownership, multi-region/multi-cloud, DR/failover,
+GitOps/fleet, observability/explainability/governance) sits **inside** this chain, at the
+point already reserved for it by Group 2's own architecture — it does not sit beside it,
+and it does not replace any link above or below it.
+
+### 41.4 Permanent distributed-fabric invariants (governs all future phases; reconcile here, do not duplicate elsewhere)
+
+These are additive to, and never a replacement for, the pre-existing P7/P7A tenant/
+security invariants already recorded at §8 and §13B (`AUTHENTICATED != AUTHORIZED`,
+`INTERNAL != AUTOMATICALLY TRUSTED`, `DESERIALIZATION != AUTHENTICATION`, `CLAIMED TRUST
+!= VERIFIED PROVENANCE`, `UNVERIFIED CREDENTIAL != AUTHENTICATED IDENTITY`, `UNKNOWN !=
+ALLOW`) — both sets stand together, permanently.
+
+```
+Site ID != authorization                    Worker ID != authorization
+Region ID != authorization                  Cloud ID != authorization
+Lease ID != authorization
+
+Heartbeat != ownership                      Membership != ownership
+Reachability != permission                  Placement != execution authorization
+Cloud authentication != AKAAL authorization
+
+Valid lease for wrong tenant != valid execution
+Expired lease = no continued authority
+Stale owner must be fenced
+Ownership uncertainty fails safe
+Network partition cannot manufacture ownership
+Control-plane loss cannot manufacture authority
+
+Site/region recovery cannot resurrect stale execution
+Worker return cannot resurrect stale authority
+Heartbeat cannot resurrect revoked authority
+Draining worker is never silently resurrected to schedulable IDLE (§40.4)
+
+Failover != replay permission               Failback != checkpoint rollback
+
+Ownership != checkpoint                     Lease != checkpoint
+Fencing generation != checkpoint            Worker state != checkpoint (§40.4/§40.6)
+Ownership != CDC position (§40.7)
+
+Residency survives failure and failover (§40.5)
+Cost cannot override security/residency     Capacity cannot override authorization
+
+Kubernetes restart != migration recovery    Kubernetes scheduler != AKAAL placement
+GitOps/Terraform/Helm/Operator reconciliation != runtime migration truth
+Infrastructure rollback != migration rollback
+
+Telemetry != execution truth                Evidence != authorization
+Explanation != authority                    Correlation != identity
+
+Provider-native success/commit remains authoritative
+Checkpoint advancement remains canonical-runtime governed
+CDC remains canonical-CDC governed
+Validation remains canonical Validation #11
+Evidence remains canonical Evidence #12
+
+Remote execution site cannot become a second migration authority
+Multi-region/multi-cloud cannot create multiple independent AKAAL truths
+
+Unknown state is never upgraded into trusted state by assumption
+Mock/emulated infrastructure != LIVE_PROVEN
+External proof must never be fabricated
+
+No second canonical execution authority (§40.9)
+```
+
+### 41.5 Current provider fleet (dynamically confirmed, this freeze)
+
+```
+len(default_provider_catalog.list_providers()) == 49    # confirmed 2026-09-07, dynamic,
+                                                          # not hardcoded
+```
+
+Unchanged since P7B Group 1 (§35.13): P7A established providers #1–#48 (28 → 48 across
+P7A Campaign A + Campaign B); P7B Group 1 added OCI Object Storage as physical provider
+#49. **Group 2 and Group 3 added zero new physical providers** — both are distributed-
+coordination/execution-fabric work, not connector expansion, and neither claims to be.
+The 49-provider canonical fleet remains regression-protected; the exact registered set
+must not shrink or silently change identity.
+
+### 41.6 Final governing verification evidence (whole P7B phase, this freeze)
+
+```
+Full repository regression:            6,380 passed / 165 skipped / 0 failed
+                                        (one independently-reproduced, historically-
+                                        documented P0-era wall-clock flake, unrelated to
+                                        P7B, confirmed passing clean on this governing
+                                        run -- §40.10)
+
+Production coordinator integration
+  (tests/pipeline/test_p7b_group2_
+  pipeline_mandatory_placement.py):    53/53 passed
+
+P7B.24-P7B.34 Group-3 unit suites:     146/146 passed
+
+Full akaalEngine/fabric/ suite
+  (Group 1 + Group 2 + Group 3):       719 tests collected, all passing
+
+Duplicate-authority audit:             CLEAN
+Secret-leakage audit:                  CLEAN
+Zero-fake audit:                       CLEAN
+git diff --check:                      CLEAN
+Git operations performed:              NONE (no commit; all P7B work remains uncommitted
+                                        working-tree changes pending explicit owner
+                                        instruction to commit -- unchanged since §35.26/
+                                        §39.7)
+```
+
+Group-1/Group-2-specific governing evidence (§35.21, §39.7) remains independently true of
+its own scope and is not replaced or diluted by the larger whole-phase numbers above —
+these are different governing runs at different points in the phase's history, exactly
+per the same discipline already established for P7A at §34.3.
+
+### 41.7 Proof-level and external/live-deferred boundaries (truthful, whole-phase)
+
+Every P7B Group-3 capability sits at `IMPLEMENTED` + `UNIT_PROVEN` and/or
+`INTEGRATION_PROVEN` (real coordinator, real SQLite-backed durability, real threads for
+concurrency, real local file I/O for transport). **None sits at `LIVE_PROVEN`.** This
+freeze is explicitly **not** a declaration that any distributed-fabric scenario has been
+run against live AWS/Azure/GCP/OCI/Kubernetes infrastructure. Remaining `EXTERNAL_DEFERRED`
+items, genuinely requiring unavailable external infrastructure (not locally actionable,
+and not a substitute for testing what IS locally actionable — §40.11):
+
+- Live regional outages, live multi-cloud failover, live cross-cloud staging against real
+  provider accounts.
+- Production-scale multi-controller ownership races against a real, separately-deployed
+  multi-process/multi-host control plane (local proof used real threads against a shared
+  in-process `OwnershipManager`/SQLite backend, not separate OS processes/hosts).
+- The precise live "provider commits, local acknowledgement not yet complete" fault
+  window at the `TransportAuthority` boundary, beyond what that frozen authority's own
+  existing idempotency/retry semantics already govern (§40.11).
+- Live Kubernetes cluster reconciliation for the Group-2 Operator/CRD/Helm/worker-fabric
+  machinery Group 3 composes with (unchanged boundary from §35/§39 — no Kubernetes API
+  was available in this environment for either group).
+- Any provider requiring proprietary SDKs/live vendor accounts already recorded
+  `EXTERNAL_DEFERRED` at P7A freeze (§34) — unaffected and unchanged by P7B.
+
+None of the above weakens the local freeze; none was fabricated as `LIVE_PROVEN`.
+
+### 41.8 Backend readiness after P7B
+
+```
+Backend distributed pathway:                     READY LOCALLY
+Canonical production integration
+  (PlanExecutionCoordinator seam):                BUILT
+Group-2 Fabric placement:                         LOAD-BEARING where applicable
+                                                   (fabric_placement.required=True)
+Group-3 ownership / leasing / fencing:            LOAD-BEARING (mandatory whenever
+                                                   fabric_dependencies.ownership_manager
+                                                   is configured for a fabric-required plan)
+Applicable physical-effect ownership protection:  ENFORCED (universal gate, §40.4 --
+                                                   every non-READ_ONLY capability, not
+                                                   only data_transport)
+Worker lifecycle:                                 CORRECTED / PROVEN LOCALLY (§40.4)
+Checkpoint / ownership separation:                PROVEN (§40.4/§40.6)
+Mid-DAG failover:                                 INTEGRATION-PROVEN LOCALLY (§40.6)
+Telemetry (#7):                                   PRODUCTION-INTEGRATED (§40.4)
+Evidence (#12):                                   PRODUCTION-INTEGRATED (§40.4)
+Explainability:                                   PRODUCTION-INTEGRATED (§40.4)
+```
+
+**Boundary that must not be blurred:** backend distributed-pathway readiness is a
+statement about `akaalIPC -> akaalPipeline -> akaalEngine` backend integration only. It
+does **not** itself prove `akaalSoftware` (the Wails/Angular desktop UI) end-to-end
+integration against any of this — no UI work was performed or verified by P7B, and none
+is claimed complete here.
+
+### 41.9 Duplicate-authority audit — whole phase, clean
+
+Zero second migration planner, ExecutionPlan authority, Pipeline, runtime, placement
+authority, worker registry, site registry, `TransportAuthority`, `TransportDriverRegistry`,
+checkpoint authority, durability authority, retry authority, CDC authority, validation
+authority, schema authority, transformation authority, masking authority, secret
+authority, authorization authority, approval authority, Evidence authority, telemetry
+authority, connector authority, certification authority, or migration-lifecycle authority
+was introduced anywhere across Group 1, Group 2, or Group 3. The Group-3 worker-cleanup
+fix (§40.4) reuses the one existing `WorkerRegistry`; the checkpoint-boundary tests
+(§40.4/§40.6) reuse the one existing `CheckpointManager`; neither became a second
+authority of its kind.
+
+### 41.10 Next-phase boundary
+
+**P7C has not begun implementation.** Its implementation scope must be separately and
+explicitly authorized by the owner. No P7C production files, architecture, or roadmap
+status exist in this repository as a result of this freeze. A fresh session must not
+infer that P7C work has started, is scoped, or is implied by P7B's completion —
+reusability of P7B's Fabric/ownership/placement/telemetry/Evidence authorities by a future
+P7C is not itself implementation, and must not be recorded as such until the owner
+authorizes and a session actually performs it.
+
+### 41.11 Exact next action for a fresh session
+
+**P0–P6, P7, P7A, AND THE WHOLE OF P7B (GROUPS 1, 2, AND 3) ARE ALL COMPLETED AND FROZEN.
+DO NOT REOPEN ANY OF THEM WITHOUT A NEW, CONCRETE, DEMONSTRATED DEFECT AND FRESH EXPLICIT
+OWNER AUTHORIZATION.** Read this §41 first for current state; consult §40 (Group 3 detail),
+§39 (Group 2 detail), §35 (Group 1 detail), and §34 (P7A) only for per-file/per-defect
+history. Then await explicit owner authorization for the next roadmap scope (P7C or
+whatever the owner specifies) — do not self-select, scope, or begin it.

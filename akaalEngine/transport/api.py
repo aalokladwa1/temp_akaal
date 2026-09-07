@@ -213,8 +213,31 @@ class TransportAuthority:
         mechanism each provider-native SourceReader already implements.
         """
         # 1. Fencing and Security Checks before Source Fetch
-        self._validate_fencing(fencing_token)
-        self._validate_security(security_revalidator)
+        #
+        # Round-5 hostile-review fix (P7B Group-1): a pre-flight rejection here
+        # previously emitted ZERO telemetry -- `transport_partition_execution_started_total`
+        # is only recorded further below, and `..._failed_total` only inside the read
+        # loop's own try/except, so a security/fencing rejection this early was
+        # completely invisible to telemetry-based monitoring. This is a real
+        # observability gap: a pattern of rejected fabric/remote-execution attempts
+        # (e.g. repeated attempts against a revoked site) would leave no telemetry
+        # trace at all. Fix is additive only -- a NEW, distinctly-named counter
+        # (`transport_partition_execution_rejected_total`, never conflated with the
+        # pre-existing `_started_total`/`_failed_total` names) is emitted, and the
+        # original exception is re-raised completely unchanged. No existing behavior,
+        # exception type, or counter semantics are altered.
+        pre_flight_mig_id = migration_id or getattr(partition, "migration_id", None) or "mig-transport-canonical"
+        try:
+            self._validate_fencing(fencing_token)
+            self._validate_security(security_revalidator)
+        except Exception:
+            telem_reject = self.telemetry_authority
+            if telem_reject is not None and hasattr(telem_reject, "record_counter"):
+                telem_reject.record_counter(
+                    "transport_partition_execution_rejected_total", 1.0,
+                    {"migration_id": pre_flight_mig_id, "partition_id": getattr(partition, "partition_id", "unknown")},
+                )
+            raise
 
         mig_id = migration_id or getattr(partition, "migration_id", None) or "mig-transport-canonical"
         r_id = run_id or f"run-{partition.partition_id}"

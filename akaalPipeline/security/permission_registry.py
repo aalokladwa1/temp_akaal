@@ -106,6 +106,12 @@ class PermissionRegistry:
     OPERATIONS_NOTIFICATION_ROUTE = "operations.notification.route"
     OPERATIONS_NOTIFICATION_SEND = "operations.notification.send"
     OPERATIONS_NOTIFICATION_READ = "operations.notification.read"
+    # P7C.1 Intelligence Kernel
+    INTELLIGENCE_SUBMIT = "intelligence.submit"
+    INTELLIGENCE_READ = "intelligence.read"
+    # P7C.6 Action Mediation Gateway
+    INTELLIGENCE_MEDIATION_EVALUATE = "intelligence.mediation.evaluate"
+    INTELLIGENCE_MEDIATION_PREAUTHORIZE = "intelligence.mediation.preauthorize"
 
     ALL_PERMISSIONS: FrozenSet[str] = frozenset({
         MIGRATION_CREATE,
@@ -181,6 +187,10 @@ class PermissionRegistry:
         OPERATIONS_NOTIFICATION_ROUTE,
         OPERATIONS_NOTIFICATION_SEND,
         OPERATIONS_NOTIFICATION_READ,
+        INTELLIGENCE_SUBMIT,
+        INTELLIGENCE_READ,
+        INTELLIGENCE_MEDIATION_EVALUATE,
+        INTELLIGENCE_MEDIATION_PREAUTHORIZE,
     })
 
     @classmethod

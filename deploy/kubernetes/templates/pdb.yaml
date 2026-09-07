@@ -1,9 +1,14 @@
+{{- if .Values.podDisruptionBudget.enabled }}
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: akaal-workflow-engine-pdb
+  name: {{ include "akaal-worker-fabric.fullname" . }}
+  labels:
+    {{- include "akaal-worker-fabric.labels" . | nindent 4 }}
 spec:
-  minAvailable: 2
+  minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
   selector:
     matchLabels:
-      app: akaal-workflow-engine
+      app.kubernetes.io/name: {{ include "akaal-worker-fabric.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}

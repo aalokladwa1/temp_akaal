@@ -15,6 +15,10 @@ from akaalPipeline.state.repositories import MigrationRepositoryPort
 
 
 from akaalPipeline.security.context import PipelineActorContext
+from akaalEngine.intelligence.api import IntelligenceKernel
+from akaalEngine.intelligence.mediation.errors import ActionMediationError
+from akaalEngine.intelligence.mediation.mediator import ActionMediationGateway
+from akaalEngine.intelligence.mediation.proposal import ActionProposal, RiskClassification
 
 
 class PipelineQueryService:
@@ -22,9 +26,184 @@ class PipelineQueryService:
         self,
         repository: MigrationRepositoryPort,
         operation_service: OperationService,
+        intelligence_kernel: Optional[IntelligenceKernel] = None,
     ) -> None:
         self.repository = repository
         self.operation_service = operation_service
+        self.intelligence_kernel = intelligence_kernel or IntelligenceKernel()
+
+    def get_intelligence_artifact(
+        self,
+        artifact_id: str,
+        actor: Optional[PipelineActorContext] = None,
+        conn: Optional[sqlite3.Connection] = None,
+    ) -> Mapping[str, Any]:
+        if conn is None:
+            raise PipelineError(PipelineErrorCode.INTERNAL_ERROR, "Database connection required for get_intelligence_artifact.")
+        if actor is None:
+            raise PipelineError(PipelineErrorCode.POLICY_DENIED, "Intelligence artifact lookup requires an authenticated actor context.")
+        artifact = self.intelligence_kernel.get_artifact(artifact_id, conn, verify_integrity=True)
+        actor.enforce_resource_scope(
+            resource_tenant_id=artifact.tenant_id,
+            resource_workspace_id=artifact.workspace_id,
+            resource_project_id=artifact.project_id,
+            resource_kind="IntelligenceArtifact",
+            resource_id=artifact_id,
+        )
+        return artifact.to_dict()
+
+    def list_intelligence_artifacts(
+        self,
+        actor: Optional[PipelineActorContext] = None,
+        conn: Optional[sqlite3.Connection] = None,
+        subject_id: Optional[str] = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> List[Mapping[str, Any]]:
+        if conn is None:
+            raise PipelineError(PipelineErrorCode.INTERNAL_ERROR, "Database connection required for list_intelligence_artifacts.")
+        if actor is None:
+            raise PipelineError(PipelineErrorCode.POLICY_DENIED, "Intelligence artifact listing requires an authenticated actor context.")
+        MAX_LIST_LIMIT = 500
+        limit = min(max(1, limit), MAX_LIST_LIMIT)
+        artifacts = self.intelligence_kernel.list_artifacts(
+            actor.tenant_id,
+            conn,
+            workspace_id=actor.workspace_id,
+            project_id=actor.project_id,
+            subject_id=subject_id,
+            limit=limit,
+            offset=offset,
+        )
+        return [a.to_dict() for a in artifacts]
+
+    def evaluate_action_mediation(
+        self,
+        payload: Mapping[str, Any],
+        actor: Optional[PipelineActorContext] = None,
+        conn: Optional[sqlite3.Connection] = None,
+        central_authz: Optional[Any] = None,
+        artifact_registry: Optional[Any] = None,
+    ) -> Mapping[str, Any]:
+        """P7C.6: evaluates an ActionProposal through the real ActionMediationGateway,
+        wired to the REAL canonical CentralAuthorizationEngine (never a bespoke
+        authorization decision of its own) and the REAL GovernanceApprovalArtifact/
+        PolicyGateEvaluator authority for L3 approval verification. This method
+        never executes anything -- it returns a MediationDecision the caller may
+        then choose to feed into canonical planning/configuration."""
+        if actor is None:
+            raise PipelineError(PipelineErrorCode.POLICY_DENIED, "Action mediation evaluation requires an authenticated actor context.")
+        if central_authz is None:
+            raise PipelineError(
+                PipelineErrorCode.INTERNAL_ERROR,
+                "Action mediation evaluation requires a configured authorization authority.",
+            )
+
+        proposal = ActionProposal(
+            action_type=str(payload["action_type"]),
+            tenant_id=actor.tenant_id,
+            target_resource_type=str(payload["target_resource_type"]),
+            target_resource_id=str(payload["target_resource_id"]),
+            requested_by=actor.actor_id,
+            context_fingerprint=str(payload["context_fingerprint"]),
+            risk_classification=RiskClassification(str(payload.get("risk_classification", "MEDIUM")).upper()),
+            parameters=payload.get("parameters") or {},
+            source_artifact_id=payload.get("source_artifact_id"),
+            approval_reference=payload.get("approval_reference"),
+        )
+
+        def _authorizer(p: ActionProposal) -> bool:
+            from akaalPipeline.contracts.errors import ForbiddenError, UnauthorizedError
+            from akaalPipeline.security.permission_registry import PermissionRegistry
+
+            try:
+                return bool(
+                    central_authz.authorize(
+                        actor_context=actor,
+                        permission_id=PermissionRegistry.INTELLIGENCE_MEDIATION_EVALUATE,
+                        resource_type=p.target_resource_type,
+                        resource_id=p.target_resource_id,
+                        raise_exceptions=True,
+                    )
+                )
+            except (ForbiddenError, UnauthorizedError):
+                return False
+
+        def _approval_verifier(reference: str) -> bool:
+            if artifact_registry is None or conn is None:
+                return False
+            try:
+                from akaalPipeline.policy.contracts import PolicyDecision
+                from akaalPipeline.policy.gates import PolicyGateEvaluator
+
+                approval_art = artifact_registry.get(reference, conn=conn)
+                decision = PolicyDecision.from_dict(approval_art.content)
+                PolicyGateEvaluator.evaluate_gate(
+                    decision,
+                    expected_resource_id=proposal.target_resource_id,
+                    expected_action=proposal.action_type,
+                    target_artifact_fingerprint=proposal.context_fingerprint,
+                    actor=actor,
+                )
+                return True
+            except Exception:
+                return False
+
+        def _preauthorization_checker(p: ActionProposal) -> bool:
+            from akaalPipeline.contracts.errors import ForbiddenError, UnauthorizedError
+            from akaalPipeline.security.permission_registry import PermissionRegistry
+
+            try:
+                return bool(
+                    central_authz.authorize(
+                        actor_context=actor,
+                        permission_id=PermissionRegistry.INTELLIGENCE_MEDIATION_PREAUTHORIZE,
+                        resource_type=p.target_resource_type,
+                        resource_id=p.target_resource_id,
+                        raise_exceptions=True,
+                    )
+                )
+            except (ForbiddenError, UnauthorizedError):
+                return False
+
+        gateway = ActionMediationGateway()
+        try:
+            decision = gateway.mediate(
+                proposal,
+                current_context_fingerprint=str(payload.get("current_context_fingerprint", proposal.context_fingerprint)),
+                authorizer=_authorizer,
+                approver_id=payload.get("approver_id"),
+                approval_verifier=_approval_verifier,
+                preauthorization_checker=_preauthorization_checker,
+            )
+        except ActionMediationError as mediation_exc:
+            raise PipelineError(PipelineErrorCode.POLICY_DENIED, str(mediation_exc)) from mediation_exc
+
+        return {"proposal": proposal.to_dict(), "decision": decision.to_dict()}
+
+    def list_intelligence_outcomes(
+        self,
+        artifact_id: str,
+        actor: Optional[PipelineActorContext] = None,
+        conn: Optional[sqlite3.Connection] = None,
+    ) -> List[Mapping[str, Any]]:
+        if conn is None:
+            raise PipelineError(PipelineErrorCode.INTERNAL_ERROR, "Database connection required for list_intelligence_outcomes.")
+        if actor is None:
+            raise PipelineError(PipelineErrorCode.POLICY_DENIED, "Intelligence outcome listing requires an authenticated actor context.")
+        # Tenant enforcement: the artifact itself must belong to the caller's
+        # tenant before its outcomes may be listed -- verify_integrity=True so a
+        # tampered artifact row can't be used to smuggle a false tenant binding.
+        artifact = self.intelligence_kernel.get_artifact(artifact_id, conn, verify_integrity=True)
+        actor.enforce_resource_scope(
+            resource_tenant_id=artifact.tenant_id,
+            resource_workspace_id=artifact.workspace_id,
+            resource_project_id=artifact.project_id,
+            resource_kind="IntelligenceArtifact",
+            resource_id=artifact_id,
+        )
+        outcomes = self.intelligence_kernel.list_outcomes(artifact_id, conn)
+        return [o.to_dict() for o in outcomes]
 
     def get_migration(
         self,

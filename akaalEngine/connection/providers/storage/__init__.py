@@ -9,6 +9,7 @@ from akaalEngine.connection.providers.storage.gcs import GCSProviderStrategy
 from akaalEngine.connection.providers.storage.azure_blob import AzureBlobProviderStrategy
 from akaalEngine.connection.providers.storage.minio import MinIOProviderStrategy
 from akaalEngine.connection.providers.storage.hdfs import HDFSProviderStrategy
+from akaalEngine.connection.providers.storage.oci_object_storage import OCIObjectStorageProviderStrategy
 
 __all__ = [
     "S3ProviderStrategy",
@@ -16,4 +17,5 @@ __all__ = [
     "AzureBlobProviderStrategy",
     "MinIOProviderStrategy",
     "HDFSProviderStrategy",
+    "OCIObjectStorageProviderStrategy",
 ]

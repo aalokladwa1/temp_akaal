@@ -1,0 +1,33 @@
+{{/*
+P7B.20 -- namespaced Role only, never a cluster-scoped role/cluster-admin binding. The worker
+needs to read its own Pod (for self-identification/health) and nothing else -- no
+wildcard verbs, no wildcard resources, no secret write access (secrets are consumed via
+Kubernetes' own secretKeyRef mechanism, which does not require RBAC read access to the
+Secret object from inside the pod).
+*/}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "akaal-worker-fabric.fullname" . }}
+  labels:
+    {{- include "akaal-worker-fabric.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+    resourceNames: []
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "akaal-worker-fabric.fullname" . }}
+  labels:
+    {{- include "akaal-worker-fabric.labels" . | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "akaal-worker-fabric.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: Role
+  name: {{ include "akaal-worker-fabric.fullname" . }}
+  apiGroup: rbac.authorization.k8s.io

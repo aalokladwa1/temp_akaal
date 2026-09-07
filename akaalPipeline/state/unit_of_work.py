@@ -803,6 +803,41 @@ class SQLiteUnitOfWork(UnitOfWorkPort):
                 PRIMARY KEY (tenant_id, scim_provider_id, scim_external_id)
             );
 
+            CREATE TABLE IF NOT EXISTS intelligence_artifacts (
+                artifact_id TEXT PRIMARY KEY,
+                tenant_id TEXT NOT NULL DEFAULT 'default-tenant',
+                workspace_id TEXT,
+                project_id TEXT,
+                subject_type TEXT NOT NULL,
+                subject_id TEXT NOT NULL,
+                subject_version TEXT NOT NULL,
+                task TEXT NOT NULL,
+                algorithm_version TEXT NOT NULL,
+                policy_version TEXT NOT NULL,
+                canonical_state_fingerprint TEXT NOT NULL,
+                fingerprint TEXT NOT NULL,
+                result TEXT NOT NULL,
+                lifecycle_state TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                requested_by TEXT NOT NULL,
+                model_provider TEXT,
+                model_id TEXT,
+                model_version TEXT,
+                expires_at TEXT,
+                superseded_by TEXT,
+                updated_at TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS intelligence_outcomes (
+                outcome_id TEXT PRIMARY KEY,
+                artifact_id TEXT NOT NULL,
+                tenant_id TEXT NOT NULL DEFAULT 'default-tenant',
+                outcome_status TEXT NOT NULL,
+                observed_at TEXT NOT NULL,
+                detail TEXT,
+                metrics TEXT NOT NULL DEFAULT '{}'
+            );
+
             CREATE TABLE IF NOT EXISTS notification_deliveries (
                 delivery_id TEXT PRIMARY KEY,
                 tenant_id TEXT NOT NULL DEFAULT 'default-tenant',

@@ -212,6 +212,7 @@ class ProviderCatalog:
                 AzureBlobProviderStrategy,
                 MinIOProviderStrategy,
                 HDFSProviderStrategy,
+                OCIObjectStorageProviderStrategy,
             )
             from akaalEngine.connection.providers.timeseries import (
                 InfluxDBProviderStrategy,
@@ -271,6 +272,7 @@ class ProviderCatalog:
                 AzureBlobProviderStrategy(),
                 MinIOProviderStrategy(),
                 HDFSProviderStrategy(),
+                OCIObjectStorageProviderStrategy(),  # P7B Group 1 (§8), provider #49
                 # Time-series
                 InfluxDBProviderStrategy(),  # P7A Campaign B
             ]

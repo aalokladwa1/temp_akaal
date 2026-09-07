@@ -51,6 +51,22 @@ from akaalPipeline.state.aggregates import MigrationAggregate
 from akaalPipeline.state.repositories import SQLiteMigrationRepository
 from akaalPipeline.state.unit_of_work import SQLiteUnitOfWork
 
+# --- P7B Group-2 production integration (final blocker closure) ---------------------
+# akaalPipeline.execution.coordinator.PlanExecutionCoordinator remains THE canonical,
+# single Pipeline orchestration authority -- these imports add an integration seam, not
+# a second orchestrator. See akaalPipeline.orchestration.fabric_gate module docstring
+# for the applicability/binding-store contract, and
+# akaalPipeline.adapters.fabric_engine_gateway for the one new ExecutionPort adapter.
+from akaalPipeline.orchestration.fabric_gate import (
+    FabricGateDependencies,
+    FabricPlacementBinding,
+    FabricPlacementBindingStore,
+    NoFabricPlacementBindingError,
+    fabric_placement_config,
+    is_binding_stale,
+    plan_requires_fabric_placement,
+)
+
 
 @dataclass(frozen=True)
 class ExecutionOutcome:
@@ -79,6 +95,7 @@ class PlanExecutionCoordinator:
         audit_service: AuditTrailService,
         repository: SQLiteMigrationRepository,
         keystore: Optional[Any] = None,
+        fabric_dependencies: Optional["FabricGateDependencies"] = None,
     ) -> None:
         self.capability_resolver = capability_resolver
         self.binding_registry = binding_registry
@@ -96,6 +113,44 @@ class PlanExecutionCoordinator:
                 self.minter = ExecutionAuthorizationMinter(keystore=keystore)
             except Exception:
                 pass
+
+        # P7B Group-2 production integration: OPTIONAL. A coordinator constructed
+        # without `fabric_dependencies` behaves EXACTLY as before this change for every
+        # plan whose configuration does not mark `fabric_placement.required = True`
+        # (every existing local/on-prem/VM/bare-metal non-fabric test and call site is
+        # unaffected). A plan that DOES require fabric placement, dispatched through a
+        # coordinator with no `fabric_dependencies` configured, fails closed (see
+        # materialize_plan_execution) rather than silently skipping Group-2 controls.
+        self.fabric_dependencies = fabric_dependencies
+        self._fabric_binding_store = (
+            fabric_dependencies.binding_store if fabric_dependencies is not None else FabricPlacementBindingStore()
+        )
+        self._fabric_data_transport_binding = None
+        if fabric_dependencies is not None:
+            from akaalEngine.fabric.placement.execution import PlacementExecutionError  # noqa: F401 (re-export check)
+            from akaalPipeline.adapters.fabric_engine_gateway import FabricPlacementExecutionPort
+            from akaalPipeline.capabilities.bindings import EngineBindingDescriptor
+
+            fabric_port = FabricPlacementExecutionPort(
+                binding_store=self._fabric_binding_store,
+                topology_provider=fabric_dependencies.topology_provider,
+                worker_registry=fabric_dependencies.worker_registry,
+                control_plane=fabric_dependencies.control_plane,
+                site_authorization_callback=fabric_dependencies.site_authorization_callback,
+                signing_key=fabric_dependencies.signing_key,
+                transport_authority_factory=fabric_dependencies.transport_authority_factory,
+                ownership_manager=fabric_dependencies.ownership_manager,
+                evidence_authority=fabric_dependencies.evidence_authority,
+                telemetry_authority=fabric_dependencies.telemetry_authority,
+            )
+            self._fabric_data_transport_binding = EngineBindingDescriptor(
+                binding_id="fabric_placement_data_transport_binding",
+                engine_name="fabric_placement",
+                version="1.0.0",
+                port_instance=fabric_port,
+                supported_capabilities={"data_transport"},
+                supported_modes=set(MigrationMode),
+            )
 
     # -------------------------------------------------------------------------
     # 1. Plan Execution Materialization
@@ -135,6 +190,19 @@ class PlanExecutionCoordinator:
                 f"Migration {migration.migration_id!r} project mismatch.",
             )
 
+        # --- P7B Group-2 mandatory placement gate -----------------------------------
+        # Applicability comes ONLY from the plan's own immutable, fingerprinted
+        # configuration -- never from a caller/operation_id/payload override (see
+        # akaalPipeline.orchestration.fabric_gate module docstring). If this plan
+        # requires distributed placement and Group-2 cannot produce a compliant one,
+        # this raises HERE -- before the idempotency check below, before execution_id is
+        # even generated, before any row is written to plan_executions/node_executions.
+        # NO PlanExecutionRecord is created; there is nothing downstream capable of ever
+        # dispatching physical work for this attempt.
+        fabric_binding = None
+        if plan_requires_fabric_placement(plan):
+            fabric_binding = self._decide_and_bind_fabric_placement(plan=plan, migration=migration, actor=actor)
+
         # Check if an active execution already exists for this migration
         cur = conn.execute(
             """
@@ -163,11 +231,21 @@ class PlanExecutionCoordinator:
                         PipelineErrorCode.POLICY_DENIED,
                         f"Active execution {existing.execution_id} initialization fingerprint mismatch: expected {existing.initialization_fingerprint!r}, got {initialization_fingerprint!r}.",
                     )
+                if fabric_binding is not None and self._fabric_binding_store.try_get(existing.execution_id) is None:
+                    # This plan requires fabric placement but the idempotently-reused
+                    # execution has no binding recorded (e.g. an in-memory binding
+                    # store lost state across a process restart) -- fail closed rather
+                    # than silently resuming as if placement were still valid; bind the
+                    # freshly-decided placement now so any accompanying advance call
+                    # can proceed under fresh, verified placement.
+                    self._fabric_binding_store.save(existing.execution_id, fabric_binding)
                 return existing
 
 
         now_str = datetime.now(timezone.utc).isoformat()
         execution_id = f"pe-{uuid.uuid4().hex}"
+        if fabric_binding is not None:
+            self._fabric_binding_store.save(execution_id, fabric_binding)
 
         plan_rec = PlanExecutionRecord(
             execution_id=execution_id,
@@ -238,6 +316,179 @@ class PlanExecutionCoordinator:
             )
 
         return plan_rec
+
+    def _decide_and_bind_fabric_placement(
+        self,
+        *,
+        plan: ExecutionPlan,
+        migration: MigrationAggregate,
+        actor: PipelineActorContext,
+    ) -> FabricPlacementBinding:
+        """
+        Runs the full Campaign C pipeline (topology -> locality -> capability -> policy
+        -> residency -> optimization/cost, via the unmodified
+        `akaalEngine.fabric.placement.binding.decide_placement`) and Campaign D worker
+        binding (`akaalEngine.fabric.placement.execution.bind_worker_for_placement`,
+        unmodified) for one plan. Raises `PipelineError(POLICY_DENIED)` -- never falls
+        back to the non-fabric execution path -- if Group-2 cannot produce a compliant
+        placement, or if this coordinator has no `fabric_dependencies` configured at all
+        (a plan declaring `fabric_placement.required=True` against an unconfigured
+        coordinator is a deployment/configuration defect, not license to skip Group-2
+        controls).
+
+        Trusted tenant/workspace/project context is read EXCLUSIVELY from `actor`
+        (the already-verified `PipelineActorContext`) and `migration` -- never from
+        `plan.configuration`, which a plan author could otherwise use to smuggle a
+        different tenant into a residency/capability decision (this is the same
+        discipline `EngineInvocationRequest.tenant_id` already enforces one layer down,
+        and the same discipline behind the cross-tenant-locality fix in
+        `akaalEngine.fabric.placement.residency`).
+        """
+        from akaalEngine.fabric.placement.binding import NoCompliantPlacementError, decide_placement
+        from akaalEngine.fabric.placement.capability import CapabilityRequirement
+        from akaalEngine.fabric.placement.execution import bind_worker_for_placement
+
+        deps = self.fabric_dependencies
+        if deps is None:
+            raise PipelineError(
+                PipelineErrorCode.POLICY_DENIED,
+                f"Plan {plan.plan_id!r} declares fabric_placement.required=True but this "
+                f"PlanExecutionCoordinator has no fabric_dependencies configured; refusing "
+                f"to execute without Group-2 placement controls (never falling back to "
+                f"direct/unplaced execution).",
+            )
+        # P7B Group-3 (P7B.25) MANDATORY-WHEN-APPLICABLE ownership gate: applicability is
+        # NOT a second, caller-choosable flag -- it derives from the exact same canonical,
+        # plan-embedded `fabric_placement.required` signal that just made Group-2
+        # placement mandatory above. A coordinator that has fabric_dependencies configured
+        # at all (i.e. genuinely intends to serve fabric-required plans) MUST also have a
+        # real OwnershipManager configured; there is no fallback that treats a missing
+        # ownership_manager as "ownership not required" for a plan that already requires
+        # Group-2 placement (see akaalPipeline.orchestration.fabric_gate.
+        # FabricGateDependencies.ownership_manager docstring for the full rationale).
+        if deps.ownership_manager is None:
+            raise PipelineError(
+                PipelineErrorCode.POLICY_DENIED,
+                f"Plan {plan.plan_id!r} declares fabric_placement.required=True but this "
+                f"PlanExecutionCoordinator's fabric_dependencies has no ownership_manager "
+                f"configured; Group-3 distributed ownership is mandatory for fabric-"
+                f"required execution, never optional -- refusing to execute.",
+            )
+
+        cfg = fabric_placement_config(plan)
+        tenant_id = migration.tenant_id or actor.organization_id or "default-tenant"
+        workspace_id = migration.workspace_id or actor.workspace_id or "default-workspace"
+        project_id = migration.project_id or actor.project_id or "default-project"
+
+        candidates = deps.candidate_provider(actor, plan)
+        topology = deps.topology_provider(tenant_id)
+        locality_by_site = deps.locality_provider(actor, plan, candidates)
+        residency_policies = tuple(
+            deps.residency_policy_resolver(policy_id) for policy_id in cfg.get("residency_policy_ids", ())
+        )
+        capability_requirement = CapabilityRequirement(
+            required_capabilities=frozenset(cfg.get("required_capabilities", ())),
+            plan_reference=plan.plan_id,
+        )
+        # Monotonic-enough for this integration seam (nanosecond wall clock); the
+        # SiteRegistry/WorkerRegistry fencing-epoch ladders this ultimately feeds are the
+        # actual replay-protection authority (P7B.5/P7B.9/P7B.22/P7B.23, unmodified) --
+        # a production deployment wanting a stronger monotonic source may inject one via
+        # a future FabricGateDependencies field without changing this call shape.
+        import time as _time
+        fencing_epoch = _time.time_ns()
+
+        try:
+            decision = decide_placement(
+                tenant_id=tenant_id, workspace_id=workspace_id, project_id=project_id,
+                migration_id=migration.migration_id, plan_id=plan.plan_id, plan_revision=getattr(plan, "revision", 1),
+                execution_identity_seal_fingerprint=plan.fingerprint, fencing_epoch=fencing_epoch,
+                candidates=candidates, capability_requirement=capability_requirement,
+                actor_context=actor, authorization_callback=deps.placement_authorization_callback,
+                residency_policies=residency_policies, locality_by_site=locality_by_site,
+                topology_graph=topology,
+            )
+        except NoCompliantPlacementError as exc:
+            raise PipelineError(
+                PipelineErrorCode.POLICY_DENIED,
+                f"NO COMPLIANT PLACEMENT for plan {plan.plan_id!r} (migration "
+                f"{migration.migration_id!r}): {exc}",
+            ) from exc
+
+        site = next((s for s in candidates if s.site_id == decision.selected_site_id), None)
+        if site is None:  # pragma: no cover -- decide_placement can only select from candidates
+            raise PipelineError(PipelineErrorCode.POLICY_DENIED, "Placement selected an unknown site.")
+
+        worker = bind_worker_for_placement(decision, deps.worker_registry, site, pod_spec_factory=deps.pod_spec_factory)
+        return FabricPlacementBinding(decision=decision, site=site, worker=worker)
+
+    def _release_fabric_binding(self, execution_id: str) -> None:
+        self._fabric_binding_store.release(execution_id)
+
+    def _acquire_ownership_gate(self, *, decision, worker, capability: str, execution_id: str) -> None:
+        """
+        P7B Group-3 (P7B.25) UNIVERSAL ownership gate -- called from advance_plan_
+        execution's Step A.2 for EVERY physical-effect capability of a fabric-required
+        plan (not only data_transport, which additionally does its own richer per-
+        live-trust-check renewal inside execute_via_placement). Raises
+        `NoFabricPlacementBindingError` (chained from the real `OwnershipError`) on any
+        rejection -- reusing the SAME fail-closed path Step A.2 already uses for stale
+        placement, rather than a second error shape. Emits P7B.32/P7B.34 telemetry/
+        Evidence on both outcomes, purely as an observational side effect: a broken
+        telemetry/evidence backend never changes the raised outcome (both wrapped in
+        `except Exception: pass`), and neither is emitted if the corresponding dependency
+        was never configured.
+        """
+        from akaalEngine.fabric.explainability import explain_ownership_decision
+        from akaalEngine.fabric.group3_evidence import emit_ownership_decision_evidence
+        from akaalEngine.fabric.ownership.models import OwnershipError
+        from akaalEngine.fabric.placement.execution import acquire_ownership_for_physical_capability
+        from akaalEngine.fabric.telemetry_integration import ownership_event
+
+        ownership_key = f"{decision.tenant_id}::{decision.migration_id}::{decision.plan_id}"
+
+        def _emit(*, accepted: bool, fencing_generation, reason: str) -> None:
+            if self.fabric_dependencies.evidence_authority is not None:
+                try:
+                    emit_ownership_decision_evidence(
+                        self.fabric_dependencies.evidence_authority, migration_id=decision.migration_id,
+                        run_id=execution_id, ownership_key=ownership_key, tenant_id=decision.tenant_id,
+                        site_id=decision.selected_site_id, worker_id=worker.worker_id,
+                        accepted=accepted, fencing_generation=fencing_generation, reason=reason,
+                    )
+                except Exception:  # noqa: BLE001 -- evidence never overrides the real outcome
+                    pass
+            if self.fabric_dependencies.telemetry_authority is not None:
+                try:
+                    self.fabric_dependencies.telemetry_authority.record_event(ownership_event(
+                        event_type="fabric.ownership.acquired" if accepted else "fabric.ownership.conflict_rejected",
+                        ownership_key=ownership_key, tenant_id=decision.tenant_id, site_id=decision.selected_site_id,
+                        worker_id=worker.worker_id, fencing_generation=fencing_generation if fencing_generation is not None else -1,
+                        correlation_id=decision.correlation_id, outcome="ACCEPTED" if accepted else reason,
+                    ))
+                except Exception:  # noqa: BLE001 -- telemetry never overrides the real outcome
+                    pass
+            if self.fabric_dependencies.explanation_sink is not None:
+                try:
+                    self.fabric_dependencies.explanation_sink(explain_ownership_decision(
+                        accepted=accepted, ownership_key=ownership_key, tenant_id=decision.tenant_id,
+                        site_id=decision.selected_site_id, worker_id=worker.worker_id, capability=capability,
+                        fencing_generation=fencing_generation, reason=reason,
+                    ))
+                except Exception:  # noqa: BLE001 -- explanation never overrides the real outcome
+                    pass
+
+        try:
+            record = acquire_ownership_for_physical_capability(
+                self.fabric_dependencies.ownership_manager, decision, worker,
+                capability=capability, execution_id=execution_id,
+            )
+        except OwnershipError as ownership_exc:
+            _emit(accepted=False, fencing_generation=None, reason=str(ownership_exc))
+            raise NoFabricPlacementBindingError(
+                f"Group-3 ownership refused for capability {capability!r}: {ownership_exc}"
+            ) from ownership_exc
+        _emit(accepted=True, fencing_generation=record.fencing_generation, reason="")
 
     # -------------------------------------------------------------------------
     # 2. Querying State
@@ -575,7 +826,76 @@ class PlanExecutionCoordinator:
                         error_message=err_msg,
                     )
 
+            # Step A.2: Enforce mandatory Group-2 placement for fabric-required plans.
+            # Mirrors the Step A.1 M8 gate immediately above in shape: check a plan-level
+            # condition, fail the node+plan closed via the SAME `_mark_node_and_plan_failed`
+            # path, before any dispatch is attempted. A node with no physical side effect
+            # (schema/control-plane read-only steps) is exempt -- only actual physical work
+            # requires a live, fresh, valid Group-2 binding to proceed.
+            if plan_requires_fabric_placement(plan):
+                from akaalPipeline.contracts.enums import SideEffectClassification as _SideEffectClassification
+                matched_node_fabric = next((n for n in plan.nodes if n.node_id == target_node_id), None)
+                node_side_effect_fabric = getattr(getattr(matched_node_fabric, "task", None), "side_effect", None)
+                if node_side_effect_fabric != _SideEffectClassification.READ_ONLY:
+                    try:
+                        fabric_binding_check = self._fabric_binding_store.require(execution_id)
+                        current_topology_check = self.fabric_dependencies.topology_provider(fabric_binding_check.decision.tenant_id)
+                        if is_binding_stale(fabric_binding_check, current_topology_check):
+                            raise NoFabricPlacementBindingError(
+                                f"Placement decision {fabric_binding_check.decision.decision_id!r} is stale."
+                            )
+                        # P7B Group-3 (P7B.25) UNIVERSAL ownership gate: applies to EVERY
+                        # physical-effect capability of a fabric-required plan, not only
+                        # data_transport -- closes the gap where CDC/incremental/state-
+                        # reconciliation capabilities (dispatched through their own,
+                        # non-Fabric-aware ExecutionPort via ordinary capability
+                        # resolution, never routed through FabricPlacementExecutionPort)
+                        # would otherwise reach physical mutation with zero ownership/
+                        # fencing protection merely because they are not shaped like
+                        # execute_via_placement's reader/writer/partition contract. See
+                        # akaalEngine.fabric.placement.execution.
+                        # acquire_ownership_for_physical_capability's docstring for the
+                        # full rationale. `self.fabric_dependencies.ownership_manager`
+                        # is guaranteed non-None here -- materialize_plan_execution
+                        # already refused to create this execution otherwise.
+                        self._acquire_ownership_gate(
+                            decision=fabric_binding_check.decision, worker=fabric_binding_check.worker,
+                            capability=target_capability, execution_id=execution_id,
+                        )
+                    except NoFabricPlacementBindingError as fabric_exc:
+                        err_code = "FABRIC_PLACEMENT_REQUIRED"
+                        err_msg = f"Node {target_node_id!r} requires Group-2 fabric placement, which is missing or stale: {fabric_exc}"
+                        with uow_factory() as uow_fail:
+                            self._mark_node_and_plan_failed(
+                                execution_id=execution_id,
+                                node_execution_id=node_to_dispatch.node_execution_id,
+                                migration_id=plan.migration_id,
+                                graph_node_id=target_node_id,
+                                operation_id=operation_id,
+                                error_code=err_code,
+                                error_message=err_msg,
+                                actor=actor,
+                                conn=uow_fail.connection,
+                            )
+                        return ExecutionOutcome(
+                            is_success=False,
+                            status="FAILED",
+                            error_category=IPCErrorCategory.FORBIDDEN,
+                            error_code=err_code,
+                            error_message=err_msg,
+                        )
+
             matching_binding = eval_res.selected_binding
+            # Physical bulk data movement in a fabric-required plan MUST route through
+            # the Group-2 FabricPlacementExecutionPort (execute_via_placement), never
+            # whatever binding capability resolution would otherwise have picked -- this
+            # override is the structural "no bypass" enforcement: there is no branch
+            # anywhere in this method that dispatches a data_transport node of a
+            # fabric-required plan through any OTHER port_instance.
+            if plan_requires_fabric_placement(plan) and target_capability == "data_transport":
+                if self._fabric_data_transport_binding is None:  # pragma: no cover -- guarded by Step A.2 above
+                    raise PipelineError(PipelineErrorCode.POLICY_DENIED, "Fabric placement required but no fabric binding configured.")
+                matching_binding = self._fabric_data_transport_binding
             if not matching_binding or not isinstance(matching_binding.port_instance, ExecutionPort):
                 err_code = "UNBOUND"
                 err_msg = f"No healthy ExecutionPort engine binding registered for capability {target_capability!r} (UNBOUND)."
@@ -707,6 +1027,7 @@ class PlanExecutionCoordinator:
             dispatch_payload["capability_id"] = target_capability
             dispatch_payload["graph_node_id"] = target_node_id
             dispatch_payload["migration_id"] = plan.migration_id
+            dispatch_payload["execution_id"] = execution_id
             dispatch_payload["mode"] = plan.mode.value
             if hasattr(plan, "configuration") and plan.configuration:
                 dispatch_payload["configuration"] = dict(plan.configuration)
@@ -814,6 +1135,20 @@ class PlanExecutionCoordinator:
                 project_id=actor.project_id,
             )
 
+            # Captured BEFORE dispatch (not re-fetched in `finally`): a FAILED-plan path
+            # below (_mark_node_and_plan_failed) releases the fabric binding from
+            # self._fabric_binding_store as part of failing the plan, so re-fetching it
+            # afterward in `finally` would find nothing to finalize on exactly the
+            # exception path this finalization most needs to cover.
+            _worker_to_finalize = None
+            if plan_requires_fabric_placement(plan):
+                _matched_node_finalize = next((n for n in plan.nodes if n.node_id == target_node_id), None)
+                _side_effect_finalize = getattr(getattr(_matched_node_finalize, "task", None), "side_effect", None)
+                from akaalPipeline.contracts.enums import SideEffectClassification as _SideEffectClassificationFinalize
+                if _side_effect_finalize != _SideEffectClassificationFinalize.READ_ONLY:
+                    _binding_finalize = self._fabric_binding_store.try_get(execution_id)
+                    if _binding_finalize is not None:
+                        _worker_to_finalize = (_binding_finalize.worker, _binding_finalize.decision.tenant_id)
 
             try:
                 engine_res = matching_binding.port_instance.execute_task(req)
@@ -856,6 +1191,34 @@ class PlanExecutionCoordinator:
                     error_code=err_code,
                     error_message=err_msg,
                 )
+            finally:
+                # P7B.35 hostile-review finding: bind_worker_for_placement marks a
+                # worker BUSY once per execution, but only execute_via_placement's own
+                # internal finally block ever finalized it back -- for every OTHER
+                # physical-effect capability (cdc_apply, incremental_apply, etc.,
+                # dispatched here through their own independently-resolved
+                # ExecutionPort, never through execute_via_placement), the worker leaked
+                # BUSY forever. This finalizes it here instead, at the ONE real dispatch
+                # call site every capability (data_transport included) passes through --
+                # using the SAME canonical finalize_worker_after_dispatch
+                # execute_via_placement itself now calls, so there is exactly one
+                # worker-lifecycle finalization authority, not two. Calling it a SECOND
+                # time for data_transport (once inside execute_via_placement's own
+                # finally, once here) is safe and a no-op: finalize_worker_after_dispatch
+                # only acts when the worker's CURRENT state is still BUSY, and
+                # execute_via_placement's own finally already ran by the time this outer
+                # one does (Python unwinds inner finally blocks before outer ones).
+                #
+                # Uses `_worker_to_finalize`, CAPTURED BEFORE dispatch (see above) --
+                # deliberately NOT re-fetched from self._fabric_binding_store here, since
+                # a FAILED-plan path above (_mark_node_and_plan_failed) already releases
+                # that binding as part of failing the plan; re-fetching here would find
+                # nothing to finalize on exactly the exception path this most needs to
+                # cover.
+                if _worker_to_finalize is not None and self.fabric_dependencies is not None:
+                    from akaalEngine.fabric.placement.execution import finalize_worker_after_dispatch
+                    _finalize_worker, _finalize_tenant_id = _worker_to_finalize
+                    finalize_worker_after_dispatch(self.fabric_dependencies.worker_registry, _finalize_worker, _finalize_tenant_id)
 
             # Check if task was accepted for asynchronous background completion
             if getattr(engine_res, "is_in_progress", False):
@@ -1088,6 +1451,7 @@ class PlanExecutionCoordinator:
             uow.connection,
             details={"execution_id": execution_id},
         )
+        self._release_fabric_binding(execution_id)
 
     def _mark_node_and_plan_failed(
         self,
@@ -1169,6 +1533,7 @@ class PlanExecutionCoordinator:
             conn,
             details={"error_code": error_code, "error_message": error_message},
         )
+        self._release_fabric_binding(execution_id)
 
     # -------------------------------------------------------------------------
     # 5. Cancellation Support
@@ -1187,6 +1552,7 @@ class PlanExecutionCoordinator:
             "UPDATE plan_executions SET status = ?, updated_at = ? WHERE execution_id = ?",
             (PlanExecutionStatus.CANCELLED.value, now_str, execution_id),
         )
+        self._release_fabric_binding(execution_id)
         conn.execute(
             """
             UPDATE node_executions SET state = ?, error = ?, updated_at = ?

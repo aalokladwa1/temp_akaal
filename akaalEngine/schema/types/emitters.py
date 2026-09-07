@@ -56,7 +56,7 @@ class ProviderTypeEmitters:
             return cls._emit_cql(ctype)
 
         # Non-relational / Structural Targets
-        elif tgt in ("mongodb", "elasticsearch", "opensearch", "kafka", "kinesis", "eventhubs", "event_hubs", "pubsub", "pub_sub", "rabbitmq", "pulsar", "dynamodb", "couchbase", "influxdb", "s3", "gcs", "azureblob", "azure_blob", "minio", "hdfs", "redis", "keydb", "neo4j"):
+        elif tgt in ("mongodb", "elasticsearch", "opensearch", "kafka", "kinesis", "eventhubs", "event_hubs", "pubsub", "pub_sub", "rabbitmq", "pulsar", "dynamodb", "couchbase", "influxdb", "s3", "gcs", "azureblob", "azure_blob", "minio", "hdfs", "oci_object_storage", "redis", "keydb", "neo4j"):
             return TargetTypeEmission(
                 target_engine=target_provider,
                 target_native_type="STRUCTURAL_ONLY",

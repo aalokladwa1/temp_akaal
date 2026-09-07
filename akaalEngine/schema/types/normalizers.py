@@ -86,7 +86,7 @@ class ProviderTypeNormalizers:
             return cls._normalize_streaming(raw, meta)
 
         # Storage / Datasets
-        elif prov in ("s3", "gcs", "azureblob", "azure_blob", "minio", "hdfs"):
+        elif prov in ("s3", "gcs", "azureblob", "azure_blob", "minio", "hdfs", "oci_object_storage"):
             return cls._normalize_storage(raw, meta)
 
         # Generic Fallback

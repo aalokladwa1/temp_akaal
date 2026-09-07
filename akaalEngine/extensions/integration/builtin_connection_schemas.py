@@ -561,6 +561,32 @@ def build_connection_provider_schema(provider_id_str: str) -> Optional[Configura
             ),
         )
 
+    elif pid == "oci_object_storage":
+        return ConfigurationSchema(
+            schema_id="oci-object-storage-connection-config",
+            schema_version="1.0.0",
+            description="Configuration schema for Oracle Cloud Infrastructure (OCI) Object Storage provider supporting API-key config-file, instance principal, and resource principal authentication",
+            fields=(
+                ConfigurationField(name="region", field_type=ConfigurationFieldType.STRING, description="OCI region identifier (e.g. us-ashburn-1); OCI Object Storage has no regionless endpoint", is_required=True, ui_group="Network"),
+                ConfigurationField(name="namespace", field_type=ConfigurationFieldType.STRING, description="OCI Object Storage tenancy namespace", ui_group="Target"),
+                ConfigurationField(name="bucket", field_type=ConfigurationFieldType.STRING, description="Target bucket name", ui_group="Target"),
+                ConfigurationField(name="compartment_id", field_type=ConfigurationFieldType.STRING, description="OCID of the compartment owning the bucket (required for bucket discovery)", ui_group="Target"),
+                ConfigurationField(
+                    name="auth_mode",
+                    field_type=ConfigurationFieldType.STRING,
+                    description="Authentication mode: 'config_file' (API key), 'instance_principal', or 'resource_principal'",
+                    default_value="config_file",
+                    ui_group="Authentication",
+                ),
+                ConfigurationField(name="tenancy_ocid", field_type=ConfigurationFieldType.STRING, description="Tenancy OCID (config_file auth mode)", ui_group="Authentication"),
+                ConfigurationField(name="user_ocid", field_type=ConfigurationFieldType.STRING, description="User OCID (config_file auth mode)", ui_group="Authentication"),
+                ConfigurationField(name="fingerprint", field_type=ConfigurationFieldType.STRING, description="API signing key fingerprint (config_file auth mode)", ui_group="Authentication"),
+                ConfigurationField(name="password_ref", field_type=ConfigurationFieldType.SECRET_REF, description="Reference pointer to the PEM private key content secret (config_file auth mode)", ui_group="Authentication"),
+                ConfigurationField(name="config_file_path", field_type=ConfigurationFieldType.STRING, description="Path to local OCI CLI config file, used only when explicit API-key fields are not supplied", default_value="~/.oci/config", ui_group="Authentication"),
+                ConfigurationField(name="config_profile", field_type=ConfigurationFieldType.STRING, description="OCI CLI config file profile name", default_value="DEFAULT", ui_group="Authentication"),
+            ),
+        )
+
     elif pid == "teradata":
         return ConfigurationSchema(
             schema_id="teradata-connection-config",
