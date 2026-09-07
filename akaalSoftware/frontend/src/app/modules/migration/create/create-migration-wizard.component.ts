@@ -14,6 +14,10 @@ import { Step6ConfigurationComponent } from './steps/step6-configuration.compone
 import { Step6ConfigurationStoreService } from '../../../core/services/step6-configuration-store.service';
 import { Step7PlanComponent } from './steps/step7-plan.component';
 import { Step7PlanStoreService } from '../../../core/services/step7-plan-store.service';
+import { Step8GovernanceComponent } from './steps/step8-governance.component';
+import { Step8GovernanceStoreService } from '../../../core/services/step8-governance-store.service';
+import { Step9ReviewComponent } from './steps/step9-review.component';
+import { Step9ReviewStoreService } from '../../../core/services/step9-review-store.service';
 import { MigrationPortfolioItem, MigrationTemplateItem } from '../../../core/models/migration-view.models';
 
 export interface StepRailItem {
@@ -36,7 +40,9 @@ export interface StepRailItem {
     Step4ScopeComponent,
     Step5MappingComponent,
     Step6ConfigurationComponent,
-    Step7PlanComponent
+    Step7PlanComponent,
+    Step8GovernanceComponent,
+    Step9ReviewComponent
   ],
   template: `
     <!-- Fluid Content Wrapper: Integrated inside Platform Main Workspace with Left Sidebar & Top Header preserved -->
@@ -248,8 +254,8 @@ export interface StepRailItem {
         (click)="closeAllPopovers()">
         <div
           class="w-full mx-auto"
-          [class.max-w-6xl]="currentStep() <= 3 || (currentStep() === 6 && step6Store.draft().depth === 'STANDARD')"
-          [class.max-w-7xl]="currentStep() === 4 || currentStep() === 7 || (currentStep() === 6 && step6Store.draft().depth === 'ADVANCED')"
+          [class.max-w-6xl]="currentStep() <= 3 || currentStep() === 9 || (currentStep() === 6 && step6Store.draft().depth === 'STANDARD')"
+          [class.max-w-7xl]="currentStep() === 4 || currentStep() === 7 || currentStep() === 8 || (currentStep() === 6 && step6Store.draft().depth === 'ADVANCED')"
           [class.max-w-[1720px]]="currentStep() === 5"
           [class.h-full]="currentStep() === 4 || currentStep() === 5"
           [class.flex]="currentStep() === 4 || currentStep() === 5"
@@ -263,6 +269,8 @@ export interface StepRailItem {
             @case (5) { <app-step5-mapping /> }
             @case (6) { <app-step6-configuration /> }
             @case (7) { <app-step7-plan /> }
+            @case (8) { <app-step8-governance /> }
+            @case (9) { <app-step9-review /> }
             @default { 
               <div class="py-16 text-center text-slate-400 font-medium">
                 Step {{ currentStep() }} ({{ currentStepItem().label }}) workspace ready for clean implementation
@@ -375,10 +383,16 @@ export interface StepRailItem {
             <button
               type="button"
               (click)="onStep9Action()"
-              [disabled]="!isCurrentStepValid()"
-              class="h-8 px-4 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-md disabled:opacity-40 disabled:pointer-events-none flex items-center gap-1.5 cursor-pointer transition-colors">
-              <span>Initialize &amp; Launch</span>
-              <app-lucide-icon name="arrow-right" [size]="13"></app-lucide-icon>
+              [disabled]="!isCurrentStepValid() || !step9Store.isSubmitEligible()"
+              class="h-8 px-4 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-md disabled:opacity-40 disabled:pointer-events-none flex items-center gap-1.5 cursor-pointer transition-colors"
+              [title]="step9Store.primaryCtaLabel()">
+              @if (step9Store.submitPhase() === 'INITIALIZING' || step9Store.submitPhase() === 'STARTING' || step9Store.submitPhase() === 'SCHEDULING') {
+                <span class="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                <span>Initializing...</span>
+              } @else {
+                <span>{{ step9Store.primaryCtaLabel() }}</span>
+                <app-lucide-icon name="arrow-right" [size]="13"></app-lucide-icon>
+              }
             </button>
           }
 
@@ -550,6 +564,8 @@ export class CreateMigrationWizardComponent implements OnInit, OnDestroy {
   public step5Store = inject(Step5MappingStoreService);
   public step6Store = inject(Step6ConfigurationStoreService);
   public step7Store = inject(Step7PlanStoreService);
+  public step8Store = inject(Step8GovernanceStoreService);
+  public step9Store = inject(Step9ReviewStoreService);
   private router = inject(Router);
 
   // Canonical Draft State
@@ -570,6 +586,9 @@ export class CreateMigrationWizardComponent implements OnInit, OnDestroy {
     }
     if (step === 7) {
       return this.ms.isStepValid(7) && this.step7Store.isStep7Valid();
+    }
+    if (step === 8) {
+      return this.ms.isStepValid(8);
     }
     return this.ms.isStepValid(step);
   });
@@ -630,6 +649,8 @@ export class CreateMigrationWizardComponent implements OnInit, OnDestroy {
       (window as any).__step5Store = this.step5Store;
       (window as any).__step6Store = this.step6Store;
       (window as any).__step7Store = this.step7Store;
+      (window as any).__step8Store = this.step8Store;
+      (window as any).__step9Store = this.step9Store;
     }
     this.timerInterval = setInterval(() => {
       this.secondsAgo.update(s => s + 1);
@@ -755,10 +776,9 @@ export class CreateMigrationWizardComponent implements OnInit, OnDestroy {
     }
   }
 
-  public onStep9Action(): void {
-    if (this.isCurrentStepValid()) {
-      const newId = this.ms.launchDraftMigration();
-      this.router.navigate(['/migration', newId]);
+  public async onStep9Action(): Promise<void> {
+    if (this.isCurrentStepValid() && this.step9Store.isSubmitEligible()) {
+      await this.step9Store.executeFinalAction();
     }
   }
 }

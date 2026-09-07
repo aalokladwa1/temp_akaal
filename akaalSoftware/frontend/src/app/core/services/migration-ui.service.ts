@@ -28,6 +28,7 @@ import {
 } from '../models/migration-view.models';
 
 export interface WizardDraftState {
+  migrationId?: string;
   name: string;
   description: string;
   environment: string;
