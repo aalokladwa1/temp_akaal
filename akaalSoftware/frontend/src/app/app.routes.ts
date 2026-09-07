@@ -7,6 +7,7 @@ import { ConnectionsComponent } from './modules/migration/connections/connection
 import { GlobalHistoryComponent } from './modules/migration/history/global-history.component';
 import { TemplateBrowserComponent } from './modules/migration/templates/template-browser.component';
 import { MigrationWorkspaceComponent } from './modules/migration/workspace/migration-workspace.component';
+import { CockpitComponent } from './modules/migration/cockpit/cockpit.component';
 import { ValidationPortfolioComponent } from './modules/validation/validation-portfolio.component';
 import { NewValidationWizardComponent } from './modules/validation/create/new-validation-wizard.component';
 import { ValidationMissionControlComponent } from './modules/validation/mission-control/validation-mission-control.component';
@@ -19,6 +20,22 @@ export const routes: Routes = [
   { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
   { path: 'dashboard', component: DashboardComponent },
 
+  // Live Execution Cockpit / Mission Control
+  { path: 'cockpit', component: CockpitComponent },
+  { path: 'cockpit/:migrationId', component: CockpitComponent },
+  { path: 'migration/cockpit', component: CockpitComponent },
+  { path: 'migration/cockpit/:migrationId', component: CockpitComponent },
+
+  // Validation Operations (M8 Data Synchronization Assurance)
+  { path: 'validation', component: ValidationPortfolioComponent },
+  { path: 'validation/new', component: NewValidationWizardComponent },
+  { path: 'validation/new/:step', component: NewValidationWizardComponent },
+  { path: 'validation/:validationId', component: ValidationMissionControlComponent },
+  { path: 'migration/validation', component: ValidationPortfolioComponent },
+  { path: 'migration/validation/new', component: NewValidationWizardComponent },
+  { path: 'migration/validation/new/:step', component: NewValidationWizardComponent },
+  { path: 'migration/validation/:validationId', component: ValidationMissionControlComponent },
+
   // Migration Operations (2.1 to 2.8)
   { path: 'migration', component: MigrationPortfolioComponent },
   { path: 'migration/portfolio', component: MigrationPortfolioComponent },
@@ -28,15 +45,9 @@ export const routes: Routes = [
   { path: 'migration/connections', component: ConnectionsComponent },
   { path: 'migration/history', component: GlobalHistoryComponent },
   { path: 'migration/templates', component: TemplateBrowserComponent },
-  { path: 'migration/:migrationId', component: MigrationWorkspaceComponent },
-  { path: 'migration/workspace/:migrationId', component: MigrationWorkspaceComponent },
-  { path: 'migration/workspace/:migrationId/:tab', component: MigrationWorkspaceComponent },
-
-  // Validation Operations (M8 Data Synchronization Assurance)
-  { path: 'migration/validation', component: ValidationPortfolioComponent },
-  { path: 'migration/validation/new', component: NewValidationWizardComponent },
-  { path: 'migration/validation/:validationId', component: ValidationMissionControlComponent },
-  { path: 'validation/:validationId', component: ValidationMissionControlComponent },
+  { path: 'migration/:migrationId', component: CockpitComponent },
+  { path: 'migration/workspace/:migrationId', component: CockpitComponent },
+  { path: 'migration/workspace/:migrationId/:tab', component: CockpitComponent },
 
   // Placeholder Modules
   { path: 'monitoring', component: MonitoringLandingComponent },

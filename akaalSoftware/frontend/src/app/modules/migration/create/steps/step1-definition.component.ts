@@ -265,8 +265,8 @@ export interface EnvironmentOption {
                 <span class="text-xs font-bold text-slate-900 truncate">{{ card.title }}</span>
 
                 @if (ms.wizardDraft().mode === card.mode) {
-                  <div class="w-4 h-4 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] font-bold shrink-0">
-                    ✓
+                  <div class="w-4 h-4 rounded-full bg-blue-600 text-white flex items-center justify-center shrink-0">
+                    <app-lucide-icon name="check" [size]="10"></app-lucide-icon>
                   </div>
                 }
               </div>

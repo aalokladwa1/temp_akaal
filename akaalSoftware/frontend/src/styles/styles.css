@@ -105,3 +105,29 @@ input::-ms-clear {
   display: none !important;
 }
 
+/* Ensure active modal dialogs and their backdrops elevate above all top chrome, shell headers, and steppers */
+body:has([role="dialog"]:not([style*="display: none"]):not(.hidden)) header,
+body:has([aria-modal="true"]:not([style*="display: none"]):not(.hidden)) header,
+body:has([role="dialog"]:not([style*="display: none"]):not(.hidden)) nav,
+body:has([aria-modal="true"]:not([style*="display: none"]):not(.hidden)) nav {
+  z-index: 10 !important;
+}
+
+body:has([role="dialog"]:not([style*="display: none"]):not(.hidden)) section[aria-label="Active Step Workspace Canvas"],
+body:has([aria-modal="true"]:not([style*="display: none"]):not(.hidden)) section[aria-label="Active Step Workspace Canvas"] {
+  position: relative !important;
+  z-index: 50 !important;
+}
+
+body:has([role="dialog"]:not([style*="display: none"]):not(.hidden)) main,
+body:has([aria-modal="true"]:not([style*="display: none"]):not(.hidden)) main {
+  position: relative !important;
+  z-index: 50 !important;
+}
+
+body:has([role="dialog"]:not([style*="display: none"]):not(.hidden)) .h-\[calc\(100vh-4rem\)\],
+body:has([aria-modal="true"]:not([style*="display: none"]):not(.hidden)) .h-\[calc\(100vh-4rem\)\] {
+  position: relative !important;
+  z-index: 45 !important;
+}
+

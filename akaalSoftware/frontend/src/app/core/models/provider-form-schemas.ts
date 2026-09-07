@@ -2201,6 +2201,288 @@ export const ALL_48_PROVIDER_SCHEMAS: Record<PhysicalProviderId, ProviderFormSch
         }
     ]
 } as any,
+  'SAP HANA': {
+    "providerId": "SAP HANA",
+    "name": "SAP HANA",
+    "category": "RELATIONAL",
+    "defaultPort": 39015,
+    "icon": "database",
+    "fields": [
+        { "id": "host", "label": "Host / Node", "type": "text", "required": true, "placeholder": "hana-node.corp.internal", "group": "ENDPOINT" },
+        { "id": "port", "label": "Port (SQL Port)", "type": "number", "defaultValue": 39015, "placeholder": "39015", "group": "ENDPOINT" },
+        { "id": "instance_number", "label": "Instance Number", "type": "text", "defaultValue": "00", "placeholder": "00", "group": "ENDPOINT" },
+        { "id": "tenant_database", "label": "Tenant Database (MDC)", "type": "text", "placeholder": "HDB", "group": "ENDPOINT" },
+        { "id": "username", "label": "Username", "type": "text", "required": true, "placeholder": "SYSTEM", "group": "AUTH" },
+        { "id": "secret_ref", "label": "Password / Secret Ref", "type": "password", "required": true, "group": "AUTH" },
+        { "id": "use_ssl", "label": "Enable TLS / SSL", "type": "boolean", "defaultValue": true, "group": "SECURITY" }
+    ]
+  } as any,
+  'SAP ASE (Sybase)': {
+    "providerId": "SAP ASE (Sybase)",
+    "name": "SAP ASE (Sybase)",
+    "category": "RELATIONAL",
+    "defaultPort": 5000,
+    "icon": "database",
+    "fields": [
+        { "id": "host", "label": "Host", "type": "text", "required": true, "placeholder": "sybase.corp.internal", "group": "ENDPOINT" },
+        { "id": "port", "label": "Port", "type": "number", "defaultValue": 5000, "placeholder": "5000", "group": "ENDPOINT" },
+        { "id": "database", "label": "Database Name", "type": "text", "required": true, "placeholder": "master", "group": "ENDPOINT" },
+        { "id": "username", "label": "Username", "type": "text", "required": true, "placeholder": "sa", "group": "AUTH" },
+        { "id": "secret_ref", "label": "Password / Secret Ref", "type": "password", "required": true, "group": "AUTH" }
+    ]
+  } as any,
+  'IBM Informix': {
+    "providerId": "IBM Informix",
+    "name": "IBM Informix",
+    "category": "RELATIONAL",
+    "defaultPort": 9088,
+    "icon": "database",
+    "fields": [
+        { "id": "host", "label": "Host", "type": "text", "required": true, "placeholder": "informix.corp.internal", "group": "ENDPOINT" },
+        { "id": "port", "label": "Port", "type": "number", "defaultValue": 9088, "placeholder": "9088", "group": "ENDPOINT" },
+        { "id": "server_name", "label": "Informix Server Name", "type": "text", "required": true, "placeholder": "ol_informix1410", "group": "ENDPOINT" },
+        { "id": "database", "label": "Database Name", "type": "text", "required": true, "placeholder": "stores7", "group": "ENDPOINT" },
+        { "id": "username", "label": "Username", "type": "text", "required": true, "placeholder": "informix", "group": "AUTH" },
+        { "id": "secret_ref", "label": "Password / Secret Ref", "type": "password", "required": true, "group": "AUTH" }
+    ]
+  } as any,
+  'CockroachDB': {
+    "providerId": "CockroachDB",
+    "name": "CockroachDB",
+    "category": "DISTRIBUTED_SQL",
+    "defaultPort": 26257,
+    "icon": "database",
+    "fields": [
+        { "id": "host", "label": "Host / Node", "type": "text", "required": true, "placeholder": "cockroach-sql.corp.internal", "group": "ENDPOINT" },
+        { "id": "port", "label": "Port", "type": "number", "defaultValue": 26257, "placeholder": "26257", "group": "ENDPOINT" },
+        { "id": "database", "label": "Database Name", "type": "text", "required": true, "placeholder": "defaultdb", "group": "ENDPOINT" },
+        { "id": "cluster_name", "label": "Cluster Routing ID", "type": "text", "placeholder": "enterprise-cluster-01", "group": "ENDPOINT" },
+        { "id": "username", "label": "Username", "type": "text", "required": true, "placeholder": "root", "group": "AUTH" },
+        { "id": "secret_ref", "label": "Password / Secret Ref", "type": "password", "required": true, "group": "AUTH" }
+    ]
+  } as any,
+  'YugabyteDB': {
+    "providerId": "YugabyteDB",
+    "name": "YugabyteDB",
+    "category": "DISTRIBUTED_SQL",
+    "defaultPort": 5433,
+    "icon": "database",
+    "fields": [
+        { "id": "host", "label": "Host / YB-TServer", "type": "text", "required": true, "placeholder": "yb-tserver.corp.internal", "group": "ENDPOINT" },
+        { "id": "port", "label": "YSQL Port", "type": "number", "defaultValue": 5433, "placeholder": "5433", "group": "ENDPOINT" },
+        { "id": "database", "label": "Database Name", "type": "text", "required": true, "placeholder": "yugabyte", "group": "ENDPOINT" },
+        { "id": "username", "label": "Username", "type": "text", "required": true, "placeholder": "yugabyte", "group": "AUTH" },
+        { "id": "secret_ref", "label": "Password / Secret Ref", "type": "password", "required": true, "group": "AUTH" }
+    ]
+  } as any,
+  'TiDB': {
+    "providerId": "TiDB",
+    "name": "TiDB",
+    "category": "DISTRIBUTED_SQL",
+    "defaultPort": 4000,
+    "icon": "database",
+    "fields": [
+        { "id": "host", "label": "Host / TiDB Server", "type": "text", "required": true, "placeholder": "tidb-server.corp.internal", "group": "ENDPOINT" },
+        { "id": "port", "label": "Port", "type": "number", "defaultValue": 4000, "placeholder": "4000", "group": "ENDPOINT" },
+        { "id": "database", "label": "Database Name", "type": "text", "required": true, "placeholder": "test", "group": "ENDPOINT" },
+        { "id": "username", "label": "Username", "type": "text", "required": true, "placeholder": "root", "group": "AUTH" },
+        { "id": "secret_ref", "label": "Password / Secret Ref", "type": "password", "required": true, "group": "AUTH" }
+    ]
+  } as any,
+  'SingleStore (MemSQL)': {
+    "providerId": "SingleStore (MemSQL)",
+    "name": "SingleStore (MemSQL)",
+    "category": "DISTRIBUTED_SQL",
+    "defaultPort": 3306,
+    "icon": "database",
+    "fields": [
+        { "id": "host", "label": "Master Aggregator Host", "type": "text", "required": true, "placeholder": "singlestore-ma.corp.internal", "group": "ENDPOINT" },
+        { "id": "port", "label": "Port", "type": "number", "defaultValue": 3306, "placeholder": "3306", "group": "ENDPOINT" },
+        { "id": "database", "label": "Database Name", "type": "text", "required": true, "placeholder": "app_db", "group": "ENDPOINT" },
+        { "id": "username", "label": "Username", "type": "text", "required": true, "placeholder": "admin", "group": "AUTH" },
+        { "id": "secret_ref", "label": "Password / Secret Ref", "type": "password", "required": true, "group": "AUTH" }
+    ]
+  } as any,
+  'Google Cloud Spanner': {
+    "providerId": "Google Cloud Spanner",
+    "name": "Google Cloud Spanner",
+    "category": "DISTRIBUTED_SQL",
+    "icon": "database",
+    "fields": [
+        { "id": "project_id", "label": "GCP Project ID", "type": "text", "required": true, "placeholder": "my-gcp-project", "group": "ENDPOINT" },
+        { "id": "instance_id", "label": "Spanner Instance ID", "type": "text", "required": true, "placeholder": "spanner-instance-01", "group": "ENDPOINT" },
+        { "id": "database_id", "label": "Database ID", "type": "text", "required": true, "placeholder": "banking_db", "group": "ENDPOINT" },
+        { "id": "auth_type", "label": "Authentication Mode", "type": "select", "defaultValue": "ADC", "options": [
+            { "label": "Application Default Credentials (ADC)", "value": "ADC" },
+            { "label": "Service Account JSON Key", "value": "SERVICE_ACCOUNT_KEY" }
+        ], "group": "AUTH" },
+        { "id": "service_account_json", "label": "Service Account JSON Key", "type": "textarea", "placeholder": "{\n  \"type\": \"service_account\",\n  ...\n}", "group": "AUTH" }
+    ]
+  } as any,
+  'ClickHouse': {
+    "providerId": "ClickHouse",
+    "name": "ClickHouse",
+    "category": "WAREHOUSE",
+    "defaultPort": 8123,
+    "icon": "layers",
+    "fields": [
+        { "id": "host", "label": "Host", "type": "text", "required": true, "placeholder": "clickhouse.corp.internal", "group": "ENDPOINT" },
+        { "id": "port", "label": "HTTP / Native Port", "type": "number", "defaultValue": 8123, "placeholder": "8123", "group": "ENDPOINT" },
+        { "id": "database", "label": "Database Name", "type": "text", "required": true, "placeholder": "default", "group": "ENDPOINT" },
+        { "id": "username", "label": "Username", "type": "text", "required": true, "placeholder": "default", "group": "AUTH" },
+        { "id": "secret_ref", "label": "Password / Secret Ref", "type": "password", "required": true, "group": "AUTH" }
+    ]
+  } as any,
+  'Teradata Vantage': {
+    "providerId": "Teradata Vantage",
+    "name": "Teradata Vantage",
+    "category": "WAREHOUSE",
+    "defaultPort": 1025,
+    "icon": "layers",
+    "fields": [
+        { "id": "host", "label": "TDP / Hostname", "type": "text", "required": true, "placeholder": "teradata.corp.internal", "group": "ENDPOINT" },
+        { "id": "port", "label": "Port", "type": "number", "defaultValue": 1025, "placeholder": "1025", "group": "ENDPOINT" },
+        { "id": "database", "label": "Default Database", "type": "text", "required": true, "placeholder": "DBC", "group": "ENDPOINT" },
+        { "id": "username", "label": "Username", "type": "text", "required": true, "placeholder": "dbc", "group": "AUTH" },
+        { "id": "secret_ref", "label": "Password / Secret Ref", "type": "password", "required": true, "group": "AUTH" }
+    ]
+  } as any,
+  'OpenText Vertica': {
+    "providerId": "OpenText Vertica",
+    "name": "OpenText Vertica",
+    "category": "WAREHOUSE",
+    "defaultPort": 5433,
+    "icon": "layers",
+    "fields": [
+        { "id": "host", "label": "Host", "type": "text", "required": true, "placeholder": "vertica.corp.internal", "group": "ENDPOINT" },
+        { "id": "port", "label": "Port", "type": "number", "defaultValue": 5433, "placeholder": "5433", "group": "ENDPOINT" },
+        { "id": "database", "label": "Database Name", "type": "text", "required": true, "placeholder": "VMart", "group": "ENDPOINT" },
+        { "id": "username", "label": "Username", "type": "text", "required": true, "placeholder": "dbadmin", "group": "AUTH" },
+        { "id": "secret_ref", "label": "Password / Secret Ref", "type": "password", "required": true, "group": "AUTH" }
+    ]
+  } as any,
+  'Apache Couchbase': {
+    "providerId": "Apache Couchbase",
+    "name": "Apache Couchbase",
+    "category": "NOSQL",
+    "defaultPort": 8091,
+    "icon": "boxes",
+    "fields": [
+        { "id": "host", "label": "Connection String / Cluster URI", "type": "text", "required": true, "placeholder": "couchbase://cluster-node.corp.internal", "group": "ENDPOINT" },
+        { "id": "bucket_name", "label": "Bucket Name", "type": "text", "required": true, "placeholder": "travel-sample", "group": "ENDPOINT" },
+        { "id": "scope_name", "label": "Scope Name", "type": "text", "defaultValue": "_default", "placeholder": "_default", "group": "ENDPOINT" },
+        { "id": "username", "label": "Username", "type": "text", "required": true, "placeholder": "Administrator", "group": "AUTH" },
+        { "id": "secret_ref", "label": "Password / Secret Ref", "type": "password", "required": true, "group": "AUTH" }
+    ]
+  } as any,
+  'Amazon DynamoDB': {
+    "providerId": "Amazon DynamoDB",
+    "name": "Amazon DynamoDB",
+    "category": "NOSQL",
+    "icon": "boxes",
+    "fields": [
+        { "id": "aws_region", "label": "AWS Region", "type": "text", "required": true, "defaultValue": "us-east-1", "placeholder": "us-east-1", "group": "ENDPOINT" },
+        { "id": "endpoint_override", "label": "Endpoint Override (Optional)", "type": "text", "placeholder": "http://localhost:8000 for local DynamoDB", "group": "ENDPOINT" },
+        { "id": "auth_type", "label": "Authentication Mode", "type": "select", "defaultValue": "IAM_ROLE", "options": [
+            { "label": "AWS IAM Instance / Task Role", "value": "IAM_ROLE" },
+            { "label": "Access Key & Secret Key", "value": "ACCESS_KEYS" }
+        ], "group": "AUTH" },
+        { "id": "aws_access_key_id", "label": "AWS Access Key ID", "type": "text", "group": "AUTH" },
+        { "id": "secret_ref", "label": "AWS Secret Access Key", "type": "password", "group": "AUTH" }
+    ]
+  } as any,
+  'Azure Cosmos DB': {
+    "providerId": "Azure Cosmos DB",
+    "name": "Azure Cosmos DB",
+    "category": "NOSQL",
+    "icon": "boxes",
+    "fields": [
+        { "id": "cosmos_account_endpoint", "label": "Cosmos DB Account Endpoint", "type": "text", "required": true, "placeholder": "https://my-cosmos.documents.azure.com:443/", "group": "ENDPOINT" },
+        { "id": "database_name", "label": "Database Name", "type": "text", "required": true, "placeholder": "my-database", "group": "ENDPOINT" },
+        { "id": "api_type", "label": "Cosmos API Type", "type": "select", "defaultValue": "SQL_CORE", "options": [
+            { "label": "SQL Core (NoSQL API)", "value": "SQL_CORE" },
+            { "label": "MongoDB API", "value": "MONGO_API" },
+            { "label": "Cassandra API", "value": "CASSANDRA_API" }
+        ], "group": "ENDPOINT" },
+        { "id": "secret_ref", "label": "Primary Master Key", "type": "password", "required": true, "placeholder": "vault://secret/prod/cosmos/key", "group": "AUTH" }
+    ]
+  } as any,
+  'InfluxDB': {
+    "providerId": "InfluxDB",
+    "name": "InfluxDB",
+    "category": "NOSQL",
+    "defaultPort": 8086,
+    "icon": "boxes",
+    "fields": [
+        { "id": "host", "label": "InfluxDB Host URL", "type": "text", "required": true, "placeholder": "http://influxdb.corp.internal:8086", "group": "ENDPOINT" },
+        { "id": "org_name", "label": "Organization Name", "type": "text", "required": true, "placeholder": "telemetry-org", "group": "ENDPOINT" },
+        { "id": "bucket_name", "label": "Default Bucket Name", "type": "text", "required": true, "placeholder": "metrics-bucket", "group": "ENDPOINT" },
+        { "id": "secret_ref", "label": "API Token / Secret Ref", "type": "password", "required": true, "group": "AUTH" }
+    ]
+  } as any,
+  'Apache Pulsar': {
+    "providerId": "Apache Pulsar",
+    "name": "Apache Pulsar",
+    "category": "STREAMING",
+    "defaultPort": 6650,
+    "icon": "radio",
+    "fields": [
+        { "id": "host", "label": "Service URL", "type": "text", "required": true, "placeholder": "pulsar://broker.corp.internal:6650", "group": "ENDPOINT" },
+        { "id": "tenant", "label": "Tenant", "type": "text", "required": true, "defaultValue": "public", "placeholder": "public", "group": "ENDPOINT" },
+        { "id": "namespace", "label": "Namespace", "type": "text", "required": true, "defaultValue": "default", "placeholder": "default", "group": "ENDPOINT" },
+        { "id": "secret_ref", "label": "Auth Token / Secret Ref", "type": "password", "group": "AUTH" }
+    ]
+  } as any,
+  'RabbitMQ': {
+    "providerId": "RabbitMQ",
+    "name": "RabbitMQ",
+    "category": "STREAMING",
+    "defaultPort": 5672,
+    "icon": "radio",
+    "fields": [
+        { "id": "host", "label": "Host", "type": "text", "required": true, "placeholder": "rabbitmq.corp.internal", "group": "ENDPOINT" },
+        { "id": "port", "label": "AMQP Port", "type": "number", "defaultValue": 5672, "placeholder": "5672", "group": "ENDPOINT" },
+        { "id": "virtual_host", "label": "Virtual Host", "type": "text", "defaultValue": "/", "placeholder": "/", "group": "ENDPOINT" },
+        { "id": "username", "label": "Username", "type": "text", "required": true, "placeholder": "guest", "group": "AUTH" },
+        { "id": "secret_ref", "label": "Password / Secret Ref", "type": "password", "required": true, "group": "AUTH" }
+    ]
+  } as any,
+  'Salesforce': {
+    "providerId": "Salesforce",
+    "name": "Salesforce",
+    "category": "SAAS",
+    "icon": "globe",
+    "fields": [
+        { "id": "host", "label": "Instance URL / Login Domain", "type": "text", "required": true, "defaultValue": "https://login.salesforce.com", "placeholder": "https://login.salesforce.com", "group": "ENDPOINT" },
+        { "id": "username", "label": "API Username", "type": "text", "required": true, "placeholder": "integration@company.com", "group": "AUTH" },
+        { "id": "secret_ref", "label": "Password + Security Token", "type": "password", "required": true, "group": "AUTH" },
+        { "id": "client_id", "label": "Connected App Client ID", "type": "text", "group": "AUTH" }
+    ]
+  } as any,
+  'ServiceNow': {
+    "providerId": "ServiceNow",
+    "name": "ServiceNow",
+    "category": "SAAS",
+    "icon": "globe",
+    "fields": [
+        { "id": "host", "label": "Instance URL", "type": "text", "required": true, "placeholder": "https://instance.service-now.com", "group": "ENDPOINT" },
+        { "id": "username", "label": "Service Account Username", "type": "text", "required": true, "placeholder": "integration_user", "group": "AUTH" },
+        { "id": "secret_ref", "label": "Password / OAuth Secret", "type": "password", "required": true, "group": "AUTH" }
+    ]
+  } as any,
+  'SAP Application Ecosystem': {
+    "providerId": "SAP Application Ecosystem",
+    "name": "SAP Application Ecosystem",
+    "category": "SAAS",
+    "icon": "globe",
+    "fields": [
+        { "id": "host", "label": "SAP Application Server Host", "type": "text", "required": true, "placeholder": "sap-app.corp.internal", "group": "ENDPOINT" },
+        { "id": "system_number", "label": "System Number", "type": "text", "defaultValue": "00", "placeholder": "00", "group": "ENDPOINT" },
+        { "id": "client_id", "label": "SAP Client ID", "type": "text", "defaultValue": "100", "placeholder": "100", "group": "ENDPOINT" },
+        { "id": "username", "label": "SAP User", "type": "text", "required": true, "placeholder": "RFC_USER", "group": "AUTH" },
+        { "id": "secret_ref", "label": "Password / Secret Ref", "type": "password", "required": true, "group": "AUTH" }
+    ]
+  } as any
 } as any;
 
 export const ALL_28_PROVIDER_SCHEMAS = ALL_48_PROVIDER_SCHEMAS;
@@ -2211,3 +2493,9 @@ ALL_48_PROVIDER_SCHEMAS['Snowflake'] = { ...ALL_48_PROVIDER_SCHEMAS['Snowflake D
 ALL_48_PROVIDER_SCHEMAS['Neo4j Graph Database'] = { ...ALL_48_PROVIDER_SCHEMAS['Neo4j'], providerId: 'Neo4j Graph Database' };
 ALL_48_PROVIDER_SCHEMAS['Databricks / Delta Lake'] = { ...ALL_48_PROVIDER_SCHEMAS['Databricks'], providerId: 'Databricks / Delta Lake' };
 ALL_48_PROVIDER_SCHEMAS['Amazon Kinesis'] = { ...ALL_48_PROVIDER_SCHEMAS['Amazon Kinesis Data Streams'], providerId: 'Amazon Kinesis' };
+ALL_48_PROVIDER_SCHEMAS['SingleStore'] = { ...ALL_48_PROVIDER_SCHEMAS['SingleStore (MemSQL)'], providerId: 'SingleStore' };
+ALL_48_PROVIDER_SCHEMAS['SAP ASE'] = { ...ALL_48_PROVIDER_SCHEMAS['SAP ASE (Sybase)'], providerId: 'SAP ASE' };
+ALL_48_PROVIDER_SCHEMAS['Teradata'] = { ...ALL_48_PROVIDER_SCHEMAS['Teradata Vantage'], providerId: 'Teradata' };
+ALL_48_PROVIDER_SCHEMAS['Amazon S3 Object Storage'] = { ...ALL_48_PROVIDER_SCHEMAS['Amazon S3'], providerId: 'Amazon S3 Object Storage' };
+ALL_48_PROVIDER_SCHEMAS['Google Cloud Storage (GCS)'] = { ...ALL_48_PROVIDER_SCHEMAS['Google Cloud Storage'], providerId: 'Google Cloud Storage (GCS)' };
+ALL_48_PROVIDER_SCHEMAS['MinIO Object Storage'] = { ...ALL_48_PROVIDER_SCHEMAS['MinIO'], providerId: 'MinIO Object Storage' };

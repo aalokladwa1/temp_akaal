@@ -1,8 +1,11 @@
+import '@angular/compiler';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { MigrationUiService } from '../../../core/services/migration-ui.service';
 import { MigrationDevFixturesAdapter } from '../../../core/fixtures/migration-dev-fixtures.adapter';
-import { ALL_28_PROVIDER_SCHEMAS } from '../../../core/models/provider-form-schemas';
+import { ALL_48_PROVIDER_SCHEMAS, ALL_28_PROVIDER_SCHEMAS } from '../../../core/models/provider-form-schemas';
 import { PhysicalProviderId, DiscoveryDepthTier } from '../../../core/models/migration-view.models';
+import { Step2SourceComponent } from './steps/step2-source.component';
+import { Step3TargetComponent } from './steps/step3-target.component';
 
 describe('CreateMigrationWizard State & Governance Suite', () => {
   let service: MigrationUiService;
@@ -951,6 +954,104 @@ describe('CreateMigrationWizard State & Governance Suite', () => {
         service.updateDraft({ discoveryDepthTier: d });
         expect(service.wizardDraft().discoveryDepthTier).toBe(d);
       });
+    });
+  });
+
+  describe('Step 2 Source Instance & Connectivity (48 Providers & Network Routes)', () => {
+    let step2: Step2SourceComponent;
+
+    beforeEach(() => {
+      step2 = new Step2SourceComponent(service);
+    });
+
+    it('should display all 48 database engines across 7 categories', () => {
+      step2.setConnectionMode('NEW');
+      expect(step2.catalogEngines.length).toBe(48);
+
+      step2.selectedCategoryTab.set('RELATIONAL');
+      expect(step2.filteredCatalogEngines().length).toBe(10);
+
+      step2.selectedCategoryTab.set('DISTRIBUTED_SQL');
+      expect(step2.filteredCatalogEngines().length).toBe(5);
+
+      step2.selectedCategoryTab.set('WAREHOUSE');
+      expect(step2.filteredCatalogEngines().length).toBe(7);
+
+      step2.selectedCategoryTab.set('NOSQL');
+      expect(step2.filteredCatalogEngines().length).toBe(12);
+
+      step2.selectedCategoryTab.set('STREAMING');
+      expect(step2.filteredCatalogEngines().length).toBe(6);
+
+      step2.selectedCategoryTab.set('STORAGE');
+      expect(step2.filteredCatalogEngines().length).toBe(5);
+
+      step2.selectedCategoryTab.set('SAAS');
+      expect(step2.filteredCatalogEngines().length).toBe(3);
+    });
+
+    it('should support all network route options and environment-aware TLS options', () => {
+      expect(step2.networkRouteOptions.length).toBe(5);
+      expect(step2.networkRouteOptions.map(r => r.value)).toEqual([
+        'DIRECT', 'SSH_BASTION', 'PRIVATE_ENDPOINT', 'HTTP_PROXY', 'SOCKS5_PROXY'
+      ]);
+
+      // Production TLS options
+      service.updateDraft({ environment: 'Production' });
+      expect(step2.tlsModeOptions().some(t => t.value === 'DISABLE')).toBe(false);
+      expect(step2.tlsModeOptions().some(t => t.value === 'VERIFY_FULL')).toBe(true);
+
+      // Non-Production TLS options
+      service.updateDraft({ environment: 'Non-Production' });
+      expect(step2.tlsModeOptions().some(t => t.value === 'DISABLE')).toBe(true);
+    });
+  });
+
+  describe('Step 3 Target Instance & Compatibility (48 Providers, Network Routes & TLS)', () => {
+    let step3: Step3TargetComponent;
+
+    beforeEach(() => {
+      step3 = new Step3TargetComponent(service);
+    });
+
+    it('should display all 48 database engines across 7 categories in Target step', () => {
+      step3.setConnectionMode('NEW');
+      expect(step3.catalogEngines.length).toBe(48);
+
+      step3.selectedCategoryTab.set('RELATIONAL');
+      expect(step3.filteredCatalogEngines().length).toBe(10);
+
+      step3.selectedCategoryTab.set('DISTRIBUTED_SQL');
+      expect(step3.filteredCatalogEngines().length).toBe(5);
+
+      step3.selectedCategoryTab.set('WAREHOUSE');
+      expect(step3.filteredCatalogEngines().length).toBe(7);
+
+      step3.selectedCategoryTab.set('NOSQL');
+      expect(step3.filteredCatalogEngines().length).toBe(12);
+
+      step3.selectedCategoryTab.set('STREAMING');
+      expect(step3.filteredCatalogEngines().length).toBe(6);
+
+      step3.selectedCategoryTab.set('STORAGE');
+      expect(step3.filteredCatalogEngines().length).toBe(5);
+
+      step3.selectedCategoryTab.set('SAAS');
+      expect(step3.filteredCatalogEngines().length).toBe(3);
+    });
+
+    it('should support all 8 category tabs with exact engine counts', () => {
+      expect(step3.catalogTabs.length).toBe(8);
+      expect(step3.catalogTabs).toEqual([
+        { id: 'ALL', label: 'All', count: 48 },
+        { id: 'RELATIONAL', label: 'Relational', count: 10 },
+        { id: 'DISTRIBUTED_SQL', label: 'Distributed SQL', count: 5 },
+        { id: 'WAREHOUSE', label: 'Warehouse', count: 7 },
+        { id: 'NOSQL', label: 'NoSQL', count: 12 },
+        { id: 'STREAMING', label: 'Streaming', count: 6 },
+        { id: 'STORAGE', label: 'Storage', count: 5 },
+        { id: 'SAAS', label: 'SaaS & Apps', count: 3 }
+      ]);
     });
   });
 });
