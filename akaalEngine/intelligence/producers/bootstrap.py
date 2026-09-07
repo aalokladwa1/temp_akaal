@@ -22,9 +22,10 @@ not exist in this repository today, and is not fabricated here.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Callable, Optional
 
 from akaalEngine.intelligence.api import IntelligenceKernel
+from akaalEngine.intelligence.knowledge.constraint_projection import TrustedStrategyConstraintSnapshot
 from akaalEngine.intelligence.models.context import IntelligenceContext
 from akaalEngine.intelligence.models.errors import IntelligenceValidationError
 from akaalEngine.intelligence.models.request import IntelligenceRequest, IntelligenceTask
@@ -48,7 +49,21 @@ def _inline_schema_model_resolver(request: IntelligenceRequest, context: Intelli
     return CanonicalSchemaModel.from_dict(raw)
 
 
-def register_all_campaign_b_producers(kernel: IntelligenceKernel) -> None:
+def register_all_campaign_b_producers(
+    kernel: IntelligenceKernel,
+    *,
+    strategy_constraint_resolver: Optional[
+        Callable[[IntelligenceRequest, IntelligenceContext], TrustedStrategyConstraintSnapshot]
+    ] = None,
+) -> None:
+    """`strategy_constraint_resolver` -- if given, wires P7C.8's canonical
+    residency/capability feasible-set projection (see
+    akaalEngine.intelligence.knowledge.constraint_projection) to a REAL
+    authorization decision-maker. In production this is built by the
+    akaalPipeline layer (which has access to the real CentralAuthorizationEngine
+    -- akaalEngine must never import akaalPipeline) and passed in here; without
+    it, P7C.8 refuses any request that asserts region/capability constraints
+    rather than trusting caller-only claims (fail closed)."""
     kernel.register_producer(
         IntelligenceTask.ASSESS,
         make_estate_assessment_producer(_inline_schema_model_resolver),
@@ -56,7 +71,7 @@ def register_all_campaign_b_producers(kernel: IntelligenceKernel) -> None:
     )
     kernel.register_producer(
         IntelligenceTask.OPTIMIZE,
-        make_strategy_generation_producer(),
+        make_strategy_generation_producer(strategy_constraint_resolver),
         capability="strategy_generation",
     )
     kernel.register_producer(

@@ -1749,6 +1749,13 @@ class CommandHandlerRegistry:
             subject_type=subject_type,
             subject_id=subject_id,
             subject_version=subject_version,
+            # Carries this request's REAL authenticated actor identity/roles
+            # through to any Campaign B producer that needs a second, finer-
+            # grained canonical authorization check (e.g. P7C.8's canonical
+            # region/capability constraint resolver) -- never a synthetic or
+            # re-derived identity, the same roles already established for this
+            # exact already-authenticated request.
+            extra_dimensions={"actor_id": actor.actor_id, "actor_roles": ",".join(sorted(actor.roles))},
         )
         artifact = self.intelligence_kernel.submit_request(request, context, uow.connection)
         self.audit_service.record_event(actor, "intelligence.artifact.generated", artifact.artifact_id, uow.connection)

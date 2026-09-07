@@ -112,6 +112,9 @@ class PermissionRegistry:
     # P7C.6 Action Mediation Gateway
     INTELLIGENCE_MEDIATION_EVALUATE = "intelligence.mediation.evaluate"
     INTELLIGENCE_MEDIATION_PREAUTHORIZE = "intelligence.mediation.preauthorize"
+    # P7C.8 canonical strategy constraint projection
+    INTELLIGENCE_STRATEGY_REGION_USE = "intelligence.strategy.region.use"
+    INTELLIGENCE_STRATEGY_CAPABILITY_USE = "intelligence.strategy.capability.use"
 
     ALL_PERMISSIONS: FrozenSet[str] = frozenset({
         MIGRATION_CREATE,
@@ -191,6 +194,8 @@ class PermissionRegistry:
         INTELLIGENCE_READ,
         INTELLIGENCE_MEDIATION_EVALUATE,
         INTELLIGENCE_MEDIATION_PREAUTHORIZE,
+        INTELLIGENCE_STRATEGY_REGION_USE,
+        INTELLIGENCE_STRATEGY_CAPABILITY_USE,
     })
 
     @classmethod

@@ -156,44 +156,46 @@ def compute_pareto_frontier(candidates: List[StrategyCandidate]) -> List[Strateg
     return frontier
 
 
-def make_strategy_generation_producer():
+def make_strategy_generation_producer(trusted_constraint_resolver=None):
     """Returns an IntelligenceKernel-compatible producer for IntelligenceTask.OPTIMIZE.
+
+    `trusted_constraint_resolver(request, context) -> TrustedStrategyConstraintSnapshot`
+    is the ONLY source of canonical residency/capability truth (P7C brief
+    permanent law: "CANONICAL AKAAL TRUTH OUTRANKS CALLER-SUPPLIED CONTEXT").
+    In production it is wired (see akaalEngine.intelligence.producers.bootstrap)
+    to a real closure over the canonical `CentralAuthorizationEngine`. Caller-
+    supplied `allowed_regions`/`required_capability` in request.parameters can
+    only ever NARROW (intersect) what the resolver's canonical snapshot already
+    permits -- never broaden it, never substitute for it.
 
     request.parameters:
       - objective: str (StrategyObjective value), default BALANCED
       - base_risk_score: float in [0,1], default 0.0
-      - allowed_regions: list[str] -- the FEASIBLE SET residency constraint; a
-        candidate whose region is not in this list is excluded before scoring,
-        never merely down-ranked.
       - candidate_regions: list[str], default ["default"] -- the region(s)
-        candidate strategies are proposed for; the feasible-set filters below
-        then narrow this down to `allowed_regions` AND `required_capability`.
-      - required_capability: str, optional -- a capability the migration needs
-        (e.g. "cdc_apply"). If given, `region_capability_map` MUST also be
-        given (caller-supplied canonical capability facts -- this producer
-        never invents which region supports what); a region missing the
-        capability is excluded from the feasible set before scoring, exactly
-        like an illegal region, never merely down-ranked.
-      - region_capability_map: Mapping[str, list[str]], optional -- canonical
-        capability facts per region, supplied by the caller (in production,
-        derived from real P7B/provider capability truth -- this producer does
-        not fabricate it).
-      - constraints_fingerprint / current fingerprint staleness: if
-        `constraints_generated_against_fingerprint` is supplied, it MUST match
-        `context.canonical_state_fingerprint` (via the context's own dimension,
-        not re-derived here) -- a caller optimizing against a stale constraint
-        snapshot (e.g. residency policy changed since constraints were pulled)
-        is refused, never silently optimized against outdated constraints.
+        candidate strategies are proposed for. If a `trusted_constraint_resolver`
+        is wired, only regions the CANONICAL snapshot allows (optionally further
+        narrowed by caller `allowed_regions`) survive; without a resolver wired,
+        candidates are generated across all requested regions with no residency
+        enforcement (safe only because no residency claim is being made at all --
+        see the fail-closed rule below).
+      - allowed_regions: list[str], optional -- caller NARROWING only. Ignored
+        (never authoritative) unless a `trusted_constraint_resolver` is wired;
+        if supplied without a wired resolver, the request is refused rather
+        than trusting caller-only region claims.
+      - required_capability: str, optional -- same fail-closed rule: refused
+        without a wired resolver, since capability facts must be canonical.
+      - constraints_generated_against_fingerprint: optional staleness guard,
+        checked against `context.canonical_state_fingerprint`.
     """
 
     def producer(request: IntelligenceRequest, context: IntelligenceContext) -> IntelligenceResult:
+        from akaalEngine.intelligence.knowledge.constraint_projection import narrow_by_caller_preference
         from akaalEngine.intelligence.models.errors import IntelligenceValidationError
 
         objective = StrategyObjective(str(request.parameters.get("objective", "BALANCED")).upper())
         base_risk_score = _clamp01(float(request.parameters.get("base_risk_score", 0.0)))
-        allowed_regions = request.parameters.get("allowed_regions")
+        caller_allowed_regions = request.parameters.get("allowed_regions")
         required_capability = request.parameters.get("required_capability")
-        region_capability_map = request.parameters.get("region_capability_map")
         candidate_regions = tuple(request.parameters.get("candidate_regions") or [request.parameters.get("candidate_region", "default")])
 
         # Staleness gate: a constraint snapshot bound to a canonical-state
@@ -207,10 +209,30 @@ def make_strategy_generation_producer():
                 f"{context.canonical_state_fingerprint!r}; refusing to optimize against stale constraints."
             )
 
-        if required_capability is not None and region_capability_map is None:
+        # Fail-closed rule: a caller cannot assert region/capability legality on
+        # its own -- if it tries to, and no canonical resolver is wired to
+        # verify it, refuse rather than silently trusting the caller.
+        if (caller_allowed_regions is not None or required_capability is not None) and trusted_constraint_resolver is None:
             raise IntelligenceValidationError(
-                "request.parameters['required_capability'] was supplied without "
-                "'region_capability_map'; refusing to guess capability compatibility."
+                "Residency/capability constraints were requested but no canonical "
+                "trusted_constraint_resolver is wired to verify them; refusing to "
+                "trust caller-supplied region/capability claims as canonical."
+            )
+
+        allowed_regions = None
+        region_capability_map = None
+        snapshot = None
+        if trusted_constraint_resolver is not None:
+            snapshot = trusted_constraint_resolver(request, context)
+            caller_regions_set = frozenset(str(r) for r in caller_allowed_regions) if caller_allowed_regions is not None else None
+            # LAW: FINAL = CANONICAL ∩ CALLER -- never a union, never caller-only.
+            allowed_regions = narrow_by_caller_preference(snapshot.allowed_regions, caller_regions_set)
+            region_capability_map = snapshot.region_capability_map
+
+        if required_capability is not None and not region_capability_map:
+            raise IntelligenceValidationError(
+                "request.parameters['required_capability'] was supplied but the canonical "
+                "snapshot carries no capability facts; refusing to guess capability compatibility."
             )
 
         raw_candidates = generate_candidate_shapes(base_risk_score=base_risk_score, allowed_regions=candidate_regions)
@@ -285,6 +307,7 @@ def make_strategy_generation_producer():
                 "pareto_frontier": [c.to_dict() for c in pareto],
                 "excluded_by_residency": excluded_by_residency_labels,
                 "excluded_by_capability": excluded_by_capability_labels,
+                "canonical_constraint_source_fingerprint": snapshot.source_fingerprint if snapshot is not None else None,
             },
         )
 

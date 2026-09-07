@@ -52,6 +52,35 @@ def _kernel() -> IntelligenceKernel:
     return kernel
 
 
+def _kernel_with_canonical(allowed_regions=None, region_capability_map=None) -> IntelligenceKernel:
+    """A kernel wired with a real (test-shaped) canonical constraint resolver --
+    per the Blocker-1 trust law, residency/capability tests must go through a
+    resolver representing canonical truth, not a bare caller claim."""
+    from akaalEngine.intelligence.knowledge.constraint_projection import project_trusted_constraints
+
+    canonical_regions = frozenset(allowed_regions or ())
+    canonical_caps = {k: frozenset(v) for k, v in (region_capability_map or {}).items()}
+
+    def region_authorizer(tenant_id, region):
+        return region in canonical_regions
+
+    def capability_authorizer(tenant_id, region, capability):
+        return capability in canonical_caps.get(region, frozenset())
+
+    def resolver(request, context):
+        candidate_regions = frozenset(request.parameters.get("candidate_regions") or ["default"])
+        required_capability = request.parameters.get("required_capability")
+        capability_universe = frozenset({str(required_capability)}) if required_capability else None
+        return project_trusted_constraints(
+            request.tenant_id, candidate_regions=candidate_regions, region_authorizer=region_authorizer,
+            capability_universe=capability_universe, capability_authorizer=capability_authorizer if capability_universe else None,
+        )
+
+    kernel = IntelligenceKernel(store=IntelligenceArtifactStore())
+    kernel.register_producer(IntelligenceTask.OPTIMIZE, make_strategy_generation_producer(resolver))
+    return kernel
+
+
 def _req(**params) -> IntelligenceRequest:
     return IntelligenceRequest(
         task=IntelligenceTask.OPTIMIZE, tenant_id="tenant-a", subject_type="migration_plan",
@@ -98,7 +127,7 @@ class TestResidencyDefinesFeasibleSetHostile:
         cheaper/faster but must be excluded from the feasible set entirely --
         not merely penalized or warned about. India candidates remain and are
         the ones actually optimized/ranked."""
-        kernel = _kernel()
+        kernel = _kernel_with_canonical(allowed_regions=["india"])
         artifact = kernel.submit_request(
             _req(objective="LOWEST_COST", candidate_regions=["singapore", "india"], allowed_regions=["india"]),
             _ctx(),
@@ -122,7 +151,7 @@ class TestResidencyDefinesFeasibleSetHostile:
             )
 
     def test_compliant_region_candidates_pass_and_carry_no_counterfactual_confusion(self, conn):
-        kernel = _kernel()
+        kernel = _kernel_with_canonical(allowed_regions=["india"])
         artifact = kernel.submit_request(
             _req(objective="LOWEST_COST", candidate_regions=["india"], allowed_regions=["india"]),
             _ctx(),
@@ -135,7 +164,7 @@ class TestResidencyDefinesFeasibleSetHostile:
         """A region that is cheap/capacity-rich but not in allowed_regions must
         be excluded from the feasible set, never merely down-ranked because its
         cost/speed scores look attractive."""
-        kernel = _kernel()
+        kernel = _kernel_with_canonical(allowed_regions=["india"])
         artifact = kernel.submit_request(
             _req(objective="FASTEST", candidate_regions=["capacity-rich-unauthorized", "india"], allowed_regions=["india"]),
             _ctx(),
@@ -146,7 +175,7 @@ class TestResidencyDefinesFeasibleSetHostile:
         assert all("india" in a["label"] for a in alternatives)
 
     def test_counterfactual_names_concrete_blocking_constraint_not_vague_text(self, conn):
-        kernel = _kernel()
+        kernel = _kernel_with_canonical(allowed_regions=["india", "us"])
         artifact = kernel.submit_request(
             _req(objective="LOWEST_COST", candidate_regions=["brazil", "india"], allowed_regions=["india", "us"]),
             _ctx(),
@@ -166,14 +195,12 @@ class TestCapabilityFeasibleSetHostile:
     caller-supplied canonical data (never fabricated by this producer)."""
 
     def test_hostile_capability_incompatible_region_excluded_before_optimization(self, conn):
-        kernel = _kernel()
+        kernel = _kernel_with_canonical(
+            allowed_regions=["india", "us"],
+            region_capability_map={"india": ["cdc_apply", "bulk_write"], "us": ["bulk_write"]},
+        )
         artifact = kernel.submit_request(
-            _req(
-                objective="LOWEST_COST",
-                candidate_regions=["india", "us"],
-                required_capability="cdc_apply",
-                region_capability_map={"india": ["cdc_apply", "bulk_write"], "us": ["bulk_write"]},
-            ),
+            _req(objective="LOWEST_COST", candidate_regions=["india", "us"], required_capability="cdc_apply"),
             _ctx(),
             conn,
         )
@@ -211,18 +238,20 @@ class TestCapabilityFeasibleSetHostile:
         """A region legal under residency but incapable, and a region capable
         but illegal, must both be excluded -- only the region satisfying BOTH
         constraints survives."""
-        kernel = _kernel()
+        kernel = _kernel_with_canonical(
+            allowed_regions=["india", "singapore"],
+            region_capability_map={
+                "india": ["cdc_apply"],
+                "singapore": ["bulk_write"],  # legal region, wrong capability
+                "brazil": ["cdc_apply"],  # right capability, illegal region (not canonically allowed)
+            },
+        )
         artifact = kernel.submit_request(
             _req(
                 objective="BALANCED",
                 candidate_regions=["india", "singapore", "brazil"],
                 allowed_regions=["india", "singapore"],
                 required_capability="cdc_apply",
-                region_capability_map={
-                    "india": ["cdc_apply"],
-                    "singapore": ["bulk_write"],  # legal region, wrong capability
-                    "brazil": ["cdc_apply"],  # right capability, illegal region
-                },
             ),
             _ctx(),
             conn,
