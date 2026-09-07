@@ -94,7 +94,7 @@ export const GDS = {
   brandPostgres: 'px-2.5 py-0.5 rounded-md bg-blue-700 text-white font-bold text-[10px] tracking-wide select-none',
   brandSnowflake: 'px-2.5 py-0.5 rounded-md bg-sky-600 text-white font-bold text-[10px] tracking-wide select-none',
   brandMysql: 'px-2.5 py-0.5 rounded-md bg-amber-600 text-white font-bold text-[10px] tracking-wide select-none',
-  brandKafka: 'px-2.5 py-0.5 rounded-md bg-slate-900 text-white font-bold text-[10px] tracking-wide select-none',
+  brandKafka: 'px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-800 border border-slate-200 font-bold text-[10px] tracking-wide select-none',
 
   // 16. Stepper (Option A)
   stepperRail: 'h-12 bg-white border-b border-slate-200 px-6 flex items-center justify-between select-none shrink-0',

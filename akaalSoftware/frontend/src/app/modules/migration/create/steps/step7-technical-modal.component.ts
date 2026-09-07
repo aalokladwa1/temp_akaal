@@ -111,7 +111,7 @@ import { Step7PlanStoreService } from '../../../../core/services/step7-plan-stor
           <button
             type="button"
             (click)="store.closeTechnicalModal()"
-            class="h-8 px-4 rounded-lg bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold cursor-pointer transition-colors">
+            class="h-8 px-4 rounded-lg bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-semibold text-xs cursor-pointer transition-colors shadow-2xs">
             Close
           </button>
         </footer>

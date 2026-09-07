@@ -490,7 +490,7 @@ import { CodeObjectCategory, TranspilerObjectContract } from './step5-mapping.mo
                   <span class="text-[11px] text-slate-500 font-mono">
                     Referenced in: {{ helper.affectedRoutines.join(', ') }}
                   </span>
-                  <div class="mt-1 p-2 bg-slate-900 text-slate-100 rounded text-[11px] font-mono overflow-x-auto select-text">
+                  <div class="mt-1 p-2.5 bg-slate-50 border border-slate-200 text-slate-800 rounded-lg text-[11px] font-mono overflow-x-auto select-text shadow-2xs">
                     {{ helper.installSql }}
                   </div>
                 </div>
@@ -501,7 +501,7 @@ import { CodeObjectCategory, TranspilerObjectContract } from './step5-mapping.mo
               <button
                 type="button"
                 (click)="showCompatModal = false"
-                class="h-8 px-4 rounded bg-slate-800 hover:bg-slate-900 text-white font-semibold text-xs cursor-pointer">
+                class="h-8 px-4 rounded-lg bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-semibold text-xs cursor-pointer transition-colors shadow-2xs">
                 Close Pack Viewer
               </button>
             </div>

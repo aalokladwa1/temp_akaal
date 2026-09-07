@@ -31,9 +31,21 @@ import { CommonModule } from '@angular/common';
           <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/>
           <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>
         }
+        @case ('user') {
+          <circle cx="12" cy="8" r="5"/>
+          <path d="M20 21a8 8 0 0 0-16 0"/>
+        }
         @case ('user-round') {
           <circle cx="12" cy="8" r="5"/>
           <path d="M20 21a8 8 0 0 0-16 0"/>
+        }
+        @case ('bot') {
+          <path d="M12 8V4H8"/>
+          <rect width="16" height="12" x="4" y="8" rx="2"/>
+          <path d="M2 14h2"/>
+          <path d="M20 14h2"/>
+          <path d="M15 13v2"/>
+          <path d="M9 13v2"/>
         }
         @case ('chevron-down') {
           <path d="m6 9 6 6 6-6"/>
@@ -1122,6 +1134,221 @@ import { CommonModule } from '@angular/common';
         @case ('trending-down') {
           <polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/>
           <polyline points="16 17 22 17 22 11"/>
+        }
+        @case ('user-check') {
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <polyline points="16 11 18 13 22 9"/>
+        }
+        @case ('user-x') {
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <line x1="17" x2="22" y1="8" y2="13"/>
+          <line x1="22" x2="17" y1="8" y2="13"/>
+        }
+        @case ('shield-x') {
+          <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>
+          <line x1="9" x2="15" y1="9" y2="15"/>
+          <line x1="15" x2="9" y1="9" y2="15"/>
+        }
+        @case ('badge-check') {
+          <path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/>
+          <path d="m9 12 2 2 4-4"/>
+        }
+        @case ('file-check') {
+          <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/>
+          <path d="M14 2v4a2 2 0 0 0 2 2h4"/>
+          <path d="m9 15 2 2 4-4"/>
+        }
+        @case ('hammer') {
+          <path d="m15 12-8.5 8.5a2.12 2.12 0 0 1-3-3L12 9"/>
+          <path d="M17.64 15 22 10.64"/>
+          <path d="m20.91 3.26-6.5 6.5"/>
+          <path d="m14.41 9.76 2.83 2.83"/>
+          <path d="m21.61 6.09 1.42 1.41a1 1 0 0 1 0 1.42l-2.12 2.12a1 1 0 0 1-1.42 0l-1.41-1.41"/>
+        }
+        @case ('map-pin') {
+          <path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/>
+          <circle cx="12" cy="10" r="3"/>
+        }
+        @case ('minus-square') {
+          <rect width="18" height="18" x="3" y="3" rx="2"/>
+          <line x1="8" x2="16" y1="12" y2="12"/>
+        }
+        @case ('plus-square') {
+          <rect width="18" height="18" x="3" y="3" rx="2"/>
+          <line x1="12" x2="12" y1="8" y2="16"/>
+          <line x1="8" x2="16" y1="12" y2="12"/>
+        }
+        @case ('binary') {
+          <rect width="4" height="6" x="14" y="14" rx="1"/>
+          <rect width="4" height="6" x="6" y="4" rx="1"/>
+          <path d="M6 20h4"/>
+          <path d="M14 10h4"/>
+          <path d="M6 14h2v6"/>
+          <path d="M14 4h2v6"/>
+        }
+        @case ('help-circle') {
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+          <path d="M12 17h.01"/>
+        }
+        @case ('shield-off') {
+          <path d="M19.69 14a6.9 6.9 0 0 0 .31-2V5l-8-3-3.16 1.18"/>
+          <path d="M4.73 4.73 4 5v7c0 6 8 10 8 10a20.29 20.29 0 0 0 5.62-4.38"/>
+          <line x1="1" x2="23" y1="1" y2="23"/>
+        }
+        @case ('vault') {
+          <rect width="18" height="18" x="3" y="3" rx="2"/>
+          <circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/>
+          <path d="m7.9 7.9 2.7 2.7"/>
+          <circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/>
+          <path d="m16.1 7.9-2.7 2.7"/>
+          <circle cx="7.5" cy="16.5" r=".5" fill="currentColor"/>
+          <path d="m7.9 16.1 2.7-2.7"/>
+          <circle cx="16.5" cy="16.5" r=".5" fill="currentColor"/>
+          <path d="m16.1 16.1-2.7-2.7"/>
+          <circle cx="12" cy="12" r="2"/>
+        }
+        @case ('file-x') {
+          <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/>
+          <path d="M14 2v4a2 2 0 0 0 2 2h4"/>
+          <path d="m14.5 12.5-5 5"/>
+          <path d="m9.5 12.5 5 5"/>
+        }
+        @case ('minus-circle') {
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="8" x2="16" y1="12" y2="12"/>
+        }
+        @case ('list-tree') {
+          <path d="M21 12h-8"/>
+          <path d="M21 6H8"/>
+          <path d="M21 18h-8"/>
+          <path d="M3 6v4c0 1.1.9 2 2 2h3"/>
+          <path d="M3 10v6c0 1.1.9 2 2 2h3"/>
+        }
+        @case ('wrench') {
+          <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+        }
+        @case ('table') {
+          <path d="M12 3v18"/>
+          <rect width="18" height="18" x="3" y="3" rx="2"/>
+          <path d="M3 9h18"/>
+          <path d="M3 15h18"/>
+        }
+        @case ('key') {
+          <circle cx="7.5" cy="15.5" r="5.5"/>
+          <path d="m21 3-9.5 9.5"/>
+          <path d="m15.5 7.5 3 3"/>
+          <path d="m18.5 4.5 3 3"/>
+        }
+        @case ('fingerprint') {
+          <path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4"/>
+          <path d="M14 13.12c0 2.38 0 6.38-1 8.88"/>
+          <path d="M17.29 21.02c.12-.6.43-2.3.5-3.02"/>
+          <path d="M2 12a10 10 0 0 1 18-6"/>
+          <path d="M2 16h.01"/>
+          <path d="M21.8 16c.2-2 .131-5.354 0-6"/>
+          <path d="M5 19.5C5.5 18 6 15 6 12a6 6 0 0 1 .34-2"/>
+          <path d="M8.65 22c.21-.66.45-1.32.57-2"/>
+          <path d="M9 6.8a6 6 0 0 1 9 5.2v2"/>
+        }
+        @case ('hash') {
+          <line x1="4" x2="20" y1="9" y2="9"/>
+          <line x1="4" x2="20" y1="15" y2="15"/>
+          <line x1="10" x2="8" y1="3" y2="21"/>
+          <line x1="16" x2="14" y1="3" y2="21"/>
+        }
+        @case ('copy') {
+          <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/>
+          <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
+        }
+        @case ('globe') {
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/>
+          <path d="M2 12h20"/>
+        }
+        @case ('arrow-up-right') {
+          <path d="M7 7h10v10"/>
+          <path d="M7 17 17 7"/>
+        }
+        @case ('eye') {
+          <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>
+          <circle cx="12" cy="12" r="3"/>
+        }
+        @case ('eye-off') {
+          <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/>
+          <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/>
+          <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/>
+          <line x1="2" x2="22" y1="2" y2="22"/>
+        }
+        @case ('file-minus') {
+          <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/>
+          <path d="M14 2v4a2 2 0 0 0 2 2h4"/>
+          <path d="M9 15h6"/>
+        }
+        @case ('file-plus') {
+          <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/>
+          <path d="M14 2v4a2 2 0 0 0 2 2h4"/>
+          <path d="M9 15h6"/>
+          <path d="M12 12v6"/>
+        }
+        @case ('target') {
+          <circle cx="12" cy="12" r="10"/>
+          <circle cx="12" cy="12" r="6"/>
+          <circle cx="12" cy="12" r="2"/>
+        }
+        @case ('layers') {
+          <path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/>
+          <path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/>
+          <path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/>
+        }
+        @case ('arrow-up-down') {
+          <path d="m21 16-4 4-4-4"/>
+          <path d="M17 20V4"/>
+          <path d="m3 8 4-4 4 4"/>
+          <path d="M7 4v16"/>
+        }
+        @case ('arrow-up-narrow-wide') {
+          <path d="m3 8 4-4 4 4"/>
+          <path d="M7 4v16"/>
+          <path d="M11 12h4"/>
+          <path d="M11 16h7"/>
+          <path d="M11 20h10"/>
+        }
+        @case ('arrow-down-wide-narrow') {
+          <path d="m3 16 4 4 4-4"/>
+          <path d="M7 20V4"/>
+          <path d="M11 4h10"/>
+          <path d="M11 8h7"/>
+          <path d="M11 12h4"/>
+        }
+        @case ('folder-plus') {
+          <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>
+          <line x1="12" x2="12" y1="10" y2="16"/>
+          <line x1="9" x2="15" y1="13" y2="13"/>
+        }
+        @case ('folder-open') {
+          <path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/>
+        }
+        @case ('unplug') {
+          <path d="m19 5 3-3"/>
+          <path d="m2 22 3-3"/>
+          <path d="M6.3 20.3a2.4 2.4 0 0 0 3.4 0L12 18l-6-6-2.3 2.3a2.4 2.4 0 0 0 0 3.4Z"/>
+          <path d="M7.5 13.5 10 11"/>
+          <path d="M10.5 16.5 13 14"/>
+          <path d="m12 6 6 6 2.3-2.3a2.4 2.4 0 0 0 0-3.4l-2.6-2.6a2.4 2.4 0 0 0-3.4 0Z"/>
+        }
+        @case ('sliders-horizontal') {
+          <line x1="21" x2="14" y1="4" y2="4"/>
+          <line x1="10" x2="3" y1="4" y2="4"/>
+          <line x1="21" x2="12" y1="12" y2="12"/>
+          <line x1="8" x2="3" y1="12" y2="12"/>
+          <line x1="21" x2="16" y1="20" y2="20"/>
+          <line x1="12" x2="3" y1="20" y2="20"/>
+          <line x1="14" x2="14" y1="2" y2="6"/>
+          <line x1="8" x2="8" y1="10" y2="14"/>
+          <line x1="16" x2="16" y1="18" y2="22"/>
         }
         @default {
           <circle cx="12" cy="12" r="9"/>

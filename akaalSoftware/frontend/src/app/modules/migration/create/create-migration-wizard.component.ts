@@ -1,6 +1,6 @@
 import { Component, inject, signal, computed, HostListener, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { MigrationUiService } from '../../../core/services/migration-ui.service';
 import { LucideIconComponent } from '../../../shared/components/lucide-icon.component';
@@ -567,6 +567,7 @@ export class CreateMigrationWizardComponent implements OnInit, OnDestroy {
   public step8Store = inject(Step8GovernanceStoreService);
   public step9Store = inject(Step9ReviewStoreService);
   private router = inject(Router);
+  private route = inject(ActivatedRoute, { optional: true });
 
   // Canonical Draft State
   public currentStep = computed(() => this.ms.wizardDraft().currentStep);
@@ -644,6 +645,11 @@ export class CreateMigrationWizardComponent implements OnInit, OnDestroy {
   });
 
   public ngOnInit(): void {
+    const paramProjectId = this.route?.snapshot?.queryParams?.['projectId'];
+    if (paramProjectId && !this.ms.wizardDraft().projectId) {
+      this.ms.updateDraft({ projectId: paramProjectId });
+    }
+
     if (typeof window !== 'undefined') {
       (window as any).__wizardMs = this.ms;
       (window as any).__step5Store = this.step5Store;
@@ -714,7 +720,12 @@ export class CreateMigrationWizardComponent implements OnInit, OnDestroy {
 
   public exitToMigrationHome(): void {
     this.showExitModal.set(false);
-    this.router.navigate(['/migration']);
+    const pid = this.ms.wizardDraft().projectId || this.route?.snapshot?.queryParams?.['projectId'];
+    if (pid) {
+      this.router.navigate(['/migration/projects', pid, 'migrations']);
+    } else {
+      this.router.navigate(['/migration']);
+    }
   }
 
   public promptCloneConfirmation(m: MigrationPortfolioItem): void {

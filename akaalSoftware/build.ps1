@@ -10,6 +10,8 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host "2. Compiling Go Windows GUI binary without terminal subsystem..." -ForegroundColor Cyan
 Set-Location -Path "$PSScriptRoot"
 Stop-Process -Name AKAAL -Force -ErrorAction SilentlyContinue
+Start-Sleep -Milliseconds 500
+Remove-Item -Path "$env:APPDATA\AKAAL.exe\EBWebView" -Recurse -Force -ErrorAction SilentlyContinue
 go build -tags "desktop,production" -ldflags "-H windowsgui -s -w" -o AKAAL.exe .
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Go compilation failed!" -ForegroundColor Red
