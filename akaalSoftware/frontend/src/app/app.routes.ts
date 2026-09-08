@@ -8,6 +8,9 @@ import { InitiativeWorkspaceComponent } from './modules/migration/projects/works
 import { CreateProjectComponent } from './modules/migration/projects/create-project/create-project.component';
 import { ProjectWorkspaceComponent } from './modules/migration/projects/project-workspace/project-workspace.component';
 import { ConnectionsComponent } from './modules/migration/connections/connections.component';
+import { ConnectionsHomeComponent } from './modules/connections/connections-home.component';
+import { CreateConnectionWizardComponent } from './modules/connections/create-connection/create-connection-wizard.component';
+import { ConnectionWorkspaceComponent } from './modules/connections/workspace/connection-workspace.component';
 import { GlobalHistoryComponent } from './modules/migration/history/global-history.component';
 import { TemplateBrowserComponent } from './modules/migration/templates/template-browser.component';
 import { MigrationWorkspaceComponent } from './modules/migration/workspace/migration-workspace.component';
@@ -40,6 +43,13 @@ export const routes: Routes = [
   { path: 'migration/validation/new/:step', component: NewValidationWizardComponent },
   { path: 'migration/validation/:validationId', component: ValidationWorkstationComponent },
 
+  // Connections Inventory, Creation & Workspace (Part A + Part B + Part C)
+  { path: 'connections', component: ConnectionsHomeComponent },
+  { path: 'connections/new', component: CreateConnectionWizardComponent },
+  { path: 'connections/new/:step', component: CreateConnectionWizardComponent },
+  { path: 'connections/:connectionId', component: ConnectionWorkspaceComponent },
+  { path: 'connections/:connectionId/:tab', component: ConnectionWorkspaceComponent },
+
   // Migration Operations (2.1 to 2.8)
   { path: 'migration', component: MigrationPortfolioComponent },
   { path: 'migration/portfolio', component: MigrationPortfolioComponent },
@@ -60,7 +70,11 @@ export const routes: Routes = [
   { path: 'initiatives', redirectTo: 'migration/initiatives', pathMatch: 'full' },
   { path: 'initiatives/new', redirectTo: 'migration/initiatives/new', pathMatch: 'full' },
   { path: 'initiatives/:initiativeId', redirectTo: 'migration/initiatives/:initiativeId', pathMatch: 'full' },
-  { path: 'migration/connections', component: ConnectionsComponent },
+  { path: 'migration/connections', component: ConnectionsHomeComponent },
+  { path: 'migration/connections/new', component: CreateConnectionWizardComponent },
+  { path: 'migration/connections/new/:step', component: CreateConnectionWizardComponent },
+  { path: 'migration/connections/:connectionId', component: ConnectionWorkspaceComponent },
+  { path: 'migration/connections/:connectionId/:tab', component: ConnectionWorkspaceComponent },
   { path: 'migration/history', component: GlobalHistoryComponent },
   { path: 'migration/templates', component: TemplateBrowserComponent },
   { path: 'migration/:migrationId', component: CockpitComponent },

@@ -135,6 +135,40 @@ import { CommonModule } from '@angular/common';
           <path d="M9 3v18"/>
           <path d="m14 9 3 3-3 3"/>
         }
+        @case ('briefcase') {
+          <rect width="20" height="14" x="2" y="7" rx="2" ry="2"/>
+          <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+        }
+        @case ('grid') {
+          <rect width="7" height="7" x="3" y="3" rx="1"/>
+          <rect width="7" height="7" x="14" y="3" rx="1"/>
+          <rect width="7" height="7" x="14" y="14" rx="1"/>
+          <rect width="7" height="7" x="3" y="14" rx="1"/>
+        }
+        @case ('panel-right-open') {
+          <rect width="18" height="18" x="3" y="3" rx="2"/>
+          <path d="M15 3v18"/>
+          <path d="m10 15-3-3 3-3"/>
+        }
+        @case ('play-circle') {
+          <circle cx="12" cy="12" r="10"/>
+          <polygon points="10 8 16 12 10 16 10 8"/>
+        }
+        @case ('loader') {
+          <path d="M12 2v4"/>
+          <path d="m16.2 7.8 2.9-2.9"/>
+          <path d="M18 12h4"/>
+          <path d="m16.2 16.2 2.9 2.9"/>
+          <path d="M12 18v4"/>
+          <path d="m4.9 19.1 2.9-2.9"/>
+          <path d="M2 12h4"/>
+          <path d="m4.9 4.9 2.9 2.9"/>
+        }
+        @case ('type') {
+          <polyline points="4 7 4 4 20 4 20 7"/>
+          <line x1="9" x2="15" y1="20" y2="20"/>
+          <line x1="12" x2="12" y1="4" y2="20"/>
+        }
         @case ('circle-check') {
           <circle cx="12" cy="12" r="10"/>
           <path d="m9 12 2 2 4-4"/>

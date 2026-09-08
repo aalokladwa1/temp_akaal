@@ -1,0 +1,1804 @@
+[
+  {
+    "provider_id": "azure_blob",
+    "family": "storage",
+    "vendor_name": "Microsoft Azure",
+    "version": "1.0.0",
+    "supported_roles": [
+      "SOURCE",
+      "TARGET",
+      "STAGING",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "supported_auth": [
+      "PASSWORD"
+    ],
+    "supports_tls": true,
+    "supports_mtls": false,
+    "proof_level": "IMPLEMENTED",
+    "capabilities_count": 4,
+    "capabilities": {
+      "CONTAINER_DISCOVERY": "SUPPORTED",
+      "OBJECT_READ": "SUPPORTED",
+      "OBJECT_WRITE": "SUPPORTED",
+      "BLOCK_BLOB_CHUNKING": "SUPPORTED"
+    },
+    "restrictions": [],
+    "required_privileges": [],
+    "fastpath_features": [],
+    "dep_available": false,
+    "dep_message": "azure-storage-blob not installed. Install via 'pip install azure-storage-blob'."
+  },
+  {
+    "provider_id": "bigquery",
+    "family": "warehouse",
+    "vendor_name": "Google Cloud",
+    "version": "1.0.0",
+    "supported_roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "supported_auth": [
+      "PASSWORD"
+    ],
+    "supports_tls": true,
+    "supports_mtls": false,
+    "proof_level": "IMPLEMENTED",
+    "capabilities_count": 8,
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "STORAGE_READ_API": "SUPPORTED",
+      "STORAGE_WRITE_API": "SUPPORTED",
+      "PARTITIONING": "SUPPORTED",
+      "CLUSTERING": "SUPPORTED",
+      "TRANSACTIONS": "PARTIAL"
+    },
+    "restrictions": [],
+    "required_privileges": [],
+    "fastpath_features": [],
+    "dep_available": false,
+    "dep_message": "google-cloud-bigquery not installed. Install via 'pip install google-cloud-bigquery'."
+  },
+  {
+    "provider_id": "cassandra",
+    "family": "nosql",
+    "vendor_name": "Apache Software Foundation",
+    "version": "1.0.0",
+    "supported_roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "supported_auth": [
+      "PASSWORD"
+    ],
+    "supports_tls": true,
+    "supports_mtls": true,
+    "proof_level": "IMPLEMENTED",
+    "capabilities_count": 6,
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "TOKEN_AWARE_ROUTING": "SUPPORTED",
+      "CQL_BATCH": "SUPPORTED",
+      "CDC_LOG_CAPTURE": "PARTIAL"
+    },
+    "restrictions": [],
+    "required_privileges": [],
+    "fastpath_features": [],
+    "dep_available": false,
+    "dep_message": "cassandra-driver not installed. Install via 'pip install cassandra-driver'."
+  },
+  {
+    "provider_id": "clickhouse",
+    "family": "warehouse",
+    "vendor_name": "ClickHouse, Inc.",
+    "version": "1.0.0",
+    "supported_roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "supported_auth": [
+      "PASSWORD"
+    ],
+    "supports_tls": true,
+    "supports_mtls": true,
+    "proof_level": "IMPLEMENTED",
+    "capabilities_count": 8,
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "COLUMNAR_STORAGE": "SUPPORTED",
+      "PARTITION_AWARENESS": "SUPPORTED",
+      "MUTATIONS": "SUPPORTED",
+      "TRANSACTIONS": "UNSUPPORTED",
+      "CDC_LOG_CAPTURE": "UNSUPPORTED"
+    },
+    "restrictions": [
+      "No reliable default multi-statement ACID transactions; UPDATE/DELETE are asynchronous background mutations, not synchronous DML."
+    ],
+    "required_privileges": [
+      "SELECT",
+      "INSERT"
+    ],
+    "fastpath_features": [],
+    "dep_available": false,
+    "dep_message": "clickhouse-connect library not installed. Install via 'pip install clickhouse-connect'."
+  },
+  {
+    "provider_id": "cockroachdb",
+    "family": "relational",
+    "vendor_name": "Cockroach Labs",
+    "version": "1.0.0",
+    "supported_roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "supported_auth": [
+      "PASSWORD"
+    ],
+    "supports_tls": true,
+    "supports_mtls": true,
+    "proof_level": "IMPLEMENTED",
+    "capabilities_count": 12,
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "TRANSACTIONS": "SUPPORTED",
+      "SERIALIZABLE_RETRY_REQUIRED": "SUPPORTED",
+      "SAVEPOINTS": "SUPPORTED",
+      "DISTRIBUTED_TOPOLOGY": "SUPPORTED",
+      "PARTITION_AWARENESS": "SUPPORTED",
+      "FOREIGN_KEYS": "SUPPORTED",
+      "LOBS": "SUPPORTED",
+      "CDC_LOG_CAPTURE": "UNSUPPORTED",
+      "BINARY_COPY": "UNSUPPORTED"
+    },
+    "restrictions": [
+      "CHANGEFEED (CDC) requires an Enterprise license and is not assumed supported without a live probe.",
+      "SQLSTATE 40001 requires whole-transaction retry, not statement-level retry."
+    ],
+    "required_privileges": [
+      "CONNECT",
+      "USAGE",
+      "SELECT"
+    ],
+    "fastpath_features": [
+      "IMPORT INTO (bulk load, requires cluster/userfile access)"
+    ],
+    "dep_available": true,
+    "dep_message": "psycopg2 version 2.9.12 (dt dec pq3 ext lo64) available (CockroachDB uses the PostgreSQL wire protocol)."
+  },
+  {
+    "provider_id": "cosmosdb",
+    "family": "nosql",
+    "vendor_name": "Microsoft Azure",
+    "version": "1.0.0",
+    "supported_roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "supported_auth": [
+      "PASSWORD"
+    ],
+    "supports_tls": true,
+    "supports_mtls": false,
+    "proof_level": "IMPLEMENTED",
+    "capabilities_count": 7,
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "UNSUPPORTED",
+      "TRANSACTIONS": "UNSUPPORTED",
+      "PARTITION_AWARENESS": "SUPPORTED",
+      "FOREIGN_KEYS": "UNSUPPORTED",
+      "CDC_LOG_CAPTURE": "UNSUPPORTED"
+    },
+    "restrictions": [
+      "Documents carry no enforced schema outside the partition key; only container/partition-key metadata is discoverable.",
+      "Writes are per-item upsert_item() calls, not a native batch/bulk executor."
+    ],
+    "required_privileges": [
+      "Microsoft.DocumentDB/databaseAccounts/readMetadata",
+      "Microsoft.DocumentDB/databaseAccounts/dataOperations"
+    ],
+    "fastpath_features": [],
+    "dep_available": false,
+    "dep_message": "'azure-cosmos' SDK not installed. Install via 'pip install azure-cosmos'."
+  },
+  {
+    "provider_id": "couchbase",
+    "family": "nosql",
+    "vendor_name": "Couchbase, Inc.",
+    "version": "1.0.0",
+    "supported_roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "supported_auth": [
+      "PASSWORD"
+    ],
+    "supports_tls": true,
+    "supports_mtls": true,
+    "proof_level": "IMPLEMENTED",
+    "capabilities_count": 8,
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "TRANSACTIONS": "SUPPORTED",
+      "SECONDARY_INDEXES": "SUPPORTED",
+      "FULL_TEXT_SEARCH": "SUPPORTED",
+      "FOREIGN_KEYS": "UNSUPPORTED",
+      "CDC_LOG_CAPTURE": "UNSUPPORTED"
+    },
+    "restrictions": [
+      "CDC_LOG_CAPTURE (DCP) requires a dedicated low-level streaming client not wired by this connector strategy."
+    ],
+    "required_privileges": [
+      "query_select",
+      "query_insert"
+    ],
+    "fastpath_features": [],
+    "dep_available": false,
+    "dep_message": "couchbase library not installed. Install via 'pip install couchbase'."
+  },
+  {
+    "provider_id": "databricks",
+    "family": "warehouse",
+    "vendor_name": "Databricks",
+    "version": "1.0.0",
+    "supported_roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "supported_auth": [
+      "PASSWORD"
+    ],
+    "supports_tls": true,
+    "supports_mtls": false,
+    "proof_level": "IMPLEMENTED",
+    "capabilities_count": 6,
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "DELTA_LAKE": "SUPPORTED",
+      "UNITY_CATALOG": "SUPPORTED",
+      "CHANGE_DATA_FEED": "SUPPORTED"
+    },
+    "restrictions": [],
+    "required_privileges": [],
+    "fastpath_features": [],
+    "dep_available": false,
+    "dep_message": "databricks-sql-connector not installed. Install via 'pip install databricks-sql-connector'."
+  },
+  {
+    "provider_id": "dynamodb",
+    "family": "nosql",
+    "vendor_name": "Amazon Web Services",
+    "version": "1.0.0",
+    "supported_roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "supported_auth": [
+      "PASSWORD"
+    ],
+    "supports_tls": true,
+    "supports_mtls": false,
+    "proof_level": "IMPLEMENTED",
+    "capabilities_count": 8,
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "TRANSACTIONS": "SUPPORTED",
+      "PARTITION_AWARENESS": "SUPPORTED",
+      "SECONDARY_INDEXES": "SUPPORTED",
+      "FOREIGN_KEYS": "UNSUPPORTED",
+      "CDC_LOG_CAPTURE": "UNSUPPORTED"
+    },
+    "restrictions": [
+      "Only key schema (partition/sort key) and secondary-index definitions are discoverable; DynamoDB enforces no schema for non-key attributes.",
+      "CDC_LOG_CAPTURE (DynamoDB Streams) is per-table opt-in and only claimed SUPPORTED after a live describe_table() probe of the specific table."
+    ],
+    "required_privileges": [
+      "dynamodb:DescribeTable",
+      "dynamodb:GetItem",
+      "dynamodb:PutItem"
+    ],
+    "fastpath_features": [],
+    "dep_available": false,
+    "dep_message": "boto3 library not installed. Install via 'pip install boto3'."
+  },
+  {
+    "provider_id": "elasticsearch",
+    "family": "nosql",
+    "vendor_name": "Elastic",
+    "version": "1.0.0",
+    "supported_roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "supported_auth": [
+      "PASSWORD"
+    ],
+    "supports_tls": true,
+    "supports_mtls": true,
+    "proof_level": "IMPLEMENTED",
+    "capabilities_count": 5,
+    "capabilities": {
+      "INDEX_SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "SCROLL_SEARCH": "SUPPORTED",
+      "POINT_IN_TIME": "SUPPORTED"
+    },
+    "restrictions": [],
+    "required_privileges": [],
+    "fastpath_features": [],
+    "dep_available": false,
+    "dep_message": "elasticsearch library not installed. Install via 'pip install elasticsearch'."
+  },
+  {
+    "provider_id": "eventhubs",
+    "family": "streaming",
+    "vendor_name": "Microsoft Azure",
+    "version": "1.0.0",
+    "supported_roles": [
+      "SOURCE",
+      "TARGET",
+      "CDC_LOG"
+    ],
+    "supported_auth": [
+      "PASSWORD"
+    ],
+    "supports_tls": true,
+    "supports_mtls": false,
+    "proof_level": "IMPLEMENTED",
+    "capabilities_count": 4,
+    "capabilities": {
+      "STREAM_DISCOVERY": "SUPPORTED",
+      "STREAMING_READ": "SUPPORTED",
+      "STREAMING_WRITE": "SUPPORTED",
+      "KAFKA_COMPATIBLE": "SUPPORTED"
+    },
+    "restrictions": [],
+    "required_privileges": [],
+    "fastpath_features": [],
+    "dep_available": false,
+    "dep_message": "azure-eventhub library not installed. Install via 'pip install azure-eventhub'."
+  },
+  {
+    "provider_id": "gcs",
+    "family": "storage",
+    "vendor_name": "Google Cloud",
+    "version": "1.0.0",
+    "supported_roles": [
+      "SOURCE",
+      "TARGET",
+      "STAGING",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "supported_auth": [
+      "PASSWORD"
+    ],
+    "supports_tls": true,
+    "supports_mtls": false,
+    "proof_level": "IMPLEMENTED",
+    "capabilities_count": 4,
+    "capabilities": {
+      "BUCKET_DISCOVERY": "SUPPORTED",
+      "OBJECT_READ": "SUPPORTED",
+      "OBJECT_WRITE": "SUPPORTED",
+      "RESUMABLE_UPLOAD": "SUPPORTED"
+    },
+    "restrictions": [],
+    "required_privileges": [],
+    "fastpath_features": [],
+    "dep_available": false,
+    "dep_message": "google-cloud-storage not installed. Install via 'pip install google-cloud-storage'."
+  },
+  {
+    "provider_id": "hdfs",
+    "family": "storage",
+    "vendor_name": "Apache Software Foundation",
+    "version": "1.0.0",
+    "supported_roles": [
+      "SOURCE",
+      "TARGET",
+      "STAGING",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "supported_auth": [
+      "PASSWORD"
+    ],
+    "supports_tls": true,
+    "supports_mtls": false,
+    "proof_level": "IMPLEMENTED",
+    "capabilities_count": 4,
+    "capabilities": {
+      "DIRECTORY_DISCOVERY": "SUPPORTED",
+      "FILE_READ": "SUPPORTED",
+      "FILE_WRITE": "SUPPORTED",
+      "WEBHDFS": "SUPPORTED"
+    },
+    "restrictions": [],
+    "required_privileges": [],
+    "fastpath_features": [],
+    "dep_available": false,
+    "dep_message": "Neither hdfs nor pyarrow library installed."
+  },
+  {
+    "provider_id": "ibm_db2",
+    "family": "relational",
+    "vendor_name": "IBM",
+    "version": "1.0.0",
+    "supported_roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "supported_auth": [
+      "PASSWORD"
+    ],
+    "supports_tls": true,
+    "supports_mtls": false,
+    "proof_level": "IMPLEMENTED",
+    "capabilities_count": 7,
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "TRANSACTIONS": "SUPPORTED",
+      "SAVEPOINTS": "SUPPORTED",
+      "CDC_LOG_CAPTURE": "PARTIAL",
+      "FOREIGN_KEYS": "SUPPORTED"
+    },
+    "restrictions": [],
+    "required_privileges": [],
+    "fastpath_features": [],
+    "dep_available": false,
+    "dep_message": "ibm_db driver not installed. Install via 'pip install ibm_db'."
+  },
+  {
+    "provider_id": "influxdb",
+    "family": "timeseries",
+    "vendor_name": "InfluxData",
+    "version": "1.0.0",
+    "supported_roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE"
+    ],
+    "supported_auth": [
+      "PASSWORD"
+    ],
+    "supports_tls": true,
+    "supports_mtls": false,
+    "proof_level": "IMPLEMENTED",
+    "capabilities_count": 7,
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "TIME_SERIES_NATIVE": "SUPPORTED",
+      "RETENTION_POLICY_MANAGEMENT": "SUPPORTED",
+      "TRANSACTIONS": "UNSUPPORTED",
+      "CDC_LOG_CAPTURE": "UNSUPPORTED"
+    },
+    "restrictions": [
+      "InfluxDB has no transaction concept; writes are individual point ingestions, not multi-statement units of work.",
+      "No native change-log exists; only time-range re-querying is possible for incremental extraction."
+    ],
+    "required_privileges": [
+      "read:buckets",
+      "write:buckets"
+    ],
+    "fastpath_features": [],
+    "dep_available": false,
+    "dep_message": "influxdb-client library not installed. Install via 'pip install influxdb-client'."
+  },
+  {
+    "provider_id": "informix",
+    "family": "relational",
+    "vendor_name": "IBM",
+    "version": "1.0.0",
+    "supported_roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "supported_auth": [
+      "PASSWORD"
+    ],
+    "supports_tls": true,
+    "supports_mtls": false,
+    "proof_level": "IMPLEMENTED",
+    "capabilities_count": 6,
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "TRANSACTIONS": "SUPPORTED",
+      "FOREIGN_KEYS": "SUPPORTED",
+      "CDC_LOG_CAPTURE": "UNSUPPORTED"
+    },
+    "restrictions": [
+      "Bulk load uses standard executemany() INSERT, not the native onload/dbimport utilities.",
+      "Identifiers are treated as unquoted (DELIMIDENT not assumed set)."
+    ],
+    "required_privileges": [
+      "SELECT",
+      "INSERT"
+    ],
+    "fastpath_features": [],
+    "dep_available": false,
+    "dep_message": "'ibm_db' client driver not installed. Install via 'pip install ibm_db'."
+  },
+  {
+    "provider_id": "kafka",
+    "family": "streaming",
+    "vendor_name": "Apache Software Foundation",
+    "version": "1.0.0",
+    "supported_roles": [
+      "SOURCE",
+      "TARGET",
+      "CDC_LOG"
+    ],
+    "supported_auth": [
+      "PASSWORD"
+    ],
+    "supports_tls": true,
+    "supports_mtls": true,
+    "proof_level": "IMPLEMENTED",
+    "capabilities_count": 6,
+    "capabilities": {
+      "TOPIC_DISCOVERY": "SUPPORTED",
+      "STREAMING_READ": "SUPPORTED",
+      "STREAMING_WRITE": "SUPPORTED",
+      "OFFSET_COMMIT": "SUPPORTED",
+      "EXACTLY_ONCE": "SUPPORTED",
+      "SCHEMA_REGISTRY": "SUPPORTED"
+    },
+    "restrictions": [],
+    "required_privileges": [],
+    "fastpath_features": [],
+    "dep_available": false,
+    "dep_message": "kafka client library not installed. Install via 'pip install kafka-python' or 'confluent-kafka'."
+  },
+  {
+    "provider_id": "keydb",
+    "family": "nosql",
+    "vendor_name": "Snap Inc. / KeyDB",
+    "version": "1.0.0",
+    "supported_roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "supported_auth": [
+      "PASSWORD"
+    ],
+    "supports_tls": true,
+    "supports_mtls": true,
+    "proof_level": "IMPLEMENTED",
+    "capabilities_count": 4,
+    "capabilities": {
+      "KEY_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "MULTITHREADED_EXECUTION": "SUPPORTED"
+    },
+    "restrictions": [],
+    "required_privileges": [],
+    "fastpath_features": [],
+    "dep_available": false,
+    "dep_message": "redis library not installed."
+  },
+  {
+    "provider_id": "kinesis",
+    "family": "streaming",
+    "vendor_name": "Amazon Web Services",
+    "version": "1.0.0",
+    "supported_roles": [
+      "SOURCE",
+      "TARGET",
+      "CDC_LOG"
+    ],
+    "supported_auth": [
+      "PASSWORD"
+    ],
+    "supports_tls": true,
+    "supports_mtls": false,
+    "proof_level": "IMPLEMENTED",
+    "capabilities_count": 4,
+    "capabilities": {
+      "STREAM_DISCOVERY": "SUPPORTED",
+      "STREAMING_READ": "SUPPORTED",
+      "STREAMING_WRITE": "SUPPORTED",
+      "SHARD_MANAGEMENT": "SUPPORTED"
+    },
+    "restrictions": [],
+    "required_privileges": [],
+    "fastpath_features": [],
+    "dep_available": false,
+    "dep_message": "boto3 library not installed. Install via 'pip install boto3'."
+  },
+  {
+    "provider_id": "mariadb",
+    "family": "relational",
+    "vendor_name": "MariaDB Corporation",
+    "version": "1.0.0",
+    "supported_roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION",
+      "CDC_LOG"
+    ],
+    "supported_auth": [
+      "PASSWORD"
+    ],
+    "supports_tls": true,
+    "supports_mtls": true,
+    "proof_level": "IMPLEMENTED",
+    "capabilities_count": 9,
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "LOAD_DATA_INFILE": "SUPPORTED",
+      "TRANSACTIONS": "SUPPORTED",
+      "SAVEPOINTS": "SUPPORTED",
+      "CDC_LOG_CAPTURE": "SUPPORTED",
+      "PARTITION_AWARENESS": "SUPPORTED",
+      "FOREIGN_KEYS": "SUPPORTED"
+    },
+    "restrictions": [],
+    "required_privileges": [],
+    "fastpath_features": [
+      "LOAD DATA LOCAL INFILE",
+      "INSERT MULTIPLE ROWS"
+    ],
+    "dep_available": true,
+    "dep_message": "pymysql driver available."
+  },
+  {
+    "provider_id": "minio",
+    "family": "storage",
+    "vendor_name": "MinIO Inc.",
+    "version": "1.0.0",
+    "supported_roles": [
+      "SOURCE",
+      "TARGET",
+      "STAGING",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "supported_auth": [
+      "PASSWORD"
+    ],
+    "supports_tls": true,
+    "supports_mtls": false,
+    "proof_level": "IMPLEMENTED",
+    "capabilities_count": 4,
+    "capabilities": {
+      "BUCKET_DISCOVERY": "SUPPORTED",
+      "OBJECT_READ": "SUPPORTED",
+      "OBJECT_WRITE": "SUPPORTED",
+      "S3_API_COMPLIANT": "SUPPORTED"
+    },
+    "restrictions": [],
+    "required_privileges": [],
+    "fastpath_features": [],
+    "dep_available": false,
+    "dep_message": "Neither minio nor boto3 library installed."
+  },
+  {
+    "provider_id": "mongodb",
+    "family": "nosql",
+    "vendor_name": "MongoDB Inc.",
+    "version": "1.0.0",
+    "supported_roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION",
+      "CDC_LOG"
+    ],
+    "supported_auth": [
+      "PASSWORD"
+    ],
+    "supports_tls": true,
+    "supports_mtls": true,
+    "proof_level": "IMPLEMENTED",
+    "capabilities_count": 7,
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "CHANGE_STREAMS": "SUPPORTED",
+      "CDC_LOG_CAPTURE": "SUPPORTED",
+      "TRANSACTIONS": "SUPPORTED",
+      "SHARDING_AWARENESS": "SUPPORTED"
+    },
+    "restrictions": [],
+    "required_privileges": [],
+    "fastpath_features": [],
+    "dep_available": false,
+    "dep_message": "pymongo library not installed. Install via 'pip install pymongo'."
+  },
+  {
+    "provider_id": "mssql",
+    "family": "relational",
+    "vendor_name": "Microsoft",
+    "version": "1.0.0",
+    "supported_roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION",
+      "CDC_LOG"
+    ],
+    "supported_auth": [
+      "PASSWORD"
+    ],
+    "supports_tls": true,
+    "supports_mtls": false,
+    "proof_level": "IMPLEMENTED",
+    "capabilities_count": 10,
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "BCP_FAST_COPY": "SUPPORTED",
+      "TRANSACTIONS": "SUPPORTED",
+      "SAVEPOINTS": "SUPPORTED",
+      "CDC_LOG_CAPTURE": "SUPPORTED",
+      "CHANGE_TRACKING": "SUPPORTED",
+      "PARTITION_AWARENESS": "SUPPORTED",
+      "FOREIGN_KEYS": "SUPPORTED"
+    },
+    "restrictions": [],
+    "required_privileges": [
+      "CONNECT SQL",
+      "VIEW DEFINITION",
+      "SELECT"
+    ],
+    "fastpath_features": [
+      "FAST_EXECUTEMANY",
+      "TABLOCK",
+      "BULK INSERT"
+    ],
+    "dep_available": true,
+    "dep_message": "pyodbc version 5.3.0 available."
+  },
+  {
+    "provider_id": "mysql",
+    "family": "relational",
+    "vendor_name": "Oracle MySQL",
+    "version": "1.0.0",
+    "supported_roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION",
+      "CDC_LOG"
+    ],
+    "supported_auth": [
+      "PASSWORD"
+    ],
+    "supports_tls": true,
+    "supports_mtls": true,
+    "proof_level": "IMPLEMENTED",
+    "capabilities_count": 9,
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "LOAD_DATA_INFILE": "SUPPORTED",
+      "TRANSACTIONS": "SUPPORTED",
+      "SAVEPOINTS": "SUPPORTED",
+      "CDC_LOG_CAPTURE": "SUPPORTED",
+      "PARTITION_AWARENESS": "SUPPORTED",
+      "FOREIGN_KEYS": "SUPPORTED"
+    },
+    "restrictions": [
+      "Requires binlog_format=ROW and binlog_row_image=FULL for CDC"
+    ],
+    "required_privileges": [
+      "SELECT",
+      "RELOAD",
+      "REPLICATION SLAVE",
+      "REPLICATION CLIENT"
+    ],
+    "fastpath_features": [
+      "LOAD DATA LOCAL INFILE",
+      "INSERT MULTIPLE ROWS",
+      "SET FOREIGN_KEY_CHECKS=0"
+    ],
+    "dep_available": true,
+    "dep_message": "PyMySQL version 2.2.8 available."
+  },
+  {
+    "provider_id": "neo4j",
+    "family": "nosql",
+    "vendor_name": "Neo4j Inc.",
+    "version": "1.0.0",
+    "supported_roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "supported_auth": [
+      "PASSWORD"
+    ],
+    "supports_tls": true,
+    "supports_mtls": false,
+    "proof_level": "IMPLEMENTED",
+    "capabilities_count": 5,
+    "capabilities": {
+      "GRAPH_SCHEMA_DISCOVERY": "SUPPORTED",
+      "CYPHER_EXECUTION": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "TRANSACTIONS": "SUPPORTED"
+    },
+    "restrictions": [],
+    "required_privileges": [],
+    "fastpath_features": [],
+    "dep_available": false,
+    "dep_message": "neo4j library not installed. Install via 'pip install neo4j'."
+  },
+  {
+    "provider_id": "oci_object_storage",
+    "family": "storage",
+    "vendor_name": "Oracle Cloud Infrastructure",
+    "version": "1.0.0",
+    "supported_roles": [
+      "SOURCE",
+      "TARGET",
+      "STAGING",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "supported_auth": [
+      "PASSWORD"
+    ],
+    "supports_tls": true,
+    "supports_mtls": false,
+    "proof_level": "IMPLEMENTED",
+    "capabilities_count": 8,
+    "capabilities": {
+      "BUCKET_DISCOVERY": "SUPPORTED",
+      "OBJECT_READ": "SUPPORTED",
+      "OBJECT_WRITE": "SUPPORTED",
+      "MULTIPART_UPLOAD": "SUPPORTED",
+      "S3_SELECT": "UNSUPPORTED",
+      "PARQUET_READ": "SUPPORTED",
+      "CSV_READ": "SUPPORTED",
+      "SERVER_SIDE_COPY": "SUPPORTED"
+    },
+    "restrictions": [],
+    "required_privileges": [],
+    "fastpath_features": [
+      "MULTIPART_PARALLEL_UPLOAD"
+    ],
+    "dep_available": false,
+    "dep_message": "oci SDK library not installed. Install via 'pip install oci'."
+  },
+  {
+    "provider_id": "opensearch",
+    "family": "nosql",
+    "vendor_name": "OpenSearch Project",
+    "version": "1.0.0",
+    "supported_roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "supported_auth": [
+      "PASSWORD"
+    ],
+    "supports_tls": true,
+    "supports_mtls": true,
+    "proof_level": "IMPLEMENTED",
+    "capabilities_count": 4,
+    "capabilities": {
+      "INDEX_SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "POINT_IN_TIME": "SUPPORTED"
+    },
+    "restrictions": [],
+    "required_privileges": [],
+    "fastpath_features": [],
+    "dep_available": false,
+    "dep_message": "opensearch-py library not installed. Install via 'pip install opensearch-py'."
+  },
+  {
+    "provider_id": "oracle",
+    "family": "relational",
+    "vendor_name": "Oracle Corporation",
+    "version": "1.0.0",
+    "supported_roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION",
+      "CDC_LOG"
+    ],
+    "supported_auth": [
+      "PASSWORD"
+    ],
+    "supports_tls": true,
+    "supports_mtls": true,
+    "proof_level": "IMPLEMENTED",
+    "capabilities_count": 11,
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "DIRECT_PATH_LOAD": "SUPPORTED",
+      "TRANSACTIONS": "SUPPORTED",
+      "SAVEPOINTS": "SUPPORTED",
+      "CDC_LOG_CAPTURE": "SUPPORTED",
+      "FLASHBACK_QUERY": "SUPPORTED",
+      "PARTITION_AWARENESS": "SUPPORTED",
+      "LOBS": "SUPPORTED",
+      "FOREIGN_KEYS": "SUPPORTED"
+    },
+    "restrictions": [
+      "Requires supplemental logging for CDC LogMiner capture"
+    ],
+    "required_privileges": [
+      "CREATE SESSION",
+      "SELECT ANY TABLE",
+      "LOGMINING"
+    ],
+    "fastpath_features": [
+      "EXECUTEMANY WITH ARRAYSIZE",
+      "DIRECT PATH STREAMING",
+      "FLASHBACK SCN"
+    ],
+    "dep_available": true,
+    "dep_message": "oracledb version 4.0.2 available."
+  },
+  {
+    "provider_id": "postgresql",
+    "family": "relational",
+    "vendor_name": "PostgreSQL Global Development Group",
+    "version": "1.0.0",
+    "supported_roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION",
+      "CDC_LOG"
+    ],
+    "supported_auth": [
+      "PASSWORD"
+    ],
+    "supports_tls": true,
+    "supports_mtls": true,
+    "proof_level": "IMPLEMENTED",
+    "capabilities_count": 11,
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "BINARY_COPY": "SUPPORTED",
+      "TRANSACTIONS": "SUPPORTED",
+      "SAVEPOINTS": "SUPPORTED",
+      "CDC_LOG_CAPTURE": "SUPPORTED",
+      "LOGICAL_REPLICATION": "SUPPORTED",
+      "PARTITION_AWARENESS": "SUPPORTED",
+      "FOREIGN_KEYS": "SUPPORTED",
+      "LOBS": "SUPPORTED"
+    },
+    "restrictions": [
+      "Requires wal_level=logical for CDC capture"
+    ],
+    "required_privileges": [
+      "CONNECT",
+      "USAGE",
+      "SELECT",
+      "REPLICATION"
+    ],
+    "fastpath_features": [
+      "COPY FROM STDIN BINARY",
+      "UNLOGGED TABLES",
+      "SESSION REPLICATION ROLE"
+    ],
+    "dep_available": true,
+    "dep_message": "psycopg2 version 2.9.12 (dt dec pq3 ext lo64) available."
+  },
+  {
+    "provider_id": "pubsub",
+    "family": "streaming",
+    "vendor_name": "Google Cloud",
+    "version": "1.0.0",
+    "supported_roles": [
+      "SOURCE",
+      "TARGET",
+      "CDC_LOG"
+    ],
+    "supported_auth": [
+      "PASSWORD"
+    ],
+    "supports_tls": true,
+    "supports_mtls": false,
+    "proof_level": "IMPLEMENTED",
+    "capabilities_count": 4,
+    "capabilities": {
+      "TOPIC_DISCOVERY": "SUPPORTED",
+      "STREAMING_READ": "SUPPORTED",
+      "STREAMING_WRITE": "SUPPORTED",
+      "EXACTLY_ONCE_DELIVERY": "SUPPORTED"
+    },
+    "restrictions": [],
+    "required_privileges": [],
+    "fastpath_features": [],
+    "dep_available": false,
+    "dep_message": "google-cloud-pubsub not installed. Install via 'pip install google-cloud-pubsub'."
+  },
+  {
+    "provider_id": "pulsar",
+    "family": "streaming",
+    "vendor_name": "Apache Software Foundation",
+    "version": "1.0.0",
+    "supported_roles": [
+      "SOURCE",
+      "TARGET",
+      "CDC_LOG"
+    ],
+    "supported_auth": [
+      "PASSWORD"
+    ],
+    "supports_tls": true,
+    "supports_mtls": true,
+    "proof_level": "IMPLEMENTED",
+    "capabilities_count": 7,
+    "capabilities": {
+      "TOPIC_DISCOVERY": "SUPPORTED",
+      "STREAMING_READ": "SUPPORTED",
+      "STREAMING_WRITE": "SUPPORTED",
+      "OFFSET_COMMIT": "SUPPORTED",
+      "MULTI_TENANCY": "SUPPORTED",
+      "EXACTLY_ONCE": "UNSUPPORTED",
+      "SCHEMA_REGISTRY": "UNSUPPORTED"
+    },
+    "restrictions": [
+      "EXACTLY_ONCE and SCHEMA_REGISTRY are real Pulsar platform features not wired by this connector strategy.",
+      "Broker-wide topic/tenant/namespace inventory requires the Pulsar Admin REST API (default port 8080), separate from the binary client protocol (default port 6650)."
+    ],
+    "required_privileges": [
+      "produce",
+      "consume"
+    ],
+    "fastpath_features": [],
+    "dep_available": false,
+    "dep_message": "pulsar-client library not installed. Install via 'pip install pulsar-client'."
+  },
+  {
+    "provider_id": "rabbitmq",
+    "family": "streaming",
+    "vendor_name": "VMware / Broadcom (RabbitMQ)",
+    "version": "1.0.0",
+    "supported_roles": [
+      "SOURCE",
+      "TARGET"
+    ],
+    "supported_auth": [
+      "PASSWORD"
+    ],
+    "supports_tls": true,
+    "supports_mtls": true,
+    "proof_level": "IMPLEMENTED",
+    "capabilities_count": 10,
+    "capabilities": {
+      "TOPIC_DISCOVERY": "SUPPORTED",
+      "STREAMING_READ": "SUPPORTED",
+      "STREAMING_WRITE": "SUPPORTED",
+      "PUBLISHER_CONFIRMS": "SUPPORTED",
+      "CONSUMER_ACKNOWLEDGEMENTS": "SUPPORTED",
+      "DEAD_LETTER_ROUTING": "SUPPORTED",
+      "OFFSET_COMMIT": "UNSUPPORTED",
+      "CDC_LOG_CAPTURE": "UNSUPPORTED",
+      "EXACTLY_ONCE": "UNSUPPORTED",
+      "SCHEMA_REGISTRY": "UNSUPPORTED"
+    },
+    "restrictions": [
+      "Classic and quorum queues consume-and-remove; they are not a replayable log.",
+      "CDC_LOG_CAPTURE and OFFSET_COMMIT require the RabbitMQ Streams plugin and are not assumed supported without a live probe."
+    ],
+    "required_privileges": [
+      "configure",
+      "write",
+      "read"
+    ],
+    "fastpath_features": [],
+    "dep_available": false,
+    "dep_message": "pika library not installed. Install via 'pip install pika'."
+  },
+  {
+    "provider_id": "redis",
+    "family": "nosql",
+    "vendor_name": "Redis Ltd.",
+    "version": "1.0.0",
+    "supported_roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "supported_auth": [
+      "PASSWORD"
+    ],
+    "supports_tls": true,
+    "supports_mtls": true,
+    "proof_level": "IMPLEMENTED",
+    "capabilities_count": 7,
+    "capabilities": {
+      "KEY_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "REDIS_STREAMS": "SUPPORTED",
+      "PUB_SUB": "SUPPORTED",
+      "CDC_LOG_CAPTURE": "SUPPORTED",
+      "CLUSTER_AWARENESS": "SUPPORTED"
+    },
+    "restrictions": [],
+    "required_privileges": [],
+    "fastpath_features": [],
+    "dep_available": false,
+    "dep_message": "redis library not installed. Install via 'pip install redis'."
+  },
+  {
+    "provider_id": "redshift",
+    "family": "warehouse",
+    "vendor_name": "Amazon Web Services",
+    "version": "1.0.0",
+    "supported_roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "supported_auth": [
+      "PASSWORD"
+    ],
+    "supports_tls": true,
+    "supports_mtls": false,
+    "proof_level": "IMPLEMENTED",
+    "capabilities_count": 8,
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "S3_COPY": "SUPPORTED",
+      "S3_UNLOAD": "SUPPORTED",
+      "TRANSACTIONS": "SUPPORTED",
+      "DISTRIBUTION_KEYS": "SUPPORTED",
+      "SORT_KEYS": "SUPPORTED"
+    },
+    "restrictions": [],
+    "required_privileges": [],
+    "fastpath_features": [
+      "COPY FROM S3 MANIFEST",
+      "UNLOAD TO S3 PARQUET"
+    ],
+    "dep_available": true,
+    "dep_message": "psycopg2 driver available."
+  },
+  {
+    "provider_id": "s3",
+    "family": "storage",
+    "vendor_name": "Amazon Web Services",
+    "version": "1.0.0",
+    "supported_roles": [
+      "SOURCE",
+      "TARGET",
+      "STAGING",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "supported_auth": [
+      "PASSWORD"
+    ],
+    "supports_tls": true,
+    "supports_mtls": false,
+    "proof_level": "IMPLEMENTED",
+    "capabilities_count": 7,
+    "capabilities": {
+      "BUCKET_DISCOVERY": "SUPPORTED",
+      "OBJECT_READ": "SUPPORTED",
+      "OBJECT_WRITE": "SUPPORTED",
+      "MULTIPART_UPLOAD": "SUPPORTED",
+      "S3_SELECT": "SUPPORTED",
+      "PARQUET_READ": "SUPPORTED",
+      "CSV_READ": "SUPPORTED"
+    },
+    "restrictions": [],
+    "required_privileges": [],
+    "fastpath_features": [
+      "MULTIPART_PARALLEL_UPLOAD",
+      "S3_ACCELERATE"
+    ],
+    "dep_available": false,
+    "dep_message": "boto3 library not installed. Install via 'pip install boto3'."
+  },
+  {
+    "provider_id": "salesforce",
+    "family": "application",
+    "vendor_name": "Salesforce, Inc.",
+    "version": "1.0.0",
+    "supported_roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "supported_auth": [
+      "PASSWORD"
+    ],
+    "supports_tls": true,
+    "supports_mtls": false,
+    "proof_level": "IMPLEMENTED",
+    "capabilities_count": 6,
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "TRANSACTIONS": "UNSUPPORTED",
+      "FOREIGN_KEYS": "SUPPORTED",
+      "CDC_LOG_CAPTURE": "UNSUPPORTED"
+    },
+    "restrictions": [
+      "Bulk API 2.0 (for very large extracts) is not implemented -- only SOQL query()/query_more().",
+      "SObject Collections writes are capped at 200 records/call; no server-side transaction spans multiple calls."
+    ],
+    "required_privileges": [
+      "api",
+      "refresh_token"
+    ],
+    "fastpath_features": [],
+    "dep_available": false,
+    "dep_message": "'simple_salesforce' SDK not installed. Install via 'pip install simple-salesforce'."
+  },
+  {
+    "provider_id": "sap_application",
+    "family": "application",
+    "vendor_name": "SAP SE",
+    "version": "1.0.0",
+    "supported_roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "supported_auth": [
+      "PASSWORD"
+    ],
+    "supports_tls": true,
+    "supports_mtls": false,
+    "proof_level": "IMPLEMENTED",
+    "capabilities_count": 6,
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "UNSUPPORTED",
+      "TRANSACTIONS": "UNSUPPORTED",
+      "FOREIGN_KEYS": "UNSUPPORTED",
+      "CDC_LOG_CAPTURE": "UNSUPPORTED"
+    },
+    "restrictions": [
+      "interface_mode='odata' is locally provable without proprietary dependencies.",
+      "interface_mode in {'rfc_bapi','idoc'} requires the proprietary 'pyrfc' SDK (SAP NetWeaver RFC SDK C library) and fails closed (DependencyMissingError) when it is not installed -- never silently degrades to OData or a fake success.",
+      "Writes are per-record OData PUT/POST, BAPI calls, or IDoc inbound posts -- not a native SAP batch-input/LSMW/bulk executor."
+    ],
+    "required_privileges": [
+      "S_RFC",
+      "S_TABU_DIS"
+    ],
+    "fastpath_features": [],
+    "dep_available": false,
+    "dep_message": "'requests' library not installed. Install via 'pip install requests'."
+  },
+  {
+    "provider_id": "sap_ase",
+    "family": "relational",
+    "vendor_name": "SAP SE",
+    "version": "1.0.0",
+    "supported_roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "supported_auth": [
+      "PASSWORD"
+    ],
+    "supports_tls": true,
+    "supports_mtls": false,
+    "proof_level": "IMPLEMENTED",
+    "capabilities_count": 6,
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "TRANSACTIONS": "SUPPORTED",
+      "FOREIGN_KEYS": "SUPPORTED",
+      "CDC_LOG_CAPTURE": "UNSUPPORTED"
+    },
+    "restrictions": [
+      "Bulk load uses standard executemany() INSERT, not the native bcp utility.",
+      "Identifiers are treated as unquoted (QUOTED_IDENTIFIER not assumed ON)."
+    ],
+    "required_privileges": [
+      "SELECT",
+      "INSERT"
+    ],
+    "fastpath_features": [],
+    "dep_available": false,
+    "dep_message": "'pytds' client driver not installed. Install via 'pip install python-tds'."
+  },
+  {
+    "provider_id": "sap_hana",
+    "family": "relational",
+    "vendor_name": "SAP SE",
+    "version": "1.0.0",
+    "supported_roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "supported_auth": [
+      "PASSWORD"
+    ],
+    "supports_tls": true,
+    "supports_mtls": true,
+    "proof_level": "IMPLEMENTED",
+    "capabilities_count": 7,
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "TRANSACTIONS": "SUPPORTED",
+      "PARTITION_AWARENESS": "SUPPORTED",
+      "FOREIGN_KEYS": "SUPPORTED",
+      "CDC_LOG_CAPTURE": "UNSUPPORTED"
+    },
+    "restrictions": [
+      "Bulk load uses standard executemany() INSERT, not HANA bulk-import utilities."
+    ],
+    "required_privileges": [
+      "SELECT",
+      "INSERT"
+    ],
+    "fastpath_features": [],
+    "dep_available": false,
+    "dep_message": "'hdbcli' client driver not installed. Install via 'pip install hdbcli'."
+  },
+  {
+    "provider_id": "scylladb",
+    "family": "nosql",
+    "vendor_name": "ScyllaDB Inc.",
+    "version": "1.0.0",
+    "supported_roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "supported_auth": [
+      "PASSWORD"
+    ],
+    "supports_tls": true,
+    "supports_mtls": true,
+    "proof_level": "IMPLEMENTED",
+    "capabilities_count": 5,
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "SHARD_AWARE_ROUTING": "SUPPORTED",
+      "CDC_LOG_CAPTURE": "SUPPORTED"
+    },
+    "restrictions": [],
+    "required_privileges": [],
+    "fastpath_features": [],
+    "dep_available": false,
+    "dep_message": "cassandra-driver / scylla-driver not installed."
+  },
+  {
+    "provider_id": "servicenow",
+    "family": "application",
+    "vendor_name": "ServiceNow, Inc.",
+    "version": "1.0.0",
+    "supported_roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "supported_auth": [
+      "PASSWORD"
+    ],
+    "supports_tls": true,
+    "supports_mtls": false,
+    "proof_level": "IMPLEMENTED",
+    "capabilities_count": 6,
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "UNSUPPORTED",
+      "TRANSACTIONS": "UNSUPPORTED",
+      "FOREIGN_KEYS": "SUPPORTED",
+      "CDC_LOG_CAPTURE": "UNSUPPORTED"
+    },
+    "restrictions": [
+      "Writes are per-record Table API calls, not a bulk Import Set/Attachment API executor.",
+      "Incremental reads use sys_updated_on polling, which is honestly NOT change-data-capture."
+    ],
+    "required_privileges": [
+      "rest_api_explorer",
+      "web_service_admin"
+    ],
+    "fastpath_features": [],
+    "dep_available": false,
+    "dep_message": "'requests' library not installed. Install via 'pip install requests'."
+  },
+  {
+    "provider_id": "singlestore",
+    "family": "relational",
+    "vendor_name": "SingleStore, Inc.",
+    "version": "1.0.0",
+    "supported_roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "supported_auth": [
+      "PASSWORD"
+    ],
+    "supports_tls": true,
+    "supports_mtls": true,
+    "proof_level": "IMPLEMENTED",
+    "capabilities_count": 10,
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "LOAD_DATA_INFILE": "SUPPORTED",
+      "TRANSACTIONS": "SUPPORTED",
+      "DISTRIBUTED_TOPOLOGY": "SUPPORTED",
+      "PARTITION_AWARENESS": "SUPPORTED",
+      "COLUMNAR_STORAGE": "SUPPORTED",
+      "FOREIGN_KEYS": "UNSUPPORTED",
+      "CDC_LOG_CAPTURE": "UNSUPPORTED"
+    },
+    "restrictions": [
+      "Foreign keys are parsed for compatibility but not enforced by SingleStore.",
+      "Change capture requires a dedicated Pipelines-based integration this connector does not implement."
+    ],
+    "required_privileges": [
+      "SELECT",
+      "PROCESS"
+    ],
+    "fastpath_features": [],
+    "dep_available": true,
+    "dep_message": "PyMySQL version 2.2.8 available (SingleStore uses the MySQL wire protocol)."
+  },
+  {
+    "provider_id": "snowflake",
+    "family": "warehouse",
+    "vendor_name": "Snowflake Inc.",
+    "version": "1.0.0",
+    "supported_roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "supported_auth": [
+      "PASSWORD"
+    ],
+    "supports_tls": true,
+    "supports_mtls": false,
+    "proof_level": "IMPLEMENTED",
+    "capabilities_count": 7,
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "STAGE_COPY": "SUPPORTED",
+      "TRANSACTIONS": "SUPPORTED",
+      "CDC_LOG_CAPTURE": "PARTIAL",
+      "WAREHOUSE_SCALING": "SUPPORTED"
+    },
+    "restrictions": [],
+    "required_privileges": [],
+    "fastpath_features": [
+      "COPY INTO @stage",
+      "COPY INTO table FROM @stage",
+      "PUT / GET"
+    ],
+    "dep_available": false,
+    "dep_message": "snowflake-connector-python library not installed. Install via 'pip install snowflake-connector-python'."
+  },
+  {
+    "provider_id": "spanner",
+    "family": "relational",
+    "vendor_name": "Google Cloud",
+    "version": "1.0.0",
+    "supported_roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "supported_auth": [
+      "PASSWORD"
+    ],
+    "supports_tls": true,
+    "supports_mtls": false,
+    "proof_level": "IMPLEMENTED",
+    "capabilities_count": 7,
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "TRANSACTIONS": "SUPPORTED",
+      "PARTITION_AWARENESS": "SUPPORTED",
+      "FOREIGN_KEYS": "SUPPORTED",
+      "CDC_LOG_CAPTURE": "UNSUPPORTED"
+    },
+    "restrictions": [
+      "Change Streams (CDC) is a genuine Spanner feature but no capture module exists in this Engine."
+    ],
+    "required_privileges": [
+      "spanner.databases.select",
+      "spanner.databases.write"
+    ],
+    "fastpath_features": [],
+    "dep_available": false,
+    "dep_message": "'google-cloud-spanner' SDK not installed. Install via 'pip install google-cloud-spanner'."
+  },
+  {
+    "provider_id": "sqlite",
+    "family": "relational",
+    "vendor_name": "SQLite",
+    "version": "1.0.0",
+    "supported_roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "supported_auth": [
+      "PASSWORD"
+    ],
+    "supports_tls": false,
+    "supports_mtls": false,
+    "proof_level": "LIVE_PROVEN",
+    "capabilities_count": 9,
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "TRANSACTIONS": "SUPPORTED",
+      "SAVEPOINTS": "SUPPORTED",
+      "FOREIGN_KEYS": "SUPPORTED",
+      "CDC_LOG_CAPTURE": "UNSUPPORTED",
+      "DISTRIBUTED_PARTITIONS": "UNSUPPORTED",
+      "PARALLEL_STREAMING": "UNSUPPORTED"
+    },
+    "restrictions": [
+      "Single-writer concurrency limit",
+      "File-based locking"
+    ],
+    "required_privileges": [],
+    "fastpath_features": [
+      "PRAGMA synchronous = OFF",
+      "PRAGMA journal_mode = WAL"
+    ],
+    "dep_available": true,
+    "dep_message": "sqlite3 built-in standard library available."
+  },
+  {
+    "provider_id": "teradata",
+    "family": "relational",
+    "vendor_name": "Teradata Corporation",
+    "version": "1.0.0",
+    "supported_roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "supported_auth": [
+      "PASSWORD"
+    ],
+    "supports_tls": true,
+    "supports_mtls": false,
+    "proof_level": "IMPLEMENTED",
+    "capabilities_count": 7,
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "TRANSACTIONS": "SUPPORTED",
+      "PARTITION_AWARENESS": "SUPPORTED",
+      "FOREIGN_KEYS": "SUPPORTED",
+      "CDC_LOG_CAPTURE": "UNSUPPORTED"
+    },
+    "restrictions": [
+      "Bulk load uses standard executemany() INSERT, not FastLoad/TPT/MultiLoad."
+    ],
+    "required_privileges": [
+      "SELECT",
+      "INSERT"
+    ],
+    "fastpath_features": [],
+    "dep_available": false,
+    "dep_message": "'teradatasql' client driver not installed. Install via 'pip install teradatasql'."
+  },
+  {
+    "provider_id": "tidb",
+    "family": "relational",
+    "vendor_name": "PingCAP",
+    "version": "1.0.0",
+    "supported_roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "supported_auth": [
+      "PASSWORD"
+    ],
+    "supports_tls": true,
+    "supports_mtls": true,
+    "proof_level": "IMPLEMENTED",
+    "capabilities_count": 10,
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "LOAD_DATA_INFILE": "SUPPORTED",
+      "TRANSACTIONS": "SUPPORTED",
+      "DISTRIBUTED_TOPOLOGY": "SUPPORTED",
+      "PARTITION_AWARENESS": "SUPPORTED",
+      "FOREIGN_KEYS": "SUPPORTED",
+      "SAVEPOINTS": "UNSUPPORTED",
+      "CDC_LOG_CAPTURE": "UNSUPPORTED"
+    },
+    "restrictions": [
+      "CDC requires TiCDC, a separate component not reachable via MySQL's @@log_bin/@@binlog_format vars -- never assumed supported.",
+      "SAVEPOINT support is version-gated (TiDB 6.2+); not assumed supported without a live version probe."
+    ],
+    "required_privileges": [
+      "SELECT",
+      "PROCESS"
+    ],
+    "fastpath_features": [],
+    "dep_available": true,
+    "dep_message": "PyMySQL version 2.2.8 available (TiDB uses the MySQL wire protocol)."
+  },
+  {
+    "provider_id": "vertica",
+    "family": "relational",
+    "vendor_name": "OpenText (Vertica)",
+    "version": "1.0.0",
+    "supported_roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "supported_auth": [
+      "PASSWORD"
+    ],
+    "supports_tls": true,
+    "supports_mtls": true,
+    "proof_level": "IMPLEMENTED",
+    "capabilities_count": 7,
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "TRANSACTIONS": "SUPPORTED",
+      "PARTITION_AWARENESS": "SUPPORTED",
+      "FOREIGN_KEYS": "SUPPORTED",
+      "CDC_LOG_CAPTURE": "UNSUPPORTED"
+    },
+    "restrictions": [
+      "Bulk load uses standard executemany() INSERT, not native COPY."
+    ],
+    "required_privileges": [
+      "SELECT",
+      "INSERT"
+    ],
+    "fastpath_features": [],
+    "dep_available": false,
+    "dep_message": "'vertica_python' client driver not installed. Install via 'pip install vertica-python'."
+  },
+  {
+    "provider_id": "yugabytedb",
+    "family": "relational",
+    "vendor_name": "Yugabyte, Inc.",
+    "version": "1.0.0",
+    "supported_roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "supported_auth": [
+      "PASSWORD"
+    ],
+    "supports_tls": true,
+    "supports_mtls": true,
+    "proof_level": "IMPLEMENTED",
+    "capabilities_count": 10,
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "TRANSACTIONS": "SUPPORTED",
+      "SERIALIZABLE_RETRY_REQUIRED": "SUPPORTED",
+      "DISTRIBUTED_TOPOLOGY": "SUPPORTED",
+      "PARTITION_AWARENESS": "SUPPORTED",
+      "FOREIGN_KEYS": "SUPPORTED",
+      "LOBS": "SUPPORTED",
+      "CDC_LOG_CAPTURE": "UNSUPPORTED"
+    },
+    "restrictions": [
+      "CDC_LOG_CAPTURE requires an active pg_replication_slots entry with the yboutput/pgoutput plugin, not assumed supported without a live probe.",
+      "SQLSTATE 40001 requires whole-transaction retry (distributed transaction conflict), not statement-level retry."
+    ],
+    "required_privileges": [
+      "CONNECT",
+      "USAGE",
+      "SELECT"
+    ],
+    "fastpath_features": [],
+    "dep_available": true,
+    "dep_message": "psycopg2 version 2.9.12 (dt dec pq3 ext lo64) available (YugabyteDB YSQL uses the PostgreSQL wire protocol)."
+  }
+]
