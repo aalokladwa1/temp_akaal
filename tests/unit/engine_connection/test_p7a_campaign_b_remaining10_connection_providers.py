@@ -80,24 +80,68 @@ def test_is_dependency_available_never_raises_and_returns_truthful_shape(provide
     assert isinstance(message, str) and message
 
 
-@pytest.mark.parametrize("provider_id", ["teradata", "vertica", "sap_hana", "sap_ase", "informix", "spanner", "cosmosdb", "salesforce", "servicenow"])
+@pytest.mark.parametrize("provider_id", ["teradata", "vertica", "sap_hana", "sap_ase", "informix", "spanner", "cosmosdb", "salesforce"])
 def test_is_dependency_available_truthfully_reports_missing_driver_in_this_sandbox(provider_id):
-    """None of these providers' real SDKs are installed in this sandbox (verified) --
-    is_dependency_available() must truthfully report False, never fabricate True."""
+    """These providers each depend on a proprietary/vendor-specific SDK
+    (teradatasql, vertica-python, hdbcli, sybpydb-style driver, ibm_db,
+    google-cloud-spanner, azure-cosmos, simple_salesforce) that is never
+    ambient in a generic CI/dev sandbox -- unlike `requests` (see the
+    dedicated, environment-INDEPENDENT servicenow/SAP tests below, which
+    force the ImportError path with monkeypatch rather than assuming a
+    common package happens to be absent). is_dependency_available() must
+    truthfully report False here, never fabricate True."""
     strat = STRATEGY_CLASSES[provider_id]()
     available, message = strat.is_dependency_available()
     assert available is False, f"'{provider_id}' falsely reported its dependency as available"
     assert "install" in message.lower() or "pip install" in message.lower()
 
 
-def test_sap_application_is_dependency_available_reports_partial_truthfully():
-    """SAP Application is the one provider with a partial-dependency story: OData needs
-    only `requests` (also absent here), while RFC/BAPI and IDoc additionally need the
-    proprietary `pyrfc`. is_dependency_available() must not collapse this into a single
-    boolean lie in either direction."""
-    strat = SAPApplicationProviderStrategy()
+def test_servicenow_is_dependency_available_truthfully_reports_missing_driver(monkeypatch):
+    """ServiceNow's only dependency is `requests` -- a package that MAY be
+    ambiently installed in a given sandbox for unrelated reasons (e.g. other
+    HTTP-based providers' own test coverage), so this test must not assume
+    its absence. Instead it deterministically forces the ImportError path
+    (regardless of what's actually installed) and verifies the truthful-
+    False contract -- environment-independent by construction."""
+    import sys
+
+    strat = STRATEGY_CLASSES["servicenow"]()
+    monkeypatch.setitem(sys.modules, "requests", None)
     available, message = strat.is_dependency_available()
-    # Both requests and pyrfc are absent in this sandbox -- overall must be False, and
+    assert available is False, "servicenow falsely reported its dependency as available with requests blocked"
+    assert "install" in message.lower() or "pip install" in message.lower()
+
+
+def test_servicenow_is_dependency_available_truthfully_reports_available_when_requests_present(monkeypatch):
+    """The converse of the above: with `requests` importable, is_dependency_
+    available() must truthfully report True -- never a fixed False regardless
+    of actual state either. A fake module is injected into sys.modules so
+    this holds deterministically even in a sandbox where `requests` is
+    genuinely not installed."""
+    import sys
+    import types
+
+    strat = STRATEGY_CLASSES["servicenow"]()
+    monkeypatch.setitem(sys.modules, "requests", types.ModuleType("requests"))
+    available, message = strat.is_dependency_available()
+    assert available is True
+    assert "available" in message.lower()
+
+
+def test_sap_application_is_dependency_available_reports_partial_truthfully(monkeypatch):
+    """SAP Application is the one provider with a partial-dependency story: OData needs
+    only `requests`, while RFC/BAPI and IDoc additionally need the proprietary `pyrfc`
+    (genuinely never ambient in a generic sandbox). `requests`' own availability is
+    environment-dependent, so this test deterministically forces it absent via
+    monkeypatch rather than assuming sandbox state -- is_dependency_available() must
+    not collapse the partial-dependency story into a single boolean lie in either
+    direction."""
+    import sys
+
+    strat = SAPApplicationProviderStrategy()
+    monkeypatch.setitem(sys.modules, "requests", None)
+    available, message = strat.is_dependency_available()
+    # requests forced absent, pyrfc genuinely absent -- overall must be False, and
     # the message must not claim full availability.
     assert available is False
     assert "requests" in message.lower() or "pyrfc" in message.lower()

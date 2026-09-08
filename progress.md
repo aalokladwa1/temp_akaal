@@ -126,7 +126,10 @@ M8 must preserve non-mutating validation semantics.
 | P7B Group 2 (Campaign C + Campaign D, P7B.11–P7B.23) | **OWNER ACCEPTED & FROZEN** (owner-authorized, 2026-09-06) — distributed topology/placement (Campaign C) + cloud-native execution fabric (Campaign D) implemented, wired as MANDATORY/load-bearing from the canonical `akaalPipeline` orchestration seam, hostile-tested across three closure rounds. Regression-protected baseline. Must not be reopened, redesigned, or weakened without new explicit owner authorization and a concrete demonstrated defect. | **See §39 — final record; §41 — whole-phase authoritative** |
 | P7B Group 3 (Campaign E + Campaign F, P7B.24–P7B.35) | **OWNER ACCEPTED & FROZEN** (owner-authorized, 2026-09-07) — distributed site coordination, ownership/leasing/fencing (made load-bearing via a universal physical-effect ownership gate, not just data_transport), multi-region/multi-cloud, DR/geo-failover, partition safety, GitOps/fleet lifecycle, and production-integrated telemetry/Evidence/explainability. Worker BUSY-lifecycle leak and checkpoint/ownership separation hostile-proven and closed. Regression-protected baseline. Must not be reopened, redesigned, or weakened without new explicit owner authorization and a concrete demonstrated defect. | **See §40 — final record; §41 — whole-phase authoritative** |
 | **P7B (whole phase, Group 1 + Group 2 + Group 3, P7B.1–P7B.35)** | **COMPLETED — OWNER ACCEPTED & FROZEN** (owner-authorized, 2026-09-07). Regression-protected baseline. Must not be reopened, redesigned, or weakened without new explicit owner authorization and a concrete demonstrated defect. | **See §41 — authoritative final record** |
-| P7C / P7D | Future. **NOT STARTED. No agent may begin any of this without separate explicit owner authorization** — the whole of P7B being frozen does not imply P7C/P7D has begun. | Do not conflate with any campaign above |
+| P7C Group 1 (Campaign A + Campaign B, P7C.1–P7C.12) | **OWNER ACCEPTED & FROZEN — 10/10 for locally proven scope** (owner-authorized, 2026-09-07). | **See §42 — final record; §44 — whole-phase authoritative** |
+| P7C Group 2 (Campaign C + Campaign D, P7C.13–P7C.24) | **OWNER ACCEPTED & FROZEN — 10/10 for locally proven scope** (owner-authorized, 2026-09-07) — 26/26 final acceptance blockers closed. | **See §43 — final record; §44 — whole-phase authoritative** |
+| **P7C (whole phase, P7C.1–P7C.24)** | **COMPLETED — OWNER ACCEPTED & FROZEN** (owner-authorized, 2026-09-07). Regression-protected baseline. Must not be reopened, redesigned, or weakened without new explicit owner authorization and a concrete demonstrated defect. | **See §44 — authoritative final record** |
+| P7D | Future. **NOT STARTED. No agent may begin any of this without separate explicit owner authorization** — P7C being frozen does not imply P7D has begun. | Do not conflate with any campaign above |
 
 ---
 
@@ -655,6 +658,9 @@ CURRENT STATE (authoritative, 2026-09-07, final):
   P7C / P7D                          NOT STARTED. No agent may begin either without
                                       separate, explicit new owner authorization — the whole
                                       of P7B being frozen does NOT imply P7C/P7D has begun.
+                                      **SUPERSEDED: P7C (P7C.1–P7C.24, both groups) is now
+                                      COMPLETED — OWNER ACCEPTED & FROZEN, 2026-09-07 — see
+                                      §44 (authoritative). P7D remains NOT STARTED.**
 
 FLEET:                 49/49 canonical physical providers (28 frozen P4 baseline + 20 P7A
                         Campaign-B expansion + 1 P7B Group-1 addition, OCI Object Storage).
@@ -4754,3 +4760,655 @@ P7B, now carried forward one level.
 If the *same* session that produced this freeze record continues, it should refresh/
 reconcile against current repository state rather than reconstruct blindly from zero — but
 it must still await explicit owner authorization before beginning any P7C.13 work.
+
+**STATUS UPDATE: the "NOT STARTED"/"await explicit owner authorization" framing immediately
+above is now historical.** P7C Group 2 was subsequently authorized, implemented across
+multiple hostile-review/blocker-closure rounds, and **OWNER ACCEPTED & FROZEN**. **§43 is the
+current, authoritative record for P7C Group 2 — read §43, not the roadmap sketch above, for
+current state.** **§44 is the current, authoritative record for the whole of P7C (Group 1 +
+Group 2, P7C.1–P7C.24) — read §44 for the single unambiguous current-state summary.** The
+P7C.13–P7C.24 roadmap sketch above is preserved as-written for historical continuity; only
+its "not started" status has changed.
+
+---
+
+## 43. P7C GROUP 2 FINAL FREEZE RECORD — CAMPAIGN C + CAMPAIGN D (P7C.13–P7C.24) — OWNER ACCEPTED & FROZEN (2026-09-07)
+
+### 43.1 Final owner decision
+
+**P7C GROUP 2 — CAMPAIGN C + CAMPAIGN D — P7C.13–P7C.24 — COMPLETED, OWNER ACCEPTED &
+FROZEN — 2026-09-07 — 10/10 LOCALLY PROVEN SCOPE.**
+
+```
+Campaign C (P7C.13–P7C.18, Runtime & Operational Intelligence):        OWNER ACCEPTED & FROZEN
+Campaign D (P7C.19–P7C.24, Enterprise Intelligence & Assurance):       OWNER ACCEPTED & FROZEN
+```
+
+This is not a candidate state, not pending, and not partially complete. The owner reviewed
+the implementation across three escalating hostile-review passes (an initial implementation
+pass, a 26-item acceptance-blocker closure pass, and a final P7C.24/P7B-legality/IPC-boundary
+completeness pass) and explicitly accepted the result. Any statement elsewhere in this
+document describing P7C Group 2 as unstarted, active, or a roadmap sketch only (including
+§42.17 immediately above) governs only the point in history at which it was written and must
+not be read as current state — see §44 for the single current-state summary.
+
+Governing regression at owner acceptance:
+```
+6,946 passed / 166 skipped / 0 failed   (626.28s, single uncontended run)
+```
+
+### 43.2 Mission — turning trusted intelligence into a closed operational loop
+
+Where Group 1 (§42) built the trusted intelligence *foundation* (kernel, knowledge/trust,
+retrieval, model gateway, provenance/epistemics, mediation, estate/strategy/wave/schema/SQL/
+capacity intelligence), Group 2 turns that foundation into a continuous operations loop over
+*real running migrations*: observe canonical runtime health → detect anomalies → explain root
+cause → forecast outcomes → optimize within legal constraints → price the options → assess
+risk → propose governed remediation → mediate/authorize/approve → execute through the one
+real canonical command path → observe the actual result → evaluate the prediction against it
+→ explain it to an operator → reflect it in portfolio/executive reporting. The same governing
+law from §42.2 applies unchanged and was hostile-tested again at Group-2 scale:
+
+```
+AI ADVISES, EXPLAINS, OPTIMIZES AND PROPOSES.
+CANONICAL AKAAL AUTHORITIES VALIDATE, AUTHORIZE AND EXECUTE.
+
+NO AI OUTPUT BECOMES EXECUTION TRUTH UNTIL IT HAS BEEN COMPILED, VALIDATED,
+POLICY-CHECKED AND AUTHORIZED THROUGH THE SAME CANONICAL AKAAL PATH AS HUMAN INTENT.
+```
+
+Every invariant listed at §42.2 remains unchanged and in force for Group 2. The following
+were newly hostile-tested at Group-2 scale and are now part of the permanent record:
+
+```
+AI cannot manufacture ownership                 Approval != ownership
+Heartbeat != ownership                          Stale lease != authority
+Expired lease != authority                      Stale fencing generation != authority
+Successful proposal != successful execution     Actual canonical outcome is authoritative
+Risk classification != authorization            Risk intelligence != policy
+Caller-supplied cost assumption != authoritative organizational spend
+UNKNOWN != HEALTHY                              Platform-wide worker count != migration worker truth
+Portfolio reporting != Evidence #12             Feedback != ground truth
+Model upgrade != automatic production promotion Stale intelligence is not silently actionable
+AI outage != migration outage                   P7C cannot manufacture P7B execution legality
+```
+
+P7C Group 2 introduced exactly one new intelligence-owned persistence surface beyond Group
+1's `intelligence_artifacts`/`intelligence_outcomes` tables — a bounded, tenant/migration-
+scoped rolling window of numeric health samples (`intelligence_health_samples`, its own
+sibling SQLite file — see §43.11 for why) — and zero new canonical authorities. See §43.12
+for the forensic duplicate-authority conclusion.
+
+### 43.3 Final P7C.13–P7C.24 status matrix
+
+| Part | Name | Status |
+|---|---|---|
+| P7C.13 | Runtime Health & Intelligence State | OWNER ACCEPTED & FROZEN — 10/10 |
+| P7C.14 | Anomaly & Bottleneck Detection | OWNER ACCEPTED & FROZEN — 10/10 |
+| P7C.15 | Evidence-Grounded Root Cause Analysis | OWNER ACCEPTED & FROZEN — 10/10 |
+| P7C.16 | Performance & Resource Optimization | OWNER ACCEPTED & FROZEN — 10/10 |
+| P7C.17 | Predictive Operations & Forecasting | OWNER ACCEPTED & FROZEN — 10/10 |
+| P7C.18 | Governed Recovery & Remediation Intelligence | OWNER ACCEPTED & FROZEN — 10/10 |
+| P7C.19 | Security, Compliance & Risk Intelligence | OWNER ACCEPTED & FROZEN — 10/10 |
+| P7C.20 | FinOps, Resource & Sustainability Intelligence | OWNER ACCEPTED & FROZEN — 10/10 (sustainability: truthful `NOT_CURRENTLY_PROVABLE`, see §43.10) |
+| P7C.21 | Conversational & Operator Intelligence | OWNER ACCEPTED & FROZEN — 10/10 |
+| P7C.22 | Portfolio, Reporting & Executive Intelligence | OWNER ACCEPTED & FROZEN — 10/10 |
+| P7C.23 | Evaluation, Feedback & Intelligence Operations | OWNER ACCEPTED & FROZEN — 10/10 |
+| P7C.24 | Whole-Intelligence Hostile Acceptance & Enterprise Freeze | OWNER ACCEPTED & FROZEN — 10/10 (attack-family reconciliation: see §43.15) |
+
+### 43.4 P7C.13 — Runtime Health & Intelligence State (final, corrected architecture)
+
+Final production path:
+```
+intelligence.submit (task=QUERY, capability=runtime_health)
+  -> IntelligenceKernel.submit_request
+  -> runtime_health producer
+  -> CanonicalRuntimeHealthResolver (akaalPipeline/observability/runtime_health_resolver.py)
+       -> MigrationRepositoryPort.get_by_id (canonical tenant/plan identity anchor)
+       -> PipelineActorContext.enforce_resource_scope (anti-enumeration-safe: identical
+          error for "does not exist" and "belongs to another tenant")
+       -> binding_registry -> gateway_engine_binding -> EngineGateway.coordinator
+          -> TelemetryAuthority.get_progress_snapshot(migration_id)  [migration-scoped]
+          -> CDCAuthority.get_snapshot()                              [instantaneous facts only]
+       -> dynamically-resolved P7B OwnershipManager (self.plan_coordinator.fabric_dependencies
+          .ownership_manager, read live per request -- never cached)
+  -> typed RuntimeHealthInputs -> deterministic per-dimension projector -> DERIVED_FACT artifact
+```
+
+**Critical correction preserved as permanent architecture (this was the first and most
+important Group-2 hostile-review correction):** the original implementation accepted
+`request.parameters['runtime_health_inputs']` as caller-supplied operational truth. This was
+identified as a severe trust violation and completely removed — the production resolver now
+reads `migration_id` only as a *locator*, never as authorization, and every operational fact
+(throughput, CDC backlog, ownership) is read from real canonical authorities. Passing the old
+`runtime_health_inputs` blob through the real seam today has provably zero effect (hostile-
+tested).
+
+Final dimension semantics, verified against physical canonical read surfaces:
+
+| Dimension | Canonical source | Scope | Limitation |
+|---|---|---|---|
+| TRANSPORT | `TelemetryAuthority.get_progress_snapshot` | migration-scoped | no canonical baseline throughput exists -> status UNKNOWN, raw rate fact still shown |
+| CDC | `CDCAuthority.get_snapshot` | process/stream | rate fields are mislabeled cumulative totals in this repository (verified by inspection) — never used as rates; only backlog size/lag are projected |
+| VALIDATION | none | — | no read-only Validation #11 getter exists anywhere in this repository — always UNKNOWN, never inferred |
+| WORKERS | none (verified: no migration-scoped worker/task read exists) | — | `RuntimeAuthority` worker/task snapshots have no migration association even in principle (`WorkerSnapshot` has no migration field; `TaskSnapshot.metadata` is never populated by `submit_task`) — always UNKNOWN. Process-wide worker count is exposed only as a separate, clearly labeled `platform_context` field, never fed into the WORKERS dimension or overall status. |
+| FABRIC | `OwnershipManager.try_get`, dynamically resolved | migration-scoped (composite key) | mechanism is real and hostile-tested; UNKNOWN by default in a deployment that has not wired live P7B Fabric placement (`plan_coordinator.fabric_dependencies` is `None` until a deployment opts in — no production construction site for `FabricGateDependencies` exists in this repository today, confirmed by forensic grep) |
+| RESOURCES / GOVERNANCE(CUTOVER) | none | — | no canonical read surface found; always UNKNOWN |
+
+Preserved permanently: `UNKNOWN != HEALTHY`; missing telemetry never becomes success; a
+process-global observation can never masquerade as migration-scoped truth.
+
+### 43.5 P7C.14 — Anomaly & Bottleneck Detection
+
+`akaalEngine/intelligence/anomaly/{store,detectors}.py`. Deterministic, non-generative
+detection: median/MAD (median absolute deviation) robust statistics over a bounded
+(`HealthSampleStore.MAX_SAMPLES_PER_MIGRATION = 500`), per-(tenant, migration) rolling window
+of numeric samples derived from P7C.13's own projection (never a second telemetry read).
+Detectors: throughput collapse (against the migration's *own* historical baseline, never a
+fabricated global one), CDC backlog monotonic growth, CDC lag threshold. Insufficient history
+reports `INSUFFICIENT_DATA`, never `NONE` (absence of a baseline is not evidence of health).
+A canonical FABRIC/VALIDATION `CRITICAL` observation always dominates the overall verdict
+regardless of how healthy throughput looks.
+
+**Real production defect found and fixed during this work (permanent architecture note):**
+the sample-history writer originally opened a second SQLite connection against the *same*
+database file the canonical unit-of-work transaction for that same request was still holding
+open, producing a genuine `sqlite3.OperationalError: database is locked` — caught by the
+production-path tests, not by inspection. The fix, now permanent: `HealthSampleStore` persists
+to its own sibling file (`<db_path>.p7c14_health_samples.db`), completely outside the
+canonical migrations database's lock domain. Bounded retention and restart-safety for this
+store are hostile-tested (see §43.13).
+
+### 43.6 P7C.15 — Evidence-Grounded Root Cause Analysis
+
+`akaalEngine/intelligence/rca/hypotheses.py`. A deterministic causal rule ladder consuming
+P7C.14's *already-computed* detection output (never recomputing anomaly detection itself).
+Governance facts (FABRIC/VALIDATION `CRITICAL`) dominate every other hypothesis. Below that,
+the ladder distinguishes apply-bound (CDC backlog growth with stable transport) from
+source-bound (throughput collapse alone) from multi-factor (both), always listing honest
+alternatives it cannot confirm or refute (e.g. worker/network causes, since no canonical read
+exists for either) and an explicit invalidation condition. Epistemic typing follows §42's
+FACT/DERIVED_FACT/INFERENCE/PREDICTION/RECOMMENDATION distinctions (RCA output is typed
+`INFERENCE`). Hostile-tested: correlation is never silently promoted to proven causation, and
+missing evidence is never empty for a correlation-based hypothesis.
+
+### 43.7 P7C.16 — Performance & Resource Optimization (final, corrected authorization)
+
+Reuses P7C.12's `evaluate_scenario`/`CutoverScenario` arithmetic verbatim (no second
+simulator). **Correction preserved as permanent architecture:** the initial implementation
+shipped with region-scoped candidate filtering deliberately unwired (fail-closed but
+non-functional) rather than risk a coarser, tenant-only authorization check. The final,
+corrected wiring reuses the **exact same** per-actor trusted constraint resolver P7C.8 already
+uses (`PipelineUnifiedCaller._build_strategy_constraint_resolver` — same `project_trusted_
+constraints`, same real `CentralAuthorizationEngine`/RBAC/ABAC, zero new authorization
+mechanism):
+
+```
+authenticated actor + tenant/resource scope
+  -> real CentralAuthorizationEngine (RBAC + ABAC)
+  -> trusted feasible region/capability set (project_trusted_constraints)
+  -> caller-supplied candidate_regions may only NARROW the set, never widen it
+  -> P7C.12 scenario evaluation over the legal remainder
+  -> Pareto-style alternatives, illegal candidates excluded with a counterfactual
+```
+
+Hostile-tested with a real RBAC+ABAC engine (the same construction P7C.8's own suite uses):
+an actor with a real region grant gets that region evaluated; an actor with zero grants gets
+an empty legal set (never a fabricated legal region); an actor from a different tenant cannot
+borrow another tenant's region grant. `caller region != authorization`; `caller capability !=
+authorization`; the cheapest/fastest illegal candidate can never be presented as best.
+
+### 43.8 P7C.17 — Predictive Operations & Forecasting
+
+Reuses P7C.12's duration/feasibility arithmetic. Migration ETA is computed from REAL canonical
+facts (`TelemetryAuthority.get_progress_snapshot`'s `rows_remaining`/`rows_per_second`), never
+caller-supplied. CDC catch-up ETA is honestly `UNKNOWN_RATES_NOT_CANONICALLY_AVAILABLE` — the
+same P7C.13 finding (only mislabeled cumulative totals exist upstream, never true rates)
+applies here and is never worked around by relabeling. When true rates *are* available and
+generation ≥ apply, the result is `NO_CATCHUP_ETA_NON_CONVERGENT`, never a fabricated finish
+time. Pathological inputs (zero/negative rate, completion already reached — clamped to a
+non-negative remainder, never a negative ETA) are hostile-tested. Every P7C.17 forecast is a
+normal `IntelligenceArtifact` — meaning it inherits P7C.1's frozen identity/immutability
+guarantees for free: two forecasts for the same migration get two distinct `artifact_id`s, and
+re-fetching an earlier one after a newer one exists returns the original, byte-for-byte
+unmutated prediction (hostile-tested against real repeated production requests). P7C.23's
+evaluator (§43.11) can optionally be given the originating `forecast_artifact_id` for
+traceability; this is carried straight through into the evaluation artifact's own data.
+
+### 43.9 P7C.18 — Governed Recovery & Remediation Intelligence (the closed-loop proof)
+
+This is the part that proves P7C never becomes a second execution authority — and it does so
+by actually crossing the real canonical boundary, not merely by generating an approved
+decision. Final proven journey (`tests/security/test_p7c18_full_governed_pause_execution.py`):
+
+```
+P7C.15 RCA conclusion
+  -> deterministic recipe ladder (akaalEngine/intelligence/remediation/recipes.py; the one
+     shipped recipe maps to the REAL, already-existing akaalPipeline.application.
+     command_handlers.CommandHandlerRegistry.handle_pause_migration command — no recipe is
+     ever offered for an action canonical runtime does not actually have)
+  -> typed ActionProposal (akaalEngine.intelligence.mediation.proposal — Group-1, frozen,
+     unmodified)
+  -> ActionMediationGateway.mediate (Group-1, frozen, unmodified) -- new action_type
+     `propose_remediation_pause_migration` registered L3_GOVERNED_ACTION_AFTER_APPROVAL in
+     the existing, additive ACTION_AUTONOMY_REGISTRY allow-list
+  -> real PolicyDecision, real ArtifactRegistry, real PolicyGateEvaluator verification
+  -> maker-checker (approver != requester) verified
+  -> real "migration.pause" canonical command
+  -> canonical migration repository re-read: state is physically PAUSED
+  -> intelligence.outcome.record / intelligence.outcome.list (Group-1, frozen, unmodified)
+```
+
+Rejection paths proven to leave canonical state completely unchanged: no approval reference;
+expired approval; approval issued for a *different* migration (wrong resource binding);
+self-approval (approver == requester); stale context fingerprint (canonical context changed
+underneath the proposal). `proposal != command`; `approval != ownership`; `AI cannot approve
+itself`; `successful proposal != successful execution` — only the re-observed canonical state
+is authoritative, and every test asserts that, not the mediation decision alone.
+
+Autonomy levels preserved unchanged from Group 1: L0 EXPLAIN … L4 bounded pre-authorized —
+**no L5**. If canonical runtime has no real action for a diagnosed cause (e.g. FABRIC/
+VALIDATION `CRITICAL` — an ownership/lease/validation problem a pause cannot fix), no
+automated recipe is offered at all; the result is an honest `RECOMMENDATION` for human
+escalation, never a fabricated action.
+
+### 43.10 P7C.19 — Security/Risk & P7C.20 — FinOps/Sustainability
+
+**P7C.19** classifies *already-computed* canonical-derived facts (P7C.13 FABRIC/VALIDATION,
+P7C.18 pending proposals) into the risk-dimension taxonomy (SECURITY, RESIDENCY, DATA,
+COMPLIANCE, OPERATIONAL). It is explicitly a read/classify layer, never a second policy
+authority: `risk classification != authorization`; a risk this module cannot map to a genuine
+canonical fact is never reported (no invented compliance rule).
+
+**P7C.20** — forensic inspection confirmed **no canonical, versioned, organization-approved
+cost-configuration authority exists anywhere in this repository**. Every cost figure is
+therefore explicitly tagged `cost_source: "CALLER_SUPPLIED_ASSUMPTION"` in its own output data
+and `Explanation.assumptions` — never blurred with authoritative organizational spend, and the
+result's own epistemic type is `ASSUMPTION` (not `PREDICTION`) when no such input was supplied
+at all. Cost-to-completion combines that caller-supplied rate with the REAL canonical ETA from
+P7C.17 (never re-derived). Sustainability/carbon: forensic inspection (grep across
+`akaalPipeline` for carbon/sustainability/co2/emission) found **zero** canonical data source —
+every P7C.20 response therefore explicitly reports `sustainability.status =
+"NOT_CURRENTLY_PROVABLE"` with the reason stated inline. No carbon number was ever fabricated,
+and `UNKNOWN` was never silently converted to `0`.
+
+### 43.11 P7C.21 — Operator Intelligence, P7C.22 — Portfolio, P7C.23 — Evaluation
+
+**P7C.21** — a closed, deterministic 9-intent allow-list (`what_is_happening`, `why`,
+`what_changed`, `will_cutover_succeed`, `what_are_my_options`, `estimated_cost`,
+`supporting_evidence`, `invalidation_conditions`, `at_risk_migrations`) — no free-form LLM call
+anywhere in the path (verified structurally: no Group-2 producer imports `akaalEngine.
+intelligence.gateway`). Every answer is assembled only from already-computed, cited producer
+summaries, with an honest "no grounded facts available" fallback rather than a guess. Natural-
+language consequential requests resolve only into the same typed `ActionProposal`/mediation
+path as P7C.18 — never a direct command.
+
+**P7C.22** — the canonical migration listing (`MigrationRepositoryPort.list_all(tenant_id=
+...)`) is tenant-scoped at the SQL `WHERE` clause *before* any per-migration health read runs
+— authorize before aggregate, never aggregate-then-filter. Real cursor-based pagination (an
+opaque offset token, `next_cursor`) replaces the earlier hard-truncated-at-100 behavior;
+hostile-tested traversing 23 migrations across 3 pages of 10 with no loss and no duplication,
+and a cursor computed for one tenant, replayed by a different tenant, still only returns that
+second tenant's own rows (the `WHERE tenant_id=...` clause applies to every page regardless of
+the offset encoded in the cursor). `Portfolio reporting != Evidence #12`.
+
+**P7C.23** — operationalizes Group 1's *existing, unmodified* `OutcomeRecord`/`OutcomeStore`/
+`intelligence.outcome.record`/`intelligence.outcome.list` (no new outcome-tracking mechanism).
+Adds one genuine deterministic evaluator (`forecast_evaluation.py`): real error/relative-error/
+interval-hit arithmetic comparing a previously-issued P7C.17 prediction against a later actual
+value; an interval miss is a first-class finding, not silently absorbed. `feedback != ground
+truth`; no uncontrolled online learning; model/algorithm upgrade is never automatic production
+promotion (Group 1's `compare_evaluation_sets`/hard-gate-failure-cannot-be-averaged-away
+foundation, unmodified, remains the promotion contract).
+
+### 43.12 Duplicate-authority / direct-write / zero-fake / secret audits (final, post-freeze)
+
+Forensic grep across every new Group-2 production file, repeated after every blocker-closure
+round and again at this freeze:
+
+- **Duplicate authority:** the only new class introduced anywhere in Group 2 is
+  `HealthSampleStore` (§43.5) — a bounded, P7C-owned derived-state store, not canonical
+  execution truth. Zero new `*Authority`/`*Coordinator`/`*Engine`/`*Registry` classes. P7C did
+  not introduce a second planner, runtime, execution coordinator, authorization engine,
+  approval authority, policy authority, Fabric ownership authority, fencing authority, CDC
+  authority, checkpoint authority, Validation authority, Evidence authority, secrets
+  authority, or provider-success authority.
+- **Direct writes:** zero `INSERT`/`UPDATE`/`DELETE` against any canonical table anywhere in
+  `akaalPipeline/observability/*.py` (the Group-2 resolver layer) or any Group-2 producer.
+  Every canonical mutation (the one proven case: `migration.pause`) goes through the existing,
+  unmodified canonical command handler.
+- **Zero-fake:** no hardcoded `HEALTHY`, no static throughput/cost/ETA, no fabricated provider
+  success anywhere in the changed production diff.
+- **Secrets:** no credentials, API keys, or `Authorization:` header literals in any new file.
+- **Dynamic/no-hardcode:** no hardcoded tenant/migration/region identifiers or worker counts
+  in any Group-2 production file (test fixtures, correctly, do contain fixed IDs).
+
+### 43.13 Concurrency, restart & durability
+
+Risk-driven (not mechanically duplicated) concurrency campaign targeted at the exact component
+that produced the real deadlock at §43.5: genuinely concurrent anomaly-detection requests
+(separate connections/callers per thread, the same pattern this repository's own
+`test_concurrency_multitenancy.py` already establishes — a single Python `sqlite3.Connection`
+object is never shared across OS threads anywhere in this codebase, Group 2 included),
+concurrent requests across different migrations, concurrent outcome recording, and concurrent
+portfolio reads interleaved with migration creation — all clean, no lock errors, no cross-
+contamination. Restart/durability: `intelligence_artifacts`/`intelligence_outcomes` and the
+P7C.14 sample-history sibling file all survive a full close-and-reopen of the
+`PipelineUnifiedCaller`/connection set against the same on-disk files, remain correctly
+tenant/migration-scoped after restart, and stay bounded. Intentionally ephemeral state
+(in-process `TelemetryAuthority` progress tracking) is honestly `UNKNOWN` after a restart with
+no telemetry resumed — never a resurrected stale number.
+
+### 43.14 P7B legality proven through the real consequential P7C path
+
+Uses the real, **unmodified** `akaalEngine.fabric.ownership.manager.OwnershipManager` — no
+P7C-owned fencing/ownership logic was built. Proven directly against the real authority:
+
+- A real controlled `OwnershipManager.transfer()` (worker-1 → worker-2) mints a fresh
+  lease/generation; the OLD lease/generation a P7C artifact might still reference is rejected
+  by the real, unmodified `validate()` with `LeaseConflictError`.
+- An isolated fencing-generation-only staleness case (same lease_id, bumped generation) is
+  rejected with `StaleFencingGenerationError`.
+- Natural lease expiry is rejected with `LeaseExpiredError`.
+
+And composed through the real P7C.13/P7C.18 production resolver chain: P7C.13's FABRIC
+dimension reflects the *new* owner as `HEALTHY` immediately after a real transfer (never a
+stale cached view), and P7C.18 never proposes an automated action once ownership is
+`CRITICAL` (expired). `AI recommendation != ownership`; `approval != ownership`; `heartbeat !=
+ownership`; `stale lease != authority`; `expired lease != authority`; `stale fencing
+generation != authority`; **P7C cannot manufacture P7B execution legality.**
+
+### 43.15 P7C.24 — Whole-Intelligence Hostile Acceptance — attack-family reconciliation
+
+P7C.24 is recorded as the final reconciliation of every required hostile attack family against
+the complete composed Group-2 production path, not a bare test count:
+
+| Attack family | Disposition | Evidence |
+|---|---|---|
+| Tenant isolation | Exercised, composed, across all Group-2 capabilities | `test_p7c24_whole_p7c_hostile_acceptance.py`, `test_p7c_group2_ipc_contract_acceptance.py` |
+| Authorization / forged principal | Exercised, composed | real RBAC+ABAC region tests (§43.7) + zero-permission-actor sweep across all capabilities |
+| Prompt/data injection | Exercised, composed | malicious strings in migration id/name proven inert; structural proof no Group-2 producer imports the model gateway |
+| Model failure/degradation | Equivalently proven structurally | no model is wired anywhere in Group 2's analytical path — a model-gateway outage cannot affect it by construction; core AKAAL commands proven to work with zero `intelligence.submit` calls |
+| Maker-checker | Exercised, composed | §43.9 — no-approval / expired / wrong-resource / self-approval / stale-fingerprint, all real |
+| P7B legality | Exercised, composed | §43.14 |
+| Staleness | Exercised, composed | real P7C.1 `evaluate_staleness`/`refresh_staleness` proven against a Group-2 (P7C.16) artifact; mediation's own stale-fingerprint rejection confirmed as the real gateway's own error type |
+| Resource exhaustion | Exercised, composed | oversized portfolio limit requests clamped (never honored verbatim); repeated identical requests proven bounded at the storage layer |
+| False RCA | Exercised, composed | correlation-never-becomes-proof tests; missing-evidence and alternatives never silently dropped |
+| Pathological forecasting | Exercised, composed | zero/negative rate, non-convergent CDC, completion-already-reached, all reported honestly, never fabricated |
+| Remediation bypass | Exercised, composed | six parametrized bypass-intent payloads (checkpoint mutation, tenant override, Evidence forgery, TLS disable, admin grant, etc.) all proven to have zero effect |
+| Core-AKAAL survival without intelligence | Exercised, composed | `migration.pause` proven to work correctly with zero P7C/`intelligence.submit` involvement |
+
+No family in this list was left as N/A-by-avoidance; none required genuinely unavailable
+external infrastructure to test locally.
+
+### 43.16 Final IPC / UI-readiness (no Angular/Wails implementation required or performed)
+
+Every Group-2 capability rides the **same, unmodified, generic** `intelligence.submit` /
+`intelligence.mediation.evaluate` / `intelligence.outcome.record`/`.list` IPC contract Group 1
+already established — zero new IPC operations were added. `capability` (a plain string) is the
+only new routing key. Final contract-level acceptance
+(`tests/security/test_p7c_group2_ipc_contract_acceptance.py`, 35 tests): every one of the 11
+Group-2 capabilities' responses round-trips through `json.dumps`/`json.loads` unchanged (a thin
+Angular/Wails consumer needs zero Python imports and zero producer-class knowledge); malformed/
+empty payloads fail closed or degrade honestly, never an unhandled crash; an unknown capability
+string and a capability paired with the wrong task are both refused; an actor with a real
+authorization engine but zero grants is denied before capability routing ever runs, for every
+capability. `UI != backend authority`; `Wails != migration engine`; the frontend never needs to
+import any Python intelligence internals.
+
+### 43.17 26-blocker owner-acceptance closure record
+
+An independent owner hostile review of the first Group-2 implementation pass produced a
+26-item closure bar before Group 2 could be considered for freeze. All 26 were closed and
+regression-verified; none were resolved by narrowing scope or weakening an assertion:
+
+```
+ 1. P7C.16 real per-actor canonical authorization         -- CLOSED (§43.7)
+ 2. P7C.18 real canonical remediation execution            -- CLOSED (§43.9)
+ 3. Complete closed-loop production journey                -- CLOSED (§43.9, §43.20)
+ 4. P7C.24 hostile-family completeness                      -- CLOSED (§43.15)
+ 5. Prompt/data injection                                   -- CLOSED (§43.15)
+ 6. Model-gateway degradation                                -- CLOSED (§43.15)
+ 7. P7B legality through the consequential P7C path          -- CLOSED (§43.14)
+ 8. Concurrency campaign                                     -- CLOSED (§43.13)
+ 9. Restart/durability campaign                              -- CLOSED (§43.13)
+10. FinOps cost provenance                                   -- CLOSED (§43.10)
+11. Sustainability truthful capability resolution            -- CLOSED (§43.10)
+12. P7C.21 operator-query scope completion                   -- CLOSED (§43.11)
+13. Genuine portfolio pagination/continuation                -- CLOSED (§43.11)
+14. Forecast -> outcome -> evaluation provenance chain        -- CLOSED (§43.8, §43.11)
+15. Stale intelligence / actionability protection             -- CLOSED (§43.15)
+16. Economic/resource exhaustion testing                      -- CLOSED (§43.15)
+17. Hostile false-RCA epistemic testing                       -- CLOSED (§43.6, §43.15)
+18. Pathological forecast testing                             -- CLOSED (§43.8, §43.15)
+19. Remediation bypass attacks                                -- CLOSED (§43.15)
+20. Complete UI/IPC production-path acceptance                -- CLOSED (§43.16)
+21. Final real local runtime/database composed proof          -- CLOSED (§43.4, §43.9)
+22. Composed degradation proof (AI outage cannot break core)  -- CLOSED (§43.15)
+23. Final dynamic/no-hardcode audit                            -- CLOSED (§43.12)
+24. Final duplicate-authority/direct-write/security audit     -- CLOSED (§43.12)
+25. Governing whole-repository regression                     -- CLOSED (§43.18)
+26. Final zero-gap forensic convergence                        -- CLOSED (this record)
+```
+
+**26/26 FINAL ACCEPTANCE BLOCKERS CLOSED.**
+
+### 43.18 Final Group-2 test evidence (physically counted at freeze)
+
+Dedicated per-part tests (`tests/unit/engine_intelligence/` + `tests/security/` +
+`tests/pipeline/`, collected by filename pattern):
+
+```
+P7C.13 dedicated:                27
+P7C.14 dedicated:                26
+P7C.15 dedicated:                13
+P7C.16 dedicated:                13
+P7C.17 dedicated:                13
+P7C.18 dedicated:                16
+P7C.19 dedicated:                 7
+P7C.20 dedicated:                10
+P7C.21 dedicated:                11
+P7C.22 dedicated:                 8
+P7C.23 dedicated:                 7
+P7C.24 hostile acceptance:       25
+Cross-cutting Group-2 campaigns  67   (concurrency, restart/durability, staleness,
+  (test_p7c_group2_*.py)              injection/exhaustion/bypass, IPC contract acceptance)
+P7B-legality-through-P7C:          5
+------------------------------------
+Group-2 dedicated total:         248
+```
+
+Broader regression checkpoints (all against the identical final production-code state, zero
+code changes between them and the whole-repository run below):
+```
+akaalEngine/intelligence unit tests (Group 1 + Group 2 combined):  387 collected
+tests/security + tests/pipeline + tests/ipc:                      1,802 passed, 0 failed
+tests/unit/engine_fabric (P7B):                                     719 collected, all passing
+```
+
+**Governing whole-repository regression:**
+```
+6,946 passed
+166 skipped
+0 failed
+```
+
+Skips are the pre-existing, historical category already documented at §42.9/§16 (genuinely
+external/unavailable-infrastructure-dependent tests, e.g. live cloud/provider credentials) —
+none are Group-2 additions, and none are mischaracterized as passing.
+
+### 43.19 Proof-level discipline (do not upgrade for presentation)
+
+`10/10 LOCALLY PROVEN` for Group 2 means: implemented, wired into the real production seam,
+`UNIT_PROVEN` and `INTEGRATION_PROVEN` against real local SQLite/canonical authorities
+(`CentralAuthorizationEngine`, `OwnershipManager`, `TelemetryAuthority`, `CDCAuthority`,
+`ActionMediationGateway`, `ArtifactRegistry`, `PolicyGateEvaluator` — all real, all
+unmodified). It does **not** mean live external infrastructure was exercised. Nothing in
+Group 2 is classified `LIVE_PROVEN`. Genuine remaining external boundaries (unchanged in kind
+from §42.13, now also covering Group-2 surfaces that would touch the same infrastructure):
+
+```
+Live commercial/private model-provider invocation      -- EXTERNAL_DEFERRED (no live model
+                                                            is wired into Group 2 at all --
+                                                            not merely untested, structurally
+                                                            absent, see §43.11/§43.15)
+Live heterogeneous cross-engine differential SQL        -- EXTERNAL_DEFERRED (inherited from
+  execution                                                Group 1, §42.13, unchanged)
+Live external cloud/Kubernetes/provider failure         -- EXTERNAL_DEFERRED (inherited P7B
+  scenarios                                                 proof boundary, §41)
+Production-scale multi-process/distributed races        -- EXTERNAL_DEFERRED (this session's
+  requiring a real external multi-host deployment           concurrency proof, §43.13, used
+                                                             real multi-connection/multi-thread
+                                                             tests against one local SQLite
+                                                             file — genuinely proves the local
+                                                             mechanism, but a real multi-host
+                                                             deployment was not exercised)
+External provider commit-ambiguity resolution           -- EXTERNAL_DEFERRED (inherited, §42.13)
+```
+
+None of these are `KNOWN LOCALLY ACTIONABLE P7C DEFECTS` — each requires infrastructure this
+local environment genuinely does not have.
+
+### 43.20 The complete closed loop (concise reference)
+
+```
+canonical running migration
+  -> P7C.13 runtime health (canonical-only resolver)
+  -> P7C.14 anomaly/bottleneck (bounded history, deterministic detectors)
+  -> P7C.15 RCA (evidence-grounded, governance-precedent hypothesis ladder)
+  -> P7C.17 forecast (real ETA, honest non-convergent CDC)
+  -> P7C.16 constrained optimization (real per-actor legal feasible set)
+  -> P7C.20 cost/resource intelligence (assumption-tagged) + P7C.19 risk intelligence
+  -> P7C.18 typed governed remediation proposal
+  -> Group-1 ActionMediationGateway (unmodified)
+  -> real CentralAuthorizationEngine + PolicyGateEvaluator + ArtifactRegistry
+  -> maker-checker / approval
+  -> real canonical "migration.pause" command
+  -> canonical migration repository state change (observed, not asserted)
+  -> intelligence.outcome.record (Group-1, unmodified)
+  -> P7C.23 evaluation (real error/interval-hit arithmetic)
+  -> P7C.21 operator explanation (grounded, cited)
+  -> P7C.22 portfolio/executive reflection (tenant-authorized, paginated)
+```
+
+P7C is not the runtime authority at any point in this loop — every consequential step passes
+through an existing, unmodified canonical AKAAL authority.
+
+### 43.21 Git truth at this freeze checkpoint (read-only, no Git writes performed by this or
+the preceding implementation/review sessions)
+
+```
+HEAD:            603545595802df50c63e3da61213b4781970d5b6
+```
+
+No commit landed during the P7C Group 2 implementation/hostile-review/blocker-closure work —
+`HEAD` is unchanged from the value already recorded at the start of this body of work. The
+complete Group-2 implementation (all production files under `akaalEngine/intelligence/{anomaly,
+rca,remediation,producers}/` and `akaalPipeline/observability/*.py`, the additive registration
+in `akaalEngine/intelligence/mediation/autonomy.py`, the wiring in `akaalPipeline/application/
+unified_caller.py`, the determinism fix in `tests/unit/engine_connection/
+test_p7a_campaign_b_remaining10_connection_providers.py`, and every dedicated Group-2 test
+file) remains **uncommitted working-tree state** on top of `60354559`. A future Git
+finalization step must review `git status` before staging anything — do not run an unqualified
+`git add -A` without first separating this P7C Group-2 work from the long-standing, pre-existing,
+unrelated `.akaal/reports/*.json` churn already present before this work began (§42.16
+documents the same category of pre-existing noise for Group 1).
+
+### 43.22 What P7C Group 2 does NOT do (scope boundary, honestly preserved)
+
+- Does not execute anything itself beyond the one proven, real, canonical `migration.pause`
+  command reached through full governance — no other canonical command was wired to a P7C.18
+  recipe in this freeze.
+- Does not implement live generative-model-backed operator conversation (P7C.21's intent
+  router is closed/deterministic; no LLM is wired anywhere in Group 2).
+- Does not implement real carbon/sustainability metrics (§43.10) — truthfully unavailable, not
+  approximated.
+- Does not implement a real organizational cost-configuration authority (§43.10) — every cost
+  figure remains explicitly a caller-supplied scenario assumption.
+- Does not implement the full 24.A–N literal hostile-attack enumeration from the original P7C
+  brief as a mechanical one-test-per-letter mapping — instead reconciles every required attack
+  *family* against the composed production path (§43.15), which the owner accepted as
+  satisfying the completeness requirement.
+- Does not implement any Angular/Wails frontend (explicitly out of scope for this backend
+  freeze) — the IPC contract is proven ready for one (§43.16).
+
+---
+
+## 44. P7C FINAL FREEZE RECORD — WHOLE PHASE (GROUP 1 + GROUP 2, P7C.1–P7C.24) — OWNER ACCEPTED & FROZEN (2026-09-07)
+
+**THIS IS THE CURRENT, SINGLE, UNAMBIGUOUS AUTHORITATIVE RECORD FOR THE WHOLE OF P7C.** It
+supersedes every "not started," "ACTIVE," "NEXT," "candidate," or "roadmap only" statement
+about P7C anywhere earlier in this document (§9, §42.15, §42.17). Where anything conflicts
+with this section, this section governs.
+
+```
+P7C — AI-NATIVE MIGRATION INTELLIGENCE + OPTIMIZATION
+P7C.1–P7C.24 — COMPLETE
+GROUP 1 (P7C.1–P7C.12, Campaign A + Campaign B)   — COMPLETED, OWNER ACCEPTED & FROZEN (§42)
+GROUP 2 (P7C.13–P7C.24, Campaign C + Campaign D)  — COMPLETED, OWNER ACCEPTED & FROZEN (§43)
+26/26 FINAL ACCEPTANCE BLOCKERS CLOSED (§43.17)
+10/10 LOCALLY PROVEN
+OWNER ACCEPTED & FROZEN — 2026-09-07
+```
+
+**P0–P7B (§9, §34, §35, §39, §40, §41) are unaffected and remain separately frozen** — P7C is
+a new, additive intelligence layer built entirely on top of those frozen canonical authorities;
+nothing in P7C reopened, weakened, redesigned, or duplicated any of them.
+
+### 44.1 Final governing gap counters (physically verified at this freeze, not carried
+forward by assumption)
+
+```
+KNOWN LOCALLY ACTIONABLE P7C GROUP-1 GAPS:                    0
+KNOWN LOCALLY ACTIONABLE P7C GROUP-2 GAPS:                    0
+KNOWN LOCALLY ACTIONABLE WHOLE-P7C GAPS:                      0
+KNOWN LOCALLY ACTIONABLE WHOLE-REPOSITORY DEFECTS AT FREEZE:  0
+```
+
+### 44.2 Final governing whole-repository regression
+
+```
+6,946 passed
+166 skipped
+0 failed
+```
+
+Verified immediately before this freeze reconciliation, against the exact same production/test
+code state this document now describes (no production or test file changed between that run
+and this documentation pass — confirmed via `git status`/`git diff --stat` before editing this
+record).
+
+### 44.3 Permanent P7C governing law (repeated here as the single reference point)
+
+```
+AI ADVISES, EXPLAINS, OPTIMIZES AND PROPOSES.
+CANONICAL AKAAL AUTHORITIES VALIDATE, AUTHORIZE AND EXECUTE.
+
+NO AI OUTPUT BECOMES EXECUTION TRUTH UNTIL IT HAS BEEN COMPILED, VALIDATED,
+POLICY-CHECKED AND AUTHORIZED THROUGH THE SAME CANONICAL AKAAL PATH AS HUMAN INTENT.
+```
+
+```
+FULL GENERATIVE + ANALYTICAL INTELLIGENCE
+        |  (model/provider unavailable -- none is wired in Group 2 at all)
+DETERMINISTIC / ANALYTICAL INTELLIGENCE ONLY
+        |  (intelligence subsystem itself unavailable)
+CORE AKAAL MIGRATION PLATFORM
+```
+
+Full invariant list: §42.2 (Group 1, unchanged) + §43.2 (Group-2 additions). P7C remains
+subordinate to canonical authorization, canonical planning, canonical runtime, P7B Fabric/
+ownership/fencing, canonical CDC, canonical checkpointing, Validation #11, Evidence #12,
+canonical secrets/security, and canonical provider success — none of these were re-implemented,
+weakened, or bypassed anywhere in P7C.1–P7C.24.
+
+### 44.4 Roadmap position after this freeze
+
+```
+P7C — COMPLETED / OWNER ACCEPTED / FROZEN (this record)
+NEXT SCOPE — OWNER CONTROLLED / NOT STARTED
+```
+
+No other phase is hereby started, renamed, or redesignated active. §9's roadmap table should
+be read with `P7C` now `COMPLETED — OWNER ACCEPTED & FROZEN` in place of the prior `Future /
+NOT STARTED` entry.

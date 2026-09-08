@@ -45,6 +45,7 @@ from akaalPipeline.state.repositories import SQLiteMigrationRepository
 from akaalPipeline.state.unit_of_work import SQLiteUnitOfWork, UnitOfWorkPort
 from akaalEngine.intelligence.api import IntelligenceKernel
 from akaalEngine.intelligence.producers.bootstrap import register_all_campaign_b_producers
+from akaalEngine.intelligence.producers.bootstrap_campaign_c import register_all_campaign_c_producers
 
 
 class PipelineUnifiedCaller(UnifiedCallerPort):
@@ -109,6 +110,23 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
         register_all_campaign_b_producers(
             self.intelligence_kernel,
             strategy_constraint_resolver=self._build_strategy_constraint_resolver(),
+        )
+        register_all_campaign_c_producers(
+            self.intelligence_kernel,
+            runtime_health_resolver=self._build_runtime_health_resolver(),
+            anomaly_detection_resolver=self._build_anomaly_detection_resolver(),
+            rca_resolver=self._build_rca_resolver(),
+            forecast_resolver=self._build_forecast_resolver(),
+            remediation_resolver=self._build_remediation_resolver(),
+            security_risk_resolver=self._build_security_risk_resolver(),
+            portfolio_resolver=self._build_portfolio_resolver(),
+            finops_resolver=self._build_finops_resolver(),
+            operator_query_resolver=self._build_operator_query_resolver(),
+            # Reuses the EXACT SAME per-actor, per-tenant trusted constraint
+            # resolver P7C.8's strategy_generation already uses -- real
+            # canonical region/capability authorization, not a second
+            # authority (owner-review Blocker 1 closure).
+            optimization_constraint_resolver=self._build_strategy_constraint_resolver(),
         )
         self.command_handlers = CommandHandlerRegistry(
             self.repository,
@@ -303,6 +321,393 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
                 capability_universe=capability_universe,
                 capability_authorizer=_capability_authorizer if capability_universe else None,
             )
+
+        return resolver
+
+    def _build_runtime_health_resolver(self):
+        """Builds the P7C.13 canonical runtime-health resolver, backed by the
+        REAL akaalPipeline.observability.runtime_health_resolver.
+        CanonicalRuntimeHealthResolver -- never a caller-trusting fallback (see
+        akaalEngine.intelligence.producers.bootstrap_campaign_c). Reuses the
+        SAME self.repository / self.binding_registry already constructed above
+        (the same instances akaalPipeline.observability.unified_service.
+        UnifiedObservabilityService samples for the existing observability.*
+        queries) -- never a second RuntimeAuthority/TelemetryAuthority/
+        CDCAuthority access path.
+
+        The synthetic PipelineActorContext built inside `resolver` re-derives
+        this exact already-authenticated request's real actor identity/roles
+        (threaded via IntelligenceContext.extra_dimensions by command_handlers.
+        handle_submit_intelligence_request) to ask
+        PipelineActorContext.enforce_resource_scope the SAME tenant-boundary
+        question every other canonical migration-scoped query already asks --
+        it does not fabricate new trust."""
+        from akaalPipeline.contracts.enums import AuthenticationAssurance, AuthenticationState
+        from akaalPipeline.observability.runtime_health_resolver import CanonicalRuntimeHealthResolver
+        from akaalPipeline.security.context import PipelineActorContext
+
+        impl = CanonicalRuntimeHealthResolver(
+            repository=self.repository,
+            binding_registry=self.binding_registry,
+            # No constructor-fixed ownership_manager: resolved dynamically per-
+            # request below instead (self.plan_coordinator.fabric_dependencies
+            # is None in PipelineUnifiedCaller's own default construction --
+            # verified by inspection, P7B Fabric placement has zero production
+            # construction sites in this repository today, only test-only ones
+            # -- but reading the attribute live means a deployment that DOES
+            # later configure self.plan_coordinator.fabric_dependencies with a
+            # real FabricGateDependencies(ownership_manager=...) is picked up
+            # automatically, with zero further P7C.13 code changes, and
+            # without this module ever constructing its own OwnershipManager/
+            # FabricDurabilityStore).
+        )
+
+        def _live_ownership_manager() -> Optional[Any]:
+            fabric_deps = getattr(self.plan_coordinator, "fabric_dependencies", None)
+            return getattr(fabric_deps, "ownership_manager", None) if fabric_deps is not None else None
+
+        def resolver(request: Any, context: Any):
+            actor_id = context.extra_dimensions.get("actor_id", request.requested_by)
+            roles_raw = context.extra_dimensions.get("actor_roles", "")
+            roles: Tuple[str, ...] = tuple(r for r in roles_raw.split(",") if r)
+            actor_context = PipelineActorContext(
+                actor_id=actor_id,
+                actor_type="human",
+                organization_id=context.tenant_id,
+                workspace_id=context.workspace_id,
+                project_id=context.project_id,
+                roles=roles,
+                authentication_state=AuthenticationState.AUTHENTICATED,
+                authentication_assurance=AuthenticationAssurance.MEDIUM,
+                provenance="internal-core",
+            )
+            migration_id = request.parameters.get("migration_id") or context.subject_id
+            return impl.resolve(migration_id, actor_context, ownership_manager=_live_ownership_manager())
+
+        return resolver
+
+    def _build_anomaly_detection_resolver(self):
+        """Builds the P7C.14 canonical anomaly-detection resolver. Composes
+        the SAME real canonical machinery as P7C.13 (a second, independent
+        CanonicalRuntimeHealthResolver instance wrapping the SAME self.
+        repository/self.binding_registry -- not a new authority, just another
+        lightweight adapter over the same canonical objects) with
+        akaalPipeline.observability.anomaly_resolver.CanonicalAnomalyResolver's
+        bounded history store."""
+        from akaalPipeline.contracts.enums import AuthenticationAssurance, AuthenticationState
+        from akaalPipeline.observability.anomaly_resolver import CanonicalAnomalyResolver
+        from akaalPipeline.observability.runtime_health_resolver import CanonicalRuntimeHealthResolver
+        from akaalPipeline.security.context import PipelineActorContext
+
+        health_impl = CanonicalRuntimeHealthResolver(repository=self.repository, binding_registry=self.binding_registry)
+        anomaly_impl = CanonicalAnomalyResolver(health_resolver=health_impl, db_path=self.db_path)
+
+        def live_ownership_manager() -> Optional[Any]:
+            fabric_deps = getattr(self.plan_coordinator, "fabric_dependencies", None)
+            return getattr(fabric_deps, "ownership_manager", None) if fabric_deps is not None else None
+
+        def resolver(request: Any, context: Any):
+            actor_id = context.extra_dimensions.get("actor_id", request.requested_by)
+            roles_raw = context.extra_dimensions.get("actor_roles", "")
+            roles: Tuple[str, ...] = tuple(r for r in roles_raw.split(",") if r)
+            actor_context = PipelineActorContext(
+                actor_id=actor_id,
+                actor_type="human",
+                organization_id=context.tenant_id,
+                workspace_id=context.workspace_id,
+                project_id=context.project_id,
+                roles=roles,
+                authentication_state=AuthenticationState.AUTHENTICATED,
+                authentication_assurance=AuthenticationAssurance.MEDIUM,
+                provenance="internal-core",
+            )
+            migration_id = request.parameters.get("migration_id") or context.subject_id
+            return anomaly_impl.resolve(migration_id, actor_context, ownership_manager=live_ownership_manager())
+
+        return resolver
+
+    def _build_rca_resolver(self):
+        """Builds the P7C.15 canonical RCA resolver, composing a fresh
+        CanonicalAnomalyResolver (itself composing CanonicalRuntimeHealthResolver
+        -- all lightweight adapters over the SAME self.repository/self.
+        binding_registry, never a new authority)."""
+        from akaalPipeline.contracts.enums import AuthenticationAssurance, AuthenticationState
+        from akaalPipeline.observability.anomaly_resolver import CanonicalAnomalyResolver
+        from akaalPipeline.observability.rca_resolver import CanonicalRCAResolver
+        from akaalPipeline.observability.runtime_health_resolver import CanonicalRuntimeHealthResolver
+        from akaalPipeline.security.context import PipelineActorContext
+
+        health_impl = CanonicalRuntimeHealthResolver(repository=self.repository, binding_registry=self.binding_registry)
+        anomaly_impl = CanonicalAnomalyResolver(health_resolver=health_impl, db_path=self.db_path)
+        rca_impl = CanonicalRCAResolver(anomaly_resolver=anomaly_impl)
+
+        def live_ownership_manager() -> Optional[Any]:
+            fabric_deps = getattr(self.plan_coordinator, "fabric_dependencies", None)
+            return getattr(fabric_deps, "ownership_manager", None) if fabric_deps is not None else None
+
+        def resolver(request: Any, context: Any):
+            actor_id = context.extra_dimensions.get("actor_id", request.requested_by)
+            roles_raw = context.extra_dimensions.get("actor_roles", "")
+            roles: Tuple[str, ...] = tuple(r for r in roles_raw.split(",") if r)
+            actor_context = PipelineActorContext(
+                actor_id=actor_id,
+                actor_type="human",
+                organization_id=context.tenant_id,
+                workspace_id=context.workspace_id,
+                project_id=context.project_id,
+                roles=roles,
+                authentication_state=AuthenticationState.AUTHENTICATED,
+                authentication_assurance=AuthenticationAssurance.MEDIUM,
+                provenance="internal-core",
+            )
+            migration_id = request.parameters.get("migration_id") or context.subject_id
+            return rca_impl.resolve(migration_id, actor_context, ownership_manager=live_ownership_manager())
+
+        return resolver
+
+    def _build_forecast_resolver(self):
+        """Builds the P7C.17 canonical forecast resolver -- another
+        lightweight adapter over the SAME self.repository/self.
+        binding_registry (never a new authority)."""
+        from akaalPipeline.contracts.enums import AuthenticationAssurance, AuthenticationState
+        from akaalPipeline.observability.forecast_resolver import CanonicalForecastResolver
+        from akaalPipeline.observability.runtime_health_resolver import CanonicalRuntimeHealthResolver
+        from akaalPipeline.security.context import PipelineActorContext
+
+        health_impl = CanonicalRuntimeHealthResolver(repository=self.repository, binding_registry=self.binding_registry)
+        forecast_impl = CanonicalForecastResolver(health_resolver=health_impl)
+
+        def live_ownership_manager() -> Optional[Any]:
+            fabric_deps = getattr(self.plan_coordinator, "fabric_dependencies", None)
+            return getattr(fabric_deps, "ownership_manager", None) if fabric_deps is not None else None
+
+        def resolver(request: Any, context: Any):
+            actor_id = context.extra_dimensions.get("actor_id", request.requested_by)
+            roles_raw = context.extra_dimensions.get("actor_roles", "")
+            roles: Tuple[str, ...] = tuple(r for r in roles_raw.split(",") if r)
+            actor_context = PipelineActorContext(
+                actor_id=actor_id,
+                actor_type="human",
+                organization_id=context.tenant_id,
+                workspace_id=context.workspace_id,
+                project_id=context.project_id,
+                roles=roles,
+                authentication_state=AuthenticationState.AUTHENTICATED,
+                authentication_assurance=AuthenticationAssurance.MEDIUM,
+                provenance="internal-core",
+            )
+            migration_id = request.parameters.get("migration_id") or context.subject_id
+            return forecast_impl.resolve(migration_id, actor_context, ownership_manager=live_ownership_manager())
+
+        return resolver
+
+    def _build_remediation_resolver(self):
+        """Builds the P7C.18 canonical remediation resolver, composing a
+        fresh CanonicalRCAResolver (itself composing CanonicalAnomalyResolver
+        composing CanonicalRuntimeHealthResolver -- all lightweight adapters
+        over the SAME self.repository/self.binding_registry)."""
+        from akaalPipeline.contracts.enums import AuthenticationAssurance, AuthenticationState
+        from akaalPipeline.observability.anomaly_resolver import CanonicalAnomalyResolver
+        from akaalPipeline.observability.rca_resolver import CanonicalRCAResolver
+        from akaalPipeline.observability.remediation_resolver import CanonicalRemediationResolver
+        from akaalPipeline.observability.runtime_health_resolver import CanonicalRuntimeHealthResolver
+        from akaalPipeline.security.context import PipelineActorContext
+
+        health_impl = CanonicalRuntimeHealthResolver(repository=self.repository, binding_registry=self.binding_registry)
+        anomaly_impl = CanonicalAnomalyResolver(health_resolver=health_impl, db_path=self.db_path)
+        rca_impl = CanonicalRCAResolver(anomaly_resolver=anomaly_impl)
+        remediation_impl = CanonicalRemediationResolver(rca_resolver=rca_impl)
+
+        def live_ownership_manager() -> Optional[Any]:
+            fabric_deps = getattr(self.plan_coordinator, "fabric_dependencies", None)
+            return getattr(fabric_deps, "ownership_manager", None) if fabric_deps is not None else None
+
+        def resolver(request: Any, context: Any):
+            actor_id = context.extra_dimensions.get("actor_id", request.requested_by)
+            roles_raw = context.extra_dimensions.get("actor_roles", "")
+            roles: Tuple[str, ...] = tuple(r for r in roles_raw.split(",") if r)
+            actor_context = PipelineActorContext(
+                actor_id=actor_id,
+                actor_type="human",
+                organization_id=context.tenant_id,
+                workspace_id=context.workspace_id,
+                project_id=context.project_id,
+                roles=roles,
+                authentication_state=AuthenticationState.AUTHENTICATED,
+                authentication_assurance=AuthenticationAssurance.MEDIUM,
+                provenance="internal-core",
+            )
+            migration_id = request.parameters.get("migration_id") or context.subject_id
+            return remediation_impl.resolve(migration_id, actor_context, ownership_manager=live_ownership_manager())
+
+        return resolver
+
+    def _build_security_risk_resolver(self):
+        """Builds the P7C.19 canonical security-risk resolver, composing a
+        fresh CanonicalRemediationResolver (itself composing RCA/anomaly/
+        health -- all lightweight adapters over the SAME self.repository/
+        self.binding_registry)."""
+        from akaalPipeline.contracts.enums import AuthenticationAssurance, AuthenticationState
+        from akaalPipeline.observability.anomaly_resolver import CanonicalAnomalyResolver
+        from akaalPipeline.observability.rca_resolver import CanonicalRCAResolver
+        from akaalPipeline.observability.remediation_resolver import CanonicalRemediationResolver
+        from akaalPipeline.observability.runtime_health_resolver import CanonicalRuntimeHealthResolver
+        from akaalPipeline.observability.security_risk_resolver import CanonicalSecurityRiskResolver
+        from akaalPipeline.security.context import PipelineActorContext
+
+        health_impl = CanonicalRuntimeHealthResolver(repository=self.repository, binding_registry=self.binding_registry)
+        anomaly_impl = CanonicalAnomalyResolver(health_resolver=health_impl, db_path=self.db_path)
+        rca_impl = CanonicalRCAResolver(anomaly_resolver=anomaly_impl)
+        remediation_impl = CanonicalRemediationResolver(rca_resolver=rca_impl)
+        risk_impl = CanonicalSecurityRiskResolver(remediation_resolver=remediation_impl)
+
+        def live_ownership_manager() -> Optional[Any]:
+            fabric_deps = getattr(self.plan_coordinator, "fabric_dependencies", None)
+            return getattr(fabric_deps, "ownership_manager", None) if fabric_deps is not None else None
+
+        def resolver(request: Any, context: Any):
+            actor_id = context.extra_dimensions.get("actor_id", request.requested_by)
+            roles_raw = context.extra_dimensions.get("actor_roles", "")
+            roles: Tuple[str, ...] = tuple(r for r in roles_raw.split(",") if r)
+            actor_context = PipelineActorContext(
+                actor_id=actor_id,
+                actor_type="human",
+                organization_id=context.tenant_id,
+                workspace_id=context.workspace_id,
+                project_id=context.project_id,
+                roles=roles,
+                authentication_state=AuthenticationState.AUTHENTICATED,
+                authentication_assurance=AuthenticationAssurance.MEDIUM,
+                provenance="internal-core",
+            )
+            migration_id = request.parameters.get("migration_id") or context.subject_id
+            return risk_impl.resolve(migration_id, actor_context, ownership_manager=live_ownership_manager())
+
+        return resolver
+
+    def _build_portfolio_resolver(self):
+        """Builds the P7C.22 canonical portfolio resolver -- reuses the SAME
+        self.repository (tenant-scoped listing) and a fresh
+        CanonicalRuntimeHealthResolver (never a second health computation)."""
+        from akaalPipeline.contracts.enums import AuthenticationAssurance, AuthenticationState
+        from akaalPipeline.observability.portfolio_resolver import CanonicalPortfolioResolver
+        from akaalPipeline.observability.runtime_health_resolver import CanonicalRuntimeHealthResolver
+        from akaalPipeline.security.context import PipelineActorContext
+
+        health_impl = CanonicalRuntimeHealthResolver(repository=self.repository, binding_registry=self.binding_registry)
+        portfolio_impl = CanonicalPortfolioResolver(repository=self.repository, health_resolver=health_impl)
+
+        def live_ownership_manager() -> Optional[Any]:
+            fabric_deps = getattr(self.plan_coordinator, "fabric_dependencies", None)
+            return getattr(fabric_deps, "ownership_manager", None) if fabric_deps is not None else None
+
+        def resolver(request: Any, context: Any):
+            actor_id = context.extra_dimensions.get("actor_id", request.requested_by)
+            roles_raw = context.extra_dimensions.get("actor_roles", "")
+            roles: Tuple[str, ...] = tuple(r for r in roles_raw.split(",") if r)
+            actor_context = PipelineActorContext(
+                actor_id=actor_id,
+                actor_type="human",
+                organization_id=context.tenant_id,
+                workspace_id=context.workspace_id,
+                project_id=context.project_id,
+                roles=roles,
+                authentication_state=AuthenticationState.AUTHENTICATED,
+                authentication_assurance=AuthenticationAssurance.MEDIUM,
+                provenance="internal-core",
+            )
+            limit = int(request.parameters.get("limit", 50))
+            cursor = request.parameters.get("cursor")
+            return portfolio_impl.resolve(actor_context, ownership_manager=live_ownership_manager(), limit=limit, cursor=cursor)
+
+        return resolver
+
+    def _build_finops_resolver(self):
+        """Builds the P7C.20 canonical FinOps resolver, reusing a fresh
+        CanonicalForecastResolver (itself composing health -- lightweight
+        adapters over the SAME self.repository/self.binding_registry)."""
+        from akaalPipeline.contracts.enums import AuthenticationAssurance, AuthenticationState
+        from akaalPipeline.observability.finops_resolver import CanonicalFinOpsResolver
+        from akaalPipeline.observability.forecast_resolver import CanonicalForecastResolver
+        from akaalPipeline.observability.runtime_health_resolver import CanonicalRuntimeHealthResolver
+        from akaalPipeline.security.context import PipelineActorContext
+
+        health_impl = CanonicalRuntimeHealthResolver(repository=self.repository, binding_registry=self.binding_registry)
+        forecast_impl = CanonicalForecastResolver(health_resolver=health_impl)
+        finops_impl = CanonicalFinOpsResolver(forecast_resolver=forecast_impl)
+
+        def live_ownership_manager() -> Optional[Any]:
+            fabric_deps = getattr(self.plan_coordinator, "fabric_dependencies", None)
+            return getattr(fabric_deps, "ownership_manager", None) if fabric_deps is not None else None
+
+        def resolver(request: Any, context: Any):
+            actor_id = context.extra_dimensions.get("actor_id", request.requested_by)
+            roles_raw = context.extra_dimensions.get("actor_roles", "")
+            roles: Tuple[str, ...] = tuple(r for r in roles_raw.split(",") if r)
+            actor_context = PipelineActorContext(
+                actor_id=actor_id,
+                actor_type="human",
+                organization_id=context.tenant_id,
+                workspace_id=context.workspace_id,
+                project_id=context.project_id,
+                roles=roles,
+                authentication_state=AuthenticationState.AUTHENTICATED,
+                authentication_assurance=AuthenticationAssurance.MEDIUM,
+                provenance="internal-core",
+            )
+            migration_id = request.parameters.get("migration_id") or context.subject_id
+            return finops_impl.resolve(migration_id, actor_context, request.parameters, ownership_manager=live_ownership_manager())
+
+        return resolver
+
+    def _build_operator_query_resolver(self):
+        """Builds the P7C.21 canonical operator-query resolver, reusing fresh
+        RCA/remediation/forecast resolver chains (all lightweight adapters
+        over the SAME self.repository/self.binding_registry)."""
+        from akaalPipeline.contracts.enums import AuthenticationAssurance, AuthenticationState
+        from akaalPipeline.observability.anomaly_resolver import CanonicalAnomalyResolver
+        from akaalPipeline.observability.finops_resolver import CanonicalFinOpsResolver
+        from akaalPipeline.observability.forecast_resolver import CanonicalForecastResolver
+        from akaalPipeline.observability.operator_query_resolver import CanonicalOperatorQueryResolver
+        from akaalPipeline.observability.portfolio_resolver import CanonicalPortfolioResolver
+        from akaalPipeline.observability.rca_resolver import CanonicalRCAResolver
+        from akaalPipeline.observability.remediation_resolver import CanonicalRemediationResolver
+        from akaalPipeline.observability.runtime_health_resolver import CanonicalRuntimeHealthResolver
+        from akaalPipeline.security.context import PipelineActorContext
+
+        health_impl = CanonicalRuntimeHealthResolver(repository=self.repository, binding_registry=self.binding_registry)
+        anomaly_impl = CanonicalAnomalyResolver(health_resolver=health_impl, db_path=self.db_path)
+        rca_impl = CanonicalRCAResolver(anomaly_resolver=anomaly_impl)
+        remediation_impl = CanonicalRemediationResolver(rca_resolver=rca_impl)
+        forecast_impl = CanonicalForecastResolver(health_resolver=health_impl)
+        finops_impl = CanonicalFinOpsResolver(forecast_resolver=forecast_impl)
+        portfolio_impl = CanonicalPortfolioResolver(repository=self.repository, health_resolver=health_impl)
+        operator_impl = CanonicalOperatorQueryResolver(
+            remediation_resolver=remediation_impl, forecast_resolver=forecast_impl,
+            finops_resolver=finops_impl, portfolio_resolver=portfolio_impl,
+        )
+
+        def live_ownership_manager() -> Optional[Any]:
+            fabric_deps = getattr(self.plan_coordinator, "fabric_dependencies", None)
+            return getattr(fabric_deps, "ownership_manager", None) if fabric_deps is not None else None
+
+        def resolver(request: Any, context: Any):
+            actor_id = context.extra_dimensions.get("actor_id", request.requested_by)
+            roles_raw = context.extra_dimensions.get("actor_roles", "")
+            roles: Tuple[str, ...] = tuple(r for r in roles_raw.split(",") if r)
+            actor_context = PipelineActorContext(
+                actor_id=actor_id,
+                actor_type="human",
+                organization_id=context.tenant_id,
+                workspace_id=context.workspace_id,
+                project_id=context.project_id,
+                roles=roles,
+                authentication_state=AuthenticationState.AUTHENTICATED,
+                authentication_assurance=AuthenticationAssurance.MEDIUM,
+                provenance="internal-core",
+            )
+            migration_id = request.parameters.get("migration_id") or context.subject_id
+            return operator_impl.resolve(migration_id, actor_context, request.parameters, ownership_manager=live_ownership_manager())
 
         return resolver
 

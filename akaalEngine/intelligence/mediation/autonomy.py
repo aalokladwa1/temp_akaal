@@ -29,6 +29,12 @@ ACTION_AUTONOMY_REGISTRY = {
     "propose_cutover_schedule": AutonomyLevel.L3_GOVERNED_ACTION_AFTER_APPROVAL,
     "propose_migration_start": AutonomyLevel.L3_GOVERNED_ACTION_AFTER_APPROVAL,
     "acknowledge_low_risk_alert": AutonomyLevel.L4_BOUNDED_PREAUTHORIZED_LOW_RISK,
+    # P7C.18 -- Governed Recovery & Remediation Intelligence. Pausing a live
+    # migration is a state-changing, human-reversible action against an
+    # already-existing canonical command (akaalPipeline.application.
+    # command_handlers.CommandHandlerRegistry.handle_pause_migration) --
+    # requires governance approval (maker-checker), never AI self-approval.
+    "propose_remediation_pause_migration": AutonomyLevel.L3_GOVERNED_ACTION_AFTER_APPROVAL,
 }
 
 
