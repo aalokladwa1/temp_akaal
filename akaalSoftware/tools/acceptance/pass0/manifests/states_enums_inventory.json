@@ -1,0 +1,1615 @@
+{
+  "summary": {
+    "totalEnums": 0,
+    "totalUnionTypes": 160,
+    "operationalStatesCount": 90,
+    "configCategoriesCount": 70
+  },
+  "enums": [],
+  "operationalStates": [
+    {
+      "file": "src/app/core/models/dashboard.models.ts",
+      "name": "LifecycleState",
+      "definition": "| 'RUNNING' \r\n  | 'PAUSED' \r\n  | 'BLOCKED' \r\n  | 'COMPLETED' \r\n  | 'FAILED' \r\n  | 'QUEUED' \r\n  | 'VALIDATING' \r\n  | 'CATCHING_UP'\r\n  | 'UNKNOWN'"
+    },
+    {
+      "file": "src/app/core/models/dashboard.models.ts",
+      "name": "AttentionSeverity",
+      "definition": "'critical' | 'blocked' | 'failed' | 'approval_required' | 'warning' | 'info'"
+    },
+    {
+      "file": "src/app/core/models/ipc.models.ts",
+      "name": "ConnectionState",
+      "definition": "'connected' | 'connecting' | 'disconnected'"
+    },
+    {
+      "file": "src/app/core/models/migration-view.models.ts",
+      "name": "MigrationLifecycleState",
+      "definition": "| 'INITIALIZED'\r\n  | 'ACTIVE'\r\n  | 'RUNNING'\r\n  | 'PAUSED'\r\n  | 'GOVERNANCE_PENDING'\r\n  | 'INTERRUPTED'\r\n  | 'COMPLETED'\r\n  | 'FAILED'\r\n  | 'CANCELLED'\r\n  | 'ARCHIVED'"
+    },
+    {
+      "file": "src/app/core/models/migration-view.models.ts",
+      "name": "OperationalHealth",
+      "definition": "'HEALTHY' | 'WARNING' | 'CRITICAL' | 'STALLED'"
+    },
+    {
+      "file": "src/app/core/models/migration-view.models.ts",
+      "name": "ConnectionHealthStatus",
+      "definition": "'CONNECTED' | 'DEGRADED' | 'UNREACHABLE' | 'AUTH_FAILED' | 'UNKNOWN' | 'ATTENTION' | 'DISCONNECTED'"
+    },
+    {
+      "file": "src/app/core/models/migration-view.models.ts",
+      "name": "ProbeStageName",
+      "definition": "'NETWORK' | 'TLS' | 'AUTHENTICATION' | 'IDENTITY' | 'PERMISSIONS' | 'PREREQUISITES' | 'CAPABILITIES'"
+    },
+    {
+      "file": "src/app/core/models/migration-view.models.ts",
+      "name": "ProbeStageStatus",
+      "definition": "'NOT_TESTED' | 'TESTING' | 'PASSED' | 'FAILED' | 'WARNING' | 'SKIPPED'"
+    },
+    {
+      "file": "src/app/core/models/migration-view.models.ts",
+      "name": "ColumnMappingStatus",
+      "definition": "'MAPPED' | 'PARTIAL' | 'REVIEW_REQUIRED' | 'STALE' | 'UNSUPPORTED'"
+    },
+    {
+      "file": "src/app/core/models/migration-view.models.ts",
+      "name": "ConversionStatus",
+      "definition": "| 'NOT_EVALUATED'\r\n  | 'CONVERSION_PROPOSED'\r\n  | 'NEEDS_REVIEW'\r\n  | 'UNSUPPORTED_CONSTRUCT'\r\n  | 'READY_FOR_BACKEND_VALIDATION'"
+    },
+    {
+      "file": "src/app/core/models/migration-view.models.ts",
+      "name": "PlanNodeState",
+      "definition": "'QUEUED' | 'READY' | 'RUNNING' | 'COMPLETED' | 'BLOCKED' | 'FAILED' | 'BARRIER_WAITING'"
+    },
+    {
+      "file": "src/app/core/models/migration-view.models.ts",
+      "name": "EvidenceSealingState",
+      "definition": "'SEALED' | 'PENDING' | 'NOT_REQUESTED' | 'INVALIDATED'"
+    },
+    {
+      "file": "src/app/modules/admin/models/audit.models.ts",
+      "name": "AuditSeverityFilter",
+      "definition": "'ALL' | 'WARNING_AND_ABOVE' | 'ERROR_ONLY'"
+    },
+    {
+      "file": "src/app/modules/admin/models/compliance.models.ts",
+      "name": "MappingState",
+      "definition": "'FULLY_MAPPED' | 'PARTIALLY_MAPPED' | 'UNMAPPED' | 'EXCEPTION_RECORDED'"
+    },
+    {
+      "file": "src/app/modules/admin/models/connectors-plugins.models.ts",
+      "name": "PluginStatus",
+      "definition": "| 'ACTIVE'\n  | 'DISABLED'"
+    },
+    {
+      "file": "src/app/modules/admin/models/connectors-plugins.models.ts",
+      "name": "PluginSignatureStatus",
+      "definition": "| 'VERIFIED_DIGEST'\n  | 'UNSIGNED'\n  | 'DIGEST_MISMATCH'"
+    },
+    {
+      "file": "src/app/modules/admin/models/enterprise.models.ts",
+      "name": "OrgLifecycleStatus",
+      "definition": "'ACTIVE' | 'SUSPENDED' | 'PROVISIONING' | 'MAINTENANCE_LOCK'"
+    },
+    {
+      "file": "src/app/modules/admin/models/people.models.ts",
+      "name": "PrincipalStatus",
+      "definition": "'ACTIVE' | 'SUSPENDED' | 'PROVISIONING' | 'DEPROVISIONED'"
+    },
+    {
+      "file": "src/app/modules/admin/models/templates-config.models.ts",
+      "name": "TemplateStatus",
+      "definition": "'DRAFT' | 'PUBLISHED' | 'DEPRECATED' | 'ARCHIVED'"
+    },
+    {
+      "file": "src/app/modules/connections/connections.models.ts",
+      "name": "ConnectionVerificationState",
+      "definition": "| 'VERIFIED_RECENT'             // Verified recently within expected freshness window\n  | 'VERIFIED_POINT_IN_TIME'       // Point-in-time test succeeded in the past\n  | 'VERIFIED_STALE'              // Verification exceeds freshness threshold\n  | 'CONFIG_CHANGED_SINCE_TEST'   // Configuration/credentials mutated since last successful probe\n  | 'PARTIAL_VERIFIED'            // L1/L2 Connectivity succeeded, L3/L4 schema/permission unprobed\n  | 'TESTING'                     // Active probe in progress\n  | 'NEVER_TESTED'                // Newly authored, never verified\n  | 'VERIFICATION_FAILED'         // Most recent probe encountered an error\n  | 'UNAVAILABLE'                 // Verification authority or network bridge unreachable\n  | 'UNAUTHORIZED'                // Operator lacks RBAC/ABAC permission to view/trigger verification\n  | 'UNKNOWN'"
+    },
+    {
+      "file": "src/app/modules/connections/connections.models.ts",
+      "name": "EntityAvailabilityState",
+      "definition": "| 'READY'\n  | 'LOADING'\n  | 'EMPTY'\n  | 'FILTERED_EMPTY'\n  | 'UNAVAILABLE'\n  | 'NOT_CONNECTED'\n  | 'UNAUTHORIZED'\n  | 'ERROR'"
+    },
+    {
+      "file": "src/app/modules/connections/create-connection/create-connection.models.ts",
+      "name": "ProbeStatus",
+      "definition": "| 'VERIFIED'\n  | 'NOT_VERIFIED'\n  | 'DENIED'\n  | 'UNSUPPORTED'\n  | 'UNKNOWN'\n  | 'TESTING'\n  | 'FAILED'"
+    },
+    {
+      "file": "src/app/modules/migration/cockpit/cockpit.models.ts",
+      "name": "CockpitLifecycleState",
+      "definition": "| 'INITIALIZED'\n  | 'RUNNING'\n  | 'PAUSED'\n  | 'WAITING_FOR_APPROVAL'\n  | 'RECOVERING'\n  | 'COMPLETED'\n  | 'FAILED'\n  | 'CANCELLED'"
+    },
+    {
+      "file": "src/app/modules/migration/cockpit/cockpit.models.ts",
+      "name": "EngineHealthState",
+      "definition": "'HEALTHY' | 'DEGRADED' | 'CRITICAL' | 'UNKNOWN'"
+    },
+    {
+      "file": "src/app/modules/migration/cockpit/cockpit.models.ts",
+      "name": "RuntimeDagNodeState",
+      "definition": "| 'COMPLETED'\n  | 'ACTIVE'\n  | 'RUNNING_PARALLEL'\n  | 'WAITING'\n  | 'APPROVAL_BARRIER'\n  | 'FAILED'\n  | 'RECOVERING'\n  | 'SKIPPED'\n  | 'UPCOMING'"
+    },
+    {
+      "file": "src/app/modules/migration/create/steps/step4-scope.models.ts",
+      "name": "Step4LifecycleState",
+      "definition": "'DEPTH_SELECTION' | 'DISCOVERING' | 'FAILURE' | 'SCOPE_WORKBENCH'"
+    },
+    {
+      "file": "src/app/modules/migration/create/steps/step4-scope.models.ts",
+      "name": "ResourceEligibilityStatus",
+      "definition": "'READY' | 'ADVISORY' | 'BLOCKED'"
+    },
+    {
+      "file": "src/app/modules/migration/create/steps/step5-mapping.models.ts",
+      "name": "MappingStatusBucket",
+      "definition": "'ALL' | 'AUTO_MAPPED' | 'MODIFIED' | 'NEEDS_REVIEW' | 'BLOCKED'"
+    },
+    {
+      "file": "src/app/modules/migration/create/steps/step5-mapping.models.ts",
+      "name": "UiWorkState",
+      "definition": "'AUTOMATIC' | 'MODIFIED' | 'NEEDS_REVIEW' | 'BLOCKED'"
+    },
+    {
+      "file": "src/app/modules/migration/create/steps/step5-mapping.models.ts",
+      "name": "ConversionSafetyState",
+      "definition": "| 'EXACT'\r\n  | 'SEMANTICALLY_EQUIVALENT'\r\n  | 'COMPATIBLE_WITH_TRANSFORMATION'\r\n  | 'COMPATIBILITY_LAYER_REQUIRED'\r\n  | 'LOSSY'\r\n  | 'UNSUPPORTED'\r\n  | 'USER_DECISION_REQUIRED'"
+    },
+    {
+      "file": "src/app/modules/migration/create/steps/step5-mapping.models.ts",
+      "name": "ReadinessState",
+      "definition": "| 'READY'\r\n  | 'READY_WITH_WARNINGS'\r\n  | 'WAIVER_REQUIRED'\r\n  | 'BLOCKED'"
+    },
+    {
+      "file": "src/app/modules/migration/create/steps/step7-plan.models.ts",
+      "name": "PlanSeverity",
+      "definition": "'BLOCKER' | 'WARNING' | 'INFO'"
+    },
+    {
+      "file": "src/app/modules/migration/create/steps/step8-governance.models.ts",
+      "name": "OverallReadinessStatus",
+      "definition": "'READY' | 'AWAITING_APPROVALS' | 'ACTION_REQUIRED' | 'NOT_READY'"
+    },
+    {
+      "file": "src/app/modules/migration/create/steps/step8-governance.models.ts",
+      "name": "GateApprovalStatus",
+      "definition": "'APPROVED' | 'PENDING_APPROVAL' | 'REJECTED' | 'SATISFIED'"
+    },
+    {
+      "file": "src/app/modules/migration/create/steps/step8-governance.models.ts",
+      "name": "ReadinessCheckStatus",
+      "definition": "'READY' | 'WARNING' | 'BLOCKED' | 'PENDING'"
+    },
+    {
+      "file": "src/app/modules/migration/create/steps/step8-governance.models.ts",
+      "name": "ActionSeverity",
+      "definition": "'BLOCKER' | 'APPROVAL_REQUIRED' | 'ACKNOWLEDGEMENT_REQUIRED' | 'WARNING'"
+    },
+    {
+      "file": "src/app/modules/migration/create/steps/step9-review.models.ts",
+      "name": "Step9SubmitPhase",
+      "definition": "| 'IDLE'\n  | 'INITIALIZING'\n  | 'STARTING'\n  | 'SCHEDULING'\n  | 'SUCCESS'\n  | 'ERROR'"
+    },
+    {
+      "file": "src/app/modules/migration/history/history-home.models.ts",
+      "name": "ValidationReconciliationState",
+      "definition": "| 'PASSED'\n  | 'FAILED'\n  | 'MISMATCHES_DETECTED'\n  | 'RECONCILED'\n  | 'SKIPPED'\n  | 'NOT_CONFIGURED'\n  | 'PENDING'\n  | 'IN_PROGRESS'\n  | 'UNAVAILABLE'"
+    },
+    {
+      "file": "src/app/modules/migration/history/history-home.models.ts",
+      "name": "CutoverStatus",
+      "definition": "| 'COMPLETED'\n  | 'ABORTED'\n  | 'ROLLED_BACK'\n  | 'NOT_APPLICABLE'\n  | 'SCHEDULED'\n  | 'MANUAL_PENDING'\n  | 'IN_PROGRESS'\n  | 'UNKNOWN'"
+    },
+    {
+      "file": "src/app/modules/migration/history/history-home.models.ts",
+      "name": "RecoveryStatus",
+      "definition": "| 'NONE'\n  | 'RESTORED'\n  | 'POINT_IN_TIME_RECOVERED'\n  | 'FAILED'\n  | 'NOT_TRIGGERED'\n  | 'NOT_APPLICABLE'"
+    },
+    {
+      "file": "src/app/modules/migration/history/history-home.models.ts",
+      "name": "HistoryAvailabilityState",
+      "definition": "| 'READY'\n  | 'LOADING'\n  | 'EMPTY'\n  | 'UNAVAILABLE'\n  | 'ERROR'\n  | 'UNAUTHORIZED'"
+    },
+    {
+      "file": "src/app/modules/migration/history/history-workspace/history-workspace.models.ts",
+      "name": "TimelineSeverity",
+      "definition": "'INFO' | 'SUCCESS' | 'WARNING' | 'ERROR'"
+    },
+    {
+      "file": "src/app/modules/migration/projects/projects.models.ts",
+      "name": "EntityAvailabilityState",
+      "definition": "| 'READY'\n  | 'LOADING'\n  | 'EMPTY'\n  | 'UNAVAILABLE'\n  | 'NOT_CONNECTED'\n  | 'UNAUTHORIZED'\n  | 'PARTIAL'\n  | 'ERROR'"
+    },
+    {
+      "file": "src/app/modules/migration/projects/projects.models.ts",
+      "name": "EntityAccessState",
+      "definition": "'GRANTED' | 'READ_ONLY' | 'PERMISSION_REQUIRED'"
+    },
+    {
+      "file": "src/app/modules/migration/projects/projects.models.ts",
+      "name": "ProjectResourceAvailabilityState",
+      "definition": "| 'AVAILABLE'\n  | 'BOUND'\n  | 'UNAVAILABLE'\n  | 'UNAUTHORIZED'\n  | 'UNSUPPORTED'\n  | 'CAPABILITY_UNKNOWN'"
+    },
+    {
+      "file": "src/app/modules/migration/projects/projects.models.ts",
+      "name": "MigrationMoveState",
+      "definition": "| 'MOVE_AVAILABLE'\n  | 'CONTROLLED_ACTION_REQUIRED'\n  | 'UNAVAILABLE_ACTIVE'\n  | 'UNAVAILABLE_UNAUTHORIZED'\n  | 'BACKEND_NOT_CONNECTED'\n  | 'PENDING'\n  | 'FAILED'\n  | 'STALE_CONFLICT'"
+    },
+    {
+      "file": "src/app/modules/migration/projects/projects.models.ts",
+      "name": "ActionAuthorizationState",
+      "definition": "| 'PERMITTED'\n  | 'DENIED'\n  | 'PERMISSION_REQUIRED'\n  | 'UNAVAILABLE'\n  | 'NOT_CONNECTED'\n  | 'PENDING'\n  | 'FAILED'\n  | 'STALE_CONFLICT'"
+    },
+    {
+      "file": "src/app/modules/migration/templates/template-workspace/template-workspace.models.ts",
+      "name": "CompatibilityStatus",
+      "definition": "'VERIFIED' | 'NOT_VERIFIED' | 'UNSUPPORTED' | 'UNKNOWN'"
+    },
+    {
+      "file": "src/app/modules/migration/templates/templates.models.ts",
+      "name": "TemplateLifecycle",
+      "definition": "'PUBLISHED' | 'DRAFT' | 'DEPRECATED' | 'ARCHIVED'"
+    },
+    {
+      "file": "src/app/modules/migration/templates/templates.models.ts",
+      "name": "TemplateAvailabilityState",
+      "definition": "| 'READY'\n  | 'LOADING'\n  | 'EMPTY'\n  | 'UNAVAILABLE'\n  | 'ERROR'\n  | 'UNAUTHORIZED'"
+    },
+    {
+      "file": "src/app/modules/monitoring/models/alerts-monitoring.models.ts",
+      "name": "AlertLifecycleState",
+      "definition": "'FIRING' | 'ACKNOWLEDGED' | 'SUPPRESSED' | 'RESOLVED'"
+    },
+    {
+      "file": "src/app/modules/monitoring/models/alerts-monitoring.models.ts",
+      "name": "EvaluationResultState",
+      "definition": "'FIRING' | 'NORMAL' | 'SUPPRESSED' | 'UNKNOWN'"
+    },
+    {
+      "file": "src/app/modules/monitoring/models/alerts-monitoring.models.ts",
+      "name": "IncidentSeverity",
+      "definition": "'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'"
+    },
+    {
+      "file": "src/app/modules/monitoring/models/alerts-monitoring.models.ts",
+      "name": "IncidentStatus",
+      "definition": "'INVESTIGATING' | 'IDENTIFIED' | 'MONITORING' | 'RESOLVED'"
+    },
+    {
+      "file": "src/app/modules/monitoring/models/alerts-monitoring.models.ts",
+      "name": "DeliveryStatus",
+      "definition": "'DELIVERED' | 'FAILED' | 'RETRYING' | 'NOT_CONFIGURED'"
+    },
+    {
+      "file": "src/app/modules/monitoring/models/alerts-monitoring.models.ts",
+      "name": "ExternalProofStatus",
+      "definition": "'VERIFIED_DELIVERY' | 'MOCK_SANDBOX' | 'UNVERIFIED'"
+    },
+    {
+      "file": "src/app/modules/monitoring/models/monitoring.models.ts",
+      "name": "ApplicabilityState",
+      "definition": "'APPLICABLE' | 'NOT_APPLICABLE'"
+    },
+    {
+      "file": "src/app/modules/monitoring/models/monitoring.models.ts",
+      "name": "ConfigurationState",
+      "definition": "'CONFIGURED' | 'NOT_CONFIGURED'"
+    },
+    {
+      "file": "src/app/modules/monitoring/models/monitoring.models.ts",
+      "name": "AuthorizationState",
+      "definition": "'AUTHORIZED' | 'UNAUTHORIZED'"
+    },
+    {
+      "file": "src/app/modules/monitoring/models/monitoring.models.ts",
+      "name": "AvailabilityState",
+      "definition": "'AVAILABLE' | 'UNAVAILABLE' | 'UNKNOWN'"
+    },
+    {
+      "file": "src/app/modules/monitoring/models/monitoring.models.ts",
+      "name": "HealthState",
+      "definition": "'HEALTHY' | 'DEGRADED' | 'UNHEALTHY' | 'UNKNOWN'"
+    },
+    {
+      "file": "src/app/modules/monitoring/models/monitoring.models.ts",
+      "name": "FreshnessState",
+      "definition": "'CURRENT' | 'STALE' | 'NO_DATA' | 'UNKNOWN'"
+    },
+    {
+      "file": "src/app/modules/monitoring/models/monitoring.models.ts",
+      "name": "CompletenessState",
+      "definition": "'COMPLETE' | 'PARTIAL'"
+    },
+    {
+      "file": "src/app/modules/monitoring/models/monitoring.models.ts",
+      "name": "SeverityLevel",
+      "definition": "'CRITICAL' | 'WARNING' | 'INFO' | 'UNKNOWN'"
+    },
+    {
+      "file": "src/app/modules/reports/models/certification.models.ts",
+      "name": "CertificationDecisionState",
+      "definition": "| 'CERTIFIED'\n  | 'NOT_CERTIFIED'\n  | 'CERTIFICATION_NOT_ISSUED'\n  | 'REVOKED'\n  | 'EXPIRED'\n  | 'PENDING_EVALUATION'\n  | 'UNKNOWN'"
+    },
+    {
+      "file": "src/app/modules/reports/models/certification.models.ts",
+      "name": "CertificationLifecycleState",
+      "definition": "| 'ACTIVE'\n  | 'SUPERSEDED'\n  | 'ARCHIVED'\n  | 'DRAFT'\n  | 'RETIRED'"
+    },
+    {
+      "file": "src/app/modules/reports/models/certification.models.ts",
+      "name": "VerificationResultStatus",
+      "definition": "| 'VERIFIED'\n  | 'MISMATCH'\n  | 'UNAVAILABLE'\n  | 'ERROR'"
+    },
+    {
+      "file": "src/app/modules/reports/models/certification.models.ts",
+      "name": "GovernanceDecisionStatus",
+      "definition": "| 'APPROVED'\n  | 'REJECTED'\n  | 'PENDING'\n  | 'OVERRIDDEN'\n  | 'NOT_APPLICABLE'"
+    },
+    {
+      "file": "src/app/modules/reports/models/certification.models.ts",
+      "name": "ExceptionStatus",
+      "definition": "| 'UNRESOLVED'\n  | 'WAIVED'\n  | 'EXPIRED'\n  | 'REQUIRES_MANUAL_REVIEW'"
+    },
+    {
+      "file": "src/app/modules/reports/models/evidence.models.ts",
+      "name": "EvidenceLifecycleState",
+      "definition": "| 'ACTIVE'\n  | 'SUPERSEDED'\n  | 'ARCHIVED'\n  | string"
+    },
+    {
+      "file": "src/app/modules/reports/models/evidence.models.ts",
+      "name": "EvidenceIntegrityResultStatus",
+      "definition": "| 'VERIFIED'\n  | 'MISMATCH'\n  | 'UNAVAILABLE'\n  | 'NOT_EVALUATED'\n  | 'ERROR'"
+    },
+    {
+      "file": "src/app/modules/reports/models/reports.models.ts",
+      "name": "SectionLoadingState",
+      "definition": "| 'LOADING' \n  | 'AVAILABLE_WITH_DATA' \n  | 'AVAILABLE_EMPTY' \n  | 'PARTIAL' \n  | 'UNAVAILABLE' \n  | 'UNAUTHORIZED' \n  | 'ERROR'"
+    },
+    {
+      "file": "src/app/modules/reports/models/reports.models.ts",
+      "name": "CertificationStatus",
+      "definition": "| 'CERTIFIED'\n  | 'NOT_CERTIFIED'\n  | 'PENDING_EVALUATION'\n  | 'REVOKED'\n  | 'NOT_ESTABLISHED'\n  | 'UNDER_REVIEW'\n  | 'UNKNOWN'"
+    },
+    {
+      "file": "src/app/modules/reports/models/reports.models.ts",
+      "name": "EvidenceAvailabilityState",
+      "definition": "| 'AVAILABLE'\n  | 'PARTIAL'\n  | 'PENDING'\n  | 'UNAVAILABLE'\n  | 'VERIFIED'\n  | 'INTEGRITY_CHECK_FAILED'"
+    },
+    {
+      "file": "src/app/modules/settings/models/settings.models.ts",
+      "name": "NotificationSeverityLevel",
+      "definition": "'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'"
+    },
+    {
+      "file": "src/app/modules/validation/create/steps/step4-scope.models.ts",
+      "name": "PhysicalObservationStatus",
+      "definition": "| 'DISCOVERED'\n  | 'NOT_DISCOVERED'\n  | 'UNAVAILABLE'"
+    },
+    {
+      "file": "src/app/modules/validation/create/steps/step4-scope.models.ts",
+      "name": "ScopedPairTargetStatus",
+      "definition": "| 'CONFIRMED'\n  | 'INHERITED_CONFIRMED'\n  | 'UNRESOLVED'\n  | 'CANDIDATE_REQUIRES_CONFIRMATION'\n  | 'UNAVAILABLE'\n  | 'STALE'"
+    },
+    {
+      "file": "src/app/modules/validation/create/steps/step6-strategy.models.ts",
+      "name": "CapabilityStatus",
+      "definition": "| 'AVAILABLE'\n  | 'AVAILABLE_WITH_LIMITATIONS'\n  | 'UNAVAILABLE'\n  | 'CAPABILITY_NOT_DETERMINED'"
+    },
+    {
+      "file": "src/app/modules/validation/create/steps/step7-readiness.models.ts",
+      "name": "ValidationReadinessStatus",
+      "definition": "| 'NOT_EVALUATED'\n  | 'EVALUATING'\n  | 'READY'\n  | 'READY_WITH_ATTENTION'\n  | 'AWAITING_GOVERNANCE'\n  | 'BLOCKED'\n  | 'STALE'\n  | 'EVALUATION_UNAVAILABLE'"
+    },
+    {
+      "file": "src/app/modules/validation/create/steps/step7-readiness.models.ts",
+      "name": "CheckEvaluationStatus",
+      "definition": "'READY' | 'WARNING' | 'BLOCKER' | 'NOT_EVALUATED'"
+    },
+    {
+      "file": "src/app/modules/validation/workstation/discrepancies/validation-discrepancies.models.ts",
+      "name": "ReconciliationState",
+      "definition": "| 'UNRESOLVED'\n  | 'CONFIRMED_DISCREPANCY'\n  | 'EXPECTED_DIFFERENCE'\n  | 'EXPLAINED_BY_TRANSFORMATION'\n  | 'EXCLUDED_BY_SCOPE'\n  | 'INCONCLUSIVE'"
+    },
+    {
+      "file": "src/app/modules/validation/workstation/discrepancies/validation-discrepancies.models.ts",
+      "name": "DiscrepancyViewStatus",
+      "definition": "| 'READY'\n  | 'LOADING'\n  | 'EMPTY'\n  | 'NOT_EVALUATED'\n  | 'UNAVAILABLE'\n  | 'ERROR'"
+    },
+    {
+      "file": "src/app/modules/validation/workstation/repair/validation-repair.models.ts",
+      "name": "RepairViewStatus",
+      "definition": "| 'READY'\n  | 'UNAVAILABLE'\n  | 'NO_REMEDIATION_REQUIRED'\n  | 'AUDIT_ONLY'\n  | 'LOADING'\n  | 'ERROR'"
+    },
+    {
+      "file": "src/app/modules/validation/workstation/results/validation-results.models.ts",
+      "name": "ValidationExecutionState",
+      "definition": "| 'NOT_CONNECTED'\n  | 'QUEUED'\n  | 'RUNNING'\n  | 'PAUSED'\n  | 'INTERRUPTED'\n  | 'RECOVERING'\n  | 'BLOCKED'\n  | 'COMPLETED'"
+    },
+    {
+      "file": "src/app/modules/validation/workstation/results/validation-results.models.ts",
+      "name": "BaselineState",
+      "definition": "| 'VALID'\n  | 'STALE'\n  | 'NOT_AVAILABLE'"
+    },
+    {
+      "file": "src/app/modules/validation/workstation/results/validation-results.models.ts",
+      "name": "AssuranceTierStatus",
+      "definition": "| 'NOT_EVALUATED'\n  | 'PASSED'\n  | 'FAILED'\n  | 'SKIPPED'"
+    },
+    {
+      "file": "src/app/modules/validation/workstation/results/validation-results.models.ts",
+      "name": "ResultsViewStatus",
+      "definition": "| 'READY'\n  | 'NOT_EVALUATED'\n  | 'WITHHELD'\n  | 'UNAVAILABLE'\n  | 'LOADING'\n  | 'ERROR'"
+    },
+    {
+      "file": "src/app/modules/validation/workstation/validation-workstation.models.ts",
+      "name": "ValidationExecutionState",
+      "definition": "| 'NOT_CONNECTED'\n  | 'QUEUED'\n  | 'RUNNING'\n  | 'PAUSED'\n  | 'INTERRUPTED'\n  | 'RECOVERING'\n  | 'BLOCKED'\n  | 'COMPLETED'"
+    },
+    {
+      "file": "src/app/modules/validation/workstation/validation-workstation.models.ts",
+      "name": "ProofTierStatus",
+      "definition": "| 'NOT_EVALUATED'\n  | 'PASSED'\n  | 'FAILED'\n  | 'EVALUATING'\n  | 'SKIPPED'"
+    },
+    {
+      "file": "src/app/modules/migration/history/history-workspace/history-workspace.service.ts",
+      "name": "WorkspaceViewState",
+      "definition": "'READY' | 'LOADING' | 'EMPTY' | 'ERROR' | 'UNAVAILABLE'"
+    }
+  ],
+  "configCategories": [
+    {
+      "file": "src/app/core/models/dashboard.models.ts",
+      "name": "ExecutionMode",
+      "definition": "| 'M1_BULK' \r\n  | 'M2_BULK_CDC' \r\n  | 'M3_CDC_CONTINUOUS' \r\n  | 'M4_INCREMENTAL' \r\n  | 'M5_STATE_SYNC' \r\n  | 'M6_SCHEMA_ONLY' \r\n  | 'M7_DATA_ONLY' \r\n  | 'M8_VALIDATION_ONLY'"
+    },
+    {
+      "file": "src/app/core/models/migration-view.models.ts",
+      "name": "MigrationMode",
+      "definition": "| 'M1_BULK'           // Bulk Migration\r\n  | 'M2_BULK_CDC'       // Bulk + CDC\r\n  | 'M3_CDC'            // CDC Only\r\n  | 'M4_INCREMENTAL'    // Incremental Query\r\n  | 'M5_STATE_SYNC'     // State Synchronization\r\n  | 'M6_SCHEMA_ONLY'    // Schema Only\r\n  | 'M7_DATA_ONLY'"
+    },
+    {
+      "file": "src/app/core/models/migration-view.models.ts",
+      "name": "NetworkRouteType",
+      "definition": "| 'DIRECT'\r\n  | 'SSH_BASTION'\r\n  | 'HTTP_PROXY'\r\n  | 'SOCKS5_PROXY'\r\n  | 'PROXY'\r\n  | 'PRIVATE_ENDPOINT'\r\n  | 'DNS_HAPPY_EYEBALLS'\r\n  | 'CUSTOM'"
+    },
+    {
+      "file": "src/app/core/models/migration-view.models.ts",
+      "name": "CollisionPolicyType",
+      "definition": "| 'FAIL_IF_NOT_EMPTY'\r\n  | 'FAIL_ON_COLLISION'\r\n  | 'TRUNCATE_EXISTING'\r\n  | 'TRUNCATE_AND_LOAD'\r\n  | 'DROP_AND_RECREATE'\r\n  | 'UPSERT_MERGE'\r\n  | 'APPEND_EXISTING'\r\n  | 'RENAME_AND_BACKUP'"
+    },
+    {
+      "file": "src/app/modules/admin/models/compliance.models.ts",
+      "name": "ComplianceEvidenceType",
+      "definition": "| 'HASH_ATTESTATION'\n  | 'ENCRYPTION_PROOF'\n  | 'IMMUTABLE_LOG_DIGEST'\n  | 'ACCESS_AUDIT_SAMPLE'"
+    },
+    {
+      "file": "src/app/modules/admin/models/connectors-plugins.models.ts",
+      "name": "ConnectorCertificationLevel",
+      "definition": "| 'LIVE_PROVEN'\n  | 'INTEGRATION_PROVEN'\n  | 'UNIT_PROVEN'\n  | 'IMPLEMENTED'"
+    },
+    {
+      "file": "src/app/modules/admin/models/connectors-plugins.models.ts",
+      "name": "PluginType",
+      "definition": "| 'TRANSFORMER'\n  | 'VALIDATOR'\n  | 'REPORTER'\n  | 'AUTH_HOOK'"
+    },
+    {
+      "file": "src/app/modules/admin/models/identity.models.ts",
+      "name": "SsoProviderType",
+      "definition": "'OKTA' | 'AZURE_AD' | 'GOOGLE_WORKSPACE' | 'PING_IDENTITY' | 'KEYCLOAK' | 'GENERIC_SAML' | 'GENERIC_OIDC'"
+    },
+    {
+      "file": "src/app/modules/admin/models/identity.models.ts",
+      "name": "DirectoryType",
+      "definition": "'ACTIVE_DIRECTORY' | 'OPEN_LDAP' | 'AZURE_ENTRA_SCIM' | 'OKTA_SCIM' | 'CUSTOM_SCIM'"
+    },
+    {
+      "file": "src/app/modules/admin/models/identity.models.ts",
+      "name": "WorkloadType",
+      "definition": "'KUBERNETES_SERVICE_ACCOUNT' | 'AWS_IAM_ROLE' | 'GCP_WORKLOAD_IDENTITY' | 'SPIFFE_SVID' | 'MTLS_WORKLOAD'"
+    },
+    {
+      "file": "src/app/modules/admin/models/identity.models.ts",
+      "name": "CertType",
+      "definition": "'ROOT_CA' | 'INTERMEDIATE_CA' | 'SERVER_TLS' | 'CLIENT_MTLS' | 'SIGNING_CERT'"
+    },
+    {
+      "file": "src/app/modules/admin/models/infrastructure.models.ts",
+      "name": "CloudProviderType",
+      "definition": "'AWS' | 'AZURE' | 'GCP' | 'OCI'"
+    },
+    {
+      "file": "src/app/modules/admin/models/infrastructure.models.ts",
+      "name": "KubernetesAuthType",
+      "definition": "'PROJECTED_SA' | 'OIDC_FEDERATED' | 'KUBECONFIG_ESCROW'"
+    },
+    {
+      "file": "src/app/modules/admin/models/infrastructure.models.ts",
+      "name": "ExecutionSiteType",
+      "definition": "'CLOUD_HOSTED' | 'CUSTOMER_VPC' | 'ON_PREMISES_DATACENTER'"
+    },
+    {
+      "file": "src/app/modules/admin/models/infrastructure.models.ts",
+      "name": "NetworkRouteType",
+      "definition": "'DIRECT' | 'FORWARD_PROXY' | 'REVERSE_PROXY' | 'SSH_BASTION'"
+    },
+    {
+      "file": "src/app/modules/admin/models/integrations.models.ts",
+      "name": "ChannelType",
+      "definition": "'EMAIL_SMTP' | 'WEBHOOK' | 'SLACK' | 'TEAMS' | 'PAGERDUTY'"
+    },
+    {
+      "file": "src/app/modules/admin/models/people.models.ts",
+      "name": "PrincipalType",
+      "definition": "'EMPLOYEE' | 'CONTRACTOR' | 'SYSTEM_OPERATOR' | 'EXTERNAL_AUDITOR'"
+    },
+    {
+      "file": "src/app/modules/connections/create-connection/create-connection.models.ts",
+      "name": "TlsMode",
+      "definition": "| 'DISABLED'\n  | 'PREFERRED'\n  | 'REQUIRED'\n  | 'VERIFY_CA'\n  | 'VERIFY_FULL'"
+    },
+    {
+      "file": "src/app/modules/connections/create-connection/create-connection.models.ts",
+      "name": "NetworkRouteType",
+      "definition": "| 'DIRECT'\n  | 'DNS_HAPPY_EYEBALLS'\n  | 'SSH_BASTION'\n  | 'HTTP_PROXY'\n  | 'SOCKS5_PROXY'\n  | 'PRIVATE_ENDPOINT'"
+    },
+    {
+      "file": "src/app/modules/connections/workspace/connection-workspace.models.ts",
+      "name": "ProofLevel",
+      "definition": "| 'IMPLEMENTED'\n  | 'UNIT_PROVEN'\n  | 'INTEGRATION_PROVEN'\n  | 'LIVE_PROVEN'\n  | 'EXTERNAL_DEFERRED'"
+    },
+    {
+      "file": "src/app/modules/migration/create/steps/step4-scope.models.ts",
+      "name": "DiscoveredNodeType",
+      "definition": "| 'INSTANCE'\r\n  | 'DATABASE'\r\n  | 'SCHEMA'\r\n  | 'OBJECT_GROUP'\r\n  | 'TABLE'\r\n  | 'VIEW'\r\n  | 'PROCEDURE'\r\n  | 'FUNCTION'\r\n  | 'PACKAGE'\r\n  | 'TRIGGER'\r\n  | 'SEQUENCE'\r\n  | 'COLLECTION'\r\n  | 'TOPIC'\r\n  | 'PARTITION'\r\n  | 'BUCKET'\r\n  | 'PREFIX'\r\n  | 'OBJECT'\r\n  | 'PATH'"
+    },
+    {
+      "file": "src/app/modules/migration/create/steps/step5-mapping.models.ts",
+      "name": "CleansingRuleType",
+      "definition": "| 'TRIM'\r\n  | 'UPPERCASE'\r\n  | 'LOWERCASE'\r\n  | 'DEFAULT'\r\n  | 'REGEX_REPLACE'"
+    },
+    {
+      "file": "src/app/modules/migration/create/steps/step5-mapping.models.ts",
+      "name": "QualityRuleType",
+      "definition": "| 'NOT_NULL'\r\n  | 'MAX_LENGTH'\r\n  | 'NUMERIC_OVERFLOW'\r\n  | 'VALUE_RANGE'\r\n  | 'REGEX_MATCH'\r\n  | 'ENUM_VALUES'"
+    },
+    {
+      "file": "src/app/modules/migration/create/steps/step7-plan.models.ts",
+      "name": "CanonicalPlanMode",
+      "definition": "| 'M1_BULK'\r\n  | 'M2_BULK_CDC'\r\n  | 'M3_CDC'\r\n  | 'M4_INCREMENTAL'\r\n  | 'M5_STATE_SYNC'\r\n  | 'M6_SCHEMA_ONLY'\r\n  | 'M7_DATA_ONLY'"
+    },
+    {
+      "file": "src/app/modules/migration/create/steps/step7-plan.models.ts",
+      "name": "PlanNodeType",
+      "definition": "'EXECUTION_STAGE' | 'APPROVAL_BARRIER'"
+    },
+    {
+      "file": "src/app/modules/migration/create/steps/step7-plan.models.ts",
+      "name": "PlanStageType",
+      "definition": "| 'PRE_FLIGHT'\r\n  | 'SCHEMA_DDL'\r\n  | 'DATA_PREPARATION'\r\n  | 'BULK_EXTRACT'\r\n  | 'BULK_LOAD'\r\n  | 'CDC_CAPTURE'\r\n  | 'CDC_APPLY'\r\n  | 'STATE_COMPARE'\r\n  | 'INDEX_REBUILD'\r\n  | 'POST_VALIDATION'\r\n  | 'CUTOVER'\r\n  | 'ROLLBACK_GUARD'\r\n  | 'APPROVAL_BARRIER'\r\n  | 'CUSTOM_SQL'"
+    },
+    {
+      "file": "src/app/modules/migration/create/steps/step7-plan.models.ts",
+      "name": "ProvenanceType",
+      "definition": "'EXACT' | 'ESTIMATED' | 'UNAVAILABLE'"
+    },
+    {
+      "file": "src/app/modules/migration/create/steps/step9-review.models.ts",
+      "name": "ConfidenceLevel",
+      "definition": "'HIGH' | 'MEDIUM' | 'LOW' | 'UNAVAILABLE'"
+    },
+    {
+      "file": "src/app/modules/migration/create/steps/step9-review.models.ts",
+      "name": "StructuralRiskLevel",
+      "definition": "'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' | 'NONE'"
+    },
+    {
+      "file": "src/app/modules/migration/history/history-home.models.ts",
+      "name": "HistoryMode",
+      "definition": "| 'M1_BULK'           // Bulk Load / Snapshot\n  | 'M2_BULK_CDC'       // Bulk + CDC (Initial Snapshot + Ongoing Replication)\n  | 'M3_CDC'            // CDC Only (Continuous Streaming)\n  | 'M4_INCREMENTAL'    // Incremental / Polling\n  | 'M5_STATE_SYNC'     // State-Based Sync (Two-way / Multi-directional)\n  | 'M6_SCHEMA_ONLY'    // Schema Only (DDL Extraction & Conversion)\n  | 'M7_DATA_ONLY'      // Data Only (No Schema Alteration)\n  | 'M8_VALIDATION_ONLY'"
+    },
+    {
+      "file": "src/app/modules/migration/projects/projects.models.ts",
+      "name": "InitiativeTabType",
+      "definition": "'overview' | 'projects' | 'activity' | 'settings'"
+    },
+    {
+      "file": "src/app/modules/migration/projects/projects.models.ts",
+      "name": "ProjectAssociationActionType",
+      "definition": "'ADD' | 'REMOVE' | 'REASSIGN'"
+    },
+    {
+      "file": "src/app/modules/migration/projects/projects.models.ts",
+      "name": "ProjectWorkspaceTabType",
+      "definition": "| 'overview'\n  | 'migrations'\n  | 'validations'\n  | 'resources'\n  | 'activity'\n  | 'access'\n  | 'governance'\n  | 'settings'"
+    },
+    {
+      "file": "src/app/modules/migration/projects/projects.models.ts",
+      "name": "ProjectRoleType",
+      "definition": "'PROJECT_ADMIN' | 'OPERATOR' | 'VIEWER'"
+    },
+    {
+      "file": "src/app/modules/migration/templates/create-template/create-template.models.ts",
+      "name": "ScopeRuleType",
+      "definition": "'INCLUDE' | 'EXCLUDE'"
+    },
+    {
+      "file": "src/app/modules/migration/templates/create-template/create-template.models.ts",
+      "name": "ScopeObjectType",
+      "definition": "'TABLE' | 'VIEW' | 'SCHEMA' | 'SEQUENCE' | 'PROCEDURE'"
+    },
+    {
+      "file": "src/app/modules/migration/templates/create-template/create-template.models.ts",
+      "name": "MaskingType",
+      "definition": "'PII_REDACT' | 'HASH_SHA256' | 'MASK_EMAIL' | 'RANDOM_GENERATOR' | 'TOKENIZE'"
+    },
+    {
+      "file": "src/app/modules/migration/templates/create-template/create-template.models.ts",
+      "name": "CdcEngineType",
+      "definition": "'DATABASE_LOG_MINER' | 'DEBEZIUM_STREAM' | 'WAL2JSON' | 'BINLOG_REPLICATION'"
+    },
+    {
+      "file": "src/app/modules/migration/templates/create-template/create-template.models.ts",
+      "name": "OverridabilityLevel",
+      "definition": "'FULL_OVERRIDE' | 'RESTRICTED' | 'LOCKED'"
+    },
+    {
+      "file": "src/app/modules/migration/templates/create-template/create-template.models.ts",
+      "name": "MappingOverrideLevel",
+      "definition": "'ALLOWED' | 'REQUIRES_APPROVAL' | 'LOCKED'"
+    },
+    {
+      "file": "src/app/modules/migration/templates/create-template/create-template.models.ts",
+      "name": "ScopeOverrideLevel",
+      "definition": "'UNRESTRICTED' | 'SUBSET_ONLY' | 'LOCKED'"
+    },
+    {
+      "file": "src/app/modules/migration/templates/create-template/create-template.models.ts",
+      "name": "AuditLogLevel",
+      "definition": "'STANDARD' | 'VERBOSE' | 'COMPLIANCE'"
+    },
+    {
+      "file": "src/app/modules/migration/templates/template-workspace/template-workspace.models.ts",
+      "name": "DiffChangeType",
+      "definition": "'ADDED' | 'MODIFIED' | 'REMOVED' | 'UNCHANGED'"
+    },
+    {
+      "file": "src/app/modules/migration/templates/templates.models.ts",
+      "name": "TemplateMigrationMode",
+      "definition": "| 'M1_BULK'           // Bulk Load / Snapshot\n  | 'M2_BULK_CDC'       // Bulk + CDC (Initial Snapshot + Ongoing Replication)\n  | 'M3_CDC'            // CDC Only (Continuous Streaming)\n  | 'M4_INCREMENTAL'    // Incremental / Polling\n  | 'M5_STATE_SYNC'     // State-Based Sync (Two-way / Multi-directional)\n  | 'M6_SCHEMA_ONLY'    // Schema Only (DDL Extraction & Conversion)\n  | 'M7_DATA_ONLY'"
+    },
+    {
+      "file": "src/app/modules/monitoring/models/alerts-monitoring.models.ts",
+      "name": "AlertEntityType",
+      "definition": "'MIGRATION' | 'PLATFORM_SERVICE' | 'CONNECTOR' | 'NODE' | 'STORAGE' | 'SYSTEM'"
+    },
+    {
+      "file": "src/app/modules/monitoring/models/alerts-monitoring.models.ts",
+      "name": "NotificationChannelType",
+      "definition": "'WEBHOOK' | 'SLACK' | 'PAGERDUTY' | 'EMAIL' | 'SYSTEM_LOG'"
+    },
+    {
+      "file": "src/app/modules/monitoring/models/monitoring.models.ts",
+      "name": "CanonicalMigrationMode",
+      "definition": "| 'M1_BULK'\n  | 'M2_BULK_CDC'\n  | 'M3_CDC'\n  | 'M4_INCREMENTAL'\n  | 'M5_STATE_SYNC'\n  | 'M6_SCHEMA_ONLY'\n  | 'M7_DATA_ONLY'"
+    },
+    {
+      "file": "src/app/modules/reports/models/evidence.models.ts",
+      "name": "EvidenceArtifactType",
+      "definition": "| 'MANIFEST_SNAPSHOT'\n  | 'MERKLE_TREE_DIGEST'\n  | 'GOVERNANCE_LEDGER'\n  | 'SCHEMA_DIFF'\n  | 'WATERMARK_LOG'\n  | 'INTEGRITY_SCAN'\n  | 'AUDIT_JOURNAL'\n  | 'RECOVERY_CHECKPOINT'\n  | string"
+    },
+    {
+      "file": "src/app/modules/settings/models/settings.models.ts",
+      "name": "ValidationAssuranceLevel",
+      "definition": "'LEVEL_1_ROW_COUNT' | 'LEVEL_2_CHECKSUM' | 'LEVEL_3_FULL_DIFF'"
+    },
+    {
+      "file": "src/app/modules/settings/models/settings.models.ts",
+      "name": "TLSEnforcementMode",
+      "definition": "'VERIFY_FULL' | 'VERIFY_CA' | 'PREFERRED' | 'REQUIRED'"
+    },
+    {
+      "file": "src/app/modules/settings/models/settings.models.ts",
+      "name": "CatalogFormatType",
+      "definition": "'OPEN_LINEAGE' | 'APACHE_ATLAS' | 'CUSTOM_CATALOG'"
+    },
+    {
+      "file": "src/app/modules/settings/models/settings.models.ts",
+      "name": "AssistanceProactivityMode",
+      "definition": "'ON_DEMAND' | 'ADVISORY'"
+    },
+    {
+      "file": "src/app/modules/settings/models/settings.models.ts",
+      "name": "RecommendationConfidenceLevel",
+      "definition": "'HIGH' | 'STANDARD'"
+    },
+    {
+      "file": "src/app/modules/settings/models/settings.models.ts",
+      "name": "ClientLogLevel",
+      "definition": "'DEBUG' | 'INFO' | 'WARN' | 'ERROR'"
+    },
+    {
+      "file": "src/app/modules/settings/models/settings.models.ts",
+      "name": "EngineLogLevel",
+      "definition": "'DEBUG' | 'INFO'"
+    },
+    {
+      "file": "src/app/modules/validation/create/steps/step6-strategy.models.ts",
+      "name": "AssuranceLevel",
+      "definition": "| 'STRUCTURAL'\n  | 'CARDINALITY'\n  | 'PARTITION_FINGERPRINT'\n  | 'COMPLETE_ATTRIBUTE'"
+    },
+    {
+      "file": "src/app/modules/validation/create/steps/step6-strategy.models.ts",
+      "name": "ExceptionScopeType",
+      "definition": "| 'ESCALATED'\n  | 'REDUCED'"
+    },
+    {
+      "file": "src/app/modules/validation/workstation/discrepancies/validation-discrepancies.models.ts",
+      "name": "AttributeDifferenceType",
+      "definition": "| 'MATCH'\n  | 'DIFFERENT'\n  | 'SOURCE_ONLY'\n  | 'TARGET_ONLY'\n  | 'TYPE_MISMATCH'"
+    },
+    {
+      "file": "src/app/modules/validation/workstation/repair/validation-repair.models.ts",
+      "name": "RepairRiskLevel",
+      "definition": "| 'LOW'\n  | 'MEDIUM'\n  | 'HIGH'\n  | 'CONSEQUENTIAL_DESTRUCTIVE'"
+    },
+    {
+      "file": "src/app/modules/validation/workstation/results/validation-results.models.ts",
+      "name": "ComparisonMode",
+      "definition": "| 'SYNC'\n  | 'ASYNC'\n  | 'UNKNOWN'"
+    },
+    {
+      "file": "src/app/modules/validation/workstation/results/validation-results.models.ts",
+      "name": "TemporalModel",
+      "definition": "| 'CONSISTENT_STATE'\n  | 'CONTINUOUS'\n  | 'UNSPECIFIED'"
+    },
+    {
+      "file": "src/app/modules/validation/workstation/results/validation-results.models.ts",
+      "name": "AssuranceTierLevel",
+      "definition": "| 'STRUCTURAL'\n  | 'CARDINALITY'\n  | 'PARTITION_FINGERPRINT'\n  | 'COMPLETE_ATTRIBUTE'"
+    },
+    {
+      "file": "src/app/modules/validation/workstation/validation-workstation.models.ts",
+      "name": "ProofTierLevel",
+      "definition": "| 'structural'\n  | 'cardinality'\n  | 'partition'\n  | 'attribute'"
+    },
+    {
+      "file": "src/app/modules/validation/workstation/validation-workstation.models.ts",
+      "name": "DonutSemanticMode",
+      "definition": "| 'NOT_CONNECTED'\n  | 'INDEPENDENT_VALIDATION'\n  | 'MIGRATION_SYNC'"
+    },
+    {
+      "file": "src/app/modules/validation/workstation/validation-workstation.models.ts",
+      "name": "CanonicalComparisonMode",
+      "definition": "| 'SYNC'\n  | 'ASYNC'\n  | 'UNKNOWN'"
+    },
+    {
+      "file": "src/app/core/services/validation-ui.service.ts",
+      "name": "ValidationContextType",
+      "definition": "'INDEPENDENT' | 'EXISTING_PROJECT'"
+    },
+    {
+      "file": "src/app/modules/reports/services/reports.service.ts",
+      "name": "LibraryViewMode",
+      "definition": "'CATALOG' | 'INVENTORY' | 'CATEGORY_VIEW' | 'REPORT_DETAIL'"
+    },
+    {
+      "file": "src/app/modules/reports/services/reports.service.ts",
+      "name": "CertificationViewMode",
+      "definition": "'OVERVIEW' | 'MIGRATION' | 'VALIDATION' | 'VERIFICATION'"
+    },
+    {
+      "file": "src/app/modules/reports/services/reports.service.ts",
+      "name": "EvidenceTabMode",
+      "definition": "'EXPLORER' | 'DOSSIERS' | 'CERTIFICATES' | 'PACKAGES' | 'VERIFICATION'"
+    },
+    {
+      "file": "src/app/modules/migration/projects/components/projects-nav-bar.component.ts",
+      "name": "ProjectsTabType",
+      "definition": "'portfolio' | 'projects' | 'initiatives'"
+    }
+  ],
+  "allUnionTypes": [
+    {
+      "file": "src/app/core/models/dashboard.models.ts",
+      "name": "ExecutionMode",
+      "definition": "| 'M1_BULK' \r\n  | 'M2_BULK_CDC' \r\n  | 'M3_CDC_CONTINUOUS' \r\n  | 'M4_INCREMENTAL' \r\n  | 'M5_STATE_SYNC' \r\n  | 'M6_SCHEMA_ONLY' \r\n  | 'M7_DATA_ONLY' \r\n  | 'M8_VALIDATION_ONLY'"
+    },
+    {
+      "file": "src/app/core/models/dashboard.models.ts",
+      "name": "LifecycleState",
+      "definition": "| 'RUNNING' \r\n  | 'PAUSED' \r\n  | 'BLOCKED' \r\n  | 'COMPLETED' \r\n  | 'FAILED' \r\n  | 'QUEUED' \r\n  | 'VALIDATING' \r\n  | 'CATCHING_UP'\r\n  | 'UNKNOWN'"
+    },
+    {
+      "file": "src/app/core/models/dashboard.models.ts",
+      "name": "AttentionSeverity",
+      "definition": "'critical' | 'blocked' | 'failed' | 'approval_required' | 'warning' | 'info'"
+    },
+    {
+      "file": "src/app/core/models/ipc.models.ts",
+      "name": "ConnectionState",
+      "definition": "'connected' | 'connecting' | 'disconnected'"
+    },
+    {
+      "file": "src/app/core/models/migration-view.models.ts",
+      "name": "MigrationMode",
+      "definition": "| 'M1_BULK'           // Bulk Migration\r\n  | 'M2_BULK_CDC'       // Bulk + CDC\r\n  | 'M3_CDC'            // CDC Only\r\n  | 'M4_INCREMENTAL'    // Incremental Query\r\n  | 'M5_STATE_SYNC'     // State Synchronization\r\n  | 'M6_SCHEMA_ONLY'    // Schema Only\r\n  | 'M7_DATA_ONLY'"
+    },
+    {
+      "file": "src/app/core/models/migration-view.models.ts",
+      "name": "MigrationLifecycleState",
+      "definition": "| 'INITIALIZED'\r\n  | 'ACTIVE'\r\n  | 'RUNNING'\r\n  | 'PAUSED'\r\n  | 'GOVERNANCE_PENDING'\r\n  | 'INTERRUPTED'\r\n  | 'COMPLETED'\r\n  | 'FAILED'\r\n  | 'CANCELLED'\r\n  | 'ARCHIVED'"
+    },
+    {
+      "file": "src/app/core/models/migration-view.models.ts",
+      "name": "OperationalHealth",
+      "definition": "'HEALTHY' | 'WARNING' | 'CRITICAL' | 'STALLED'"
+    },
+    {
+      "file": "src/app/core/models/migration-view.models.ts",
+      "name": "NetworkRouteType",
+      "definition": "| 'DIRECT'\r\n  | 'SSH_BASTION'\r\n  | 'HTTP_PROXY'\r\n  | 'SOCKS5_PROXY'\r\n  | 'PROXY'\r\n  | 'PRIVATE_ENDPOINT'\r\n  | 'DNS_HAPPY_EYEBALLS'\r\n  | 'CUSTOM'"
+    },
+    {
+      "file": "src/app/core/models/migration-view.models.ts",
+      "name": "ConnectionHealthStatus",
+      "definition": "'CONNECTED' | 'DEGRADED' | 'UNREACHABLE' | 'AUTH_FAILED' | 'UNKNOWN' | 'ATTENTION' | 'DISCONNECTED'"
+    },
+    {
+      "file": "src/app/core/models/migration-view.models.ts",
+      "name": "ProbeStageName",
+      "definition": "'NETWORK' | 'TLS' | 'AUTHENTICATION' | 'IDENTITY' | 'PERMISSIONS' | 'PREREQUISITES' | 'CAPABILITIES'"
+    },
+    {
+      "file": "src/app/core/models/migration-view.models.ts",
+      "name": "ProbeStageStatus",
+      "definition": "'NOT_TESTED' | 'TESTING' | 'PASSED' | 'FAILED' | 'WARNING' | 'SKIPPED'"
+    },
+    {
+      "file": "src/app/core/models/migration-view.models.ts",
+      "name": "CollisionPolicyType",
+      "definition": "| 'FAIL_IF_NOT_EMPTY'\r\n  | 'FAIL_ON_COLLISION'\r\n  | 'TRUNCATE_EXISTING'\r\n  | 'TRUNCATE_AND_LOAD'\r\n  | 'DROP_AND_RECREATE'\r\n  | 'UPSERT_MERGE'\r\n  | 'APPEND_EXISTING'\r\n  | 'RENAME_AND_BACKUP'"
+    },
+    {
+      "file": "src/app/core/models/migration-view.models.ts",
+      "name": "ColumnMappingStatus",
+      "definition": "'MAPPED' | 'PARTIAL' | 'REVIEW_REQUIRED' | 'STALE' | 'UNSUPPORTED'"
+    },
+    {
+      "file": "src/app/core/models/migration-view.models.ts",
+      "name": "ConversionStatus",
+      "definition": "| 'NOT_EVALUATED'\r\n  | 'CONVERSION_PROPOSED'\r\n  | 'NEEDS_REVIEW'\r\n  | 'UNSUPPORTED_CONSTRUCT'\r\n  | 'READY_FOR_BACKEND_VALIDATION'"
+    },
+    {
+      "file": "src/app/core/models/migration-view.models.ts",
+      "name": "PlanNodeState",
+      "definition": "'QUEUED' | 'READY' | 'RUNNING' | 'COMPLETED' | 'BLOCKED' | 'FAILED' | 'BARRIER_WAITING'"
+    },
+    {
+      "file": "src/app/core/models/migration-view.models.ts",
+      "name": "EvidenceSealingState",
+      "definition": "'SEALED' | 'PENDING' | 'NOT_REQUESTED' | 'INVALIDATED'"
+    },
+    {
+      "file": "src/app/modules/admin/models/audit.models.ts",
+      "name": "AuditSeverityFilter",
+      "definition": "'ALL' | 'WARNING_AND_ABOVE' | 'ERROR_ONLY'"
+    },
+    {
+      "file": "src/app/modules/admin/models/compliance.models.ts",
+      "name": "MappingState",
+      "definition": "'FULLY_MAPPED' | 'PARTIALLY_MAPPED' | 'UNMAPPED' | 'EXCEPTION_RECORDED'"
+    },
+    {
+      "file": "src/app/modules/admin/models/compliance.models.ts",
+      "name": "ComplianceEvidenceType",
+      "definition": "| 'HASH_ATTESTATION'\n  | 'ENCRYPTION_PROOF'\n  | 'IMMUTABLE_LOG_DIGEST'\n  | 'ACCESS_AUDIT_SAMPLE'"
+    },
+    {
+      "file": "src/app/modules/admin/models/connectors-plugins.models.ts",
+      "name": "ConnectorCertificationLevel",
+      "definition": "| 'LIVE_PROVEN'\n  | 'INTEGRATION_PROVEN'\n  | 'UNIT_PROVEN'\n  | 'IMPLEMENTED'"
+    },
+    {
+      "file": "src/app/modules/admin/models/connectors-plugins.models.ts",
+      "name": "PluginType",
+      "definition": "| 'TRANSFORMER'\n  | 'VALIDATOR'\n  | 'REPORTER'\n  | 'AUTH_HOOK'"
+    },
+    {
+      "file": "src/app/modules/admin/models/connectors-plugins.models.ts",
+      "name": "PluginStatus",
+      "definition": "| 'ACTIVE'\n  | 'DISABLED'"
+    },
+    {
+      "file": "src/app/modules/admin/models/connectors-plugins.models.ts",
+      "name": "PluginSignatureStatus",
+      "definition": "| 'VERIFIED_DIGEST'\n  | 'UNSIGNED'\n  | 'DIGEST_MISMATCH'"
+    },
+    {
+      "file": "src/app/modules/admin/models/enterprise.models.ts",
+      "name": "OrgLifecycleStatus",
+      "definition": "'ACTIVE' | 'SUSPENDED' | 'PROVISIONING' | 'MAINTENANCE_LOCK'"
+    },
+    {
+      "file": "src/app/modules/admin/models/identity.models.ts",
+      "name": "SsoProviderType",
+      "definition": "'OKTA' | 'AZURE_AD' | 'GOOGLE_WORKSPACE' | 'PING_IDENTITY' | 'KEYCLOAK' | 'GENERIC_SAML' | 'GENERIC_OIDC'"
+    },
+    {
+      "file": "src/app/modules/admin/models/identity.models.ts",
+      "name": "DirectoryType",
+      "definition": "'ACTIVE_DIRECTORY' | 'OPEN_LDAP' | 'AZURE_ENTRA_SCIM' | 'OKTA_SCIM' | 'CUSTOM_SCIM'"
+    },
+    {
+      "file": "src/app/modules/admin/models/identity.models.ts",
+      "name": "WorkloadType",
+      "definition": "'KUBERNETES_SERVICE_ACCOUNT' | 'AWS_IAM_ROLE' | 'GCP_WORKLOAD_IDENTITY' | 'SPIFFE_SVID' | 'MTLS_WORKLOAD'"
+    },
+    {
+      "file": "src/app/modules/admin/models/identity.models.ts",
+      "name": "CertType",
+      "definition": "'ROOT_CA' | 'INTERMEDIATE_CA' | 'SERVER_TLS' | 'CLIENT_MTLS' | 'SIGNING_CERT'"
+    },
+    {
+      "file": "src/app/modules/admin/models/infrastructure.models.ts",
+      "name": "CloudProviderType",
+      "definition": "'AWS' | 'AZURE' | 'GCP' | 'OCI'"
+    },
+    {
+      "file": "src/app/modules/admin/models/infrastructure.models.ts",
+      "name": "KubernetesAuthType",
+      "definition": "'PROJECTED_SA' | 'OIDC_FEDERATED' | 'KUBECONFIG_ESCROW'"
+    },
+    {
+      "file": "src/app/modules/admin/models/infrastructure.models.ts",
+      "name": "ExecutionSiteType",
+      "definition": "'CLOUD_HOSTED' | 'CUSTOMER_VPC' | 'ON_PREMISES_DATACENTER'"
+    },
+    {
+      "file": "src/app/modules/admin/models/infrastructure.models.ts",
+      "name": "NetworkRouteType",
+      "definition": "'DIRECT' | 'FORWARD_PROXY' | 'REVERSE_PROXY' | 'SSH_BASTION'"
+    },
+    {
+      "file": "src/app/modules/admin/models/integrations.models.ts",
+      "name": "ChannelType",
+      "definition": "'EMAIL_SMTP' | 'WEBHOOK' | 'SLACK' | 'TEAMS' | 'PAGERDUTY'"
+    },
+    {
+      "file": "src/app/modules/admin/models/people.models.ts",
+      "name": "PrincipalType",
+      "definition": "'EMPLOYEE' | 'CONTRACTOR' | 'SYSTEM_OPERATOR' | 'EXTERNAL_AUDITOR'"
+    },
+    {
+      "file": "src/app/modules/admin/models/people.models.ts",
+      "name": "PrincipalStatus",
+      "definition": "'ACTIVE' | 'SUSPENDED' | 'PROVISIONING' | 'DEPROVISIONED'"
+    },
+    {
+      "file": "src/app/modules/admin/models/templates-config.models.ts",
+      "name": "TemplateStatus",
+      "definition": "'DRAFT' | 'PUBLISHED' | 'DEPRECATED' | 'ARCHIVED'"
+    },
+    {
+      "file": "src/app/modules/connections/connections.models.ts",
+      "name": "ConnectionVerificationState",
+      "definition": "| 'VERIFIED_RECENT'             // Verified recently within expected freshness window\n  | 'VERIFIED_POINT_IN_TIME'       // Point-in-time test succeeded in the past\n  | 'VERIFIED_STALE'              // Verification exceeds freshness threshold\n  | 'CONFIG_CHANGED_SINCE_TEST'   // Configuration/credentials mutated since last successful probe\n  | 'PARTIAL_VERIFIED'            // L1/L2 Connectivity succeeded, L3/L4 schema/permission unprobed\n  | 'TESTING'                     // Active probe in progress\n  | 'NEVER_TESTED'                // Newly authored, never verified\n  | 'VERIFICATION_FAILED'         // Most recent probe encountered an error\n  | 'UNAVAILABLE'                 // Verification authority or network bridge unreachable\n  | 'UNAUTHORIZED'                // Operator lacks RBAC/ABAC permission to view/trigger verification\n  | 'UNKNOWN'"
+    },
+    {
+      "file": "src/app/modules/connections/connections.models.ts",
+      "name": "EntityAvailabilityState",
+      "definition": "| 'READY'\n  | 'LOADING'\n  | 'EMPTY'\n  | 'FILTERED_EMPTY'\n  | 'UNAVAILABLE'\n  | 'NOT_CONNECTED'\n  | 'UNAUTHORIZED'\n  | 'ERROR'"
+    },
+    {
+      "file": "src/app/modules/connections/create-connection/create-connection.models.ts",
+      "name": "TlsMode",
+      "definition": "| 'DISABLED'\n  | 'PREFERRED'\n  | 'REQUIRED'\n  | 'VERIFY_CA'\n  | 'VERIFY_FULL'"
+    },
+    {
+      "file": "src/app/modules/connections/create-connection/create-connection.models.ts",
+      "name": "NetworkRouteType",
+      "definition": "| 'DIRECT'\n  | 'DNS_HAPPY_EYEBALLS'\n  | 'SSH_BASTION'\n  | 'HTTP_PROXY'\n  | 'SOCKS5_PROXY'\n  | 'PRIVATE_ENDPOINT'"
+    },
+    {
+      "file": "src/app/modules/connections/create-connection/create-connection.models.ts",
+      "name": "ProbeStatus",
+      "definition": "| 'VERIFIED'\n  | 'NOT_VERIFIED'\n  | 'DENIED'\n  | 'UNSUPPORTED'\n  | 'UNKNOWN'\n  | 'TESTING'\n  | 'FAILED'"
+    },
+    {
+      "file": "src/app/modules/connections/workspace/connection-workspace.models.ts",
+      "name": "ProofLevel",
+      "definition": "| 'IMPLEMENTED'\n  | 'UNIT_PROVEN'\n  | 'INTEGRATION_PROVEN'\n  | 'LIVE_PROVEN'\n  | 'EXTERNAL_DEFERRED'"
+    },
+    {
+      "file": "src/app/modules/migration/cockpit/cockpit.models.ts",
+      "name": "CockpitLifecycleState",
+      "definition": "| 'INITIALIZED'\n  | 'RUNNING'\n  | 'PAUSED'\n  | 'WAITING_FOR_APPROVAL'\n  | 'RECOVERING'\n  | 'COMPLETED'\n  | 'FAILED'\n  | 'CANCELLED'"
+    },
+    {
+      "file": "src/app/modules/migration/cockpit/cockpit.models.ts",
+      "name": "EngineHealthState",
+      "definition": "'HEALTHY' | 'DEGRADED' | 'CRITICAL' | 'UNKNOWN'"
+    },
+    {
+      "file": "src/app/modules/migration/cockpit/cockpit.models.ts",
+      "name": "RuntimeDagNodeState",
+      "definition": "| 'COMPLETED'\n  | 'ACTIVE'\n  | 'RUNNING_PARALLEL'\n  | 'WAITING'\n  | 'APPROVAL_BARRIER'\n  | 'FAILED'\n  | 'RECOVERING'\n  | 'SKIPPED'\n  | 'UPCOMING'"
+    },
+    {
+      "file": "src/app/modules/migration/create/steps/step4-scope.models.ts",
+      "name": "Step4LifecycleState",
+      "definition": "'DEPTH_SELECTION' | 'DISCOVERING' | 'FAILURE' | 'SCOPE_WORKBENCH'"
+    },
+    {
+      "file": "src/app/modules/migration/create/steps/step4-scope.models.ts",
+      "name": "ResourceEligibilityStatus",
+      "definition": "'READY' | 'ADVISORY' | 'BLOCKED'"
+    },
+    {
+      "file": "src/app/modules/migration/create/steps/step4-scope.models.ts",
+      "name": "DiscoveredNodeType",
+      "definition": "| 'INSTANCE'\r\n  | 'DATABASE'\r\n  | 'SCHEMA'\r\n  | 'OBJECT_GROUP'\r\n  | 'TABLE'\r\n  | 'VIEW'\r\n  | 'PROCEDURE'\r\n  | 'FUNCTION'\r\n  | 'PACKAGE'\r\n  | 'TRIGGER'\r\n  | 'SEQUENCE'\r\n  | 'COLLECTION'\r\n  | 'TOPIC'\r\n  | 'PARTITION'\r\n  | 'BUCKET'\r\n  | 'PREFIX'\r\n  | 'OBJECT'\r\n  | 'PATH'"
+    },
+    {
+      "file": "src/app/modules/migration/create/steps/step5-mapping.models.ts",
+      "name": "MappingStatusBucket",
+      "definition": "'ALL' | 'AUTO_MAPPED' | 'MODIFIED' | 'NEEDS_REVIEW' | 'BLOCKED'"
+    },
+    {
+      "file": "src/app/modules/migration/create/steps/step5-mapping.models.ts",
+      "name": "UiWorkState",
+      "definition": "'AUTOMATIC' | 'MODIFIED' | 'NEEDS_REVIEW' | 'BLOCKED'"
+    },
+    {
+      "file": "src/app/modules/migration/create/steps/step5-mapping.models.ts",
+      "name": "ConversionSafetyState",
+      "definition": "| 'EXACT'\r\n  | 'SEMANTICALLY_EQUIVALENT'\r\n  | 'COMPATIBLE_WITH_TRANSFORMATION'\r\n  | 'COMPATIBILITY_LAYER_REQUIRED'\r\n  | 'LOSSY'\r\n  | 'UNSUPPORTED'\r\n  | 'USER_DECISION_REQUIRED'"
+    },
+    {
+      "file": "src/app/modules/migration/create/steps/step5-mapping.models.ts",
+      "name": "ReadinessState",
+      "definition": "| 'READY'\r\n  | 'READY_WITH_WARNINGS'\r\n  | 'WAIVER_REQUIRED'\r\n  | 'BLOCKED'"
+    },
+    {
+      "file": "src/app/modules/migration/create/steps/step5-mapping.models.ts",
+      "name": "CleansingRuleType",
+      "definition": "| 'TRIM'\r\n  | 'UPPERCASE'\r\n  | 'LOWERCASE'\r\n  | 'DEFAULT'\r\n  | 'REGEX_REPLACE'"
+    },
+    {
+      "file": "src/app/modules/migration/create/steps/step5-mapping.models.ts",
+      "name": "QualityRuleType",
+      "definition": "| 'NOT_NULL'\r\n  | 'MAX_LENGTH'\r\n  | 'NUMERIC_OVERFLOW'\r\n  | 'VALUE_RANGE'\r\n  | 'REGEX_MATCH'\r\n  | 'ENUM_VALUES'"
+    },
+    {
+      "file": "src/app/modules/migration/create/steps/step7-plan.models.ts",
+      "name": "CanonicalPlanMode",
+      "definition": "| 'M1_BULK'\r\n  | 'M2_BULK_CDC'\r\n  | 'M3_CDC'\r\n  | 'M4_INCREMENTAL'\r\n  | 'M5_STATE_SYNC'\r\n  | 'M6_SCHEMA_ONLY'\r\n  | 'M7_DATA_ONLY'"
+    },
+    {
+      "file": "src/app/modules/migration/create/steps/step7-plan.models.ts",
+      "name": "PlanNodeType",
+      "definition": "'EXECUTION_STAGE' | 'APPROVAL_BARRIER'"
+    },
+    {
+      "file": "src/app/modules/migration/create/steps/step7-plan.models.ts",
+      "name": "PlanStageType",
+      "definition": "| 'PRE_FLIGHT'\r\n  | 'SCHEMA_DDL'\r\n  | 'DATA_PREPARATION'\r\n  | 'BULK_EXTRACT'\r\n  | 'BULK_LOAD'\r\n  | 'CDC_CAPTURE'\r\n  | 'CDC_APPLY'\r\n  | 'STATE_COMPARE'\r\n  | 'INDEX_REBUILD'\r\n  | 'POST_VALIDATION'\r\n  | 'CUTOVER'\r\n  | 'ROLLBACK_GUARD'\r\n  | 'APPROVAL_BARRIER'\r\n  | 'CUSTOM_SQL'"
+    },
+    {
+      "file": "src/app/modules/migration/create/steps/step7-plan.models.ts",
+      "name": "ProvenanceType",
+      "definition": "'EXACT' | 'ESTIMATED' | 'UNAVAILABLE'"
+    },
+    {
+      "file": "src/app/modules/migration/create/steps/step7-plan.models.ts",
+      "name": "PlanSeverity",
+      "definition": "'BLOCKER' | 'WARNING' | 'INFO'"
+    },
+    {
+      "file": "src/app/modules/migration/create/steps/step8-governance.models.ts",
+      "name": "OverallReadinessStatus",
+      "definition": "'READY' | 'AWAITING_APPROVALS' | 'ACTION_REQUIRED' | 'NOT_READY'"
+    },
+    {
+      "file": "src/app/modules/migration/create/steps/step8-governance.models.ts",
+      "name": "GateApprovalStatus",
+      "definition": "'APPROVED' | 'PENDING_APPROVAL' | 'REJECTED' | 'SATISFIED'"
+    },
+    {
+      "file": "src/app/modules/migration/create/steps/step8-governance.models.ts",
+      "name": "ReadinessCheckStatus",
+      "definition": "'READY' | 'WARNING' | 'BLOCKED' | 'PENDING'"
+    },
+    {
+      "file": "src/app/modules/migration/create/steps/step8-governance.models.ts",
+      "name": "ActionSeverity",
+      "definition": "'BLOCKER' | 'APPROVAL_REQUIRED' | 'ACKNOWLEDGEMENT_REQUIRED' | 'WARNING'"
+    },
+    {
+      "file": "src/app/modules/migration/create/steps/step9-review.models.ts",
+      "name": "ConfidenceLevel",
+      "definition": "'HIGH' | 'MEDIUM' | 'LOW' | 'UNAVAILABLE'"
+    },
+    {
+      "file": "src/app/modules/migration/create/steps/step9-review.models.ts",
+      "name": "StructuralRiskLevel",
+      "definition": "'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' | 'NONE'"
+    },
+    {
+      "file": "src/app/modules/migration/create/steps/step9-review.models.ts",
+      "name": "Step9SubmitPhase",
+      "definition": "| 'IDLE'\n  | 'INITIALIZING'\n  | 'STARTING'\n  | 'SCHEDULING'\n  | 'SUCCESS'\n  | 'ERROR'"
+    },
+    {
+      "file": "src/app/modules/migration/history/history-home.models.ts",
+      "name": "HistoryMode",
+      "definition": "| 'M1_BULK'           // Bulk Load / Snapshot\n  | 'M2_BULK_CDC'       // Bulk + CDC (Initial Snapshot + Ongoing Replication)\n  | 'M3_CDC'            // CDC Only (Continuous Streaming)\n  | 'M4_INCREMENTAL'    // Incremental / Polling\n  | 'M5_STATE_SYNC'     // State-Based Sync (Two-way / Multi-directional)\n  | 'M6_SCHEMA_ONLY'    // Schema Only (DDL Extraction & Conversion)\n  | 'M7_DATA_ONLY'      // Data Only (No Schema Alteration)\n  | 'M8_VALIDATION_ONLY'"
+    },
+    {
+      "file": "src/app/modules/migration/history/history-home.models.ts",
+      "name": "ValidationReconciliationState",
+      "definition": "| 'PASSED'\n  | 'FAILED'\n  | 'MISMATCHES_DETECTED'\n  | 'RECONCILED'\n  | 'SKIPPED'\n  | 'NOT_CONFIGURED'\n  | 'PENDING'\n  | 'IN_PROGRESS'\n  | 'UNAVAILABLE'"
+    },
+    {
+      "file": "src/app/modules/migration/history/history-home.models.ts",
+      "name": "CutoverStatus",
+      "definition": "| 'COMPLETED'\n  | 'ABORTED'\n  | 'ROLLED_BACK'\n  | 'NOT_APPLICABLE'\n  | 'SCHEDULED'\n  | 'MANUAL_PENDING'\n  | 'IN_PROGRESS'\n  | 'UNKNOWN'"
+    },
+    {
+      "file": "src/app/modules/migration/history/history-home.models.ts",
+      "name": "RecoveryStatus",
+      "definition": "| 'NONE'\n  | 'RESTORED'\n  | 'POINT_IN_TIME_RECOVERED'\n  | 'FAILED'\n  | 'NOT_TRIGGERED'\n  | 'NOT_APPLICABLE'"
+    },
+    {
+      "file": "src/app/modules/migration/history/history-home.models.ts",
+      "name": "HistoryAvailabilityState",
+      "definition": "| 'READY'\n  | 'LOADING'\n  | 'EMPTY'\n  | 'UNAVAILABLE'\n  | 'ERROR'\n  | 'UNAUTHORIZED'"
+    },
+    {
+      "file": "src/app/modules/migration/history/history-workspace/history-workspace.models.ts",
+      "name": "TimelineSeverity",
+      "definition": "'INFO' | 'SUCCESS' | 'WARNING' | 'ERROR'"
+    },
+    {
+      "file": "src/app/modules/migration/projects/projects.models.ts",
+      "name": "EntityAvailabilityState",
+      "definition": "| 'READY'\n  | 'LOADING'\n  | 'EMPTY'\n  | 'UNAVAILABLE'\n  | 'NOT_CONNECTED'\n  | 'UNAUTHORIZED'\n  | 'PARTIAL'\n  | 'ERROR'"
+    },
+    {
+      "file": "src/app/modules/migration/projects/projects.models.ts",
+      "name": "EntityAccessState",
+      "definition": "'GRANTED' | 'READ_ONLY' | 'PERMISSION_REQUIRED'"
+    },
+    {
+      "file": "src/app/modules/migration/projects/projects.models.ts",
+      "name": "InitiativeTabType",
+      "definition": "'overview' | 'projects' | 'activity' | 'settings'"
+    },
+    {
+      "file": "src/app/modules/migration/projects/projects.models.ts",
+      "name": "ProjectAssociationActionType",
+      "definition": "'ADD' | 'REMOVE' | 'REASSIGN'"
+    },
+    {
+      "file": "src/app/modules/migration/projects/projects.models.ts",
+      "name": "ProjectWorkspaceTabType",
+      "definition": "| 'overview'\n  | 'migrations'\n  | 'validations'\n  | 'resources'\n  | 'activity'\n  | 'access'\n  | 'governance'\n  | 'settings'"
+    },
+    {
+      "file": "src/app/modules/migration/projects/projects.models.ts",
+      "name": "ProjectRoleType",
+      "definition": "'PROJECT_ADMIN' | 'OPERATOR' | 'VIEWER'"
+    },
+    {
+      "file": "src/app/modules/migration/projects/projects.models.ts",
+      "name": "ProjectResourceAvailabilityState",
+      "definition": "| 'AVAILABLE'\n  | 'BOUND'\n  | 'UNAVAILABLE'\n  | 'UNAUTHORIZED'\n  | 'UNSUPPORTED'\n  | 'CAPABILITY_UNKNOWN'"
+    },
+    {
+      "file": "src/app/modules/migration/projects/projects.models.ts",
+      "name": "MigrationMoveState",
+      "definition": "| 'MOVE_AVAILABLE'\n  | 'CONTROLLED_ACTION_REQUIRED'\n  | 'UNAVAILABLE_ACTIVE'\n  | 'UNAVAILABLE_UNAUTHORIZED'\n  | 'BACKEND_NOT_CONNECTED'\n  | 'PENDING'\n  | 'FAILED'\n  | 'STALE_CONFLICT'"
+    },
+    {
+      "file": "src/app/modules/migration/projects/projects.models.ts",
+      "name": "ActionAuthorizationState",
+      "definition": "| 'PERMITTED'\n  | 'DENIED'\n  | 'PERMISSION_REQUIRED'\n  | 'UNAVAILABLE'\n  | 'NOT_CONNECTED'\n  | 'PENDING'\n  | 'FAILED'\n  | 'STALE_CONFLICT'"
+    },
+    {
+      "file": "src/app/modules/migration/templates/create-template/create-template.models.ts",
+      "name": "ScopeRuleType",
+      "definition": "'INCLUDE' | 'EXCLUDE'"
+    },
+    {
+      "file": "src/app/modules/migration/templates/create-template/create-template.models.ts",
+      "name": "ScopeObjectType",
+      "definition": "'TABLE' | 'VIEW' | 'SCHEMA' | 'SEQUENCE' | 'PROCEDURE'"
+    },
+    {
+      "file": "src/app/modules/migration/templates/create-template/create-template.models.ts",
+      "name": "MaskingType",
+      "definition": "'PII_REDACT' | 'HASH_SHA256' | 'MASK_EMAIL' | 'RANDOM_GENERATOR' | 'TOKENIZE'"
+    },
+    {
+      "file": "src/app/modules/migration/templates/create-template/create-template.models.ts",
+      "name": "CdcEngineType",
+      "definition": "'DATABASE_LOG_MINER' | 'DEBEZIUM_STREAM' | 'WAL2JSON' | 'BINLOG_REPLICATION'"
+    },
+    {
+      "file": "src/app/modules/migration/templates/create-template/create-template.models.ts",
+      "name": "OverridabilityLevel",
+      "definition": "'FULL_OVERRIDE' | 'RESTRICTED' | 'LOCKED'"
+    },
+    {
+      "file": "src/app/modules/migration/templates/create-template/create-template.models.ts",
+      "name": "MappingOverrideLevel",
+      "definition": "'ALLOWED' | 'REQUIRES_APPROVAL' | 'LOCKED'"
+    },
+    {
+      "file": "src/app/modules/migration/templates/create-template/create-template.models.ts",
+      "name": "ScopeOverrideLevel",
+      "definition": "'UNRESTRICTED' | 'SUBSET_ONLY' | 'LOCKED'"
+    },
+    {
+      "file": "src/app/modules/migration/templates/create-template/create-template.models.ts",
+      "name": "AuditLogLevel",
+      "definition": "'STANDARD' | 'VERBOSE' | 'COMPLIANCE'"
+    },
+    {
+      "file": "src/app/modules/migration/templates/template-workspace/template-workspace.models.ts",
+      "name": "CompatibilityStatus",
+      "definition": "'VERIFIED' | 'NOT_VERIFIED' | 'UNSUPPORTED' | 'UNKNOWN'"
+    },
+    {
+      "file": "src/app/modules/migration/templates/template-workspace/template-workspace.models.ts",
+      "name": "DiffChangeType",
+      "definition": "'ADDED' | 'MODIFIED' | 'REMOVED' | 'UNCHANGED'"
+    },
+    {
+      "file": "src/app/modules/migration/templates/templates.models.ts",
+      "name": "TemplateMigrationMode",
+      "definition": "| 'M1_BULK'           // Bulk Load / Snapshot\n  | 'M2_BULK_CDC'       // Bulk + CDC (Initial Snapshot + Ongoing Replication)\n  | 'M3_CDC'            // CDC Only (Continuous Streaming)\n  | 'M4_INCREMENTAL'    // Incremental / Polling\n  | 'M5_STATE_SYNC'     // State-Based Sync (Two-way / Multi-directional)\n  | 'M6_SCHEMA_ONLY'    // Schema Only (DDL Extraction & Conversion)\n  | 'M7_DATA_ONLY'"
+    },
+    {
+      "file": "src/app/modules/migration/templates/templates.models.ts",
+      "name": "TemplateLifecycle",
+      "definition": "'PUBLISHED' | 'DRAFT' | 'DEPRECATED' | 'ARCHIVED'"
+    },
+    {
+      "file": "src/app/modules/migration/templates/templates.models.ts",
+      "name": "TemplateAvailabilityState",
+      "definition": "| 'READY'\n  | 'LOADING'\n  | 'EMPTY'\n  | 'UNAVAILABLE'\n  | 'ERROR'\n  | 'UNAUTHORIZED'"
+    },
+    {
+      "file": "src/app/modules/monitoring/models/alerts-monitoring.models.ts",
+      "name": "AlertLifecycleState",
+      "definition": "'FIRING' | 'ACKNOWLEDGED' | 'SUPPRESSED' | 'RESOLVED'"
+    },
+    {
+      "file": "src/app/modules/monitoring/models/alerts-monitoring.models.ts",
+      "name": "AlertEntityType",
+      "definition": "'MIGRATION' | 'PLATFORM_SERVICE' | 'CONNECTOR' | 'NODE' | 'STORAGE' | 'SYSTEM'"
+    },
+    {
+      "file": "src/app/modules/monitoring/models/alerts-monitoring.models.ts",
+      "name": "EvaluationResultState",
+      "definition": "'FIRING' | 'NORMAL' | 'SUPPRESSED' | 'UNKNOWN'"
+    },
+    {
+      "file": "src/app/modules/monitoring/models/alerts-monitoring.models.ts",
+      "name": "IncidentSeverity",
+      "definition": "'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'"
+    },
+    {
+      "file": "src/app/modules/monitoring/models/alerts-monitoring.models.ts",
+      "name": "IncidentStatus",
+      "definition": "'INVESTIGATING' | 'IDENTIFIED' | 'MONITORING' | 'RESOLVED'"
+    },
+    {
+      "file": "src/app/modules/monitoring/models/alerts-monitoring.models.ts",
+      "name": "NotificationChannelType",
+      "definition": "'WEBHOOK' | 'SLACK' | 'PAGERDUTY' | 'EMAIL' | 'SYSTEM_LOG'"
+    },
+    {
+      "file": "src/app/modules/monitoring/models/alerts-monitoring.models.ts",
+      "name": "DeliveryStatus",
+      "definition": "'DELIVERED' | 'FAILED' | 'RETRYING' | 'NOT_CONFIGURED'"
+    },
+    {
+      "file": "src/app/modules/monitoring/models/alerts-monitoring.models.ts",
+      "name": "ExternalProofStatus",
+      "definition": "'VERIFIED_DELIVERY' | 'MOCK_SANDBOX' | 'UNVERIFIED'"
+    },
+    {
+      "file": "src/app/modules/monitoring/models/monitoring.models.ts",
+      "name": "ApplicabilityState",
+      "definition": "'APPLICABLE' | 'NOT_APPLICABLE'"
+    },
+    {
+      "file": "src/app/modules/monitoring/models/monitoring.models.ts",
+      "name": "ConfigurationState",
+      "definition": "'CONFIGURED' | 'NOT_CONFIGURED'"
+    },
+    {
+      "file": "src/app/modules/monitoring/models/monitoring.models.ts",
+      "name": "AuthorizationState",
+      "definition": "'AUTHORIZED' | 'UNAUTHORIZED'"
+    },
+    {
+      "file": "src/app/modules/monitoring/models/monitoring.models.ts",
+      "name": "AvailabilityState",
+      "definition": "'AVAILABLE' | 'UNAVAILABLE' | 'UNKNOWN'"
+    },
+    {
+      "file": "src/app/modules/monitoring/models/monitoring.models.ts",
+      "name": "HealthState",
+      "definition": "'HEALTHY' | 'DEGRADED' | 'UNHEALTHY' | 'UNKNOWN'"
+    },
+    {
+      "file": "src/app/modules/monitoring/models/monitoring.models.ts",
+      "name": "FreshnessState",
+      "definition": "'CURRENT' | 'STALE' | 'NO_DATA' | 'UNKNOWN'"
+    },
+    {
+      "file": "src/app/modules/monitoring/models/monitoring.models.ts",
+      "name": "CompletenessState",
+      "definition": "'COMPLETE' | 'PARTIAL'"
+    },
+    {
+      "file": "src/app/modules/monitoring/models/monitoring.models.ts",
+      "name": "SeverityLevel",
+      "definition": "'CRITICAL' | 'WARNING' | 'INFO' | 'UNKNOWN'"
+    },
+    {
+      "file": "src/app/modules/monitoring/models/monitoring.models.ts",
+      "name": "CanonicalMigrationMode",
+      "definition": "| 'M1_BULK'\n  | 'M2_BULK_CDC'\n  | 'M3_CDC'\n  | 'M4_INCREMENTAL'\n  | 'M5_STATE_SYNC'\n  | 'M6_SCHEMA_ONLY'\n  | 'M7_DATA_ONLY'"
+    },
+    {
+      "file": "src/app/modules/reports/models/certification.models.ts",
+      "name": "CertificationDecisionState",
+      "definition": "| 'CERTIFIED'\n  | 'NOT_CERTIFIED'\n  | 'CERTIFICATION_NOT_ISSUED'\n  | 'REVOKED'\n  | 'EXPIRED'\n  | 'PENDING_EVALUATION'\n  | 'UNKNOWN'"
+    },
+    {
+      "file": "src/app/modules/reports/models/certification.models.ts",
+      "name": "CertificationLifecycleState",
+      "definition": "| 'ACTIVE'\n  | 'SUPERSEDED'\n  | 'ARCHIVED'\n  | 'DRAFT'\n  | 'RETIRED'"
+    },
+    {
+      "file": "src/app/modules/reports/models/certification.models.ts",
+      "name": "VerificationResultStatus",
+      "definition": "| 'VERIFIED'\n  | 'MISMATCH'\n  | 'UNAVAILABLE'\n  | 'ERROR'"
+    },
+    {
+      "file": "src/app/modules/reports/models/certification.models.ts",
+      "name": "GovernanceDecisionStatus",
+      "definition": "| 'APPROVED'\n  | 'REJECTED'\n  | 'PENDING'\n  | 'OVERRIDDEN'\n  | 'NOT_APPLICABLE'"
+    },
+    {
+      "file": "src/app/modules/reports/models/certification.models.ts",
+      "name": "ExceptionStatus",
+      "definition": "| 'UNRESOLVED'\n  | 'WAIVED'\n  | 'EXPIRED'\n  | 'REQUIRES_MANUAL_REVIEW'"
+    },
+    {
+      "file": "src/app/modules/reports/models/evidence.models.ts",
+      "name": "EvidenceArtifactType",
+      "definition": "| 'MANIFEST_SNAPSHOT'\n  | 'MERKLE_TREE_DIGEST'\n  | 'GOVERNANCE_LEDGER'\n  | 'SCHEMA_DIFF'\n  | 'WATERMARK_LOG'\n  | 'INTEGRITY_SCAN'\n  | 'AUDIT_JOURNAL'\n  | 'RECOVERY_CHECKPOINT'\n  | string"
+    },
+    {
+      "file": "src/app/modules/reports/models/evidence.models.ts",
+      "name": "EvidenceLifecycleState",
+      "definition": "| 'ACTIVE'\n  | 'SUPERSEDED'\n  | 'ARCHIVED'\n  | string"
+    },
+    {
+      "file": "src/app/modules/reports/models/evidence.models.ts",
+      "name": "EvidenceIntegrityResultStatus",
+      "definition": "| 'VERIFIED'\n  | 'MISMATCH'\n  | 'UNAVAILABLE'\n  | 'NOT_EVALUATED'\n  | 'ERROR'"
+    },
+    {
+      "file": "src/app/modules/reports/models/reports.models.ts",
+      "name": "SectionLoadingState",
+      "definition": "| 'LOADING' \n  | 'AVAILABLE_WITH_DATA' \n  | 'AVAILABLE_EMPTY' \n  | 'PARTIAL' \n  | 'UNAVAILABLE' \n  | 'UNAUTHORIZED' \n  | 'ERROR'"
+    },
+    {
+      "file": "src/app/modules/reports/models/reports.models.ts",
+      "name": "CertificationStatus",
+      "definition": "| 'CERTIFIED'\n  | 'NOT_CERTIFIED'\n  | 'PENDING_EVALUATION'\n  | 'REVOKED'\n  | 'NOT_ESTABLISHED'\n  | 'UNDER_REVIEW'\n  | 'UNKNOWN'"
+    },
+    {
+      "file": "src/app/modules/reports/models/reports.models.ts",
+      "name": "EvidenceAvailabilityState",
+      "definition": "| 'AVAILABLE'\n  | 'PARTIAL'\n  | 'PENDING'\n  | 'UNAVAILABLE'\n  | 'VERIFIED'\n  | 'INTEGRITY_CHECK_FAILED'"
+    },
+    {
+      "file": "src/app/modules/settings/models/settings.models.ts",
+      "name": "ValidationAssuranceLevel",
+      "definition": "'LEVEL_1_ROW_COUNT' | 'LEVEL_2_CHECKSUM' | 'LEVEL_3_FULL_DIFF'"
+    },
+    {
+      "file": "src/app/modules/settings/models/settings.models.ts",
+      "name": "TLSEnforcementMode",
+      "definition": "'VERIFY_FULL' | 'VERIFY_CA' | 'PREFERRED' | 'REQUIRED'"
+    },
+    {
+      "file": "src/app/modules/settings/models/settings.models.ts",
+      "name": "NotificationSeverityLevel",
+      "definition": "'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'"
+    },
+    {
+      "file": "src/app/modules/settings/models/settings.models.ts",
+      "name": "CatalogFormatType",
+      "definition": "'OPEN_LINEAGE' | 'APACHE_ATLAS' | 'CUSTOM_CATALOG'"
+    },
+    {
+      "file": "src/app/modules/settings/models/settings.models.ts",
+      "name": "AssistanceProactivityMode",
+      "definition": "'ON_DEMAND' | 'ADVISORY'"
+    },
+    {
+      "file": "src/app/modules/settings/models/settings.models.ts",
+      "name": "RecommendationConfidenceLevel",
+      "definition": "'HIGH' | 'STANDARD'"
+    },
+    {
+      "file": "src/app/modules/settings/models/settings.models.ts",
+      "name": "ClientLogLevel",
+      "definition": "'DEBUG' | 'INFO' | 'WARN' | 'ERROR'"
+    },
+    {
+      "file": "src/app/modules/settings/models/settings.models.ts",
+      "name": "EngineLogLevel",
+      "definition": "'DEBUG' | 'INFO'"
+    },
+    {
+      "file": "src/app/modules/validation/create/steps/step4-scope.models.ts",
+      "name": "PhysicalObservationStatus",
+      "definition": "| 'DISCOVERED'\n  | 'NOT_DISCOVERED'\n  | 'UNAVAILABLE'"
+    },
+    {
+      "file": "src/app/modules/validation/create/steps/step4-scope.models.ts",
+      "name": "ScopedPairTargetStatus",
+      "definition": "| 'CONFIRMED'\n  | 'INHERITED_CONFIRMED'\n  | 'UNRESOLVED'\n  | 'CANDIDATE_REQUIRES_CONFIRMATION'\n  | 'UNAVAILABLE'\n  | 'STALE'"
+    },
+    {
+      "file": "src/app/modules/validation/create/steps/step6-strategy.models.ts",
+      "name": "AssuranceLevel",
+      "definition": "| 'STRUCTURAL'\n  | 'CARDINALITY'\n  | 'PARTITION_FINGERPRINT'\n  | 'COMPLETE_ATTRIBUTE'"
+    },
+    {
+      "file": "src/app/modules/validation/create/steps/step6-strategy.models.ts",
+      "name": "CapabilityStatus",
+      "definition": "| 'AVAILABLE'\n  | 'AVAILABLE_WITH_LIMITATIONS'\n  | 'UNAVAILABLE'\n  | 'CAPABILITY_NOT_DETERMINED'"
+    },
+    {
+      "file": "src/app/modules/validation/create/steps/step6-strategy.models.ts",
+      "name": "ExceptionScopeType",
+      "definition": "| 'ESCALATED'\n  | 'REDUCED'"
+    },
+    {
+      "file": "src/app/modules/validation/create/steps/step7-readiness.models.ts",
+      "name": "ValidationReadinessStatus",
+      "definition": "| 'NOT_EVALUATED'\n  | 'EVALUATING'\n  | 'READY'\n  | 'READY_WITH_ATTENTION'\n  | 'AWAITING_GOVERNANCE'\n  | 'BLOCKED'\n  | 'STALE'\n  | 'EVALUATION_UNAVAILABLE'"
+    },
+    {
+      "file": "src/app/modules/validation/create/steps/step7-readiness.models.ts",
+      "name": "CheckEvaluationStatus",
+      "definition": "'READY' | 'WARNING' | 'BLOCKER' | 'NOT_EVALUATED'"
+    },
+    {
+      "file": "src/app/modules/validation/workstation/discrepancies/validation-discrepancies.models.ts",
+      "name": "ReconciliationState",
+      "definition": "| 'UNRESOLVED'\n  | 'CONFIRMED_DISCREPANCY'\n  | 'EXPECTED_DIFFERENCE'\n  | 'EXPLAINED_BY_TRANSFORMATION'\n  | 'EXCLUDED_BY_SCOPE'\n  | 'INCONCLUSIVE'"
+    },
+    {
+      "file": "src/app/modules/validation/workstation/discrepancies/validation-discrepancies.models.ts",
+      "name": "AttributeDifferenceType",
+      "definition": "| 'MATCH'\n  | 'DIFFERENT'\n  | 'SOURCE_ONLY'\n  | 'TARGET_ONLY'\n  | 'TYPE_MISMATCH'"
+    },
+    {
+      "file": "src/app/modules/validation/workstation/discrepancies/validation-discrepancies.models.ts",
+      "name": "DiscrepancyViewStatus",
+      "definition": "| 'READY'\n  | 'LOADING'\n  | 'EMPTY'\n  | 'NOT_EVALUATED'\n  | 'UNAVAILABLE'\n  | 'ERROR'"
+    },
+    {
+      "file": "src/app/modules/validation/workstation/repair/validation-repair.models.ts",
+      "name": "RepairViewStatus",
+      "definition": "| 'READY'\n  | 'UNAVAILABLE'\n  | 'NO_REMEDIATION_REQUIRED'\n  | 'AUDIT_ONLY'\n  | 'LOADING'\n  | 'ERROR'"
+    },
+    {
+      "file": "src/app/modules/validation/workstation/repair/validation-repair.models.ts",
+      "name": "RepairRiskLevel",
+      "definition": "| 'LOW'\n  | 'MEDIUM'\n  | 'HIGH'\n  | 'CONSEQUENTIAL_DESTRUCTIVE'"
+    },
+    {
+      "file": "src/app/modules/validation/workstation/results/validation-results.models.ts",
+      "name": "ComparisonMode",
+      "definition": "| 'SYNC'\n  | 'ASYNC'\n  | 'UNKNOWN'"
+    },
+    {
+      "file": "src/app/modules/validation/workstation/results/validation-results.models.ts",
+      "name": "TemporalModel",
+      "definition": "| 'CONSISTENT_STATE'\n  | 'CONTINUOUS'\n  | 'UNSPECIFIED'"
+    },
+    {
+      "file": "src/app/modules/validation/workstation/results/validation-results.models.ts",
+      "name": "ValidationExecutionState",
+      "definition": "| 'NOT_CONNECTED'\n  | 'QUEUED'\n  | 'RUNNING'\n  | 'PAUSED'\n  | 'INTERRUPTED'\n  | 'RECOVERING'\n  | 'BLOCKED'\n  | 'COMPLETED'"
+    },
+    {
+      "file": "src/app/modules/validation/workstation/results/validation-results.models.ts",
+      "name": "BaselineState",
+      "definition": "| 'VALID'\n  | 'STALE'\n  | 'NOT_AVAILABLE'"
+    },
+    {
+      "file": "src/app/modules/validation/workstation/results/validation-results.models.ts",
+      "name": "AssuranceTierLevel",
+      "definition": "| 'STRUCTURAL'\n  | 'CARDINALITY'\n  | 'PARTITION_FINGERPRINT'\n  | 'COMPLETE_ATTRIBUTE'"
+    },
+    {
+      "file": "src/app/modules/validation/workstation/results/validation-results.models.ts",
+      "name": "AssuranceTierStatus",
+      "definition": "| 'NOT_EVALUATED'\n  | 'PASSED'\n  | 'FAILED'\n  | 'SKIPPED'"
+    },
+    {
+      "file": "src/app/modules/validation/workstation/results/validation-results.models.ts",
+      "name": "ResultsViewStatus",
+      "definition": "| 'READY'\n  | 'NOT_EVALUATED'\n  | 'WITHHELD'\n  | 'UNAVAILABLE'\n  | 'LOADING'\n  | 'ERROR'"
+    },
+    {
+      "file": "src/app/modules/validation/workstation/validation-workstation.models.ts",
+      "name": "ValidationExecutionState",
+      "definition": "| 'NOT_CONNECTED'\n  | 'QUEUED'\n  | 'RUNNING'\n  | 'PAUSED'\n  | 'INTERRUPTED'\n  | 'RECOVERING'\n  | 'BLOCKED'\n  | 'COMPLETED'"
+    },
+    {
+      "file": "src/app/modules/validation/workstation/validation-workstation.models.ts",
+      "name": "ProofTierLevel",
+      "definition": "| 'structural'\n  | 'cardinality'\n  | 'partition'\n  | 'attribute'"
+    },
+    {
+      "file": "src/app/modules/validation/workstation/validation-workstation.models.ts",
+      "name": "ProofTierStatus",
+      "definition": "| 'NOT_EVALUATED'\n  | 'PASSED'\n  | 'FAILED'\n  | 'EVALUATING'\n  | 'SKIPPED'"
+    },
+    {
+      "file": "src/app/modules/validation/workstation/validation-workstation.models.ts",
+      "name": "DonutSemanticMode",
+      "definition": "| 'NOT_CONNECTED'\n  | 'INDEPENDENT_VALIDATION'\n  | 'MIGRATION_SYNC'"
+    },
+    {
+      "file": "src/app/modules/validation/workstation/validation-workstation.models.ts",
+      "name": "CanonicalComparisonMode",
+      "definition": "| 'SYNC'\n  | 'ASYNC'\n  | 'UNKNOWN'"
+    },
+    {
+      "file": "src/app/core/services/validation-ui.service.ts",
+      "name": "ValidationContextType",
+      "definition": "'INDEPENDENT' | 'EXISTING_PROJECT'"
+    },
+    {
+      "file": "src/app/modules/migration/history/history-workspace/history-workspace.service.ts",
+      "name": "WorkspaceViewState",
+      "definition": "'READY' | 'LOADING' | 'EMPTY' | 'ERROR' | 'UNAVAILABLE'"
+    },
+    {
+      "file": "src/app/modules/reports/services/reports.service.ts",
+      "name": "LibraryViewMode",
+      "definition": "'CATALOG' | 'INVENTORY' | 'CATEGORY_VIEW' | 'REPORT_DETAIL'"
+    },
+    {
+      "file": "src/app/modules/reports/services/reports.service.ts",
+      "name": "CertificationViewMode",
+      "definition": "'OVERVIEW' | 'MIGRATION' | 'VALIDATION' | 'VERIFICATION'"
+    },
+    {
+      "file": "src/app/modules/reports/services/reports.service.ts",
+      "name": "EvidenceTabMode",
+      "definition": "'EXPLORER' | 'DOSSIERS' | 'CERTIFICATES' | 'PACKAGES' | 'VERIFICATION'"
+    },
+    {
+      "file": "src/app/modules/migration/projects/components/projects-nav-bar.component.ts",
+      "name": "ProjectsTabType",
+      "definition": "'portfolio' | 'projects' | 'initiatives'"
+    }
+  ]
+}

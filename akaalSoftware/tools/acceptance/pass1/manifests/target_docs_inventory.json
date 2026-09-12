@@ -1,0 +1,191 @@
+[
+  {
+    "filename": "AKAAL_Architecture_Constitution_v1.0.md",
+    "path": "docs/architecture/AKAAL_Architecture_Constitution_v1.0.md",
+    "sizeBytes": 28106,
+    "classification": "SUPPORTING_TECHNICAL",
+    "role": "System Architecture, Invariants & Engineering Invariants",
+    "relevance": "Core system invariants, daemon architecture, IPC protocols, and fault tolerance.",
+    "status": "ACTIVE_REFERENCE"
+  },
+  {
+    "filename": "AKAAL_Architecture_Governance_Review_v1.0.md",
+    "path": "docs/architecture/AKAAL_Architecture_Governance_Review_v1.0.md",
+    "sizeBytes": 19951,
+    "classification": "SUPPORTING_TECHNICAL",
+    "role": "Architecture Governance Review & Compliance Invariants",
+    "relevance": "Governance reviews, architectural boundaries, and approval mechanisms.",
+    "status": "ACTIVE_REFERENCE"
+  },
+  {
+    "filename": "AKAAL_CANONICAL_FEATURE_LEDGER.md",
+    "path": "docs/architecture/AKAAL_CANONICAL_FEATURE_LEDGER.md",
+    "sizeBytes": 56885,
+    "classification": "AUTHORITATIVE_SECONDARY",
+    "role": "Comprehensive Product Capability & Feature Ledger",
+    "relevance": "Enumerates capabilities across migration engine, connectors, validation, and enterprise administration.",
+    "status": "ACTIVE_REFERENCE"
+  },
+  {
+    "filename": "AKAAL_Claude_Code_Initial_Repository_Reconstruction_Report.md",
+    "path": "docs/architecture/AKAAL_Claude_Code_Initial_Repository_Reconstruction_Report.md",
+    "sizeBytes": 35772,
+    "classification": "HISTORICAL_ARCHIVAL",
+    "role": "Repository Reconstruction Historical Record",
+    "relevance": "Initial repository forensic audit and reconstruction report.",
+    "status": "ARCHIVED"
+  },
+  {
+    "filename": "AKAAL_Clean_Design_Constitution.md",
+    "path": "docs/architecture/AKAAL_Clean_Design_Constitution.md",
+    "sizeBytes": 2675,
+    "classification": "AUTHORITATIVE_SECONDARY",
+    "role": "Visual Design Standards, Spacing Grids & Typography Constitution",
+    "relevance": "Defines 8px grid, typography scale, surface depth, color tokens, and state badges.",
+    "status": "ACTIVE_REFERENCE"
+  },
+  {
+    "filename": "AKAAL_Engine_Directory_Analysis.md",
+    "path": "docs/architecture/AKAAL_Engine_Directory_Analysis.md",
+    "sizeBytes": 9340,
+    "classification": "SUPPORTING_TECHNICAL",
+    "role": "Go Backend Engine Directory Analysis",
+    "relevance": "Backend Go engine module layout and code inventory.",
+    "status": "ACTIVE_REFERENCE"
+  },
+  {
+    "filename": "AKAAL_Enterprise_Migration_Workflow_v1.0.md",
+    "path": "docs/architecture/AKAAL_Enterprise_Migration_Workflow_v1.0.md",
+    "sizeBytes": 39872,
+    "classification": "AUTHORITATIVE_PRIMARY",
+    "role": "Canonical 9-Step Migration Creation & Execution Architecture",
+    "relevance": "Defines operator intent, M1-M8 execution modes, dynamic approval barriers, standard vs advanced configuration domains.",
+    "status": "BASELINE_FROZEN"
+  },
+  {
+    "filename": "AKAAL_Gateway_Directory_Analysis.md",
+    "path": "docs/architecture/AKAAL_Gateway_Directory_Analysis.md",
+    "sizeBytes": 8825,
+    "classification": "SUPPORTING_TECHNICAL",
+    "role": "Go Backend Gateway Directory Analysis",
+    "relevance": "Backend Gateway module layout and IPC endpoints.",
+    "status": "ACTIVE_REFERENCE"
+  },
+  {
+    "filename": "AKAAL_Remaining_Enterprise_Architecture_Roadmap_v2.0.md",
+    "path": "docs/architecture/AKAAL_Remaining_Enterprise_Architecture_Roadmap_v2.0.md",
+    "sizeBytes": 29771,
+    "classification": "SUPPORTING_TECHNICAL",
+    "role": "Enterprise Multi-Phase Execution Roadmap",
+    "relevance": "Defines phases P1 through P8, milestones, and deliverables.",
+    "status": "ACTIVE_REFERENCE"
+  },
+  {
+    "filename": "AKAAL_Super_Engine_Clean_Slate_Architecture.md",
+    "path": "docs/architecture/AKAAL_Super_Engine_Clean_Slate_Architecture.md",
+    "sizeBytes": 10099,
+    "classification": "SUPPORTING_TECHNICAL",
+    "role": "High-Performance Migration Engine Architecture",
+    "relevance": "Worker threading, memory buffers, direct-path loading, and CDC capture internals.",
+    "status": "ACTIVE_REFERENCE"
+  },
+  {
+    "filename": "AKAAL_UI_Design_Decomposition_Roadmap_v1.0.md",
+    "path": "docs/architecture/AKAAL_UI_Design_Decomposition_Roadmap_v1.0.md",
+    "sizeBytes": 29011,
+    "classification": "AUTHORITATIVE_PRIMARY",
+    "role": "Canonical Outside-In UI/UX Decomposition & 13 Design Modules",
+    "relevance": "Maps design tokens, frames, high-density patterns, multi-custody gates, and 20 enterprise workflows (WF-001 through WF-020).",
+    "status": "BASELINE_FROZEN"
+  },
+  {
+    "filename": "AKAAL_Workflow_Forensic_Reconciliation_Ledger.md",
+    "path": "docs/architecture/AKAAL_Workflow_Forensic_Reconciliation_Ledger.md",
+    "sizeBytes": 376624,
+    "classification": "AUTHORITATIVE_SECONDARY",
+    "role": "Historical Workflow Reconciliation & Gap Analysis",
+    "relevance": "Detailed reconciliation of legacy workflows WF-001 through WF-020.",
+    "status": "HISTORICAL_REFERENCE"
+  },
+  {
+    "filename": "ARCHITECTURE_REVIEW.md",
+    "path": "docs/architecture/ARCHITECTURE_REVIEW.md",
+    "sizeBytes": 3924,
+    "classification": "SUPPORTING_TECHNICAL",
+    "role": "Architecture Review Notes",
+    "relevance": "Early architectural review observations and technical debt markers.",
+    "status": "HISTORICAL_REFERENCE"
+  },
+  {
+    "filename": "component_finds.md",
+    "path": "docs/architecture/component_finds.md",
+    "sizeBytes": 33582,
+    "classification": "SUPPORTING_TECHNICAL",
+    "role": "Legacy Frontend Component Discovery Audit",
+    "relevance": "Listing of early component discoveries and migration notes.",
+    "status": "HISTORICAL_REFERENCE"
+  },
+  {
+    "filename": "CONFIGURATION_AUDIT.md",
+    "path": "docs/architecture/CONFIGURATION_AUDIT.md",
+    "sizeBytes": 2722,
+    "classification": "SUPPORTING_TECHNICAL",
+    "role": "Configuration Invariants Audit",
+    "relevance": "System configuration schema and environment variable review.",
+    "status": "ACTIVE_REFERENCE"
+  },
+  {
+    "filename": "DEPENDENCY_AUDIT.md",
+    "path": "docs/architecture/DEPENDENCY_AUDIT.md",
+    "sizeBytes": 3070,
+    "classification": "SUPPORTING_TECHNICAL",
+    "role": "Third-Party Dependency Governance Audit",
+    "relevance": "Evaluation of npm and Go dependencies against enterprise standards.",
+    "status": "ACTIVE_REFERENCE"
+  },
+  {
+    "filename": "IMPLEMENTATION_MILESTONES.md",
+    "path": "docs/architecture/IMPLEMENTATION_MILESTONES.md",
+    "sizeBytes": 5324,
+    "classification": "SUPPORTING_TECHNICAL",
+    "role": "Implementation Milestones Checklist",
+    "relevance": "Project tracking milestones.",
+    "status": "ACTIVE_REFERENCE"
+  },
+  {
+    "filename": "REPOSITORY_HYGIENE.md",
+    "path": "docs/architecture/REPOSITORY_HYGIENE.md",
+    "sizeBytes": 3833,
+    "classification": "SUPPORTING_TECHNICAL",
+    "role": "Code Quality & Hygiene Rules",
+    "relevance": "Linter rules, file naming, and directory organization guidelines.",
+    "status": "ACTIVE_REFERENCE"
+  },
+  {
+    "filename": "Roadmap.md",
+    "path": "docs/architecture/Roadmap.md",
+    "sizeBytes": 98630,
+    "classification": "SUPPORTING_TECHNICAL",
+    "role": "Comprehensive Product Feature Roadmap",
+    "relevance": "High-level product capabilities and milestone targets.",
+    "status": "ACTIVE_REFERENCE"
+  },
+  {
+    "filename": "TECHNICAL_DEBT.md",
+    "path": "docs/architecture/TECHNICAL_DEBT.md",
+    "sizeBytes": 5163,
+    "classification": "SUPPORTING_TECHNICAL",
+    "role": "Technical Debt Tracking Ledger",
+    "relevance": "Known technical debt items and planned remediations.",
+    "status": "ACTIVE_REFERENCE"
+  },
+  {
+    "filename": "UI_structure.md",
+    "path": "docs/architecture/UI_structure.md",
+    "sizeBytes": 26222,
+    "classification": "AUTHORITATIVE_PRIMARY",
+    "role": "Canonical UI Spatial Frame & Module Taxonomy Specification",
+    "relevance": "Defines the 6 top-level modules, sub-modules, 9-step wizard hierarchy, and cross-cutting chrome.",
+    "status": "BASELINE_FROZEN"
+  }
+]

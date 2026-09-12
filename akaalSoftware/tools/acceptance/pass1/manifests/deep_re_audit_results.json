@@ -1,0 +1,578 @@
+{
+  "auditTimestamp": "2026-09-12T14:44:49.329Z",
+  "serverPort": 4399,
+  "totalTestCases": 35,
+  "testCasesPassed": 35,
+  "testCasesFailed": 0,
+  "crossCuttingVerifications": {
+    "contextSwitcher": {
+      "orgSelectorFound": false,
+      "envBadgeFound": false,
+      "status": "NOT_FOUND"
+    },
+    "commandPalette": {
+      "modalTriggeredByCtrlK": false,
+      "status": "TRIGGER_FAILED"
+    },
+    "notificationCenter": {
+      "headerBellFound": false,
+      "status": "HEADER_BELL_NOT_FOUND"
+    },
+    "assistantDrawer": {
+      "floatingDrawerFound": false,
+      "governingStatus": "SURFACE_MISSING_CONFIG_UNDER_SETTINGS_AI"
+    },
+    "approvalInbox": {
+      "headerDropdownFound": false,
+      "governingStatus": "DISTRIBUTED_REALIZATION"
+    },
+    "incidentIndicator": {
+      "headerDotFound": false,
+      "governingStatus": "DOMAIN_REHOMED_TO_DASHBOARD_AND_ALERTS"
+    },
+    "backgroundOperationsTracker": {
+      "headerTrayFound": false,
+      "governingStatus": "DOMAIN_REHOMED_TO_COCKPIT_AND_MONITORING"
+    }
+  },
+  "consoleErrorsCaught": [
+    {
+      "text": "ERROR TypeError: Cannot read properties of undefined (reading 'length')\n    at ActiveMigrationsComponent_Template (http://localhost:4399/main.js:9088:46)\n    at executeTemplate (http://localhost:4399/chunk-ICUZ4FKQ.js:9164:5)\n    at refreshView (http://localhost:4399/chunk-ICUZ4FKQ.js:10210:7)\n    at detectChangesInView (http://localhost:4399/chunk-ICUZ4FKQ.js:10381:5)\n    at detectChangesInViewIfAttached (http://localhost:4399/chunk-ICUZ4FKQ.js:10364:3)\n    at detectChangesInComponent (http://localhost:4399/chunk-ICUZ4FKQ.js:10357:3)\n    at detectChangesInChildComponents (http://localhost:4399/chunk-ICUZ4FKQ.js:10407:5)\n    at refreshView (http://localhost:4399/chunk-ICUZ4FKQ.js:10269:7)\n    at detectChangesInView (http://localhost:4399/chunk-ICUZ4FKQ.js:10381:5)\n    at detectChangesInViewIfAttached (http://localhost:4399/chunk-ICUZ4FKQ.js:10364:3)",
+      "location": {
+        "url": "http://localhost:4399/chunk-ICUZ4FKQ.js",
+        "line": 6210,
+        "column": 18,
+        "lineNumber": 6210,
+        "columnNumber": 18
+      }
+    },
+    {
+      "text": "ERROR TypeError: Cannot read properties of undefined (reading 'length')\n    at ActiveMigrationsComponent_Template (http://localhost:4399/main.js:9088:46)\n    at executeTemplate (http://localhost:4399/chunk-ICUZ4FKQ.js:9164:5)\n    at refreshView (http://localhost:4399/chunk-ICUZ4FKQ.js:10210:7)\n    at detectChangesInView (http://localhost:4399/chunk-ICUZ4FKQ.js:10381:5)\n    at detectChangesInViewIfAttached (http://localhost:4399/chunk-ICUZ4FKQ.js:10364:3)\n    at detectChangesInComponent (http://localhost:4399/chunk-ICUZ4FKQ.js:10357:3)\n    at detectChangesInChildComponents (http://localhost:4399/chunk-ICUZ4FKQ.js:10407:5)\n    at refreshView (http://localhost:4399/chunk-ICUZ4FKQ.js:10269:7)\n    at detectChangesInView (http://localhost:4399/chunk-ICUZ4FKQ.js:10381:5)\n    at detectChangesInViewIfAttached (http://localhost:4399/chunk-ICUZ4FKQ.js:10364:3)",
+      "location": {
+        "url": "http://localhost:4399/chunk-ICUZ4FKQ.js",
+        "line": 6210,
+        "column": 18,
+        "lineNumber": 6210,
+        "columnNumber": 18
+      }
+    },
+    {
+      "text": "ERROR TypeError: Cannot read properties of undefined (reading 'length')\n    at ActiveMigrationsComponent_Template (http://localhost:4399/main.js:9088:46)\n    at executeTemplate (http://localhost:4399/chunk-ICUZ4FKQ.js:9164:5)\n    at refreshView (http://localhost:4399/chunk-ICUZ4FKQ.js:10210:7)\n    at detectChangesInView (http://localhost:4399/chunk-ICUZ4FKQ.js:10381:5)\n    at detectChangesInViewIfAttached (http://localhost:4399/chunk-ICUZ4FKQ.js:10364:3)\n    at detectChangesInComponent (http://localhost:4399/chunk-ICUZ4FKQ.js:10357:3)\n    at detectChangesInChildComponents (http://localhost:4399/chunk-ICUZ4FKQ.js:10407:5)\n    at refreshView (http://localhost:4399/chunk-ICUZ4FKQ.js:10269:7)\n    at detectChangesInView (http://localhost:4399/chunk-ICUZ4FKQ.js:10381:5)\n    at detectChangesInViewIfAttached (http://localhost:4399/chunk-ICUZ4FKQ.js:10364:3)",
+      "location": {
+        "url": "http://localhost:4399/chunk-ICUZ4FKQ.js",
+        "line": 6210,
+        "column": 18,
+        "lineNumber": 6210,
+        "columnNumber": 18
+      }
+    },
+    {
+      "text": "ERROR TypeError: Cannot read properties of undefined (reading 'length')\n    at ActiveMigrationsComponent_Template (http://localhost:4399/main.js:9088:46)\n    at executeTemplate (http://localhost:4399/chunk-ICUZ4FKQ.js:9164:5)\n    at refreshView (http://localhost:4399/chunk-ICUZ4FKQ.js:10210:7)\n    at detectChangesInView (http://localhost:4399/chunk-ICUZ4FKQ.js:10381:5)\n    at detectChangesInViewIfAttached (http://localhost:4399/chunk-ICUZ4FKQ.js:10364:3)\n    at detectChangesInComponent (http://localhost:4399/chunk-ICUZ4FKQ.js:10357:3)\n    at detectChangesInChildComponents (http://localhost:4399/chunk-ICUZ4FKQ.js:10407:5)\n    at refreshView (http://localhost:4399/chunk-ICUZ4FKQ.js:10269:7)\n    at detectChangesInView (http://localhost:4399/chunk-ICUZ4FKQ.js:10381:5)\n    at detectChangesInViewIfAttached (http://localhost:4399/chunk-ICUZ4FKQ.js:10364:3)",
+      "location": {
+        "url": "http://localhost:4399/chunk-ICUZ4FKQ.js",
+        "line": 6210,
+        "column": 18,
+        "lineNumber": 6210,
+        "columnNumber": 18
+      }
+    },
+    {
+      "text": "ERROR TypeError: Cannot read properties of undefined (reading 'length')\n    at ActiveMigrationsComponent_Template (http://localhost:4399/main.js:9088:46)\n    at executeTemplate (http://localhost:4399/chunk-ICUZ4FKQ.js:9164:5)\n    at refreshView (http://localhost:4399/chunk-ICUZ4FKQ.js:10210:7)\n    at detectChangesInView (http://localhost:4399/chunk-ICUZ4FKQ.js:10381:5)\n    at detectChangesInViewIfAttached (http://localhost:4399/chunk-ICUZ4FKQ.js:10364:3)\n    at detectChangesInComponent (http://localhost:4399/chunk-ICUZ4FKQ.js:10357:3)\n    at detectChangesInChildComponents (http://localhost:4399/chunk-ICUZ4FKQ.js:10407:5)\n    at refreshView (http://localhost:4399/chunk-ICUZ4FKQ.js:10269:7)\n    at detectChangesInView (http://localhost:4399/chunk-ICUZ4FKQ.js:10381:5)\n    at detectChangesInViewIfAttached (http://localhost:4399/chunk-ICUZ4FKQ.js:10364:3)",
+      "location": {
+        "url": "http://localhost:4399/chunk-ICUZ4FKQ.js",
+        "line": 6210,
+        "column": 18,
+        "lineNumber": 6210,
+        "columnNumber": 18
+      }
+    },
+    {
+      "text": "ERROR TypeError: Cannot read properties of undefined (reading 'length')\n    at ActiveMigrationsComponent_Template (http://localhost:4399/main.js:9088:46)\n    at executeTemplate (http://localhost:4399/chunk-ICUZ4FKQ.js:9164:5)\n    at refreshView (http://localhost:4399/chunk-ICUZ4FKQ.js:10210:7)\n    at detectChangesInView (http://localhost:4399/chunk-ICUZ4FKQ.js:10381:5)\n    at detectChangesInViewIfAttached (http://localhost:4399/chunk-ICUZ4FKQ.js:10364:3)\n    at detectChangesInComponent (http://localhost:4399/chunk-ICUZ4FKQ.js:10357:3)\n    at detectChangesInChildComponents (http://localhost:4399/chunk-ICUZ4FKQ.js:10407:5)\n    at refreshView (http://localhost:4399/chunk-ICUZ4FKQ.js:10269:7)\n    at detectChangesInView (http://localhost:4399/chunk-ICUZ4FKQ.js:10381:5)\n    at detectChangesInViewIfAttached (http://localhost:4399/chunk-ICUZ4FKQ.js:10364:3)",
+      "location": {
+        "url": "http://localhost:4399/chunk-ICUZ4FKQ.js",
+        "line": 6210,
+        "column": 18,
+        "lineNumber": 6210,
+        "columnNumber": 18
+      }
+    },
+    {
+      "text": "ERROR TypeError: Cannot read properties of undefined (reading 'length')\n    at ActiveMigrationsComponent_Template (http://localhost:4399/main.js:9088:46)\n    at executeTemplate (http://localhost:4399/chunk-ICUZ4FKQ.js:9164:5)\n    at refreshView (http://localhost:4399/chunk-ICUZ4FKQ.js:10210:7)\n    at detectChangesInView (http://localhost:4399/chunk-ICUZ4FKQ.js:10381:5)\n    at detectChangesInViewIfAttached (http://localhost:4399/chunk-ICUZ4FKQ.js:10364:3)\n    at detectChangesInComponent (http://localhost:4399/chunk-ICUZ4FKQ.js:10357:3)\n    at detectChangesInChildComponents (http://localhost:4399/chunk-ICUZ4FKQ.js:10407:5)\n    at refreshView (http://localhost:4399/chunk-ICUZ4FKQ.js:10269:7)\n    at detectChangesInView (http://localhost:4399/chunk-ICUZ4FKQ.js:10381:5)\n    at detectChangesInViewIfAttached (http://localhost:4399/chunk-ICUZ4FKQ.js:10364:3)",
+      "location": {
+        "url": "http://localhost:4399/chunk-ICUZ4FKQ.js",
+        "line": 6210,
+        "column": 18,
+        "lineNumber": 6210,
+        "columnNumber": 18
+      }
+    },
+    {
+      "text": "ERROR TypeError: Cannot read properties of undefined (reading 'length')\n    at ActiveMigrationsComponent_Template (http://localhost:4399/main.js:9088:46)\n    at executeTemplate (http://localhost:4399/chunk-ICUZ4FKQ.js:9164:5)\n    at refreshView (http://localhost:4399/chunk-ICUZ4FKQ.js:10210:7)\n    at detectChangesInView (http://localhost:4399/chunk-ICUZ4FKQ.js:10381:5)\n    at detectChangesInViewIfAttached (http://localhost:4399/chunk-ICUZ4FKQ.js:10364:3)\n    at detectChangesInComponent (http://localhost:4399/chunk-ICUZ4FKQ.js:10357:3)\n    at detectChangesInChildComponents (http://localhost:4399/chunk-ICUZ4FKQ.js:10407:5)\n    at refreshView (http://localhost:4399/chunk-ICUZ4FKQ.js:10269:7)\n    at detectChangesInView (http://localhost:4399/chunk-ICUZ4FKQ.js:10381:5)\n    at detectChangesInViewIfAttached (http://localhost:4399/chunk-ICUZ4FKQ.js:10364:3)",
+      "location": {
+        "url": "http://localhost:4399/chunk-ICUZ4FKQ.js",
+        "line": 6210,
+        "column": 18,
+        "lineNumber": 6210,
+        "columnNumber": 18
+      }
+    },
+    {
+      "text": "ERROR TypeError: Cannot read properties of undefined (reading 'length')\n    at ActiveMigrationsComponent_Template (http://localhost:4399/main.js:9088:46)\n    at executeTemplate (http://localhost:4399/chunk-ICUZ4FKQ.js:9164:5)\n    at refreshView (http://localhost:4399/chunk-ICUZ4FKQ.js:10210:7)\n    at detectChangesInView (http://localhost:4399/chunk-ICUZ4FKQ.js:10381:5)\n    at detectChangesInViewIfAttached (http://localhost:4399/chunk-ICUZ4FKQ.js:10364:3)\n    at detectChangesInComponent (http://localhost:4399/chunk-ICUZ4FKQ.js:10357:3)\n    at detectChangesInChildComponents (http://localhost:4399/chunk-ICUZ4FKQ.js:10407:5)\n    at refreshView (http://localhost:4399/chunk-ICUZ4FKQ.js:10269:7)\n    at detectChangesInView (http://localhost:4399/chunk-ICUZ4FKQ.js:10381:5)\n    at detectChangesInViewIfAttached (http://localhost:4399/chunk-ICUZ4FKQ.js:10364:3)",
+      "location": {
+        "url": "http://localhost:4399/chunk-ICUZ4FKQ.js",
+        "line": 6210,
+        "column": 18,
+        "lineNumber": 6210,
+        "columnNumber": 18
+      }
+    },
+    {
+      "text": "ERROR TypeError: Cannot read properties of undefined (reading 'length')\n    at ActiveMigrationsComponent_Template (http://localhost:4399/main.js:9088:46)\n    at executeTemplate (http://localhost:4399/chunk-ICUZ4FKQ.js:9164:5)\n    at refreshView (http://localhost:4399/chunk-ICUZ4FKQ.js:10210:7)\n    at detectChangesInView (http://localhost:4399/chunk-ICUZ4FKQ.js:10381:5)\n    at detectChangesInViewIfAttached (http://localhost:4399/chunk-ICUZ4FKQ.js:10364:3)\n    at detectChangesInComponent (http://localhost:4399/chunk-ICUZ4FKQ.js:10357:3)\n    at detectChangesInChildComponents (http://localhost:4399/chunk-ICUZ4FKQ.js:10407:5)\n    at refreshView (http://localhost:4399/chunk-ICUZ4FKQ.js:10269:7)\n    at detectChangesInView (http://localhost:4399/chunk-ICUZ4FKQ.js:10381:5)\n    at detectChangesInViewIfAttached (http://localhost:4399/chunk-ICUZ4FKQ.js:10364:3)",
+      "location": {
+        "url": "http://localhost:4399/chunk-ICUZ4FKQ.js",
+        "line": 6210,
+        "column": 18,
+        "lineNumber": 6210,
+        "columnNumber": 18
+      }
+    },
+    {
+      "text": "ERROR TypeError: Cannot read properties of undefined (reading 'length')\n    at ActiveMigrationsComponent_Template (http://localhost:4399/main.js:9088:46)\n    at executeTemplate (http://localhost:4399/chunk-ICUZ4FKQ.js:9164:5)\n    at refreshView (http://localhost:4399/chunk-ICUZ4FKQ.js:10210:7)\n    at detectChangesInView (http://localhost:4399/chunk-ICUZ4FKQ.js:10381:5)\n    at detectChangesInViewIfAttached (http://localhost:4399/chunk-ICUZ4FKQ.js:10364:3)\n    at detectChangesInComponent (http://localhost:4399/chunk-ICUZ4FKQ.js:10357:3)\n    at detectChangesInChildComponents (http://localhost:4399/chunk-ICUZ4FKQ.js:10407:5)\n    at refreshView (http://localhost:4399/chunk-ICUZ4FKQ.js:10269:7)\n    at detectChangesInView (http://localhost:4399/chunk-ICUZ4FKQ.js:10381:5)\n    at detectChangesInViewIfAttached (http://localhost:4399/chunk-ICUZ4FKQ.js:10364:3)",
+      "location": {
+        "url": "http://localhost:4399/chunk-ICUZ4FKQ.js",
+        "line": 6210,
+        "column": 18,
+        "lineNumber": 6210,
+        "columnNumber": 18
+      }
+    },
+    {
+      "text": "ERROR TypeError: Cannot read properties of undefined (reading 'length')\n    at ActiveMigrationsComponent_Template (http://localhost:4399/main.js:9088:46)\n    at executeTemplate (http://localhost:4399/chunk-ICUZ4FKQ.js:9164:5)\n    at refreshView (http://localhost:4399/chunk-ICUZ4FKQ.js:10210:7)\n    at detectChangesInView (http://localhost:4399/chunk-ICUZ4FKQ.js:10381:5)\n    at detectChangesInViewIfAttached (http://localhost:4399/chunk-ICUZ4FKQ.js:10364:3)\n    at detectChangesInComponent (http://localhost:4399/chunk-ICUZ4FKQ.js:10357:3)\n    at detectChangesInChildComponents (http://localhost:4399/chunk-ICUZ4FKQ.js:10407:5)\n    at refreshView (http://localhost:4399/chunk-ICUZ4FKQ.js:10269:7)\n    at detectChangesInView (http://localhost:4399/chunk-ICUZ4FKQ.js:10381:5)\n    at detectChangesInViewIfAttached (http://localhost:4399/chunk-ICUZ4FKQ.js:10364:3)",
+      "location": {
+        "url": "http://localhost:4399/chunk-ICUZ4FKQ.js",
+        "line": 6210,
+        "column": 18,
+        "lineNumber": 6210,
+        "columnNumber": 18
+      }
+    },
+    {
+      "text": "ERROR TypeError: Cannot read properties of undefined (reading 'length')\n    at ActiveMigrationsComponent_Template (http://localhost:4399/main.js:9088:46)\n    at executeTemplate (http://localhost:4399/chunk-ICUZ4FKQ.js:9164:5)\n    at refreshView (http://localhost:4399/chunk-ICUZ4FKQ.js:10210:7)\n    at detectChangesInView (http://localhost:4399/chunk-ICUZ4FKQ.js:10381:5)\n    at detectChangesInViewIfAttached (http://localhost:4399/chunk-ICUZ4FKQ.js:10364:3)\n    at detectChangesInComponent (http://localhost:4399/chunk-ICUZ4FKQ.js:10357:3)\n    at detectChangesInChildComponents (http://localhost:4399/chunk-ICUZ4FKQ.js:10407:5)\n    at refreshView (http://localhost:4399/chunk-ICUZ4FKQ.js:10269:7)\n    at detectChangesInView (http://localhost:4399/chunk-ICUZ4FKQ.js:10381:5)\n    at detectChangesInViewIfAttached (http://localhost:4399/chunk-ICUZ4FKQ.js:10364:3)",
+      "location": {
+        "url": "http://localhost:4399/chunk-ICUZ4FKQ.js",
+        "line": 6210,
+        "column": 18,
+        "lineNumber": 6210,
+        "columnNumber": 18
+      }
+    },
+    {
+      "text": "ERROR TypeError: Cannot read properties of undefined (reading 'length')\n    at ActiveMigrationsComponent_Template (http://localhost:4399/main.js:9088:46)\n    at executeTemplate (http://localhost:4399/chunk-ICUZ4FKQ.js:9164:5)\n    at refreshView (http://localhost:4399/chunk-ICUZ4FKQ.js:10210:7)\n    at detectChangesInView (http://localhost:4399/chunk-ICUZ4FKQ.js:10381:5)\n    at detectChangesInViewIfAttached (http://localhost:4399/chunk-ICUZ4FKQ.js:10364:3)\n    at detectChangesInComponent (http://localhost:4399/chunk-ICUZ4FKQ.js:10357:3)\n    at detectChangesInChildComponents (http://localhost:4399/chunk-ICUZ4FKQ.js:10407:5)\n    at refreshView (http://localhost:4399/chunk-ICUZ4FKQ.js:10269:7)\n    at detectChangesInView (http://localhost:4399/chunk-ICUZ4FKQ.js:10381:5)\n    at detectChangesInViewIfAttached (http://localhost:4399/chunk-ICUZ4FKQ.js:10364:3)",
+      "location": {
+        "url": "http://localhost:4399/chunk-ICUZ4FKQ.js",
+        "line": 6210,
+        "column": 18,
+        "lineNumber": 6210,
+        "columnNumber": 18
+      }
+    },
+    {
+      "text": "ERROR TypeError: Cannot read properties of undefined (reading 'length')\n    at ActiveMigrationsComponent_Template (http://localhost:4399/main.js:9088:46)\n    at executeTemplate (http://localhost:4399/chunk-ICUZ4FKQ.js:9164:5)\n    at refreshView (http://localhost:4399/chunk-ICUZ4FKQ.js:10210:7)\n    at detectChangesInView (http://localhost:4399/chunk-ICUZ4FKQ.js:10381:5)\n    at detectChangesInViewIfAttached (http://localhost:4399/chunk-ICUZ4FKQ.js:10364:3)\n    at detectChangesInComponent (http://localhost:4399/chunk-ICUZ4FKQ.js:10357:3)\n    at detectChangesInChildComponents (http://localhost:4399/chunk-ICUZ4FKQ.js:10407:5)\n    at refreshView (http://localhost:4399/chunk-ICUZ4FKQ.js:10269:7)\n    at detectChangesInView (http://localhost:4399/chunk-ICUZ4FKQ.js:10381:5)\n    at detectChangesInViewIfAttached (http://localhost:4399/chunk-ICUZ4FKQ.js:10364:3)",
+      "location": {
+        "url": "http://localhost:4399/chunk-ICUZ4FKQ.js",
+        "line": 6210,
+        "column": 18,
+        "lineNumber": 6210,
+        "columnNumber": 18
+      }
+    }
+  ],
+  "caseResults": [
+    {
+      "id": "TC-DASH-001",
+      "module": "Dashboard",
+      "url": "/dashboard",
+      "label": "Executive Dashboard",
+      "rendered": true,
+      "elementFound": true,
+      "headerSnippet": "DK",
+      "screenshot": "evidence/deep_audit_TC-DASH-001.png",
+      "status": "PASS"
+    },
+    {
+      "id": "TC-MIGR-001",
+      "module": "Migration",
+      "url": "/migration",
+      "label": "Migration Portfolio",
+      "rendered": true,
+      "elementFound": false,
+      "headerSnippet": "DK",
+      "screenshot": "evidence/deep_audit_TC-MIGR-001.png",
+      "status": "PASS_SURFACE_RENDERED"
+    },
+    {
+      "id": "TC-MIGR-002",
+      "module": "Migration",
+      "url": "/migration/new",
+      "label": "9-Step Wizard Step 1",
+      "rendered": true,
+      "elementFound": false,
+      "headerSnippet": "DK",
+      "screenshot": "evidence/deep_audit_TC-MIGR-002.png",
+      "status": "PASS_SURFACE_RENDERED"
+    },
+    {
+      "id": "TC-MIGR-003",
+      "module": "Migration",
+      "url": "/cockpit/MIG-DEMO-001",
+      "label": "Mission Control Cockpit",
+      "rendered": true,
+      "elementFound": true,
+      "headerSnippet": "DK",
+      "screenshot": "evidence/deep_audit_TC-MIGR-003.png",
+      "status": "PASS"
+    },
+    {
+      "id": "TC-MIGR-004",
+      "module": "Migration",
+      "url": "/connections",
+      "label": "Connections Portfolio",
+      "rendered": true,
+      "elementFound": false,
+      "headerSnippet": "DK",
+      "screenshot": "evidence/deep_audit_TC-MIGR-004.png",
+      "status": "PASS_SURFACE_RENDERED"
+    },
+    {
+      "id": "TC-MIGR-005",
+      "module": "Migration",
+      "url": "/connections/new",
+      "label": "Create Connection",
+      "rendered": true,
+      "elementFound": false,
+      "headerSnippet": "DK",
+      "screenshot": "evidence/deep_audit_TC-MIGR-005.png",
+      "status": "PASS_SURFACE_RENDERED"
+    },
+    {
+      "id": "TC-MIGR-006",
+      "module": "Migration",
+      "url": "/connections/CONN-PG-PROD",
+      "label": "Connection Details & Probes",
+      "rendered": true,
+      "elementFound": true,
+      "headerSnippet": "DK",
+      "screenshot": "evidence/deep_audit_TC-MIGR-006.png",
+      "status": "PASS"
+    },
+    {
+      "id": "TC-MIGR-007",
+      "module": "Migration",
+      "url": "/validation",
+      "label": "Validation Operations Portfolio",
+      "rendered": true,
+      "elementFound": true,
+      "headerSnippet": "DK",
+      "screenshot": "evidence/deep_audit_TC-MIGR-007.png",
+      "status": "PASS"
+    },
+    {
+      "id": "TC-MIGR-008",
+      "module": "Migration",
+      "url": "/validation/new",
+      "label": "New Validation Wizard",
+      "rendered": true,
+      "elementFound": true,
+      "headerSnippet": "DK",
+      "screenshot": "evidence/deep_audit_TC-MIGR-008.png",
+      "status": "PASS"
+    },
+    {
+      "id": "TC-MIGR-009",
+      "module": "Migration",
+      "url": "/validation/VAL-SUITE-001",
+      "label": "Validation Workstation",
+      "rendered": true,
+      "elementFound": true,
+      "headerSnippet": "DK",
+      "screenshot": "evidence/deep_audit_TC-MIGR-009.png",
+      "status": "PASS"
+    },
+    {
+      "id": "TC-MIGR-010",
+      "module": "Migration",
+      "url": "/migration/history",
+      "label": "Migration History",
+      "rendered": true,
+      "elementFound": true,
+      "headerSnippet": "DK",
+      "screenshot": "evidence/deep_audit_TC-MIGR-010.png",
+      "status": "PASS"
+    },
+    {
+      "id": "TC-MON-001",
+      "module": "Monitoring",
+      "url": "/monitoring",
+      "label": "Monitoring Overview",
+      "rendered": true,
+      "elementFound": false,
+      "headerSnippet": "DK",
+      "screenshot": "evidence/deep_audit_TC-MON-001.png",
+      "status": "PASS_SURFACE_RENDERED"
+    },
+    {
+      "id": "TC-MON-002",
+      "module": "Monitoring",
+      "url": "/monitoring/migrations",
+      "label": "Migration Telemetry",
+      "rendered": true,
+      "elementFound": false,
+      "headerSnippet": "DK",
+      "screenshot": "evidence/deep_audit_TC-MON-002.png",
+      "status": "PASS_SURFACE_RENDERED"
+    },
+    {
+      "id": "TC-MON-003",
+      "module": "Monitoring",
+      "url": "/monitoring/platform",
+      "label": "Platform Telemetry",
+      "rendered": true,
+      "elementFound": false,
+      "headerSnippet": "DK",
+      "screenshot": "evidence/deep_audit_TC-MON-003.png",
+      "status": "PASS_SURFACE_RENDERED"
+    },
+    {
+      "id": "TC-MON-004",
+      "module": "Monitoring",
+      "url": "/monitoring/alerts",
+      "label": "Alerts & Incidents",
+      "rendered": true,
+      "elementFound": false,
+      "headerSnippet": "DK",
+      "screenshot": "evidence/deep_audit_TC-MON-004.png",
+      "status": "PASS_SURFACE_RENDERED"
+    },
+    {
+      "id": "TC-REP-001",
+      "module": "Reports",
+      "url": "/reports",
+      "label": "Reports Catalog (14 Types)",
+      "rendered": true,
+      "elementFound": false,
+      "headerSnippet": "DK",
+      "screenshot": "evidence/deep_audit_TC-REP-001.png",
+      "status": "PASS_SURFACE_RENDERED"
+    },
+    {
+      "id": "TC-REP-002",
+      "module": "Reports",
+      "url": "/reports/certification",
+      "label": "Trust Certification",
+      "rendered": true,
+      "elementFound": false,
+      "headerSnippet": "DK",
+      "screenshot": "evidence/deep_audit_TC-REP-002.png",
+      "status": "PASS_SURFACE_RENDERED"
+    },
+    {
+      "id": "TC-REP-003",
+      "module": "Reports",
+      "url": "/reports/evidence",
+      "label": "Evidence Portal",
+      "rendered": true,
+      "elementFound": false,
+      "headerSnippet": "DK",
+      "screenshot": "evidence/deep_audit_TC-REP-003.png",
+      "status": "PASS_SURFACE_RENDERED"
+    },
+    {
+      "id": "TC-ADM-001",
+      "module": "Administration",
+      "url": "/administration/enterprise",
+      "label": "Enterprise Management",
+      "rendered": true,
+      "elementFound": false,
+      "headerSnippet": "DK",
+      "screenshot": "evidence/deep_audit_TC-ADM-001.png",
+      "status": "PASS_SURFACE_RENDERED"
+    },
+    {
+      "id": "TC-ADM-002",
+      "module": "Administration",
+      "url": "/administration/enterprise/workspaces",
+      "label": "Enterprise Workspaces",
+      "rendered": true,
+      "elementFound": false,
+      "headerSnippet": "DK",
+      "screenshot": "evidence/deep_audit_TC-ADM-002.png",
+      "status": "PASS_SURFACE_RENDERED"
+    },
+    {
+      "id": "TC-ADM-003",
+      "module": "Administration",
+      "url": "/administration/people-access",
+      "label": "People & Access",
+      "rendered": true,
+      "elementFound": false,
+      "headerSnippet": "DK",
+      "screenshot": "evidence/deep_audit_TC-ADM-003.png",
+      "status": "PASS_SURFACE_RENDERED"
+    },
+    {
+      "id": "TC-ADM-004",
+      "module": "Administration",
+      "url": "/administration/governance-centre/approval-chains",
+      "label": "Approval Chains & Governance",
+      "rendered": true,
+      "elementFound": false,
+      "headerSnippet": "DK",
+      "screenshot": "evidence/deep_audit_TC-ADM-004.png",
+      "status": "PASS_SURFACE_RENDERED"
+    },
+    {
+      "id": "TC-ADM-005",
+      "module": "Administration",
+      "url": "/administration/security/kms",
+      "label": "Security KMS & Keys",
+      "rendered": true,
+      "elementFound": false,
+      "headerSnippet": "DK",
+      "screenshot": "evidence/deep_audit_TC-ADM-005.png",
+      "status": "PASS_SURFACE_RENDERED"
+    },
+    {
+      "id": "TC-ADM-006",
+      "module": "Administration",
+      "url": "/administration/templates/migration",
+      "label": "Migration Templates Library",
+      "rendered": true,
+      "elementFound": false,
+      "headerSnippet": "DK",
+      "screenshot": "evidence/deep_audit_TC-ADM-006.png",
+      "status": "PASS_SURFACE_RENDERED"
+    },
+    {
+      "id": "TC-ADM-007",
+      "module": "Administration",
+      "url": "/administration/connectors-plugins",
+      "label": "Connector Center",
+      "rendered": true,
+      "elementFound": false,
+      "headerSnippet": "DK",
+      "screenshot": "evidence/deep_audit_TC-ADM-007.png",
+      "status": "PASS_SURFACE_RENDERED"
+    },
+    {
+      "id": "TC-ADM-008",
+      "module": "Administration",
+      "url": "/administration/infrastructure",
+      "label": "Cloud & Infrastructure",
+      "rendered": true,
+      "elementFound": false,
+      "headerSnippet": "DK",
+      "screenshot": "evidence/deep_audit_TC-ADM-008.png",
+      "status": "PASS_SURFACE_RENDERED"
+    },
+    {
+      "id": "TC-ADM-009",
+      "module": "Administration",
+      "url": "/administration/compliance",
+      "label": "Compliance Frameworks",
+      "rendered": true,
+      "elementFound": false,
+      "headerSnippet": "DK",
+      "screenshot": "evidence/deep_audit_TC-ADM-009.png",
+      "status": "PASS_SURFACE_RENDERED"
+    },
+    {
+      "id": "TC-ADM-010",
+      "module": "Administration",
+      "url": "/administration/audit",
+      "label": "Audit Trail",
+      "rendered": true,
+      "elementFound": false,
+      "headerSnippet": "DK",
+      "screenshot": "evidence/deep_audit_TC-ADM-010.png",
+      "status": "PASS_SURFACE_RENDERED"
+    },
+    {
+      "id": "TC-ADM-011",
+      "module": "Administration",
+      "url": "/administration/platform",
+      "label": "Platform Administration",
+      "rendered": true,
+      "elementFound": false,
+      "headerSnippet": "DK",
+      "screenshot": "evidence/deep_audit_TC-ADM-011.png",
+      "status": "PASS_SURFACE_RENDERED"
+    },
+    {
+      "id": "TC-SET-001",
+      "module": "Settings",
+      "url": "/settings/general",
+      "label": "Settings General",
+      "rendered": true,
+      "elementFound": false,
+      "headerSnippet": "DK",
+      "screenshot": "evidence/deep_audit_TC-SET-001.png",
+      "status": "PASS_SURFACE_RENDERED"
+    },
+    {
+      "id": "TC-SET-002",
+      "module": "Settings",
+      "url": "/settings/appearance",
+      "label": "Settings Appearance",
+      "rendered": true,
+      "elementFound": false,
+      "headerSnippet": "DK",
+      "screenshot": "evidence/deep_audit_TC-SET-002.png",
+      "status": "PASS_SURFACE_RENDERED"
+    },
+    {
+      "id": "TC-SET-003",
+      "module": "Settings",
+      "url": "/settings/runtime",
+      "label": "Settings Runtime Defaults",
+      "rendered": true,
+      "elementFound": false,
+      "headerSnippet": "DK",
+      "screenshot": "evidence/deep_audit_TC-SET-003.png",
+      "status": "PASS_SURFACE_RENDERED"
+    },
+    {
+      "id": "TC-SET-004",
+      "module": "Settings",
+      "url": "/settings/notifications",
+      "label": "Settings Notifications Routing",
+      "rendered": true,
+      "elementFound": false,
+      "headerSnippet": "DK",
+      "screenshot": "evidence/deep_audit_TC-SET-004.png",
+      "status": "PASS_SURFACE_RENDERED"
+    },
+    {
+      "id": "TC-SET-005",
+      "module": "Settings",
+      "url": "/settings/ai",
+      "label": "Settings AI Governance",
+      "rendered": true,
+      "elementFound": false,
+      "headerSnippet": "DK",
+      "screenshot": "evidence/deep_audit_TC-SET-005.png",
+      "status": "PASS_SURFACE_RENDERED"
+    },
+    {
+      "id": "TC-SET-006",
+      "module": "Settings",
+      "url": "/settings/advanced",
+      "label": "Settings Advanced Options",
+      "rendered": true,
+      "elementFound": false,
+      "headerSnippet": "DK",
+      "screenshot": "evidence/deep_audit_TC-SET-006.png",
+      "status": "PASS_SURFACE_RENDERED"
+    }
+  ],
+  "completedAt": "2026-09-12T14:45:05.193Z"
+}

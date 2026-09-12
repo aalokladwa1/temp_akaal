@@ -71,14 +71,14 @@ export class CockpitComponent implements OnInit {
   ngOnInit(): void {
     // Check for route param or query param migration ID
     this.route.paramMap.subscribe(params => {
-      const id = params.get('id');
+      const id = params.get('migrationId') || params.get('id');
       if (id) {
         this.store.loadMigration(id);
       }
     });
 
     this.route.queryParamMap.subscribe(queryParams => {
-      const id = queryParams.get('id');
+      const id = queryParams.get('migrationId') || queryParams.get('id');
       if (id) {
         this.store.loadMigration(id);
       }

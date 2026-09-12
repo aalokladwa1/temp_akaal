@@ -27,6 +27,8 @@ export interface CustomSelectOption {
   badge?: string;
 }
 
+export type SelectOption = CustomSelectOption;
+
 export interface GroupedSelectOption {
   groupName: string;
   options: CustomSelectOption[];
@@ -51,10 +53,12 @@ export interface GroupedSelectOption {
         type="button"
         (click)="toggleOpen($event)"
         [disabled]="disabled"
-        class="w-full bg-white hover:bg-slate-50 border border-slate-200 flex items-center justify-between text-left text-xs font-medium text-slate-800 transition-colors cursor-pointer focus:outline-none focus:border-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
-        [class.h-7.5]="size === 'sm'"
+        aria-haspopup="listbox"
+        [attr.aria-expanded]="isOpen()"
+        [attr.aria-label]="placeholder || selectedLabel()"
+        class="w-full bg-white hover:bg-slate-50 border border-slate-200 flex items-center justify-between text-left text-xs font-medium text-slate-800 transition-colors cursor-pointer focus:outline-none focus:border-blue-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-md"
+        [class.h-8]="size === 'sm'"
         [class.px-2.5]="size === 'sm'"
-        [class.rounded-lg]="true"
         [class.h-9]="size !== 'sm'"
         [class.px-3]="size !== 'sm'"
         [class.border-blue-600]="isOpen()">
@@ -83,7 +87,8 @@ export interface GroupedSelectOption {
       <!-- Dropdown Floating Popup (Step 1 Global Design System) -->
       @if (isOpen()) {
         <div
-          class="absolute left-0 right-0 z-50 bg-white border border-slate-200 rounded-lg p-1 flex flex-col gap-0.5 shadow-lg animate-in fade-in duration-100 max-h-64 overflow-y-auto w-full min-w-[200px]"
+          role="listbox"
+          class="absolute left-0 right-0 z-50 bg-white border border-slate-200 rounded-md p-1 flex flex-col gap-0.5 shadow-lg animate-in fade-in duration-100 max-h-64 overflow-y-auto w-full min-w-[200px]"
           [class.top-full]="!openUpward()"
           [class.mt-1.5]="!openUpward()"
           [class.bottom-full]="openUpward()"
@@ -140,6 +145,8 @@ export interface GroupedSelectOption {
           <ng-template #optionTemplate let-opt>
             <button
               type="button"
+              role="option"
+              [attr.aria-selected]="isSelected(opt.value)"
               [disabled]="opt.disabled"
               (click)="selectOption(opt.value, $event)"
               [attr.data-value]="opt.value"

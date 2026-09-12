@@ -1,0 +1,4952 @@
+[
+  {
+    "path": "",
+    "parentPath": null,
+    "fullPath": "",
+    "moduleDomain": "root",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": true,
+    "redirectTo": "dashboard",
+    "pathMatch": "full",
+    "isEager": false,
+    "component": null,
+    "isLazy": false,
+    "loadComponent": null,
+    "hasChildren": false
+  },
+  {
+    "path": "dashboard",
+    "parentPath": null,
+    "fullPath": "dashboard",
+    "moduleDomain": "dashboard",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": true,
+    "component": "DashboardComponent",
+    "isLazy": false,
+    "loadComponent": null,
+    "hasChildren": false
+  },
+  {
+    "path": "cockpit",
+    "parentPath": null,
+    "fullPath": "cockpit",
+    "moduleDomain": "cockpit",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": true,
+    "component": "CockpitComponent",
+    "isLazy": false,
+    "loadComponent": null,
+    "hasChildren": false
+  },
+  {
+    "path": "cockpit/:migrationId",
+    "parentPath": null,
+    "fullPath": "cockpit/:migrationId",
+    "moduleDomain": "cockpit",
+    "hasParams": true,
+    "params": [
+      "migrationId"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": true,
+    "component": "CockpitComponent",
+    "isLazy": false,
+    "loadComponent": null,
+    "hasChildren": false
+  },
+  {
+    "path": "migration/cockpit",
+    "parentPath": null,
+    "fullPath": "migration/cockpit",
+    "moduleDomain": "cockpit",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": true,
+    "component": "CockpitComponent",
+    "isLazy": false,
+    "loadComponent": null,
+    "hasChildren": false
+  },
+  {
+    "path": "migration/cockpit/:migrationId",
+    "parentPath": null,
+    "fullPath": "migration/cockpit/:migrationId",
+    "moduleDomain": "cockpit",
+    "hasParams": true,
+    "params": [
+      "migrationId"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": true,
+    "component": "CockpitComponent",
+    "isLazy": false,
+    "loadComponent": null,
+    "hasChildren": false
+  },
+  {
+    "path": "validation",
+    "parentPath": null,
+    "fullPath": "validation",
+    "moduleDomain": "validation",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": true,
+    "component": "ValidationPortfolioComponent",
+    "isLazy": false,
+    "loadComponent": null,
+    "hasChildren": false
+  },
+  {
+    "path": "validation/new",
+    "parentPath": null,
+    "fullPath": "validation/new",
+    "moduleDomain": "validation",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": true,
+    "component": "NewValidationWizardComponent",
+    "isLazy": false,
+    "loadComponent": null,
+    "hasChildren": false
+  },
+  {
+    "path": "validation/new/:step",
+    "parentPath": null,
+    "fullPath": "validation/new/:step",
+    "moduleDomain": "validation",
+    "hasParams": true,
+    "params": [
+      "step"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": true,
+    "component": "NewValidationWizardComponent",
+    "isLazy": false,
+    "loadComponent": null,
+    "hasChildren": false
+  },
+  {
+    "path": "validation/:validationId",
+    "parentPath": null,
+    "fullPath": "validation/:validationId",
+    "moduleDomain": "validation",
+    "hasParams": true,
+    "params": [
+      "validationId"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": true,
+    "component": "ValidationWorkstationComponent",
+    "isLazy": false,
+    "loadComponent": null,
+    "hasChildren": false
+  },
+  {
+    "path": "migration/validation",
+    "parentPath": null,
+    "fullPath": "migration/validation",
+    "moduleDomain": "validation",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": true,
+    "component": "ValidationPortfolioComponent",
+    "isLazy": false,
+    "loadComponent": null,
+    "hasChildren": false
+  },
+  {
+    "path": "migration/validation/new",
+    "parentPath": null,
+    "fullPath": "migration/validation/new",
+    "moduleDomain": "validation",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": true,
+    "component": "NewValidationWizardComponent",
+    "isLazy": false,
+    "loadComponent": null,
+    "hasChildren": false
+  },
+  {
+    "path": "migration/validation/new/:step",
+    "parentPath": null,
+    "fullPath": "migration/validation/new/:step",
+    "moduleDomain": "validation",
+    "hasParams": true,
+    "params": [
+      "step"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": true,
+    "component": "NewValidationWizardComponent",
+    "isLazy": false,
+    "loadComponent": null,
+    "hasChildren": false
+  },
+  {
+    "path": "migration/validation/:validationId",
+    "parentPath": null,
+    "fullPath": "migration/validation/:validationId",
+    "moduleDomain": "validation",
+    "hasParams": true,
+    "params": [
+      "validationId"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": true,
+    "component": "ValidationWorkstationComponent",
+    "isLazy": false,
+    "loadComponent": null,
+    "hasChildren": false
+  },
+  {
+    "path": "connections",
+    "parentPath": null,
+    "fullPath": "connections",
+    "moduleDomain": "connections",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": true,
+    "component": "ConnectionsHomeComponent",
+    "isLazy": false,
+    "loadComponent": null,
+    "hasChildren": false
+  },
+  {
+    "path": "connections/new",
+    "parentPath": null,
+    "fullPath": "connections/new",
+    "moduleDomain": "connections",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": true,
+    "component": "CreateConnectionWizardComponent",
+    "isLazy": false,
+    "loadComponent": null,
+    "hasChildren": false
+  },
+  {
+    "path": "connections/new/:step",
+    "parentPath": null,
+    "fullPath": "connections/new/:step",
+    "moduleDomain": "connections",
+    "hasParams": true,
+    "params": [
+      "step"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": true,
+    "component": "CreateConnectionWizardComponent",
+    "isLazy": false,
+    "loadComponent": null,
+    "hasChildren": false
+  },
+  {
+    "path": "connections/:connectionId",
+    "parentPath": null,
+    "fullPath": "connections/:connectionId",
+    "moduleDomain": "connections",
+    "hasParams": true,
+    "params": [
+      "connectionId"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": true,
+    "component": "ConnectionWorkspaceComponent",
+    "isLazy": false,
+    "loadComponent": null,
+    "hasChildren": false
+  },
+  {
+    "path": "connections/:connectionId/:tab",
+    "parentPath": null,
+    "fullPath": "connections/:connectionId/:tab",
+    "moduleDomain": "connections",
+    "hasParams": true,
+    "params": [
+      "connectionId",
+      "tab"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": true,
+    "component": "ConnectionWorkspaceComponent",
+    "isLazy": false,
+    "loadComponent": null,
+    "hasChildren": false
+  },
+  {
+    "path": "migration",
+    "parentPath": null,
+    "fullPath": "migration",
+    "moduleDomain": "migration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": true,
+    "component": "MigrationPortfolioComponent",
+    "isLazy": false,
+    "loadComponent": null,
+    "hasChildren": false
+  },
+  {
+    "path": "migration/portfolio",
+    "parentPath": null,
+    "fullPath": "migration/portfolio",
+    "moduleDomain": "migration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": true,
+    "component": "MigrationPortfolioComponent",
+    "isLazy": false,
+    "loadComponent": null,
+    "hasChildren": false
+  },
+  {
+    "path": "migration/create",
+    "parentPath": null,
+    "fullPath": "migration/create",
+    "moduleDomain": "migration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": true,
+    "component": "CreateMigrationWizardComponent",
+    "isLazy": false,
+    "loadComponent": null,
+    "hasChildren": false
+  },
+  {
+    "path": "migration/projects",
+    "parentPath": null,
+    "fullPath": "migration/projects",
+    "moduleDomain": "migration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": true,
+    "component": "ProjectsComponent",
+    "isLazy": false,
+    "loadComponent": null,
+    "hasChildren": false
+  },
+  {
+    "path": "migration/initiatives/new",
+    "parentPath": null,
+    "fullPath": "migration/initiatives/new",
+    "moduleDomain": "migration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": true,
+    "component": "CreateInitiativeComponent",
+    "isLazy": false,
+    "loadComponent": null,
+    "hasChildren": false
+  },
+  {
+    "path": "migration/initiatives/:initiativeId",
+    "parentPath": null,
+    "fullPath": "migration/initiatives/:initiativeId",
+    "moduleDomain": "migration",
+    "hasParams": true,
+    "params": [
+      "initiativeId"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": true,
+    "component": "InitiativeWorkspaceComponent",
+    "isLazy": false,
+    "loadComponent": null,
+    "hasChildren": false
+  },
+  {
+    "path": "migration/initiatives/:initiativeId/new-project",
+    "parentPath": null,
+    "fullPath": "migration/initiatives/:initiativeId/new-project",
+    "moduleDomain": "migration",
+    "hasParams": true,
+    "params": [
+      "initiativeId"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": true,
+    "component": "CreateProjectComponent",
+    "isLazy": false,
+    "loadComponent": null,
+    "hasChildren": false
+  },
+  {
+    "path": "migration/projects/:projectId",
+    "parentPath": null,
+    "fullPath": "migration/projects/:projectId",
+    "moduleDomain": "migration",
+    "hasParams": true,
+    "params": [
+      "projectId"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": true,
+    "component": "ProjectWorkspaceComponent",
+    "isLazy": false,
+    "loadComponent": null,
+    "hasChildren": false
+  },
+  {
+    "path": "migration/connections",
+    "parentPath": null,
+    "fullPath": "migration/connections",
+    "moduleDomain": "migration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": true,
+    "component": "ConnectionsComponent",
+    "isLazy": false,
+    "loadComponent": null,
+    "hasChildren": false
+  },
+  {
+    "path": "migration/history",
+    "parentPath": null,
+    "fullPath": "migration/history",
+    "moduleDomain": "migration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": true,
+    "component": "HistoryHomeComponent",
+    "isLazy": false,
+    "loadComponent": null,
+    "hasChildren": false
+  },
+  {
+    "path": "migration/history/:runId",
+    "parentPath": null,
+    "fullPath": "migration/history/:runId",
+    "moduleDomain": "migration",
+    "hasParams": true,
+    "params": [
+      "runId"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": true,
+    "component": "HistoryWorkspaceComponent",
+    "isLazy": false,
+    "loadComponent": null,
+    "hasChildren": false
+  },
+  {
+    "path": "migration/templates",
+    "parentPath": null,
+    "fullPath": "migration/templates",
+    "moduleDomain": "migration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": true,
+    "component": "TemplatesHomeComponent",
+    "isLazy": false,
+    "loadComponent": null,
+    "hasChildren": false
+  },
+  {
+    "path": "migration/templates/new",
+    "parentPath": null,
+    "fullPath": "migration/templates/new",
+    "moduleDomain": "migration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": true,
+    "component": "CreateTemplateComponent",
+    "isLazy": false,
+    "loadComponent": null,
+    "hasChildren": false
+  },
+  {
+    "path": "migration/templates/:templateId",
+    "parentPath": null,
+    "fullPath": "migration/templates/:templateId",
+    "moduleDomain": "migration",
+    "hasParams": true,
+    "params": [
+      "templateId"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": true,
+    "component": "TemplateWorkspaceComponent",
+    "isLazy": false,
+    "loadComponent": null,
+    "hasChildren": false
+  },
+  {
+    "path": "monitoring",
+    "parentPath": null,
+    "fullPath": "monitoring",
+    "moduleDomain": "monitoring",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": true,
+    "component": "MonitoringHomeComponent",
+    "isLazy": false,
+    "loadComponent": null,
+    "hasChildren": false
+  },
+  {
+    "path": "monitoring/overview",
+    "parentPath": null,
+    "fullPath": "monitoring/overview",
+    "moduleDomain": "monitoring",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": true,
+    "component": "MonitoringHomeComponent",
+    "isLazy": false,
+    "loadComponent": null,
+    "hasChildren": false
+  },
+  {
+    "path": "monitoring/migration",
+    "parentPath": null,
+    "fullPath": "monitoring/migration",
+    "moduleDomain": "monitoring",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": true,
+    "component": "MigrationMonitoringHomeComponent",
+    "isLazy": false,
+    "loadComponent": null,
+    "hasChildren": false
+  },
+  {
+    "path": "monitoring/platform",
+    "parentPath": null,
+    "fullPath": "monitoring/platform",
+    "moduleDomain": "monitoring",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": true,
+    "component": "PlatformMonitoringHomeComponent",
+    "isLazy": false,
+    "loadComponent": null,
+    "hasChildren": false
+  },
+  {
+    "path": "monitoring/alerts",
+    "parentPath": null,
+    "fullPath": "monitoring/alerts",
+    "moduleDomain": "monitoring",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": true,
+    "component": "AlertsMonitoringHomeComponent",
+    "isLazy": false,
+    "loadComponent": null,
+    "hasChildren": false
+  },
+  {
+    "path": "reports",
+    "parentPath": null,
+    "fullPath": "reports",
+    "moduleDomain": "reports",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": true,
+    "component": "ReportsHomeComponent",
+    "isLazy": false,
+    "loadComponent": null,
+    "hasChildren": false
+  },
+  {
+    "path": "reports/overview",
+    "parentPath": null,
+    "fullPath": "reports/overview",
+    "moduleDomain": "reports",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": true,
+    "component": "ReportsHomeComponent",
+    "isLazy": false,
+    "loadComponent": null,
+    "hasChildren": false
+  },
+  {
+    "path": "reports/library",
+    "parentPath": null,
+    "fullPath": "reports/library",
+    "moduleDomain": "reports",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": true,
+    "component": "ReportsLibraryComponent",
+    "isLazy": false,
+    "loadComponent": null,
+    "hasChildren": false
+  },
+  {
+    "path": "reports/certification",
+    "parentPath": null,
+    "fullPath": "reports/certification",
+    "moduleDomain": "reports",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": true,
+    "component": "ReportsCertificationComponent",
+    "isLazy": false,
+    "loadComponent": null,
+    "hasChildren": false
+  },
+  {
+    "path": "reports/evidence",
+    "parentPath": null,
+    "fullPath": "reports/evidence",
+    "moduleDomain": "reports",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": true,
+    "component": "ReportsEvidenceComponent",
+    "isLazy": false,
+    "loadComponent": null,
+    "hasChildren": false
+  },
+  {
+    "path": "administration",
+    "parentPath": null,
+    "fullPath": "administration",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/admin-home.component",
+      "componentName": "AdminHomeComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/enterprise",
+    "parentPath": null,
+    "fullPath": "administration/enterprise",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/enterprise/enterprise-home.component",
+      "componentName": "EnterpriseHomeComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/enterprise/settings",
+    "parentPath": null,
+    "fullPath": "administration/enterprise/settings",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/enterprise/settings/enterprise-settings.component",
+      "componentName": "EnterpriseSettingsComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/enterprise/settings/edit",
+    "parentPath": null,
+    "fullPath": "administration/enterprise/settings/edit",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/enterprise/settings/enterprise-settings-edit.component",
+      "componentName": "EnterpriseSettingsEditComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/enterprise/organizations",
+    "parentPath": null,
+    "fullPath": "administration/enterprise/organizations",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/enterprise/structure/orgs/org-list.component",
+      "componentName": "OrgListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/enterprise/organizations/create",
+    "parentPath": null,
+    "fullPath": "administration/enterprise/organizations/create",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/enterprise/structure/orgs/org-create.component",
+      "componentName": "OrgCreateComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/enterprise/organizations/:id",
+    "parentPath": null,
+    "fullPath": "administration/enterprise/organizations/:id",
+    "moduleDomain": "administration",
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/enterprise/structure/orgs/org-detail.component",
+      "componentName": "OrgDetailComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/enterprise/organizations/:id/edit",
+    "parentPath": null,
+    "fullPath": "administration/enterprise/organizations/:id/edit",
+    "moduleDomain": "administration",
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/enterprise/structure/orgs/org-edit.component",
+      "componentName": "OrgEditComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/enterprise/orgs",
+    "parentPath": null,
+    "fullPath": "administration/enterprise/orgs",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": true,
+    "redirectTo": "administration/enterprise/organizations",
+    "pathMatch": "full",
+    "isEager": false,
+    "component": null,
+    "isLazy": false,
+    "loadComponent": null,
+    "hasChildren": false
+  },
+  {
+    "path": "administration/enterprise/workspaces",
+    "parentPath": null,
+    "fullPath": "administration/enterprise/workspaces",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/enterprise/structure/workspaces/workspace-list.component",
+      "componentName": "WorkspaceListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/enterprise/workspaces/create",
+    "parentPath": null,
+    "fullPath": "administration/enterprise/workspaces/create",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/enterprise/structure/workspaces/workspace-create.component",
+      "componentName": "WorkspaceCreateComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/enterprise/workspaces/:id",
+    "parentPath": null,
+    "fullPath": "administration/enterprise/workspaces/:id",
+    "moduleDomain": "administration",
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/enterprise/structure/workspaces/workspace-detail.component",
+      "componentName": "WorkspaceDetailComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/enterprise/workspaces/:id/edit",
+    "parentPath": null,
+    "fullPath": "administration/enterprise/workspaces/:id/edit",
+    "moduleDomain": "administration",
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/enterprise/structure/workspaces/workspace-edit.component",
+      "componentName": "WorkspaceEditComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/enterprise/environments",
+    "parentPath": null,
+    "fullPath": "administration/enterprise/environments",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/enterprise/structure/environments/env-list.component",
+      "componentName": "EnvListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/enterprise/environments/create",
+    "parentPath": null,
+    "fullPath": "administration/enterprise/environments/create",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/enterprise/structure/environments/env-create.component",
+      "componentName": "EnvCreateComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/enterprise/environments/:id",
+    "parentPath": null,
+    "fullPath": "administration/enterprise/environments/:id",
+    "moduleDomain": "administration",
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/enterprise/structure/environments/env-detail.component",
+      "componentName": "EnvDetailComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/enterprise/environments/:id/edit",
+    "parentPath": null,
+    "fullPath": "administration/enterprise/environments/:id/edit",
+    "moduleDomain": "administration",
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/enterprise/structure/environments/env-edit.component",
+      "componentName": "EnvEditComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/enterprise/boundaries",
+    "parentPath": null,
+    "fullPath": "administration/enterprise/boundaries",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/enterprise/governance/boundaries/boundary-list.component",
+      "componentName": "BoundaryListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/enterprise/boundaries/create",
+    "parentPath": null,
+    "fullPath": "administration/enterprise/boundaries/create",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/enterprise/governance/boundaries/boundary-create.component",
+      "componentName": "BoundaryCreateComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/enterprise/boundaries/:id",
+    "parentPath": null,
+    "fullPath": "administration/enterprise/boundaries/:id",
+    "moduleDomain": "administration",
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/enterprise/governance/boundaries/boundary-detail.component",
+      "componentName": "BoundaryDetailComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/enterprise/boundaries/:id/edit",
+    "parentPath": null,
+    "fullPath": "administration/enterprise/boundaries/:id/edit",
+    "moduleDomain": "administration",
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/enterprise/governance/boundaries/boundary-edit.component",
+      "componentName": "BoundaryEditComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/enterprise/ownership",
+    "parentPath": null,
+    "fullPath": "administration/enterprise/ownership",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/enterprise/governance/ownership/ownership-list.component",
+      "componentName": "OwnershipListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/enterprise/ownership/:id",
+    "parentPath": null,
+    "fullPath": "administration/enterprise/ownership/:id",
+    "moduleDomain": "administration",
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/enterprise/governance/ownership/ownership-detail.component",
+      "componentName": "OwnershipDetailComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/enterprise/ownership/:id/transfer",
+    "parentPath": null,
+    "fullPath": "administration/enterprise/ownership/:id/transfer",
+    "moduleDomain": "administration",
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/enterprise/governance/ownership/ownership-transfer.component",
+      "componentName": "OwnershipTransferComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/enterprise/quotas",
+    "parentPath": null,
+    "fullPath": "administration/enterprise/quotas",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/enterprise/governance/quotas/quota-list.component",
+      "componentName": "QuotaListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/enterprise/quotas/:id",
+    "parentPath": null,
+    "fullPath": "administration/enterprise/quotas/:id",
+    "moduleDomain": "administration",
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/enterprise/governance/quotas/quota-detail.component",
+      "componentName": "QuotaDetailComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/enterprise/quotas/:id/edit",
+    "parentPath": null,
+    "fullPath": "administration/enterprise/quotas/:id/edit",
+    "moduleDomain": "administration",
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/enterprise/governance/quotas/quota-edit.component",
+      "componentName": "QuotaEditComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/enterprise/metadata",
+    "parentPath": null,
+    "fullPath": "administration/enterprise/metadata",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/enterprise/governance/metadata/metadata-list.component",
+      "componentName": "MetadataListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/enterprise/metadata/create",
+    "parentPath": null,
+    "fullPath": "administration/enterprise/metadata/create",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/enterprise/governance/metadata/metadata-create.component",
+      "componentName": "MetadataCreateComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/enterprise/metadata/:id",
+    "parentPath": null,
+    "fullPath": "administration/enterprise/metadata/:id",
+    "moduleDomain": "administration",
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/enterprise/governance/metadata/metadata-detail.component",
+      "componentName": "MetadataDetailComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/enterprise/metadata/:id/edit",
+    "parentPath": null,
+    "fullPath": "administration/enterprise/metadata/:id/edit",
+    "moduleDomain": "administration",
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/enterprise/governance/metadata/metadata-edit.component",
+      "componentName": "MetadataEditComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/people",
+    "parentPath": null,
+    "fullPath": "administration/people",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/people/people-home.component",
+      "componentName": "PeopleHomeComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/people/users",
+    "parentPath": null,
+    "fullPath": "administration/people/users",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/people/directory/users-list.component",
+      "componentName": "UsersListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/people/users/new",
+    "parentPath": null,
+    "fullPath": "administration/people/users/new",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/people/directory/user-form.component",
+      "componentName": "UserFormComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/people/users/:id",
+    "parentPath": null,
+    "fullPath": "administration/people/users/:id",
+    "moduleDomain": "administration",
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/people/directory/user-detail.component",
+      "componentName": "UserDetailComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/people/users/:id/edit",
+    "parentPath": null,
+    "fullPath": "administration/people/users/:id/edit",
+    "moduleDomain": "administration",
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/people/directory/user-form.component",
+      "componentName": "UserFormComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/people/teams",
+    "parentPath": null,
+    "fullPath": "administration/people/teams",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/people/directory/teams-list.component",
+      "componentName": "TeamsListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/people/teams/new",
+    "parentPath": null,
+    "fullPath": "administration/people/teams/new",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/people/directory/team-form.component",
+      "componentName": "TeamFormComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/people/teams/:id",
+    "parentPath": null,
+    "fullPath": "administration/people/teams/:id",
+    "moduleDomain": "administration",
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/people/directory/team-detail.component",
+      "componentName": "TeamDetailComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/people/teams/:id/edit",
+    "parentPath": null,
+    "fullPath": "administration/people/teams/:id/edit",
+    "moduleDomain": "administration",
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/people/directory/team-form.component",
+      "componentName": "TeamFormComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/people/service-accounts",
+    "parentPath": null,
+    "fullPath": "administration/people/service-accounts",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/people/directory/service-accounts-list.component",
+      "componentName": "ServiceAccountsListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/people/service-accounts/new",
+    "parentPath": null,
+    "fullPath": "administration/people/service-accounts/new",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/people/directory/service-account-form.component",
+      "componentName": "ServiceAccountFormComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/people/service-accounts/:id",
+    "parentPath": null,
+    "fullPath": "administration/people/service-accounts/:id",
+    "moduleDomain": "administration",
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/people/directory/service-account-detail.component",
+      "componentName": "ServiceAccountDetailComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/people/service-accounts/:id/edit",
+    "parentPath": null,
+    "fullPath": "administration/people/service-accounts/:id/edit",
+    "moduleDomain": "administration",
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/people/directory/service-account-form.component",
+      "componentName": "ServiceAccountFormComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/people/roles",
+    "parentPath": null,
+    "fullPath": "administration/people/roles",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/people/access-control/roles-list.component",
+      "componentName": "RolesListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/people/roles/new",
+    "parentPath": null,
+    "fullPath": "administration/people/roles/new",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/people/access-control/role-form.component",
+      "componentName": "RoleFormComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/people/roles/:id",
+    "parentPath": null,
+    "fullPath": "administration/people/roles/:id",
+    "moduleDomain": "administration",
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/people/access-control/role-detail.component",
+      "componentName": "RoleDetailComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/people/roles/:id/edit",
+    "parentPath": null,
+    "fullPath": "administration/people/roles/:id/edit",
+    "moduleDomain": "administration",
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/people/access-control/role-form.component",
+      "componentName": "RoleFormComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/people/assignments",
+    "parentPath": null,
+    "fullPath": "administration/people/assignments",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/people/access-control/assignments-list.component",
+      "componentName": "AssignmentsListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/people/assignments/new",
+    "parentPath": null,
+    "fullPath": "administration/people/assignments/new",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/people/access-control/assignment-form.component",
+      "componentName": "AssignmentFormComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/people/conditional-access",
+    "parentPath": null,
+    "fullPath": "administration/people/conditional-access",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/people/access-control/conditional-access-list.component",
+      "componentName": "ConditionalAccessListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/people/conditional-access/new",
+    "parentPath": null,
+    "fullPath": "administration/people/conditional-access/new",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/people/access-control/conditional-access-form.component",
+      "componentName": "ConditionalAccessFormComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/people/conditional-access/:id",
+    "parentPath": null,
+    "fullPath": "administration/people/conditional-access/:id",
+    "moduleDomain": "administration",
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/people/access-control/conditional-access-detail.component",
+      "componentName": "ConditionalAccessDetailComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/people/conditional-access/:id/edit",
+    "parentPath": null,
+    "fullPath": "administration/people/conditional-access/:id/edit",
+    "moduleDomain": "administration",
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/people/access-control/conditional-access-form.component",
+      "componentName": "ConditionalAccessFormComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/people/jit-access",
+    "parentPath": null,
+    "fullPath": "administration/people/jit-access",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/people/privileged/jit-access-list.component",
+      "componentName": "JitAccessListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/people/jit-access/request",
+    "parentPath": null,
+    "fullPath": "administration/people/jit-access/request",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/people/privileged/jit-request-form.component",
+      "componentName": "JitRequestFormComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/people/jit-access/:id",
+    "parentPath": null,
+    "fullPath": "administration/people/jit-access/:id",
+    "moduleDomain": "administration",
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/people/privileged/jit-detail.component",
+      "componentName": "JitDetailComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/people/access-conflicts",
+    "parentPath": null,
+    "fullPath": "administration/people/access-conflicts",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/people/privileged/access-conflicts-list.component",
+      "componentName": "AccessConflictsListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/people/access-conflicts/:id",
+    "parentPath": null,
+    "fullPath": "administration/people/access-conflicts/:id",
+    "moduleDomain": "administration",
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/people/privileged/access-conflict-detail.component",
+      "componentName": "AccessConflictDetailComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/people/sessions",
+    "parentPath": null,
+    "fullPath": "administration/people/sessions",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/people/lifecycle/sessions-list.component",
+      "componentName": "SessionsListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/people/access-reviews",
+    "parentPath": null,
+    "fullPath": "administration/people/access-reviews",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/people/lifecycle/access-reviews-list.component",
+      "componentName": "AccessReviewsListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/people/access-reviews/new",
+    "parentPath": null,
+    "fullPath": "administration/people/access-reviews/new",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/people/lifecycle/access-review-form.component",
+      "componentName": "AccessReviewFormComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/people/access-reviews/:id",
+    "parentPath": null,
+    "fullPath": "administration/people/access-reviews/:id",
+    "moduleDomain": "administration",
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/people/lifecycle/access-review-detail.component",
+      "componentName": "AccessReviewDetailComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/governance-centre",
+    "parentPath": null,
+    "fullPath": "administration/governance-centre",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/governance/governance-home.component",
+      "componentName": "GovernanceHomeComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/governance-centre/policies",
+    "parentPath": null,
+    "fullPath": "administration/governance-centre/policies",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/governance/policies/policies-list.component",
+      "componentName": "PoliciesListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/governance-centre/policies/new",
+    "parentPath": null,
+    "fullPath": "administration/governance-centre/policies/new",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/governance/policies/policy-form.component",
+      "componentName": "PolicyFormComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/governance-centre/policies/:id",
+    "parentPath": null,
+    "fullPath": "administration/governance-centre/policies/:id",
+    "moduleDomain": "administration",
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/governance/policies/policy-detail.component",
+      "componentName": "PolicyDetailComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/governance-centre/policies/:id/edit",
+    "parentPath": null,
+    "fullPath": "administration/governance-centre/policies/:id/edit",
+    "moduleDomain": "administration",
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/governance/policies/policy-form.component",
+      "componentName": "PolicyFormComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/governance-centre/policy-simulation",
+    "parentPath": null,
+    "fullPath": "administration/governance-centre/policy-simulation",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/governance/policies/policy-simulation.component",
+      "componentName": "PolicySimulationComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/governance-centre/approval-chains",
+    "parentPath": null,
+    "fullPath": "administration/governance-centre/approval-chains",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/governance/approvals/approval-chains-list.component",
+      "componentName": "ApprovalChainsListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/governance-centre/approval-chains/new",
+    "parentPath": null,
+    "fullPath": "administration/governance-centre/approval-chains/new",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/governance/approvals/approval-chain-form.component",
+      "componentName": "ApprovalChainFormComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/governance-centre/approval-chains/:id",
+    "parentPath": null,
+    "fullPath": "administration/governance-centre/approval-chains/:id",
+    "moduleDomain": "administration",
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/governance/approvals/approval-chain-detail.component",
+      "componentName": "ApprovalChainDetailComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/governance-centre/approval-chains/:id/edit",
+    "parentPath": null,
+    "fullPath": "administration/governance-centre/approval-chains/:id/edit",
+    "moduleDomain": "administration",
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/governance/approvals/approval-chain-form.component",
+      "componentName": "ApprovalChainFormComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/governance-centre/approver-groups",
+    "parentPath": null,
+    "fullPath": "administration/governance-centre/approver-groups",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/governance/approvals/approver-groups-list.component",
+      "componentName": "ApproverGroupsListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/governance-centre/approver-groups/new",
+    "parentPath": null,
+    "fullPath": "administration/governance-centre/approver-groups/new",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/governance/approvals/approver-group-form.component",
+      "componentName": "ApproverGroupFormComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/governance-centre/approver-groups/:id",
+    "parentPath": null,
+    "fullPath": "administration/governance-centre/approver-groups/:id",
+    "moduleDomain": "administration",
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/governance/approvals/approver-group-detail.component",
+      "componentName": "ApproverGroupDetailComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/governance-centre/approver-groups/:id/edit",
+    "parentPath": null,
+    "fullPath": "administration/governance-centre/approver-groups/:id/edit",
+    "moduleDomain": "administration",
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/governance/approvals/approver-group-form.component",
+      "componentName": "ApproverGroupFormComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/governance-centre/maker-checker",
+    "parentPath": null,
+    "fullPath": "administration/governance-centre/maker-checker",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/governance/approvals/maker-checker-list.component",
+      "componentName": "MakerCheckerListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/governance-centre/sod",
+    "parentPath": null,
+    "fullPath": "administration/governance-centre/sod",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/governance/privileged/sod-list.component",
+      "componentName": "SodListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/governance-centre/sod/new",
+    "parentPath": null,
+    "fullPath": "administration/governance-centre/sod/new",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/governance/privileged/sod-form.component",
+      "componentName": "SodFormComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/governance-centre/sod/:id",
+    "parentPath": null,
+    "fullPath": "administration/governance-centre/sod/:id",
+    "moduleDomain": "administration",
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/governance/privileged/sod-detail.component",
+      "componentName": "SodDetailComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/governance-centre/sod/:id/edit",
+    "parentPath": null,
+    "fullPath": "administration/governance-centre/sod/:id/edit",
+    "moduleDomain": "administration",
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/governance/privileged/sod-form.component",
+      "componentName": "SodFormComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/governance-centre/privileged-ops",
+    "parentPath": null,
+    "fullPath": "administration/governance-centre/privileged-ops",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/governance/privileged/privileged-ops-list.component",
+      "componentName": "PrivilegedOpsListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/governance-centre/waivers",
+    "parentPath": null,
+    "fullPath": "administration/governance-centre/waivers",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/governance/privileged/waivers-list.component",
+      "componentName": "WaiversListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/governance-centre/waivers/new",
+    "parentPath": null,
+    "fullPath": "administration/governance-centre/waivers/new",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/governance/privileged/waiver-form.component",
+      "componentName": "WaiverFormComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/governance-centre/break-glass",
+    "parentPath": null,
+    "fullPath": "administration/governance-centre/break-glass",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/governance/privileged/break-glass-list.component",
+      "componentName": "BreakGlassListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/governance-centre/history",
+    "parentPath": null,
+    "fullPath": "administration/governance-centre/history",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/governance/history/governance-history.component",
+      "componentName": "GovernanceHistoryComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/identity",
+    "parentPath": null,
+    "fullPath": "administration/identity",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/identity/identity-home.component",
+      "componentName": "IdentityHomeComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/identity/auth",
+    "parentPath": null,
+    "fullPath": "administration/identity/auth",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/identity/auth/auth-home.component",
+      "componentName": "AuthHomeComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/identity/auth/policies",
+    "parentPath": null,
+    "fullPath": "administration/identity/auth/policies",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/identity/auth/auth-policies.component",
+      "componentName": "AuthPoliciesComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/identity/auth/mfa",
+    "parentPath": null,
+    "fullPath": "administration/identity/auth/mfa",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/identity/auth/mfa.component",
+      "componentName": "MfaComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/identity/auth/sso",
+    "parentPath": null,
+    "fullPath": "administration/identity/auth/sso",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/identity/auth/sso-home.component",
+      "componentName": "SsoHomeComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/identity/auth/sso/create",
+    "parentPath": null,
+    "fullPath": "administration/identity/auth/sso/create",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/identity/auth/sso-create.component",
+      "componentName": "SsoCreateComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/identity/directory",
+    "parentPath": null,
+    "fullPath": "administration/identity/directory",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/identity/directory/directory-home.component",
+      "componentName": "DirectoryHomeComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/identity/directory/ldap",
+    "parentPath": null,
+    "fullPath": "administration/identity/directory/ldap",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/identity/directory/ldap.component",
+      "componentName": "LdapComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/identity/directory/scim",
+    "parentPath": null,
+    "fullPath": "administration/identity/directory/scim",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/identity/directory/scim.component",
+      "componentName": "ScimComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/identity/directory/federation",
+    "parentPath": null,
+    "fullPath": "administration/identity/directory/federation",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/identity/directory/federation.component",
+      "componentName": "FederationComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/identity/workload",
+    "parentPath": null,
+    "fullPath": "administration/identity/workload",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/identity/workload/workload-home.component",
+      "componentName": "WorkloadHomeComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/identity/workload/services",
+    "parentPath": null,
+    "fullPath": "administration/identity/workload/services",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/identity/workload/workload-services.component",
+      "componentName": "WorkloadServicesComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/identity/workload/spiffe",
+    "parentPath": null,
+    "fullPath": "administration/identity/workload/spiffe",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/identity/workload/spiffe.component",
+      "componentName": "SpiffeComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/identity/crypto",
+    "parentPath": null,
+    "fullPath": "administration/identity/crypto",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/identity/crypto/crypto-home.component",
+      "componentName": "CryptoHomeComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/identity/crypto/certificates",
+    "parentPath": null,
+    "fullPath": "administration/identity/crypto/certificates",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/identity/crypto/certificates.component",
+      "componentName": "CertificatesComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/identity/crypto/vault",
+    "parentPath": null,
+    "fullPath": "administration/identity/crypto/vault",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/identity/crypto/vault.component",
+      "componentName": "VaultComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/identity/crypto/kms",
+    "parentPath": null,
+    "fullPath": "administration/identity/crypto/kms",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/identity/crypto/kms.component",
+      "componentName": "KmsComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/identity/crypto/rotation",
+    "parentPath": null,
+    "fullPath": "administration/identity/crypto/rotation",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/identity/crypto/rotation.component",
+      "componentName": "RotationComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/templates-library",
+    "parentPath": null,
+    "fullPath": "administration/templates-library",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/templates-library/templates-config-home.component",
+      "componentName": "TemplatesConfigHomeComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/templates-library/migration",
+    "parentPath": null,
+    "fullPath": "administration/templates-library/migration",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/templates-library/family-list.component",
+      "componentName": "FamilyListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/templates-library/mapping",
+    "parentPath": null,
+    "fullPath": "administration/templates-library/mapping",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/templates-library/family-list.component",
+      "componentName": "FamilyListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/templates-library/transformation",
+    "parentPath": null,
+    "fullPath": "administration/templates-library/transformation",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/templates-library/family-list.component",
+      "componentName": "FamilyListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/templates-library/privacy",
+    "parentPath": null,
+    "fullPath": "administration/templates-library/privacy",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/templates-library/family-list.component",
+      "componentName": "FamilyListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/templates-library/quality",
+    "parentPath": null,
+    "fullPath": "administration/templates-library/quality",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/templates-library/family-list.component",
+      "componentName": "FamilyListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/templates-library/configuration",
+    "parentPath": null,
+    "fullPath": "administration/templates-library/configuration",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/templates-library/family-list.component",
+      "componentName": "FamilyListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/templates-library/create",
+    "parentPath": null,
+    "fullPath": "administration/templates-library/create",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/templates-library/template-create.component",
+      "componentName": "TemplateCreateComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/templates-library/asset/:id",
+    "parentPath": null,
+    "fullPath": "administration/templates-library/asset/:id",
+    "moduleDomain": "administration",
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/templates-library/template-detail.component",
+      "componentName": "TemplateDetailComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/templates-library/asset/:id/promote",
+    "parentPath": null,
+    "fullPath": "administration/templates-library/asset/:id/promote",
+    "moduleDomain": "administration",
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/templates-library/lifecycle/asset-promote.component",
+      "componentName": "AssetPromoteComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/templates-library/import",
+    "parentPath": null,
+    "fullPath": "administration/templates-library/import",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/templates-library/lifecycle/asset-import.component",
+      "componentName": "AssetImportComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/connectors",
+    "parentPath": null,
+    "fullPath": "administration/connectors",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/connectors-plugins/connectors-plugins-home.component",
+      "componentName": "ConnectorsPluginsHomeComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/connectors-plugins",
+    "parentPath": null,
+    "fullPath": "administration/connectors-plugins",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": true,
+    "redirectTo": "administration/connectors",
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": false,
+    "loadComponent": null,
+    "hasChildren": false
+  },
+  {
+    "path": "administration/connectors/connectors-hub",
+    "parentPath": null,
+    "fullPath": "administration/connectors/connectors-hub",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/connectors-plugins/connectors/connectors-hub.component",
+      "componentName": "ConnectorsHubComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/connectors/registry",
+    "parentPath": null,
+    "fullPath": "administration/connectors/registry",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/connectors-plugins/connectors/connector-registry.component",
+      "componentName": "ConnectorRegistryComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/connectors/builtin",
+    "parentPath": null,
+    "fullPath": "administration/connectors/builtin",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/connectors-plugins/connectors/builtin-connectors.component",
+      "componentName": "BuiltinConnectorsComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/connectors/external",
+    "parentPath": null,
+    "fullPath": "administration/connectors/external",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/connectors-plugins/connectors/external-connectors.component",
+      "componentName": "ExternalConnectorsComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/connectors/external/register",
+    "parentPath": null,
+    "fullPath": "administration/connectors/external/register",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/connectors-plugins/connectors/external-register.component",
+      "componentName": "ExternalRegisterComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/connectors/detail/:id",
+    "parentPath": null,
+    "fullPath": "administration/connectors/detail/:id",
+    "moduleDomain": "administration",
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/connectors-plugins/connectors/connector-detail.component",
+      "componentName": "ConnectorDetailComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/connectors/intelligence-hub",
+    "parentPath": null,
+    "fullPath": "administration/connectors/intelligence-hub",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/connectors-plugins/intelligence/intelligence-hub.component",
+      "componentName": "IntelligenceHubComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/connectors/capabilities",
+    "parentPath": null,
+    "fullPath": "administration/connectors/capabilities",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/connectors-plugins/intelligence/capabilities-view.component",
+      "componentName": "CapabilitiesViewComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/connectors/compatibility",
+    "parentPath": null,
+    "fullPath": "administration/connectors/compatibility",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/connectors-plugins/intelligence/compatibility-view.component",
+      "componentName": "CompatibilityViewComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/connectors/versions",
+    "parentPath": null,
+    "fullPath": "administration/connectors/versions",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/connectors-plugins/intelligence/versions-view.component",
+      "componentName": "VersionsViewComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/connectors/certification",
+    "parentPath": null,
+    "fullPath": "administration/connectors/certification",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/connectors-plugins/intelligence/certification-view.component",
+      "componentName": "CertificationViewComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/connectors/extensions-hub",
+    "parentPath": null,
+    "fullPath": "administration/connectors/extensions-hub",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/connectors-plugins/extensions/extensions-hub.component",
+      "componentName": "ExtensionsHubComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/connectors/plugins",
+    "parentPath": null,
+    "fullPath": "administration/connectors/plugins",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/connectors-plugins/extensions/plugins-list.component",
+      "componentName": "PluginsListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/connectors/plugins/detail/:id",
+    "parentPath": null,
+    "fullPath": "administration/connectors/plugins/detail/:id",
+    "moduleDomain": "administration",
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/connectors-plugins/extensions/plugin-detail.component",
+      "componentName": "PluginDetailComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/connectors/plugins/security",
+    "parentPath": null,
+    "fullPath": "administration/connectors/plugins/security",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/connectors-plugins/extensions/plugin-security.component",
+      "componentName": "PluginSecurityComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/connectors/sdk",
+    "parentPath": null,
+    "fullPath": "administration/connectors/sdk",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/connectors-plugins/extensions/sdk-config.component",
+      "componentName": "SdkConfigComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/infrastructure",
+    "parentPath": null,
+    "fullPath": "administration/infrastructure",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/infrastructure/infrastructure-home.component",
+      "componentName": "InfrastructureHomeComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/cloud-infra",
+    "parentPath": null,
+    "fullPath": "administration/cloud-infra",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": true,
+    "redirectTo": "administration/infrastructure",
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": false,
+    "loadComponent": null,
+    "hasChildren": false
+  },
+  {
+    "path": "administration/infrastructure/cloud-hub",
+    "parentPath": null,
+    "fullPath": "administration/infrastructure/cloud-hub",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/infrastructure/cloud/cloud-hub.component",
+      "componentName": "CloudHubComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/infrastructure/cloud/environments",
+    "parentPath": null,
+    "fullPath": "administration/infrastructure/cloud/environments",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/infrastructure/cloud/cloud-environments-list.component",
+      "componentName": "CloudEnvironmentsListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/infrastructure/cloud/environments/create",
+    "parentPath": null,
+    "fullPath": "administration/infrastructure/cloud/environments/create",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/infrastructure/cloud/cloud-environment-create.component",
+      "componentName": "CloudEnvironmentCreateComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/infrastructure/cloud/environments/detail/:id",
+    "parentPath": null,
+    "fullPath": "administration/infrastructure/cloud/environments/detail/:id",
+    "moduleDomain": "administration",
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/infrastructure/cloud/cloud-environment-detail.component",
+      "componentName": "CloudEnvironmentDetailComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/infrastructure/compute-hub",
+    "parentPath": null,
+    "fullPath": "administration/infrastructure/compute-hub",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/infrastructure/compute/compute-hub.component",
+      "componentName": "ComputeHubComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/infrastructure/compute/kubernetes",
+    "parentPath": null,
+    "fullPath": "administration/infrastructure/compute/kubernetes",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/infrastructure/compute/kubernetes-list.component",
+      "componentName": "KubernetesListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/infrastructure/compute/kubernetes/create",
+    "parentPath": null,
+    "fullPath": "administration/infrastructure/compute/kubernetes/create",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/infrastructure/compute/kubernetes-create.component",
+      "componentName": "KubernetesCreateComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/infrastructure/compute/sites",
+    "parentPath": null,
+    "fullPath": "administration/infrastructure/compute/sites",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/infrastructure/compute/sites-list.component",
+      "componentName": "SitesListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/infrastructure/compute/sites/create",
+    "parentPath": null,
+    "fullPath": "administration/infrastructure/compute/sites/create",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/infrastructure/compute/site-create.component",
+      "componentName": "SiteCreateComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/infrastructure/connectivity-hub",
+    "parentPath": null,
+    "fullPath": "administration/infrastructure/connectivity-hub",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/infrastructure/connectivity/connectivity-hub.component",
+      "componentName": "ConnectivityHubComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/infrastructure/connectivity/private",
+    "parentPath": null,
+    "fullPath": "administration/infrastructure/connectivity/private",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/infrastructure/connectivity/private-connectivity-list.component",
+      "componentName": "PrivateConnectivityListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/infrastructure/connectivity/private/create",
+    "parentPath": null,
+    "fullPath": "administration/infrastructure/connectivity/private/create",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/infrastructure/connectivity/private-connectivity-create.component",
+      "componentName": "PrivateConnectivityCreateComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/infrastructure/connectivity/routing",
+    "parentPath": null,
+    "fullPath": "administration/infrastructure/connectivity/routing",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/infrastructure/connectivity/routing-list.component",
+      "componentName": "RoutingListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/infrastructure/connectivity/routing/create",
+    "parentPath": null,
+    "fullPath": "administration/infrastructure/connectivity/routing/create",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/infrastructure/connectivity/routing-create.component",
+      "componentName": "RoutingCreateComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/infrastructure/connectivity/hybrid",
+    "parentPath": null,
+    "fullPath": "administration/infrastructure/connectivity/hybrid",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/infrastructure/connectivity/hybrid-environments.component",
+      "componentName": "HybridEnvironmentsComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/infrastructure/placement-hub",
+    "parentPath": null,
+    "fullPath": "administration/infrastructure/placement-hub",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/infrastructure/placement/placement-hub.component",
+      "componentName": "PlacementHubComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/infrastructure/placement/regions",
+    "parentPath": null,
+    "fullPath": "administration/infrastructure/placement/regions",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/infrastructure/placement/regions-list.component",
+      "componentName": "RegionsListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/infrastructure/placement/sovereignty",
+    "parentPath": null,
+    "fullPath": "administration/infrastructure/placement/sovereignty",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/infrastructure/placement/sovereignty-policies.component",
+      "componentName": "SovereigntyPoliciesComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/infrastructure/automation-hub",
+    "parentPath": null,
+    "fullPath": "administration/infrastructure/automation-hub",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/infrastructure/automation/automation-hub.component",
+      "componentName": "AutomationHubComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/infrastructure/automation/iac",
+    "parentPath": null,
+    "fullPath": "administration/infrastructure/automation/iac",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/infrastructure/automation/iac-config.component",
+      "componentName": "IacConfigComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/infrastructure/automation/gitops",
+    "parentPath": null,
+    "fullPath": "administration/infrastructure/automation/gitops",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/infrastructure/automation/gitops-config.component",
+      "componentName": "GitOpsConfigComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/compliance",
+    "parentPath": null,
+    "fullPath": "administration/compliance",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/compliance/compliance-home.component",
+      "componentName": "ComplianceHomeComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/compliance/frameworks/catalog",
+    "parentPath": null,
+    "fullPath": "administration/compliance/frameworks/catalog",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/compliance/frameworks/control-frameworks-list.component",
+      "componentName": "ControlFrameworksListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/compliance/frameworks/detail/:id",
+    "parentPath": null,
+    "fullPath": "administration/compliance/frameworks/detail/:id",
+    "moduleDomain": "administration",
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/compliance/frameworks/framework-detail.component",
+      "componentName": "FrameworkDetailComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/compliance/frameworks/views",
+    "parentPath": null,
+    "fullPath": "administration/compliance/frameworks/views",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/compliance/frameworks/framework-views.component",
+      "componentName": "FrameworkViewsComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/compliance/frameworks/custom",
+    "parentPath": null,
+    "fullPath": "administration/compliance/frameworks/custom",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/compliance/frameworks/custom-frameworks-list.component",
+      "componentName": "CustomFrameworksListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/compliance/frameworks/custom/create",
+    "parentPath": null,
+    "fullPath": "administration/compliance/frameworks/custom/create",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/compliance/frameworks/custom-framework-create.component",
+      "componentName": "CustomFrameworkCreateComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/compliance/controls/mapping",
+    "parentPath": null,
+    "fullPath": "administration/compliance/controls/mapping",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/compliance/controls/control-mapping-list.component",
+      "componentName": "ControlMappingListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/compliance/controls/exceptions",
+    "parentPath": null,
+    "fullPath": "administration/compliance/controls/exceptions",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/compliance/controls/exceptions-list.component",
+      "componentName": "ExceptionsListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/compliance/controls/exceptions/request",
+    "parentPath": null,
+    "fullPath": "administration/compliance/controls/exceptions/request",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/compliance/controls/exception-request.component",
+      "componentName": "ExceptionRequestComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/compliance/evidence",
+    "parentPath": null,
+    "fullPath": "administration/compliance/evidence",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/compliance/evidence/compliance-evidence-list.component",
+      "componentName": "ComplianceEvidenceListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/compliance/evidence/detail/:id",
+    "parentPath": null,
+    "fullPath": "administration/compliance/evidence/detail/:id",
+    "moduleDomain": "administration",
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/compliance/evidence/compliance-evidence-detail.component",
+      "componentName": "ComplianceEvidenceDetailComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/audit",
+    "parentPath": null,
+    "fullPath": "administration/audit",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/audit/audit-home.component",
+      "componentName": "AuditHomeComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/audit/policies",
+    "parentPath": null,
+    "fullPath": "administration/audit/policies",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/audit/configuration/audit-policies-list.component",
+      "componentName": "AuditPoliciesListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/audit/policies/create",
+    "parentPath": null,
+    "fullPath": "administration/audit/policies/create",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/audit/configuration/audit-policy-create.component",
+      "componentName": "AuditPolicyCreateComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/audit/policies/detail/:id",
+    "parentPath": null,
+    "fullPath": "administration/audit/policies/detail/:id",
+    "moduleDomain": "administration",
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/audit/configuration/audit-policy-detail.component",
+      "componentName": "AuditPolicyDetailComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/audit/destinations",
+    "parentPath": null,
+    "fullPath": "administration/audit/destinations",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/audit/configuration/audit-destinations-list.component",
+      "componentName": "AuditDestinationsListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/audit/destinations/create",
+    "parentPath": null,
+    "fullPath": "administration/audit/destinations/create",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/audit/configuration/audit-destination-create.component",
+      "componentName": "AuditDestinationCreateComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/audit/trail",
+    "parentPath": null,
+    "fullPath": "administration/audit/trail",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/audit/trail/audit-trail-list.component",
+      "componentName": "AuditTrailListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/audit/trail/detail/:id",
+    "parentPath": null,
+    "fullPath": "administration/audit/trail/detail/:id",
+    "moduleDomain": "administration",
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/audit/trail/audit-event-detail.component",
+      "componentName": "AuditEventDetailComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/audit/retention",
+    "parentPath": null,
+    "fullPath": "administration/audit/retention",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/audit/governance/evidence-retention-list.component",
+      "componentName": "EvidenceRetentionListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/audit/legal-hold",
+    "parentPath": null,
+    "fullPath": "administration/audit/legal-hold",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/audit/governance/legal-hold-list.component",
+      "componentName": "LegalHoldListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/audit/legal-hold/create",
+    "parentPath": null,
+    "fullPath": "administration/audit/legal-hold/create",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/audit/governance/legal-hold-create.component",
+      "componentName": "LegalHoldCreateComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/audit/integrity",
+    "parentPath": null,
+    "fullPath": "administration/audit/integrity",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/audit/governance/audit-integrity-verification.component",
+      "componentName": "AuditIntegrityVerificationComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/audit/export",
+    "parentPath": null,
+    "fullPath": "administration/audit/export",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/audit/export/audit-export.component",
+      "componentName": "AuditExportComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/platform-admin",
+    "parentPath": null,
+    "fullPath": "administration/platform-admin",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/platform-admin/platform-admin-home.component",
+      "componentName": "PlatformAdminHomeComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/platform-admin/platform/config",
+    "parentPath": null,
+    "fullPath": "administration/platform-admin/platform/config",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/platform-admin/platform/platform-config.component",
+      "componentName": "PlatformConfigComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/platform-admin/platform/services",
+    "parentPath": null,
+    "fullPath": "administration/platform-admin/platform/services",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/platform-admin/platform/services-nodes-list.component",
+      "componentName": "ServicesNodesListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/platform-admin/platform/deployment",
+    "parentPath": null,
+    "fullPath": "administration/platform-admin/platform/deployment",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/platform-admin/platform/deployment-config.component",
+      "componentName": "DeploymentConfigComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/platform-admin/lifecycle/versions",
+    "parentPath": null,
+    "fullPath": "administration/platform-admin/lifecycle/versions",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/platform-admin/lifecycle/versions-view.component",
+      "componentName": "VersionsViewComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/platform-admin/lifecycle/updates",
+    "parentPath": null,
+    "fullPath": "administration/platform-admin/lifecycle/updates",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/platform-admin/lifecycle/updates-management.component",
+      "componentName": "UpdatesManagementComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/platform-admin/lifecycle/maintenance",
+    "parentPath": null,
+    "fullPath": "administration/platform-admin/lifecycle/maintenance",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/platform-admin/lifecycle/maintenance-windows-list.component",
+      "componentName": "MaintenanceWindowsListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/platform-admin/lifecycle/maintenance/create",
+    "parentPath": null,
+    "fullPath": "administration/platform-admin/lifecycle/maintenance/create",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/platform-admin/lifecycle/maintenance-window-create.component",
+      "componentName": "MaintenanceWindowCreateComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/platform-admin/commercial/licensing",
+    "parentPath": null,
+    "fullPath": "administration/platform-admin/commercial/licensing",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/platform-admin/commercial/licensing-entitlements.component",
+      "componentName": "LicensingEntitlementsComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/platform-admin/resilience/backup-restore",
+    "parentPath": null,
+    "fullPath": "administration/platform-admin/resilience/backup-restore",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/platform-admin/resilience/backup-restore.component",
+      "componentName": "BackupRestoreComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/platform-admin/support/diagnostics",
+    "parentPath": null,
+    "fullPath": "administration/platform-admin/support/diagnostics",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/platform-admin/support/diagnostics-support.component",
+      "componentName": "DiagnosticsSupportComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/integrations",
+    "parentPath": null,
+    "fullPath": "administration/integrations",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/integrations/integrations-home.component",
+      "componentName": "IntegrationsHomeComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/integrations-notifications",
+    "parentPath": null,
+    "fullPath": "administration/integrations-notifications",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": true,
+    "redirectTo": "administration/integrations",
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": false,
+    "loadComponent": null,
+    "hasChildren": false
+  },
+  {
+    "path": "administration/integrations/notifications/channels",
+    "parentPath": null,
+    "fullPath": "administration/integrations/notifications/channels",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/integrations/notifications/channels-list.component",
+      "componentName": "ChannelsListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/integrations/notifications/channels/create",
+    "parentPath": null,
+    "fullPath": "administration/integrations/notifications/channels/create",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/integrations/notifications/channel-create.component",
+      "componentName": "ChannelCreateComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/integrations/notifications/channels/detail/:id",
+    "parentPath": null,
+    "fullPath": "administration/integrations/notifications/channels/detail/:id",
+    "moduleDomain": "administration",
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/integrations/notifications/channel-detail.component",
+      "componentName": "ChannelDetailComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/integrations/notifications/policies",
+    "parentPath": null,
+    "fullPath": "administration/integrations/notifications/policies",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/integrations/notifications/policies-list.component",
+      "componentName": "PoliciesListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/integrations/notifications/policies/create",
+    "parentPath": null,
+    "fullPath": "administration/integrations/notifications/policies/create",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/integrations/notifications/policy-create.component",
+      "componentName": "PolicyCreateComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/integrations/events/routing",
+    "parentPath": null,
+    "fullPath": "administration/integrations/events/routing",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/integrations/event-delivery/event-routing-list.component",
+      "componentName": "EventRoutingListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/integrations/events/routing/create",
+    "parentPath": null,
+    "fullPath": "administration/integrations/events/routing/create",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/integrations/event-delivery/event-routing-create.component",
+      "componentName": "EventRoutingCreateComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/integrations/enterprise/siem",
+    "parentPath": null,
+    "fullPath": "administration/integrations/enterprise/siem",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/integrations/enterprise/siem-integrations-list.component",
+      "componentName": "SiemIntegrationsListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/integrations/enterprise/siem/create",
+    "parentPath": null,
+    "fullPath": "administration/integrations/enterprise/siem/create",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/integrations/enterprise/siem-create.component",
+      "componentName": "SiemCreateComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/integrations/enterprise/itsm",
+    "parentPath": null,
+    "fullPath": "administration/integrations/enterprise/itsm",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/integrations/enterprise/itsm-integrations-list.component",
+      "componentName": "ItsmIntegrationsListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/integrations/enterprise/itsm/create",
+    "parentPath": null,
+    "fullPath": "administration/integrations/enterprise/itsm/create",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/integrations/enterprise/itsm-create.component",
+      "componentName": "ItsmCreateComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "administration/integrations/credentials",
+    "parentPath": null,
+    "fullPath": "administration/integrations/credentials",
+    "moduleDomain": "administration",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/admin/integrations/credentials/credential-references-list.component",
+      "componentName": "CredentialReferencesListComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "settings",
+    "parentPath": null,
+    "fullPath": "settings",
+    "moduleDomain": "settings",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/settings/settings-shell.component",
+      "componentName": "SettingsShellComponent"
+    },
+    "hasChildren": true
+  },
+  {
+    "path": "",
+    "parentPath": "settings",
+    "fullPath": "settings",
+    "moduleDomain": "settings",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": true,
+    "redirectTo": "general",
+    "pathMatch": "full",
+    "isEager": false,
+    "component": null,
+    "isLazy": false,
+    "loadComponent": null,
+    "hasChildren": false
+  },
+  {
+    "path": "general",
+    "parentPath": "settings",
+    "fullPath": "settings/general",
+    "moduleDomain": "settings",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/settings/general/settings-general.component",
+      "componentName": "SettingsGeneralComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "appearance",
+    "parentPath": "settings",
+    "fullPath": "settings/appearance",
+    "moduleDomain": "settings",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/settings/appearance/settings-appearance.component",
+      "componentName": "SettingsAppearanceComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "runtime-migration",
+    "parentPath": "settings",
+    "fullPath": "settings/runtime-migration",
+    "moduleDomain": "settings",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/settings/runtime-migration/settings-runtime-migration.component",
+      "componentName": "SettingsRuntimeMigrationComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "connectors",
+    "parentPath": "settings",
+    "fullPath": "settings/connectors",
+    "moduleDomain": "settings",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/settings/connectors/settings-connectors.component",
+      "componentName": "SettingsConnectorsComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "storage",
+    "parentPath": "settings",
+    "fullPath": "settings/storage",
+    "moduleDomain": "settings",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/settings/storage/settings-storage.component",
+      "componentName": "SettingsStorageComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "notifications",
+    "parentPath": "settings",
+    "fullPath": "settings/notifications",
+    "moduleDomain": "settings",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/settings/notifications/settings-notifications.component",
+      "componentName": "SettingsNotificationsComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "integrations",
+    "parentPath": "settings",
+    "fullPath": "settings/integrations",
+    "moduleDomain": "settings",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/settings/integrations/settings-integrations.component",
+      "componentName": "SettingsIntegrationsComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "ai-intelligence",
+    "parentPath": "settings",
+    "fullPath": "settings/ai-intelligence",
+    "moduleDomain": "settings",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/settings/ai-intelligence/settings-ai-intelligence.component",
+      "componentName": "SettingsAiIntelligenceComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "logging",
+    "parentPath": "settings",
+    "fullPath": "settings/logging",
+    "moduleDomain": "settings",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/settings/logging/settings-logging.component",
+      "componentName": "SettingsLoggingComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "advanced",
+    "parentPath": "settings",
+    "fullPath": "settings/advanced",
+    "moduleDomain": "settings",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": true,
+    "loadComponent": {
+      "file": "./modules/settings/advanced/settings-advanced.component",
+      "componentName": "SettingsAdvancedComponent"
+    },
+    "hasChildren": false
+  },
+  {
+    "path": "**",
+    "parentPath": null,
+    "fullPath": "**",
+    "moduleDomain": "root",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": true,
+    "redirectTo": "dashboard",
+    "pathMatch": null,
+    "isEager": false,
+    "component": null,
+    "isLazy": false,
+    "loadComponent": null,
+    "hasChildren": false
+  }
+]

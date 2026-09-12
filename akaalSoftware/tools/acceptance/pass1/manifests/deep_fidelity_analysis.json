@@ -1,0 +1,250 @@
+{
+  "timestamp": "2026-09-12T15:24:09.971Z",
+  "totalSurfaces": 538,
+  "moduleComponentCounts": {
+    "Dashboard": 11,
+    "Migration": 215,
+    "Monitoring": 57,
+    "Reports": 39,
+    "Administration": 191,
+    "Settings": 12,
+    "Shared_Chrome": 13
+  },
+  "migrationSubCounts": {
+    "coreMigration": 132,
+    "connections": 29,
+    "validation": 55,
+    "cockpit": 10
+  },
+  "actionMetrics": {
+    "totalActionsCount": 890,
+    "actionCategoryCounts": {
+      "create_add": {
+        "name": "Create / Add / Provision",
+        "count": 71,
+        "componentCount": 71
+      },
+      "edit_modify": {
+        "name": "Edit / Update / Configure",
+        "count": 82,
+        "componentCount": 82
+      },
+      "delete_archive": {
+        "name": "Delete / Remove / Archive",
+        "count": 23,
+        "componentCount": 23
+      },
+      "save_submit": {
+        "name": "Save / Submit / Apply",
+        "count": 76,
+        "componentCount": 76
+      },
+      "cancel_close": {
+        "name": "Cancel / Dismiss / Close",
+        "count": 57,
+        "componentCount": 57
+      },
+      "test_probe_verify": {
+        "name": "Test / Probe / Verify / Validate",
+        "count": 29,
+        "componentCount": 29
+      },
+      "start_execute_launch": {
+        "name": "Start / Launch / Execute",
+        "count": 18,
+        "componentCount": 18
+      },
+      "pause_resume": {
+        "name": "Pause / Resume / Suspend",
+        "count": 3,
+        "componentCount": 3
+      },
+      "halt_abort_terminate": {
+        "name": "Halt / Abort / Terminate / Stop",
+        "count": 21,
+        "componentCount": 21
+      },
+      "approve_reject_barrier": {
+        "name": "Approve / Reject / Barrier Override",
+        "count": 5,
+        "componentCount": 5
+      },
+      "retry_recover_repair": {
+        "name": "Retry / Recover / Repair / Reconcile",
+        "count": 24,
+        "componentCount": 24
+      },
+      "export_download": {
+        "name": "Export / Download / Bundle",
+        "count": 9,
+        "componentCount": 9
+      },
+      "filter_search_sort": {
+        "name": "Filter / Search / Sort / Paginate",
+        "count": 82,
+        "componentCount": 82
+      },
+      "refresh_reload": {
+        "name": "Refresh / Reload / Resync",
+        "count": 14,
+        "componentCount": 14
+      },
+      "toggle_select_switch": {
+        "name": "Toggle / Select / Switch State",
+        "count": 97,
+        "componentCount": 97
+      },
+      "navigate_route": {
+        "name": "Navigate / Deep-Link / Drilldown",
+        "count": 277,
+        "componentCount": 277
+      },
+      "cutover_failback": {
+        "name": "Cutover / Switchover / Failback",
+        "count": 2,
+        "componentCount": 2
+      }
+    }
+  },
+  "statesSummary": {
+    "totalEnums": 0,
+    "totalUnionTypes": 160,
+    "operationalStatesCount": 90,
+    "configCategoriesCount": 70
+  },
+  "canonicalWorkflows": [
+    {
+      "id": "CANON-M1",
+      "name": "Execution Mode M1: Bulk Load Only",
+      "docRef": "Workflow:52",
+      "builtRoute": "/migration/new",
+      "component": "CreateMigrationWizardComponent",
+      "fidelity": "EXACT"
+    },
+    {
+      "id": "CANON-M2",
+      "name": "Execution Mode M2: Bulk Load + CDC Replication",
+      "docRef": "Workflow:53",
+      "builtRoute": "/migration/new",
+      "component": "CreateMigrationWizardComponent",
+      "fidelity": "EXACT"
+    },
+    {
+      "id": "CANON-M3",
+      "name": "Execution Mode M3: Continuous CDC Only",
+      "docRef": "Workflow:54",
+      "builtRoute": "/migration/new",
+      "component": "CreateMigrationWizardComponent",
+      "fidelity": "EXACT"
+    },
+    {
+      "id": "CANON-M4",
+      "name": "Execution Mode M4: Incremental Periodic Sync",
+      "docRef": "Workflow:55",
+      "builtRoute": "/migration/new",
+      "component": "CreateMigrationWizardComponent",
+      "fidelity": "EXACT"
+    },
+    {
+      "id": "CANON-M5",
+      "name": "Execution Mode M5: Bi-Directional State Sync",
+      "docRef": "Workflow:56",
+      "builtRoute": "/migration/new",
+      "component": "CreateMigrationWizardComponent",
+      "fidelity": "EXACT"
+    },
+    {
+      "id": "CANON-M6",
+      "name": "Execution Mode M6: Schema Only Conversion",
+      "docRef": "Workflow:57",
+      "builtRoute": "/migration/new",
+      "component": "CreateMigrationWizardComponent",
+      "fidelity": "EXACT"
+    },
+    {
+      "id": "CANON-M7",
+      "name": "Execution Mode M7: Data Only Load",
+      "docRef": "Workflow:58",
+      "builtRoute": "/migration/new",
+      "component": "CreateMigrationWizardComponent",
+      "fidelity": "EXACT"
+    },
+    {
+      "id": "CANON-M8",
+      "name": "Execution Mode M8: Continuous Validation / Drift Check",
+      "docRef": "Workflow:59",
+      "builtRoute": "/migration/new",
+      "component": "CreateMigrationWizardComponent",
+      "fidelity": "EXACT"
+    },
+    {
+      "id": "CANON-WIZ-9STEP",
+      "name": "Canonical 9-Step Creation Wizard Flow",
+      "docRef": "Workflow:51-380",
+      "builtRoute": "/migration/new",
+      "component": "CreateMigrationWizardComponent",
+      "fidelity": "EXACT"
+    },
+    {
+      "id": "CANON-BARRIERS",
+      "name": "Four-Eyes Maker-Checker Approval Barriers",
+      "docRef": "Workflow:320-350",
+      "builtRoute": "/cockpit/:migrationId",
+      "component": "CockpitComponent",
+      "fidelity": "EXACT"
+    },
+    {
+      "id": "CANON-CUTOVER",
+      "name": "Zero-Data-Loss Cutover & Reverse Failback",
+      "docRef": "Workflow:350-375",
+      "builtRoute": "/cockpit/:migrationId",
+      "component": "CockpitComponent",
+      "fidelity": "EXACT"
+    },
+    {
+      "id": "CANON-REPAIR",
+      "name": "Discrepancy Localization & Governed Surgical Repair",
+      "docRef": "Workflow:360-370",
+      "builtRoute": "/validation/:suiteId",
+      "component": "ValidationDetailComponent",
+      "fidelity": "EXACT"
+    }
+  ],
+  "pass2EnterpriseCandidates": [
+    {
+      "id": "P2-CAND-001",
+      "capability": "Multi-Node Cluster Distributed Coordination (Raft / Gossip)",
+      "module": "Administration / Monitoring",
+      "surface": "/administration/cloud-infra & /monitoring/platform",
+      "reasonForPass2": "UI frames and telemetry graphs are fully implemented; verifying live cluster consensus and multi-node quorum heartbeats requires live distributed engine daemon in Pass 2."
+    },
+    {
+      "id": "P2-CAND-002",
+      "capability": "Enterprise Vault / KMS Hardware Security Module (HSM) Live Enclave",
+      "module": "Administration",
+      "surface": "/administration/security/vault & /administration/security/kms",
+      "reasonForPass2": "UI forms, credential masks, and rotation policies are built; live cryptographic signing with remote HSM / AWS KMS / Vault AppRole requires active backend driver integration in Pass 2."
+    },
+    {
+      "id": "P2-CAND-003",
+      "capability": "Real-time High-Throughput CDC Stream Ingestion (100k+ events/sec)",
+      "module": "Migration / Cockpit",
+      "surface": "/cockpit/:migrationId",
+      "reasonForPass2": "Cockpit canvas, lag graphs, and backpressure indicators are built and responsive; sustained 100k ops/sec streaming requires live database replication slots and Go engine in Pass 2."
+    },
+    {
+      "id": "P2-CAND-004",
+      "capability": "Petabyte-Scale Merkle Tree Data Integrity Verification",
+      "module": "Validation",
+      "surface": "/validation/:suiteId",
+      "reasonForPass2": "Validation hierarchy, discrepancy localizer, and surgical repair views are built; petabyte-scale streaming checksum generation is backend compute-bound in Pass 2."
+    },
+    {
+      "id": "P2-CAND-005",
+      "capability": "Enterprise SAML 2.0 / OIDC IdP Handshake & SCIM User Provisioning",
+      "module": "Administration",
+      "surface": "/administration/security/sso",
+      "reasonForPass2": "Configuration UI, metadata import/export, and attribute mapping are built; live enterprise IdP callback verification requires network SSO tenant in Pass 2."
+    }
+  ]
+}

@@ -1,0 +1,1233 @@
+[
+  {
+    "relPath": ".",
+    "fileCount": 12,
+    "totalSize": 65023415,
+    "subdirs": [
+      "build",
+      "data",
+      "frontend",
+      "node_modules",
+      "pkg",
+      "tools"
+    ]
+  },
+  {
+    "relPath": "build",
+    "fileCount": 0,
+    "totalSize": 0,
+    "subdirs": [
+      "bin"
+    ]
+  },
+  {
+    "relPath": "build/bin",
+    "fileCount": 1,
+    "totalSize": 25507840,
+    "subdirs": []
+  },
+  {
+    "relPath": "data",
+    "fileCount": 3,
+    "totalSize": 98696,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend",
+    "fileCount": 66,
+    "totalSize": 1922057,
+    "subdirs": [
+      ".angular",
+      ".claude",
+      "dist",
+      "node_modules",
+      "src"
+    ]
+  },
+  {
+    "relPath": "frontend/.claude",
+    "fileCount": 1,
+    "totalSize": 199,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src",
+    "fileCount": 2,
+    "totalSize": 968,
+    "subdirs": [
+      "app",
+      "assets",
+      "styles"
+    ]
+  },
+  {
+    "relPath": "frontend/src/app",
+    "fileCount": 3,
+    "totalSize": 52642,
+    "subdirs": [
+      "core",
+      "modules",
+      "shared"
+    ]
+  },
+  {
+    "relPath": "frontend/src/app/core",
+    "fileCount": 0,
+    "totalSize": 0,
+    "subdirs": [
+      "design-system",
+      "fixtures",
+      "models",
+      "services",
+      "tokens"
+    ]
+  },
+  {
+    "relPath": "frontend/src/app/core/design-system",
+    "fileCount": 1,
+    "totalSize": 10337,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/core/fixtures",
+    "fileCount": 1,
+    "totalSize": 78740,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/core/models",
+    "fileCount": 6,
+    "totalSize": 125620,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/core/services",
+    "fileCount": 27,
+    "totalSize": 509301,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/core/tokens",
+    "fileCount": 2,
+    "totalSize": 6156,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules",
+    "fileCount": 0,
+    "totalSize": 0,
+    "subdirs": [
+      "admin",
+      "connections",
+      "dashboard",
+      "migration",
+      "monitoring",
+      "placeholders",
+      "reports",
+      "settings",
+      "shell",
+      "validation"
+    ]
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin",
+    "fileCount": 7,
+    "totalSize": 62027,
+    "subdirs": [
+      "audit",
+      "compliance",
+      "connectors-plugins",
+      "enterprise",
+      "governance",
+      "identity",
+      "infrastructure",
+      "integrations",
+      "models",
+      "people",
+      "platform-admin",
+      "services",
+      "templates-library"
+    ]
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/audit",
+    "fileCount": 1,
+    "totalSize": 6789,
+    "subdirs": [
+      "configuration",
+      "export",
+      "governance",
+      "trail"
+    ]
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/audit/configuration",
+    "fileCount": 5,
+    "totalSize": 29527,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/audit/export",
+    "fileCount": 1,
+    "totalSize": 6446,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/audit/governance",
+    "fileCount": 4,
+    "totalSize": 21535,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/audit/trail",
+    "fileCount": 2,
+    "totalSize": 9923,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/compliance",
+    "fileCount": 1,
+    "totalSize": 6507,
+    "subdirs": [
+      "controls",
+      "evidence",
+      "frameworks"
+    ]
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/compliance/controls",
+    "fileCount": 3,
+    "totalSize": 16394,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/compliance/evidence",
+    "fileCount": 2,
+    "totalSize": 9543,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/compliance/frameworks",
+    "fileCount": 5,
+    "totalSize": 32815,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/connectors-plugins",
+    "fileCount": 1,
+    "totalSize": 6401,
+    "subdirs": [
+      "connectors",
+      "extensions",
+      "intelligence"
+    ]
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/connectors-plugins/connectors",
+    "fileCount": 6,
+    "totalSize": 41334,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/connectors-plugins/extensions",
+    "fileCount": 5,
+    "totalSize": 27901,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/connectors-plugins/intelligence",
+    "fileCount": 5,
+    "totalSize": 26151,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/enterprise",
+    "fileCount": 1,
+    "totalSize": 6676,
+    "subdirs": [
+      "governance",
+      "settings",
+      "structure"
+    ]
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/enterprise/governance",
+    "fileCount": 1,
+    "totalSize": 6944,
+    "subdirs": [
+      "boundaries",
+      "metadata",
+      "ownership",
+      "quotas"
+    ]
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/enterprise/governance/boundaries",
+    "fileCount": 4,
+    "totalSize": 24906,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/enterprise/governance/metadata",
+    "fileCount": 4,
+    "totalSize": 23666,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/enterprise/governance/ownership",
+    "fileCount": 3,
+    "totalSize": 18572,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/enterprise/governance/quotas",
+    "fileCount": 3,
+    "totalSize": 17395,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/enterprise/settings",
+    "fileCount": 2,
+    "totalSize": 14654,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/enterprise/structure",
+    "fileCount": 1,
+    "totalSize": 5459,
+    "subdirs": [
+      "environments",
+      "orgs",
+      "workspaces"
+    ]
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/enterprise/structure/environments",
+    "fileCount": 4,
+    "totalSize": 24410,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/enterprise/structure/orgs",
+    "fileCount": 4,
+    "totalSize": 30733,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/enterprise/structure/workspaces",
+    "fileCount": 4,
+    "totalSize": 31903,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/governance",
+    "fileCount": 1,
+    "totalSize": 12608,
+    "subdirs": [
+      "approvals",
+      "history",
+      "policies",
+      "privileged"
+    ]
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/governance/approvals",
+    "fileCount": 7,
+    "totalSize": 32897,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/governance/history",
+    "fileCount": 1,
+    "totalSize": 4148,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/governance/policies",
+    "fileCount": 4,
+    "totalSize": 20650,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/governance/privileged",
+    "fileCount": 7,
+    "totalSize": 30844,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/identity",
+    "fileCount": 1,
+    "totalSize": 14307,
+    "subdirs": [
+      "auth",
+      "crypto",
+      "directory",
+      "workload"
+    ]
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/identity/auth",
+    "fileCount": 5,
+    "totalSize": 39638,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/identity/crypto",
+    "fileCount": 5,
+    "totalSize": 25036,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/identity/directory",
+    "fileCount": 4,
+    "totalSize": 21336,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/identity/workload",
+    "fileCount": 3,
+    "totalSize": 14308,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/infrastructure",
+    "fileCount": 1,
+    "totalSize": 9411,
+    "subdirs": [
+      "automation",
+      "cloud",
+      "compute",
+      "connectivity",
+      "placement"
+    ]
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/infrastructure/automation",
+    "fileCount": 3,
+    "totalSize": 12393,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/infrastructure/cloud",
+    "fileCount": 4,
+    "totalSize": 22384,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/infrastructure/compute",
+    "fileCount": 5,
+    "totalSize": 30930,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/infrastructure/connectivity",
+    "fileCount": 6,
+    "totalSize": 34446,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/infrastructure/placement",
+    "fileCount": 3,
+    "totalSize": 13382,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/integrations",
+    "fileCount": 1,
+    "totalSize": 6642,
+    "subdirs": [
+      "credentials",
+      "enterprise",
+      "event-delivery",
+      "notifications"
+    ]
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/integrations/credentials",
+    "fileCount": 1,
+    "totalSize": 4624,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/integrations/enterprise",
+    "fileCount": 4,
+    "totalSize": 24361,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/integrations/event-delivery",
+    "fileCount": 2,
+    "totalSize": 10456,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/integrations/notifications",
+    "fileCount": 5,
+    "totalSize": 30057,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/models",
+    "fileCount": 11,
+    "totalSize": 33427,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/people",
+    "fileCount": 1,
+    "totalSize": 12811,
+    "subdirs": [
+      "access-control",
+      "directory",
+      "lifecycle",
+      "privileged"
+    ]
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/people/access-control",
+    "fileCount": 8,
+    "totalSize": 40349,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/people/directory",
+    "fileCount": 9,
+    "totalSize": 56884,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/people/lifecycle",
+    "fileCount": 4,
+    "totalSize": 18152,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/people/privileged",
+    "fileCount": 5,
+    "totalSize": 21797,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/platform-admin",
+    "fileCount": 1,
+    "totalSize": 7561,
+    "subdirs": [
+      "commercial",
+      "lifecycle",
+      "platform",
+      "resilience",
+      "support"
+    ]
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/platform-admin/commercial",
+    "fileCount": 1,
+    "totalSize": 4839,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/platform-admin/lifecycle",
+    "fileCount": 4,
+    "totalSize": 20176,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/platform-admin/platform",
+    "fileCount": 3,
+    "totalSize": 12457,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/platform-admin/resilience",
+    "fileCount": 1,
+    "totalSize": 4771,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/platform-admin/support",
+    "fileCount": 1,
+    "totalSize": 6195,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/services",
+    "fileCount": 11,
+    "totalSize": 146485,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/templates-library",
+    "fileCount": 4,
+    "totalSize": 36268,
+    "subdirs": [
+      "lifecycle"
+    ]
+  },
+  {
+    "relPath": "frontend/src/app/modules/admin/templates-library/lifecycle",
+    "fileCount": 2,
+    "totalSize": 12050,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/connections",
+    "fileCount": 5,
+    "totalSize": 45864,
+    "subdirs": [
+      "components",
+      "create-connection",
+      "workspace"
+    ]
+  },
+  {
+    "relPath": "frontend/src/app/modules/connections/components",
+    "fileCount": 6,
+    "totalSize": 67436,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/connections/create-connection",
+    "fileCount": 5,
+    "totalSize": 88626,
+    "subdirs": [
+      "steps"
+    ]
+  },
+  {
+    "relPath": "frontend/src/app/modules/connections/create-connection/steps",
+    "fileCount": 5,
+    "totalSize": 100174,
+    "subdirs": [
+      "step2-extensions"
+    ]
+  },
+  {
+    "relPath": "frontend/src/app/modules/connections/create-connection/steps/step2-extensions",
+    "fileCount": 6,
+    "totalSize": 38392,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/connections/workspace",
+    "fileCount": 5,
+    "totalSize": 85314,
+    "subdirs": [
+      "components",
+      "tabs"
+    ]
+  },
+  {
+    "relPath": "frontend/src/app/modules/connections/workspace/components",
+    "fileCount": 2,
+    "totalSize": 14712,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/connections/workspace/tabs",
+    "fileCount": 6,
+    "totalSize": 89458,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/dashboard",
+    "fileCount": 1,
+    "totalSize": 9218,
+    "subdirs": [
+      "components"
+    ]
+  },
+  {
+    "relPath": "frontend/src/app/modules/dashboard/components",
+    "fileCount": 10,
+    "totalSize": 42349,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/migration",
+    "fileCount": 0,
+    "totalSize": 0,
+    "subdirs": [
+      "cockpit",
+      "components",
+      "connections",
+      "create",
+      "history",
+      "portfolio",
+      "projects",
+      "templates",
+      "workspace"
+    ]
+  },
+  {
+    "relPath": "frontend/src/app/modules/migration/cockpit",
+    "fileCount": 3,
+    "totalSize": 21256,
+    "subdirs": [
+      "components"
+    ]
+  },
+  {
+    "relPath": "frontend/src/app/modules/migration/cockpit/components",
+    "fileCount": 9,
+    "totalSize": 98781,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/migration/components",
+    "fileCount": 6,
+    "totalSize": 93187,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/migration/connections",
+    "fileCount": 1,
+    "totalSize": 10152,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/migration/create",
+    "fileCount": 3,
+    "totalSize": 87077,
+    "subdirs": [
+      "steps"
+    ]
+  },
+  {
+    "relPath": "frontend/src/app/modules/migration/create/steps",
+    "fileCount": 44,
+    "totalSize": 943147,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/migration/history",
+    "fileCount": 7,
+    "totalSize": 60362,
+    "subdirs": [
+      "components",
+      "history-workspace"
+    ]
+  },
+  {
+    "relPath": "frontend/src/app/modules/migration/history/components",
+    "fileCount": 4,
+    "totalSize": 19768,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/migration/history/history-workspace",
+    "fileCount": 5,
+    "totalSize": 86890,
+    "subdirs": [
+      "components",
+      "tabs"
+    ]
+  },
+  {
+    "relPath": "frontend/src/app/modules/migration/history/history-workspace/components",
+    "fileCount": 2,
+    "totalSize": 12839,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/migration/history/history-workspace/tabs",
+    "fileCount": 10,
+    "totalSize": 99505,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/migration/portfolio",
+    "fileCount": 1,
+    "totalSize": 49937,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/migration/projects",
+    "fileCount": 5,
+    "totalSize": 177327,
+    "subdirs": [
+      "components",
+      "create",
+      "create-project",
+      "project-workspace",
+      "workspace"
+    ]
+  },
+  {
+    "relPath": "frontend/src/app/modules/migration/projects/components",
+    "fileCount": 7,
+    "totalSize": 62818,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/migration/projects/create",
+    "fileCount": 4,
+    "totalSize": 32330,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/migration/projects/create-project",
+    "fileCount": 4,
+    "totalSize": 57868,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/migration/projects/project-workspace",
+    "fileCount": 10,
+    "totalSize": 205147,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/migration/projects/workspace",
+    "fileCount": 5,
+    "totalSize": 64456,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/migration/templates",
+    "fileCount": 6,
+    "totalSize": 30152,
+    "subdirs": [
+      "components",
+      "create-template",
+      "template-workspace"
+    ]
+  },
+  {
+    "relPath": "frontend/src/app/modules/migration/templates/components",
+    "fileCount": 3,
+    "totalSize": 19995,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/migration/templates/create-template",
+    "fileCount": 4,
+    "totalSize": 48216,
+    "subdirs": [
+      "steps"
+    ]
+  },
+  {
+    "relPath": "frontend/src/app/modules/migration/templates/create-template/steps",
+    "fileCount": 6,
+    "totalSize": 115869,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/migration/templates/template-workspace",
+    "fileCount": 5,
+    "totalSize": 84068,
+    "subdirs": [
+      "components",
+      "tabs"
+    ]
+  },
+  {
+    "relPath": "frontend/src/app/modules/migration/templates/template-workspace/components",
+    "fileCount": 2,
+    "totalSize": 10330,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/migration/templates/template-workspace/tabs",
+    "fileCount": 7,
+    "totalSize": 79716,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/migration/workspace",
+    "fileCount": 1,
+    "totalSize": 383,
+    "subdirs": [
+      "views"
+    ]
+  },
+  {
+    "relPath": "frontend/src/app/modules/migration/workspace/views",
+    "fileCount": 6,
+    "totalSize": 21523,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/monitoring",
+    "fileCount": 8,
+    "totalSize": 63189,
+    "subdirs": [
+      "components",
+      "fixtures",
+      "models",
+      "services"
+    ]
+  },
+  {
+    "relPath": "frontend/src/app/modules/monitoring/components",
+    "fileCount": 24,
+    "totalSize": 85337,
+    "subdirs": [
+      "alerts-tabs",
+      "mode-telemetry",
+      "platform-tabs",
+      "tabs"
+    ]
+  },
+  {
+    "relPath": "frontend/src/app/modules/monitoring/components/alerts-tabs",
+    "fileCount": 6,
+    "totalSize": 86997,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/monitoring/components/mode-telemetry",
+    "fileCount": 7,
+    "totalSize": 25116,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/monitoring/components/platform-tabs",
+    "fileCount": 8,
+    "totalSize": 87352,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/monitoring/components/tabs",
+    "fileCount": 8,
+    "totalSize": 65790,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/monitoring/fixtures",
+    "fileCount": 4,
+    "totalSize": 77149,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/monitoring/models",
+    "fileCount": 4,
+    "totalSize": 41020,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/monitoring/services",
+    "fileCount": 4,
+    "totalSize": 41566,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/placeholders",
+    "fileCount": 5,
+    "totalSize": 7214,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/reports",
+    "fileCount": 5,
+    "totalSize": 42605,
+    "subdirs": [
+      "certification",
+      "components",
+      "evidence",
+      "library",
+      "models",
+      "services"
+    ]
+  },
+  {
+    "relPath": "frontend/src/app/modules/reports/certification",
+    "fileCount": 3,
+    "totalSize": 36314,
+    "subdirs": [
+      "detail",
+      "verification"
+    ]
+  },
+  {
+    "relPath": "frontend/src/app/modules/reports/certification/detail",
+    "fileCount": 1,
+    "totalSize": 28719,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/reports/certification/verification",
+    "fileCount": 1,
+    "totalSize": 6938,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/reports/components",
+    "fileCount": 6,
+    "totalSize": 27424,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/reports/evidence",
+    "fileCount": 6,
+    "totalSize": 73417,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/reports/library",
+    "fileCount": 3,
+    "totalSize": 27705,
+    "subdirs": [
+      "report-detail"
+    ]
+  },
+  {
+    "relPath": "frontend/src/app/modules/reports/library/report-detail",
+    "fileCount": 1,
+    "totalSize": 28438,
+    "subdirs": [
+      "type-specific"
+    ]
+  },
+  {
+    "relPath": "frontend/src/app/modules/reports/library/report-detail/type-specific",
+    "fileCount": 14,
+    "totalSize": 116571,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/reports/models",
+    "fileCount": 4,
+    "totalSize": 32465,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/reports/services",
+    "fileCount": 1,
+    "totalSize": 92953,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/settings",
+    "fileCount": 3,
+    "totalSize": 44138,
+    "subdirs": [
+      "advanced",
+      "ai-intelligence",
+      "appearance",
+      "connectors",
+      "general",
+      "integrations",
+      "logging",
+      "models",
+      "notifications",
+      "runtime-migration",
+      "services",
+      "storage"
+    ]
+  },
+  {
+    "relPath": "frontend/src/app/modules/settings/advanced",
+    "fileCount": 1,
+    "totalSize": 19020,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/settings/ai-intelligence",
+    "fileCount": 1,
+    "totalSize": 27981,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/settings/appearance",
+    "fileCount": 1,
+    "totalSize": 32130,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/settings/connectors",
+    "fileCount": 1,
+    "totalSize": 21161,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/settings/general",
+    "fileCount": 1,
+    "totalSize": 25656,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/settings/integrations",
+    "fileCount": 1,
+    "totalSize": 24120,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/settings/logging",
+    "fileCount": 1,
+    "totalSize": 23241,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/settings/models",
+    "fileCount": 1,
+    "totalSize": 14146,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/settings/notifications",
+    "fileCount": 1,
+    "totalSize": 31628,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/settings/runtime-migration",
+    "fileCount": 1,
+    "totalSize": 53105,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/settings/services",
+    "fileCount": 1,
+    "totalSize": 24965,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/settings/storage",
+    "fileCount": 1,
+    "totalSize": 22201,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/shell",
+    "fileCount": 1,
+    "totalSize": 45355,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/validation",
+    "fileCount": 2,
+    "totalSize": 48123,
+    "subdirs": [
+      "components",
+      "create",
+      "mission-control",
+      "workstation"
+    ]
+  },
+  {
+    "relPath": "frontend/src/app/modules/validation/components",
+    "fileCount": 2,
+    "totalSize": 14500,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/validation/create",
+    "fileCount": 2,
+    "totalSize": 59367,
+    "subdirs": [
+      "steps"
+    ]
+  },
+  {
+    "relPath": "frontend/src/app/modules/validation/create/steps",
+    "fileCount": 16,
+    "totalSize": 528332,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/validation/mission-control",
+    "fileCount": 1,
+    "totalSize": 598,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/validation/workstation",
+    "fileCount": 5,
+    "totalSize": 55496,
+    "subdirs": [
+      "components",
+      "discrepancies",
+      "repair",
+      "results"
+    ]
+  },
+  {
+    "relPath": "frontend/src/app/modules/validation/workstation/components",
+    "fileCount": 9,
+    "totalSize": 79310,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/validation/workstation/discrepancies",
+    "fileCount": 5,
+    "totalSize": 53735,
+    "subdirs": [
+      "components"
+    ]
+  },
+  {
+    "relPath": "frontend/src/app/modules/validation/workstation/discrepancies/components",
+    "fileCount": 8,
+    "totalSize": 85894,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/validation/workstation/repair",
+    "fileCount": 5,
+    "totalSize": 83446,
+    "subdirs": [
+      "components"
+    ]
+  },
+  {
+    "relPath": "frontend/src/app/modules/validation/workstation/repair/components",
+    "fileCount": 10,
+    "totalSize": 115568,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/modules/validation/workstation/results",
+    "fileCount": 5,
+    "totalSize": 79089,
+    "subdirs": [
+      "components"
+    ]
+  },
+  {
+    "relPath": "frontend/src/app/modules/validation/workstation/results/components",
+    "fileCount": 11,
+    "totalSize": 73511,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/app/shared",
+    "fileCount": 0,
+    "totalSize": 0,
+    "subdirs": [
+      "components"
+    ]
+  },
+  {
+    "relPath": "frontend/src/app/shared/components",
+    "fileCount": 6,
+    "totalSize": 94878,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/assets",
+    "fileCount": 0,
+    "totalSize": 0,
+    "subdirs": []
+  },
+  {
+    "relPath": "frontend/src/styles",
+    "fileCount": 1,
+    "totalSize": 9757,
+    "subdirs": []
+  },
+  {
+    "relPath": "pkg",
+    "fileCount": 0,
+    "totalSize": 0,
+    "subdirs": [
+      "prototypedb"
+    ]
+  },
+  {
+    "relPath": "pkg/prototypedb",
+    "fileCount": 1,
+    "totalSize": 16436,
+    "subdirs": []
+  }
+]

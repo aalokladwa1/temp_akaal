@@ -1,0 +1,1823 @@
+{
+  "domainToSurfaces": {
+    "Organization / Workspace / Tenant Hierarchy": {
+      "category": "Multi-Tenancy",
+      "totalFiles": 205,
+      "sampleComponents": []
+    },
+    "Environment Tiering (Dev / Stage / Prod / DR)": {
+      "category": "Infrastructure",
+      "totalFiles": 163,
+      "sampleComponents": []
+    },
+    "Providers & Connectors (48 Physical Engines)": {
+      "category": "Connectivity",
+      "totalFiles": 185,
+      "sampleComponents": []
+    },
+    "Connections & Routing (TLS, SSH Bastion, Proxy)": {
+      "category": "Connectivity",
+      "totalFiles": 143,
+      "sampleComponents": []
+    },
+    "Migration Definition & Modes (M1–M8)": {
+      "category": "Migration Core",
+      "totalFiles": 60,
+      "sampleComponents": []
+    },
+    "Projects & Strategic Initiatives": {
+      "category": "Portfolio",
+      "totalFiles": 138,
+      "sampleComponents": []
+    },
+    "Schema Discovery & Estate (Tables, Columns, Types)": {
+      "category": "Schema & Data",
+      "totalFiles": 370,
+      "sampleComponents": []
+    },
+    "Mapping & Data Controls (Transform, Cleanse)": {
+      "category": "Schema & Data",
+      "totalFiles": 100,
+      "sampleComponents": []
+    },
+    "Enterprise Engine Tuning (Batches, Workers, Queues)": {
+      "category": "Engine Config",
+      "totalFiles": 104,
+      "sampleComponents": []
+    },
+    "Dynamic Migration Plan & DAG Scheduling": {
+      "category": "Execution Plan",
+      "totalFiles": 71,
+      "sampleComponents": []
+    },
+    "Governance, Readiness & Four-Eyes Approvals": {
+      "category": "Governance",
+      "totalFiles": 194,
+      "sampleComponents": []
+    },
+    "Execution Cockpit & Live Operations": {
+      "category": "Operations",
+      "totalFiles": 97,
+      "sampleComponents": []
+    },
+    "Continuous CDC & Stream Replication": {
+      "category": "Replication",
+      "totalFiles": 145,
+      "sampleComponents": []
+    },
+    "Cutover & Failback Operations": {
+      "category": "Operations",
+      "totalFiles": 58,
+      "sampleComponents": []
+    },
+    "Validation & Integrity Assurance (M8)": {
+      "category": "Validation",
+      "totalFiles": 225,
+      "sampleComponents": []
+    },
+    "Discrepancy Repair & Remediation": {
+      "category": "Validation",
+      "totalFiles": 57,
+      "sampleComponents": []
+    },
+    "Reports Library & Dossiers (13 Report Types)": {
+      "category": "Reporting",
+      "totalFiles": 113,
+      "sampleComponents": []
+    },
+    "Certification, Forensic Evidence & Hashes": {
+      "category": "Reporting",
+      "totalFiles": 165,
+      "sampleComponents": []
+    },
+    "System Monitoring & Observability": {
+      "category": "Observability",
+      "totalFiles": 161,
+      "sampleComponents": []
+    },
+    "Alerts, Incidents & Escalation Policies": {
+      "category": "Observability",
+      "totalFiles": 175,
+      "sampleComponents": []
+    },
+    "Audit Trail, Retention & Legal Hold": {
+      "category": "Compliance",
+      "totalFiles": 26,
+      "sampleComponents": []
+    },
+    "Compliance Frameworks & Controls (SOC2, HIPAA, GDPR)": {
+      "category": "Compliance",
+      "totalFiles": 74,
+      "sampleComponents": []
+    },
+    "Identity, Access, SSO, SCIM, Roles & Permissions": {
+      "category": "Identity",
+      "totalFiles": 190,
+      "sampleComponents": []
+    },
+    "Secrets, Vault, KMS & Key Rotation": {
+      "category": "Security",
+      "totalFiles": 88,
+      "sampleComponents": []
+    },
+    "Platform Admin, Maintenance & Licensing": {
+      "category": "Platform",
+      "totalFiles": 55,
+      "sampleComponents": []
+    },
+    "Workstation Settings & Preferences": {
+      "category": "Workstation",
+      "totalFiles": 76,
+      "sampleComponents": []
+    },
+    "AI & Operator Intelligence Assistance": {
+      "category": "Intelligence",
+      "totalFiles": 428,
+      "sampleComponents": []
+    }
+  },
+  "moduleToRoutes": {
+    "root": [
+      {
+        "fullPath": "",
+        "component": null,
+        "isLazy": false,
+        "hasParams": false
+      },
+      {
+        "fullPath": "**",
+        "component": null,
+        "isLazy": false,
+        "hasParams": false
+      }
+    ],
+    "dashboard": [
+      {
+        "fullPath": "dashboard",
+        "component": "DashboardComponent",
+        "isLazy": false,
+        "hasParams": false
+      }
+    ],
+    "cockpit": [
+      {
+        "fullPath": "cockpit",
+        "component": "CockpitComponent",
+        "isLazy": false,
+        "hasParams": false
+      },
+      {
+        "fullPath": "cockpit/:migrationId",
+        "component": "CockpitComponent",
+        "isLazy": false,
+        "hasParams": true
+      },
+      {
+        "fullPath": "migration/cockpit",
+        "component": "CockpitComponent",
+        "isLazy": false,
+        "hasParams": false
+      },
+      {
+        "fullPath": "migration/cockpit/:migrationId",
+        "component": "CockpitComponent",
+        "isLazy": false,
+        "hasParams": true
+      }
+    ],
+    "validation": [
+      {
+        "fullPath": "validation",
+        "component": "ValidationPortfolioComponent",
+        "isLazy": false,
+        "hasParams": false
+      },
+      {
+        "fullPath": "validation/new",
+        "component": "NewValidationWizardComponent",
+        "isLazy": false,
+        "hasParams": false
+      },
+      {
+        "fullPath": "validation/new/:step",
+        "component": "NewValidationWizardComponent",
+        "isLazy": false,
+        "hasParams": true
+      },
+      {
+        "fullPath": "validation/:validationId",
+        "component": "ValidationWorkstationComponent",
+        "isLazy": false,
+        "hasParams": true
+      },
+      {
+        "fullPath": "migration/validation",
+        "component": "ValidationPortfolioComponent",
+        "isLazy": false,
+        "hasParams": false
+      },
+      {
+        "fullPath": "migration/validation/new",
+        "component": "NewValidationWizardComponent",
+        "isLazy": false,
+        "hasParams": false
+      },
+      {
+        "fullPath": "migration/validation/new/:step",
+        "component": "NewValidationWizardComponent",
+        "isLazy": false,
+        "hasParams": true
+      },
+      {
+        "fullPath": "migration/validation/:validationId",
+        "component": "ValidationWorkstationComponent",
+        "isLazy": false,
+        "hasParams": true
+      }
+    ],
+    "connections": [
+      {
+        "fullPath": "connections",
+        "component": "ConnectionsHomeComponent",
+        "isLazy": false,
+        "hasParams": false
+      },
+      {
+        "fullPath": "connections/new",
+        "component": "CreateConnectionWizardComponent",
+        "isLazy": false,
+        "hasParams": false
+      },
+      {
+        "fullPath": "connections/new/:step",
+        "component": "CreateConnectionWizardComponent",
+        "isLazy": false,
+        "hasParams": true
+      },
+      {
+        "fullPath": "connections/:connectionId",
+        "component": "ConnectionWorkspaceComponent",
+        "isLazy": false,
+        "hasParams": true
+      },
+      {
+        "fullPath": "connections/:connectionId/:tab",
+        "component": "ConnectionWorkspaceComponent",
+        "isLazy": false,
+        "hasParams": true
+      }
+    ],
+    "migration": [
+      {
+        "fullPath": "migration",
+        "component": "MigrationPortfolioComponent",
+        "isLazy": false,
+        "hasParams": false
+      },
+      {
+        "fullPath": "migration/portfolio",
+        "component": "MigrationPortfolioComponent",
+        "isLazy": false,
+        "hasParams": false
+      },
+      {
+        "fullPath": "migration/create",
+        "component": "CreateMigrationWizardComponent",
+        "isLazy": false,
+        "hasParams": false
+      },
+      {
+        "fullPath": "migration/projects",
+        "component": "ProjectsComponent",
+        "isLazy": false,
+        "hasParams": false
+      },
+      {
+        "fullPath": "migration/initiatives/new",
+        "component": "CreateInitiativeComponent",
+        "isLazy": false,
+        "hasParams": false
+      },
+      {
+        "fullPath": "migration/initiatives/:initiativeId",
+        "component": "InitiativeWorkspaceComponent",
+        "isLazy": false,
+        "hasParams": true
+      },
+      {
+        "fullPath": "migration/initiatives/:initiativeId/new-project",
+        "component": "CreateProjectComponent",
+        "isLazy": false,
+        "hasParams": true
+      },
+      {
+        "fullPath": "migration/projects/:projectId",
+        "component": "ProjectWorkspaceComponent",
+        "isLazy": false,
+        "hasParams": true
+      },
+      {
+        "fullPath": "migration/connections",
+        "component": "ConnectionsComponent",
+        "isLazy": false,
+        "hasParams": false
+      },
+      {
+        "fullPath": "migration/history",
+        "component": "HistoryHomeComponent",
+        "isLazy": false,
+        "hasParams": false
+      },
+      {
+        "fullPath": "migration/history/:runId",
+        "component": "HistoryWorkspaceComponent",
+        "isLazy": false,
+        "hasParams": true
+      },
+      {
+        "fullPath": "migration/templates",
+        "component": "TemplatesHomeComponent",
+        "isLazy": false,
+        "hasParams": false
+      },
+      {
+        "fullPath": "migration/templates/new",
+        "component": "CreateTemplateComponent",
+        "isLazy": false,
+        "hasParams": false
+      },
+      {
+        "fullPath": "migration/templates/:templateId",
+        "component": "TemplateWorkspaceComponent",
+        "isLazy": false,
+        "hasParams": true
+      }
+    ],
+    "monitoring": [
+      {
+        "fullPath": "monitoring",
+        "component": "MonitoringHomeComponent",
+        "isLazy": false,
+        "hasParams": false
+      },
+      {
+        "fullPath": "monitoring/overview",
+        "component": "MonitoringHomeComponent",
+        "isLazy": false,
+        "hasParams": false
+      },
+      {
+        "fullPath": "monitoring/migration",
+        "component": "MigrationMonitoringHomeComponent",
+        "isLazy": false,
+        "hasParams": false
+      },
+      {
+        "fullPath": "monitoring/platform",
+        "component": "PlatformMonitoringHomeComponent",
+        "isLazy": false,
+        "hasParams": false
+      },
+      {
+        "fullPath": "monitoring/alerts",
+        "component": "AlertsMonitoringHomeComponent",
+        "isLazy": false,
+        "hasParams": false
+      }
+    ],
+    "reports": [
+      {
+        "fullPath": "reports",
+        "component": "ReportsHomeComponent",
+        "isLazy": false,
+        "hasParams": false
+      },
+      {
+        "fullPath": "reports/overview",
+        "component": "ReportsHomeComponent",
+        "isLazy": false,
+        "hasParams": false
+      },
+      {
+        "fullPath": "reports/library",
+        "component": "ReportsLibraryComponent",
+        "isLazy": false,
+        "hasParams": false
+      },
+      {
+        "fullPath": "reports/certification",
+        "component": "ReportsCertificationComponent",
+        "isLazy": false,
+        "hasParams": false
+      },
+      {
+        "fullPath": "reports/evidence",
+        "component": "ReportsEvidenceComponent",
+        "isLazy": false,
+        "hasParams": false
+      }
+    ],
+    "administration": [
+      {
+        "fullPath": "administration",
+        "component": "AdminHomeComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/enterprise",
+        "component": "EnterpriseHomeComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/enterprise/settings",
+        "component": "EnterpriseSettingsComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/enterprise/settings/edit",
+        "component": "EnterpriseSettingsEditComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/enterprise/organizations",
+        "component": "OrgListComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/enterprise/organizations/create",
+        "component": "OrgCreateComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/enterprise/organizations/:id",
+        "component": "OrgDetailComponent",
+        "isLazy": true,
+        "hasParams": true
+      },
+      {
+        "fullPath": "administration/enterprise/organizations/:id/edit",
+        "component": "OrgEditComponent",
+        "isLazy": true,
+        "hasParams": true
+      },
+      {
+        "fullPath": "administration/enterprise/orgs",
+        "component": null,
+        "isLazy": false,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/enterprise/workspaces",
+        "component": "WorkspaceListComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/enterprise/workspaces/create",
+        "component": "WorkspaceCreateComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/enterprise/workspaces/:id",
+        "component": "WorkspaceDetailComponent",
+        "isLazy": true,
+        "hasParams": true
+      },
+      {
+        "fullPath": "administration/enterprise/workspaces/:id/edit",
+        "component": "WorkspaceEditComponent",
+        "isLazy": true,
+        "hasParams": true
+      },
+      {
+        "fullPath": "administration/enterprise/environments",
+        "component": "EnvListComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/enterprise/environments/create",
+        "component": "EnvCreateComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/enterprise/environments/:id",
+        "component": "EnvDetailComponent",
+        "isLazy": true,
+        "hasParams": true
+      },
+      {
+        "fullPath": "administration/enterprise/environments/:id/edit",
+        "component": "EnvEditComponent",
+        "isLazy": true,
+        "hasParams": true
+      },
+      {
+        "fullPath": "administration/enterprise/boundaries",
+        "component": "BoundaryListComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/enterprise/boundaries/create",
+        "component": "BoundaryCreateComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/enterprise/boundaries/:id",
+        "component": "BoundaryDetailComponent",
+        "isLazy": true,
+        "hasParams": true
+      },
+      {
+        "fullPath": "administration/enterprise/boundaries/:id/edit",
+        "component": "BoundaryEditComponent",
+        "isLazy": true,
+        "hasParams": true
+      },
+      {
+        "fullPath": "administration/enterprise/ownership",
+        "component": "OwnershipListComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/enterprise/ownership/:id",
+        "component": "OwnershipDetailComponent",
+        "isLazy": true,
+        "hasParams": true
+      },
+      {
+        "fullPath": "administration/enterprise/ownership/:id/transfer",
+        "component": "OwnershipTransferComponent",
+        "isLazy": true,
+        "hasParams": true
+      },
+      {
+        "fullPath": "administration/enterprise/quotas",
+        "component": "QuotaListComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/enterprise/quotas/:id",
+        "component": "QuotaDetailComponent",
+        "isLazy": true,
+        "hasParams": true
+      },
+      {
+        "fullPath": "administration/enterprise/quotas/:id/edit",
+        "component": "QuotaEditComponent",
+        "isLazy": true,
+        "hasParams": true
+      },
+      {
+        "fullPath": "administration/enterprise/metadata",
+        "component": "MetadataListComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/enterprise/metadata/create",
+        "component": "MetadataCreateComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/enterprise/metadata/:id",
+        "component": "MetadataDetailComponent",
+        "isLazy": true,
+        "hasParams": true
+      },
+      {
+        "fullPath": "administration/enterprise/metadata/:id/edit",
+        "component": "MetadataEditComponent",
+        "isLazy": true,
+        "hasParams": true
+      },
+      {
+        "fullPath": "administration/people",
+        "component": "PeopleHomeComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/people/users",
+        "component": "UsersListComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/people/users/new",
+        "component": "UserFormComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/people/users/:id",
+        "component": "UserDetailComponent",
+        "isLazy": true,
+        "hasParams": true
+      },
+      {
+        "fullPath": "administration/people/users/:id/edit",
+        "component": "UserFormComponent",
+        "isLazy": true,
+        "hasParams": true
+      },
+      {
+        "fullPath": "administration/people/teams",
+        "component": "TeamsListComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/people/teams/new",
+        "component": "TeamFormComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/people/teams/:id",
+        "component": "TeamDetailComponent",
+        "isLazy": true,
+        "hasParams": true
+      },
+      {
+        "fullPath": "administration/people/teams/:id/edit",
+        "component": "TeamFormComponent",
+        "isLazy": true,
+        "hasParams": true
+      },
+      {
+        "fullPath": "administration/people/service-accounts",
+        "component": "ServiceAccountsListComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/people/service-accounts/new",
+        "component": "ServiceAccountFormComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/people/service-accounts/:id",
+        "component": "ServiceAccountDetailComponent",
+        "isLazy": true,
+        "hasParams": true
+      },
+      {
+        "fullPath": "administration/people/service-accounts/:id/edit",
+        "component": "ServiceAccountFormComponent",
+        "isLazy": true,
+        "hasParams": true
+      },
+      {
+        "fullPath": "administration/people/roles",
+        "component": "RolesListComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/people/roles/new",
+        "component": "RoleFormComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/people/roles/:id",
+        "component": "RoleDetailComponent",
+        "isLazy": true,
+        "hasParams": true
+      },
+      {
+        "fullPath": "administration/people/roles/:id/edit",
+        "component": "RoleFormComponent",
+        "isLazy": true,
+        "hasParams": true
+      },
+      {
+        "fullPath": "administration/people/assignments",
+        "component": "AssignmentsListComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/people/assignments/new",
+        "component": "AssignmentFormComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/people/conditional-access",
+        "component": "ConditionalAccessListComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/people/conditional-access/new",
+        "component": "ConditionalAccessFormComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/people/conditional-access/:id",
+        "component": "ConditionalAccessDetailComponent",
+        "isLazy": true,
+        "hasParams": true
+      },
+      {
+        "fullPath": "administration/people/conditional-access/:id/edit",
+        "component": "ConditionalAccessFormComponent",
+        "isLazy": true,
+        "hasParams": true
+      },
+      {
+        "fullPath": "administration/people/jit-access",
+        "component": "JitAccessListComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/people/jit-access/request",
+        "component": "JitRequestFormComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/people/jit-access/:id",
+        "component": "JitDetailComponent",
+        "isLazy": true,
+        "hasParams": true
+      },
+      {
+        "fullPath": "administration/people/access-conflicts",
+        "component": "AccessConflictsListComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/people/access-conflicts/:id",
+        "component": "AccessConflictDetailComponent",
+        "isLazy": true,
+        "hasParams": true
+      },
+      {
+        "fullPath": "administration/people/sessions",
+        "component": "SessionsListComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/people/access-reviews",
+        "component": "AccessReviewsListComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/people/access-reviews/new",
+        "component": "AccessReviewFormComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/people/access-reviews/:id",
+        "component": "AccessReviewDetailComponent",
+        "isLazy": true,
+        "hasParams": true
+      },
+      {
+        "fullPath": "administration/governance-centre",
+        "component": "GovernanceHomeComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/governance-centre/policies",
+        "component": "PoliciesListComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/governance-centre/policies/new",
+        "component": "PolicyFormComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/governance-centre/policies/:id",
+        "component": "PolicyDetailComponent",
+        "isLazy": true,
+        "hasParams": true
+      },
+      {
+        "fullPath": "administration/governance-centre/policies/:id/edit",
+        "component": "PolicyFormComponent",
+        "isLazy": true,
+        "hasParams": true
+      },
+      {
+        "fullPath": "administration/governance-centre/policy-simulation",
+        "component": "PolicySimulationComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/governance-centre/approval-chains",
+        "component": "ApprovalChainsListComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/governance-centre/approval-chains/new",
+        "component": "ApprovalChainFormComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/governance-centre/approval-chains/:id",
+        "component": "ApprovalChainDetailComponent",
+        "isLazy": true,
+        "hasParams": true
+      },
+      {
+        "fullPath": "administration/governance-centre/approval-chains/:id/edit",
+        "component": "ApprovalChainFormComponent",
+        "isLazy": true,
+        "hasParams": true
+      },
+      {
+        "fullPath": "administration/governance-centre/approver-groups",
+        "component": "ApproverGroupsListComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/governance-centre/approver-groups/new",
+        "component": "ApproverGroupFormComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/governance-centre/approver-groups/:id",
+        "component": "ApproverGroupDetailComponent",
+        "isLazy": true,
+        "hasParams": true
+      },
+      {
+        "fullPath": "administration/governance-centre/approver-groups/:id/edit",
+        "component": "ApproverGroupFormComponent",
+        "isLazy": true,
+        "hasParams": true
+      },
+      {
+        "fullPath": "administration/governance-centre/maker-checker",
+        "component": "MakerCheckerListComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/governance-centre/sod",
+        "component": "SodListComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/governance-centre/sod/new",
+        "component": "SodFormComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/governance-centre/sod/:id",
+        "component": "SodDetailComponent",
+        "isLazy": true,
+        "hasParams": true
+      },
+      {
+        "fullPath": "administration/governance-centre/sod/:id/edit",
+        "component": "SodFormComponent",
+        "isLazy": true,
+        "hasParams": true
+      },
+      {
+        "fullPath": "administration/governance-centre/privileged-ops",
+        "component": "PrivilegedOpsListComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/governance-centre/waivers",
+        "component": "WaiversListComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/governance-centre/waivers/new",
+        "component": "WaiverFormComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/governance-centre/break-glass",
+        "component": "BreakGlassListComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/governance-centre/history",
+        "component": "GovernanceHistoryComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/identity",
+        "component": "IdentityHomeComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/identity/auth",
+        "component": "AuthHomeComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/identity/auth/policies",
+        "component": "AuthPoliciesComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/identity/auth/mfa",
+        "component": "MfaComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/identity/auth/sso",
+        "component": "SsoHomeComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/identity/auth/sso/create",
+        "component": "SsoCreateComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/identity/directory",
+        "component": "DirectoryHomeComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/identity/directory/ldap",
+        "component": "LdapComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/identity/directory/scim",
+        "component": "ScimComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/identity/directory/federation",
+        "component": "FederationComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/identity/workload",
+        "component": "WorkloadHomeComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/identity/workload/services",
+        "component": "WorkloadServicesComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/identity/workload/spiffe",
+        "component": "SpiffeComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/identity/crypto",
+        "component": "CryptoHomeComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/identity/crypto/certificates",
+        "component": "CertificatesComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/identity/crypto/vault",
+        "component": "VaultComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/identity/crypto/kms",
+        "component": "KmsComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/identity/crypto/rotation",
+        "component": "RotationComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/templates-library",
+        "component": "TemplatesConfigHomeComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/templates-library/migration",
+        "component": "FamilyListComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/templates-library/mapping",
+        "component": "FamilyListComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/templates-library/transformation",
+        "component": "FamilyListComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/templates-library/privacy",
+        "component": "FamilyListComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/templates-library/quality",
+        "component": "FamilyListComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/templates-library/configuration",
+        "component": "FamilyListComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/templates-library/create",
+        "component": "TemplateCreateComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/templates-library/asset/:id",
+        "component": "TemplateDetailComponent",
+        "isLazy": true,
+        "hasParams": true
+      },
+      {
+        "fullPath": "administration/templates-library/asset/:id/promote",
+        "component": "AssetPromoteComponent",
+        "isLazy": true,
+        "hasParams": true
+      },
+      {
+        "fullPath": "administration/templates-library/import",
+        "component": "AssetImportComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/connectors",
+        "component": "ConnectorsPluginsHomeComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/connectors-plugins",
+        "component": null,
+        "isLazy": false,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/connectors/connectors-hub",
+        "component": "ConnectorsHubComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/connectors/registry",
+        "component": "ConnectorRegistryComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/connectors/builtin",
+        "component": "BuiltinConnectorsComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/connectors/external",
+        "component": "ExternalConnectorsComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/connectors/external/register",
+        "component": "ExternalRegisterComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/connectors/detail/:id",
+        "component": "ConnectorDetailComponent",
+        "isLazy": true,
+        "hasParams": true
+      },
+      {
+        "fullPath": "administration/connectors/intelligence-hub",
+        "component": "IntelligenceHubComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/connectors/capabilities",
+        "component": "CapabilitiesViewComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/connectors/compatibility",
+        "component": "CompatibilityViewComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/connectors/versions",
+        "component": "VersionsViewComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/connectors/certification",
+        "component": "CertificationViewComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/connectors/extensions-hub",
+        "component": "ExtensionsHubComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/connectors/plugins",
+        "component": "PluginsListComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/connectors/plugins/detail/:id",
+        "component": "PluginDetailComponent",
+        "isLazy": true,
+        "hasParams": true
+      },
+      {
+        "fullPath": "administration/connectors/plugins/security",
+        "component": "PluginSecurityComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/connectors/sdk",
+        "component": "SdkConfigComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/infrastructure",
+        "component": "InfrastructureHomeComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/cloud-infra",
+        "component": null,
+        "isLazy": false,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/infrastructure/cloud-hub",
+        "component": "CloudHubComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/infrastructure/cloud/environments",
+        "component": "CloudEnvironmentsListComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/infrastructure/cloud/environments/create",
+        "component": "CloudEnvironmentCreateComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/infrastructure/cloud/environments/detail/:id",
+        "component": "CloudEnvironmentDetailComponent",
+        "isLazy": true,
+        "hasParams": true
+      },
+      {
+        "fullPath": "administration/infrastructure/compute-hub",
+        "component": "ComputeHubComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/infrastructure/compute/kubernetes",
+        "component": "KubernetesListComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/infrastructure/compute/kubernetes/create",
+        "component": "KubernetesCreateComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/infrastructure/compute/sites",
+        "component": "SitesListComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/infrastructure/compute/sites/create",
+        "component": "SiteCreateComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/infrastructure/connectivity-hub",
+        "component": "ConnectivityHubComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/infrastructure/connectivity/private",
+        "component": "PrivateConnectivityListComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/infrastructure/connectivity/private/create",
+        "component": "PrivateConnectivityCreateComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/infrastructure/connectivity/routing",
+        "component": "RoutingListComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/infrastructure/connectivity/routing/create",
+        "component": "RoutingCreateComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/infrastructure/connectivity/hybrid",
+        "component": "HybridEnvironmentsComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/infrastructure/placement-hub",
+        "component": "PlacementHubComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/infrastructure/placement/regions",
+        "component": "RegionsListComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/infrastructure/placement/sovereignty",
+        "component": "SovereigntyPoliciesComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/infrastructure/automation-hub",
+        "component": "AutomationHubComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/infrastructure/automation/iac",
+        "component": "IacConfigComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/infrastructure/automation/gitops",
+        "component": "GitOpsConfigComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/compliance",
+        "component": "ComplianceHomeComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/compliance/frameworks/catalog",
+        "component": "ControlFrameworksListComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/compliance/frameworks/detail/:id",
+        "component": "FrameworkDetailComponent",
+        "isLazy": true,
+        "hasParams": true
+      },
+      {
+        "fullPath": "administration/compliance/frameworks/views",
+        "component": "FrameworkViewsComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/compliance/frameworks/custom",
+        "component": "CustomFrameworksListComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/compliance/frameworks/custom/create",
+        "component": "CustomFrameworkCreateComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/compliance/controls/mapping",
+        "component": "ControlMappingListComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/compliance/controls/exceptions",
+        "component": "ExceptionsListComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/compliance/controls/exceptions/request",
+        "component": "ExceptionRequestComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/compliance/evidence",
+        "component": "ComplianceEvidenceListComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/compliance/evidence/detail/:id",
+        "component": "ComplianceEvidenceDetailComponent",
+        "isLazy": true,
+        "hasParams": true
+      },
+      {
+        "fullPath": "administration/audit",
+        "component": "AuditHomeComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/audit/policies",
+        "component": "AuditPoliciesListComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/audit/policies/create",
+        "component": "AuditPolicyCreateComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/audit/policies/detail/:id",
+        "component": "AuditPolicyDetailComponent",
+        "isLazy": true,
+        "hasParams": true
+      },
+      {
+        "fullPath": "administration/audit/destinations",
+        "component": "AuditDestinationsListComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/audit/destinations/create",
+        "component": "AuditDestinationCreateComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/audit/trail",
+        "component": "AuditTrailListComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/audit/trail/detail/:id",
+        "component": "AuditEventDetailComponent",
+        "isLazy": true,
+        "hasParams": true
+      },
+      {
+        "fullPath": "administration/audit/retention",
+        "component": "EvidenceRetentionListComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/audit/legal-hold",
+        "component": "LegalHoldListComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/audit/legal-hold/create",
+        "component": "LegalHoldCreateComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/audit/integrity",
+        "component": "AuditIntegrityVerificationComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/audit/export",
+        "component": "AuditExportComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/platform-admin",
+        "component": "PlatformAdminHomeComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/platform-admin/platform/config",
+        "component": "PlatformConfigComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/platform-admin/platform/services",
+        "component": "ServicesNodesListComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/platform-admin/platform/deployment",
+        "component": "DeploymentConfigComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/platform-admin/lifecycle/versions",
+        "component": "VersionsViewComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/platform-admin/lifecycle/updates",
+        "component": "UpdatesManagementComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/platform-admin/lifecycle/maintenance",
+        "component": "MaintenanceWindowsListComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/platform-admin/lifecycle/maintenance/create",
+        "component": "MaintenanceWindowCreateComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/platform-admin/commercial/licensing",
+        "component": "LicensingEntitlementsComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/platform-admin/resilience/backup-restore",
+        "component": "BackupRestoreComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/platform-admin/support/diagnostics",
+        "component": "DiagnosticsSupportComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/integrations",
+        "component": "IntegrationsHomeComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/integrations-notifications",
+        "component": null,
+        "isLazy": false,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/integrations/notifications/channels",
+        "component": "ChannelsListComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/integrations/notifications/channels/create",
+        "component": "ChannelCreateComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/integrations/notifications/channels/detail/:id",
+        "component": "ChannelDetailComponent",
+        "isLazy": true,
+        "hasParams": true
+      },
+      {
+        "fullPath": "administration/integrations/notifications/policies",
+        "component": "PoliciesListComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/integrations/notifications/policies/create",
+        "component": "PolicyCreateComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/integrations/events/routing",
+        "component": "EventRoutingListComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/integrations/events/routing/create",
+        "component": "EventRoutingCreateComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/integrations/enterprise/siem",
+        "component": "SiemIntegrationsListComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/integrations/enterprise/siem/create",
+        "component": "SiemCreateComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/integrations/enterprise/itsm",
+        "component": "ItsmIntegrationsListComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/integrations/enterprise/itsm/create",
+        "component": "ItsmCreateComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "administration/integrations/credentials",
+        "component": "CredentialReferencesListComponent",
+        "isLazy": true,
+        "hasParams": false
+      }
+    ],
+    "settings": [
+      {
+        "fullPath": "settings",
+        "component": "SettingsShellComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "settings",
+        "component": null,
+        "isLazy": false,
+        "hasParams": false
+      },
+      {
+        "fullPath": "settings/general",
+        "component": "SettingsGeneralComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "settings/appearance",
+        "component": "SettingsAppearanceComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "settings/runtime-migration",
+        "component": "SettingsRuntimeMigrationComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "settings/connectors",
+        "component": "SettingsConnectorsComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "settings/storage",
+        "component": "SettingsStorageComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "settings/notifications",
+        "component": "SettingsNotificationsComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "settings/integrations",
+        "component": "SettingsIntegrationsComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "settings/ai-intelligence",
+        "component": "SettingsAiIntelligenceComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "settings/logging",
+        "component": "SettingsLoggingComponent",
+        "isLazy": true,
+        "hasParams": false
+      },
+      {
+        "fullPath": "settings/advanced",
+        "component": "SettingsAdvancedComponent",
+        "isLazy": true,
+        "hasParams": false
+      }
+    ]
+  },
+  "primitiveToSurfaces": {
+    "CustomSelectComponent": 104,
+    "SegmentedControlComponent": 4,
+    "CodeEditorComponent": 2,
+    "LucideIconComponent": 423,
+    "MetricSurfaceComponent": 1,
+    "AccordionComponent": 6,
+    "NativeTables": 162,
+    "NativeForms": 169,
+    "NativeButtons": 277,
+    "MonacoEditor": 1,
+    "RoundedFullTotal": 119,
+    "RoundedFullButtons": 2
+  },
+  "workflowChains": [
+    {
+      "workflow": "Enterprise Migration Creation (9 Steps)",
+      "chain": [
+        "Dashboard / Portfolio (/migration)",
+        "Step 1: Definition (/migration/create)",
+        "Step 2: Source Instance & Probes",
+        "Step 3: Target Instance & Probes",
+        "Step 4: Discovery & Advanced Scope",
+        "Step 5: Mapping & Data Controls Studio",
+        "Step 6: Enterprise Configuration Center",
+        "Step 7: Dynamic Migration Plan (DAG)",
+        "Step 8: Governance & Readiness Sign-off",
+        "Step 9: Review, Schedule & Initialize",
+        "Execution Cockpit (/migration/cockpit/:id)"
+      ]
+    },
+    {
+      "workflow": "Database Connection Creation & Verification (4 Steps)",
+      "chain": [
+        "Connections Inventory (/connections)",
+        "Step 1: Basic & Provider Selection (/connections/new)",
+        "Step 2: Authentication & Host Configuration",
+        "Step 3: Security & Network Routing (TLS/Bastion)",
+        "Step 4: Verification Probes & Summary",
+        "Connection Workspace (/connections/:connectionId)"
+      ]
+    },
+    {
+      "workflow": "Data Validation & Discrepancy Remediation (8 Steps)",
+      "chain": [
+        "Validation Portfolio (/validation)",
+        "Step 1: Definition (/validation/new)",
+        "Step 2: Source Instance Selection",
+        "Step 3: Target Instance Selection",
+        "Step 4: Scope & Table Filter",
+        "Step 5: Boundary & Sampling Policy",
+        "Step 6: Strategy & Rule Selection",
+        "Step 7: Readiness & Policy Gates",
+        "Step 8: Review & Execution Launch",
+        "Validation Workstation (/validation/:validationId)",
+        "Discrepancies Analysis & Repair (/validation/:validationId/discrepancies)"
+      ]
+    },
+    {
+      "workflow": "Strategic Project & Initiative Management",
+      "chain": [
+        "Projects Portfolio (/migration/projects)",
+        "Create Initiative (/migration/initiatives/new)",
+        "Initiative Workspace (/migration/initiatives/:initiativeId)",
+        "Create Project (/migration/initiatives/:initiativeId/new-project)",
+        "Project Workspace (/migration/projects/:projectId)",
+        "Milestone Tracking & Execution Allocation"
+      ]
+    },
+    {
+      "workflow": "Audit Dossier & Certification Assembly",
+      "chain": [
+        "Reports Home (/reports)",
+        "Reports Library (/reports/library)",
+        "Report Generation / Export Modal",
+        "Certification Center (/reports/certification)",
+        "Evidence Manifest & Hash Verification (/reports/evidence)"
+      ]
+    }
+  ],
+  "testMapping": {
+    "core": 6,
+    "admin": 5,
+    "connections": 3,
+    "migration": 14,
+    "monitoring": 4,
+    "reports": 1,
+    "settings": 1,
+    "validation": 9
+  }
+}

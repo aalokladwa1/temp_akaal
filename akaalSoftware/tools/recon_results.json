@@ -1,0 +1,120 @@
+{
+  "totalFiles": 706,
+  "components": 528,
+  "services": 53,
+  "specs": 44,
+  "fixtures": 14,
+  "buttons": {
+    "totalButtons": 1087,
+    "gdsPrimary": 0,
+    "gdsSecondary": 0,
+    "gdsGhost": 0,
+    "gdsDanger": 0,
+    "gdsIcon": 0,
+    "localBluePrimary": 418,
+    "localWhiteSecondary": 1637,
+    "localDanger": 0,
+    "buttonsWithIcons": 0,
+    "iconOnlyButtons": 0,
+    "actionButtonsWithDecorativeIcons": 0,
+    "disabledStateButtons": 0
+  },
+  "inputs": {
+    "totalInputs": 689,
+    "textInputs": 411,
+    "searchInputs": 79,
+    "numberInputs": 130,
+    "passwordInputs": 7,
+    "checkboxInputs": 92,
+    "radioInputs": 24,
+    "textareas": 48
+  },
+  "selects": {
+    "customSelectUsages": 226,
+    "nativeSelectUsages": 27,
+    "primeNgSelectUsages": 0,
+    "segmentedControlUsages": 4
+  },
+  "tables": {
+    "nativeTableUsages": 209,
+    "primeNgTableUsages": 2,
+    "tablesWithPagination": 0,
+    "customPaginationUsages": 124
+  },
+  "dialogs": {
+    "modalBackdrops": 40,
+    "standaloneModalComponents": 0,
+    "destructiveConfirmations": 17,
+    "drawers": 0
+  },
+  "alerts": {
+    "gdsToasts": 0,
+    "inlineBanners": 0,
+    "toastServices": 0
+  },
+  "emptyStates": {
+    "totalEmptyStateBlocks": 38
+  },
+  "loadingStates": {
+    "spinners": 23,
+    "skeletons": 45
+  },
+  "accordions": {
+    "appAccordionUsages": 12,
+    "customExpanders": 0
+  },
+  "editors": {
+    "appCodeEditorUsages": 3,
+    "monacoDirectUsages": 0
+  },
+  "icons": {
+    "appLucideIconUsages": 1848,
+    "primeIconsUsages": 0,
+    "fontAwesomeUsages": 1,
+    "inlineSvgUsages": 8,
+    "emojiIcons": 0
+  },
+  "typography": {
+    "fontSans": 0,
+    "fontMono": 0,
+    "fontHeading": 0,
+    "nonRobotoMentions": 0
+  },
+  "sharedUsageByModule": {
+    "custom-select": {
+      "Administration": 62,
+      "Migration": 117,
+      "Monitoring": 14,
+      "Settings": 33
+    },
+    "lucide-icon": {
+      "Administration": 352,
+      "Migration": 1189,
+      "Dashboard": 24,
+      "Monitoring": 72,
+      "Reports": 56,
+      "Settings": 116,
+      "Shell": 30,
+      "Shared": 9
+    },
+    "segmented-control": {
+      "Migration": 4
+    },
+    "code-editor": {
+      "Migration": 3
+    },
+    "metric-surface": {
+      "Dashboard": 4
+    },
+    "accordion": {
+      "Migration": 12
+    }
+  },
+  "designLaws": {
+    "roundedFullPillBadges": 15,
+    "roundedMdBadges": 202,
+    "gradientClasses": 82,
+    "neonGlowShadows": 0,
+    "hoverLiftCards": 0
+  }
+}

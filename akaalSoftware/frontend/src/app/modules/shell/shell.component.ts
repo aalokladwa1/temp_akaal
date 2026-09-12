@@ -685,17 +685,25 @@ export class ShellComponent {
     { path: '/migration', label: 'Migration', icon: 'arrow-left-right' },
     { path: '/monitoring', label: 'Monitoring', icon: 'activity' },
     { path: '/reports', label: 'Reports', icon: 'file-text' },
-    { path: '/administration', label: 'Administration', icon: 'shield' },
+    { path: '/administration', label: 'Administration', icon: 'building-2' },
   ];
 
   public commands: CommandItem[] = [
     { id: '1', label: 'Go to Dashboard', category: 'Module', icon: 'layout-dashboard', action: () => this.navigate('/dashboard') },
     { id: '2', label: 'Go to Migration Portfolio', category: 'Module', icon: 'arrow-left-right', action: () => this.navigate('/migration') },
-    { id: '3', label: 'Go to Monitoring Telemetry', category: 'Module', icon: 'activity', action: () => this.navigate('/monitoring') },
+    { id: '2b', label: 'Go to Migration History & Evidence', category: 'Module', icon: 'history', action: () => this.navigate('/migration/history') },
+    { id: '2c', label: 'Go to Database Connections Vault', category: 'Module', icon: 'database', action: () => this.navigate('/connections') },
+    { id: '2d', label: 'Go to Live Execution Cockpit', category: 'Module', icon: 'gauge', action: () => this.navigate('/cockpit') },
+    { id: '2e', label: 'Go to Validation Studio', category: 'Module', icon: 'shield-check', action: () => this.navigate('/validation') },
+    { id: '2f', label: 'Go to Migration Templates', category: 'Module', icon: 'file-code-2', action: () => this.navigate('/migration/templates') },
+    { id: '3', label: 'Go to Monitoring Overview', category: 'Module', icon: 'activity', action: () => this.navigate('/monitoring') },
+    { id: '3b', label: 'Go to Migration Monitoring (3.2 Telemetry)', category: 'Module', icon: 'activity', action: () => this.navigate('/monitoring/migrations') },
     { id: '4', label: 'Go to Reports & Audits', category: 'Module', icon: 'file-text', action: () => this.navigate('/reports') },
-    { id: '5', label: 'Go to Administration', category: 'Module', icon: 'shield', action: () => this.navigate('/administration') },
+    { id: '5', label: 'Go to Administration', category: 'Module', icon: 'building-2', action: () => this.navigate('/administration') },
     { id: '6', label: 'Go to Platform Settings', category: 'Module', icon: 'settings', action: () => this.navigate('/settings') },
     { id: '7', label: 'Refresh Telemetry', category: 'Action', icon: 'refresh-cw', action: () => { this.ds.refreshDashboard(); this.isCommandPaletteOpen.set(false); } },
+    { id: '8', label: 'Create New Connection Profile', category: 'Action', icon: 'plus', action: () => this.navigate('/connections/new') },
+    { id: '9', label: 'Create New Migration', category: 'Action', icon: 'plus', action: () => this.navigate('/migration/create') },
   ];
 
   public filteredCommands(): CommandItem[] {

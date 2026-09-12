@@ -1,0 +1,281 @@
+[
+  {
+    "decisionId": "ODQ-PLN-MIGR-PROJ-001",
+    "capabilityId": "PLN-MIGR-PROJ-001",
+    "capabilityName": "Projects & Workspaces Directory",
+    "plannedModule": "Migration",
+    "divergenceType": "PROPOSED_TARGET_SUPERSESSION",
+    "description": "Planned under /migration/projects; realized as enterprise workspaces under /administration/enterprise/workspaces to unify organization-wide workspace governance.",
+    "recommendation": "ACCEPT: Consolidating workspace hierarchy under Administration avoids duplicate workspace CRUD models."
+  },
+  {
+    "decisionId": "ODQ-PLN-MIGR-CONN-001",
+    "capabilityId": "PLN-MIGR-CONN-001",
+    "capabilityName": "Connections Manager & Profiles Grid",
+    "plannedModule": "Migration",
+    "divergenceType": "PROPOSED_SUPERIOR_REALIZATION",
+    "description": "Planned nested under /migration/connections; elevated to dedicated top-level route /connections for cross-workload reuse and global access.",
+    "recommendation": "ACCEPT: Top-level /connections provides superior usability, direct deep-linking, and matches enterprise practice."
+  },
+  {
+    "decisionId": "ODQ-PLN-MIGR-CONN-002",
+    "capabilityId": "PLN-MIGR-CONN-002",
+    "capabilityName": "Create / Edit Connection Profile",
+    "plannedModule": "Migration",
+    "divergenceType": "PROPOSED_SUPERIOR_REALIZATION",
+    "description": "Planned nested under /migration/connections; elevated to dedicated top-level route /connections for cross-workload reuse and global access.",
+    "recommendation": "ACCEPT: Top-level /connections provides superior usability, direct deep-linking, and matches enterprise practice."
+  },
+  {
+    "decisionId": "ODQ-PLN-MIGR-CONN-003",
+    "capabilityId": "PLN-MIGR-CONN-003",
+    "capabilityName": "Connection Details & Live Probes",
+    "plannedModule": "Migration",
+    "divergenceType": "PROPOSED_SUPERIOR_REALIZATION",
+    "description": "Planned nested under /migration/connections; elevated to dedicated top-level route /connections for cross-workload reuse and global access.",
+    "recommendation": "ACCEPT: Top-level /connections provides superior usability, direct deep-linking, and matches enterprise practice."
+  },
+  {
+    "decisionId": "ODQ-PLN-MIGR-COCK-001",
+    "capabilityId": "PLN-MIGR-COCK-001",
+    "capabilityName": "Execution Cockpit Overview",
+    "plannedModule": "Migration",
+    "divergenceType": "PROPOSED_SUPERIOR_REALIZATION",
+    "description": "Planned nested under /migration/cockpit; elevated to dedicated full-screen /cockpit/:migrationId mission control room.",
+    "recommendation": "ACCEPT: Full-screen /cockpit maximizes spatial canvas for dense DAG visualization, multi-partition metrics, and emergency pause/cutover controls."
+  },
+  {
+    "decisionId": "ODQ-PLN-MIGR-COCK-002",
+    "capabilityId": "PLN-MIGR-COCK-002",
+    "capabilityName": "Cockpit Runtime Operations & Controls",
+    "plannedModule": "Migration",
+    "divergenceType": "PROPOSED_SUPERIOR_REALIZATION",
+    "description": "Planned nested under /migration/cockpit; elevated to dedicated full-screen /cockpit/:migrationId mission control room.",
+    "recommendation": "ACCEPT: Full-screen /cockpit maximizes spatial canvas for dense DAG visualization, multi-partition metrics, and emergency pause/cutover controls."
+  },
+  {
+    "decisionId": "ODQ-PLN-MIGR-COCK-003",
+    "capabilityId": "PLN-MIGR-COCK-003",
+    "capabilityName": "Live DAG Execution Graph",
+    "plannedModule": "Migration",
+    "divergenceType": "PROPOSED_SUPERIOR_REALIZATION",
+    "description": "Planned nested under /migration/cockpit; elevated to dedicated full-screen /cockpit/:migrationId mission control room.",
+    "recommendation": "ACCEPT: Full-screen /cockpit maximizes spatial canvas for dense DAG visualization, multi-partition metrics, and emergency pause/cutover controls."
+  },
+  {
+    "decisionId": "ODQ-PLN-MIGR-COCK-004",
+    "capabilityId": "PLN-MIGR-COCK-004",
+    "capabilityName": "CDC Stream Control & Lag Monitor",
+    "plannedModule": "Migration",
+    "divergenceType": "PROPOSED_SUPERIOR_REALIZATION",
+    "description": "Planned nested under /migration/cockpit; elevated to dedicated full-screen /cockpit/:migrationId mission control room.",
+    "recommendation": "ACCEPT: Full-screen /cockpit maximizes spatial canvas for dense DAG visualization, multi-partition metrics, and emergency pause/cutover controls."
+  },
+  {
+    "decisionId": "ODQ-PLN-MIGR-COCK-005",
+    "capabilityId": "PLN-MIGR-COCK-005",
+    "capabilityName": "Cutover & Failback Management Center",
+    "plannedModule": "Migration",
+    "divergenceType": "PROPOSED_SUPERIOR_REALIZATION",
+    "description": "Planned nested under /migration/cockpit; elevated to dedicated full-screen /cockpit/:migrationId mission control room.",
+    "recommendation": "ACCEPT: Full-screen /cockpit maximizes spatial canvas for dense DAG visualization, multi-partition metrics, and emergency pause/cutover controls."
+  },
+  {
+    "decisionId": "ODQ-PLN-MIGR-VAL-001",
+    "capabilityId": "PLN-MIGR-VAL-001",
+    "capabilityName": "Validation Operations Portfolio",
+    "plannedModule": "Migration",
+    "divergenceType": "PROPOSED_SUPERIOR_REALIZATION",
+    "description": "Planned nested under /migration/validation; elevated to dedicated top-level route /validation to allow independent validation suites without active migration context.",
+    "recommendation": "ACCEPT: Independent /validation route allows pre-migration, post-migration, and ad-hoc validation suites."
+  },
+  {
+    "decisionId": "ODQ-PLN-MIGR-VAL-002",
+    "capabilityId": "PLN-MIGR-VAL-002",
+    "capabilityName": "Create & Run Validation Suite",
+    "plannedModule": "Migration",
+    "divergenceType": "PROPOSED_SUPERIOR_REALIZATION",
+    "description": "Planned nested under /migration/validation; elevated to dedicated top-level route /validation to allow independent validation suites without active migration context.",
+    "recommendation": "ACCEPT: Independent /validation route allows pre-migration, post-migration, and ad-hoc validation suites."
+  },
+  {
+    "decisionId": "ODQ-PLN-MIGR-VAL-003",
+    "capabilityId": "PLN-MIGR-VAL-003",
+    "capabilityName": "Discrepancy Localization & Governed Repair",
+    "plannedModule": "Migration",
+    "divergenceType": "PROPOSED_SUPERIOR_REALIZATION",
+    "description": "Planned nested under /migration/validation; elevated to dedicated top-level route /validation to allow independent validation suites without active migration context.",
+    "recommendation": "ACCEPT: Independent /validation route allows pre-migration, post-migration, and ad-hoc validation suites."
+  },
+  {
+    "decisionId": "ODQ-PLN-MIGR-TMPL-001",
+    "capabilityId": "PLN-MIGR-TMPL-001",
+    "capabilityName": "Migration Template Library (Consumer View)",
+    "plannedModule": "Migration",
+    "divergenceType": "PROPOSED_TARGET_SUPERSESSION",
+    "description": "Planned consumer view under /migration/templates; realized under /administration/templates/migration with direct wizard instantiation support.",
+    "recommendation": "ACCEPT: Enterprise template governance and consumption are unified under Administration templates library."
+  },
+  {
+    "decisionId": "ODQ-PLN-MON-PERF-001",
+    "capabilityId": "PLN-MON-PERF-001",
+    "capabilityName": "Performance Metrics & Throughput Benchmarks",
+    "plannedModule": "Monitoring",
+    "divergenceType": "DELIBERATE_ENGINEERING_REFINEMENT",
+    "description": "Consolidated into /monitoring/platform and /monitoring/overview tabbed telemetry surfaces to eliminate micro-route fragmentation.",
+    "recommendation": "ACCEPT: Consolidated platform monitoring views reduce cognitive load and spatial tab switching."
+  },
+  {
+    "decisionId": "ODQ-PLN-MON-PERF-002",
+    "capabilityId": "PLN-MON-PERF-002",
+    "capabilityName": "Latency & Buffer Backpressure Diagnostics",
+    "plannedModule": "Monitoring",
+    "divergenceType": "DELIBERATE_ENGINEERING_REFINEMENT",
+    "description": "Consolidated into /monitoring/platform and /monitoring/overview tabbed telemetry surfaces to eliminate micro-route fragmentation.",
+    "recommendation": "ACCEPT: Consolidated platform monitoring views reduce cognitive load and spatial tab switching."
+  },
+  {
+    "decisionId": "ODQ-PLN-MON-PERF-003",
+    "capabilityId": "PLN-MON-PERF-003",
+    "capabilityName": "Partition Skew & Worker Allocation",
+    "plannedModule": "Monitoring",
+    "divergenceType": "DELIBERATE_ENGINEERING_REFINEMENT",
+    "description": "Consolidated into /monitoring/platform and /monitoring/overview tabbed telemetry surfaces to eliminate micro-route fragmentation.",
+    "recommendation": "ACCEPT: Consolidated platform monitoring views reduce cognitive load and spatial tab switching."
+  },
+  {
+    "decisionId": "ODQ-PLN-MON-HLTH-001",
+    "capabilityId": "PLN-MON-HLTH-001",
+    "capabilityName": "Platform & Subsystem Health",
+    "plannedModule": "Monitoring",
+    "divergenceType": "DELIBERATE_ENGINEERING_REFINEMENT",
+    "description": "Consolidated into /monitoring/platform and /monitoring/overview tabbed telemetry surfaces to eliminate micro-route fragmentation.",
+    "recommendation": "ACCEPT: Consolidated platform monitoring views reduce cognitive load and spatial tab switching."
+  },
+  {
+    "decisionId": "ODQ-PLN-MON-HLTH-002",
+    "capabilityId": "PLN-MON-HLTH-002",
+    "capabilityName": "Local Disk Buffers & Spill Monitor",
+    "plannedModule": "Monitoring",
+    "divergenceType": "DELIBERATE_ENGINEERING_REFINEMENT",
+    "description": "Consolidated into /monitoring/platform and /monitoring/overview tabbed telemetry surfaces to eliminate micro-route fragmentation.",
+    "recommendation": "ACCEPT: Consolidated platform monitoring views reduce cognitive load and spatial tab switching."
+  },
+  {
+    "decisionId": "ODQ-PLN-MON-FLT-001",
+    "capabilityId": "PLN-MON-FLT-001",
+    "capabilityName": "Cluster Nodes & Worker Process Telemetry",
+    "plannedModule": "Monitoring",
+    "divergenceType": "DELIBERATE_ENGINEERING_REFINEMENT",
+    "description": "Consolidated into /monitoring/platform and /monitoring/overview tabbed telemetry surfaces to eliminate micro-route fragmentation.",
+    "recommendation": "ACCEPT: Consolidated platform monitoring views reduce cognitive load and spatial tab switching."
+  },
+  {
+    "decisionId": "ODQ-PLN-MON-FLT-002",
+    "capabilityId": "PLN-MON-FLT-002",
+    "capabilityName": "Compute & Memory Footprint Allocation",
+    "plannedModule": "Monitoring",
+    "divergenceType": "DELIBERATE_ENGINEERING_REFINEMENT",
+    "description": "Consolidated into /monitoring/platform and /monitoring/overview tabbed telemetry surfaces to eliminate micro-route fragmentation.",
+    "recommendation": "ACCEPT: Consolidated platform monitoring views reduce cognitive load and spatial tab switching."
+  },
+  {
+    "decisionId": "ODQ-PLN-MON-FLT-003",
+    "capabilityId": "PLN-MON-FLT-003",
+    "capabilityName": "Capacity Planning & Resource Headroom",
+    "plannedModule": "Monitoring",
+    "divergenceType": "DELIBERATE_ENGINEERING_REFINEMENT",
+    "description": "Consolidated into /monitoring/platform and /monitoring/overview tabbed telemetry surfaces to eliminate micro-route fragmentation.",
+    "recommendation": "ACCEPT: Consolidated platform monitoring views reduce cognitive load and spatial tab switching."
+  },
+  {
+    "decisionId": "ODQ-PLN-MON-REL-001",
+    "capabilityId": "PLN-MON-REL-001",
+    "capabilityName": "Reliability & Failure Logs",
+    "plannedModule": "Monitoring",
+    "divergenceType": "DELIBERATE_ENGINEERING_REFINEMENT",
+    "description": "Consolidated into /monitoring/platform and /monitoring/overview tabbed telemetry surfaces to eliminate micro-route fragmentation.",
+    "recommendation": "ACCEPT: Consolidated platform monitoring views reduce cognitive load and spatial tab switching."
+  },
+  {
+    "decisionId": "ODQ-PLN-MON-REL-002",
+    "capabilityId": "PLN-MON-REL-002",
+    "capabilityName": "Checkpoint Integrity & Resumption Diagnostics",
+    "plannedModule": "Monitoring",
+    "divergenceType": "DELIBERATE_ENGINEERING_REFINEMENT",
+    "description": "Consolidated into /monitoring/platform and /monitoring/overview tabbed telemetry surfaces to eliminate micro-route fragmentation.",
+    "recommendation": "ACCEPT: Consolidated platform monitoring views reduce cognitive load and spatial tab switching."
+  },
+  {
+    "decisionId": "ODQ-PLN-MON-REL-003",
+    "capabilityId": "PLN-MON-REL-003",
+    "capabilityName": "Root-Cause Analysis (RCA) Diagnostics",
+    "plannedModule": "Monitoring",
+    "divergenceType": "DELIBERATE_ENGINEERING_REFINEMENT",
+    "description": "Consolidated into /monitoring/platform and /monitoring/overview tabbed telemetry surfaces to eliminate micro-route fragmentation.",
+    "recommendation": "ACCEPT: Consolidated platform monitoring views reduce cognitive load and spatial tab switching."
+  },
+  {
+    "decisionId": "ODQ-PLN-MON-OBS-001",
+    "capabilityId": "PLN-MON-OBS-001",
+    "capabilityName": "Distributed Tracing & Logs Stream",
+    "plannedModule": "Monitoring",
+    "divergenceType": "DELIBERATE_ENGINEERING_REFINEMENT",
+    "description": "Consolidated into /monitoring/platform and /monitoring/overview tabbed telemetry surfaces to eliminate micro-route fragmentation.",
+    "recommendation": "ACCEPT: Consolidated platform monitoring views reduce cognitive load and spatial tab switching."
+  },
+  {
+    "decisionId": "ODQ-PLN-SET-AI-001",
+    "capabilityId": "PLN-SET-AI-001",
+    "capabilityName": "AI Migration Assistant Configuration",
+    "plannedModule": "Settings",
+    "divergenceType": "GOVERNED_ARCHITECTURE_REHOMING",
+    "description": "Configured under dedicated route /settings/ai-intelligence with strict provider, key, and privacy governance guardrails enforcing read-only co-pilot assistance.",
+    "recommendation": "ACCEPT: Explicit route provides clear enterprise boundary and enforces safety guardrails prohibiting unreviewed database mutations."
+  },
+  {
+    "decisionId": "ODQ-PLN-SET-AI-002",
+    "capabilityId": "PLN-SET-AI-002",
+    "capabilityName": "Query Tuning & Optimization Suggestions",
+    "plannedModule": "Settings",
+    "divergenceType": "GOVERNED_ARCHITECTURE_REHOMING",
+    "description": "Configured under dedicated route /settings/ai-intelligence with strict provider, key, and privacy governance guardrails enforcing read-only co-pilot assistance.",
+    "recommendation": "ACCEPT: Explicit route provides clear enterprise boundary and enforces safety guardrails prohibiting unreviewed database mutations."
+  },
+  {
+    "decisionId": "ODQ-PLN-SET-AI-003",
+    "capabilityId": "PLN-SET-AI-003",
+    "capabilityName": "Governance & Privacy Guardrails for AI",
+    "plannedModule": "Settings",
+    "divergenceType": "GOVERNED_ARCHITECTURE_REHOMING",
+    "description": "Configured under dedicated route /settings/ai-intelligence with strict provider, key, and privacy governance guardrails enforcing read-only co-pilot assistance.",
+    "recommendation": "ACCEPT: Explicit route provides clear enterprise boundary and enforces safety guardrails prohibiting unreviewed database mutations."
+  },
+  {
+    "decisionId": "ODQ-PLN-CHROME-002",
+    "capabilityId": "PLN-CHROME-002",
+    "capabilityName": "Global Notification Center",
+    "plannedModule": "GlobalChrome",
+    "divergenceType": "DELIBERATE_ENGINEERING_REFINEMENT",
+    "description": "Realized as compact header popover in ShellComponent with routing to full channel dispatch in Settings Notifications.",
+    "recommendation": "ACCEPT: Header popover provides immediate alert access without occupying permanent viewport layout."
+  },
+  {
+    "decisionId": "ODQ-PLN-CHROME-003",
+    "capabilityId": "PLN-CHROME-003",
+    "capabilityName": "Global Approval Inbox",
+    "plannedModule": "GlobalChrome",
+    "divergenceType": "PROPOSED_TARGET_SUPERSESSION",
+    "description": "Realized across Dashboard (Pending Approvals card), Cockpit (Barrier signing), and Administration Governance (/administration/governance/approval-chains).",
+    "recommendation": "ACCEPT: Context-sensitive barrier placement ensures approvals occur directly where operators have full telemetry."
+  },
+  {
+    "decisionId": "ODQ-PLN-CHROME-005",
+    "capabilityId": "PLN-CHROME-005",
+    "capabilityName": "Platform Incident Indicator",
+    "plannedModule": "GlobalChrome",
+    "divergenceType": "DELIBERATE_ENGINEERING_REFINEMENT",
+    "description": "Incident status is surfaced on Dashboard and under /monitoring/alerts rather than a persistent top-header flashing indicator.",
+    "recommendation": "ACCEPT: Surfacing incidents in Dashboard and Monitoring command centers avoids duplicate persistent header noise."
+  }
+]

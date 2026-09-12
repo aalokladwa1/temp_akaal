@@ -131,3 +131,244 @@ body:has([aria-modal="true"]:not([style*="display: none"]):not(.hidden)) .h-\[ca
   z-index: 45 !important;
 }
 
+/* ========================================================================== */
+/* AKAAL Appearance & Accessibility Orthogonal Layers                         */
+/* ========================================================================== */
+
+/* 1. DARK THEME CSS VARIABLES & SURFACE OVERRIDES */
+html.dark, :root[data-theme="dark"] {
+  --color-bg-canvas: #090d16;
+  --color-bg-surface: #0f172a;
+  --color-bg-elevated: #1e293b;
+  --color-bg-subtle: #111827;
+
+  --color-border-default: #334155;
+  --color-border-strong: #475569;
+  --color-border-subtle: #1e293b;
+
+  --color-text-primary: #f8fafc;
+  --color-text-secondary: #cbd5e1;
+  --color-text-muted: #94a3b8;
+
+  --color-accent: #3b82f6;
+  --color-accent-hover: #60a5fa;
+  --color-accent-muted: rgba(59, 130, 246, 0.15);
+
+  --color-status-success: #10b981;
+  --color-status-warning: #f59e0b;
+  --color-status-error: #ef4444;
+  --color-status-info: #38bdf8;
+}
+
+html.dark body {
+  background-color: #090d16;
+  color: #f8fafc;
+}
+
+html.dark header.bg-white,
+html.dark aside.bg-white,
+html.dark div.bg-white,
+html.dark button.bg-white,
+html.dark .bg-white {
+  background-color: #0f172a !important;
+}
+
+html.dark .bg-slate-50,
+html.dark .bg-slate-50\/50 {
+  background-color: #090d16 !important;
+}
+
+html.dark .bg-slate-100,
+html.dark .bg-slate-100\/80,
+html.dark .bg-slate-100\/90 {
+  background-color: #1e293b !important;
+}
+
+html.dark .border-slate-200,
+html.dark .border-slate-100 {
+  border-color: #334155 !important;
+}
+
+html.dark .border-slate-300 {
+  border-color: #475569 !important;
+}
+
+html.dark .text-slate-900 {
+  color: #f8fafc !important;
+}
+
+html.dark .text-slate-800 {
+  color: #f1f5f9 !important;
+}
+
+html.dark .text-slate-700 {
+  color: #e2e8f0 !important;
+}
+
+html.dark .text-slate-600 {
+  color: #cbd5e1 !important;
+}
+
+html.dark .text-slate-500 {
+  color: #94a3b8 !important;
+}
+
+html.dark .text-slate-400 {
+  color: #64748b !important;
+}
+
+html.dark .hover\:bg-slate-50:hover {
+  background-color: #1e293b !important;
+}
+
+html.dark .hover\:bg-slate-100:hover,
+html.dark .hover\:bg-slate-100\/80:hover,
+html.dark .hover\:bg-slate-100\/90:hover {
+  background-color: #334155 !important;
+}
+
+html.dark .bg-blue-50 {
+  background-color: rgba(59, 130, 246, 0.15) !important;
+}
+
+html.dark .border-blue-200,
+html.dark .border-blue-200\/80,
+html.dark .border-blue-300 {
+  border-color: rgba(59, 130, 246, 0.4) !important;
+}
+
+html.dark .text-blue-700,
+html.dark .text-blue-600 {
+  color: #60a5fa !important;
+}
+
+html.dark kbd {
+  background-color: #1e293b !important;
+  border-color: #475569 !important;
+  color: #cbd5e1 !important;
+}
+
+html.dark input:not([type="checkbox"]):not([type="radio"]),
+html.dark select,
+html.dark textarea {
+  background-color: #1e293b !important;
+  color: #f8fafc !important;
+  border-color: #334155 !important;
+}
+
+/* 2. COLOR VISION SAFE ACCESSIBILITY PALETTE */
+html.color-vision-safe {
+  --color-accent: #0072b2;
+  --color-status-success: #009e73;
+  --color-status-warning: #e69f00;
+  --color-status-error: #d55e00;
+  --color-status-info: #56b4e9;
+}
+
+html.color-vision-safe .text-emerald-700,
+html.color-vision-safe .text-emerald-600,
+html.color-vision-safe .text-green-700,
+html.color-vision-safe .text-green-600 {
+  color: #009e73 !important;
+}
+
+html.color-vision-safe .bg-emerald-500,
+html.color-vision-safe .bg-green-500 {
+  background-color: #009e73 !important;
+}
+
+html.color-vision-safe .text-rose-600,
+html.color-vision-safe .text-rose-700,
+html.color-vision-safe .text-red-600,
+html.color-vision-safe .text-red-700 {
+  color: #d55e00 !important;
+}
+
+html.color-vision-safe .bg-rose-500,
+html.color-vision-safe .bg-red-500 {
+  background-color: #d55e00 !important;
+}
+
+html.color-vision-safe .text-amber-600,
+html.color-vision-safe .text-amber-700 {
+  color: #e69f00 !important;
+}
+
+html.color-vision-safe .bg-amber-500 {
+  background-color: #e69f00 !important;
+}
+
+/* 3. HIGH CONTRAST MODE */
+html.high-contrast {
+  --color-border-default: #0f172a;
+  --color-border-strong: #000000;
+  --color-text-primary: #000000;
+  --color-text-secondary: #1e293b;
+  --color-text-muted: #334155;
+}
+
+html.high-contrast:not(.dark) {
+  background-color: #ffffff;
+}
+
+html.high-contrast:not(.dark) .border-slate-200,
+html.high-contrast:not(.dark) .border-slate-300,
+html.high-contrast:not(.dark) .border {
+  border-color: #0f172a !important;
+  border-width: 1.5px !important;
+}
+
+html.high-contrast.dark {
+  --color-bg-canvas: #000000;
+  --color-bg-surface: #050811;
+  --color-border-default: #ffffff;
+  --color-border-strong: #ffffff;
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #f1f5f9;
+  --color-text-muted: #e2e8f0;
+}
+
+html.high-contrast.dark .border-slate-200,
+html.high-contrast.dark .border-slate-300,
+html.high-contrast.dark .border {
+  border-color: #ffffff !important;
+  border-width: 1.5px !important;
+}
+
+html.high-contrast.dark .bg-slate-50,
+html.high-contrast.dark .bg-slate-50\/50,
+html.high-contrast.dark body {
+  background-color: #000000 !important;
+}
+
+/* 4. REDUCE MOTION */
+html.reduce-motion,
+html.reduce-motion *,
+html.reduce-motion *::before,
+html.reduce-motion *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* 5. ENHANCED FOCUS VISIBILITY */
+html.enhanced-focus :focus-visible,
+html.enhanced-focus button:focus-visible,
+html.enhanced-focus a:focus-visible,
+html.enhanced-focus input:focus-visible,
+html.enhanced-focus select:focus-visible {
+  outline: 3px solid #2563eb !important;
+  outline-offset: 2px !important;
+}
+
+html.enhanced-focus.dark :focus-visible,
+html.enhanced-focus.dark button:focus-visible,
+html.enhanced-focus.dark a:focus-visible,
+html.enhanced-focus.dark input:focus-visible,
+html.enhanced-focus.dark select:focus-visible {
+  outline: 3px solid #60a5fa !important;
+  outline-offset: 2px !important;
+}
+
+
