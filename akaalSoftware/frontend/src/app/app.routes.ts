@@ -33,7 +33,17 @@ export const routes: Routes = [
   { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
   { path: 'dashboard', component: DashboardComponent },
 
-  // Live Execution Cockpit / Mission Control
+  // =========================================================================
+  // MODULE 2: MIGRATION OPERATIONS & SUITE
+  // =========================================================================
+
+  // 2.1 MIGRATION PORTFOLIO & CREATION
+  { path: 'migration', component: MigrationPortfolioComponent },
+  { path: 'migration/portfolio', component: MigrationPortfolioComponent },
+  { path: 'migration/create', component: CreateMigrationWizardComponent },
+  { path: 'migration/new', component: CreateMigrationWizardComponent },
+
+  // 2.2 LIVE EXECUTION COCKPIT / MISSION CONTROL
   { path: 'cockpit', component: CockpitComponent },
   { path: 'cockpit/:migrationId', component: CockpitComponent },
   { path: 'migration/cockpit', component: CockpitComponent },
@@ -42,17 +52,53 @@ export const routes: Routes = [
   { path: 'migration/workspace/:migrationId', component: CockpitComponent },
   { path: 'migration/workspace/:migrationId/:tab', component: CockpitComponent },
 
-  // Validation Operations (M8 Data Synchronization Assurance)
+  // 2.3 MULTI-LEVEL PROJECT HIERARCHY (Portfolio -> Initiatives -> Projects)
+  { path: 'migration/projects', component: ProjectsComponent },
+  { path: 'migration/projects/new', component: CreateProjectComponent },
+  { path: 'migration/projects/:projectId', component: ProjectWorkspaceComponent },
+  { path: 'migration/projects/:projectId/:tab', component: ProjectWorkspaceComponent },
+  { path: 'migration/initiatives', component: ProjectsComponent },
+  { path: 'migration/initiatives/new', component: CreateInitiativeComponent },
+  { path: 'migration/initiatives/:initiativeId', component: InitiativeWorkspaceComponent },
+  { path: 'migration/initiatives/:initiativeId/:tab', component: InitiativeWorkspaceComponent },
+  { path: 'migration/initiatives/:initiativeId/new-project', component: CreateProjectComponent },
+  // Root Aliases for Projects & Initiatives
+  { path: 'projects', redirectTo: 'migration/projects', pathMatch: 'full' },
+  { path: 'projects/new', redirectTo: 'migration/projects/new', pathMatch: 'full' },
+  { path: 'projects/:projectId', redirectTo: 'migration/projects/:projectId', pathMatch: 'full' },
+  { path: 'initiatives', redirectTo: 'migration/initiatives', pathMatch: 'full' },
+  { path: 'initiatives/new', redirectTo: 'migration/initiatives/new', pathMatch: 'full' },
+  { path: 'initiatives/:initiativeId', redirectTo: 'migration/initiatives/:initiativeId', pathMatch: 'full' },
+
+  // 2.4 EXECUTION HISTORY & EVIDENCE AUDIT
+  { path: 'migration/history', component: HistoryHomeComponent },
+  { path: 'migration/history/:runId', component: HistoryWorkspaceComponent },
+  { path: 'migration/history/:runId/:tab', component: HistoryWorkspaceComponent },
+  { path: 'history', redirectTo: 'migration/history', pathMatch: 'full' },
+  { path: 'history/:runId', redirectTo: 'migration/history/:runId', pathMatch: 'full' },
+
+  // 2.5 TEMPLATE CATALOG & AUTHORING
+  { path: 'migration/templates', component: TemplatesHomeComponent },
+  { path: 'migration/templates/new', component: CreateTemplateComponent },
+  { path: 'migration/templates/:templateId', component: TemplateWorkspaceComponent },
+  { path: 'migration/templates/:templateId/:tab', component: TemplateWorkspaceComponent },
+  { path: 'templates', redirectTo: 'migration/templates', pathMatch: 'full' },
+  { path: 'templates/new', redirectTo: 'migration/templates/new', pathMatch: 'full' },
+  { path: 'templates/:templateId', redirectTo: 'migration/templates/:templateId', pathMatch: 'full' },
+
+  // 2.6 VALIDATION OPERATIONS (M8 Data Synchronization Assurance)
   { path: 'validation', component: ValidationPortfolioComponent },
   { path: 'validation/new', component: NewValidationWizardComponent },
   { path: 'validation/new/:step', component: NewValidationWizardComponent },
   { path: 'validation/:validationId', component: ValidationWorkstationComponent },
+  { path: 'validation/:validationId/:tab', component: ValidationWorkstationComponent },
   { path: 'migration/validation', component: ValidationPortfolioComponent },
   { path: 'migration/validation/new', component: NewValidationWizardComponent },
   { path: 'migration/validation/new/:step', component: NewValidationWizardComponent },
   { path: 'migration/validation/:validationId', component: ValidationWorkstationComponent },
+  { path: 'migration/validation/:validationId/:tab', component: ValidationWorkstationComponent },
 
-  // Connections Inventory, Creation & Workspace (Part A + Part B + Part C)
+  // 2.7 ENTERPRISE CONNECTIONS VAULT (Root domain & migration submodule mapping)
   { path: 'connections', component: ConnectionsHomeComponent },
   { path: 'connections/new', component: CreateConnectionWizardComponent },
   { path: 'connections/new/:step', component: CreateConnectionWizardComponent },
@@ -63,25 +109,6 @@ export const routes: Routes = [
   { path: 'migration/connections/new/:step', component: CreateConnectionWizardComponent },
   { path: 'migration/connections/:connectionId', component: ConnectionWorkspaceComponent },
   { path: 'migration/connections/:connectionId/:tab', component: ConnectionWorkspaceComponent },
-
-  // Migration Operations (2.1 to 2.8)
-  { path: 'migration', component: MigrationPortfolioComponent },
-  { path: 'migration/portfolio', component: MigrationPortfolioComponent },
-  { path: 'migration/create', component: CreateMigrationWizardComponent },
-  
-  // Multi-Level Project Hierarchy (Portfolio -> Initiatives -> Projects)
-  { path: 'migration/projects', component: ProjectsComponent },
-  { path: 'migration/initiatives/new', component: CreateInitiativeComponent },
-  { path: 'migration/initiatives/:initiativeId', component: InitiativeWorkspaceComponent },
-  { path: 'migration/initiatives/:initiativeId/new-project', component: CreateProjectComponent },
-  { path: 'migration/projects/:projectId', component: ProjectWorkspaceComponent },
-
-  // Execution & Historical Audit
-  { path: 'migration/history', component: HistoryHomeComponent },
-  { path: 'migration/history/:runId', component: HistoryWorkspaceComponent },
-  { path: 'migration/templates', component: TemplatesHomeComponent },
-  { path: 'migration/templates/new', component: CreateTemplateComponent },
-  { path: 'migration/templates/:templateId', component: TemplateWorkspaceComponent },
 
   // System Observability & Telemetry (Part A, B, C)
   { path: 'monitoring', component: MonitoringHomeComponent },
