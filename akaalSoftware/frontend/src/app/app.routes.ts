@@ -43,16 +43,7 @@ export const routes: Routes = [
   { path: 'migration/create', component: CreateMigrationWizardComponent },
   { path: 'migration/new', component: CreateMigrationWizardComponent },
 
-  // 2.2 LIVE EXECUTION COCKPIT / MISSION CONTROL
-  { path: 'cockpit', component: CockpitComponent },
-  { path: 'cockpit/:migrationId', component: CockpitComponent },
-  { path: 'migration/cockpit', component: CockpitComponent },
-  { path: 'migration/cockpit/:migrationId', component: CockpitComponent },
-  { path: 'migration/:migrationId', component: CockpitComponent },
-  { path: 'migration/workspace/:migrationId', component: CockpitComponent },
-  { path: 'migration/workspace/:migrationId/:tab', component: CockpitComponent },
-
-  // 2.3 MULTI-LEVEL PROJECT HIERARCHY (Portfolio -> Initiatives -> Projects)
+  // 2.2 MULTI-LEVEL PROJECT HIERARCHY (Portfolio -> Initiatives -> Projects)
   { path: 'migration/projects', component: ProjectsComponent },
   { path: 'migration/projects/new', component: CreateProjectComponent },
   { path: 'migration/projects/:projectId', component: ProjectWorkspaceComponent },
@@ -70,14 +61,14 @@ export const routes: Routes = [
   { path: 'initiatives/new', redirectTo: 'migration/initiatives/new', pathMatch: 'full' },
   { path: 'initiatives/:initiativeId', redirectTo: 'migration/initiatives/:initiativeId', pathMatch: 'full' },
 
-  // 2.4 EXECUTION HISTORY & EVIDENCE AUDIT
+  // 2.3 EXECUTION HISTORY & EVIDENCE AUDIT
   { path: 'migration/history', component: HistoryHomeComponent },
   { path: 'migration/history/:runId', component: HistoryWorkspaceComponent },
   { path: 'migration/history/:runId/:tab', component: HistoryWorkspaceComponent },
   { path: 'history', redirectTo: 'migration/history', pathMatch: 'full' },
   { path: 'history/:runId', redirectTo: 'migration/history/:runId', pathMatch: 'full' },
 
-  // 2.5 TEMPLATE CATALOG & AUTHORING
+  // 2.4 TEMPLATE CATALOG & AUTHORING
   { path: 'migration/templates', component: TemplatesHomeComponent },
   { path: 'migration/templates/new', component: CreateTemplateComponent },
   { path: 'migration/templates/:templateId', component: TemplateWorkspaceComponent },
@@ -86,7 +77,7 @@ export const routes: Routes = [
   { path: 'templates/new', redirectTo: 'migration/templates/new', pathMatch: 'full' },
   { path: 'templates/:templateId', redirectTo: 'migration/templates/:templateId', pathMatch: 'full' },
 
-  // 2.6 VALIDATION OPERATIONS (M8 Data Synchronization Assurance)
+  // 2.5 VALIDATION OPERATIONS (M8 Data Synchronization Assurance)
   { path: 'validation', component: ValidationPortfolioComponent },
   { path: 'validation/new', component: NewValidationWizardComponent },
   { path: 'validation/new/:step', component: NewValidationWizardComponent },
@@ -98,7 +89,7 @@ export const routes: Routes = [
   { path: 'migration/validation/:validationId', component: ValidationWorkstationComponent },
   { path: 'migration/validation/:validationId/:tab', component: ValidationWorkstationComponent },
 
-  // 2.7 ENTERPRISE CONNECTIONS VAULT (Root domain & migration submodule mapping)
+  // 2.6 ENTERPRISE CONNECTIONS VAULT (Root domain & migration submodule mapping)
   { path: 'connections', component: ConnectionsHomeComponent },
   { path: 'connections/new', component: CreateConnectionWizardComponent },
   { path: 'connections/new/:step', component: CreateConnectionWizardComponent },
@@ -109,6 +100,15 @@ export const routes: Routes = [
   { path: 'migration/connections/new/:step', component: CreateConnectionWizardComponent },
   { path: 'migration/connections/:connectionId', component: ConnectionWorkspaceComponent },
   { path: 'migration/connections/:connectionId/:tab', component: ConnectionWorkspaceComponent },
+
+  // 2.7 LIVE EXECUTION COCKPIT / MISSION CONTROL & WILDCARD FALLBACKS
+  { path: 'cockpit', component: CockpitComponent },
+  { path: 'cockpit/:migrationId', component: CockpitComponent },
+  { path: 'migration/cockpit', component: CockpitComponent },
+  { path: 'migration/cockpit/:migrationId', component: CockpitComponent },
+  { path: 'migration/workspace/:migrationId', component: CockpitComponent },
+  { path: 'migration/workspace/:migrationId/:tab', component: CockpitComponent },
+  { path: 'migration/:migrationId', component: CockpitComponent },
 
   // System Observability & Telemetry (Part A, B, C)
   { path: 'monitoring', component: MonitoringHomeComponent },
