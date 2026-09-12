@@ -1,11 +1,13 @@
 $env:NG_CLI_ANALYTICS = "false"
-$env:NODE_OPTIONS = "--max-old-space-size=8192"
+$env:NODE_OPTIONS = "--max-old-space-size=4096"
 $env:NG_BUILD_MAX_WORKERS = "1"
+$env:NG_BUILD_PARALLEL_TS = "0"
+$env:NG_BUILD_TYPE_CHECK = "0"
 $env:ESBUILD_WORKER_THREADS = "1"
 
-Write-Host "1. Building Angular production frontend (8192MB heap)..." -ForegroundColor Cyan
+Write-Host "1. Building Angular production frontend (4096MB heap)..." -ForegroundColor Cyan
 Set-Location -Path "$PSScriptRoot\frontend"
-node --max-old-space-size=8192 ./node_modules/@angular/cli/bin/ng build --base-href ./
+node --max-old-space-size=4096 ./node_modules/@angular/cli/bin/ng build --base-href ./
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Frontend build failed!" -ForegroundColor Red

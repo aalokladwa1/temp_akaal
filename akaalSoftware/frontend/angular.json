@@ -42,7 +42,7 @@
                 }
               ],
               "outputHashing": "all",
-              "optimization": false,
+              "optimization": true,
               "sourceMap": false,
               "extractLicenses": false
             },
