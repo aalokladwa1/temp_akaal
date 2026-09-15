@@ -361,7 +361,7 @@ import {
       @if (contextualIntelligence()) {
         <section aria-label="Contextual Intelligence" class="rounded-xl bg-blue-50/50 border border-blue-200 p-4 space-y-2">
           <div class="flex items-center gap-2 text-blue-900 font-bold text-xs">
-            <app-lucide-icon name="sparkles" [size]="14" class="text-blue-600"></app-lucide-icon>
+            <app-lucide-icon name="info" [size]="14" class="text-blue-600"></app-lucide-icon>
             <span>{{ contextualIntelligence()?.title }}</span>
           </div>
           <p class="text-xs text-blue-800 font-normal leading-relaxed">

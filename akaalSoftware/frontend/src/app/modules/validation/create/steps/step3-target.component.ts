@@ -10,7 +10,7 @@ import {
   NetworkRouteType
 } from '../../../../core/models/migration-view.models';
 import {
-  ALL_48_PROVIDER_SCHEMAS,
+  ALL_PROVIDER_SCHEMAS,
   ProviderFormSchema,
   ProviderFormField
 } from '../../../../core/models/provider-form-schemas';
@@ -1422,7 +1422,7 @@ export class Step3TargetComponent implements OnInit {
   public selectedProviderSchema = computed<ProviderFormSchema | undefined>(() => {
     const pid = this.vs.newValidationDraft().targetProvider;
     if (!pid) return undefined;
-    return ALL_48_PROVIDER_SCHEMAS[pid];
+    return ALL_PROVIDER_SCHEMAS[pid];
   });
 
   public ngOnInit(): void {
@@ -1453,7 +1453,7 @@ export class Step3TargetComponent implements OnInit {
   }
 
   public getProviderIcon(provider: PhysicalProviderId): string {
-    const s = ALL_48_PROVIDER_SCHEMAS[provider];
+    const s = ALL_PROVIDER_SCHEMAS[provider];
     return s?.icon || 'database';
   }
 
@@ -1560,7 +1560,7 @@ export class Step3TargetComponent implements OnInit {
   }
 
   public selectEngine(engineId: PhysicalProviderId): void {
-    const schema = ALL_48_PROVIDER_SCHEMAS[engineId];
+    const schema = ALL_PROVIDER_SCHEMAS[engineId];
     if (!schema) return;
 
     this.vs.updateDraft({

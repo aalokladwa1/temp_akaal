@@ -10,7 +10,7 @@ import {
   NetworkRouteType
 } from '../../../../core/models/migration-view.models';
 import {
-  ALL_48_PROVIDER_SCHEMAS,
+  ALL_PROVIDER_SCHEMAS,
   ProviderFormSchema,
   ProviderFormField
 } from '../../../../core/models/provider-form-schemas';
@@ -69,7 +69,7 @@ export interface SavedConnectionItemExtended extends ConnectionItem {
           <div class="flex items-center justify-between flex-wrap gap-2">
             <div class="flex flex-col gap-0.5">
               <h1 class="text-base font-bold text-slate-900 tracking-tight">Source Connection</h1>
-              <p class="text-xs text-slate-500 font-normal">Choose how AKAAL Validation Studio should connect to the source system.</p>
+              <p class="text-xs text-slate-500 font-normal">Choose how DevKros should connect to the source system.</p>
             </div>
 
             <!-- Compact Segmented Control (Top-Right) -->
@@ -92,7 +92,7 @@ export interface SavedConnectionItemExtended extends ConnectionItem {
           <div class="flex flex-col items-center text-center gap-1.5 pb-6">
             <h1 class="text-xl font-bold text-slate-900 tracking-tight">Source Connection</h1>
             <p class="text-sm text-slate-500 max-w-md font-normal">
-              Choose how AKAAL Validation Studio should connect to your source database system.
+              Choose how DevKros should connect to your source database system.
             </p>
           </div>
 
@@ -1513,7 +1513,7 @@ export class Step2SourceComponent implements OnInit {
   public selectedProviderSchema = computed<ProviderFormSchema | undefined>(() => {
     const pid = this.vs.newValidationDraft().sourceProvider;
     if (!pid) return undefined;
-    return ALL_48_PROVIDER_SCHEMAS[pid];
+    return ALL_PROVIDER_SCHEMAS[pid];
   });
 
   public ngOnInit(): void {
@@ -1550,7 +1550,7 @@ export class Step2SourceComponent implements OnInit {
   }
 
   public getProviderIcon(provider: PhysicalProviderId): string {
-    const s = ALL_48_PROVIDER_SCHEMAS[provider];
+    const s = ALL_PROVIDER_SCHEMAS[provider];
     return s?.icon || 'database';
   }
 
@@ -1631,7 +1631,7 @@ export class Step2SourceComponent implements OnInit {
 
   // Engine Selection in Catalog Grid
   public selectEngine(engineId: PhysicalProviderId): void {
-    const schema = ALL_48_PROVIDER_SCHEMAS[engineId];
+    const schema = ALL_PROVIDER_SCHEMAS[engineId];
     if (!schema) return;
 
     this.vs.updateDraft({

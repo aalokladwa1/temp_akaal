@@ -20,7 +20,7 @@ import { ValidationExecutionState, ValidationVerdict } from '../validation-works
           
           <!-- Breadcrumbs & Identity Badges (Rectangular, rounded-md, NO pill capsules) -->
           <div class="flex items-center flex-wrap gap-2 text-xs">
-            <span class="text-slate-400 font-medium">AKAAL Enterprise</span>
+            <span class="text-slate-400 font-medium">DevKros Enterprise</span>
             <span class="text-slate-300">/</span>
             <a routerLink="/migration/validation" class="text-slate-500 hover:text-blue-600 font-medium transition-colors">
               Validation Missions
@@ -31,7 +31,7 @@ import { ValidationExecutionState, ValidationVerdict } from '../validation-works
             <button
               type="button"
               (click)="store.copyValidationId()"
-              class="inline-flex items-center gap-1.5 font-mono text-xs font-semibold px-2.5 py-1 rounded-md bg-slate-50 hover:bg-blue-50 text-slate-700 hover:text-blue-700 hover:border-blue-300 transition-colors border border-slate-200 cursor-pointer"
+              class="inline-flex items-center gap-1.5 font-sans text-xs font-semibold px-2.5 py-1 rounded-md bg-slate-50 hover:bg-blue-50 text-slate-700 hover:text-blue-700 hover:border-blue-300 transition-colors border border-slate-200 cursor-pointer"
               [title]="'Click to copy mission ID: ' + store.validationId()">
               <span>{{ store.validationId() }}</span>
               <app-lucide-icon

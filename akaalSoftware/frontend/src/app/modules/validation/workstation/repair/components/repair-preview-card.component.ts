@@ -80,7 +80,7 @@ import { LucideIconComponent } from '../../../../../shared/components/lucide-ico
                   </th>
                   <th class="py-3.5 px-4.5 min-w-[240px] bg-blue-50/70 text-blue-900">
                     <div class="flex items-center gap-1.5">
-                      <app-lucide-icon name="sparkles" [size]="12" class="text-blue-700"></app-lucide-icon>
+                      <app-lucide-icon name="wrench" [size]="12" class="text-blue-700"></app-lucide-icon>
                       <span>Proposed Target (If Applied)</span>
                     </div>
                   </th>

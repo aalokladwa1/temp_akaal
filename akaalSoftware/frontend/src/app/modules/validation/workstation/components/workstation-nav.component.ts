@@ -37,7 +37,7 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
           <app-lucide-icon name="alert-triangle" [size]="14" />
           <span>Discrepancies</span>
           @if (getDiscrepancyCount() > 0) {
-            <span class="px-1.5 py-0.5 text-[10px] font-mono font-bold rounded bg-rose-100 text-rose-700 border border-rose-200">
+            <span class="px-1.5 py-0.5 text-[10px] font-sans tabular-nums font-bold rounded bg-rose-100 text-rose-700 border border-rose-200">
               {{ getDiscrepancyCount() }}
             </span>
           }
@@ -56,7 +56,7 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
           <span>Repair &amp; Revalidation</span>
           @if (store.state().remediation.revalidationCount; as count) {
             @if (count > 0) {
-              <span class="px-1.5 py-0.5 text-[10px] font-mono font-bold rounded bg-blue-100 text-blue-700 border border-blue-200">
+              <span class="px-1.5 py-0.5 text-[10px] font-sans tabular-nums font-bold rounded bg-blue-100 text-blue-700 border border-blue-200">
                 {{ count }}
               </span>
             }

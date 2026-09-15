@@ -98,7 +98,7 @@ import {
               <div class="flex items-start gap-3">
                 <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
                   [ngClass]="finding.severity === 'WARNING' ? 'bg-amber-100 text-amber-700 border border-amber-200' : 'bg-blue-100 text-blue-700 border border-blue-200'">
-                  <app-lucide-icon [name]="finding.severity === 'WARNING' ? 'alert-triangle' : 'sparkles'" [size]="16"></app-lucide-icon>
+                  <app-lucide-icon [name]="finding.severity === 'WARNING' ? 'alert-triangle' : 'info'" [size]="16"></app-lucide-icon>
                 </div>
                 <div class="space-y-1">
                   <div class="flex items-center gap-2">

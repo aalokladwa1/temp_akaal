@@ -121,7 +121,7 @@ export interface EnvironmentOption {
                 class="w-full h-9 px-3 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 flex items-center justify-between text-xs font-medium text-slate-800 cursor-pointer transition-colors focus:outline-none focus:border-blue-600">
                 <div class="flex items-center gap-2 min-w-0">
                   <app-lucide-icon [name]="isLinkedToProject() ? 'folder-kanban' : 'shield-check'" [size]="13" class="text-slate-500 shrink-0"></app-lucide-icon>
-                  <span class="truncate">{{ isLinkedToProject() ? 'Existing AKAAL project' : 'Independent validation' }}</span>
+                  <span class="truncate">{{ isLinkedToProject() ? 'Existing DevKros project' : 'Independent validation' }}</span>
                 </div>
                 <app-lucide-icon name="chevron-down" [size]="13" class="text-slate-400 shrink-0 ml-1.5"></app-lucide-icon>
               </button>
@@ -156,7 +156,7 @@ export interface EnvironmentOption {
                     [class.bg-blue-50]="isLinkedToProject()"
                     [class.text-blue-700]="isLinkedToProject()">
                     <div class="flex flex-col">
-                      <span class="font-semibold text-slate-900">Existing AKAAL project</span>
+                      <span class="font-semibold text-slate-900">Existing DevKros project</span>
                       <span class="text-[11px] text-slate-500 font-normal">Associate this validation with an existing project or initiative</span>
                     </div>
                     @if (isLinkedToProject()) {

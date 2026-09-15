@@ -23,8 +23,8 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
           <div class="flex items-center gap-2">
             <app-lucide-icon name="panel-left-close" [size]="18" class="text-blue-600" />
             <div class="flex flex-col">
-              <h2 class="text-sm font-bold text-slate-900 font-heading">Technical Architecture</h2>
-              <span class="text-[11px] text-slate-500">Engine placement, boundaries &amp; provenance</span>
+              <h2 class="text-sm font-bold text-slate-900 font-heading">Validation Engine Diagnostics</h2>
+              <span class="text-[11px] text-slate-500">Validation engine status and execution diagnostics</span>
             </div>
           </div>
 

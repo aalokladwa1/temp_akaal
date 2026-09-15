@@ -8,32 +8,40 @@ describe('ValidationHomeService', () => {
     service = new ValidationHomeService();
   });
 
-  it('should initialize with baseline validation items', () => {
-    expect(service.validations().length).toBeGreaterThan(0);
-    expect(service.attentionItems().length).toBeGreaterThan(0);
-    expect(service.upcomingValidations().length).toBeGreaterThan(0);
-    expect(service.recentResults().length).toBeGreaterThan(0);
-    expect(service.activities().length).toBeGreaterThan(0);
+  it('should initialize with truthful empty baseline when disconnected', () => {
+    expect(service.validations().length).toBe(0);
+    expect(service.attentionItems().length).toBe(0);
+    expect(service.upcomingValidations().length).toBe(0);
+    expect(service.recentResults().length).toBe(0);
+    expect(service.activities().length).toBe(0);
   });
 
-  it('should compute KPI counters correctly', () => {
+  it('should compute KPI counters correctly when items exist', () => {
+    service.validations.set([
+      { id: 'v1', name: 'Banking Test', source_provider: 'Oracle', target_provider: 'PostgreSQL', strategy: 'Sync', state: 'RUNNING', outcome: 'Running' },
+      { id: 'v2', name: 'Catalog Test', source_provider: 'MySQL', target_provider: 'Snowflake', strategy: 'Sync', state: 'COMPLETED', outcome: 'Validated' }
+    ]);
     const counters = service.computedCounters();
-    expect(counters.total).toBe(service.validations().length);
-    expect(counters.active).toBeGreaterThanOrEqual(1);
-    expect(counters.attention).toBeGreaterThanOrEqual(1);
-    expect(counters.scheduled).toBeGreaterThanOrEqual(1);
-    expect(counters.completed).toBeGreaterThanOrEqual(1);
+    expect(counters.total).toBe(2);
+    expect(counters.active).toBe(1);
+    expect(counters.completed).toBe(1);
   });
 
   it('should filter active validations correctly', () => {
+    service.validations.set([
+      { id: 'v1', name: 'Banking Test', source_provider: 'Oracle', target_provider: 'PostgreSQL', strategy: 'Sync', state: 'RUNNING', outcome: 'Running' }
+    ]);
     const active = service.activeValidations();
-    expect(active.length).toBeGreaterThanOrEqual(1);
+    expect(active.length).toBe(1);
     for (const v of active) {
       expect(['ACTIVE', 'RUNNING']).toContain(v.state);
     }
   });
 
   it('should filter by KPI selection', () => {
+    service.validations.set([
+      { id: 'v1', name: 'Banking Test', source_provider: 'Oracle', target_provider: 'PostgreSQL', strategy: 'Sync', state: 'RUNNING', outcome: 'Running' }
+    ]);
     service.kpiFilter.set('ACTIVE');
     const filtered = service.filteredValidations();
     for (const v of filtered) {
@@ -42,6 +50,9 @@ describe('ValidationHomeService', () => {
   });
 
   it('should filter by search query', () => {
+    service.validations.set([
+      { id: 'v1', name: 'Banking Test', source_provider: 'Oracle', target_provider: 'PostgreSQL', strategy: 'Sync', state: 'RUNNING', outcome: 'Running' }
+    ]);
     service.searchQuery.set('Banking');
     const filtered = service.filteredValidations();
     expect(filtered.length).toBe(1);
@@ -49,6 +60,9 @@ describe('ValidationHomeService', () => {
   });
 
   it('should filter by status', () => {
+    service.validations.set([
+      { id: 'v1', name: 'Catalog Test', source_provider: 'MySQL', target_provider: 'Snowflake', strategy: 'Sync', state: 'COMPLETED', outcome: 'Validated' }
+    ]);
     service.statusFilter.set('VALIDATED');
     const filtered = service.filteredValidations();
     for (const v of filtered) {
@@ -57,6 +71,9 @@ describe('ValidationHomeService', () => {
   });
 
   it('should filter by strategy', () => {
+    service.validations.set([
+      { id: 'v1', name: 'Catalog Test', source_provider: 'MySQL', target_provider: 'Snowflake', strategy: 'Sync', state: 'COMPLETED', outcome: 'Validated' }
+    ]);
     service.strategyFilter.set('Sync');
     const filtered = service.filteredValidations();
     for (const v of filtered) {
