@@ -1,0 +1,4690 @@
+[
+  {
+    "index": 1,
+    "fullPath": "",
+    "moduleDomain": "root",
+    "component": null,
+    "hasParams": false,
+    "params": [],
+    "isRedirect": true,
+    "redirectTo": "dashboard",
+    "plannedModule": "Root",
+    "plannedSubmodule": "Navigation Redirect",
+    "plannedCapabilityId": "REDIRECT",
+    "classification": "STANDARD_REDIRECT",
+    "notes": "Redirects '' to 'dashboard'"
+  },
+  {
+    "index": 2,
+    "fullPath": "dashboard",
+    "moduleDomain": "dashboard",
+    "component": "DashboardComponent",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Dashboard",
+    "plannedSubmodule": "1.0 Overview",
+    "plannedCapabilityId": "PLN-DASH-001",
+    "classification": "EXACT",
+    "notes": "Primary enterprise dashboard overview"
+  },
+  {
+    "index": 3,
+    "fullPath": "cockpit",
+    "moduleDomain": "cockpit",
+    "component": "CockpitComponent",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Migration",
+    "plannedSubmodule": "2.5 Mission Control / Cockpit",
+    "plannedCapabilityId": "PLN-MIGR-COCK-001",
+    "classification": "PROPOSED_SUPERIOR_REALIZATION",
+    "notes": "Promoted from nested view to top-level operational cockpit route"
+  },
+  {
+    "index": 4,
+    "fullPath": "cockpit/:migrationId",
+    "moduleDomain": "cockpit",
+    "component": "CockpitComponent",
+    "hasParams": true,
+    "params": [
+      "migrationId"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Migration",
+    "plannedSubmodule": "2.5 Mission Control / Cockpit",
+    "plannedCapabilityId": "PLN-MIGR-COCK-001",
+    "classification": "PROPOSED_SUPERIOR_REALIZATION",
+    "notes": "Promoted from nested view to top-level operational cockpit route"
+  },
+  {
+    "index": 5,
+    "fullPath": "migration/cockpit",
+    "moduleDomain": "cockpit",
+    "component": "CockpitComponent",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Migration",
+    "plannedSubmodule": "2.5 Mission Control / Cockpit",
+    "plannedCapabilityId": "PLN-MIGR-COCK-001",
+    "classification": "PROPOSED_SUPERIOR_REALIZATION",
+    "notes": "Promoted from nested view to top-level operational cockpit route"
+  },
+  {
+    "index": 6,
+    "fullPath": "migration/cockpit/:migrationId",
+    "moduleDomain": "cockpit",
+    "component": "CockpitComponent",
+    "hasParams": true,
+    "params": [
+      "migrationId"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Migration",
+    "plannedSubmodule": "2.5 Mission Control / Cockpit",
+    "plannedCapabilityId": "PLN-MIGR-COCK-001",
+    "classification": "PROPOSED_SUPERIOR_REALIZATION",
+    "notes": "Promoted from nested view to top-level operational cockpit route"
+  },
+  {
+    "index": 7,
+    "fullPath": "validation",
+    "moduleDomain": "validation",
+    "component": "ValidationPortfolioComponent",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Migration",
+    "plannedSubmodule": "2.6 Validation Operations",
+    "plannedCapabilityId": "PLN-MIGR-VAL-001",
+    "classification": "PROPOSED_SUPERIOR_REALIZATION",
+    "notes": "Promoted to top-level route for standalone integrity verification"
+  },
+  {
+    "index": 8,
+    "fullPath": "validation/new",
+    "moduleDomain": "validation",
+    "component": "NewValidationWizardComponent",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Migration",
+    "plannedSubmodule": "2.6 Validation Operations",
+    "plannedCapabilityId": "PLN-MIGR-VAL-001",
+    "classification": "PROPOSED_SUPERIOR_REALIZATION",
+    "notes": "Promoted to top-level route for standalone integrity verification"
+  },
+  {
+    "index": 9,
+    "fullPath": "validation/new/:step",
+    "moduleDomain": "validation",
+    "component": "NewValidationWizardComponent",
+    "hasParams": true,
+    "params": [
+      "step"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Migration",
+    "plannedSubmodule": "2.6 Validation Operations",
+    "plannedCapabilityId": "PLN-MIGR-VAL-001",
+    "classification": "PROPOSED_SUPERIOR_REALIZATION",
+    "notes": "Promoted to top-level route for standalone integrity verification"
+  },
+  {
+    "index": 10,
+    "fullPath": "validation/:validationId",
+    "moduleDomain": "validation",
+    "component": "ValidationWorkstationComponent",
+    "hasParams": true,
+    "params": [
+      "validationId"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Migration",
+    "plannedSubmodule": "2.6 Validation Operations",
+    "plannedCapabilityId": "PLN-MIGR-VAL-001",
+    "classification": "PROPOSED_SUPERIOR_REALIZATION",
+    "notes": "Promoted to top-level route for standalone integrity verification"
+  },
+  {
+    "index": 11,
+    "fullPath": "migration/validation",
+    "moduleDomain": "validation",
+    "component": "ValidationPortfolioComponent",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Migration",
+    "plannedSubmodule": "2.6 Validation Operations",
+    "plannedCapabilityId": "PLN-MIGR-VAL-001",
+    "classification": "PROPOSED_SUPERIOR_REALIZATION",
+    "notes": "Promoted to top-level route for standalone integrity verification"
+  },
+  {
+    "index": 12,
+    "fullPath": "migration/validation/new",
+    "moduleDomain": "validation",
+    "component": "NewValidationWizardComponent",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Migration",
+    "plannedSubmodule": "2.6 Validation Operations",
+    "plannedCapabilityId": "PLN-MIGR-VAL-001",
+    "classification": "PROPOSED_SUPERIOR_REALIZATION",
+    "notes": "Promoted to top-level route for standalone integrity verification"
+  },
+  {
+    "index": 13,
+    "fullPath": "migration/validation/new/:step",
+    "moduleDomain": "validation",
+    "component": "NewValidationWizardComponent",
+    "hasParams": true,
+    "params": [
+      "step"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Migration",
+    "plannedSubmodule": "2.6 Validation Operations",
+    "plannedCapabilityId": "PLN-MIGR-VAL-001",
+    "classification": "PROPOSED_SUPERIOR_REALIZATION",
+    "notes": "Promoted to top-level route for standalone integrity verification"
+  },
+  {
+    "index": 14,
+    "fullPath": "migration/validation/:validationId",
+    "moduleDomain": "validation",
+    "component": "ValidationWorkstationComponent",
+    "hasParams": true,
+    "params": [
+      "validationId"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Migration",
+    "plannedSubmodule": "2.6 Validation Operations",
+    "plannedCapabilityId": "PLN-MIGR-VAL-001",
+    "classification": "PROPOSED_SUPERIOR_REALIZATION",
+    "notes": "Promoted to top-level route for standalone integrity verification"
+  },
+  {
+    "index": 15,
+    "fullPath": "connections",
+    "moduleDomain": "connections",
+    "component": "ConnectionsHomeComponent",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Migration",
+    "plannedSubmodule": "2.4 Connections",
+    "plannedCapabilityId": "PLN-MIGR-CONN-001",
+    "classification": "PROPOSED_SUPERIOR_REALIZATION",
+    "notes": "Promoted to top-level route for cross-cutting connection reuse"
+  },
+  {
+    "index": 16,
+    "fullPath": "connections/new",
+    "moduleDomain": "connections",
+    "component": "CreateConnectionWizardComponent",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Migration",
+    "plannedSubmodule": "2.4 Connections",
+    "plannedCapabilityId": "PLN-MIGR-CONN-001",
+    "classification": "PROPOSED_SUPERIOR_REALIZATION",
+    "notes": "Promoted to top-level route for cross-cutting connection reuse"
+  },
+  {
+    "index": 17,
+    "fullPath": "connections/new/:step",
+    "moduleDomain": "connections",
+    "component": "CreateConnectionWizardComponent",
+    "hasParams": true,
+    "params": [
+      "step"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Migration",
+    "plannedSubmodule": "2.4 Connections",
+    "plannedCapabilityId": "PLN-MIGR-CONN-001",
+    "classification": "PROPOSED_SUPERIOR_REALIZATION",
+    "notes": "Promoted to top-level route for cross-cutting connection reuse"
+  },
+  {
+    "index": 18,
+    "fullPath": "connections/:connectionId",
+    "moduleDomain": "connections",
+    "component": "ConnectionWorkspaceComponent",
+    "hasParams": true,
+    "params": [
+      "connectionId"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Migration",
+    "plannedSubmodule": "2.4 Connections",
+    "plannedCapabilityId": "PLN-MIGR-CONN-001",
+    "classification": "PROPOSED_SUPERIOR_REALIZATION",
+    "notes": "Promoted to top-level route for cross-cutting connection reuse"
+  },
+  {
+    "index": 19,
+    "fullPath": "connections/:connectionId/:tab",
+    "moduleDomain": "connections",
+    "component": "ConnectionWorkspaceComponent",
+    "hasParams": true,
+    "params": [
+      "connectionId",
+      "tab"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Migration",
+    "plannedSubmodule": "2.4 Connections",
+    "plannedCapabilityId": "PLN-MIGR-CONN-001",
+    "classification": "PROPOSED_SUPERIOR_REALIZATION",
+    "notes": "Promoted to top-level route for cross-cutting connection reuse"
+  },
+  {
+    "index": 20,
+    "fullPath": "migration",
+    "moduleDomain": "migration",
+    "component": "MigrationPortfolioComponent",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Migration",
+    "plannedSubmodule": "2.1 Migration Portfolio",
+    "plannedCapabilityId": "PLN-MIGR-PORT-001",
+    "classification": "EXACT",
+    "notes": "Core migration portfolio and creation/details routes"
+  },
+  {
+    "index": 21,
+    "fullPath": "migration/portfolio",
+    "moduleDomain": "migration",
+    "component": "MigrationPortfolioComponent",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Migration",
+    "plannedSubmodule": "2.1 Migration Portfolio",
+    "plannedCapabilityId": "PLN-MIGR-PORT-001",
+    "classification": "EXACT",
+    "notes": "Core migration portfolio and creation/details routes"
+  },
+  {
+    "index": 22,
+    "fullPath": "migration/create",
+    "moduleDomain": "migration",
+    "component": "CreateMigrationWizardComponent",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Migration",
+    "plannedSubmodule": "2.1 Migration Portfolio",
+    "plannedCapabilityId": "PLN-MIGR-PORT-001",
+    "classification": "EXACT",
+    "notes": "Core migration portfolio and creation/details routes"
+  },
+  {
+    "index": 23,
+    "fullPath": "migration/projects",
+    "moduleDomain": "migration",
+    "component": "ProjectsComponent",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Migration",
+    "plannedSubmodule": "2.1 Migration Portfolio",
+    "plannedCapabilityId": "PLN-MIGR-PORT-001",
+    "classification": "EXACT",
+    "notes": "Core migration portfolio and creation/details routes"
+  },
+  {
+    "index": 24,
+    "fullPath": "migration/initiatives/new",
+    "moduleDomain": "migration",
+    "component": "CreateInitiativeComponent",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Migration",
+    "plannedSubmodule": "2.2 Create Migration Wizard",
+    "plannedCapabilityId": "PLN-MIGR-WIZ-001",
+    "classification": "EXACT",
+    "notes": "Core migration portfolio and creation/details routes"
+  },
+  {
+    "index": 25,
+    "fullPath": "migration/initiatives/:initiativeId",
+    "moduleDomain": "migration",
+    "component": "InitiativeWorkspaceComponent",
+    "hasParams": true,
+    "params": [
+      "initiativeId"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Migration",
+    "plannedSubmodule": "2.7 Migration Details / History",
+    "plannedCapabilityId": "PLN-MIGR-HIST-001",
+    "classification": "EXACT",
+    "notes": "Core migration portfolio and creation/details routes"
+  },
+  {
+    "index": 26,
+    "fullPath": "migration/initiatives/:initiativeId/new-project",
+    "moduleDomain": "migration",
+    "component": "CreateProjectComponent",
+    "hasParams": true,
+    "params": [
+      "initiativeId"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Migration",
+    "plannedSubmodule": "2.2 Create Migration Wizard",
+    "plannedCapabilityId": "PLN-MIGR-WIZ-001",
+    "classification": "EXACT",
+    "notes": "Core migration portfolio and creation/details routes"
+  },
+  {
+    "index": 27,
+    "fullPath": "migration/projects/:projectId",
+    "moduleDomain": "migration",
+    "component": "ProjectWorkspaceComponent",
+    "hasParams": true,
+    "params": [
+      "projectId"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Migration",
+    "plannedSubmodule": "2.7 Migration Details / History",
+    "plannedCapabilityId": "PLN-MIGR-HIST-001",
+    "classification": "EXACT",
+    "notes": "Core migration portfolio and creation/details routes"
+  },
+  {
+    "index": 28,
+    "fullPath": "migration/connections",
+    "moduleDomain": "migration",
+    "component": "ConnectionsComponent",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Migration",
+    "plannedSubmodule": "2.1 Migration Portfolio",
+    "plannedCapabilityId": "PLN-MIGR-PORT-001",
+    "classification": "EXACT",
+    "notes": "Core migration portfolio and creation/details routes"
+  },
+  {
+    "index": 29,
+    "fullPath": "migration/history",
+    "moduleDomain": "migration",
+    "component": "HistoryHomeComponent",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Migration",
+    "plannedSubmodule": "2.1 Migration Portfolio",
+    "plannedCapabilityId": "PLN-MIGR-PORT-001",
+    "classification": "EXACT",
+    "notes": "Core migration portfolio and creation/details routes"
+  },
+  {
+    "index": 30,
+    "fullPath": "migration/history/:runId",
+    "moduleDomain": "migration",
+    "component": "HistoryWorkspaceComponent",
+    "hasParams": true,
+    "params": [
+      "runId"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Migration",
+    "plannedSubmodule": "2.7 Migration Details / History",
+    "plannedCapabilityId": "PLN-MIGR-HIST-001",
+    "classification": "EXACT",
+    "notes": "Core migration portfolio and creation/details routes"
+  },
+  {
+    "index": 31,
+    "fullPath": "migration/templates",
+    "moduleDomain": "migration",
+    "component": "TemplatesHomeComponent",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Migration",
+    "plannedSubmodule": "2.1 Migration Portfolio",
+    "plannedCapabilityId": "PLN-MIGR-PORT-001",
+    "classification": "EXACT",
+    "notes": "Core migration portfolio and creation/details routes"
+  },
+  {
+    "index": 32,
+    "fullPath": "migration/templates/new",
+    "moduleDomain": "migration",
+    "component": "CreateTemplateComponent",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Migration",
+    "plannedSubmodule": "2.2 Create Migration Wizard",
+    "plannedCapabilityId": "PLN-MIGR-WIZ-001",
+    "classification": "EXACT",
+    "notes": "Core migration portfolio and creation/details routes"
+  },
+  {
+    "index": 33,
+    "fullPath": "migration/templates/:templateId",
+    "moduleDomain": "migration",
+    "component": "TemplateWorkspaceComponent",
+    "hasParams": true,
+    "params": [
+      "templateId"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Migration",
+    "plannedSubmodule": "2.7 Migration Details / History",
+    "plannedCapabilityId": "PLN-MIGR-HIST-001",
+    "classification": "EXACT",
+    "notes": "Core migration portfolio and creation/details routes"
+  },
+  {
+    "index": 34,
+    "fullPath": "monitoring",
+    "moduleDomain": "monitoring",
+    "component": "MonitoringHomeComponent",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Monitoring",
+    "plannedSubmodule": "3. Monitoring Subsystems",
+    "plannedCapabilityId": "PLN-MON-OVER-001",
+    "classification": "EXACT",
+    "notes": "Monitoring sub-routes (overview, migration, platform, alerts)"
+  },
+  {
+    "index": 35,
+    "fullPath": "monitoring/overview",
+    "moduleDomain": "monitoring",
+    "component": "MonitoringHomeComponent",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Monitoring",
+    "plannedSubmodule": "3. Monitoring Subsystems",
+    "plannedCapabilityId": "PLN-MON-OVER-001",
+    "classification": "EXACT",
+    "notes": "Monitoring sub-routes (overview, migration, platform, alerts)"
+  },
+  {
+    "index": 36,
+    "fullPath": "monitoring/migration",
+    "moduleDomain": "monitoring",
+    "component": "MigrationMonitoringHomeComponent",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Monitoring",
+    "plannedSubmodule": "3. Monitoring Subsystems",
+    "plannedCapabilityId": "PLN-MON-OVER-001",
+    "classification": "EXACT",
+    "notes": "Monitoring sub-routes (overview, migration, platform, alerts)"
+  },
+  {
+    "index": 37,
+    "fullPath": "monitoring/platform",
+    "moduleDomain": "monitoring",
+    "component": "PlatformMonitoringHomeComponent",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Monitoring",
+    "plannedSubmodule": "3. Monitoring Subsystems",
+    "plannedCapabilityId": "PLN-MON-OVER-001",
+    "classification": "EXACT",
+    "notes": "Monitoring sub-routes (overview, migration, platform, alerts)"
+  },
+  {
+    "index": 38,
+    "fullPath": "monitoring/alerts",
+    "moduleDomain": "monitoring",
+    "component": "AlertsMonitoringHomeComponent",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Monitoring",
+    "plannedSubmodule": "3. Monitoring Subsystems",
+    "plannedCapabilityId": "PLN-MON-OVER-001",
+    "classification": "EXACT",
+    "notes": "Monitoring sub-routes (overview, migration, platform, alerts)"
+  },
+  {
+    "index": 39,
+    "fullPath": "reports",
+    "moduleDomain": "reports",
+    "component": "ReportsHomeComponent",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Reports",
+    "plannedSubmodule": "4. Reports & Evidence",
+    "plannedCapabilityId": "PLN-REP-CAT-001",
+    "classification": "EXACT",
+    "notes": "Reports sub-routes (library, certification, evidence)"
+  },
+  {
+    "index": 40,
+    "fullPath": "reports/overview",
+    "moduleDomain": "reports",
+    "component": "ReportsHomeComponent",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Reports",
+    "plannedSubmodule": "4. Reports & Evidence",
+    "plannedCapabilityId": "PLN-REP-CAT-001",
+    "classification": "EXACT",
+    "notes": "Reports sub-routes (library, certification, evidence)"
+  },
+  {
+    "index": 41,
+    "fullPath": "reports/library",
+    "moduleDomain": "reports",
+    "component": "ReportsLibraryComponent",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Reports",
+    "plannedSubmodule": "4. Reports & Evidence",
+    "plannedCapabilityId": "PLN-REP-CAT-001",
+    "classification": "EXACT",
+    "notes": "Reports sub-routes (library, certification, evidence)"
+  },
+  {
+    "index": 42,
+    "fullPath": "reports/certification",
+    "moduleDomain": "reports",
+    "component": "ReportsCertificationComponent",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Reports",
+    "plannedSubmodule": "4. Reports & Evidence",
+    "plannedCapabilityId": "PLN-REP-CAT-001",
+    "classification": "EXACT",
+    "notes": "Reports sub-routes (library, certification, evidence)"
+  },
+  {
+    "index": 43,
+    "fullPath": "reports/evidence",
+    "moduleDomain": "reports",
+    "component": "ReportsEvidenceComponent",
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Reports",
+    "plannedSubmodule": "4. Reports & Evidence",
+    "plannedCapabilityId": "PLN-REP-CAT-001",
+    "classification": "EXACT",
+    "notes": "Reports sub-routes (library, certification, evidence)"
+  },
+  {
+    "index": 44,
+    "fullPath": "administration",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/admin-home.component",
+      "componentName": "AdminHomeComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 45,
+    "fullPath": "administration/enterprise",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/enterprise/enterprise-home.component",
+      "componentName": "EnterpriseHomeComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.1 Enterprise",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.1 Enterprise"
+  },
+  {
+    "index": 46,
+    "fullPath": "administration/enterprise/settings",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/enterprise/settings/enterprise-settings.component",
+      "componentName": "EnterpriseSettingsComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.1 Enterprise",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.1 Enterprise"
+  },
+  {
+    "index": 47,
+    "fullPath": "administration/enterprise/settings/edit",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/enterprise/settings/enterprise-settings-edit.component",
+      "componentName": "EnterpriseSettingsEditComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.1 Enterprise",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.1 Enterprise"
+  },
+  {
+    "index": 48,
+    "fullPath": "administration/enterprise/organizations",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/enterprise/structure/orgs/org-list.component",
+      "componentName": "OrgListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.1 Enterprise",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.1 Enterprise"
+  },
+  {
+    "index": 49,
+    "fullPath": "administration/enterprise/organizations/create",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/enterprise/structure/orgs/org-create.component",
+      "componentName": "OrgCreateComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.1 Enterprise",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.1 Enterprise"
+  },
+  {
+    "index": 50,
+    "fullPath": "administration/enterprise/organizations/:id",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/enterprise/structure/orgs/org-detail.component",
+      "componentName": "OrgDetailComponent"
+    },
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.1 Enterprise",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.1 Enterprise"
+  },
+  {
+    "index": 51,
+    "fullPath": "administration/enterprise/organizations/:id/edit",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/enterprise/structure/orgs/org-edit.component",
+      "componentName": "OrgEditComponent"
+    },
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.1 Enterprise",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.1 Enterprise"
+  },
+  {
+    "index": 52,
+    "fullPath": "administration/enterprise/orgs",
+    "moduleDomain": "administration",
+    "component": null,
+    "hasParams": false,
+    "params": [],
+    "isRedirect": true,
+    "redirectTo": "administration/enterprise/organizations",
+    "plannedModule": "Root",
+    "plannedSubmodule": "Navigation Redirect",
+    "plannedCapabilityId": "REDIRECT",
+    "classification": "STANDARD_REDIRECT",
+    "notes": "Redirects 'administration/enterprise/orgs' to 'administration/enterprise/organizations'"
+  },
+  {
+    "index": 53,
+    "fullPath": "administration/enterprise/workspaces",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/enterprise/structure/workspaces/workspace-list.component",
+      "componentName": "WorkspaceListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.1 Enterprise",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.1 Enterprise"
+  },
+  {
+    "index": 54,
+    "fullPath": "administration/enterprise/workspaces/create",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/enterprise/structure/workspaces/workspace-create.component",
+      "componentName": "WorkspaceCreateComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.1 Enterprise",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.1 Enterprise"
+  },
+  {
+    "index": 55,
+    "fullPath": "administration/enterprise/workspaces/:id",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/enterprise/structure/workspaces/workspace-detail.component",
+      "componentName": "WorkspaceDetailComponent"
+    },
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.1 Enterprise",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.1 Enterprise"
+  },
+  {
+    "index": 56,
+    "fullPath": "administration/enterprise/workspaces/:id/edit",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/enterprise/structure/workspaces/workspace-edit.component",
+      "componentName": "WorkspaceEditComponent"
+    },
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.1 Enterprise",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.1 Enterprise"
+  },
+  {
+    "index": 57,
+    "fullPath": "administration/enterprise/environments",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/enterprise/structure/environments/env-list.component",
+      "componentName": "EnvListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.1 Enterprise",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.1 Enterprise"
+  },
+  {
+    "index": 58,
+    "fullPath": "administration/enterprise/environments/create",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/enterprise/structure/environments/env-create.component",
+      "componentName": "EnvCreateComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.1 Enterprise",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.1 Enterprise"
+  },
+  {
+    "index": 59,
+    "fullPath": "administration/enterprise/environments/:id",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/enterprise/structure/environments/env-detail.component",
+      "componentName": "EnvDetailComponent"
+    },
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.1 Enterprise",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.1 Enterprise"
+  },
+  {
+    "index": 60,
+    "fullPath": "administration/enterprise/environments/:id/edit",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/enterprise/structure/environments/env-edit.component",
+      "componentName": "EnvEditComponent"
+    },
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.1 Enterprise",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.1 Enterprise"
+  },
+  {
+    "index": 61,
+    "fullPath": "administration/enterprise/boundaries",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/enterprise/governance/boundaries/boundary-list.component",
+      "componentName": "BoundaryListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.1 Enterprise",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.1 Enterprise"
+  },
+  {
+    "index": 62,
+    "fullPath": "administration/enterprise/boundaries/create",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/enterprise/governance/boundaries/boundary-create.component",
+      "componentName": "BoundaryCreateComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.1 Enterprise",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.1 Enterprise"
+  },
+  {
+    "index": 63,
+    "fullPath": "administration/enterprise/boundaries/:id",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/enterprise/governance/boundaries/boundary-detail.component",
+      "componentName": "BoundaryDetailComponent"
+    },
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.1 Enterprise",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.1 Enterprise"
+  },
+  {
+    "index": 64,
+    "fullPath": "administration/enterprise/boundaries/:id/edit",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/enterprise/governance/boundaries/boundary-edit.component",
+      "componentName": "BoundaryEditComponent"
+    },
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.1 Enterprise",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.1 Enterprise"
+  },
+  {
+    "index": 65,
+    "fullPath": "administration/enterprise/ownership",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/enterprise/governance/ownership/ownership-list.component",
+      "componentName": "OwnershipListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.1 Enterprise",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.1 Enterprise"
+  },
+  {
+    "index": 66,
+    "fullPath": "administration/enterprise/ownership/:id",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/enterprise/governance/ownership/ownership-detail.component",
+      "componentName": "OwnershipDetailComponent"
+    },
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.1 Enterprise",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.1 Enterprise"
+  },
+  {
+    "index": 67,
+    "fullPath": "administration/enterprise/ownership/:id/transfer",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/enterprise/governance/ownership/ownership-transfer.component",
+      "componentName": "OwnershipTransferComponent"
+    },
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.1 Enterprise",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.1 Enterprise"
+  },
+  {
+    "index": 68,
+    "fullPath": "administration/enterprise/quotas",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/enterprise/governance/quotas/quota-list.component",
+      "componentName": "QuotaListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.1 Enterprise",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.1 Enterprise"
+  },
+  {
+    "index": 69,
+    "fullPath": "administration/enterprise/quotas/:id",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/enterprise/governance/quotas/quota-detail.component",
+      "componentName": "QuotaDetailComponent"
+    },
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.1 Enterprise",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.1 Enterprise"
+  },
+  {
+    "index": 70,
+    "fullPath": "administration/enterprise/quotas/:id/edit",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/enterprise/governance/quotas/quota-edit.component",
+      "componentName": "QuotaEditComponent"
+    },
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.1 Enterprise",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.1 Enterprise"
+  },
+  {
+    "index": 71,
+    "fullPath": "administration/enterprise/metadata",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/enterprise/governance/metadata/metadata-list.component",
+      "componentName": "MetadataListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.1 Enterprise",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.1 Enterprise"
+  },
+  {
+    "index": 72,
+    "fullPath": "administration/enterprise/metadata/create",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/enterprise/governance/metadata/metadata-create.component",
+      "componentName": "MetadataCreateComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.1 Enterprise",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.1 Enterprise"
+  },
+  {
+    "index": 73,
+    "fullPath": "administration/enterprise/metadata/:id",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/enterprise/governance/metadata/metadata-detail.component",
+      "componentName": "MetadataDetailComponent"
+    },
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.1 Enterprise",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.1 Enterprise"
+  },
+  {
+    "index": 74,
+    "fullPath": "administration/enterprise/metadata/:id/edit",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/enterprise/governance/metadata/metadata-edit.component",
+      "componentName": "MetadataEditComponent"
+    },
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.1 Enterprise",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.1 Enterprise"
+  },
+  {
+    "index": 75,
+    "fullPath": "administration/people",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/people/people-home.component",
+      "componentName": "PeopleHomeComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 76,
+    "fullPath": "administration/people/users",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/people/directory/users-list.component",
+      "componentName": "UsersListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 77,
+    "fullPath": "administration/people/users/new",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/people/directory/user-form.component",
+      "componentName": "UserFormComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 78,
+    "fullPath": "administration/people/users/:id",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/people/directory/user-detail.component",
+      "componentName": "UserDetailComponent"
+    },
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 79,
+    "fullPath": "administration/people/users/:id/edit",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/people/directory/user-form.component",
+      "componentName": "UserFormComponent"
+    },
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 80,
+    "fullPath": "administration/people/teams",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/people/directory/teams-list.component",
+      "componentName": "TeamsListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 81,
+    "fullPath": "administration/people/teams/new",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/people/directory/team-form.component",
+      "componentName": "TeamFormComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 82,
+    "fullPath": "administration/people/teams/:id",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/people/directory/team-detail.component",
+      "componentName": "TeamDetailComponent"
+    },
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 83,
+    "fullPath": "administration/people/teams/:id/edit",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/people/directory/team-form.component",
+      "componentName": "TeamFormComponent"
+    },
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 84,
+    "fullPath": "administration/people/service-accounts",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/people/directory/service-accounts-list.component",
+      "componentName": "ServiceAccountsListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 85,
+    "fullPath": "administration/people/service-accounts/new",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/people/directory/service-account-form.component",
+      "componentName": "ServiceAccountFormComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 86,
+    "fullPath": "administration/people/service-accounts/:id",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/people/directory/service-account-detail.component",
+      "componentName": "ServiceAccountDetailComponent"
+    },
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 87,
+    "fullPath": "administration/people/service-accounts/:id/edit",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/people/directory/service-account-form.component",
+      "componentName": "ServiceAccountFormComponent"
+    },
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 88,
+    "fullPath": "administration/people/roles",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/people/access-control/roles-list.component",
+      "componentName": "RolesListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 89,
+    "fullPath": "administration/people/roles/new",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/people/access-control/role-form.component",
+      "componentName": "RoleFormComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 90,
+    "fullPath": "administration/people/roles/:id",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/people/access-control/role-detail.component",
+      "componentName": "RoleDetailComponent"
+    },
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 91,
+    "fullPath": "administration/people/roles/:id/edit",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/people/access-control/role-form.component",
+      "componentName": "RoleFormComponent"
+    },
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 92,
+    "fullPath": "administration/people/assignments",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/people/access-control/assignments-list.component",
+      "componentName": "AssignmentsListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 93,
+    "fullPath": "administration/people/assignments/new",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/people/access-control/assignment-form.component",
+      "componentName": "AssignmentFormComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 94,
+    "fullPath": "administration/people/conditional-access",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/people/access-control/conditional-access-list.component",
+      "componentName": "ConditionalAccessListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 95,
+    "fullPath": "administration/people/conditional-access/new",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/people/access-control/conditional-access-form.component",
+      "componentName": "ConditionalAccessFormComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 96,
+    "fullPath": "administration/people/conditional-access/:id",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/people/access-control/conditional-access-detail.component",
+      "componentName": "ConditionalAccessDetailComponent"
+    },
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 97,
+    "fullPath": "administration/people/conditional-access/:id/edit",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/people/access-control/conditional-access-form.component",
+      "componentName": "ConditionalAccessFormComponent"
+    },
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 98,
+    "fullPath": "administration/people/jit-access",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/people/privileged/jit-access-list.component",
+      "componentName": "JitAccessListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 99,
+    "fullPath": "administration/people/jit-access/request",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/people/privileged/jit-request-form.component",
+      "componentName": "JitRequestFormComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 100,
+    "fullPath": "administration/people/jit-access/:id",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/people/privileged/jit-detail.component",
+      "componentName": "JitDetailComponent"
+    },
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 101,
+    "fullPath": "administration/people/access-conflicts",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/people/privileged/access-conflicts-list.component",
+      "componentName": "AccessConflictsListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 102,
+    "fullPath": "administration/people/access-conflicts/:id",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/people/privileged/access-conflict-detail.component",
+      "componentName": "AccessConflictDetailComponent"
+    },
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 103,
+    "fullPath": "administration/people/sessions",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/people/lifecycle/sessions-list.component",
+      "componentName": "SessionsListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 104,
+    "fullPath": "administration/people/access-reviews",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/people/lifecycle/access-reviews-list.component",
+      "componentName": "AccessReviewsListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 105,
+    "fullPath": "administration/people/access-reviews/new",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/people/lifecycle/access-review-form.component",
+      "componentName": "AccessReviewFormComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 106,
+    "fullPath": "administration/people/access-reviews/:id",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/people/lifecycle/access-review-detail.component",
+      "componentName": "AccessReviewDetailComponent"
+    },
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 107,
+    "fullPath": "administration/governance-centre",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/governance/governance-home.component",
+      "componentName": "GovernanceHomeComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.3 Governance Centre",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.3 Governance Centre"
+  },
+  {
+    "index": 108,
+    "fullPath": "administration/governance-centre/policies",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/governance/policies/policies-list.component",
+      "componentName": "PoliciesListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.3 Governance Centre",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.3 Governance Centre"
+  },
+  {
+    "index": 109,
+    "fullPath": "administration/governance-centre/policies/new",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/governance/policies/policy-form.component",
+      "componentName": "PolicyFormComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.3 Governance Centre",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.3 Governance Centre"
+  },
+  {
+    "index": 110,
+    "fullPath": "administration/governance-centre/policies/:id",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/governance/policies/policy-detail.component",
+      "componentName": "PolicyDetailComponent"
+    },
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.3 Governance Centre",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.3 Governance Centre"
+  },
+  {
+    "index": 111,
+    "fullPath": "administration/governance-centre/policies/:id/edit",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/governance/policies/policy-form.component",
+      "componentName": "PolicyFormComponent"
+    },
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.3 Governance Centre",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.3 Governance Centre"
+  },
+  {
+    "index": 112,
+    "fullPath": "administration/governance-centre/policy-simulation",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/governance/policies/policy-simulation.component",
+      "componentName": "PolicySimulationComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.3 Governance Centre",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.3 Governance Centre"
+  },
+  {
+    "index": 113,
+    "fullPath": "administration/governance-centre/approval-chains",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/governance/approvals/approval-chains-list.component",
+      "componentName": "ApprovalChainsListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.3 Governance Centre",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.3 Governance Centre"
+  },
+  {
+    "index": 114,
+    "fullPath": "administration/governance-centre/approval-chains/new",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/governance/approvals/approval-chain-form.component",
+      "componentName": "ApprovalChainFormComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.3 Governance Centre",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.3 Governance Centre"
+  },
+  {
+    "index": 115,
+    "fullPath": "administration/governance-centre/approval-chains/:id",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/governance/approvals/approval-chain-detail.component",
+      "componentName": "ApprovalChainDetailComponent"
+    },
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.3 Governance Centre",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.3 Governance Centre"
+  },
+  {
+    "index": 116,
+    "fullPath": "administration/governance-centre/approval-chains/:id/edit",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/governance/approvals/approval-chain-form.component",
+      "componentName": "ApprovalChainFormComponent"
+    },
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.3 Governance Centre",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.3 Governance Centre"
+  },
+  {
+    "index": 117,
+    "fullPath": "administration/governance-centre/approver-groups",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/governance/approvals/approver-groups-list.component",
+      "componentName": "ApproverGroupsListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.3 Governance Centre",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.3 Governance Centre"
+  },
+  {
+    "index": 118,
+    "fullPath": "administration/governance-centre/approver-groups/new",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/governance/approvals/approver-group-form.component",
+      "componentName": "ApproverGroupFormComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.3 Governance Centre",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.3 Governance Centre"
+  },
+  {
+    "index": 119,
+    "fullPath": "administration/governance-centre/approver-groups/:id",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/governance/approvals/approver-group-detail.component",
+      "componentName": "ApproverGroupDetailComponent"
+    },
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.3 Governance Centre",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.3 Governance Centre"
+  },
+  {
+    "index": 120,
+    "fullPath": "administration/governance-centre/approver-groups/:id/edit",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/governance/approvals/approver-group-form.component",
+      "componentName": "ApproverGroupFormComponent"
+    },
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.3 Governance Centre",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.3 Governance Centre"
+  },
+  {
+    "index": 121,
+    "fullPath": "administration/governance-centre/maker-checker",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/governance/approvals/maker-checker-list.component",
+      "componentName": "MakerCheckerListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.3 Governance Centre",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.3 Governance Centre"
+  },
+  {
+    "index": 122,
+    "fullPath": "administration/governance-centre/sod",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/governance/privileged/sod-list.component",
+      "componentName": "SodListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.3 Governance Centre",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.3 Governance Centre"
+  },
+  {
+    "index": 123,
+    "fullPath": "administration/governance-centre/sod/new",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/governance/privileged/sod-form.component",
+      "componentName": "SodFormComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.3 Governance Centre",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.3 Governance Centre"
+  },
+  {
+    "index": 124,
+    "fullPath": "administration/governance-centre/sod/:id",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/governance/privileged/sod-detail.component",
+      "componentName": "SodDetailComponent"
+    },
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.3 Governance Centre",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.3 Governance Centre"
+  },
+  {
+    "index": 125,
+    "fullPath": "administration/governance-centre/sod/:id/edit",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/governance/privileged/sod-form.component",
+      "componentName": "SodFormComponent"
+    },
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.3 Governance Centre",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.3 Governance Centre"
+  },
+  {
+    "index": 126,
+    "fullPath": "administration/governance-centre/privileged-ops",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/governance/privileged/privileged-ops-list.component",
+      "componentName": "PrivilegedOpsListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.3 Governance Centre",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.3 Governance Centre"
+  },
+  {
+    "index": 127,
+    "fullPath": "administration/governance-centre/waivers",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/governance/privileged/waivers-list.component",
+      "componentName": "WaiversListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.3 Governance Centre",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.3 Governance Centre"
+  },
+  {
+    "index": 128,
+    "fullPath": "administration/governance-centre/waivers/new",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/governance/privileged/waiver-form.component",
+      "componentName": "WaiverFormComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.3 Governance Centre",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.3 Governance Centre"
+  },
+  {
+    "index": 129,
+    "fullPath": "administration/governance-centre/break-glass",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/governance/privileged/break-glass-list.component",
+      "componentName": "BreakGlassListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.3 Governance Centre",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.3 Governance Centre"
+  },
+  {
+    "index": 130,
+    "fullPath": "administration/governance-centre/history",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/governance/history/governance-history.component",
+      "componentName": "GovernanceHistoryComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.3 Governance Centre",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.3 Governance Centre"
+  },
+  {
+    "index": 131,
+    "fullPath": "administration/identity",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/identity/identity-home.component",
+      "componentName": "IdentityHomeComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 132,
+    "fullPath": "administration/identity/auth",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/identity/auth/auth-home.component",
+      "componentName": "AuthHomeComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 133,
+    "fullPath": "administration/identity/auth/policies",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/identity/auth/auth-policies.component",
+      "componentName": "AuthPoliciesComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 134,
+    "fullPath": "administration/identity/auth/mfa",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/identity/auth/mfa.component",
+      "componentName": "MfaComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 135,
+    "fullPath": "administration/identity/auth/sso",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/identity/auth/sso-home.component",
+      "componentName": "SsoHomeComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 136,
+    "fullPath": "administration/identity/auth/sso/create",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/identity/auth/sso-create.component",
+      "componentName": "SsoCreateComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 137,
+    "fullPath": "administration/identity/directory",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/identity/directory/directory-home.component",
+      "componentName": "DirectoryHomeComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 138,
+    "fullPath": "administration/identity/directory/ldap",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/identity/directory/ldap.component",
+      "componentName": "LdapComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 139,
+    "fullPath": "administration/identity/directory/scim",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/identity/directory/scim.component",
+      "componentName": "ScimComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 140,
+    "fullPath": "administration/identity/directory/federation",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/identity/directory/federation.component",
+      "componentName": "FederationComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 141,
+    "fullPath": "administration/identity/workload",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/identity/workload/workload-home.component",
+      "componentName": "WorkloadHomeComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 142,
+    "fullPath": "administration/identity/workload/services",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/identity/workload/workload-services.component",
+      "componentName": "WorkloadServicesComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 143,
+    "fullPath": "administration/identity/workload/spiffe",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/identity/workload/spiffe.component",
+      "componentName": "SpiffeComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 144,
+    "fullPath": "administration/identity/crypto",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/identity/crypto/crypto-home.component",
+      "componentName": "CryptoHomeComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 145,
+    "fullPath": "administration/identity/crypto/certificates",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/identity/crypto/certificates.component",
+      "componentName": "CertificatesComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 146,
+    "fullPath": "administration/identity/crypto/vault",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/identity/crypto/vault.component",
+      "componentName": "VaultComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 147,
+    "fullPath": "administration/identity/crypto/kms",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/identity/crypto/kms.component",
+      "componentName": "KmsComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 148,
+    "fullPath": "administration/identity/crypto/rotation",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/identity/crypto/rotation.component",
+      "componentName": "RotationComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 149,
+    "fullPath": "administration/templates-library",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/templates-library/templates-config-home.component",
+      "componentName": "TemplatesConfigHomeComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.5 Template Library",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.5 Template Library"
+  },
+  {
+    "index": 150,
+    "fullPath": "administration/templates-library/migration",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/templates-library/family-list.component",
+      "componentName": "FamilyListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.5 Template Library",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.5 Template Library"
+  },
+  {
+    "index": 151,
+    "fullPath": "administration/templates-library/mapping",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/templates-library/family-list.component",
+      "componentName": "FamilyListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.5 Template Library",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.5 Template Library"
+  },
+  {
+    "index": 152,
+    "fullPath": "administration/templates-library/transformation",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/templates-library/family-list.component",
+      "componentName": "FamilyListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.5 Template Library",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.5 Template Library"
+  },
+  {
+    "index": 153,
+    "fullPath": "administration/templates-library/privacy",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/templates-library/family-list.component",
+      "componentName": "FamilyListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.5 Template Library",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.5 Template Library"
+  },
+  {
+    "index": 154,
+    "fullPath": "administration/templates-library/quality",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/templates-library/family-list.component",
+      "componentName": "FamilyListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.5 Template Library",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.5 Template Library"
+  },
+  {
+    "index": 155,
+    "fullPath": "administration/templates-library/configuration",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/templates-library/family-list.component",
+      "componentName": "FamilyListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.5 Template Library",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.5 Template Library"
+  },
+  {
+    "index": 156,
+    "fullPath": "administration/templates-library/create",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/templates-library/template-create.component",
+      "componentName": "TemplateCreateComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.5 Template Library",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.5 Template Library"
+  },
+  {
+    "index": 157,
+    "fullPath": "administration/templates-library/asset/:id",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/templates-library/template-detail.component",
+      "componentName": "TemplateDetailComponent"
+    },
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.5 Template Library",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.5 Template Library"
+  },
+  {
+    "index": 158,
+    "fullPath": "administration/templates-library/asset/:id/promote",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/templates-library/lifecycle/asset-promote.component",
+      "componentName": "AssetPromoteComponent"
+    },
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.5 Template Library",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.5 Template Library"
+  },
+  {
+    "index": 159,
+    "fullPath": "administration/templates-library/import",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/templates-library/lifecycle/asset-import.component",
+      "componentName": "AssetImportComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.5 Template Library",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.5 Template Library"
+  },
+  {
+    "index": 160,
+    "fullPath": "administration/connectors",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/connectors-plugins/connectors-plugins-home.component",
+      "componentName": "ConnectorsPluginsHomeComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.6 Connector & Plugin Center",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.6 Connector & Plugin Center"
+  },
+  {
+    "index": 161,
+    "fullPath": "administration/connectors-plugins",
+    "moduleDomain": "administration",
+    "component": null,
+    "hasParams": false,
+    "params": [],
+    "isRedirect": true,
+    "redirectTo": "administration/connectors",
+    "plannedModule": "Root",
+    "plannedSubmodule": "Navigation Redirect",
+    "plannedCapabilityId": "REDIRECT",
+    "classification": "STANDARD_REDIRECT",
+    "notes": "Redirects 'administration/connectors-plugins' to 'administration/connectors'"
+  },
+  {
+    "index": 162,
+    "fullPath": "administration/connectors/connectors-hub",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/connectors-plugins/connectors/connectors-hub.component",
+      "componentName": "ConnectorsHubComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.6 Connector & Plugin Center",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.6 Connector & Plugin Center"
+  },
+  {
+    "index": 163,
+    "fullPath": "administration/connectors/registry",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/connectors-plugins/connectors/connector-registry.component",
+      "componentName": "ConnectorRegistryComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.6 Connector & Plugin Center",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.6 Connector & Plugin Center"
+  },
+  {
+    "index": 164,
+    "fullPath": "administration/connectors/builtin",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/connectors-plugins/connectors/builtin-connectors.component",
+      "componentName": "BuiltinConnectorsComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.6 Connector & Plugin Center",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.6 Connector & Plugin Center"
+  },
+  {
+    "index": 165,
+    "fullPath": "administration/connectors/external",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/connectors-plugins/connectors/external-connectors.component",
+      "componentName": "ExternalConnectorsComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.6 Connector & Plugin Center",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.6 Connector & Plugin Center"
+  },
+  {
+    "index": 166,
+    "fullPath": "administration/connectors/external/register",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/connectors-plugins/connectors/external-register.component",
+      "componentName": "ExternalRegisterComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.6 Connector & Plugin Center",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.6 Connector & Plugin Center"
+  },
+  {
+    "index": 167,
+    "fullPath": "administration/connectors/detail/:id",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/connectors-plugins/connectors/connector-detail.component",
+      "componentName": "ConnectorDetailComponent"
+    },
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.6 Connector & Plugin Center",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.6 Connector & Plugin Center"
+  },
+  {
+    "index": 168,
+    "fullPath": "administration/connectors/intelligence-hub",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/connectors-plugins/intelligence/intelligence-hub.component",
+      "componentName": "IntelligenceHubComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.6 Connector & Plugin Center",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.6 Connector & Plugin Center"
+  },
+  {
+    "index": 169,
+    "fullPath": "administration/connectors/capabilities",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/connectors-plugins/intelligence/capabilities-view.component",
+      "componentName": "CapabilitiesViewComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.6 Connector & Plugin Center",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.6 Connector & Plugin Center"
+  },
+  {
+    "index": 170,
+    "fullPath": "administration/connectors/compatibility",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/connectors-plugins/intelligence/compatibility-view.component",
+      "componentName": "CompatibilityViewComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.6 Connector & Plugin Center",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.6 Connector & Plugin Center"
+  },
+  {
+    "index": 171,
+    "fullPath": "administration/connectors/versions",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/connectors-plugins/intelligence/versions-view.component",
+      "componentName": "VersionsViewComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.6 Connector & Plugin Center",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.6 Connector & Plugin Center"
+  },
+  {
+    "index": 172,
+    "fullPath": "administration/connectors/certification",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/connectors-plugins/intelligence/certification-view.component",
+      "componentName": "CertificationViewComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.6 Connector & Plugin Center",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.6 Connector & Plugin Center"
+  },
+  {
+    "index": 173,
+    "fullPath": "administration/connectors/extensions-hub",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/connectors-plugins/extensions/extensions-hub.component",
+      "componentName": "ExtensionsHubComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.6 Connector & Plugin Center",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.6 Connector & Plugin Center"
+  },
+  {
+    "index": 174,
+    "fullPath": "administration/connectors/plugins",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/connectors-plugins/extensions/plugins-list.component",
+      "componentName": "PluginsListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.6 Connector & Plugin Center",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.6 Connector & Plugin Center"
+  },
+  {
+    "index": 175,
+    "fullPath": "administration/connectors/plugins/detail/:id",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/connectors-plugins/extensions/plugin-detail.component",
+      "componentName": "PluginDetailComponent"
+    },
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.6 Connector & Plugin Center",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.6 Connector & Plugin Center"
+  },
+  {
+    "index": 176,
+    "fullPath": "administration/connectors/plugins/security",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/connectors-plugins/extensions/plugin-security.component",
+      "componentName": "PluginSecurityComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.4 Identity & Security",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.4 Identity & Security"
+  },
+  {
+    "index": 177,
+    "fullPath": "administration/connectors/sdk",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/connectors-plugins/extensions/sdk-config.component",
+      "componentName": "SdkConfigComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.6 Connector & Plugin Center",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.6 Connector & Plugin Center"
+  },
+  {
+    "index": 178,
+    "fullPath": "administration/infrastructure",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/infrastructure/infrastructure-home.component",
+      "componentName": "InfrastructureHomeComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 179,
+    "fullPath": "administration/cloud-infra",
+    "moduleDomain": "administration",
+    "component": null,
+    "hasParams": false,
+    "params": [],
+    "isRedirect": true,
+    "redirectTo": "administration/infrastructure",
+    "plannedModule": "Root",
+    "plannedSubmodule": "Navigation Redirect",
+    "plannedCapabilityId": "REDIRECT",
+    "classification": "STANDARD_REDIRECT",
+    "notes": "Redirects 'administration/cloud-infra' to 'administration/infrastructure'"
+  },
+  {
+    "index": 180,
+    "fullPath": "administration/infrastructure/cloud-hub",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/infrastructure/cloud/cloud-hub.component",
+      "componentName": "CloudHubComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 181,
+    "fullPath": "administration/infrastructure/cloud/environments",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/infrastructure/cloud/cloud-environments-list.component",
+      "componentName": "CloudEnvironmentsListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 182,
+    "fullPath": "administration/infrastructure/cloud/environments/create",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/infrastructure/cloud/cloud-environment-create.component",
+      "componentName": "CloudEnvironmentCreateComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 183,
+    "fullPath": "administration/infrastructure/cloud/environments/detail/:id",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/infrastructure/cloud/cloud-environment-detail.component",
+      "componentName": "CloudEnvironmentDetailComponent"
+    },
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 184,
+    "fullPath": "administration/infrastructure/compute-hub",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/infrastructure/compute/compute-hub.component",
+      "componentName": "ComputeHubComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 185,
+    "fullPath": "administration/infrastructure/compute/kubernetes",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/infrastructure/compute/kubernetes-list.component",
+      "componentName": "KubernetesListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 186,
+    "fullPath": "administration/infrastructure/compute/kubernetes/create",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/infrastructure/compute/kubernetes-create.component",
+      "componentName": "KubernetesCreateComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 187,
+    "fullPath": "administration/infrastructure/compute/sites",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/infrastructure/compute/sites-list.component",
+      "componentName": "SitesListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 188,
+    "fullPath": "administration/infrastructure/compute/sites/create",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/infrastructure/compute/site-create.component",
+      "componentName": "SiteCreateComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 189,
+    "fullPath": "administration/infrastructure/connectivity-hub",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/infrastructure/connectivity/connectivity-hub.component",
+      "componentName": "ConnectivityHubComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 190,
+    "fullPath": "administration/infrastructure/connectivity/private",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/infrastructure/connectivity/private-connectivity-list.component",
+      "componentName": "PrivateConnectivityListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 191,
+    "fullPath": "administration/infrastructure/connectivity/private/create",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/infrastructure/connectivity/private-connectivity-create.component",
+      "componentName": "PrivateConnectivityCreateComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 192,
+    "fullPath": "administration/infrastructure/connectivity/routing",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/infrastructure/connectivity/routing-list.component",
+      "componentName": "RoutingListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 193,
+    "fullPath": "administration/infrastructure/connectivity/routing/create",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/infrastructure/connectivity/routing-create.component",
+      "componentName": "RoutingCreateComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 194,
+    "fullPath": "administration/infrastructure/connectivity/hybrid",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/infrastructure/connectivity/hybrid-environments.component",
+      "componentName": "HybridEnvironmentsComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 195,
+    "fullPath": "administration/infrastructure/placement-hub",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/infrastructure/placement/placement-hub.component",
+      "componentName": "PlacementHubComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 196,
+    "fullPath": "administration/infrastructure/placement/regions",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/infrastructure/placement/regions-list.component",
+      "componentName": "RegionsListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 197,
+    "fullPath": "administration/infrastructure/placement/sovereignty",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/infrastructure/placement/sovereignty-policies.component",
+      "componentName": "SovereigntyPoliciesComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 198,
+    "fullPath": "administration/infrastructure/automation-hub",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/infrastructure/automation/automation-hub.component",
+      "componentName": "AutomationHubComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 199,
+    "fullPath": "administration/infrastructure/automation/iac",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/infrastructure/automation/iac-config.component",
+      "componentName": "IacConfigComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 200,
+    "fullPath": "administration/infrastructure/automation/gitops",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/infrastructure/automation/gitops-config.component",
+      "componentName": "GitOpsConfigComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 201,
+    "fullPath": "administration/compliance",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/compliance/compliance-home.component",
+      "componentName": "ComplianceHomeComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.8 Compliance",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.8 Compliance"
+  },
+  {
+    "index": 202,
+    "fullPath": "administration/compliance/frameworks/catalog",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/compliance/frameworks/control-frameworks-list.component",
+      "componentName": "ControlFrameworksListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.8 Compliance",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.8 Compliance"
+  },
+  {
+    "index": 203,
+    "fullPath": "administration/compliance/frameworks/detail/:id",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/compliance/frameworks/framework-detail.component",
+      "componentName": "FrameworkDetailComponent"
+    },
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.8 Compliance",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.8 Compliance"
+  },
+  {
+    "index": 204,
+    "fullPath": "administration/compliance/frameworks/views",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/compliance/frameworks/framework-views.component",
+      "componentName": "FrameworkViewsComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.8 Compliance",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.8 Compliance"
+  },
+  {
+    "index": 205,
+    "fullPath": "administration/compliance/frameworks/custom",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/compliance/frameworks/custom-frameworks-list.component",
+      "componentName": "CustomFrameworksListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.8 Compliance",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.8 Compliance"
+  },
+  {
+    "index": 206,
+    "fullPath": "administration/compliance/frameworks/custom/create",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/compliance/frameworks/custom-framework-create.component",
+      "componentName": "CustomFrameworkCreateComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.8 Compliance",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.8 Compliance"
+  },
+  {
+    "index": 207,
+    "fullPath": "administration/compliance/controls/mapping",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/compliance/controls/control-mapping-list.component",
+      "componentName": "ControlMappingListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.8 Compliance",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.8 Compliance"
+  },
+  {
+    "index": 208,
+    "fullPath": "administration/compliance/controls/exceptions",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/compliance/controls/exceptions-list.component",
+      "componentName": "ExceptionsListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.8 Compliance",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.8 Compliance"
+  },
+  {
+    "index": 209,
+    "fullPath": "administration/compliance/controls/exceptions/request",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/compliance/controls/exception-request.component",
+      "componentName": "ExceptionRequestComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.8 Compliance",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.8 Compliance"
+  },
+  {
+    "index": 210,
+    "fullPath": "administration/compliance/evidence",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/compliance/evidence/compliance-evidence-list.component",
+      "componentName": "ComplianceEvidenceListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.8 Compliance",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.8 Compliance"
+  },
+  {
+    "index": 211,
+    "fullPath": "administration/compliance/evidence/detail/:id",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/compliance/evidence/compliance-evidence-detail.component",
+      "componentName": "ComplianceEvidenceDetailComponent"
+    },
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.8 Compliance",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.8 Compliance"
+  },
+  {
+    "index": 212,
+    "fullPath": "administration/audit",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/audit/audit-home.component",
+      "componentName": "AuditHomeComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.9 Audit",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.9 Audit"
+  },
+  {
+    "index": 213,
+    "fullPath": "administration/audit/policies",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/audit/configuration/audit-policies-list.component",
+      "componentName": "AuditPoliciesListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.9 Audit",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.9 Audit"
+  },
+  {
+    "index": 214,
+    "fullPath": "administration/audit/policies/create",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/audit/configuration/audit-policy-create.component",
+      "componentName": "AuditPolicyCreateComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.9 Audit",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.9 Audit"
+  },
+  {
+    "index": 215,
+    "fullPath": "administration/audit/policies/detail/:id",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/audit/configuration/audit-policy-detail.component",
+      "componentName": "AuditPolicyDetailComponent"
+    },
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.9 Audit",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.9 Audit"
+  },
+  {
+    "index": 216,
+    "fullPath": "administration/audit/destinations",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/audit/configuration/audit-destinations-list.component",
+      "componentName": "AuditDestinationsListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.9 Audit",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.9 Audit"
+  },
+  {
+    "index": 217,
+    "fullPath": "administration/audit/destinations/create",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/audit/configuration/audit-destination-create.component",
+      "componentName": "AuditDestinationCreateComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.9 Audit",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.9 Audit"
+  },
+  {
+    "index": 218,
+    "fullPath": "administration/audit/trail",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/audit/trail/audit-trail-list.component",
+      "componentName": "AuditTrailListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.9 Audit",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.9 Audit"
+  },
+  {
+    "index": 219,
+    "fullPath": "administration/audit/trail/detail/:id",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/audit/trail/audit-event-detail.component",
+      "componentName": "AuditEventDetailComponent"
+    },
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.9 Audit",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.9 Audit"
+  },
+  {
+    "index": 220,
+    "fullPath": "administration/audit/retention",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/audit/governance/evidence-retention-list.component",
+      "componentName": "EvidenceRetentionListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.9 Audit",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.9 Audit"
+  },
+  {
+    "index": 221,
+    "fullPath": "administration/audit/legal-hold",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/audit/governance/legal-hold-list.component",
+      "componentName": "LegalHoldListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.9 Audit",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.9 Audit"
+  },
+  {
+    "index": 222,
+    "fullPath": "administration/audit/legal-hold/create",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/audit/governance/legal-hold-create.component",
+      "componentName": "LegalHoldCreateComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.9 Audit",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.9 Audit"
+  },
+  {
+    "index": 223,
+    "fullPath": "administration/audit/integrity",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/audit/governance/audit-integrity-verification.component",
+      "componentName": "AuditIntegrityVerificationComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.9 Audit",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.9 Audit"
+  },
+  {
+    "index": 224,
+    "fullPath": "administration/audit/export",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/audit/export/audit-export.component",
+      "componentName": "AuditExportComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.9 Audit",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.9 Audit"
+  },
+  {
+    "index": 225,
+    "fullPath": "administration/platform-admin",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/platform-admin/platform-admin-home.component",
+      "componentName": "PlatformAdminHomeComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.10 Platform Administration",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.10 Platform Administration"
+  },
+  {
+    "index": 226,
+    "fullPath": "administration/platform-admin/platform/config",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/platform-admin/platform/platform-config.component",
+      "componentName": "PlatformConfigComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.10 Platform Administration",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.10 Platform Administration"
+  },
+  {
+    "index": 227,
+    "fullPath": "administration/platform-admin/platform/services",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/platform-admin/platform/services-nodes-list.component",
+      "componentName": "ServicesNodesListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.10 Platform Administration",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.10 Platform Administration"
+  },
+  {
+    "index": 228,
+    "fullPath": "administration/platform-admin/platform/deployment",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/platform-admin/platform/deployment-config.component",
+      "componentName": "DeploymentConfigComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.10 Platform Administration",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.10 Platform Administration"
+  },
+  {
+    "index": 229,
+    "fullPath": "administration/platform-admin/lifecycle/versions",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/platform-admin/lifecycle/versions-view.component",
+      "componentName": "VersionsViewComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.10 Platform Administration",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.10 Platform Administration"
+  },
+  {
+    "index": 230,
+    "fullPath": "administration/platform-admin/lifecycle/updates",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/platform-admin/lifecycle/updates-management.component",
+      "componentName": "UpdatesManagementComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.10 Platform Administration",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.10 Platform Administration"
+  },
+  {
+    "index": 231,
+    "fullPath": "administration/platform-admin/lifecycle/maintenance",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/platform-admin/lifecycle/maintenance-windows-list.component",
+      "componentName": "MaintenanceWindowsListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.10 Platform Administration",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.10 Platform Administration"
+  },
+  {
+    "index": 232,
+    "fullPath": "administration/platform-admin/lifecycle/maintenance/create",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/platform-admin/lifecycle/maintenance-window-create.component",
+      "componentName": "MaintenanceWindowCreateComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.10 Platform Administration",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.10 Platform Administration"
+  },
+  {
+    "index": 233,
+    "fullPath": "administration/platform-admin/commercial/licensing",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/platform-admin/commercial/licensing-entitlements.component",
+      "componentName": "LicensingEntitlementsComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.10 Platform Administration",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.10 Platform Administration"
+  },
+  {
+    "index": 234,
+    "fullPath": "administration/platform-admin/resilience/backup-restore",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/platform-admin/resilience/backup-restore.component",
+      "componentName": "BackupRestoreComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.10 Platform Administration",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.10 Platform Administration"
+  },
+  {
+    "index": 235,
+    "fullPath": "administration/platform-admin/support/diagnostics",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/platform-admin/support/diagnostics-support.component",
+      "componentName": "DiagnosticsSupportComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.10 Platform Administration",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.10 Platform Administration"
+  },
+  {
+    "index": 236,
+    "fullPath": "administration/integrations",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/integrations/integrations-home.component",
+      "componentName": "IntegrationsHomeComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 237,
+    "fullPath": "administration/integrations-notifications",
+    "moduleDomain": "administration",
+    "component": null,
+    "hasParams": false,
+    "params": [],
+    "isRedirect": true,
+    "redirectTo": "administration/integrations",
+    "plannedModule": "Root",
+    "plannedSubmodule": "Navigation Redirect",
+    "plannedCapabilityId": "REDIRECT",
+    "classification": "STANDARD_REDIRECT",
+    "notes": "Redirects 'administration/integrations-notifications' to 'administration/integrations'"
+  },
+  {
+    "index": 238,
+    "fullPath": "administration/integrations/notifications/channels",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/integrations/notifications/channels-list.component",
+      "componentName": "ChannelsListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 239,
+    "fullPath": "administration/integrations/notifications/channels/create",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/integrations/notifications/channel-create.component",
+      "componentName": "ChannelCreateComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 240,
+    "fullPath": "administration/integrations/notifications/channels/detail/:id",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/integrations/notifications/channel-detail.component",
+      "componentName": "ChannelDetailComponent"
+    },
+    "hasParams": true,
+    "params": [
+      "id"
+    ],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 241,
+    "fullPath": "administration/integrations/notifications/policies",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/integrations/notifications/policies-list.component",
+      "componentName": "PoliciesListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 242,
+    "fullPath": "administration/integrations/notifications/policies/create",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/integrations/notifications/policy-create.component",
+      "componentName": "PolicyCreateComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 243,
+    "fullPath": "administration/integrations/events/routing",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/integrations/event-delivery/event-routing-list.component",
+      "componentName": "EventRoutingListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 244,
+    "fullPath": "administration/integrations/events/routing/create",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/integrations/event-delivery/event-routing-create.component",
+      "componentName": "EventRoutingCreateComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 245,
+    "fullPath": "administration/integrations/enterprise/siem",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/integrations/enterprise/siem-integrations-list.component",
+      "componentName": "SiemIntegrationsListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.1 Enterprise",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.1 Enterprise"
+  },
+  {
+    "index": 246,
+    "fullPath": "administration/integrations/enterprise/siem/create",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/integrations/enterprise/siem-create.component",
+      "componentName": "SiemCreateComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.1 Enterprise",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.1 Enterprise"
+  },
+  {
+    "index": 247,
+    "fullPath": "administration/integrations/enterprise/itsm",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/integrations/enterprise/itsm-integrations-list.component",
+      "componentName": "ItsmIntegrationsListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.1 Enterprise",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.1 Enterprise"
+  },
+  {
+    "index": 248,
+    "fullPath": "administration/integrations/enterprise/itsm/create",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/integrations/enterprise/itsm-create.component",
+      "componentName": "ItsmCreateComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5.1 Enterprise",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5.1 Enterprise"
+  },
+  {
+    "index": 249,
+    "fullPath": "administration/integrations/credentials",
+    "moduleDomain": "administration",
+    "component": {
+      "file": "./modules/admin/integrations/credentials/credential-references-list.component",
+      "componentName": "CredentialReferencesListComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Administration",
+    "plannedSubmodule": "5. Administration Shell",
+    "plannedCapabilityId": "PLN-ADM-ENT-001",
+    "classification": "EXACT",
+    "notes": "Admin route in 5. Administration Shell"
+  },
+  {
+    "index": 250,
+    "fullPath": "settings",
+    "moduleDomain": "settings",
+    "component": {
+      "file": "./modules/settings/settings-shell.component",
+      "componentName": "SettingsShellComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Settings",
+    "plannedSubmodule": "6. Settings Domains",
+    "plannedCapabilityId": "PLN-SET-GEN-001",
+    "classification": "EXACT",
+    "notes": "Settings sub-routes (10 planned domains)"
+  },
+  {
+    "index": 251,
+    "fullPath": "settings",
+    "moduleDomain": "settings",
+    "component": null,
+    "hasParams": false,
+    "params": [],
+    "isRedirect": true,
+    "redirectTo": "general",
+    "plannedModule": "Root",
+    "plannedSubmodule": "Navigation Redirect",
+    "plannedCapabilityId": "REDIRECT",
+    "classification": "STANDARD_REDIRECT",
+    "notes": "Redirects 'settings' to 'general'"
+  },
+  {
+    "index": 252,
+    "fullPath": "settings/general",
+    "moduleDomain": "settings",
+    "component": {
+      "file": "./modules/settings/general/settings-general.component",
+      "componentName": "SettingsGeneralComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Settings",
+    "plannedSubmodule": "6. Settings Domains",
+    "plannedCapabilityId": "PLN-SET-GEN-001",
+    "classification": "EXACT",
+    "notes": "Settings sub-routes (10 planned domains)"
+  },
+  {
+    "index": 253,
+    "fullPath": "settings/appearance",
+    "moduleDomain": "settings",
+    "component": {
+      "file": "./modules/settings/appearance/settings-appearance.component",
+      "componentName": "SettingsAppearanceComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Settings",
+    "plannedSubmodule": "6. Settings Domains",
+    "plannedCapabilityId": "PLN-SET-GEN-001",
+    "classification": "EXACT",
+    "notes": "Settings sub-routes (10 planned domains)"
+  },
+  {
+    "index": 254,
+    "fullPath": "settings/runtime-migration",
+    "moduleDomain": "settings",
+    "component": {
+      "file": "./modules/settings/runtime-migration/settings-runtime-migration.component",
+      "componentName": "SettingsRuntimeMigrationComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Settings",
+    "plannedSubmodule": "6. Settings Domains",
+    "plannedCapabilityId": "PLN-SET-GEN-001",
+    "classification": "EXACT",
+    "notes": "Settings sub-routes (10 planned domains)"
+  },
+  {
+    "index": 255,
+    "fullPath": "settings/connectors",
+    "moduleDomain": "settings",
+    "component": {
+      "file": "./modules/settings/connectors/settings-connectors.component",
+      "componentName": "SettingsConnectorsComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Settings",
+    "plannedSubmodule": "6. Settings Domains",
+    "plannedCapabilityId": "PLN-SET-GEN-001",
+    "classification": "EXACT",
+    "notes": "Settings sub-routes (10 planned domains)"
+  },
+  {
+    "index": 256,
+    "fullPath": "settings/storage",
+    "moduleDomain": "settings",
+    "component": {
+      "file": "./modules/settings/storage/settings-storage.component",
+      "componentName": "SettingsStorageComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Settings",
+    "plannedSubmodule": "6. Settings Domains",
+    "plannedCapabilityId": "PLN-SET-GEN-001",
+    "classification": "EXACT",
+    "notes": "Settings sub-routes (10 planned domains)"
+  },
+  {
+    "index": 257,
+    "fullPath": "settings/notifications",
+    "moduleDomain": "settings",
+    "component": {
+      "file": "./modules/settings/notifications/settings-notifications.component",
+      "componentName": "SettingsNotificationsComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Settings",
+    "plannedSubmodule": "6. Settings Domains",
+    "plannedCapabilityId": "PLN-SET-GEN-001",
+    "classification": "EXACT",
+    "notes": "Settings sub-routes (10 planned domains)"
+  },
+  {
+    "index": 258,
+    "fullPath": "settings/integrations",
+    "moduleDomain": "settings",
+    "component": {
+      "file": "./modules/settings/integrations/settings-integrations.component",
+      "componentName": "SettingsIntegrationsComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Settings",
+    "plannedSubmodule": "6. Settings Domains",
+    "plannedCapabilityId": "PLN-SET-GEN-001",
+    "classification": "EXACT",
+    "notes": "Settings sub-routes (10 planned domains)"
+  },
+  {
+    "index": 259,
+    "fullPath": "settings/ai-intelligence",
+    "moduleDomain": "settings",
+    "component": {
+      "file": "./modules/settings/ai-intelligence/settings-ai-intelligence.component",
+      "componentName": "SettingsAiIntelligenceComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Settings",
+    "plannedSubmodule": "6. Settings Domains",
+    "plannedCapabilityId": "PLN-SET-GEN-001",
+    "classification": "EXACT",
+    "notes": "Settings sub-routes (10 planned domains)"
+  },
+  {
+    "index": 260,
+    "fullPath": "settings/logging",
+    "moduleDomain": "settings",
+    "component": {
+      "file": "./modules/settings/logging/settings-logging.component",
+      "componentName": "SettingsLoggingComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Settings",
+    "plannedSubmodule": "6. Settings Domains",
+    "plannedCapabilityId": "PLN-SET-GEN-001",
+    "classification": "EXACT",
+    "notes": "Settings sub-routes (10 planned domains)"
+  },
+  {
+    "index": 261,
+    "fullPath": "settings/advanced",
+    "moduleDomain": "settings",
+    "component": {
+      "file": "./modules/settings/advanced/settings-advanced.component",
+      "componentName": "SettingsAdvancedComponent"
+    },
+    "hasParams": false,
+    "params": [],
+    "isRedirect": false,
+    "redirectTo": null,
+    "plannedModule": "Settings",
+    "plannedSubmodule": "6. Settings Domains",
+    "plannedCapabilityId": "PLN-SET-GEN-001",
+    "classification": "EXACT",
+    "notes": "Settings sub-routes (10 planned domains)"
+  },
+  {
+    "index": 262,
+    "fullPath": "**",
+    "moduleDomain": "root",
+    "component": null,
+    "hasParams": false,
+    "params": [],
+    "isRedirect": true,
+    "redirectTo": "dashboard",
+    "plannedModule": "Root",
+    "plannedSubmodule": "Navigation Redirect",
+    "plannedCapabilityId": "REDIRECT",
+    "classification": "STANDARD_REDIRECT",
+    "notes": "Redirects '**' to 'dashboard'"
+  }
+]

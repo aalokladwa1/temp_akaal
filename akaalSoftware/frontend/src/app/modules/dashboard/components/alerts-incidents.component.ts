@@ -14,7 +14,7 @@ import { LucideIconComponent } from '../../../shared/components/lucide-icon.comp
       <!-- Card Header -->
       <div class="flex items-center justify-between pb-4 border-b border-slate-200">
         <div class="flex items-center gap-2.5">
-          <app-lucide-icon name="circle-x" [size]="20" class="text-rose-600"></app-lucide-icon>
+          <app-lucide-icon name="circle-x" [size]="20" class="text-slate-700 dark:text-slate-300"></app-lucide-icon>
           <h2 class="text-base font-bold text-slate-900 font-heading">Alerts / Incidents</h2>
         </div>
         <span class="text-xs text-slate-500 font-medium">{{ incidents.length }} incidents</span>
@@ -23,11 +23,11 @@ import { LucideIconComponent } from '../../../shared/components/lucide-icon.comp
       <!-- Incidents List / Empty State -->
       @if (incidents.length === 0) {
         <div class="py-8 flex flex-col items-center justify-center text-center gap-2 my-auto">
-          <div class="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center">
+          <div class="w-9 h-9 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500 flex items-center justify-center">
             <app-lucide-icon name="shield-check" [size]="18"></app-lucide-icon>
           </div>
           <span class="text-xs font-bold text-slate-800">No active incidents</span>
-          <p class="text-[11px] text-slate-500 font-medium">Zero operational alerts or barrier warnings reported.</p>
+          <p class="text-[11px] text-slate-500 font-medium">No active incident alerts or operational warnings.</p>
         </div>
       } @else {
         <div class="flex flex-col divide-y divide-slate-200/80">
@@ -47,7 +47,7 @@ import { LucideIconComponent } from '../../../shared/components/lucide-icon.comp
               </div>
 
               <div class="flex items-center gap-2.5 shrink-0">
-                <span class="text-[10px] font-mono text-slate-400 font-medium">{{ inc.age }}</span>
+                <span class="text-[10px] text-slate-400 font-medium">{{ inc.age }}</span>
                 <button
                   type="button"
                   (click)="goToMonitoring()"
@@ -60,14 +60,6 @@ import { LucideIconComponent } from '../../../shared/components/lucide-icon.comp
         </div>
       }
 
-      <div class="pt-3 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500 font-medium">
-        <span>Incident Engine: Real-time Sentry</span>
-        <span class="inline-flex items-center gap-1.5 text-emerald-700 text-[11px] font-semibold">
-          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-          <span>Nominal</span>
-        </span>
-      </div>
-
     </div>
   `
 })
@@ -78,6 +70,6 @@ export class AlertsIncidentsComponent {
   constructor(private router: Router) {}
 
   public goToMonitoring(): void {
-    this.router.navigate(['/monitoring']);
+    this.router.navigate(['/monitoring/alerts']);
   }
 }

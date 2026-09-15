@@ -17,11 +17,11 @@ import { ProjectDiscoveryItem } from '../projects.models';
       <div class="p-4 sm:p-4.5 rounded-xl bg-white border border-slate-200 shadow-xs flex items-center justify-between gap-4 flex-wrap">
         
         <!-- Search Input with Pure Inline Style Overlay -->
-        <div style="position: relative; display: flex; align-items: center; width: 280px; max-width: 100%;">
+        <div class="relative flex items-center w-72 max-w-full">
           <app-lucide-icon
             name="search"
             [size]="14"
-            style="position: absolute; left: 11px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; color: #94a3b8; pointer-events: none; z-index: 2;">
+            class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none z-10">
           </app-lucide-icon>
           
           <input
@@ -29,15 +29,14 @@ import { ProjectDiscoveryItem } from '../projects.models';
             [ngModel]="ps.projectFilters().searchQuery"
             (ngModelChange)="ps.setProjectSearch($event)"
             placeholder="Search projects in initiative..."
-            style="width: 100%; height: 36px; padding-left: 36px !important; padding-right: 28px; font-size: 12px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; outline: none; color: #0f172a;"
+            class="w-full h-9 pl-9 pr-7 text-xs bg-white border border-slate-200 rounded-md outline-none text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
           />
 
           @if (ps.projectFilters().searchQuery) {
             <button
               type="button"
               (click)="ps.setProjectSearch('')"
-              class="w-5 h-5 rounded-md hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
-              style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%);">
+              class="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 rounded-md hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors cursor-pointer z-10">
               <app-lucide-icon name="x" [size]="12"></app-lucide-icon>
             </button>
           }
@@ -151,7 +150,7 @@ import { ProjectDiscoveryItem } from '../projects.models';
                     <td class="py-4 px-5">
                       <div class="flex flex-col gap-1 min-w-0">
                         <div class="flex items-center gap-2">
-                          <span class="px-2 py-0.5 rounded-md text-[10px] font-bold font-mono bg-blue-50 text-blue-700 border border-blue-200/80 shrink-0">
+                          <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200/80 shrink-0">
                             {{ p.key }}
                           </span>
                           <a
@@ -208,7 +207,7 @@ import { ProjectDiscoveryItem } from '../projects.models';
                       <div class="flex flex-col gap-0.5 text-xs text-slate-500 font-medium">
                         <span class="tabular-nums">{{ p.lastActivityAt ? (p.lastActivityAt | date:'MMM d, yyyy') : 'Recently' }}</span>
                         @if (p.lastActivityAt) {
-                          <span class="text-[10.5px] text-slate-400 font-mono">{{ p.lastActivityAt | date:'HH:mm UTC' }}</span>
+                          <span class="text-[10.5px] text-slate-400 tabular-nums">{{ p.lastActivityAt | date:'HH:mm UTC' }}</span>
                         }
                       </div>
                     </td>
@@ -218,8 +217,8 @@ import { ProjectDiscoveryItem } from '../projects.models';
                       <button
                         type="button"
                         (click)="openRemoveModal(p)"
-                        class="h-8 px-3 rounded-md text-xs font-medium text-slate-600 hover:text-rose-700 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 transition-colors cursor-pointer shadow-2xs"
-                        title="Remove project from this initiative">
+                        class="h-7 px-2.5 rounded-md border border-slate-200 hover:border-rose-200 bg-white hover:bg-rose-50 text-slate-600 hover:text-rose-700 text-[11px] font-semibold transition-colors cursor-pointer shadow-2xs"
+                        title="Remove project association from this initiative">
                         Remove
                       </button>
                     </td>
@@ -232,43 +231,46 @@ import { ProjectDiscoveryItem } from '../projects.models';
         </div>
       }
 
-      <!-- =============================================================== -->
-      <!-- MODAL 1: ADD PROJECTS MODAL                                     -->
-      <!-- =============================================================== -->
+      <!-- Add Projects to Initiative Modal -->
       @if (isAddModalOpen()) {
         <div
-          class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
+          role="dialog"
+          aria-modal="true"
+          class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 animate-in fade-in duration-100"
           (click)="closeAddModal()">
           <div
-            class="w-full max-w-xl bg-white border border-slate-200 rounded-xl shadow-2xl p-6 flex flex-col gap-4 max-h-[85vh] overflow-hidden"
+            class="w-full max-w-lg rounded-xl bg-white border border-slate-200 p-6 flex flex-col gap-4 shadow-xl"
             (click)="$event.stopPropagation()">
             
-            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div class="flex items-center gap-2.5">
-                <app-lucide-icon name="folder-plus" [size]="18" class="text-blue-600"></app-lucide-icon>
-                <h3 class="text-base font-bold text-slate-900 font-heading">Add Projects to Initiative</h3>
+            <div class="flex items-start justify-between pb-3 border-b border-slate-200">
+              <div class="flex flex-col gap-0.5">
+                <h3 class="text-sm font-bold text-slate-900 font-heading">
+                  Associate Projects with Initiative
+                </h3>
+                <span class="text-xs text-slate-500 font-medium">
+                  Select available projects to group under this strategic initiative.
+                </span>
               </div>
-              <button type="button" (click)="closeAddModal()" class="p-1 text-slate-400 hover:text-slate-700 rounded-md hover:bg-slate-100 cursor-pointer">
-                <app-lucide-icon name="x" [size]="16"></app-lucide-icon>
+              <button
+                type="button"
+                (click)="closeAddModal()"
+                class="text-slate-400 hover:text-slate-600 text-sm font-bold cursor-pointer">
+                &times;
               </button>
             </div>
 
-            <p class="text-xs text-slate-600 leading-relaxed">
-              Select existing migration projects from the active workspace to associate with <strong>{{ ps.activeInitiative()?.name }}</strong>:
-            </p>
-
             <!-- Modal Search Input -->
-            <div style="position: relative; display: flex; align-items: center; width: 100%;">
+            <div class="relative flex items-center w-full">
               <app-lucide-icon
                 name="search"
                 [size]="14"
-                style="position: absolute; left: 11px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; color: #94a3b8; pointer-events: none; z-index: 2;">
+                class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none z-10">
               </app-lucide-icon>
               <input
                 type="text"
                 [(ngModel)]="addModalSearch"
                 placeholder="Filter available projects..."
-                style="width: 100%; height: 36px; padding-left: 36px !important; padding-right: 28px; font-size: 12px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; outline: none; color: #0f172a;"
+                class="w-full h-9 pl-9 pr-3 text-xs bg-white border border-slate-200 rounded-md outline-none text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
               />
             </div>
 
@@ -291,7 +293,7 @@ import { ProjectDiscoveryItem } from '../projects.models';
                     </div>
                     <div class="flex flex-col min-w-0">
                       <div class="flex items-center gap-2">
-                        <span class="font-mono text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">{{ p.key }}</span>
+                        <span class="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">{{ p.key }}</span>
                         <span class="font-semibold text-slate-900 text-xs truncate">{{ p.name }}</span>
                       </div>
                       @if (p.initiativeName) {

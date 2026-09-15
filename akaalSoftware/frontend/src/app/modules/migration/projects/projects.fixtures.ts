@@ -1246,7 +1246,7 @@ export const FIXTURE_PROJECT_DETAILED_ACTIVITIES: import('./projects.models').Pr
     subjectName: 'Core Banking Ledger Modernization',
     subjectType: 'MIGRATION',
     actionType: 'VIEW',
-    actionRoute: '/migration/cockpit/mig-cb-01',
+    actionRoute: '/cockpit/mig-cb-01',
     availability: 'READY'
   },
   {
@@ -1455,7 +1455,7 @@ export const FIXTURE_PROJECT_GOVERNANCE_ITEMS: import('./projects.models').Proje
     requestedBy: 'Aalok Ladwa',
     policyReference: 'POL-MIG-SEC-04: Mandatory Dual Signoff for Production Ledgers',
     actionLabel: 'Review Approval',
-    actionRoute: '/migration/cockpit/mig-cb-01',
+    actionRoute: '/cockpit/mig-cb-01',
     availability: 'READY'
   },
   {

@@ -42,7 +42,7 @@ import { LucideIconComponent } from '../../../../../shared/components/lucide-ico
           <!-- Verdict Text & Metadata -->
           <div class="flex flex-col gap-1.5 min-w-0 flex-1">
             <div class="flex flex-wrap items-center gap-2.5">
-              <span class="text-[11px] font-mono uppercase tracking-wider text-slate-700 font-semibold">
+              <span class="text-[11px] font-sans uppercase tracking-wider text-slate-700 font-semibold">
                 Validation #11 Authority
               </span>
               <span class="text-slate-300">•</span>

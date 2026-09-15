@@ -77,16 +77,6 @@ interface CategoryOption {
             </div>
           </div>
 
-          <!-- Boundary Clarification Banner (Activity != Audit) -->
-          <div class="p-3.5 rounded-lg bg-blue-50/70 border border-blue-200 text-blue-950 flex items-start gap-3">
-            <app-lucide-icon name="info" [size]="16" class="text-blue-600 shrink-0 mt-0.5"></app-lucide-icon>
-            <div class="flex flex-col gap-0.5 text-xs">
-              <span class="font-bold text-blue-900">Activity &ne; Forensic Audit</span>
-              <p class="text-blue-800 text-[11px] leading-relaxed">
-                Project Activity provides contextual operator telemetry for everyday operations. Formal, immutable compliance records and non-repudiable audit evidence are managed independently in the Security &amp; Audit domain.
-              </p>
-            </div>
-          </div>
 
           <!-- Controls Bar: Search, Category Filter & Reset -->
           <div class="flex items-center justify-between gap-3 flex-wrap">
@@ -225,7 +215,7 @@ interface CategoryOption {
                     <tr class="hover:bg-blue-50/50 even:bg-slate-50/50 transition-colors select-none">
                       
                       <!-- 1. Timestamp -->
-                      <td class="py-3.5 px-4 text-slate-600 font-mono text-[11px] whitespace-nowrap">
+                      <td class="py-3.5 px-4 text-slate-600 text-[11px] tabular-nums whitespace-nowrap">
                         {{ act.occurredAt | date:'MMM d, HH:mm' }}
                       </td>
 
@@ -265,7 +255,7 @@ interface CategoryOption {
                         <div class="flex items-center gap-1.5 text-xs text-slate-700 font-medium truncate">
                           <span class="truncate">{{ act.actorName }}</span>
                           @if (act.actorType === 'SERVICE_ACCOUNT' || act.actorType === 'SYSTEM') {
-                            <span class="px-1 py-0.2 rounded text-[9px] font-mono font-bold bg-slate-100 text-slate-500 border border-slate-200 shrink-0">SYS</span>
+                            <span class="px-1 py-0.2 rounded text-[9px] font-bold bg-slate-100 text-slate-500 border border-slate-200 shrink-0">SYS</span>
                           }
                         </div>
                       </td>

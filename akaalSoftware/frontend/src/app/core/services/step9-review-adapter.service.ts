@@ -29,7 +29,7 @@ export class Step9ReviewAdapterService {
     draft: WizardDraftState,
     step7Plan: Step7PlanDescriptor | null
   ): MigrationIdentityPresentation {
-    const migrationId = draft.migrationId || (draft as any).id || 'MIG-2026-0906-A1';
+    const migrationId = draft.migrationId || (draft as any).id || '';
     const mode = draft.mode || 'M2_BULK_CDC';
     const rawVer = step7Plan?.technicalDetails?.version;
     const planRevision = draft.planVersion || (rawVer ? parseInt(rawVer.replace(/^v/, '').split('.')[0], 10) || 1 : 1);
@@ -393,7 +393,7 @@ export class Step9ReviewAdapterService {
     step7Plan: Step7PlanDescriptor | null,
     overallReadiness: OverallReadinessPresentation | null
   ): TechnicalDetailsPresentation {
-    const migrationId = draft.migrationId || (draft as any).id || 'MIG-2026-0906-A1';
+    const migrationId = draft.migrationId || (draft as any).id || '';
     const rawVer = step7Plan?.technicalDetails?.version;
     const planRevision = (rawVer ? parseInt(rawVer.replace(/^v/, '').split('.')[0], 10) || 1 : draft.planVersion) || 1;
     const planId = step7Plan?.technicalDetails?.planId || `PLAN-${migrationId}-v${planRevision}`;

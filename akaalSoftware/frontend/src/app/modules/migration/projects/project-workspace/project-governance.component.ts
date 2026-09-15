@@ -82,16 +82,6 @@ interface StatusOption {
             </div>
           </div>
 
-          <!-- Enterprise Law Banner (Governance != Approval Authority) -->
-          <div class="p-3.5 rounded-lg bg-amber-50/80 border border-amber-200 text-amber-950 flex items-start gap-3">
-            <app-lucide-icon name="shield-alert" [size]="16" class="text-amber-600 shrink-0 mt-0.5"></app-lucide-icon>
-            <div class="flex flex-col gap-0.5 text-xs">
-              <span class="font-bold text-amber-900">Governance Context &ne; Universal Approval Authority</span>
-              <p class="text-amber-800 text-[11px] leading-relaxed">
-                Project Governance surfaces operational approval gates and policies governed by enterprise rule engines. Project membership does not grant automatic approval authority; multi-party quorum is verified per protected operation.
-              </p>
-            </div>
-          </div>
 
           <!-- Section 1: Pending Approvals (Rendered if pending items exist) -->
           @if (ps.activeProjectPendingApprovals().length > 0) {
@@ -111,7 +101,7 @@ interface StatusOption {
                     <div class="flex flex-col gap-1 max-w-2xl">
                       <div class="flex items-center gap-2">
                         <span class="font-bold text-slate-900 text-xs">{{ appr.title }}</span>
-                        <span class="px-2 py-0.2 rounded text-[10px] font-bold font-mono bg-amber-100 text-amber-800 border border-amber-300">
+                        <span class="px-2 py-0.2 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
                           {{ appr.protectedOperation }}
                         </span>
                       </div>
@@ -123,7 +113,7 @@ interface StatusOption {
 
                     <!-- Action: Review Approval (Text Only, No Icon, Restrained Rectangular) -->
                     <a
-                      [routerLink]="appr.actionRoute || '/migration/cockpit/mig-cb-01'"
+                      [routerLink]="appr.actionRoute || '/cockpit'"
                       class="h-8 px-3.5 rounded-md bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-semibold shadow-2xs transition-colors inline-flex items-center justify-center cursor-pointer shrink-0">
                       Review Approval
                     </a>
@@ -306,14 +296,14 @@ interface StatusOption {
                           <span class="font-bold text-slate-900 truncate">{{ gov.title }}</span>
                           <span class="text-[11px] text-slate-500 line-clamp-1">{{ gov.description }}</span>
                           @if (gov.policyReference) {
-                            <span class="text-[10px] font-mono text-slate-400 mt-0.5 truncate">{{ gov.policyReference }}</span>
+                            <span class="text-[10px] text-slate-400 mt-0.5 truncate">{{ gov.policyReference }}</span>
                           }
                         </div>
                       </td>
 
                       <!-- 2. Protected Operation -->
                       <td class="py-3.5 px-4">
-                        <span class="px-2 py-0.5 rounded-md text-[10.5px] font-mono font-semibold bg-slate-100 text-slate-700 border border-slate-200 truncate block">
+                        <span class="px-2 py-0.5 rounded-md text-[10.5px] font-semibold bg-slate-100 text-slate-700 border border-slate-200 truncate block">
                           {{ gov.protectedOperation }}
                         </span>
                       </td>
@@ -356,7 +346,7 @@ interface StatusOption {
                       <td class="py-3.5 px-3 text-right whitespace-nowrap">
                         @if (gov.category === 'PENDING_APPROVAL') {
                           <a
-                            [routerLink]="gov.actionRoute || '/migration/cockpit/mig-cb-01'"
+                            [routerLink]="gov.actionRoute || '/cockpit'"
                             class="h-7.5 px-2.5 rounded-md text-xs font-semibold text-amber-700 hover:text-amber-800 hover:bg-amber-50 border border-amber-200 transition-colors inline-flex items-center justify-center cursor-pointer shadow-2xs">
                             Review Gate
                           </a>

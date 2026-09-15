@@ -10,7 +10,7 @@ import {
   CollisionPolicyType
 } from '../../../../core/models/migration-view.models';
 import {
-  ALL_48_PROVIDER_SCHEMAS,
+  ALL_PROVIDER_SCHEMAS,
   ProviderFormSchema,
   ProviderFormField
 } from '../../../../core/models/provider-form-schemas';
@@ -18,17 +18,31 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
 import { CustomSelectComponent, CustomSelectOption } from '../../../../shared/components/custom-select.component';
 import { SegmentedControlComponent, SegmentedControlOption } from '../../../../shared/components/segmented-control.component';
 import { AccordionComponent } from '../../../../shared/components/accordion.component';
+import { ConnectionsService } from '../../../connections/connections.service';
+import { ALL_PROVIDER_CATALOG_ITEMS, MANAGED_CLOUD_PROFILES } from '../../../connections/create-connection/create-connection.schemas';
+
+export function toPhysicalProviderId(val: string): PhysicalProviderId {
+  const norm = val.toLowerCase().replace(/[^a-z0-9]/g, '');
+  for (const item of ALL_PROVIDER_CATALOG_ITEMS) {
+    const itemId = item.id.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const itemName = item.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (norm === itemId || norm === itemName) {
+      return item.name as PhysicalProviderId;
+    }
+  }
+  return val as PhysicalProviderId;
+}
 
 export interface CatalogEngineItem {
   id: PhysicalProviderId;
   name: string;
-  category: 'RELATIONAL' | 'DISTRIBUTED_SQL' | 'WAREHOUSE' | 'NOSQL' | 'STREAMING' | 'STORAGE' | 'SAAS';
+  category: string;
   categoryLabel: string;
   icon: string;
 }
 
 export interface CatalogCategoryTab {
-  id: 'ALL' | 'RELATIONAL' | 'DISTRIBUTED_SQL' | 'WAREHOUSE' | 'NOSQL' | 'STREAMING' | 'STORAGE' | 'SAAS';
+  id: string;
   label: string;
   count: number;
 }
@@ -165,15 +179,16 @@ export interface SavedConnectionItemExtended extends ConnectionItem {
             <div class="relative flex-1">
               <input
                 type="text"
-                [(ngModel)]="savedSearchQuery"
+                [ngModel]="savedSearchQuery()"
+                (ngModelChange)="savedSearchQuery.set($event)"
                 placeholder="Search saved target connections by name, host, or engine..."
                 class="w-full h-10 pl-11 pr-4 bg-white border border-slate-200 focus:border-blue-600 rounded-xl text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none transition-colors shadow-2xs" />
-              <app-lucide-icon name="search" [size]="15" class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></app-lucide-icon>
+              <app-lucide-icon name="search" [size]="16" class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none z-10"></app-lucide-icon>
               @if (savedSearchQuery()) {
                 <button
                   type="button"
                   (click)="savedSearchQuery.set('')"
-                  class="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer">
+                  class="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer z-10">
                   <app-lucide-icon name="x-circle" [size]="14"></app-lucide-icon>
                 </button>
               }
@@ -368,6 +383,33 @@ export interface SavedConnectionItemExtended extends ConnectionItem {
                   }
                 </div>
               </div>
+            } @empty {
+              <div class="col-span-full py-10 px-6 border-2 border-dashed border-slate-200 rounded-2xl bg-white/80 flex flex-col items-center justify-center text-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400">
+                  <app-lucide-icon name="database-zap" [size]="22"></app-lucide-icon>
+                </div>
+                <div class="flex flex-col gap-1 max-w-md">
+                  <h3 class="text-sm font-bold text-slate-900">No Saved Targets Found</h3>
+                  <p class="text-xs text-slate-500 font-normal leading-relaxed">
+                    No enterprise target connections in the Vault match your active search and filter criteria. You can clear your filters or configure a new target connection.
+                  </p>
+                </div>
+                <div class="flex items-center gap-3 pt-2">
+                  <button
+                    type="button"
+                    (click)="clearAllFilters()"
+                    class="px-3.5 py-2 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl text-xs font-semibold text-slate-700 shadow-2xs cursor-pointer transition-colors">
+                    Clear All Filters
+                  </button>
+                  <button
+                    type="button"
+                    (click)="setConnectionMode('NEW')"
+                    class="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 rounded-xl text-xs font-semibold text-white shadow-2xs cursor-pointer transition-colors flex items-center gap-1.5">
+                    <app-lucide-icon name="plus" [size]="14"></app-lucide-icon>
+                    <span>Configure New Target</span>
+                  </button>
+                </div>
+              </div>
             }
           </div>
 
@@ -377,13 +419,29 @@ export interface SavedConnectionItemExtended extends ConnectionItem {
               <div class="flex items-center gap-2">
                 <app-lucide-icon name="check-circle-2" [size]="16" class="text-emerald-600 shrink-0"></app-lucide-icon>
                 <span class="font-semibold text-emerald-900">
-                  Selected Target: <strong class="font-bold text-slate-900">{{ conn.name }}</strong> ({{ conn.provider }}) · 0ms instant cached verification
+                  Selected Target: <strong class="font-bold text-slate-900">{{ conn.name }}</strong> ({{ conn.provider }}) · Ready for Step 4
                 </span>
               </div>
               <span class="inline-flex items-center gap-1 text-[11px] font-mono text-emerald-700 font-medium">
                 <app-lucide-icon name="check" [size]="12"></app-lucide-icon>
                 <span>Ready for Scope</span>
               </span>
+            </div>
+          } @else if (ms.wizardDraft().targetConnectionId) {
+            <!-- Truthful Canonical Lookup Failure Strip (NO DRAFT PROJECTION) -->
+            <div class="p-3 bg-rose-50/50 border border-rose-300 rounded-xl flex items-center justify-between gap-3 text-xs animate-in fade-in duration-100">
+              <div class="flex items-center gap-2">
+                <app-lucide-icon name="alert-circle" [size]="16" class="text-rose-600 shrink-0"></app-lucide-icon>
+                <span class="font-semibold text-rose-900">
+                  Bound target connection identity <strong class="font-mono text-rose-950">{{ ms.wizardDraft().targetConnectionId }}</strong> cannot be resolved in the canonical Connection Vault.
+                </span>
+              </div>
+              <button
+                type="button"
+                (click)="ms.updateDraft({ targetConnectionId: undefined, targetVerified: false })"
+                class="px-2.5 py-1 text-xs font-semibold text-rose-800 bg-white border border-rose-300 rounded-md hover:bg-rose-50 cursor-pointer shadow-2xs">
+                Clear Stale Binding
+              </button>
             </div>
           }
         </section>
@@ -392,29 +450,42 @@ export interface SavedConnectionItemExtended extends ConnectionItem {
       <!-- ========================================================================= -->
       <!-- BRANCH 2: NEW TARGET CONNECTION BRANCH                                     -->
       <!-- ========================================================================= -->
+      <!-- ========================================================================= -->
+      <!-- BRANCH 2: NEW TARGET CONNECTION BRANCH (MIGRATION NATIVE UI)               -->
+      <!-- ========================================================================= -->
       @if (ms.wizardDraft().targetConnectionMode === 'NEW') {
-        <section class="space-y-6 animate-in fade-in duration-150">
+        <section class="space-y-4 animate-in fade-in duration-150">
           
-          <!-- PHASE A: 28-PROVIDER TARGET CATALOG GRID -->
-          @if (!ms.wizardDraft().targetProvider) {
-            <div class="flex flex-col gap-4 animate-in fade-in duration-150">
-              
-              <!-- Search Bar -->
-              <div class="relative w-full">
+          <!-- PHASE A: NO TARGET PROVIDER SELECTED (CATALOG GRID) -->
+          @if (!selectedProviderSchema()) {
+            <div class="p-5 bg-white border border-slate-200 rounded-2xl space-y-4 shadow-2xs">
+              <div class="flex items-center justify-between pb-3 border-b border-slate-100 flex-wrap gap-2">
+                <div class="flex flex-col gap-0.5">
+                  <h2 class="text-sm font-bold text-slate-900">Select Target Database Engine</h2>
+                  <p class="text-xs text-slate-500 font-normal">Choose from the canonical catalog of {{ catalogEngines.length }} supported physical database engines.</p>
+                </div>
+              </div>
+
+              <!-- Search Bar & Category Filters -->
+              <div class="relative">
                 <input
                   type="text"
-                  [(ngModel)]="searchQuery"
-                  placeholder="Search target providers (e.g. PostgreSQL, Snowflake, BigQuery, Kafka)..."
+                  [ngModel]="searchQuery()"
+                  (ngModelChange)="searchQuery.set($event)"
+                  placeholder="Search catalog by name, category, or engine ID..."
                   class="w-full h-10 pl-11 pr-4 bg-white border border-slate-200 focus:border-blue-600 rounded-xl text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none transition-colors shadow-2xs" />
-                <app-lucide-icon name="search" [size]="15" class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></app-lucide-icon>
+                <app-lucide-icon name="search" [size]="16" class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none z-10"></app-lucide-icon>
                 @if (searchQuery()) {
-                  <button type="button" (click)="searchQuery.set('')" class="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer">
+                  <button
+                    type="button"
+                    (click)="searchQuery.set('')"
+                    class="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer z-10">
                     <app-lucide-icon name="x-circle" [size]="14"></app-lucide-icon>
                   </button>
                 }
               </div>
 
-              <!-- Category Tabs -->
+              <!-- Category Pill Tabs -->
               <div class="flex items-center gap-1.5 overflow-x-auto pb-1">
                 @for (tab of catalogTabs; track tab.id) {
                   <button
@@ -427,14 +498,16 @@ export interface SavedConnectionItemExtended extends ConnectionItem {
                     <span>{{ tab.label }}</span>
                     <span
                       class="px-1.5 py-0.2 text-[9px] font-mono font-bold rounded"
-                      [class]="selectedCategoryTab() === tab.id ? 'bg-blue-700 text-white' : 'bg-slate-100 text-slate-500'">
+                      [class]="selectedCategoryTab() === tab.id
+                        ? 'bg-blue-700 text-white'
+                        : 'bg-slate-100 text-slate-500'">
                       {{ tab.count }}
                     </span>
                   </button>
                 }
               </div>
 
-              <!-- Catalog Grid -->
+              <!-- Catalog Engine Grid -->
               <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3.5 mt-2">
                 @for (engine of filteredCatalogEngines(); track engine.id) {
                   @let compat = checkTargetCompatibility(engine.id);
@@ -447,13 +520,16 @@ export interface SavedConnectionItemExtended extends ConnectionItem {
                       : 'p-3.5 border border-slate-200/60 rounded-lg bg-slate-50/60 opacity-60 cursor-not-allowed transition-all text-left flex items-center justify-between gap-3 shadow-2xs'"
                     [title]="compat.compatible ? '' : (compat.reason || '')">
                     <div class="flex items-center gap-3 min-w-0">
-                      <div [class]="compat.compatible
-                        ? 'w-9 h-9 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center text-slate-600 group-hover:text-blue-600 group-hover:bg-blue-50 group-hover:border-blue-200 transition-colors shrink-0'
-                        : 'w-9 h-9 rounded-lg border border-slate-200 bg-slate-100 flex items-center justify-center text-slate-400 shrink-0'">
+                      <div
+                        [class]="compat.compatible
+                          ? 'w-9 h-9 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center text-slate-600 group-hover:text-blue-600 group-hover:bg-blue-50 group-hover:border-blue-200 transition-colors shrink-0'
+                          : 'w-9 h-9 rounded-lg border border-slate-200 bg-slate-100 flex items-center justify-center text-slate-400 shrink-0'">
                         <app-lucide-icon [name]="engine.icon" [size]="18"></app-lucide-icon>
                       </div>
                       <div class="flex flex-col min-w-0">
-                        <span class="text-xs font-semibold truncate transition-colors" [class]="compat.compatible ? 'text-slate-900 group-hover:text-blue-600' : 'text-slate-500'">
+                        <span
+                          class="text-xs font-semibold truncate transition-colors"
+                          [class]="compat.compatible ? 'text-slate-900 group-hover:text-blue-600' : 'text-slate-500'">
                           {{ engine.name }}
                         </span>
                         <span class="text-[10px] text-slate-400 font-medium uppercase tracking-wider truncate">
@@ -472,11 +548,11 @@ export interface SavedConnectionItemExtended extends ConnectionItem {
             </div>
           }
 
-          <!-- PHASE B: TARGET ENGINE SELECTED -->
+          <!-- PHASE B: TARGET PROVIDER SELECTED (CONFIGURATION FORM) -->
           @if (selectedProviderSchema(); as schema) {
             <div class="space-y-5 animate-in fade-in duration-150">
               
-              <!-- 1. Active Context Bar with [ Change Target Engine ] -->
+              <!-- Active Target Context Bar -->
               <div class="p-3.5 bg-blue-50/40 border border-blue-200 rounded-xl flex items-center justify-between flex-wrap gap-2">
                 <div class="flex items-center gap-3 min-w-0">
                   <div class="w-9 h-9 rounded-lg bg-white border border-blue-200 flex items-center justify-center text-blue-600 shrink-0 shadow-2xs">
@@ -504,7 +580,7 @@ export interface SavedConnectionItemExtended extends ConnectionItem {
                 </button>
               </div>
 
-              <!-- 2. NET-NEW STEP 3: CROSS-ENGINE PAIR COMPATIBILITY BADGE -->
+              <!-- Cross-Engine Pair Compatibility Badge -->
               @if (pairCompatibilityInfo(); as pair) {
                 <div class="p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
                   <div class="flex items-center gap-2.5">
@@ -532,18 +608,18 @@ export interface SavedConnectionItemExtended extends ConnectionItem {
                 </div>
               }
 
-              <!-- 3. NET-NEW STEP 3: SELF-TARGETING GUARD WARNING -->
+              <!-- Self-Targeting Guard Warning -->
               @if (isSelfTargetingBlocked()) {
                 <div class="p-3 bg-amber-50 border border-amber-300 rounded-xl flex items-center gap-3 text-amber-900 text-xs animate-in fade-in duration-100">
                   <app-lucide-icon name="alert-triangle" [size]="18" class="text-amber-600 shrink-0"></app-lucide-icon>
                   <div>
                     <span class="font-bold">Self-Targeting Guardrail Active:</span>
-                    <span> Source and Target point to the exact same host and database (<code>{{ ms.wizardDraft().sourceHost }}:{{ ms.wizardDraft().sourceDatabase }}</code>). To prevent circular corruption or accidental destruction, specify a different Target Schema / Namespace below.</span>
+                    <span> Source and Target point to the exact same host and database. Specify a different Target Schema / Namespace below.</span>
                   </div>
                 </div>
               }
 
-              <!-- 4. DYNAMIC TARGET ENDPOINT & AUTH PARAMETERS -->
+              <!-- Dynamic Target Endpoint & Auth Parameters Form Grid -->
               <div class="p-5 bg-white border border-slate-200 rounded-xl space-y-4 shadow-2xs">
                 <div class="pb-2 border-b border-slate-100 flex items-center justify-between">
                   <span class="text-xs font-bold text-slate-900">Target Endpoint &amp; Authentication Parameters</span>
@@ -634,44 +710,33 @@ export interface SavedConnectionItemExtended extends ConnectionItem {
                       </div>
                     }
                   }
-                </div>
-              </div>
 
-              <!-- 5. NET-NEW STEP 3: TARGET SCHEMA & PROVISIONING + HIGH-SPEED INGESTION ENGINE -->
-              <div class="p-5 bg-white border border-slate-200 rounded-xl space-y-4 shadow-2xs">
-                <div class="pb-2 border-b border-slate-100 flex items-center justify-between">
-                  <span class="text-xs font-bold text-slate-900">Target Namespace &amp; Ingestion Architecture</span>
-                  <span class="text-[11px] text-slate-400 font-normal">Configure target schema, load APIs, and collision handling</span>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  
-                  <!-- Target Schema Name -->
+                  <!-- Target Schema / Namespace Input -->
                   <div class="flex flex-col gap-1.5">
-                    <label class="text-xs font-semibold text-slate-700 block">
+                    <label for="target-schema-input" class="text-xs font-semibold text-slate-700 block">
                       Target Schema / Namespace <span class="text-rose-500">*</span>
                     </label>
                     <input
+                      id="target-schema-input"
                       type="text"
-                      placeholder="e.g. finance or public"
+                      placeholder="public, dbo, or target_schema"
                       [ngModel]="ms.wizardDraft().targetSchema"
                       (ngModelChange)="onTargetSchemaChange($event)"
                       class="w-full h-9 px-3 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:border-blue-600" />
-                    
                     <label class="flex items-center gap-2 cursor-pointer select-none pt-1">
                       <input
                         type="checkbox"
                         [ngModel]="ms.wizardDraft().targetAutoCreateSchema"
                         (ngModelChange)="ms.updateDraft({ targetAutoCreateSchema: $event })"
                         class="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-0 cursor-pointer" />
-                      <span class="text-[11px] font-medium text-slate-700">Automatically create target schema/database if it doesn't exist</span>
+                      <span class="text-[11px] font-medium text-slate-700">Auto-create target schema if non-existent</span>
                     </label>
                   </div>
 
                   <!-- High-Throughput Ingestion Engine Selector -->
                   <div class="flex flex-col gap-1.5">
                     <label class="text-xs font-semibold text-slate-700 block">
-                      High-Throughput Ingestion Engine <span class="text-rose-500">*</span>
+                      High-Throughput Ingestion Engine
                     </label>
                     <app-custom-select
                       [options]="targetIngestionEngineOptions()"
@@ -679,12 +744,9 @@ export interface SavedConnectionItemExtended extends ConnectionItem {
                       (valueChange)="onIngestionEngineChange($event)"
                       placeholder="Select native bulk load method...">
                     </app-custom-select>
-                    <span class="text-[10px] text-slate-400">
-                      High-speed kernel API for {{ schema.name }}
-                    </span>
                   </div>
 
-                  <!-- Collision Policy Selector (Full Width or 2-col) -->
+                  <!-- Collision Policy Selector -->
                   <div class="md:col-span-2 flex flex-col gap-1.5 pt-2 border-t border-slate-100">
                     <label class="text-xs font-semibold text-slate-700 block">
                       Target Object Collision Policy <span class="text-rose-500">*</span>
@@ -695,16 +757,15 @@ export interface SavedConnectionItemExtended extends ConnectionItem {
                       (valueChange)="onCollisionPolicyChange($event)"
                       placeholder="Select behavior on existing tables...">
                     </app-custom-select>
-                    <span class="text-[10px] text-slate-400">
-                      Defines behavior if source tables already exist in the target schema
-                    </span>
                   </div>
 
                 </div>
               </div>
 
-              <!-- 6. COLLAPSIBLE ACCORDIONS: NETWORK ROUTE & TLS SECURITY -->
+              <!-- Accordions for Network Route & TLS Security -->
               <div class="space-y-3">
+                
+                <!-- Accordion 1: Network Route -->
                 <app-accordion
                   title="Network Route"
                   subtitle="Direct, SSH Bastion, PrivateLink, Proxy"
@@ -724,7 +785,7 @@ export interface SavedConnectionItemExtended extends ConnectionItem {
                     @if (ms.wizardDraft().targetNetworkRoute === 'DIRECT' || !ms.wizardDraft().targetNetworkRoute) {
                       <div class="flex flex-col justify-center gap-1 p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-600 text-[11px]">
                         <span class="font-medium text-slate-800">Direct TCP Connection</span>
-                        <span>Direct routed IP connectivity over VPC peering or corporate network.</span>
+                        <span>Standard routed IP connectivity over corporate VPC peering or LAN.</span>
                       </div>
                     }
 
@@ -749,9 +810,27 @@ export interface SavedConnectionItemExtended extends ConnectionItem {
                           class="w-full h-9 px-3 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:border-blue-600" />
                       </div>
                     }
+
+                    @if (ms.wizardDraft().targetNetworkRoute === 'HTTP_PROXY' || ms.wizardDraft().targetNetworkRoute === 'SOCKS5_PROXY') {
+                      <div class="flex flex-col gap-1.5">
+                        <label class="text-xs font-semibold text-slate-700 block">Proxy Host <span class="text-rose-500">*</span></label>
+                        <input
+                          type="text"
+                          placeholder="proxy.corp.internal"
+                          class="w-full h-9 px-3 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:border-blue-600" />
+                      </div>
+                      <div class="flex flex-col gap-1.5">
+                        <label class="text-xs font-semibold text-slate-700 block">Proxy Port</label>
+                        <input
+                          type="number"
+                          placeholder="8080"
+                          class="w-full h-9 px-3 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:border-blue-600" />
+                      </div>
+                    }
                   </div>
                 </app-accordion>
 
+                <!-- Accordion 2: TLS & Security -->
                 <app-accordion
                   title="TLS & Transport Encryption"
                   subtitle="Encryption mode, CA certificate binding, mTLS"
@@ -768,17 +847,49 @@ export interface SavedConnectionItemExtended extends ConnectionItem {
                       </app-custom-select>
                     </div>
 
-                    @if (isProductionEnv() && selectedTlsMode() === 'DISABLE') {
+                    @if (isProductionEnv() && selectedTlsMode() === 'DISABLED') {
                       <div class="md:col-span-2 p-3 bg-rose-50 border border-rose-200 rounded-lg flex items-center gap-2 text-rose-800 text-xs font-medium">
                         <app-lucide-icon name="alert-circle" [size]="16" class="text-rose-600 shrink-0"></app-lucide-icon>
                         <span>Plain unencrypted TCP is strictly blocked in Production. TLS 1.2+ is mandatory.</span>
                       </div>
                     }
+
+                    <!-- Section for mTLS client authentication inputs -->
+                    <div class="md:col-span-2 pt-2 border-t border-slate-100 flex flex-col gap-3">
+                      <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold text-slate-800">Mutual TLS (mTLS) Client Authentication</span>
+                        <span class="text-[10px] text-slate-400">Optional client certificate & key</span>
+                      </div>
+                      <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div class="flex flex-col gap-1.5">
+                          <label class="text-[11px] font-semibold text-slate-700">Client Certificate (.crt/.pem)</label>
+                          <input
+                            type="text"
+                            placeholder="vault://secret/cert or /path/to/client.crt"
+                            class="w-full h-8 px-2.5 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:border-blue-600" />
+                        </div>
+                        <div class="flex flex-col gap-1.5">
+                          <label class="text-[11px] font-semibold text-slate-700">Client Private Key (.key)</label>
+                          <input
+                            type="password"
+                            placeholder="vault://secret/key or /path/to/client.key"
+                            class="w-full h-8 px-2.5 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:border-blue-600" />
+                        </div>
+                        <div class="flex flex-col gap-1.5">
+                          <label class="text-[11px] font-semibold text-slate-700">Passphrase / Secret Ref</label>
+                          <input
+                            type="password"
+                            placeholder="vault://secret/passphrase"
+                            class="w-full h-8 px-2.5 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:border-blue-600" />
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </app-accordion>
+
               </div>
 
-              <!-- 7. BACKEND VERIFICATION ENGINE: 6-STAGE TARGET ATTESTATION PROBE -->
+              <!-- 6-Stage Target Attestation Probe -->
               <div class="p-5 bg-white border border-slate-200 rounded-xl space-y-4 shadow-2xs">
                 <div class="flex items-center justify-between flex-wrap gap-2">
                   <div class="flex flex-col gap-0.5">
@@ -798,12 +909,11 @@ export interface SavedConnectionItemExtended extends ConnectionItem {
                       <span>Testing Stage ({{ activeStageIndex() }}/6)...</span>
                     } @else {
                       <app-lucide-icon name="shield-check" [size]="14"></app-lucide-icon>
-                      <span>Verify Target Connection</span>
+                      <span>Attest Target</span>
                     }
                   </button>
                 </div>
 
-                <!-- Live Progress Display -->
                 @if (isVerifying()) {
                   <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2.5 animate-in fade-in duration-100">
                     <div class="flex items-center justify-between text-xs">
@@ -822,18 +932,17 @@ export interface SavedConnectionItemExtended extends ConnectionItem {
                   </div>
                 }
 
-                <!-- Post-Attestation Diagnostic Card -->
                 @if (probeExecuted()) {
                   @if (ms.wizardDraft().targetVerified) {
-                    <div class="p-3.5 bg-emerald-50/50 border border-emerald-200 rounded-xl flex flex-col gap-2.5 animate-in fade-in duration-150">
+                    <div class="p-3.5 bg-blue-50/40 border border-blue-200 rounded-xl flex flex-col gap-2.5 animate-in fade-in duration-150">
                       <div class="flex items-center justify-between">
                         <div class="flex items-center gap-2">
-                          <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-                          <span class="text-xs font-bold text-emerald-900">
-                            Target Attested Successfully · All 6 Stages Passed (1.8s)
+                          <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+                          <span class="text-xs font-bold text-blue-950">
+                            All 6 Target Stages Verified Successfully · Ready for Scope &amp; Mapping
                           </span>
                         </div>
-                        <span class="text-[11px] font-mono text-emerald-700 font-medium">Ready for Step 4</span>
+                        <span class="text-[11px] font-mono text-amber-700 font-medium">CHECK2 Live Pending</span>
                       </div>
 
                       <div class="flex items-center gap-1.5 flex-wrap">
@@ -848,69 +957,15 @@ export interface SavedConnectionItemExtended extends ConnectionItem {
                   }
                   @if (verificationError(); as err) {
                     <div class="p-3.5 bg-rose-50 border border-rose-200 rounded-xl flex flex-col gap-2 animate-in fade-in duration-150">
-                      <div class="flex items-center justify-between">
-                        <div class="flex items-center gap-2">
-                          <span class="w-2 h-2 rounded-full bg-rose-500"></span>
-                          <span class="text-xs font-bold text-rose-900">Target Verification Blocked ({{ err.stage }})</span>
-                        </div>
-                        <span class="px-2 py-0.5 text-[10px] font-mono font-bold bg-rose-100 text-rose-800 rounded">
-                          {{ err.category }}
-                        </span>
+                      <div class="flex items-center gap-2">
+                        <app-lucide-icon name="alert-circle" [size]="16" class="text-rose-600 shrink-0"></app-lucide-icon>
+                        <span class="text-xs font-bold text-rose-900">{{ err.stage }} — {{ err.category }}</span>
                       </div>
-                      <p class="text-xs text-rose-800 font-normal leading-relaxed">
-                        {{ err.message }}
-                      </p>
+                      <p class="text-xs text-rose-700 font-normal leading-relaxed pl-6">{{ err.message }}</p>
                     </div>
                   }
                 }
               </div>
-
-              <!-- 8. POST-SUCCESS: SAVE TARGET TO VAULT -->
-              @if (ms.wizardDraft().targetVerified) {
-                <div class="p-4 bg-slate-50/70 border border-slate-200 rounded-xl space-y-3 animate-in fade-in duration-150">
-                  <label class="flex items-center gap-2.5 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      [ngModel]="ms.wizardDraft().targetSaveToVault"
-                      (ngModelChange)="onSaveToVaultChange($event)"
-                      class="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-0 cursor-pointer" />
-                    <span class="text-xs font-semibold text-slate-800">
-                      Save this target connection to Enterprise Vault for future migrations
-                    </span>
-                  </label>
-
-                  @if (ms.wizardDraft().targetSaveToVault) {
-                    <div class="flex flex-col gap-1.5 pl-6 animate-in fade-in duration-100 max-w-xl">
-                      <label class="text-xs font-semibold text-slate-700 block">
-                        Connection Name <span class="text-rose-500">*</span>
-                      </label>
-                      <div class="flex items-center gap-2.5">
-                        <input
-                          type="text"
-                          [ngModel]="vaultTargetConnectionName()"
-                          (ngModelChange)="onVaultTargetNameChange($event)"
-                          placeholder="e.g. Aurora PostgreSQL 16 Target"
-                          class="flex-1 h-9 px-3 text-xs bg-white border border-slate-200 focus:border-blue-600 rounded-lg text-slate-900 focus:outline-none transition-colors" />
-                        
-                        <button
-                          type="button"
-                          (click)="saveTargetToVault()"
-                          [disabled]="!vaultTargetConnectionName().trim() || isTargetVaultSaved()"
-                          class="h-9 px-4 text-xs font-semibold rounded-lg flex items-center gap-1.5 cursor-pointer transition-all shrink-0 shadow-2xs"
-                          [class]="isTargetVaultSaved()
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                            : 'text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed'">
-                          <app-lucide-icon [name]="isTargetVaultSaved() ? 'check' : 'bookmark'" [size]="13"></app-lucide-icon>
-                          <span>{{ isTargetVaultSaved() ? 'Saved to Vault' : 'Save Connection' }}</span>
-                        </button>
-                      </div>
-                      <span class="text-[10px] text-slate-400">
-                        Will be saved to Connection Hub and accessible in "Saved Connection" branch.
-                      </span>
-                    </div>
-                  }
-                </div>
-              }
 
             </div>
           }
@@ -923,10 +978,32 @@ export interface SavedConnectionItemExtended extends ConnectionItem {
 })
 export class Step3TargetComponent implements OnInit {
   public ms: MigrationUiService;
+  public connService: ConnectionsService;
   public Math = Math;
 
-  constructor(ms?: MigrationUiService) {
-    this.ms = ms || inject(MigrationUiService);
+  constructor(
+    ms?: MigrationUiService,
+    connService?: ConnectionsService
+  ) {
+    if (ms) {
+      this.ms = ms;
+    } else {
+      try {
+        this.ms = inject(MigrationUiService, { optional: true }) || new MigrationUiService();
+      } catch {
+        this.ms = new MigrationUiService();
+      }
+    }
+
+    if (connService) {
+      this.connService = connService;
+    } else {
+      try {
+        this.connService = inject(ConnectionsService, { optional: true }) || new ConnectionsService();
+      } catch {
+        this.connService = new ConnectionsService();
+      }
+    }
   }
 
   public modeControlOptions: SegmentedControlOption[] = [
@@ -939,7 +1016,7 @@ export class Step3TargetComponent implements OnInit {
 
   // Catalog & Search Signals
   public searchQuery = signal<string>('');
-  public selectedCategoryTab = signal<CatalogCategoryTab['id']>('ALL');
+  public selectedCategoryTab = signal<string>('ALL');
 
   // Saved Grid Signals
   public savedSearchQuery = signal<string>('');
@@ -966,88 +1043,58 @@ export class Step3TargetComponent implements OnInit {
 
   // 6-Stage Target Attestation Lifecycle
   public targetStages: TargetStageState[] = [
-    { index: 1, name: 'Stage 1: Transport & Network Route Ping', description: 'Resolves DNS, TCP latency, and negotiates TLS 1.2/1.3', chipLabel: 'Transport & TLS', status: 'PENDING' },
-    { index: 2, name: 'Stage 2: Target Identity & Charset Check', description: 'Validates target engine edition, version, and character encoding', chipLabel: 'Identity & Charset', status: 'PENDING' },
-    { index: 3, name: 'Stage 3: Live DDL & Write Canary Probe', description: 'Executes ephemeral sandboxed CREATE, INSERT, and DROP canary test', chipLabel: 'Write & DDL Canary', status: 'PENDING' },
-    { index: 4, name: 'Stage 4: High-Throughput Ingestion Fast-Path', description: 'Probes native bulk load APIs (COPY, Direct-Path, Snowpipe)', chipLabel: 'Fast-Path Verified', status: 'PENDING' },
-    { index: 5, name: 'Stage 5: Storage Headroom & Tablespace Capacity', description: 'Verifies free disk space and quota threshold (>10% free)', chipLabel: 'Storage Headroom', status: 'PENDING' },
-    { index: 6, name: 'Stage 6: Pre-Existing Object Collision Audit', description: 'Audits target schema for colliding table names against collision policy', chipLabel: 'Collision Audit', status: 'PENDING' }
+    { index: 1, name: 'Stage 1: Transport & Network Config Check', description: 'Frontend static network route & TLS enforcement verification', chipLabel: 'Transport & TLS', status: 'PENDING' },
+    { index: 2, name: 'Stage 2: Target Identity & Charset Metadata Audit', description: 'Static target engine version & character encoding declaration audit', chipLabel: 'Identity & Charset', status: 'PENDING' },
+    { index: 3, name: 'Stage 3: DDL & Write Capability Compatibility Analysis', description: 'Static matrix evaluation of write capability against Step 1 strategy', chipLabel: 'Write & DDL Analysis', status: 'PENDING' },
+    { index: 4, name: 'Stage 4: Ingestion Fast-Path Interface Verification', description: 'Frontend static verification of bulk load interface parameters', chipLabel: 'Fast-Path Interface', status: 'PENDING' },
+    { index: 5, name: 'Stage 5: Storage Headroom Threshold Policy Audit', description: 'Static storage quota & headroom policy declaration check', chipLabel: 'Headroom Policy', status: 'PENDING' },
+    { index: 6, name: 'Stage 6: Target Pre-Flight Attestation (CHECK2 Live Probe Pending)', description: 'Frontend pre-flight complete. Backend live network/socket probe deferred to CHECK2', chipLabel: 'CHECK2 Live Pending', status: 'PENDING' }
   ];
 
-  // The 48 Canonical Engines
+  // The Canonical Engines for the Expansive Catalog Grid (49 Physical Providers)
+    // Dynamic Canonical Catalog Engines (54 UI Entry Points)
   public catalogEngines: CatalogEngineItem[] = [
-    // 1. Relational (10)
-    { id: 'SQLite', name: 'SQLite', category: 'RELATIONAL', categoryLabel: 'Embedded Relational', icon: 'database' },
-    { id: 'PostgreSQL', name: 'PostgreSQL', category: 'RELATIONAL', categoryLabel: 'Relational DB', icon: 'database' },
-    { id: 'MySQL', name: 'MySQL', category: 'RELATIONAL', categoryLabel: 'Relational DB', icon: 'database' },
-    { id: 'MariaDB', name: 'MariaDB', category: 'RELATIONAL', categoryLabel: 'Relational DB', icon: 'database' },
-    { id: 'Oracle', name: 'Oracle Database', category: 'RELATIONAL', categoryLabel: 'Enterprise RDBMS', icon: 'database' },
-    { id: 'Microsoft SQL Server', name: 'SQL Server (MSSQL)', category: 'RELATIONAL', categoryLabel: 'Enterprise RDBMS', icon: 'database' },
-    { id: 'IBM Db2', name: 'IBM Db2 LUW', category: 'RELATIONAL', categoryLabel: 'Enterprise RDBMS', icon: 'database' },
-    { id: 'SAP HANA', name: 'SAP HANA', category: 'RELATIONAL', categoryLabel: 'In-Memory RDBMS', icon: 'database' },
-    { id: 'SAP ASE', name: 'SAP ASE (Sybase)', category: 'RELATIONAL', categoryLabel: 'Enterprise RDBMS', icon: 'database' },
-    { id: 'IBM Informix', name: 'IBM Informix', category: 'RELATIONAL', categoryLabel: 'OLTP & Timeseries', icon: 'database' },
-
-    // 2. Distributed SQL (5)
-    { id: 'CockroachDB', name: 'CockroachDB', category: 'DISTRIBUTED_SQL', categoryLabel: 'Distributed SQL', icon: 'network' },
-    { id: 'YugabyteDB', name: 'YugabyteDB', category: 'DISTRIBUTED_SQL', categoryLabel: 'Distributed SQL', icon: 'network' },
-    { id: 'TiDB', name: 'TiDB (PingCAP)', category: 'DISTRIBUTED_SQL', categoryLabel: 'HTAP Distributed SQL', icon: 'network' },
-    { id: 'SingleStore', name: 'SingleStore (MemSQL)', category: 'DISTRIBUTED_SQL', categoryLabel: 'Real-Time Distributed', icon: 'network' },
-    { id: 'Google Cloud Spanner', name: 'Google Cloud Spanner', category: 'DISTRIBUTED_SQL', categoryLabel: 'Global Distributed SQL', icon: 'network' },
-
-    // 3. Warehouse (7)
-    { id: 'Snowflake', name: 'Snowflake Data Cloud', category: 'WAREHOUSE', categoryLabel: 'Cloud Data Warehouse', icon: 'layers' },
-    { id: 'Google BigQuery', name: 'Google BigQuery', category: 'WAREHOUSE', categoryLabel: 'Serverless Warehouse', icon: 'layers' },
-    { id: 'Amazon Redshift', name: 'Amazon Redshift', category: 'WAREHOUSE', categoryLabel: 'Cloud Data Warehouse', icon: 'layers' },
-    { id: 'Databricks', name: 'Databricks Delta Lake', category: 'WAREHOUSE', categoryLabel: 'Lakehouse & Delta', icon: 'layers' },
-    { id: 'ClickHouse', name: 'ClickHouse', category: 'WAREHOUSE', categoryLabel: 'Columnar Analytics', icon: 'layers' },
-    { id: 'Teradata', name: 'Teradata Vantage', category: 'WAREHOUSE', categoryLabel: 'Enterprise Warehouse', icon: 'layers' },
-    { id: 'OpenText Vertica', name: 'OpenText Vertica', category: 'WAREHOUSE', categoryLabel: 'Columnar Analytics', icon: 'layers' },
-
-    // 4. NoSQL (12)
-    { id: 'MongoDB', name: 'MongoDB', category: 'NOSQL', categoryLabel: 'Document Store', icon: 'boxes' },
-    { id: 'Apache Cassandra', name: 'Apache Cassandra', category: 'NOSQL', categoryLabel: 'Wide-Column Store', icon: 'boxes' },
-    { id: 'ScyllaDB', name: 'ScyllaDB', category: 'NOSQL', categoryLabel: 'Real-Time NoSQL', icon: 'boxes' },
-    { id: 'Neo4j', name: 'Neo4j Graph Database', category: 'NOSQL', categoryLabel: 'Native Graph DB', icon: 'boxes' },
-    { id: 'Redis', name: 'Redis', category: 'NOSQL', categoryLabel: 'In-Memory Cache & KV', icon: 'boxes' },
-    { id: 'KeyDB', name: 'KeyDB', category: 'NOSQL', categoryLabel: 'Multithreaded In-Memory', icon: 'boxes' },
-    { id: 'Elasticsearch', name: 'Elasticsearch', category: 'NOSQL', categoryLabel: 'Search & Analytics', icon: 'boxes' },
-    { id: 'OpenSearch', name: 'OpenSearch', category: 'NOSQL', categoryLabel: 'Search & Analytics', icon: 'boxes' },
-    { id: 'Apache Couchbase', name: 'Apache Couchbase', category: 'NOSQL', categoryLabel: 'Document & KV DB', icon: 'boxes' },
-    { id: 'Amazon DynamoDB', name: 'Amazon DynamoDB', category: 'NOSQL', categoryLabel: 'Serverless Key-Value', icon: 'boxes' },
-    { id: 'Azure Cosmos DB', name: 'Azure Cosmos DB', category: 'NOSQL', categoryLabel: 'Multi-Model Distributed', icon: 'boxes' },
-    { id: 'InfluxDB', name: 'InfluxDB', category: 'NOSQL', categoryLabel: 'Time-Series Engine', icon: 'boxes' },
-
-    // 5. Streaming (6)
-    { id: 'Apache Kafka', name: 'Apache Kafka', category: 'STREAMING', categoryLabel: 'Event Streaming', icon: 'radio' },
-    { id: 'Amazon Kinesis', name: 'Amazon Kinesis Data Streams', category: 'STREAMING', categoryLabel: 'Cloud Event Streaming', icon: 'radio' },
-    { id: 'Azure Event Hubs', name: 'Azure Event Hubs', category: 'STREAMING', categoryLabel: 'Cloud Event Ingestion', icon: 'radio' },
-    { id: 'Google Cloud Pub/Sub', name: 'Google Cloud Pub/Sub', category: 'STREAMING', categoryLabel: 'Enterprise Messaging', icon: 'radio' },
-    { id: 'Apache Pulsar', name: 'Apache Pulsar', category: 'STREAMING', categoryLabel: 'Distributed Pub/Sub', icon: 'radio' },
-    { id: 'RabbitMQ', name: 'RabbitMQ', category: 'STREAMING', categoryLabel: 'Message Broker', icon: 'radio' },
-
-    // 6. Storage (5)
-    { id: 'Amazon S3', name: 'Amazon S3', category: 'STORAGE', categoryLabel: 'Object Storage', icon: 'hard-drive' },
-    { id: 'Google Cloud Storage', name: 'Google Cloud Storage (GCS)', category: 'STORAGE', categoryLabel: 'Object Storage', icon: 'hard-drive' },
-    { id: 'Azure Blob Storage', name: 'Azure Blob Storage', category: 'STORAGE', categoryLabel: 'Cloud Blob Storage', icon: 'hard-drive' },
-    { id: 'MinIO', name: 'MinIO Object Storage', category: 'STORAGE', categoryLabel: 'S3-Compatible Storage', icon: 'hard-drive' },
-    { id: 'Apache HDFS', name: 'Apache HDFS', category: 'STORAGE', categoryLabel: 'Hadoop Distributed FS', icon: 'hard-drive' },
-
-    // 7. SaaS & Apps (3)
-    { id: 'Salesforce', name: 'Salesforce', category: 'SAAS', categoryLabel: 'CRM & Cloud Platform', icon: 'cloud' },
-    { id: 'ServiceNow', name: 'ServiceNow', category: 'SAAS', categoryLabel: 'Enterprise ITSM / Tables', icon: 'cloud' },
-    { id: 'SAP Application Ecosystem', name: 'SAP Application Ecosystem', category: 'SAAS', categoryLabel: 'SAP NetWeaver / RFC', icon: 'cloud' }
+    ...ALL_PROVIDER_CATALOG_ITEMS.map(item => {
+      const catMap: Record<string, string> = {
+        'RELATIONAL': 'RELATIONAL_DISTRIBUTED_SQL',
+        'WAREHOUSE_LAKE': 'WAREHOUSE_LAKE',
+        'NOSQL_GRAPH': 'NOSQL_GRAPH_KV_SEARCH',
+        'STREAMING': 'STREAMING_MESSAGING',
+        'OBJECT_STORAGE': 'OBJECT_DISTRIBUTED_STORAGE',
+        'TIME_SERIES': 'TIME_SERIES',
+        'APPLICATION': 'ENTERPRISE_APPLICATIONS',
+        'ENTERPRISE_APPS': 'ENTERPRISE_APPLICATIONS',
+        'FILE_DATASET': 'FILE_DATASET'
+      };
+      return {
+        id: (item.id === 'file_dataset' ? 'File Dataset' : item.name) as PhysicalProviderId,
+        name: item.name,
+        category: item.id === 'file_dataset' ? 'FILE_DATASET' : (catMap[item.family] || item.family),
+        categoryLabel: item.categoryLabel,
+        icon: item.icon
+      };
+    }),
+    ...MANAGED_CLOUD_PROFILES.map(profile => ({
+      id: profile.name as PhysicalProviderId,
+      name: profile.name,
+      category: 'MANAGED_CLOUD',
+      categoryLabel: 'Managed Cloud Profile',
+      icon: profile.icon
+    }))
   ];
 
+  // 10 Canonical Family Tabs
   public catalogTabs: CatalogCategoryTab[] = [
-    { id: 'ALL', label: 'All', count: 48 },
-    { id: 'RELATIONAL', label: 'Relational', count: 10 },
-    { id: 'DISTRIBUTED_SQL', label: 'Distributed SQL', count: 5 },
-    { id: 'WAREHOUSE', label: 'Warehouse', count: 7 },
-    { id: 'NOSQL', label: 'NoSQL', count: 12 },
-    { id: 'STREAMING', label: 'Streaming', count: 6 },
-    { id: 'STORAGE', label: 'Storage', count: 5 },
-    { id: 'SAAS', label: 'SaaS & Apps', count: 3 }
+    { id: 'ALL', label: 'All', count: 54 },
+    { id: 'RELATIONAL_DISTRIBUTED_SQL', label: 'Relational & Distributed SQL', count: 17 },
+    { id: 'WAREHOUSE_LAKE', label: 'Warehouse & Lakehouse', count: 5 },
+    { id: 'NOSQL_GRAPH_KV_SEARCH', label: 'NoSQL, Graph & KV', count: 11 },
+    { id: 'STREAMING_MESSAGING', label: 'Streaming & Messaging', count: 6 },
+    { id: 'OBJECT_DISTRIBUTED_STORAGE', label: 'Object & Distributed Storage', count: 6 },
+    { id: 'TIME_SERIES', label: 'Time-Series', count: 1 },
+    { id: 'ENTERPRISE_APPLICATIONS', label: 'Enterprise Apps & SaaS', count: 3 },
+    { id: 'FILE_DATASET', label: 'File Dataset', count: 1 },
+    { id: 'MANAGED_CLOUD', label: 'Managed Cloud', count: 4 }
   ];
 
   public routeFiltersList: { label: string; value: NetworkRouteType }[] = [
@@ -1214,13 +1261,48 @@ export class Step3TargetComponent implements OnInit {
   public selectedSavedConnection = computed<SavedConnectionItemExtended | undefined>(() => {
     const id = this.ms.wizardDraft().targetConnectionId;
     if (!id) return undefined;
-    return this.enterpriseSavedTargets.find(c => c.id === id);
+
+    // 1. Search in local enterprise saved targets vault list
+    const found = this.enterpriseSavedTargets.find(c => c.id === id);
+    if (found) return found;
+
+    // 2. Search in canonical connection authority store
+    const canonical = this.connService?.connections().find(c => c.id === id);
+    if (canonical) {
+      const portNum = Number(canonical.endpointDisplay.split(':')[1]) || 5432;
+      return {
+        id: canonical.id,
+        name: canonical.name,
+        provider: toPhysicalProviderId(canonical.providerName),
+        category: (canonical.family === 'WAREHOUSE_LAKE' ? 'WAREHOUSE' : canonical.family) as any,
+        environment: canonical.environment,
+        host: canonical.endpointDisplay.split(':')[0] || 'localhost',
+        port: portNum,
+        databaseName: (canonical as any).parameters?.['database'] || 'default',
+        username: canonical.authMethodDisplay,
+        secretRef: '',
+        tlsEnabled: true,
+        networkRoute: canonical.safeRouteInfo as any,
+        status: (canonical.verificationState === 'VERIFIED_RECENT' || canonical.verificationState === 'VERIFIED_POINT_IN_TIME') ? 'CONNECTED' : 'DISCONNECTED',
+        verificationFreshness: canonical.verificationState,
+        latencyMs: 1.0,
+        capabilities: ['DIRECT_LOAD'],
+        assignedMigrationCount: 0,
+        assignedProjectCount: 0,
+        createdAt: canonical.createdAt,
+        updatedAt: canonical.updatedAt,
+        scope: 'PROJECT'
+      };
+    }
+
+    // Explicit fail-closed: NO draft projection as identity substitute
+    return undefined;
   });
 
   public selectedProviderSchema = computed<ProviderFormSchema | undefined>(() => {
     const pid = this.ms.wizardDraft().targetProvider;
     if (!pid) return undefined;
-    return ALL_48_PROVIDER_SCHEMAS[pid];
+    return ALL_PROVIDER_SCHEMAS[pid];
   });
 
   // Cross-Engine Pair Compatibility Badge Evaluation
@@ -1235,8 +1317,8 @@ export class Step3TargetComponent implements OnInit {
     if (isHomogeneous) {
       transpilerStatus = 'Native 1:1 Dialect & Data Types · Fast-Path Direct Transfer';
     } else {
-      const srcSchema = ALL_48_PROVIDER_SCHEMAS[srcProvider];
-      const tgtSchema = ALL_48_PROVIDER_SCHEMAS[tgtProvider];
+      const srcSchema = ALL_PROVIDER_SCHEMAS[srcProvider];
+      const tgtSchema = ALL_PROVIDER_SCHEMAS[tgtProvider];
       if (srcSchema?.category === 'RELATIONAL' && tgtSchema?.category === 'WAREHOUSE') {
         transpilerStatus = 'Relational to Lakehouse · Cloud Ingestion Stream Ready';
       } else {
@@ -1356,24 +1438,27 @@ export class Step3TargetComponent implements OnInit {
   public getCategoryFilterLabel(cat: string): string {
     switch (cat) {
       case 'ALL': return 'All';
-      case 'RELATIONAL': return 'Relational';
-      case 'DISTRIBUTED_SQL': return 'Distributed SQL';
-      case 'WAREHOUSE': return 'Warehouse';
-      case 'NOSQL': return 'NoSQL';
-      case 'STREAMING': return 'Streaming';
-      case 'STORAGE': return 'Storage';
-      case 'SAAS': return 'SaaS & Apps';
+      case 'RELATIONAL':
+      case 'RELATIONAL_DISTRIBUTED_SQL': return 'Relational & Distributed SQL';
+      case 'WAREHOUSE':
+      case 'WAREHOUSE_LAKE': return 'Warehouse & Lakehouse';
+      case 'NOSQL':
+      case 'NOSQL_GRAPH_KV_SEARCH': return 'NoSQL, Graph & KV';
+      case 'STREAMING':
+      case 'STREAMING_MESSAGING': return 'Streaming & Messaging';
+      case 'STORAGE':
+      case 'OBJECT_DISTRIBUTED_STORAGE': return 'Object & Distributed Storage';
+      case 'TIME_SERIES': return 'Time-Series';
+      case 'ENTERPRISE_APPLICATIONS':
+      case 'SAAS': return 'Enterprise Apps & SaaS';
+      case 'FILE_DATASET': return 'File Dataset';
+      case 'MANAGED_CLOUD': return 'Managed Cloud';
       default: return cat;
     }
   }
 
-  public cleanLabel(label: string): string {
-    if (!label) return '';
-    return label.replace(/\s*\*+\s*$/, '').trim();
-  }
-
   public getProviderIcon(provider: PhysicalProviderId): string {
-    const s = ALL_48_PROVIDER_SCHEMAS[provider];
+    const s = ALL_PROVIDER_SCHEMAS[provider];
     return s?.icon || 'database';
   }
 
@@ -1438,10 +1523,10 @@ export class Step3TargetComponent implements OnInit {
   }
 
   public selectTargetEngine(engineId: PhysicalProviderId): void {
-    const schema = ALL_48_PROVIDER_SCHEMAS[engineId];
+    const schema = ALL_PROVIDER_SCHEMAS[engineId];
     if (!schema) return;
 
-    const defIngest = schema.ingestionEngines?.find(e => e.recommended)?.value ||
+    const defIngest = schema.ingestionEngines?.find((e: any) => e.recommended)?.value ||
       schema.ingestionEngines?.[0]?.value || 'STANDARD_INSERT';
 
     this.ms.updateDraft({
@@ -1586,10 +1671,42 @@ export class Step3TargetComponent implements OnInit {
     return true;
   }
 
-  public evaluateSavedConnection(conn: ConnectionItem): { isEligible: boolean; reason?: string } {
+  public evaluateSavedConnection(conn: ConnectionItem): {
+    isEligible: boolean;
+    reason?: string;
+    errorCategory?: string;
+    canRetest?: boolean;
+  } {
+    // 1. Canonical provider role applicability check
+    const targetId = (conn as any).providerId || conn.provider;
+    const canonicalItem = ALL_PROVIDER_CATALOG_ITEMS.find(p =>
+      p.id === targetId ||
+      p.id.toLowerCase() === targetId.toLowerCase() ||
+      p.name.toLowerCase() === targetId.toLowerCase()
+    );
+
+    // Strict fail-closed if provider is unrecognised in canonical catalog
+    if (!canonicalItem) {
+      return {
+        isEligible: false,
+        reason: `Provider "${conn.provider}" is unrecognised in canonical catalog metadata.`,
+        errorCategory: 'PROVIDER_UNRECOGNISED',
+        canRetest: false
+      };
+    }
+
+    if (canonicalItem.roleApplicability === 'SOURCE_ONLY' || !canonicalItem.supportedRoles.includes('TARGET')) {
+      return {
+        isEligible: false,
+        reason: `${canonicalItem.name} is restricted to Source workloads only in canonical provider metadata.`,
+        errorCategory: 'ROLE_INELIGIBLE',
+        canRetest: false
+      };
+    }
+
     const compat = this.checkTargetCompatibility(conn.provider);
     if (!compat.compatible) {
-      return { isEligible: false, reason: compat.reason };
+      return { isEligible: false, reason: compat.reason, errorCategory: 'MODE_INCOMPATIBLE', canRetest: false };
     }
     return { isEligible: true };
   }
@@ -1710,38 +1827,7 @@ export class Step3TargetComponent implements OnInit {
     this.isTargetVaultSaved.set(false);
   }
 
-  public saveTargetToVault(): void {
-    if (!this.vaultTargetConnectionName().trim()) return;
-    const d = this.ms.wizardDraft();
-    const schema = this.selectedProviderSchema();
-    const newTarget: SavedConnectionItemExtended = {
-      id: `conn-target-${Date.now()}`,
-      name: this.vaultTargetConnectionName().trim(),
-      provider: d.targetProvider,
-      category: (schema?.category as any) || 'RELATIONAL',
-      environment: (d.environment as any) || 'Production',
-      host: d.targetHost || 'localhost',
-      port: d.targetPort || 5432,
-      databaseName: d.targetDatabase || 'defaultdb',
-      username: d.targetUsername || 'admin',
-      tlsEnabled: !!d.targetTls,
-      networkRoute: (d.targetNetworkRoute as any) || 'DIRECT',
-      status: 'CONNECTED',
-      verificationFreshness: 'Just now',
-      latencyMs: 1.8,
-      secretRef: d.targetSecretRef || '',
-      capabilities: ['BULK_WRITE', 'DDL_CANARY'],
-      assignedMigrationCount: 0,
-      assignedProjectCount: 0,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      scope: 'PROJECT'
-    };
-    this.enterpriseSavedTargets = [newTarget, ...this.enterpriseSavedTargets];
-    this.ms.connections.update(list => [newTarget, ...list]);
-    this.isTargetVaultSaved.set(true);
-    this.ms.updateDraft({ targetSaveToVault: true });
-  }
+
 
   public onRouteTypeChange(route: any): void {
     this.ms.updateDraft({
@@ -1906,5 +1992,10 @@ export class Step3TargetComponent implements OnInit {
     };
 
     runStage(1);
+  }
+
+  public cleanLabel(label: string | undefined): string {
+    if (!label) return '';
+    return label.replace(/^AKAAL\s+/i, '').replace(/AKAAL/g, '');
   }
 }

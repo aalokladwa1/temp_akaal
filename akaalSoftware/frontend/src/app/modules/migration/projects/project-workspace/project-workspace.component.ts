@@ -74,7 +74,7 @@ export interface ProjectWorkspaceTabDef {
           <!-- Middle Row: Project Key, Title, Initiative Badge & Status -->
           <div class="flex items-center justify-between gap-4 flex-wrap">
             <div class="flex items-center gap-3 min-w-0">
-              <span class="px-2.5 py-1 rounded-md text-xs font-bold font-mono bg-blue-50 text-blue-700 border border-blue-200/90 shrink-0">
+              <span class="px-2.5 py-1 rounded-md text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200/90 shrink-0">
                 {{ proj.key }}
               </span>
               <h1 class="text-2xl font-bold text-slate-900 tracking-tight font-heading truncate">
@@ -115,7 +115,7 @@ export interface ProjectWorkspaceTabDef {
           </div>
 
           <!-- Bottom Row: 8-Tab GDS Segmented Slider Tabs -->
-          <div class="flex items-center pt-2 overflow-x-auto">
+          <div class="w-full overflow-x-auto pb-1 scrollbar-none">
             <div class="inline-flex items-center p-1 rounded-lg bg-slate-100/90 border border-slate-200 shrink-0">
               @for (t of tabs; track t.key) {
                 <button
@@ -178,9 +178,9 @@ export interface ProjectWorkspaceTabDef {
         <!-- Fallback view when Project is not found or store is unavailable -->
         <div class="py-16">
           <app-projects-state-fallback
-            [state]="'UNAVAILABLE'"
+            [state]="'NOT_FOUND'"
             entityName="projects"
-            customErrorMessage="Project workspace not found or unavailable in current context."
+            customErrorMessage="Project workspace not found in current context."
             (retry)="handleBack()">
           </app-projects-state-fallback>
         </div>

@@ -58,21 +58,6 @@ export type ProjectsTabType = 'portfolio' | 'projects' | 'initiatives';
 
       </div>
 
-      <!-- Context Subtext -->
-      <div class="text-xs text-slate-500 font-medium hidden sm:block">
-        @switch (activeTab()) {
-          @case ('portfolio') {
-            <span>Portfolio orientation and high-level operational activity</span>
-          }
-          @case ('projects') {
-            <span>Governed operational workspaces for migration &amp; validation</span>
-          }
-          @case ('initiatives') {
-            <span>Strategic multi-project transformation programs</span>
-          }
-        }
-      </div>
-
     </div>
   `
 })

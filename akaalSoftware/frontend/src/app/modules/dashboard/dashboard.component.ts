@@ -2,7 +2,7 @@ import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DashboardService } from '../../core/services/dashboard.service';
 import { IpcService } from '../../core/services/ipc.service';
-import { MetricSurfaceComponent } from './components/metric-surface.component';
+import { MetricSurfaceComponent } from '../../shared/components/metric-surface.component';
 import { ActiveMigrationsComponent } from './components/active-migrations.component';
 import { AttentionQueueComponent } from './components/attention-queue.component';
 import { PlatformStatusComponent } from './components/platform-status.component';
@@ -79,31 +79,27 @@ import { RecentActivityComponent } from './components/recent-activity.component'
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <app-metric-surface
           label="Running"
-          [value]="ds.dashboardData().runningCount !== null ? ds.dashboardData().runningCount! : '—'"
-          subtext="Active pipelines"
-          [isAccent]="(ds.dashboardData().runningCount ?? 0) > 0"
+          [value]="ds.dashboardData()?.runningCount !== null && ds.dashboardData()?.runningCount !== undefined ? ds.dashboardData()!.runningCount! : '—'"
+          [isAccent]="(ds.dashboardData()?.runningCount ?? 0) > 0"
           targetRoute="/migration">
         </app-metric-surface>
 
         <app-metric-surface
           label="Scheduled"
-          [value]="ds.dashboardData().scheduledCount !== null ? ds.dashboardData().scheduledCount! : '—'"
-          subtext="Maintenance windows"
+          [value]="ds.dashboardData()?.scheduledCount !== null && ds.dashboardData()?.scheduledCount !== undefined ? ds.dashboardData()!.scheduledCount! : '—'"
           targetRoute="/migration">
         </app-metric-surface>
 
         <app-metric-surface
           label="Need Attention"
-          [value]="ds.dashboardData().attentionCount !== null ? ds.dashboardData().attentionCount! : '—'"
-          subtext="Actionable barriers"
-          [isWarning]="(ds.dashboardData().attentionCount ?? 0) > 0"
+          [value]="ds.dashboardData()?.attentionCount !== null && ds.dashboardData()?.attentionCount !== undefined ? ds.dashboardData()!.attentionCount! : '—'"
+          [isWarning]="(ds.dashboardData()?.attentionCount ?? 0) > 0"
           targetRoute="/migration">
         </app-metric-surface>
 
         <app-metric-surface
           label="Completed Today"
-          [value]="ds.dashboardData().completedTodayCount !== null ? ds.dashboardData().completedTodayCount! : '—'"
-          subtext="100% verified"
+          [value]="ds.dashboardData()?.completedTodayCount !== null && ds.dashboardData()?.completedTodayCount !== undefined ? ds.dashboardData()!.completedTodayCount! : '—'"
           targetRoute="/migration">
         </app-metric-surface>
       </div>
@@ -114,14 +110,14 @@ import { RecentActivityComponent } from './components/recent-activity.component'
       <div class="grid grid-cols-12 gap-6 items-stretch">
         <div class="col-span-12 lg:col-span-8 flex flex-col">
           <app-active-migrations
-            [migrations]="ds.dashboardData().activeMigrations"
+            [migrations]="ds.dashboardData()?.activeMigrations ?? []"
             class="flex-1">
           </app-active-migrations>
         </div>
 
         <div class="col-span-12 lg:col-span-4 flex flex-col">
           <app-attention-queue
-            [items]="ds.dashboardData().attentionItems"
+            [items]="ds.dashboardData()?.attentionItems ?? []"
             class="flex-1">
           </app-attention-queue>
         </div>
@@ -133,14 +129,14 @@ import { RecentActivityComponent } from './components/recent-activity.component'
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
         <div class="flex flex-col">
           <app-platform-status
-            [subsystems]="ds.dashboardData().subsystems"
+            [subsystems]="ds.dashboardData()?.subsystems ?? []"
             class="flex-1">
           </app-platform-status>
         </div>
 
         <div class="flex flex-col">
           <app-pending-approvals
-            [approvals]="ds.dashboardData().pendingApprovals"
+            [approvals]="ds.dashboardData()?.pendingApprovals ?? []"
             class="flex-1">
           </app-pending-approvals>
         </div>
@@ -152,14 +148,14 @@ import { RecentActivityComponent } from './components/recent-activity.component'
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
         <div class="flex flex-col">
           <app-capacity-summary
-            [metrics]="ds.dashboardData().capacityMetrics"
+            [metrics]="ds.dashboardData()?.capacityMetrics ?? []"
             class="flex-1">
           </app-capacity-summary>
         </div>
 
         <div class="flex flex-col">
           <app-alerts-incidents
-            [incidents]="ds.dashboardData().incidents"
+            [incidents]="ds.dashboardData()?.incidents ?? []"
             class="flex-1">
           </app-alerts-incidents>
         </div>
@@ -171,14 +167,14 @@ import { RecentActivityComponent } from './components/recent-activity.component'
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
         <div class="flex flex-col">
           <app-fleet-cluster
-            [fleet]="ds.dashboardData().fleet"
+            [fleet]="ds.dashboardData()?.fleet ?? null"
             class="flex-1">
           </app-fleet-cluster>
         </div>
 
         <div class="flex flex-col">
           <app-security-compliance
-            [security]="ds.dashboardData().security"
+            [security]="ds.dashboardData()?.security ?? null"
             class="flex-1">
           </app-security-compliance>
         </div>
@@ -188,7 +184,7 @@ import { RecentActivityComponent } from './components/recent-activity.component'
       <!-- ROW 6: RECENT ACTIVITY TIMELINE (COMPACT & BOUNDED)             -->
       <!-- =============================================================== -->
       <app-recent-activity
-        [events]="ds.dashboardData().recentEvents">
+        [events]="ds.dashboardData()?.recentEvents ?? []">
       </app-recent-activity>
 
     </div>

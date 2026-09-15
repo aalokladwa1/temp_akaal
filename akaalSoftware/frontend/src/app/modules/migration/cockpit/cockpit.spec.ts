@@ -136,12 +136,12 @@ describe('AKAAL Cockpit / Mission Control Unit Tests', () => {
       }
     });
 
-    it('should open confirmation modal for destructive action and resolve upon confirm', () => {
+    it('should open confirmation modal for destructive action and resolve upon confirm', async () => {
       store.triggerAction('TERMINATE');
       expect(store.pendingConfirmationAction()).not.toBeNull();
       expect(store.pendingConfirmationAction()?.id).toBe('TERMINATE');
 
-      store.confirmPendingAction();
+      await store.confirmPendingAction();
       expect(store.pendingConfirmationAction()).toBeNull();
       expect(store.identity().lifecycleState).toBe('CANCELLED');
     });

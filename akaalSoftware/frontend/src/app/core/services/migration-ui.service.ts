@@ -819,9 +819,12 @@ export class MigrationUiService {
     this.triggerAutoSave();
   }
 
-  public launchDraftMigration(): string {
+  public launchDraftMigration(canonicalId?: string): string {
     const draft = this.wizardDraft();
-    const newId = `mig-${Date.now().toString().slice(-4)}`;
+    const newId = canonicalId || draft.migrationId;
+    if (!newId) {
+      throw new Error('Canonical backend migration ID is required to launch a migration.');
+    }
     const newMigration: MigrationPortfolioItem = {
       id: newId,
       name: draft.name || `${draft.sourceProvider} to ${draft.targetProvider} Migration`,

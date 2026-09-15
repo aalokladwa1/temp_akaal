@@ -13,58 +13,73 @@ import { LucideIconComponent } from '../../../shared/components/lucide-icon.comp
       <!-- Card Header -->
       <div class="flex items-center justify-between pb-4 border-b border-slate-200">
         <div class="flex items-center gap-2.5">
-          <app-lucide-icon name="server" [size]="20" class="text-blue-600"></app-lucide-icon>
+          <app-lucide-icon name="server" [size]="20" class="text-slate-700 dark:text-slate-300"></app-lucide-icon>
           <h2 class="text-base font-bold text-slate-900 font-heading">Platform Status</h2>
         </div>
         <span class="text-xs text-slate-500 font-medium">{{ subsystems.length }} subsystems</span>
       </div>
 
-      <!-- Subsystems Vertical List with Darkened Dividers -->
-      <div class="flex flex-col divide-y divide-slate-200/80">
-        @for (sub of subsystems; track sub.name) {
-          <div class="py-2.5 first:pt-0 last:pb-0 flex items-center justify-between gap-4">
-            <div class="flex items-center gap-3">
-              <div class="w-8 h-8 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-700 shrink-0">
-                @switch (sub.name) {
-                  @case ('DevKros Engine Core') { <app-lucide-icon name="server" [size]="16"></app-lucide-icon> }
-                  @case ('Named Pipe IPC') { <app-lucide-icon name="network" [size]="16"></app-lucide-icon> }
-                  @case ('Worker Concurrency Pool') { <app-lucide-icon name="cpu" [size]="16"></app-lucide-icon> }
-                  @default { <app-lucide-icon name="hard-drive" [size]="16"></app-lucide-icon> }
+      <!-- Subsystems Vertical List / Empty State -->
+      @if (subsystems.length === 0) {
+        <div class="py-8 flex flex-col items-center justify-center text-center gap-2 my-auto">
+          <div class="w-9 h-9 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500 flex items-center justify-center">
+            <app-lucide-icon name="server" [size]="18"></app-lucide-icon>
+          </div>
+          <span class="text-xs font-bold text-slate-800">No subsystem telemetry reported</span>
+          <p class="text-[11px] text-slate-500 font-medium max-w-xs">Subsystem health probes will stream here when active.</p>
+        </div>
+      } @else {
+        <div class="flex flex-col divide-y divide-slate-200/80">
+          @for (sub of subsystems; track sub.name) {
+            <div class="py-2.5 first:pt-0 last:pb-0 flex items-center justify-between gap-4">
+              <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-300 shrink-0">
+                  @switch (sub.name) {
+                    @case ('DevKros Engine Core') { <app-lucide-icon name="server" [size]="16"></app-lucide-icon> }
+                    @case ('Named Pipe IPC') { <app-lucide-icon name="network" [size]="16"></app-lucide-icon> }
+                    @case ('Worker Concurrency Pool') { <app-lucide-icon name="cpu" [size]="16"></app-lucide-icon> }
+                    @default { <app-lucide-icon name="hard-drive" [size]="16"></app-lucide-icon> }
+                  }
+                </div>
+                <div class="flex flex-col">
+                  <span class="text-xs font-bold text-slate-900">{{ sub.name }}</span>
+                  <span class="text-[11px] text-slate-500 font-medium truncate max-w-[200px] sm:max-w-xs">{{ sub.detail || 'Not reported' }}</span>
+                </div>
+              </div>
+
+              <!-- GDS Option A Status Badge -->
+              <div class="flex items-center gap-2 shrink-0">
+                @if (sub.status === 'healthy') {
+                  <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 select-none">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                    <span>Healthy</span>
+                  </span>
+                } @else if (sub.status === 'degraded') {
+                  <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 select-none">
+                    <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                    <span>Degraded</span>
+                  </span>
+                } @else if (sub.status === 'unhealthy') {
+                  <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200 select-none">
+                    <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                    <span>Unhealthy</span>
+                  </span>
+                } @else if (sub.status === 'unavailable') {
+                  <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200 select-none">
+                    <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                    <span>Unavailable</span>
+                  </span>
+                } @else {
+                  <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200 select-none">
+                    <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                    <span>Offline</span>
+                  </span>
                 }
               </div>
-              <div class="flex flex-col">
-                <span class="text-xs font-bold text-slate-900">{{ sub.name }}</span>
-                <span class="text-[11px] text-slate-500 font-medium truncate max-w-[200px] sm:max-w-xs">{{ sub.detail || 'Not reported' }}</span>
-              </div>
             </div>
-
-            <!-- GDS Option A Status Badge -->
-            <div class="flex items-center gap-2 shrink-0">
-              @if (sub.status === 'healthy') {
-                <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 select-none">
-                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                  <span>Healthy</span>
-                </span>
-              } @else if (sub.status === 'degraded') {
-                <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 select-none">
-                  <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-                  <span>Degraded</span>
-                </span>
-              } @else if (sub.status === 'unhealthy') {
-                <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200 select-none">
-                  <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
-                  <span>Unhealthy</span>
-                </span>
-              } @else {
-                <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200 select-none">
-                  <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
-                  <span>Offline</span>
-                </span>
-              }
-            </div>
-          </div>
-        }
-      </div>
+          }
+        </div>
+      }
 
     </div>
   `

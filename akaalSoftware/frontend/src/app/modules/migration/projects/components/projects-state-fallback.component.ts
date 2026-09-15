@@ -1,12 +1,13 @@
 import { Component, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import { EntityAvailabilityState } from '../projects.models';
 import { LucideIconComponent } from '../../../../shared/components/lucide-icon.component';
 
 @Component({
   selector: 'app-projects-state-fallback',
   standalone: true,
-  imports: [CommonModule, LucideIconComponent],
+  imports: [CommonModule, RouterLink, LucideIconComponent],
   template: `
     <div class="p-8 sm:p-12 rounded-xl bg-white border border-slate-200 shadow-2xs flex flex-col items-center justify-center text-center gap-3 select-none">
       
@@ -22,13 +23,31 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
           </p>
         }
 
+        @case ('NOT_FOUND') {
+          <div class="w-10 h-10 rounded-lg bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600">
+            <app-lucide-icon name="folder-x" [size]="20"></app-lucide-icon>
+          </div>
+          <h3 class="text-sm font-bold text-slate-900 font-heading">
+            {{ entityName() === 'initiatives' ? 'Initiative Not Found' : 'Project Workspace Not Found' }}
+          </h3>
+          <p class="text-xs text-slate-500 max-w-md font-medium leading-relaxed">
+            {{ customErrorMessage() || (entityName() === 'initiatives' ? 'The requested initiative does not exist in this workspace.' : 'The requested project does not exist in this workspace.') }}
+          </p>
+          <a
+            [routerLink]="'/migration/projects'"
+            [queryParams]="entityName() === 'initiatives' ? { tab: 'initiatives' } : { tab: 'projects' }"
+            class="mt-2 h-8 px-3.5 rounded-md bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold shadow-2xs cursor-pointer inline-flex items-center justify-center transition-colors">
+            Return to Discovery
+          </a>
+        }
+
         @case ('NOT_CONNECTED') {
           <div class="w-10 h-10 rounded-lg bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600">
             <app-lucide-icon name="unplug" [size]="20"></app-lucide-icon>
           </div>
           <h3 class="text-sm font-bold text-slate-900 font-heading">Backend Authority Not Connected</h3>
           <p class="text-xs text-slate-500 max-w-md font-medium leading-relaxed">
-            Projects &amp; Initiatives authority integration is in-flight for P7D. The module is operating in local preview mode.
+            Portfolio authority is not currently connected. The module is operating in local preview mode.
           </p>
           <button
             type="button"

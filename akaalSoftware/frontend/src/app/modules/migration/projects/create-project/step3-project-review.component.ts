@@ -40,7 +40,7 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
 
           <div class="flex flex-col gap-2 text-xs">
             <div class="flex items-center gap-2">
-              <span class="px-2 py-0.5 rounded-md text-[10px] font-bold font-mono bg-blue-50 text-blue-700 border border-blue-200/80 shrink-0">
+              <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200/80 shrink-0">
                 {{ ps.projectDraft().key || 'PRJ' }}
               </span>
               <span class="font-bold text-slate-900 text-sm truncate">{{ ps.projectDraft().name || 'Untitled Project' }}</span>
@@ -93,7 +93,7 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
               <span class="text-[10px] font-semibold text-slate-400 uppercase">Initiative Alignment</span>
               @if (selectedInitiative(); as init) {
                 <div class="flex items-center gap-2">
-                  <span class="px-1.5 py-0.2 rounded text-[9.5px] font-bold font-mono bg-indigo-50 text-indigo-700 border border-indigo-200">
+                  <span class="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
                     {{ init.key }}
                   </span>
                   <span class="font-semibold text-slate-800 truncate">{{ init.name }}</span>
@@ -165,7 +165,7 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
                     </span>
                     <span class="font-semibold text-slate-800 truncate">{{ res.connectionName }}</span>
                   </div>
-                  <span class="text-[10px] text-slate-400 font-mono shrink-0">{{ res.environment }}</span>
+                  <span class="text-[10px] text-slate-400 shrink-0">{{ res.environment }}</span>
                 </div>
               }
             } @else {
@@ -174,17 +174,6 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
           </div>
         </div>
 
-      </div>
-
-      <!-- Capability & Pre-P7D Persistence Notice -->
-      <div class="p-4 rounded-xl bg-blue-50/70 border border-blue-200 text-blue-950 flex items-start gap-3">
-        <app-lucide-icon name="info" [size]="16" class="text-blue-600 shrink-0 mt-0.5"></app-lucide-icon>
-        <div class="flex flex-col gap-1 text-xs">
-          <span class="font-bold text-blue-950">Pre-P7D Project Persistence Model</span>
-          <p class="text-blue-800 text-[11px] leading-relaxed">
-            This project specification will be registered in your active workspace runtime state. Full synchronization with distributed akaalPipeline cluster registries and execution daemons activates in P7D.
-          </p>
-        </div>
       </div>
 
     </div>

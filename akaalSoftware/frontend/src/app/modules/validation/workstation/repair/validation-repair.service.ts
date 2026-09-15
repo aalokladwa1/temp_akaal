@@ -74,38 +74,17 @@ export class ValidationRepairService {
   }
 
   /**
-   * Approve proposal sign-off role
+   * Approve proposal sign-off role (Fail closed without backend authority)
    */
   approveProposal(role: string): void {
     this._state.update(s => {
       if (!s.governance) return s;
-      const updatedApprovers = s.governance.approvers.map(app => {
-        if (app.role === role) {
-          return {
-            ...app,
-            status: 'APPROVED' as const,
-            userName: app.userName || 'current.operator@akaal.internal',
-            timestamp: new Date().toISOString(),
-            signatureDigest: 'ed25519:sig_' + Math.random().toString(36).substring(2, 10)
-          };
-        }
-        return app;
-      });
-
-      const approvedCount = updatedApprovers.filter(a => a.status === 'APPROVED').length;
-      const isQuorumSatisfied = approvedCount >= s.governance.quorumRequired;
-
       return {
         ...s,
+        errorMessage: 'Live sign-off & cryptographic signature requires backend connection (CHECK2)',
         governance: {
           ...s.governance,
-          approvers: updatedApprovers,
-          quorumSatisfied: approvedCount,
-          isAuthorized: isQuorumSatisfied,
-          state: isQuorumSatisfied ? 'APPROVED' : 'PENDING',
-          authorizationNote: isQuorumSatisfied
-            ? 'Plan is fully authorized and within valid lease window.'
-            : `Quorum partially satisfied (${approvedCount}/${s.governance.quorumRequired}). Awaiting remaining approvals.`
+          authorizationNote: 'Live sign-off & cryptographic signature requires backend connection (CHECK2)'
         }
       };
     });
@@ -124,63 +103,33 @@ export class ValidationRepairService {
           state: 'REJECTED',
           isAuthorized: false,
           rejectionReason: reason || 'Operator rejected proposal during governed review.',
-          authorizationNote: 'Proposal rejected. Target remains untouched.'
+          authorizationNote: 'Proposal rejected locally. Target remains untouched.'
         }
       };
     });
   }
 
   /**
-   * Consequential execution trigger
+   * Consequential execution trigger (Fail closed without backend connection)
    */
   executeRepair(): void {
     this.closeConfirmModal();
     this._state.update(s => {
-      if (!s.execution) return s;
       return {
         ...s,
-        execution: {
-          ...s.execution,
-          state: 'COMPLETED',
-          executionId: 'exec-runtime-' + Date.now().toString().slice(-6),
-          startedAt: new Date(Date.now() - 3000).toISOString(),
-          completedAt: new Date().toISOString(),
-          progressPercent: 100,
-          appliedCount: s.execution.totalOperations,
-          unresolvedCount: 0,
-          unknownOutcomeCount: 0,
-          providerCommitState: 'CONFIRMED'
-        },
-        revalidation: s.revalidation ? {
-          ...s.revalidation,
-          state: 'RUNNING',
-          startedAt: new Date().toISOString(),
-          verdictSummary: 'Validation #11 is executing 4-tier proof rescan...'
-        } : null
+        errorMessage: 'Live repair execution requires backend connection (CHECK2)'
       };
     });
   }
 
   /**
-   * Revalidation run trigger
+   * Revalidation run trigger (Fail closed without backend connection)
    */
   triggerRevalidation(): void {
     this._state.update(s => {
-      if (!s.revalidation) return s;
       return {
         ...s,
-        revalidation: {
-          ...s.revalidation,
-          state: 'PASSED',
-          completedAt: new Date().toISOString(),
-          remainingDiscrepanciesCount: 0,
-          proofTiers: s.revalidation.proofTiers.map(t => ({
-            ...t,
-            status: 'PASSED' as const,
-            differencesFound: 0
-          })),
-          verdictSummary: 'Validation #11 re-evaluated the partition and established complete proof satisfaction across all 4 tiers.'
-        }
+        errorMessage: 'Live revalidation scan requires backend connection (CHECK2)'
       };
     });
   }

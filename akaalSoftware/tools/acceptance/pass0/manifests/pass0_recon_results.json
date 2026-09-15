@@ -1,0 +1,116 @@
+{
+  "timestamp": "2026-09-12T13:45:34.659Z",
+  "surfacesTested": [
+    {
+      "name": "Dashboard",
+      "route": "/dashboard",
+      "renderedTitle": "DevKros Enterprise Platform",
+      "shellDetected": true,
+      "sidebarDetected": true,
+      "brandDetected": true,
+      "screenshot": "01_dashboard.png",
+      "status": "RENDERED_OK"
+    },
+    {
+      "name": "Migration Portfolio",
+      "route": "/migration",
+      "renderedTitle": "DevKros Enterprise Platform",
+      "shellDetected": true,
+      "sidebarDetected": true,
+      "brandDetected": true,
+      "screenshot": "02_migration.png",
+      "status": "RENDERED_OK"
+    },
+    {
+      "name": "Execution Cockpit",
+      "route": "/cockpit",
+      "renderedTitle": "DevKros Enterprise Platform",
+      "shellDetected": true,
+      "sidebarDetected": true,
+      "brandDetected": true,
+      "screenshot": "03_cockpit.png",
+      "status": "RENDERED_OK"
+    },
+    {
+      "name": "Connections Home",
+      "route": "/connections",
+      "renderedTitle": "DevKros Enterprise Platform",
+      "shellDetected": true,
+      "sidebarDetected": true,
+      "brandDetected": true,
+      "screenshot": "04_connections.png",
+      "status": "RENDERED_OK"
+    },
+    {
+      "name": "Validation Portfolio",
+      "route": "/validation",
+      "renderedTitle": "DevKros Enterprise Platform",
+      "shellDetected": true,
+      "sidebarDetected": true,
+      "brandDetected": true,
+      "screenshot": "05_validation.png",
+      "status": "RENDERED_OK"
+    },
+    {
+      "name": "Monitoring Overview",
+      "route": "/monitoring",
+      "renderedTitle": "DevKros Enterprise Platform",
+      "shellDetected": true,
+      "sidebarDetected": true,
+      "brandDetected": true,
+      "screenshot": "06_monitoring.png",
+      "status": "RENDERED_OK"
+    },
+    {
+      "name": "Reports Library",
+      "route": "/reports",
+      "renderedTitle": "DevKros Enterprise Platform",
+      "shellDetected": true,
+      "sidebarDetected": true,
+      "brandDetected": true,
+      "screenshot": "07_reports.png",
+      "status": "RENDERED_OK"
+    },
+    {
+      "name": "Administration Home",
+      "route": "/administration",
+      "renderedTitle": "DevKros Enterprise Platform",
+      "shellDetected": true,
+      "sidebarDetected": true,
+      "brandDetected": true,
+      "screenshot": "08_administration.png",
+      "status": "RENDERED_OK"
+    },
+    {
+      "name": "Settings General",
+      "route": "/settings/general",
+      "renderedTitle": "DevKros Enterprise Platform",
+      "shellDetected": true,
+      "sidebarDetected": true,
+      "brandDetected": true,
+      "screenshot": "09_settings_general.png",
+      "status": "RENDERED_OK"
+    },
+    {
+      "name": "Settings Appearance",
+      "route": "/settings/appearance",
+      "renderedTitle": "DevKros Enterprise Platform",
+      "shellDetected": true,
+      "sidebarDetected": true,
+      "brandDetected": true,
+      "screenshot": "10_settings_appearance.png",
+      "status": "RENDERED_OK"
+    }
+  ],
+  "consoleErrors": [],
+  "consoleWarnings": [],
+  "themesTested": [
+    "dark",
+    "color-vision-safe",
+    "high-contrast"
+  ],
+  "viewportsTested": [
+    "1920x1080",
+    "1280x800"
+  ]
+}

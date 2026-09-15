@@ -1,0 +1,48 @@
+{
+  "totalPlannedCapabilities": 162,
+  "totalBuiltRoutes": 262,
+  "plannedByModule": {
+    "Dashboard": 11,
+    "Migration": 32,
+    "Monitoring": 15,
+    "Reports": 16,
+    "Administration": 46,
+    "Settings": 35,
+    "GlobalChrome": 7
+  },
+  "builtByDomain": {
+    "root": 2,
+    "dashboard": 1,
+    "cockpit": 4,
+    "validation": 8,
+    "connections": 5,
+    "migration": 14,
+    "monitoring": 5,
+    "reports": 5,
+    "administration": 206,
+    "settings": 12
+  },
+  "routeClassifications": {
+    "STANDARD_REDIRECT": 7,
+    "EXACT": 238,
+    "PROPOSED_SUPERIOR_REALIZATION": 17
+  },
+  "capabilityStatusCounts": {
+    "EXACT": 131,
+    "REHOMED_EQUIVALENT": 5,
+    "REHOMED_SUPERIOR": 11,
+    "EQUIVALENT_CONSOLIDATED": 12,
+    "EQUIVALENT_COMPACT": 1,
+    "DISTRIBUTED_REALIZATION": 1,
+    "DOMAIN_REHOMED": 1
+  },
+  "runtimeVerification": {
+    "totalSweptRoutes": 262,
+    "successfulRoutes": 255,
+    "redirectedRoutes": 7,
+    "failedRoutes": 0,
+    "consoleErrors": 0,
+    "consoleWarnings": 1
+  },
+  "ownerDecisionsCount": 31
+}

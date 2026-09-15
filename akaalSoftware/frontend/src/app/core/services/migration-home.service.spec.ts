@@ -359,6 +359,7 @@ describe('MigrationHomeService (2.1 Migration Home Landing Hub)', () => {
 
   describe('4. KPI Derivation from Persisted State (Section 31 & 37)', () => {
     it('should calculate accurate KPI counts from loaded migrations', () => {
+      service.loadDeterministicPrototypeFallback();
       const counters = service.computedCounters();
       expect(counters.total).toBe(5);
       expect(counters.active).toBe(2);

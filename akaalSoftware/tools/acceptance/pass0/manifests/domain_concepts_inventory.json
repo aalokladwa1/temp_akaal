@@ -1,0 +1,449 @@
+{
+  "qualification": "Empirical inventory of discovered domain semantic families and specialized capabilities across frontend files (not an exhaustive universe claim)",
+  "primaryFamilies": [
+    {
+      "id": "organization_workspace",
+      "term": "Organization / Workspace / Tenant Hierarchy",
+      "category": "Multi-Tenancy",
+      "fileCount": 205,
+      "sampleFiles": [
+        "src/app/core/models/migration-view.models.ts",
+        "src/app/modules/admin/models/enterprise.models.ts",
+        "src/app/modules/admin/models/governance.models.ts",
+        "src/app/modules/admin/models/identity.models.ts",
+        "src/app/modules/admin/models/infrastructure.models.ts"
+      ]
+    },
+    {
+      "id": "environment",
+      "term": "Environment Tiering (Dev / Stage / Prod / DR)",
+      "category": "Infrastructure",
+      "fileCount": 163,
+      "sampleFiles": [
+        "src/app/core/models/migration-home.models.ts",
+        "src/app/core/models/migration-view.models.ts",
+        "src/app/modules/admin/models/enterprise.models.ts",
+        "src/app/modules/admin/models/infrastructure.models.ts",
+        "src/app/modules/admin/models/platform-admin.models.ts"
+      ]
+    },
+    {
+      "id": "provider_connector",
+      "term": "Providers & Connectors (48 Physical Engines)",
+      "category": "Connectivity",
+      "fileCount": 185,
+      "sampleFiles": [
+        "src/app/core/models/dashboard.models.ts",
+        "src/app/core/models/migration-home.models.ts",
+        "src/app/core/models/migration-view.models.ts",
+        "src/app/core/models/validation-home.models.ts",
+        "src/app/modules/admin/models/connectors-plugins.models.ts"
+      ]
+    },
+    {
+      "id": "connection_routing",
+      "term": "Connections & Routing (TLS, SSH Bastion, Proxy)",
+      "category": "Connectivity",
+      "fileCount": 143,
+      "sampleFiles": [
+        "src/app/core/models/dashboard.models.ts",
+        "src/app/core/models/ipc.models.ts",
+        "src/app/core/models/migration-view.models.ts",
+        "src/app/modules/admin/models/audit.models.ts",
+        "src/app/modules/admin/models/enterprise.models.ts"
+      ]
+    },
+    {
+      "id": "migration_definition",
+      "term": "Migration Definition & Modes (M1–M8)",
+      "category": "Migration Core",
+      "fileCount": 60,
+      "sampleFiles": [
+        "src/app/core/models/dashboard.models.ts",
+        "src/app/core/models/migration-view.models.ts",
+        "src/app/modules/migration/cockpit/cockpit.models.ts",
+        "src/app/modules/migration/create/steps/step4-scope.models.ts",
+        "src/app/modules/migration/create/steps/step5-mapping.models.ts"
+      ]
+    },
+    {
+      "id": "project_initiative",
+      "term": "Projects & Strategic Initiatives",
+      "category": "Portfolio",
+      "fileCount": 138,
+      "sampleFiles": [
+        "src/app/core/models/migration-home.models.ts",
+        "src/app/core/models/migration-view.models.ts",
+        "src/app/modules/admin/models/enterprise.models.ts",
+        "src/app/modules/admin/models/infrastructure.models.ts",
+        "src/app/modules/admin/models/integrations.models.ts"
+      ]
+    },
+    {
+      "id": "schema_discovery",
+      "term": "Schema Discovery & Estate (Tables, Columns, Types)",
+      "category": "Schema & Data",
+      "fileCount": 370,
+      "sampleFiles": [
+        "src/app/core/models/dashboard.models.ts",
+        "src/app/core/models/migration-view.models.ts",
+        "src/app/modules/admin/models/compliance.models.ts",
+        "src/app/modules/admin/models/connectors-plugins.models.ts",
+        "src/app/modules/admin/models/enterprise.models.ts"
+      ]
+    },
+    {
+      "id": "mapping_transform",
+      "term": "Mapping & Data Controls (Transform, Cleanse)",
+      "category": "Schema & Data",
+      "fileCount": 100,
+      "sampleFiles": [
+        "src/app/core/models/migration-view.models.ts",
+        "src/app/modules/admin/models/compliance.models.ts",
+        "src/app/modules/admin/models/identity.models.ts",
+        "src/app/modules/admin/models/integrations.models.ts",
+        "src/app/modules/admin/models/templates-config.models.ts"
+      ]
+    },
+    {
+      "id": "configuration_engine",
+      "term": "Enterprise Engine Tuning (Batches, Workers, Queues)",
+      "category": "Engine Config",
+      "fileCount": 104,
+      "sampleFiles": [
+        "src/app/core/models/dashboard.models.ts",
+        "src/app/core/models/migration-view.models.ts",
+        "src/app/modules/admin/models/identity.models.ts",
+        "src/app/modules/migration/cockpit/cockpit.models.ts",
+        "src/app/modules/migration/create/steps/step6-configuration.models.ts"
+      ]
+    },
+    {
+      "id": "plan_dag",
+      "term": "Dynamic Migration Plan & DAG Scheduling",
+      "category": "Execution Plan",
+      "fileCount": 71,
+      "sampleFiles": [
+        "src/app/core/models/migration-view.models.ts",
+        "src/app/modules/admin/models/enterprise.models.ts",
+        "src/app/modules/migration/cockpit/cockpit.models.ts",
+        "src/app/modules/migration/create/steps/step7-plan.models.ts",
+        "src/app/modules/migration/create/steps/step9-review.models.ts"
+      ]
+    },
+    {
+      "id": "governance_approval",
+      "term": "Governance, Readiness & Four-Eyes Approvals",
+      "category": "Governance",
+      "fileCount": 194,
+      "sampleFiles": [
+        "src/app/core/models/dashboard.models.ts",
+        "src/app/core/models/migration-home.models.ts",
+        "src/app/core/models/migration-view.models.ts",
+        "src/app/modules/admin/models/enterprise.models.ts",
+        "src/app/modules/admin/models/governance.models.ts"
+      ]
+    },
+    {
+      "id": "cockpit_execution",
+      "term": "Execution Cockpit & Live Operations",
+      "category": "Operations",
+      "fileCount": 97,
+      "sampleFiles": [
+        "src/app/core/models/dashboard.models.ts",
+        "src/app/core/models/migration-home.models.ts",
+        "src/app/core/models/migration-view.models.ts",
+        "src/app/modules/admin/models/enterprise.models.ts",
+        "src/app/modules/connections/create-connection/create-connection.models.ts"
+      ]
+    },
+    {
+      "id": "cdc_replication",
+      "term": "Continuous CDC & Stream Replication",
+      "category": "Replication",
+      "fileCount": 145,
+      "sampleFiles": [
+        "src/app/core/models/dashboard.models.ts",
+        "src/app/core/models/migration-home.models.ts",
+        "src/app/core/models/migration-view.models.ts",
+        "src/app/modules/admin/models/connectors-plugins.models.ts",
+        "src/app/modules/connections/connections.models.ts"
+      ]
+    },
+    {
+      "id": "cutover_failback",
+      "term": "Cutover & Failback Operations",
+      "category": "Operations",
+      "fileCount": 58,
+      "sampleFiles": [
+        "src/app/core/models/migration-home.models.ts",
+        "src/app/core/models/migration-view.models.ts",
+        "src/app/modules/migration/create/steps/step6-configuration.models.ts",
+        "src/app/modules/migration/create/steps/step7-plan.models.ts",
+        "src/app/modules/migration/history/history-home.models.ts"
+      ]
+    },
+    {
+      "id": "validation_assurance",
+      "term": "Validation & Integrity Assurance (M8)",
+      "category": "Validation",
+      "fileCount": 225,
+      "sampleFiles": [
+        "src/app/core/models/dashboard.models.ts",
+        "src/app/core/models/migration-home.models.ts",
+        "src/app/core/models/migration-view.models.ts",
+        "src/app/core/models/validation-home.models.ts",
+        "src/app/modules/admin/models/connectors-plugins.models.ts"
+      ]
+    },
+    {
+      "id": "repair_remediation",
+      "term": "Discrepancy Repair & Remediation",
+      "category": "Validation",
+      "fileCount": 57,
+      "sampleFiles": [
+        "src/app/core/models/migration-view.models.ts",
+        "src/app/modules/migration/create/steps/step6-configuration.models.ts",
+        "src/app/modules/migration/create/steps/step7-plan.models.ts",
+        "src/app/modules/migration/create/steps/step8-governance.models.ts",
+        "src/app/modules/migration/history/history-workspace/history-workspace.models.ts"
+      ]
+    },
+    {
+      "id": "reports_library",
+      "term": "Reports Library & Dossiers (13 Report Types)",
+      "category": "Reporting",
+      "fileCount": 113,
+      "sampleFiles": [
+        "src/app/core/models/migration-view.models.ts",
+        "src/app/modules/admin/models/connectors-plugins.models.ts",
+        "src/app/modules/admin/models/platform-admin.models.ts",
+        "src/app/modules/connections/create-connection/create-connection.models.ts",
+        "src/app/modules/migration/create/steps/step4-scope.models.ts"
+      ]
+    },
+    {
+      "id": "certification_evidence",
+      "term": "Certification, Forensic Evidence & Hashes",
+      "category": "Reporting",
+      "fileCount": 165,
+      "sampleFiles": [
+        "src/app/core/models/migration-view.models.ts",
+        "src/app/modules/admin/models/audit.models.ts",
+        "src/app/modules/admin/models/compliance.models.ts",
+        "src/app/modules/admin/models/connectors-plugins.models.ts",
+        "src/app/modules/admin/models/governance.models.ts"
+      ]
+    },
+    {
+      "id": "monitoring_observability",
+      "term": "System Monitoring & Observability",
+      "category": "Observability",
+      "fileCount": 161,
+      "sampleFiles": [
+        "src/app/core/models/dashboard.models.ts",
+        "src/app/core/models/ipc.models.ts",
+        "src/app/core/models/migration-view.models.ts",
+        "src/app/modules/admin/models/integrations.models.ts",
+        "src/app/modules/migration/cockpit/cockpit.models.ts"
+      ]
+    },
+    {
+      "id": "alerts_incidents",
+      "term": "Alerts, Incidents & Escalation Policies",
+      "category": "Observability",
+      "fileCount": 175,
+      "sampleFiles": [
+        "src/app/core/models/dashboard.models.ts",
+        "src/app/modules/admin/models/enterprise.models.ts",
+        "src/app/modules/admin/models/governance.models.ts",
+        "src/app/modules/admin/models/integrations.models.ts",
+        "src/app/modules/migration/create/steps/step7-plan.models.ts"
+      ]
+    },
+    {
+      "id": "audit_trail",
+      "term": "Audit Trail, Retention & Legal Hold",
+      "category": "Compliance",
+      "fileCount": 26,
+      "sampleFiles": [
+        "src/app/modules/admin/models/audit.models.ts",
+        "src/app/modules/admin/models/enterprise.models.ts",
+        "src/app/modules/migration/history/history-workspace/history-workspace.models.ts",
+        "src/app/modules/settings/models/settings.models.ts",
+        "src/app/core/services/discovery-scope.service.ts"
+      ]
+    },
+    {
+      "id": "compliance_controls",
+      "term": "Compliance Frameworks & Controls (SOC2, HIPAA, GDPR)",
+      "category": "Compliance",
+      "fileCount": 74,
+      "sampleFiles": [
+        "src/app/core/models/dashboard.models.ts",
+        "src/app/core/models/migration-view.models.ts",
+        "src/app/modules/admin/models/compliance.models.ts",
+        "src/app/modules/admin/models/enterprise.models.ts",
+        "src/app/modules/admin/models/infrastructure.models.ts"
+      ]
+    },
+    {
+      "id": "identity_access",
+      "term": "Identity, Access, SSO, SCIM, Roles & Permissions",
+      "category": "Identity",
+      "fileCount": 190,
+      "sampleFiles": [
+        "src/app/core/models/migration-view.models.ts",
+        "src/app/modules/admin/models/audit.models.ts",
+        "src/app/modules/admin/models/connectors-plugins.models.ts",
+        "src/app/modules/admin/models/governance.models.ts",
+        "src/app/modules/admin/models/identity.models.ts"
+      ]
+    },
+    {
+      "id": "secrets_vault",
+      "term": "Secrets, Vault, KMS & Key Rotation",
+      "category": "Security",
+      "fileCount": 88,
+      "sampleFiles": [
+        "src/app/core/models/dashboard.models.ts",
+        "src/app/core/models/migration-view.models.ts",
+        "src/app/modules/admin/models/enterprise.models.ts",
+        "src/app/modules/admin/models/governance.models.ts",
+        "src/app/modules/admin/models/identity.models.ts"
+      ]
+    },
+    {
+      "id": "platform_lifecycle",
+      "term": "Platform Admin, Maintenance & Licensing",
+      "category": "Platform",
+      "fileCount": 55,
+      "sampleFiles": [
+        "src/app/core/models/migration-view.models.ts",
+        "src/app/modules/admin/models/enterprise.models.ts",
+        "src/app/modules/admin/models/identity.models.ts",
+        "src/app/modules/admin/models/infrastructure.models.ts",
+        "src/app/modules/admin/models/platform-admin.models.ts"
+      ]
+    },
+    {
+      "id": "settings_preferences",
+      "term": "Workstation Settings & Preferences",
+      "category": "Workstation",
+      "fileCount": 76,
+      "sampleFiles": [
+        "src/app/modules/admin/models/enterprise.models.ts",
+        "src/app/modules/connections/workspace/connection-workspace.models.ts",
+        "src/app/modules/migration/projects/projects.models.ts",
+        "src/app/modules/migration/templates/create-template/create-template.models.ts",
+        "src/app/modules/migration/templates/template-workspace/template-workspace.models.ts"
+      ]
+    },
+    {
+      "id": "ai_intelligence",
+      "term": "AI & Operator Intelligence Assistance",
+      "category": "Intelligence",
+      "fileCount": 428,
+      "sampleFiles": [
+        "src/app/core/models/migration-view.models.ts",
+        "src/app/modules/admin/models/connectors-plugins.models.ts",
+        "src/app/modules/admin/models/identity.models.ts",
+        "src/app/modules/connections/connections.models.ts",
+        "src/app/modules/connections/create-connection/create-connection.models.ts"
+      ]
+    }
+  ],
+  "granularCapabilities": [
+    {
+      "id": "schema_drift",
+      "term": "Schema Drift Detection & Assessment",
+      "category": "Schema & Data",
+      "fileCount": 23,
+      "sampleFiles": [
+        "src/app/modules/admin/models/infrastructure.models.ts",
+        "src/app/modules/monitoring/models/migration-monitoring.models.ts",
+        "src/app/modules/reports/models/report-payloads.models.ts",
+        "src/app/modules/reports/models/reports.models.ts",
+        "src/app/modules/settings/models/settings.models.ts"
+      ]
+    },
+    {
+      "id": "lob_handling",
+      "term": "Large Object (LOB) Chunking & Streaming",
+      "category": "Schema & Data",
+      "fileCount": 19,
+      "sampleFiles": [
+        "src/app/core/models/migration-view.models.ts",
+        "src/app/core/services/discovery-scope.service.ts",
+        "src/app/core/services/step6-configuration-adapter.service.ts",
+        "src/app/core/services/step7-plan-adapter.service.ts",
+        "src/app/modules/connections/create-connection/create-connection.service.ts"
+      ]
+    },
+    {
+      "id": "cdc_engines",
+      "term": "CDC Capture Engines (LogMiner, Debezium, WAL)",
+      "category": "Replication",
+      "fileCount": 19,
+      "sampleFiles": [
+        "src/app/modules/connections/create-connection/create-connection.models.ts",
+        "src/app/modules/connections/workspace/connection-workspace.models.ts",
+        "src/app/modules/migration/templates/create-template/create-template.models.ts",
+        "src/app/core/services/cockpit-adapter.service.ts",
+        "src/app/core/services/step6-configuration-adapter.service.ts"
+      ]
+    },
+    {
+      "id": "data_masking",
+      "term": "Data Masking, Tokenization & Cleansing",
+      "category": "Security",
+      "fileCount": 36,
+      "sampleFiles": [
+        "src/app/core/models/migration-view.models.ts",
+        "src/app/modules/admin/models/enterprise.models.ts",
+        "src/app/modules/migration/templates/create-template/create-template.models.ts",
+        "src/app/modules/migration/templates/template-workspace/template-workspace.models.ts",
+        "src/app/modules/reports/models/report-payloads.models.ts"
+      ]
+    },
+    {
+      "id": "sod_enforcement",
+      "term": "Segregation of Duties (SoD) & Toxic Combinations",
+      "category": "Governance",
+      "fileCount": 13,
+      "sampleFiles": [
+        "src/app/modules/migration/create/steps/step7-plan.models.ts",
+        "src/app/core/services/step7-plan-adapter.service.ts",
+        "src/app/modules/admin/services/governance.service.ts",
+        "src/app/modules/admin/services/people.service.ts",
+        "src/app/modules/admin/governance/governance-home.component.ts"
+      ]
+    },
+    {
+      "id": "jit_elevation",
+      "term": "Just-In-Time (JIT) Privilege Elevation & Break-Glass",
+      "category": "Identity",
+      "fileCount": 21,
+      "sampleFiles": [
+        "src/app/modules/admin/models/enterprise.models.ts",
+        "src/app/modules/admin/models/governance.models.ts",
+        "src/app/modules/admin/services/audit.service.ts",
+        "src/app/modules/admin/services/enterprise.service.ts",
+        "src/app/modules/admin/services/governance.service.ts"
+      ]
+    },
+    {
+      "id": "checksum_proofs",
+      "term": "Cryptographic Checksum Proofs (SHA-256 Parity)",
+      "category": "Validation",
+      "fileCount": 67,
+      "sampleFiles": [
+        "src/app/modules/admin/models/audit.models.ts",
+        "src/app/modules/admin/models/compliance.models.ts",
+        "src/app/modules/admin/models/connectors-plugins.models.ts",
+        "src/app/modules/admin/models/infrastructure.models.ts",
+        "src/app/modules/admin/models/platform-admin.models.ts"
+      ]
+    }
+  ]
+}

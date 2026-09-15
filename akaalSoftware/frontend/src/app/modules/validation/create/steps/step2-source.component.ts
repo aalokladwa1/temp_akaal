@@ -10,7 +10,7 @@ import {
   NetworkRouteType
 } from '../../../../core/models/migration-view.models';
 import {
-  ALL_48_PROVIDER_SCHEMAS,
+  ALL_PROVIDER_SCHEMAS,
   ProviderFormSchema,
   ProviderFormField
 } from '../../../../core/models/provider-form-schemas';
@@ -19,16 +19,18 @@ import { CustomSelectComponent, CustomSelectOption } from '../../../../shared/co
 import { SegmentedControlComponent, SegmentedControlOption } from '../../../../shared/components/segmented-control.component';
 import { AccordionComponent } from '../../../../shared/components/accordion.component';
 
+import { ALL_PROVIDER_CATALOG_ITEMS, MANAGED_CLOUD_PROFILES } from '../../../connections/create-connection/create-connection.schemas';
+
 export interface CatalogEngineItem {
   id: PhysicalProviderId;
   name: string;
-  category: 'RELATIONAL' | 'DISTRIBUTED_SQL' | 'WAREHOUSE' | 'NOSQL' | 'STREAMING' | 'STORAGE' | 'SAAS';
+  category: string;
   categoryLabel: string;
   icon: string;
 }
 
 export interface CatalogCategoryTab {
-  id: 'ALL' | 'RELATIONAL' | 'DISTRIBUTED_SQL' | 'WAREHOUSE' | 'NOSQL' | 'STREAMING' | 'STORAGE' | 'SAAS';
+  id: string;
   label: string;
   count: number;
 }
@@ -69,7 +71,7 @@ export interface SavedConnectionItemExtended extends ConnectionItem {
           <div class="flex items-center justify-between flex-wrap gap-2">
             <div class="flex flex-col gap-0.5">
               <h1 class="text-base font-bold text-slate-900 tracking-tight">Source Connection</h1>
-              <p class="text-xs text-slate-500 font-normal">Choose how AKAAL Validation Studio should connect to the source system.</p>
+              <p class="text-xs text-slate-500 font-normal">Choose how DevKros should connect to the source system.</p>
             </div>
 
             <!-- Compact Segmented Control (Top-Right) -->
@@ -92,7 +94,7 @@ export interface SavedConnectionItemExtended extends ConnectionItem {
           <div class="flex flex-col items-center text-center gap-1.5 pb-6">
             <h1 class="text-xl font-bold text-slate-900 tracking-tight">Source Connection</h1>
             <p class="text-sm text-slate-500 max-w-md font-normal">
-              Choose how AKAAL Validation Studio should connect to your source database system.
+              Choose how DevKros should connect to your source database system.
             </p>
           </div>
 
@@ -1046,7 +1048,7 @@ export class Step2SourceComponent implements OnInit {
 
   // New Connection Catalog Signals
   public searchQuery = signal<string>('');
-  public selectedCategoryTab = signal<'ALL' | 'RELATIONAL' | 'DISTRIBUTED_SQL' | 'WAREHOUSE' | 'NOSQL' | 'STREAMING' | 'STORAGE' | 'SAAS'>('ALL');
+  public selectedCategoryTab = signal<string>('ALL');
 
   // Saved Connection Grid Search & Filter Signals
   public savedSearchQuery = signal<string>('');
@@ -1086,82 +1088,56 @@ export class Step2SourceComponent implements OnInit {
     { index: 7, name: 'Phase 7: Teardown & Normalization', description: 'Safely releases test sessions, locks, and temporary channels', chipLabel: 'Clean Teardown', status: 'PENDING' }
   ];
 
-  // The 48 Canonical Engines for the Expansive Catalog Grid
+  // Dynamic Canonical Catalog Engines for Source (filtered by roleApplicability !== 'TARGET_ONLY')
   public catalogEngines: CatalogEngineItem[] = [
-    // 1. Relational (10)
-    { id: 'SQLite', name: 'SQLite', category: 'RELATIONAL', categoryLabel: 'Embedded Relational', icon: 'database' },
-    { id: 'PostgreSQL', name: 'PostgreSQL', category: 'RELATIONAL', categoryLabel: 'Relational DB', icon: 'database' },
-    { id: 'MySQL', name: 'MySQL', category: 'RELATIONAL', categoryLabel: 'Relational DB', icon: 'database' },
-    { id: 'MariaDB', name: 'MariaDB', category: 'RELATIONAL', categoryLabel: 'Relational DB', icon: 'database' },
-    { id: 'Oracle', name: 'Oracle Database', category: 'RELATIONAL', categoryLabel: 'Enterprise RDBMS', icon: 'database' },
-    { id: 'Microsoft SQL Server', name: 'SQL Server (MSSQL)', category: 'RELATIONAL', categoryLabel: 'Enterprise RDBMS', icon: 'database' },
-    { id: 'IBM Db2', name: 'IBM Db2 LUW', category: 'RELATIONAL', categoryLabel: 'Enterprise RDBMS', icon: 'database' },
-    { id: 'SAP HANA', name: 'SAP HANA', category: 'RELATIONAL', categoryLabel: 'In-Memory RDBMS', icon: 'database' },
-    { id: 'SAP ASE', name: 'SAP ASE (Sybase)', category: 'RELATIONAL', categoryLabel: 'Enterprise RDBMS', icon: 'database' },
-    { id: 'IBM Informix', name: 'IBM Informix', category: 'RELATIONAL', categoryLabel: 'OLTP & Timeseries', icon: 'database' },
-
-    // 2. Distributed SQL (5)
-    { id: 'CockroachDB', name: 'CockroachDB', category: 'DISTRIBUTED_SQL', categoryLabel: 'Distributed SQL', icon: 'network' },
-    { id: 'YugabyteDB', name: 'YugabyteDB', category: 'DISTRIBUTED_SQL', categoryLabel: 'Distributed SQL', icon: 'network' },
-    { id: 'TiDB', name: 'TiDB (PingCAP)', category: 'DISTRIBUTED_SQL', categoryLabel: 'HTAP Distributed SQL', icon: 'network' },
-    { id: 'SingleStore', name: 'SingleStore (MemSQL)', category: 'DISTRIBUTED_SQL', categoryLabel: 'Real-Time Distributed', icon: 'network' },
-    { id: 'Google Cloud Spanner', name: 'Google Cloud Spanner', category: 'DISTRIBUTED_SQL', categoryLabel: 'Global Distributed SQL', icon: 'network' },
-
-    // 3. Warehouse (7)
-    { id: 'Snowflake', name: 'Snowflake Data Cloud', category: 'WAREHOUSE', categoryLabel: 'Cloud Data Warehouse', icon: 'layers' },
-    { id: 'Google BigQuery', name: 'Google BigQuery', category: 'WAREHOUSE', categoryLabel: 'Serverless Warehouse', icon: 'layers' },
-    { id: 'Amazon Redshift', name: 'Amazon Redshift', category: 'WAREHOUSE', categoryLabel: 'Cloud Data Warehouse', icon: 'layers' },
-    { id: 'Databricks', name: 'Databricks Delta Lake', category: 'WAREHOUSE', categoryLabel: 'Lakehouse & Delta', icon: 'layers' },
-    { id: 'ClickHouse', name: 'ClickHouse', category: 'WAREHOUSE', categoryLabel: 'Columnar Analytics', icon: 'layers' },
-    { id: 'Teradata', name: 'Teradata Vantage', category: 'WAREHOUSE', categoryLabel: 'Enterprise Warehouse', icon: 'layers' },
-    { id: 'OpenText Vertica', name: 'OpenText Vertica', category: 'WAREHOUSE', categoryLabel: 'Columnar Analytics', icon: 'layers' },
-
-    // 4. NoSQL (12)
-    { id: 'MongoDB', name: 'MongoDB', category: 'NOSQL', categoryLabel: 'Document Store', icon: 'boxes' },
-    { id: 'Apache Cassandra', name: 'Apache Cassandra', category: 'NOSQL', categoryLabel: 'Wide-Column Store', icon: 'boxes' },
-    { id: 'ScyllaDB', name: 'ScyllaDB', category: 'NOSQL', categoryLabel: 'Real-Time NoSQL', icon: 'boxes' },
-    { id: 'Neo4j', name: 'Neo4j Graph Database', category: 'NOSQL', categoryLabel: 'Native Graph DB', icon: 'boxes' },
-    { id: 'Redis', name: 'Redis', category: 'NOSQL', categoryLabel: 'In-Memory Cache & KV', icon: 'boxes' },
-    { id: 'KeyDB', name: 'KeyDB', category: 'NOSQL', categoryLabel: 'Multithreaded In-Memory', icon: 'boxes' },
-    { id: 'Elasticsearch', name: 'Elasticsearch', category: 'NOSQL', categoryLabel: 'Search & Analytics', icon: 'boxes' },
-    { id: 'OpenSearch', name: 'OpenSearch', category: 'NOSQL', categoryLabel: 'Search & Analytics', icon: 'boxes' },
-    { id: 'Apache Couchbase', name: 'Apache Couchbase', category: 'NOSQL', categoryLabel: 'Document & KV DB', icon: 'boxes' },
-    { id: 'Amazon DynamoDB', name: 'Amazon DynamoDB', category: 'NOSQL', categoryLabel: 'Serverless Key-Value', icon: 'boxes' },
-    { id: 'Azure Cosmos DB', name: 'Azure Cosmos DB', category: 'NOSQL', categoryLabel: 'Multi-Model Distributed', icon: 'boxes' },
-    { id: 'InfluxDB', name: 'InfluxDB', category: 'NOSQL', categoryLabel: 'Time-Series Engine', icon: 'boxes' },
-
-    // 5. Streaming (6)
-    { id: 'Apache Kafka', name: 'Apache Kafka', category: 'STREAMING', categoryLabel: 'Event Streaming', icon: 'radio' },
-    { id: 'Amazon Kinesis', name: 'Amazon Kinesis Data Streams', category: 'STREAMING', categoryLabel: 'Cloud Event Streaming', icon: 'radio' },
-    { id: 'Azure Event Hubs', name: 'Azure Event Hubs', category: 'STREAMING', categoryLabel: 'Cloud Event Ingestion', icon: 'radio' },
-    { id: 'Google Cloud Pub/Sub', name: 'Google Cloud Pub/Sub', category: 'STREAMING', categoryLabel: 'Enterprise Messaging', icon: 'radio' },
-    { id: 'Apache Pulsar', name: 'Apache Pulsar', category: 'STREAMING', categoryLabel: 'Distributed Pub/Sub', icon: 'radio' },
-    { id: 'RabbitMQ', name: 'RabbitMQ', category: 'STREAMING', categoryLabel: 'Message Broker', icon: 'radio' },
-
-    // 6. Storage (5)
-    { id: 'Amazon S3', name: 'Amazon S3', category: 'STORAGE', categoryLabel: 'Object Storage', icon: 'hard-drive' },
-    { id: 'Google Cloud Storage', name: 'Google Cloud Storage (GCS)', category: 'STORAGE', categoryLabel: 'Object Storage', icon: 'hard-drive' },
-    { id: 'Azure Blob Storage', name: 'Azure Blob Storage', category: 'STORAGE', categoryLabel: 'Cloud Blob Storage', icon: 'hard-drive' },
-    { id: 'MinIO', name: 'MinIO Object Storage', category: 'STORAGE', categoryLabel: 'S3-Compatible Storage', icon: 'hard-drive' },
-    { id: 'Apache HDFS', name: 'Apache HDFS', category: 'STORAGE', categoryLabel: 'Hadoop Distributed FS', icon: 'hard-drive' },
-
-    // 7. SaaS & Apps (3)
-    { id: 'Salesforce', name: 'Salesforce', category: 'SAAS', categoryLabel: 'CRM & Cloud Platform', icon: 'cloud' },
-    { id: 'ServiceNow', name: 'ServiceNow', category: 'SAAS', categoryLabel: 'Enterprise ITSM / Tables', icon: 'cloud' },
-    { id: 'SAP Application Ecosystem', name: 'SAP Application Ecosystem', category: 'SAAS', categoryLabel: 'SAP NetWeaver / RFC', icon: 'cloud' }
+    ...ALL_PROVIDER_CATALOG_ITEMS
+      .filter(item => item.roleApplicability !== 'TARGET_ONLY')
+      .map(item => {
+        const catMap: Record<string, string> = {
+          'RELATIONAL': 'RELATIONAL_DISTRIBUTED_SQL',
+          'WAREHOUSE_LAKE': 'WAREHOUSE_LAKE',
+          'NOSQL_GRAPH': 'NOSQL_GRAPH_KV_SEARCH',
+          'STREAMING': 'STREAMING_MESSAGING',
+          'OBJECT_STORAGE': 'OBJECT_DISTRIBUTED_STORAGE',
+          'TIME_SERIES': 'TIME_SERIES',
+          'APPLICATION': 'ENTERPRISE_APPLICATIONS',
+          'ENTERPRISE_APPS': 'ENTERPRISE_APPLICATIONS',
+          'FILE_DATASET': 'FILE_DATASET'
+        };
+        return {
+          id: (item.id === 'file_dataset' ? 'File Dataset' : item.name) as PhysicalProviderId,
+          name: item.name,
+          category: item.id === 'file_dataset' ? 'FILE_DATASET' : (catMap[item.family] || item.family),
+          categoryLabel: item.categoryLabel,
+          icon: item.icon
+        };
+      }),
+    ...MANAGED_CLOUD_PROFILES.map(profile => ({
+      id: profile.name as PhysicalProviderId,
+      name: profile.name,
+      category: 'MANAGED_CLOUD',
+      categoryLabel: 'Managed Cloud Profile',
+      icon: profile.icon
+    }))
   ];
 
-  // Category Pill Tabs with Exact Counts
-  public catalogTabs: CatalogCategoryTab[] = [
-    { id: 'ALL', label: 'All', count: 48 },
-    { id: 'RELATIONAL', label: 'Relational', count: 10 },
-    { id: 'DISTRIBUTED_SQL', label: 'Distributed SQL', count: 5 },
-    { id: 'WAREHOUSE', label: 'Warehouse', count: 7 },
-    { id: 'NOSQL', label: 'NoSQL', count: 12 },
-    { id: 'STREAMING', label: 'Streaming', count: 6 },
-    { id: 'STORAGE', label: 'Storage', count: 5 },
-    { id: 'SAAS', label: 'SaaS & Apps', count: 3 }
-  ];
+  // 10 Canonical Family Tabs derived dynamically from eligible catalog engines
+  public get catalogTabs(): CatalogCategoryTab[] {
+    const engines = this.catalogEngines;
+    const countCat = (cat: string) => engines.filter(e => e.category === cat).length;
+    return [
+      { id: 'ALL', label: 'All Providers', count: engines.length },
+      { id: 'RELATIONAL_DISTRIBUTED_SQL', label: 'Relational & Distributed SQL', count: countCat('RELATIONAL_DISTRIBUTED_SQL') },
+      { id: 'WAREHOUSE_LAKE', label: 'Warehouse & Lake', count: countCat('WAREHOUSE_LAKE') },
+      { id: 'NOSQL_GRAPH_KV_SEARCH', label: 'NoSQL, Graph, KV & Search', count: countCat('NOSQL_GRAPH_KV_SEARCH') },
+      { id: 'STREAMING_MESSAGING', label: 'Streaming & Messaging', count: countCat('STREAMING_MESSAGING') },
+      { id: 'OBJECT_DISTRIBUTED_STORAGE', label: 'Object & Distributed Storage', count: countCat('OBJECT_DISTRIBUTED_STORAGE') },
+      { id: 'TIME_SERIES', label: 'Time-Series', count: countCat('TIME_SERIES') },
+      { id: 'ENTERPRISE_APPLICATIONS', label: 'Enterprise Applications', count: countCat('ENTERPRISE_APPLICATIONS') },
+      { id: 'FILE_DATASET', label: 'File Dataset', count: countCat('FILE_DATASET') },
+      { id: 'MANAGED_CLOUD', label: 'Managed Cloud', count: countCat('MANAGED_CLOUD') }
+    ];
+  }
 
   // Filter Popover Option Lists
   public routeFiltersList: { label: string; value: NetworkRouteType }[] = [
@@ -1513,7 +1489,7 @@ export class Step2SourceComponent implements OnInit {
   public selectedProviderSchema = computed<ProviderFormSchema | undefined>(() => {
     const pid = this.vs.newValidationDraft().sourceProvider;
     if (!pid) return undefined;
-    return ALL_48_PROVIDER_SCHEMAS[pid];
+    return ALL_PROVIDER_SCHEMAS[pid];
   });
 
   public ngOnInit(): void {
@@ -1550,7 +1526,7 @@ export class Step2SourceComponent implements OnInit {
   }
 
   public getProviderIcon(provider: PhysicalProviderId): string {
-    const s = ALL_48_PROVIDER_SCHEMAS[provider];
+    const s = ALL_PROVIDER_SCHEMAS[provider];
     return s?.icon || 'database';
   }
 
@@ -1631,7 +1607,7 @@ export class Step2SourceComponent implements OnInit {
 
   // Engine Selection in Catalog Grid
   public selectEngine(engineId: PhysicalProviderId): void {
-    const schema = ALL_48_PROVIDER_SCHEMAS[engineId];
+    const schema = ALL_PROVIDER_SCHEMAS[engineId];
     if (!schema) return;
 
     this.vs.updateDraft({

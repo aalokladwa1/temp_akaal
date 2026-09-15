@@ -29,7 +29,7 @@ import {
           <div class="flex flex-col gap-1">
             <h1 class="text-xl font-bold text-slate-900 tracking-tight">Boundary &amp; Consistency Baseline</h1>
             <p class="text-sm text-slate-500 font-normal leading-relaxed">
-              Establish the common state AKAAL should use for this validation.
+              Establish the common state DevKros should use for this validation.
             </p>
           </div>
 
@@ -101,7 +101,7 @@ import {
                     </span>
                   </div>
                   <p class="text-xs text-slate-600 leading-relaxed font-normal max-w-2xl">
-                    AKAAL has migration provenance that establishes the intended relationship between the selected Source and Target scope.
+                    DevKros has migration provenance that establishes the intended relationship between the selected Source and Target scope.
                   </p>
                 </div>
               </div>
@@ -294,7 +294,7 @@ import {
                 <div class="space-y-1">
                   <div class="font-bold text-slate-900">Baseline cannot yet be established</div>
                   <p class="text-slate-600 leading-relaxed font-normal">
-                    AKAAL does not currently have enough information to establish that the selected Source and Target states are legitimately comparable. Choose how these systems are known to represent the same state before continuing.
+                    DevKros does not currently have enough information to establish that the selected Source and Target states are legitimately comparable. Choose how these systems are known to represent the same state before continuing.
                   </p>
                 </div>
               </div>
@@ -338,7 +338,7 @@ import {
           <div class="space-y-1 sm:col-span-2">
             <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
               <app-lucide-icon name="shield-check" [size]="12" class="text-slate-400"></app-lucide-icon>
-              <span>What AKAAL will do</span>
+              <span>Validation execution</span>
             </span>
             <p class="text-xs text-slate-600 font-normal leading-relaxed">
               Establish and verify the concrete provider-supported states required by this baseline.
@@ -361,7 +361,7 @@ import {
       @if (contextualIntelligence()) {
         <section aria-label="Contextual Intelligence" class="rounded-xl bg-blue-50/50 border border-blue-200 p-4 space-y-2">
           <div class="flex items-center gap-2 text-blue-900 font-bold text-xs">
-            <app-lucide-icon name="sparkles" [size]="14" class="text-blue-600"></app-lucide-icon>
+            <app-lucide-icon name="info" [size]="14" class="text-blue-600"></app-lucide-icon>
             <span>{{ contextualIntelligence()?.title }}</span>
           </div>
           <p class="text-xs text-blue-800 font-normal leading-relaxed">
@@ -427,7 +427,7 @@ export class Step5BoundaryComponent {
     {
       id: 'CURRENT_OPERATIONAL',
       title: 'Current operational baseline',
-      description: 'These systems are expected to represent the same current business state. AKAAL will determine whether a defensible stable comparison can be established using their supported capabilities.',
+      description: 'These systems are expected to represent the same current business state. DevKros will determine whether a defensible stable comparison can be established using their supported capabilities.',
       icon: 'activity',
       isSupported: true
     },
@@ -440,8 +440,8 @@ export class Step5BoundaryComponent {
     },
     {
       id: 'INHERITED_MIGRATION',
-      title: 'AKAAL migration baseline',
-      description: 'Derive baseline cutover boundary and synchronization state from an existing AKAAL migration project.',
+      title: 'Migration baseline',
+      description: 'Derive baseline cutover boundary and synchronization state from an existing DevKros migration project.',
       icon: 'git-merge',
       isSupported: true
     },

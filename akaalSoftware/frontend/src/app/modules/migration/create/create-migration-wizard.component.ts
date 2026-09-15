@@ -635,12 +635,12 @@ export class CreateMigrationWizardComponent implements OnInit, OnDestroy {
   // Filtered Clone Sources
   public filteredCloneSources = computed(() => {
     const q = this.cloneSearchQuery().trim().toLowerCase();
-    const list = this.availableCloneSources();
+    const list = this.availableCloneSources() || [];
     if (!q) return list;
     return list.filter(m => 
-      m.name.toLowerCase().includes(q) || 
-      m.sourceEngine.toLowerCase().includes(q) || 
-      m.targetEngine.toLowerCase().includes(q)
+      (m?.name || '').toLowerCase().includes(q) || 
+      (m?.sourceEngine || '').toLowerCase().includes(q) || 
+      (m?.targetEngine || '').toLowerCase().includes(q)
     );
   });
 

@@ -50,6 +50,8 @@ node_modules/
 **/node_modules/
 dist/
 **/dist/
+.angular/
+**/.angular/
 
 # OS
 Thumbs.db

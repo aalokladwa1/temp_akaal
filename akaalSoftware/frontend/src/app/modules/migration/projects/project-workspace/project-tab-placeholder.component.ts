@@ -18,7 +18,7 @@ import { ProjectWorkspaceDetail, ProjectWorkspaceTabType } from '../projects.mod
       <!-- Title & Context Scope -->
       <div class="flex flex-col gap-1.5 max-w-lg">
         <div class="flex items-center justify-center gap-2">
-          <span class="px-2 py-0.5 rounded-md text-[10.5px] font-bold font-mono bg-blue-50 text-blue-700 border border-blue-200">
+          <span class="px-2 py-0.5 rounded-md text-[10.5px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
             {{ project()?.key || 'PRJ' }}
           </span>
           <h2 class="text-lg font-bold text-slate-900 font-heading capitalize">

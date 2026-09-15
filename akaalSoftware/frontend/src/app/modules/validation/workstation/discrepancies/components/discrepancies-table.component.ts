@@ -104,8 +104,8 @@ import { LucideIconComponent } from '../../../../../shared/components/lucide-ico
                 </td>
 
                 <!-- Record Key -->
-                <td class="py-3.5 px-4.5 max-w-[200px] font-mono font-medium text-slate-800">
-                  <span class="inline-block px-3 py-1.5 rounded-lg bg-slate-100 border border-slate-200 text-xs truncate max-w-full shadow-2xs" [title]="item.recordKey">
+                <td class="py-3.5 px-4.5 max-w-[200px]">
+                  <span class="text-xs font-sans text-slate-800 truncate block max-w-[180px]" [title]="item.recordKey">
                     {{ item.recordKey }}
                   </span>
                 </td>

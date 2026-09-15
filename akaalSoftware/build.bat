@@ -1,0 +1,54 @@
+@echo off
+setlocal enabledelayedexpansion
+
+echo ========================================================
+echo   AKAAL Platform - Quick Build ^& Launch
+echo ========================================================
+
+set "NG_CLI_ANALYTICS=false"
+set "NODE_OPTIONS="
+
+
+echo.
+echo [1/4] Terminating running instances...
+taskkill /F /IM AKAAL.exe >nul 2>&1
+taskkill /F /IM akaalSoftware.exe >nul 2>&1
+
+echo [2/4] Building Angular frontend...
+cd /d "%~dp0frontend"
+if exist ".angular\cache" rmdir /s /q ".angular\cache" >nul 2>&1
+if exist "dist" rmdir /s /q "dist" >nul 2>&1
+call node --max-old-space-size=4096 ./node_modules/@angular/cli/bin/ng build --configuration development --base-href ./
+
+if %ERRORLEVEL% neq 0 (
+    echo.
+    echo [ERROR] Frontend build failed with code %ERRORLEVEL%!
+    exit /b %ERRORLEVEL%
+)
+
+echo.
+echo [3/4] Clearing WebView2 cache...
+if exist "%APPDATA%\AKAAL.exe\EBWebView" (
+    rmdir /s /q "%APPDATA%\AKAAL.exe\EBWebView" >nul 2>&1
+)
+if exist "%APPDATA%\akaalSoftware.exe\EBWebView" (
+    rmdir /s /q "%APPDATA%\akaalSoftware.exe\EBWebView" >nul 2>&1
+)
+
+echo.
+echo [4/4] Compiling Go Wails GUI Binary...
+cd /d "%~dp0"
+go build -tags "desktop,production" -ldflags "-H windowsgui -s -w" -o AKAAL.exe .
+
+if %ERRORLEVEL% neq 0 (
+    echo.
+    echo [ERROR] Go build failed with code %ERRORLEVEL%!
+    exit /b %ERRORLEVEL%
+)
+
+copy /Y AKAAL.exe akaalSoftware.exe >nul
+
+echo.
+echo ========================================================
+echo   BUILD SUCCESSFUL! Binaries are ready.
+echo ========================================================

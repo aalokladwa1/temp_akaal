@@ -1,0 +1,4518 @@
+{
+  "azure_blob": {
+    "provider_id": "azure_blob",
+    "family": "storage",
+    "vendor_name": "Microsoft Azure",
+    "version": "1.0.0",
+    "roles": [
+      "SOURCE",
+      "TARGET",
+      "STAGING",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "auth": [
+      "PASSWORD"
+    ],
+    "tls": true,
+    "mtls": false,
+    "proof": "IMPLEMENTED",
+    "capabilities": {
+      "CONTAINER_DISCOVERY": "SUPPORTED",
+      "OBJECT_READ": "SUPPORTED",
+      "OBJECT_WRITE": "SUPPORTED",
+      "BLOCK_BLOB_CHUNKING": "SUPPORTED"
+    },
+    "restrictions": [],
+    "privileges": [],
+    "fastpath": [],
+    "fields": [
+      {
+        "name": "account_name",
+        "type": "STRING",
+        "description": "Azure Storage account name",
+        "is_required": false,
+        "default": null,
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "container_name",
+        "type": "STRING",
+        "description": "Azure Blob container name",
+        "is_required": false,
+        "default": null,
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "connection_string_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to Azure Storage connection string secret",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "account_key_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to Azure Storage account key secret",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "sas_token_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to Azure SAS token secret",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "endpoint_url",
+        "type": "STRING",
+        "description": "Custom Blob Service endpoint URL (for Azurite or Private Endpoints)",
+        "is_required": false,
+        "default": null,
+        "group": "Network",
+        "allowed": null
+      }
+    ]
+  },
+  "bigquery": {
+    "provider_id": "bigquery",
+    "family": "warehouse",
+    "vendor_name": "Google Cloud",
+    "version": "1.0.0",
+    "roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "auth": [
+      "PASSWORD"
+    ],
+    "tls": true,
+    "mtls": false,
+    "proof": "IMPLEMENTED",
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "STORAGE_READ_API": "SUPPORTED",
+      "STORAGE_WRITE_API": "SUPPORTED",
+      "PARTITIONING": "SUPPORTED",
+      "CLUSTERING": "SUPPORTED",
+      "TRANSACTIONS": "PARTIAL"
+    },
+    "restrictions": [],
+    "privileges": [],
+    "fastpath": [],
+    "fields": [
+      {
+        "name": "project_id",
+        "type": "STRING",
+        "description": "Google Cloud Project ID",
+        "is_required": true,
+        "default": null,
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "dataset",
+        "type": "STRING",
+        "description": "Default BigQuery dataset identifier",
+        "is_required": false,
+        "default": null,
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "service_account_json_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to GCP Service Account JSON key secret (omitted if using ambient ADC)",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "location",
+        "type": "STRING",
+        "description": "Dataset regional/multi-regional location",
+        "is_required": false,
+        "default": "US",
+        "group": "Connection",
+        "allowed": null
+      }
+    ]
+  },
+  "cassandra": {
+    "provider_id": "cassandra",
+    "family": "nosql",
+    "vendor_name": "Apache Software Foundation",
+    "version": "1.0.0",
+    "roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "auth": [
+      "PASSWORD"
+    ],
+    "tls": true,
+    "mtls": true,
+    "proof": "IMPLEMENTED",
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "TOKEN_AWARE_ROUTING": "SUPPORTED",
+      "CQL_BATCH": "SUPPORTED",
+      "CDC_LOG_CAPTURE": "PARTIAL"
+    },
+    "restrictions": [],
+    "privileges": [],
+    "fastpath": [],
+    "fields": [
+      {
+        "name": "host",
+        "type": "STRING",
+        "description": "Initial contact point hostname",
+        "is_required": false,
+        "default": null,
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "port",
+        "type": "INTEGER",
+        "description": "CQL native transport port",
+        "is_required": false,
+        "default": "9042",
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "endpoints",
+        "type": "LIST",
+        "description": "List of cluster contact points",
+        "is_required": false,
+        "default": null,
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "database_name",
+        "type": "STRING",
+        "description": "Default keyspace name",
+        "is_required": false,
+        "default": null,
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "username",
+        "type": "STRING",
+        "description": "CQL username",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "password_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to CQL password secret",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "protocol_version",
+        "type": "INTEGER",
+        "description": "CQL binary protocol version",
+        "is_required": false,
+        "default": "4",
+        "group": "Connection",
+        "allowed": null
+      }
+    ]
+  },
+  "clickhouse": {
+    "provider_id": "clickhouse",
+    "family": "warehouse",
+    "vendor_name": "ClickHouse, Inc.",
+    "version": "1.0.0",
+    "roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "auth": [
+      "PASSWORD"
+    ],
+    "tls": true,
+    "mtls": true,
+    "proof": "IMPLEMENTED",
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "COLUMNAR_STORAGE": "SUPPORTED",
+      "PARTITION_AWARENESS": "SUPPORTED",
+      "MUTATIONS": "SUPPORTED",
+      "TRANSACTIONS": "UNSUPPORTED",
+      "CDC_LOG_CAPTURE": "UNSUPPORTED"
+    },
+    "restrictions": [
+      "No reliable default multi-statement ACID transactions; UPDATE/DELETE are asynchronous background mutations, not synchronous DML."
+    ],
+    "privileges": [
+      "SELECT",
+      "INSERT"
+    ],
+    "fastpath": [],
+    "fields": [
+      {
+        "name": "host",
+        "type": "STRING",
+        "description": "ClickHouse server hostname or IP address",
+        "is_required": true,
+        "default": null,
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "port",
+        "type": "INTEGER",
+        "description": "ClickHouse HTTP interface port",
+        "is_required": false,
+        "default": "8123",
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "database_name",
+        "type": "STRING",
+        "description": "Target database name",
+        "is_required": false,
+        "default": "default",
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "username",
+        "type": "STRING",
+        "description": "ClickHouse username",
+        "is_required": false,
+        "default": "default",
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "password_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to ClickHouse password secret",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "connect_timeout",
+        "type": "INTEGER",
+        "description": "Connect timeout in seconds",
+        "is_required": false,
+        "default": "15",
+        "group": "Connection",
+        "allowed": null
+      }
+    ]
+  },
+  "cockroachdb": {
+    "provider_id": "cockroachdb",
+    "family": "relational",
+    "vendor_name": "Cockroach Labs",
+    "version": "1.0.0",
+    "roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "auth": [
+      "PASSWORD"
+    ],
+    "tls": true,
+    "mtls": true,
+    "proof": "IMPLEMENTED",
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "TRANSACTIONS": "SUPPORTED",
+      "SERIALIZABLE_RETRY_REQUIRED": "SUPPORTED",
+      "SAVEPOINTS": "SUPPORTED",
+      "DISTRIBUTED_TOPOLOGY": "SUPPORTED",
+      "PARTITION_AWARENESS": "SUPPORTED",
+      "FOREIGN_KEYS": "SUPPORTED",
+      "LOBS": "SUPPORTED",
+      "CDC_LOG_CAPTURE": "UNSUPPORTED",
+      "BINARY_COPY": "UNSUPPORTED"
+    },
+    "restrictions": [
+      "CHANGEFEED (CDC) requires an Enterprise license and is not assumed supported without a live probe.",
+      "SQLSTATE 40001 requires whole-transaction retry, not statement-level retry."
+    ],
+    "privileges": [
+      "CONNECT",
+      "USAGE",
+      "SELECT"
+    ],
+    "fastpath": [
+      "IMPORT INTO (bulk load, requires cluster/userfile access)"
+    ],
+    "fields": [
+      {
+        "name": "host",
+        "type": "STRING",
+        "description": "CockroachDB node or load-balancer hostname",
+        "is_required": true,
+        "default": null,
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "port",
+        "type": "INTEGER",
+        "description": "CockroachDB SQL port",
+        "is_required": false,
+        "default": "26257",
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "database_name",
+        "type": "STRING",
+        "description": "Target database name",
+        "is_required": false,
+        "default": "defaultdb",
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "username",
+        "type": "STRING",
+        "description": "Database username",
+        "is_required": true,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "password_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to password secret",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "sslmode",
+        "type": "STRING",
+        "description": "TLS verification mode",
+        "is_required": false,
+        "default": "verify-full",
+        "group": "Security",
+        "allowed": [
+          "disable",
+          "require",
+          "verify-ca",
+          "verify-full"
+        ]
+      },
+      {
+        "name": "connect_timeout",
+        "type": "INTEGER",
+        "description": "TCP connect timeout in seconds",
+        "is_required": false,
+        "default": "15",
+        "group": "Connection",
+        "allowed": null
+      }
+    ]
+  },
+  "cosmosdb": {
+    "provider_id": "cosmosdb",
+    "family": "nosql",
+    "vendor_name": "Microsoft Azure",
+    "version": "1.0.0",
+    "roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "auth": [
+      "PASSWORD"
+    ],
+    "tls": true,
+    "mtls": false,
+    "proof": "IMPLEMENTED",
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "UNSUPPORTED",
+      "TRANSACTIONS": "UNSUPPORTED",
+      "PARTITION_AWARENESS": "SUPPORTED",
+      "FOREIGN_KEYS": "UNSUPPORTED",
+      "CDC_LOG_CAPTURE": "UNSUPPORTED"
+    },
+    "restrictions": [
+      "Documents carry no enforced schema outside the partition key; only container/partition-key metadata is discoverable.",
+      "Writes are per-item upsert_item() calls, not a native batch/bulk executor."
+    ],
+    "privileges": [
+      "Microsoft.DocumentDB/databaseAccounts/readMetadata",
+      "Microsoft.DocumentDB/databaseAccounts/dataOperations"
+    ],
+    "fastpath": [],
+    "fields": [
+      {
+        "name": "endpoint",
+        "type": "STRING",
+        "description": "Cosmos DB account endpoint URL",
+        "is_required": true,
+        "default": null,
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "key_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to Cosmos DB account key secret",
+        "is_required": true,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "database",
+        "type": "STRING",
+        "description": "Target Cosmos DB database name",
+        "is_required": true,
+        "default": null,
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "container_name",
+        "type": "STRING",
+        "description": "Target Cosmos DB container name",
+        "is_required": false,
+        "default": null,
+        "group": "Target",
+        "allowed": null
+      }
+    ]
+  },
+  "couchbase": {
+    "provider_id": "couchbase",
+    "family": "nosql",
+    "vendor_name": "Couchbase, Inc.",
+    "version": "1.0.0",
+    "roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "auth": [
+      "PASSWORD"
+    ],
+    "tls": true,
+    "mtls": true,
+    "proof": "IMPLEMENTED",
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "TRANSACTIONS": "SUPPORTED",
+      "SECONDARY_INDEXES": "SUPPORTED",
+      "FULL_TEXT_SEARCH": "SUPPORTED",
+      "FOREIGN_KEYS": "UNSUPPORTED",
+      "CDC_LOG_CAPTURE": "UNSUPPORTED"
+    },
+    "restrictions": [
+      "CDC_LOG_CAPTURE (DCP) requires a dedicated low-level streaming client not wired by this connector strategy."
+    ],
+    "privileges": [
+      "query_select",
+      "query_insert"
+    ],
+    "fastpath": [],
+    "fields": [
+      {
+        "name": "host",
+        "type": "STRING",
+        "description": "Couchbase cluster node hostname",
+        "is_required": true,
+        "default": null,
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "bucket",
+        "type": "STRING",
+        "description": "Target Couchbase bucket name",
+        "is_required": false,
+        "default": null,
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "scope",
+        "type": "STRING",
+        "description": "Couchbase scope name",
+        "is_required": false,
+        "default": "_default",
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "collection",
+        "type": "STRING",
+        "description": "Couchbase collection name",
+        "is_required": false,
+        "default": "_default",
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "connection_string",
+        "type": "STRING",
+        "description": "Full Couchbase connection string override (e.g. couchbases://host)",
+        "is_required": false,
+        "default": null,
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "username",
+        "type": "STRING",
+        "description": "Couchbase username",
+        "is_required": true,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "password_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to Couchbase password secret",
+        "is_required": true,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      }
+    ]
+  },
+  "databricks": {
+    "provider_id": "databricks",
+    "family": "warehouse",
+    "vendor_name": "Databricks",
+    "version": "1.0.0",
+    "roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "auth": [
+      "PASSWORD"
+    ],
+    "tls": true,
+    "mtls": false,
+    "proof": "IMPLEMENTED",
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "DELTA_LAKE": "SUPPORTED",
+      "UNITY_CATALOG": "SUPPORTED",
+      "CHANGE_DATA_FEED": "SUPPORTED"
+    },
+    "restrictions": [],
+    "privileges": [],
+    "fastpath": [],
+    "fields": [
+      {
+        "name": "host",
+        "type": "STRING",
+        "description": "Databricks workspace server hostname (e.g. dbc-xxx.cloud.databricks.com)",
+        "is_required": true,
+        "default": null,
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "http_path",
+        "type": "STRING",
+        "description": "HTTP Path to SQL Warehouse or compute endpoint",
+        "is_required": true,
+        "default": null,
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "access_token_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to Databricks Personal Access Token (PAT)",
+        "is_required": true,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "catalog",
+        "type": "STRING",
+        "description": "Unity Catalog name",
+        "is_required": false,
+        "default": null,
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "schema_name",
+        "type": "STRING",
+        "description": "Default schema name",
+        "is_required": false,
+        "default": "default",
+        "group": "Target",
+        "allowed": null
+      }
+    ]
+  },
+  "dynamodb": {
+    "provider_id": "dynamodb",
+    "family": "nosql",
+    "vendor_name": "Amazon Web Services",
+    "version": "1.0.0",
+    "roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "auth": [
+      "PASSWORD"
+    ],
+    "tls": true,
+    "mtls": false,
+    "proof": "IMPLEMENTED",
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "TRANSACTIONS": "SUPPORTED",
+      "PARTITION_AWARENESS": "SUPPORTED",
+      "SECONDARY_INDEXES": "SUPPORTED",
+      "FOREIGN_KEYS": "UNSUPPORTED",
+      "CDC_LOG_CAPTURE": "UNSUPPORTED"
+    },
+    "restrictions": [
+      "Only key schema (partition/sort key) and secondary-index definitions are discoverable; DynamoDB enforces no schema for non-key attributes.",
+      "CDC_LOG_CAPTURE (DynamoDB Streams) is per-table opt-in and only claimed SUPPORTED after a live describe_table() probe of the specific table."
+    ],
+    "privileges": [
+      "dynamodb:DescribeTable",
+      "dynamodb:GetItem",
+      "dynamodb:PutItem"
+    ],
+    "fastpath": [],
+    "fields": [
+      {
+        "name": "region",
+        "type": "STRING",
+        "description": "AWS Region",
+        "is_required": true,
+        "default": "us-east-1",
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "table_name",
+        "type": "STRING",
+        "description": "Target DynamoDB table name",
+        "is_required": false,
+        "default": null,
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "endpoint_url",
+        "type": "STRING",
+        "description": "Custom endpoint URL (for DynamoDB Local or VPC endpoints)",
+        "is_required": false,
+        "default": null,
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "access_key_id_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to AWS Access Key ID secret (omitted if using ambient IAM)",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "secret_access_key_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to AWS Secret Access Key secret",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "session_token_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to AWS STS Temporary Session Token secret",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      }
+    ]
+  },
+  "elasticsearch": {
+    "provider_id": "elasticsearch",
+    "family": "nosql",
+    "vendor_name": "Elastic",
+    "version": "1.0.0",
+    "roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "auth": [
+      "PASSWORD"
+    ],
+    "tls": true,
+    "mtls": true,
+    "proof": "IMPLEMENTED",
+    "capabilities": {
+      "INDEX_SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "SCROLL_SEARCH": "SUPPORTED",
+      "POINT_IN_TIME": "SUPPORTED"
+    },
+    "restrictions": [],
+    "privileges": [],
+    "fastpath": [],
+    "fields": [
+      {
+        "name": "host",
+        "type": "STRING",
+        "description": "Elasticsearch cluster primary host",
+        "is_required": false,
+        "default": null,
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "port",
+        "type": "INTEGER",
+        "description": "Elasticsearch HTTP REST port",
+        "is_required": false,
+        "default": "9200",
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "endpoints",
+        "type": "LIST",
+        "description": "List of cluster node URLs or host:port pairs",
+        "is_required": false,
+        "default": null,
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "username",
+        "type": "STRING",
+        "description": "Basic auth username",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "password_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to basic auth password secret",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "api_key_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to API Key secret",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      }
+    ]
+  },
+  "eventhubs": {
+    "provider_id": "eventhubs",
+    "family": "streaming",
+    "vendor_name": "Microsoft Azure",
+    "version": "1.0.0",
+    "roles": [
+      "SOURCE",
+      "TARGET",
+      "CDC_LOG"
+    ],
+    "auth": [
+      "PASSWORD"
+    ],
+    "tls": true,
+    "mtls": false,
+    "proof": "IMPLEMENTED",
+    "capabilities": {
+      "STREAM_DISCOVERY": "SUPPORTED",
+      "STREAMING_READ": "SUPPORTED",
+      "STREAMING_WRITE": "SUPPORTED",
+      "KAFKA_COMPATIBLE": "SUPPORTED"
+    },
+    "restrictions": [],
+    "privileges": [],
+    "fastpath": [],
+    "fields": [
+      {
+        "name": "namespace",
+        "type": "STRING",
+        "description": "Azure Event Hubs namespace",
+        "is_required": true,
+        "default": null,
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "eventhub_name",
+        "type": "STRING",
+        "description": "Event Hub instance name",
+        "is_required": false,
+        "default": null,
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "connection_string_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to Event Hubs connection string secret",
+        "is_required": true,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      }
+    ]
+  },
+  "gcs": {
+    "provider_id": "gcs",
+    "family": "storage",
+    "vendor_name": "Google Cloud",
+    "version": "1.0.0",
+    "roles": [
+      "SOURCE",
+      "TARGET",
+      "STAGING",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "auth": [
+      "PASSWORD"
+    ],
+    "tls": true,
+    "mtls": false,
+    "proof": "IMPLEMENTED",
+    "capabilities": {
+      "BUCKET_DISCOVERY": "SUPPORTED",
+      "OBJECT_READ": "SUPPORTED",
+      "OBJECT_WRITE": "SUPPORTED",
+      "RESUMABLE_UPLOAD": "SUPPORTED"
+    },
+    "restrictions": [],
+    "privileges": [],
+    "fastpath": [],
+    "fields": [
+      {
+        "name": "project_id",
+        "type": "STRING",
+        "description": "Google Cloud Project ID",
+        "is_required": false,
+        "default": null,
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "bucket_name",
+        "type": "STRING",
+        "description": "Target GCS bucket name",
+        "is_required": false,
+        "default": null,
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "service_account_json_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to GCP Service Account JSON key secret (omitted if using ambient ADC)",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      }
+    ]
+  },
+  "hdfs": {
+    "provider_id": "hdfs",
+    "family": "storage",
+    "vendor_name": "Apache Software Foundation",
+    "version": "1.0.0",
+    "roles": [
+      "SOURCE",
+      "TARGET",
+      "STAGING",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "auth": [
+      "PASSWORD"
+    ],
+    "tls": true,
+    "mtls": false,
+    "proof": "IMPLEMENTED",
+    "capabilities": {
+      "DIRECTORY_DISCOVERY": "SUPPORTED",
+      "FILE_READ": "SUPPORTED",
+      "FILE_WRITE": "SUPPORTED",
+      "WEBHDFS": "SUPPORTED"
+    },
+    "restrictions": [],
+    "privileges": [],
+    "fastpath": [],
+    "fields": [
+      {
+        "name": "host",
+        "type": "STRING",
+        "description": "Hadoop NameNode hostname or IP address",
+        "is_required": true,
+        "default": null,
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "port",
+        "type": "INTEGER",
+        "description": "NameNode HTTP (WebHDFS: 9870) or RPC (8020) port",
+        "is_required": false,
+        "default": "9870",
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "user",
+        "type": "STRING",
+        "description": "HDFS username",
+        "is_required": false,
+        "default": "hdfs",
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "root_path",
+        "type": "STRING",
+        "description": "HDFS root directory path",
+        "is_required": false,
+        "default": "/",
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "use_webhdfs",
+        "type": "BOOLEAN",
+        "description": "Use WebHDFS REST API rather than native RPC",
+        "is_required": false,
+        "default": "True",
+        "group": "Connection",
+        "allowed": null
+      }
+    ]
+  },
+  "ibm_db2": {
+    "provider_id": "ibm_db2",
+    "family": "relational",
+    "vendor_name": "IBM",
+    "version": "1.0.0",
+    "roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "auth": [
+      "PASSWORD"
+    ],
+    "tls": true,
+    "mtls": false,
+    "proof": "IMPLEMENTED",
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "TRANSACTIONS": "SUPPORTED",
+      "SAVEPOINTS": "SUPPORTED",
+      "CDC_LOG_CAPTURE": "PARTIAL",
+      "FOREIGN_KEYS": "SUPPORTED"
+    },
+    "restrictions": [],
+    "privileges": [],
+    "fastpath": [],
+    "fields": [
+      {
+        "name": "host",
+        "type": "STRING",
+        "description": "IBM DB2 server hostname or IP address",
+        "is_required": true,
+        "default": null,
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "port",
+        "type": "INTEGER",
+        "description": "IBM DB2 port",
+        "is_required": false,
+        "default": "50000",
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "database_name",
+        "type": "STRING",
+        "description": "Target database name",
+        "is_required": true,
+        "default": null,
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "schema_name",
+        "type": "STRING",
+        "description": "Default schema name",
+        "is_required": false,
+        "default": null,
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "username",
+        "type": "STRING",
+        "description": "DB2 user account",
+        "is_required": true,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "password_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to password secret",
+        "is_required": true,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      }
+    ]
+  },
+  "influxdb": {
+    "provider_id": "influxdb",
+    "family": "timeseries",
+    "vendor_name": "InfluxData",
+    "version": "1.0.0",
+    "roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE"
+    ],
+    "auth": [
+      "PASSWORD"
+    ],
+    "tls": true,
+    "mtls": false,
+    "proof": "IMPLEMENTED",
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "TIME_SERIES_NATIVE": "SUPPORTED",
+      "RETENTION_POLICY_MANAGEMENT": "SUPPORTED",
+      "TRANSACTIONS": "UNSUPPORTED",
+      "CDC_LOG_CAPTURE": "UNSUPPORTED"
+    },
+    "restrictions": [
+      "InfluxDB has no transaction concept; writes are individual point ingestions, not multi-statement units of work.",
+      "No native change-log exists; only time-range re-querying is possible for incremental extraction."
+    ],
+    "privileges": [
+      "read:buckets",
+      "write:buckets"
+    ],
+    "fastpath": [],
+    "fields": [
+      {
+        "name": "host",
+        "type": "STRING",
+        "description": "InfluxDB server hostname or IP address",
+        "is_required": true,
+        "default": null,
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "port",
+        "type": "INTEGER",
+        "description": "InfluxDB HTTP API port",
+        "is_required": false,
+        "default": "8086",
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "org",
+        "type": "STRING",
+        "description": "InfluxDB organization name",
+        "is_required": false,
+        "default": null,
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "bucket",
+        "type": "STRING",
+        "description": "Target InfluxDB bucket name",
+        "is_required": false,
+        "default": null,
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "url",
+        "type": "STRING",
+        "description": "Full InfluxDB URL override (e.g. https://host:8086)",
+        "is_required": false,
+        "default": null,
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "auth_token_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to InfluxDB API token secret",
+        "is_required": true,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      }
+    ]
+  },
+  "informix": {
+    "provider_id": "informix",
+    "family": "relational",
+    "vendor_name": "IBM",
+    "version": "1.0.0",
+    "roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "auth": [
+      "PASSWORD"
+    ],
+    "tls": true,
+    "mtls": false,
+    "proof": "IMPLEMENTED",
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "TRANSACTIONS": "SUPPORTED",
+      "FOREIGN_KEYS": "SUPPORTED",
+      "CDC_LOG_CAPTURE": "UNSUPPORTED"
+    },
+    "restrictions": [
+      "Bulk load uses standard executemany() INSERT, not the native onload/dbimport utilities.",
+      "Identifiers are treated as unquoted (DELIMIDENT not assumed set)."
+    ],
+    "privileges": [
+      "SELECT",
+      "INSERT"
+    ],
+    "fastpath": [],
+    "fields": [
+      {
+        "name": "host",
+        "type": "STRING",
+        "description": "Informix server hostname or IP address",
+        "is_required": true,
+        "default": null,
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "port",
+        "type": "INTEGER",
+        "description": "Informix onsoctcp port",
+        "is_required": false,
+        "default": "9088",
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "database_name",
+        "type": "STRING",
+        "description": "Target database name",
+        "is_required": true,
+        "default": null,
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "username",
+        "type": "STRING",
+        "description": "Database username",
+        "is_required": true,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "password_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to password secret",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "informix_server",
+        "type": "STRING",
+        "description": "Informix INFORMIXSERVER instance name",
+        "is_required": false,
+        "default": "ol_informix",
+        "group": "Connection",
+        "allowed": null
+      }
+    ]
+  },
+  "kafka": {
+    "provider_id": "kafka",
+    "family": "streaming",
+    "vendor_name": "Apache Software Foundation",
+    "version": "1.0.0",
+    "roles": [
+      "SOURCE",
+      "TARGET",
+      "CDC_LOG"
+    ],
+    "auth": [
+      "PASSWORD"
+    ],
+    "tls": true,
+    "mtls": true,
+    "proof": "IMPLEMENTED",
+    "capabilities": {
+      "TOPIC_DISCOVERY": "SUPPORTED",
+      "STREAMING_READ": "SUPPORTED",
+      "STREAMING_WRITE": "SUPPORTED",
+      "OFFSET_COMMIT": "SUPPORTED",
+      "EXACTLY_ONCE": "SUPPORTED",
+      "SCHEMA_REGISTRY": "SUPPORTED"
+    },
+    "restrictions": [],
+    "privileges": [],
+    "fastpath": [],
+    "fields": [
+      {
+        "name": "host",
+        "type": "STRING",
+        "description": "Primary bootstrap broker hostname",
+        "is_required": false,
+        "default": null,
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "port",
+        "type": "INTEGER",
+        "description": "Bootstrap broker port",
+        "is_required": false,
+        "default": "9092",
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "endpoints",
+        "type": "LIST",
+        "description": "List of Kafka bootstrap servers (host:port)",
+        "is_required": false,
+        "default": null,
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "security_protocol",
+        "type": "STRING",
+        "description": "Kafka security protocol",
+        "is_required": false,
+        "default": "PLAINTEXT",
+        "group": "Security",
+        "allowed": [
+          "PLAINTEXT",
+          "SSL",
+          "SASL_PLAINTEXT",
+          "SASL_SSL"
+        ]
+      },
+      {
+        "name": "sasl_mechanism",
+        "type": "STRING",
+        "description": "SASL authentication mechanism",
+        "is_required": false,
+        "default": "PLAIN",
+        "group": "Authentication",
+        "allowed": [
+          "PLAIN",
+          "SCRAM-SHA-256",
+          "SCRAM-SHA-512"
+        ]
+      },
+      {
+        "name": "username",
+        "type": "STRING",
+        "description": "SASL username / API key",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "password_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to SASL password / API secret",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "client_id",
+        "type": "STRING",
+        "description": "Kafka client identifier",
+        "is_required": false,
+        "default": "akaal-engine-connection",
+        "group": "Connection",
+        "allowed": null
+      },
+      {
+        "name": "group_id",
+        "type": "STRING",
+        "description": "Default Kafka consumer group identifier",
+        "is_required": false,
+        "default": null,
+        "group": "Connection",
+        "allowed": null
+      }
+    ]
+  },
+  "keydb": {
+    "provider_id": "keydb",
+    "family": "nosql",
+    "vendor_name": "Snap Inc. / KeyDB",
+    "version": "1.0.0",
+    "roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "auth": [
+      "PASSWORD"
+    ],
+    "tls": true,
+    "mtls": true,
+    "proof": "IMPLEMENTED",
+    "capabilities": {
+      "KEY_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "MULTITHREADED_EXECUTION": "SUPPORTED"
+    },
+    "restrictions": [],
+    "privileges": [],
+    "fastpath": [],
+    "fields": [
+      {
+        "name": "host",
+        "type": "STRING",
+        "description": "KEYDB server hostname",
+        "is_required": true,
+        "default": null,
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "port",
+        "type": "INTEGER",
+        "description": "KEYDB server port",
+        "is_required": false,
+        "default": "6379",
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "database_name",
+        "type": "STRING",
+        "description": "Redis database index",
+        "is_required": false,
+        "default": "0",
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "username",
+        "type": "STRING",
+        "description": "ACL username (optional)",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "password_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to Redis AUTH secret",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      }
+    ]
+  },
+  "kinesis": {
+    "provider_id": "kinesis",
+    "family": "streaming",
+    "vendor_name": "Amazon Web Services",
+    "version": "1.0.0",
+    "roles": [
+      "SOURCE",
+      "TARGET",
+      "CDC_LOG"
+    ],
+    "auth": [
+      "PASSWORD"
+    ],
+    "tls": true,
+    "mtls": false,
+    "proof": "IMPLEMENTED",
+    "capabilities": {
+      "STREAM_DISCOVERY": "SUPPORTED",
+      "STREAMING_READ": "SUPPORTED",
+      "STREAMING_WRITE": "SUPPORTED",
+      "SHARD_MANAGEMENT": "SUPPORTED"
+    },
+    "restrictions": [],
+    "privileges": [],
+    "fastpath": [],
+    "fields": [
+      {
+        "name": "region",
+        "type": "STRING",
+        "description": "AWS Region",
+        "is_required": false,
+        "default": "us-east-1",
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "endpoint_url",
+        "type": "STRING",
+        "description": "Custom endpoint URL for VPC endpoints or LocalStack",
+        "is_required": false,
+        "default": null,
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "access_key_id_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to AWS Access Key ID secret (omitted if using ambient IAM)",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "secret_access_key_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to AWS Secret Access Key secret",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "session_token_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to AWS STS Temporary Session Token secret",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "stream_name",
+        "type": "STRING",
+        "description": "Target Kinesis stream name",
+        "is_required": false,
+        "default": null,
+        "group": "Target",
+        "allowed": null
+      }
+    ]
+  },
+  "mariadb": {
+    "provider_id": "mariadb",
+    "family": "relational",
+    "vendor_name": "MariaDB Corporation",
+    "version": "1.0.0",
+    "roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION",
+      "CDC_LOG"
+    ],
+    "auth": [
+      "PASSWORD"
+    ],
+    "tls": true,
+    "mtls": true,
+    "proof": "IMPLEMENTED",
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "LOAD_DATA_INFILE": "SUPPORTED",
+      "TRANSACTIONS": "SUPPORTED",
+      "SAVEPOINTS": "SUPPORTED",
+      "CDC_LOG_CAPTURE": "SUPPORTED",
+      "PARTITION_AWARENESS": "SUPPORTED",
+      "FOREIGN_KEYS": "SUPPORTED"
+    },
+    "restrictions": [],
+    "privileges": [],
+    "fastpath": [
+      "LOAD DATA LOCAL INFILE",
+      "INSERT MULTIPLE ROWS"
+    ],
+    "fields": [
+      {
+        "name": "host",
+        "type": "STRING",
+        "description": "MARIADB server hostname or IP address",
+        "is_required": true,
+        "default": null,
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "port",
+        "type": "INTEGER",
+        "description": "MARIADB server port",
+        "is_required": false,
+        "default": "3306",
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "database_name",
+        "type": "STRING",
+        "description": "Target database name",
+        "is_required": true,
+        "default": null,
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "username",
+        "type": "STRING",
+        "description": "Database username",
+        "is_required": true,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "password_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to password secret",
+        "is_required": true,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "charset",
+        "type": "STRING",
+        "description": "Character set encoding",
+        "is_required": false,
+        "default": "utf8mb4",
+        "group": "Connection",
+        "allowed": null
+      },
+      {
+        "name": "connect_timeout",
+        "type": "INTEGER",
+        "description": "TCP connect timeout in seconds",
+        "is_required": false,
+        "default": "15",
+        "group": "Connection",
+        "allowed": null
+      }
+    ]
+  },
+  "minio": {
+    "provider_id": "minio",
+    "family": "storage",
+    "vendor_name": "MinIO Inc.",
+    "version": "1.0.0",
+    "roles": [
+      "SOURCE",
+      "TARGET",
+      "STAGING",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "auth": [
+      "PASSWORD"
+    ],
+    "tls": true,
+    "mtls": false,
+    "proof": "IMPLEMENTED",
+    "capabilities": {
+      "BUCKET_DISCOVERY": "SUPPORTED",
+      "OBJECT_READ": "SUPPORTED",
+      "OBJECT_WRITE": "SUPPORTED",
+      "S3_API_COMPLIANT": "SUPPORTED"
+    },
+    "restrictions": [],
+    "privileges": [],
+    "fastpath": [],
+    "fields": [
+      {
+        "name": "host",
+        "type": "STRING",
+        "description": "MinIO server hostname or IP",
+        "is_required": true,
+        "default": "localhost",
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "port",
+        "type": "INTEGER",
+        "description": "MinIO S3 API port",
+        "is_required": false,
+        "default": "9000",
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "bucket_name",
+        "type": "STRING",
+        "description": "Target bucket name",
+        "is_required": false,
+        "default": null,
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "access_key_id_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to MinIO access key secret",
+        "is_required": true,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "secret_access_key_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to MinIO secret key secret",
+        "is_required": true,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      }
+    ]
+  },
+  "mongodb": {
+    "provider_id": "mongodb",
+    "family": "nosql",
+    "vendor_name": "MongoDB Inc.",
+    "version": "1.0.0",
+    "roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION",
+      "CDC_LOG"
+    ],
+    "auth": [
+      "PASSWORD"
+    ],
+    "tls": true,
+    "mtls": true,
+    "proof": "IMPLEMENTED",
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "CHANGE_STREAMS": "SUPPORTED",
+      "CDC_LOG_CAPTURE": "SUPPORTED",
+      "TRANSACTIONS": "SUPPORTED",
+      "SHARDING_AWARENESS": "SUPPORTED"
+    },
+    "restrictions": [],
+    "privileges": [],
+    "fastpath": [],
+    "fields": [
+      {
+        "name": "host",
+        "type": "STRING",
+        "description": "MongoDB primary hostname",
+        "is_required": false,
+        "default": null,
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "port",
+        "type": "INTEGER",
+        "description": "MongoDB port",
+        "is_required": false,
+        "default": "27017",
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "endpoints",
+        "type": "LIST",
+        "description": "List of replica set node addresses (host:port)",
+        "is_required": false,
+        "default": null,
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "database_name",
+        "type": "STRING",
+        "description": "Default database name",
+        "is_required": false,
+        "default": "admin",
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "username",
+        "type": "STRING",
+        "description": "MongoDB username",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "password_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to MongoDB password secret",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "auth_source",
+        "type": "STRING",
+        "description": "Authentication database",
+        "is_required": false,
+        "default": "admin",
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "replica_set",
+        "type": "STRING",
+        "description": "Replica set name",
+        "is_required": false,
+        "default": null,
+        "group": "Connection",
+        "allowed": null
+      }
+    ]
+  },
+  "mssql": {
+    "provider_id": "mssql",
+    "family": "relational",
+    "vendor_name": "Microsoft",
+    "version": "1.0.0",
+    "roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION",
+      "CDC_LOG"
+    ],
+    "auth": [
+      "PASSWORD"
+    ],
+    "tls": true,
+    "mtls": false,
+    "proof": "IMPLEMENTED",
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "BCP_FAST_COPY": "SUPPORTED",
+      "TRANSACTIONS": "SUPPORTED",
+      "SAVEPOINTS": "SUPPORTED",
+      "CDC_LOG_CAPTURE": "SUPPORTED",
+      "CHANGE_TRACKING": "SUPPORTED",
+      "PARTITION_AWARENESS": "SUPPORTED",
+      "FOREIGN_KEYS": "SUPPORTED"
+    },
+    "restrictions": [],
+    "privileges": [
+      "CONNECT SQL",
+      "VIEW DEFINITION",
+      "SELECT"
+    ],
+    "fastpath": [
+      "FAST_EXECUTEMANY",
+      "TABLOCK",
+      "BULK INSERT"
+    ],
+    "fields": [
+      {
+        "name": "host",
+        "type": "STRING",
+        "description": "SQL Server hostname or IP address",
+        "is_required": true,
+        "default": null,
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "port",
+        "type": "INTEGER",
+        "description": "SQL Server port",
+        "is_required": false,
+        "default": "1433",
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "database_name",
+        "type": "STRING",
+        "description": "Target database name",
+        "is_required": false,
+        "default": "master",
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "trusted_connection",
+        "type": "BOOLEAN",
+        "description": "Enable Windows Integrated Authentication (SSPI / Trusted_Connection)",
+        "is_required": false,
+        "default": "False",
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "integrated_security",
+        "type": "STRING",
+        "description": "Integrated security provider (e.g. 'SSPI')",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "username",
+        "type": "STRING",
+        "description": "SQL Server login username (omitted when trusted_connection is enabled)",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "password_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to password secret",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "odbc_driver",
+        "type": "STRING",
+        "description": "ODBC driver name",
+        "is_required": false,
+        "default": "ODBC Driver 17 for SQL Server",
+        "group": "Connection",
+        "allowed": null
+      }
+    ]
+  },
+  "mysql": {
+    "provider_id": "mysql",
+    "family": "relational",
+    "vendor_name": "Oracle MySQL",
+    "version": "1.0.0",
+    "roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION",
+      "CDC_LOG"
+    ],
+    "auth": [
+      "PASSWORD"
+    ],
+    "tls": true,
+    "mtls": true,
+    "proof": "IMPLEMENTED",
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "LOAD_DATA_INFILE": "SUPPORTED",
+      "TRANSACTIONS": "SUPPORTED",
+      "SAVEPOINTS": "SUPPORTED",
+      "CDC_LOG_CAPTURE": "SUPPORTED",
+      "PARTITION_AWARENESS": "SUPPORTED",
+      "FOREIGN_KEYS": "SUPPORTED"
+    },
+    "restrictions": [
+      "Requires binlog_format=ROW and binlog_row_image=FULL for CDC"
+    ],
+    "privileges": [
+      "SELECT",
+      "RELOAD",
+      "REPLICATION SLAVE",
+      "REPLICATION CLIENT"
+    ],
+    "fastpath": [
+      "LOAD DATA LOCAL INFILE",
+      "INSERT MULTIPLE ROWS",
+      "SET FOREIGN_KEY_CHECKS=0"
+    ],
+    "fields": [
+      {
+        "name": "host",
+        "type": "STRING",
+        "description": "MYSQL server hostname or IP address",
+        "is_required": true,
+        "default": null,
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "port",
+        "type": "INTEGER",
+        "description": "MYSQL server port",
+        "is_required": false,
+        "default": "3306",
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "database_name",
+        "type": "STRING",
+        "description": "Target database name",
+        "is_required": true,
+        "default": null,
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "username",
+        "type": "STRING",
+        "description": "Database username",
+        "is_required": true,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "password_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to password secret",
+        "is_required": true,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "charset",
+        "type": "STRING",
+        "description": "Character set encoding",
+        "is_required": false,
+        "default": "utf8mb4",
+        "group": "Connection",
+        "allowed": null
+      },
+      {
+        "name": "connect_timeout",
+        "type": "INTEGER",
+        "description": "TCP connect timeout in seconds",
+        "is_required": false,
+        "default": "15",
+        "group": "Connection",
+        "allowed": null
+      }
+    ]
+  },
+  "neo4j": {
+    "provider_id": "neo4j",
+    "family": "nosql",
+    "vendor_name": "Neo4j Inc.",
+    "version": "1.0.0",
+    "roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "auth": [
+      "PASSWORD"
+    ],
+    "tls": true,
+    "mtls": false,
+    "proof": "IMPLEMENTED",
+    "capabilities": {
+      "GRAPH_SCHEMA_DISCOVERY": "SUPPORTED",
+      "CYPHER_EXECUTION": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "TRANSACTIONS": "SUPPORTED"
+    },
+    "restrictions": [],
+    "privileges": [],
+    "fastpath": [],
+    "fields": [
+      {
+        "name": "host",
+        "type": "STRING",
+        "description": "Neo4j server hostname",
+        "is_required": true,
+        "default": null,
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "port",
+        "type": "INTEGER",
+        "description": "Bolt protocol port",
+        "is_required": false,
+        "default": "7687",
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "database_name",
+        "type": "STRING",
+        "description": "Target graph database name",
+        "is_required": false,
+        "default": "neo4j",
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "username",
+        "type": "STRING",
+        "description": "Neo4j username",
+        "is_required": true,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "password_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to Neo4j password secret",
+        "is_required": true,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      }
+    ]
+  },
+  "oci_object_storage": {
+    "provider_id": "oci_object_storage",
+    "family": "storage",
+    "vendor_name": "Oracle Cloud Infrastructure",
+    "version": "1.0.0",
+    "roles": [
+      "SOURCE",
+      "TARGET",
+      "STAGING",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "auth": [
+      "PASSWORD"
+    ],
+    "tls": true,
+    "mtls": false,
+    "proof": "IMPLEMENTED",
+    "capabilities": {
+      "BUCKET_DISCOVERY": "SUPPORTED",
+      "OBJECT_READ": "SUPPORTED",
+      "OBJECT_WRITE": "SUPPORTED",
+      "MULTIPART_UPLOAD": "SUPPORTED",
+      "S3_SELECT": "UNSUPPORTED",
+      "PARQUET_READ": "SUPPORTED",
+      "CSV_READ": "SUPPORTED",
+      "SERVER_SIDE_COPY": "SUPPORTED"
+    },
+    "restrictions": [],
+    "privileges": [],
+    "fastpath": [
+      "MULTIPART_PARALLEL_UPLOAD"
+    ],
+    "fields": [
+      {
+        "name": "region",
+        "type": "STRING",
+        "description": "OCI region identifier (e.g. us-ashburn-1); OCI Object Storage has no regionless endpoint",
+        "is_required": true,
+        "default": null,
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "namespace",
+        "type": "STRING",
+        "description": "OCI Object Storage tenancy namespace",
+        "is_required": false,
+        "default": null,
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "bucket",
+        "type": "STRING",
+        "description": "Target bucket name",
+        "is_required": false,
+        "default": null,
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "compartment_id",
+        "type": "STRING",
+        "description": "OCID of the compartment owning the bucket (required for bucket discovery)",
+        "is_required": false,
+        "default": null,
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "auth_mode",
+        "type": "STRING",
+        "description": "Authentication mode: 'config_file' (API key), 'instance_principal', or 'resource_principal'",
+        "is_required": false,
+        "default": "config_file",
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "tenancy_ocid",
+        "type": "STRING",
+        "description": "Tenancy OCID (config_file auth mode)",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "user_ocid",
+        "type": "STRING",
+        "description": "User OCID (config_file auth mode)",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "fingerprint",
+        "type": "STRING",
+        "description": "API signing key fingerprint (config_file auth mode)",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "password_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to the PEM private key content secret (config_file auth mode)",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "config_file_path",
+        "type": "STRING",
+        "description": "Path to local OCI CLI config file, used only when explicit API-key fields are not supplied",
+        "is_required": false,
+        "default": "~/.oci/config",
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "config_profile",
+        "type": "STRING",
+        "description": "OCI CLI config file profile name",
+        "is_required": false,
+        "default": "DEFAULT",
+        "group": "Authentication",
+        "allowed": null
+      }
+    ]
+  },
+  "opensearch": {
+    "provider_id": "opensearch",
+    "family": "nosql",
+    "vendor_name": "OpenSearch Project",
+    "version": "1.0.0",
+    "roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "auth": [
+      "PASSWORD"
+    ],
+    "tls": true,
+    "mtls": true,
+    "proof": "IMPLEMENTED",
+    "capabilities": {
+      "INDEX_SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "POINT_IN_TIME": "SUPPORTED"
+    },
+    "restrictions": [],
+    "privileges": [],
+    "fastpath": [],
+    "fields": [
+      {
+        "name": "host",
+        "type": "STRING",
+        "description": "Opensearch cluster primary host",
+        "is_required": false,
+        "default": null,
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "port",
+        "type": "INTEGER",
+        "description": "Opensearch HTTP REST port",
+        "is_required": false,
+        "default": "9200",
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "endpoints",
+        "type": "LIST",
+        "description": "List of cluster node URLs or host:port pairs",
+        "is_required": false,
+        "default": null,
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "username",
+        "type": "STRING",
+        "description": "Basic auth username",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "password_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to basic auth password secret",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "api_key_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to API Key secret",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      }
+    ]
+  },
+  "oracle": {
+    "provider_id": "oracle",
+    "family": "relational",
+    "vendor_name": "Oracle Corporation",
+    "version": "1.0.0",
+    "roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION",
+      "CDC_LOG"
+    ],
+    "auth": [
+      "PASSWORD"
+    ],
+    "tls": true,
+    "mtls": true,
+    "proof": "IMPLEMENTED",
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "DIRECT_PATH_LOAD": "SUPPORTED",
+      "TRANSACTIONS": "SUPPORTED",
+      "SAVEPOINTS": "SUPPORTED",
+      "CDC_LOG_CAPTURE": "SUPPORTED",
+      "FLASHBACK_QUERY": "SUPPORTED",
+      "PARTITION_AWARENESS": "SUPPORTED",
+      "LOBS": "SUPPORTED",
+      "FOREIGN_KEYS": "SUPPORTED"
+    },
+    "restrictions": [
+      "Requires supplemental logging for CDC LogMiner capture"
+    ],
+    "privileges": [
+      "CREATE SESSION",
+      "SELECT ANY TABLE",
+      "LOGMINING"
+    ],
+    "fastpath": [
+      "EXECUTEMANY WITH ARRAYSIZE",
+      "DIRECT PATH STREAMING",
+      "FLASHBACK SCN"
+    ],
+    "fields": [
+      {
+        "name": "host",
+        "type": "STRING",
+        "description": "Oracle server hostname or IP address (optional if tns_entry is set)",
+        "is_required": false,
+        "default": null,
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "port",
+        "type": "INTEGER",
+        "description": "Oracle listener port",
+        "is_required": false,
+        "default": "1521",
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "service_name",
+        "type": "STRING",
+        "description": "Oracle Pluggable Database (PDB) or Service Name",
+        "is_required": false,
+        "default": "ORCLPDB1",
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "sid",
+        "type": "STRING",
+        "description": "Oracle System Identifier (SID) if connecting via SID rather than Service Name",
+        "is_required": false,
+        "default": null,
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "tns_entry",
+        "type": "STRING",
+        "description": "TNS alias or descriptor defined in tnsnames.ora",
+        "is_required": false,
+        "default": null,
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "wallet_location",
+        "type": "STRING",
+        "description": "Filesystem directory containing Oracle Wallet files (cwallet.sso/ewallet.p12)",
+        "is_required": false,
+        "default": null,
+        "group": "Security",
+        "allowed": null
+      },
+      {
+        "name": "wallet_password_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to Oracle Wallet password secret",
+        "is_required": false,
+        "default": null,
+        "group": "Security",
+        "allowed": null
+      },
+      {
+        "name": "driver_mode",
+        "type": "STRING",
+        "description": "python-oracledb execution mode",
+        "is_required": false,
+        "default": "THIN",
+        "group": "Connection",
+        "allowed": [
+          "THIN",
+          "THICK"
+        ]
+      },
+      {
+        "name": "oracle_client_lib_dir",
+        "type": "STRING",
+        "description": "Oracle Client library directory used only for explicit THICK mode",
+        "is_required": false,
+        "default": null,
+        "group": "Connection",
+        "allowed": null
+      },
+      {
+        "name": "oracle_client_config_dir",
+        "type": "STRING",
+        "description": "Oracle Client network configuration directory used only for explicit THICK initialization",
+        "is_required": false,
+        "default": null,
+        "group": "Connection",
+        "allowed": null
+      },
+      {
+        "name": "username",
+        "type": "STRING",
+        "description": "Oracle database username",
+        "is_required": true,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "password_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to Oracle password secret",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "privilege_mode",
+        "type": "STRING",
+        "description": "Privileged connection mode (NORMAL, SYSDBA, SYSOPER)",
+        "is_required": false,
+        "default": "NORMAL",
+        "group": "Authentication",
+        "allowed": [
+          "NORMAL",
+          "SYSDBA",
+          "SYSOPER"
+        ]
+      }
+    ]
+  },
+  "postgresql": {
+    "provider_id": "postgresql",
+    "family": "relational",
+    "vendor_name": "PostgreSQL Global Development Group",
+    "version": "1.0.0",
+    "roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION",
+      "CDC_LOG"
+    ],
+    "auth": [
+      "PASSWORD"
+    ],
+    "tls": true,
+    "mtls": true,
+    "proof": "IMPLEMENTED",
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "BINARY_COPY": "SUPPORTED",
+      "TRANSACTIONS": "SUPPORTED",
+      "SAVEPOINTS": "SUPPORTED",
+      "CDC_LOG_CAPTURE": "SUPPORTED",
+      "LOGICAL_REPLICATION": "SUPPORTED",
+      "PARTITION_AWARENESS": "SUPPORTED",
+      "FOREIGN_KEYS": "SUPPORTED",
+      "LOBS": "SUPPORTED"
+    },
+    "restrictions": [
+      "Requires wal_level=logical for CDC capture"
+    ],
+    "privileges": [
+      "CONNECT",
+      "USAGE",
+      "SELECT",
+      "REPLICATION"
+    ],
+    "fastpath": [
+      "COPY FROM STDIN BINARY",
+      "UNLOGGED TABLES",
+      "SESSION REPLICATION ROLE"
+    ],
+    "fields": [
+      {
+        "name": "host",
+        "type": "STRING",
+        "description": "PostgreSQL server hostname or IP address",
+        "is_required": true,
+        "default": null,
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "port",
+        "type": "INTEGER",
+        "description": "PostgreSQL server port",
+        "is_required": false,
+        "default": "5432",
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "database_name",
+        "type": "STRING",
+        "description": "Target database name",
+        "is_required": true,
+        "default": null,
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "schema_name",
+        "type": "STRING",
+        "description": "Default schema search path",
+        "is_required": false,
+        "default": "public",
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "username",
+        "type": "STRING",
+        "description": "Database username",
+        "is_required": true,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "password_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to password secret",
+        "is_required": true,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "connect_timeout",
+        "type": "INTEGER",
+        "description": "TCP connect timeout in seconds",
+        "is_required": false,
+        "default": "15",
+        "group": "Connection",
+        "allowed": null
+      }
+    ]
+  },
+  "pubsub": {
+    "provider_id": "pubsub",
+    "family": "streaming",
+    "vendor_name": "Google Cloud",
+    "version": "1.0.0",
+    "roles": [
+      "SOURCE",
+      "TARGET",
+      "CDC_LOG"
+    ],
+    "auth": [
+      "PASSWORD"
+    ],
+    "tls": true,
+    "mtls": false,
+    "proof": "IMPLEMENTED",
+    "capabilities": {
+      "TOPIC_DISCOVERY": "SUPPORTED",
+      "STREAMING_READ": "SUPPORTED",
+      "STREAMING_WRITE": "SUPPORTED",
+      "EXACTLY_ONCE_DELIVERY": "SUPPORTED"
+    },
+    "restrictions": [],
+    "privileges": [],
+    "fastpath": [],
+    "fields": [
+      {
+        "name": "project_id",
+        "type": "STRING",
+        "description": "Google Cloud Project ID",
+        "is_required": true,
+        "default": null,
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "topic_id",
+        "type": "STRING",
+        "description": "Target Pub/Sub topic identifier",
+        "is_required": false,
+        "default": null,
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "subscription_id",
+        "type": "STRING",
+        "description": "Source Pub/Sub subscription identifier",
+        "is_required": false,
+        "default": null,
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "service_account_json_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to GCP Service Account JSON key secret (omitted if using ambient ADC)",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      }
+    ]
+  },
+  "pulsar": {
+    "provider_id": "pulsar",
+    "family": "streaming",
+    "vendor_name": "Apache Software Foundation",
+    "version": "1.0.0",
+    "roles": [
+      "SOURCE",
+      "TARGET",
+      "CDC_LOG"
+    ],
+    "auth": [
+      "PASSWORD"
+    ],
+    "tls": true,
+    "mtls": true,
+    "proof": "IMPLEMENTED",
+    "capabilities": {
+      "TOPIC_DISCOVERY": "SUPPORTED",
+      "STREAMING_READ": "SUPPORTED",
+      "STREAMING_WRITE": "SUPPORTED",
+      "OFFSET_COMMIT": "SUPPORTED",
+      "MULTI_TENANCY": "SUPPORTED",
+      "EXACTLY_ONCE": "UNSUPPORTED",
+      "SCHEMA_REGISTRY": "UNSUPPORTED"
+    },
+    "restrictions": [
+      "EXACTLY_ONCE and SCHEMA_REGISTRY are real Pulsar platform features not wired by this connector strategy.",
+      "Broker-wide topic/tenant/namespace inventory requires the Pulsar Admin REST API (default port 8080), separate from the binary client protocol (default port 6650)."
+    ],
+    "privileges": [
+      "produce",
+      "consume"
+    ],
+    "fastpath": [],
+    "fields": [
+      {
+        "name": "host",
+        "type": "STRING",
+        "description": "Pulsar broker hostname or IP address",
+        "is_required": true,
+        "default": null,
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "port",
+        "type": "INTEGER",
+        "description": "Pulsar binary protocol port",
+        "is_required": false,
+        "default": "6650",
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "tenant",
+        "type": "STRING",
+        "description": "Pulsar tenant name",
+        "is_required": false,
+        "default": "public",
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "namespace",
+        "type": "STRING",
+        "description": "Pulsar namespace name",
+        "is_required": false,
+        "default": "default",
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "service_url",
+        "type": "STRING",
+        "description": "Full Pulsar service URL override (e.g. pulsar+ssl://host:6651)",
+        "is_required": false,
+        "default": null,
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "admin_url",
+        "type": "STRING",
+        "description": "Pulsar Admin REST API base URL (default http://host:8080) used for topic/tenant/namespace discovery",
+        "is_required": false,
+        "default": null,
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "auth_token_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to Pulsar JWT authentication token secret",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "connect_timeout",
+        "type": "INTEGER",
+        "description": "Connect timeout in seconds",
+        "is_required": false,
+        "default": "15",
+        "group": "Connection",
+        "allowed": null
+      }
+    ]
+  },
+  "rabbitmq": {
+    "provider_id": "rabbitmq",
+    "family": "streaming",
+    "vendor_name": "VMware / Broadcom (RabbitMQ)",
+    "version": "1.0.0",
+    "roles": [
+      "SOURCE",
+      "TARGET"
+    ],
+    "auth": [
+      "PASSWORD"
+    ],
+    "tls": true,
+    "mtls": true,
+    "proof": "IMPLEMENTED",
+    "capabilities": {
+      "TOPIC_DISCOVERY": "SUPPORTED",
+      "STREAMING_READ": "SUPPORTED",
+      "STREAMING_WRITE": "SUPPORTED",
+      "PUBLISHER_CONFIRMS": "SUPPORTED",
+      "CONSUMER_ACKNOWLEDGEMENTS": "SUPPORTED",
+      "DEAD_LETTER_ROUTING": "SUPPORTED",
+      "OFFSET_COMMIT": "UNSUPPORTED",
+      "CDC_LOG_CAPTURE": "UNSUPPORTED",
+      "EXACTLY_ONCE": "UNSUPPORTED",
+      "SCHEMA_REGISTRY": "UNSUPPORTED"
+    },
+    "restrictions": [
+      "Classic and quorum queues consume-and-remove; they are not a replayable log.",
+      "CDC_LOG_CAPTURE and OFFSET_COMMIT require the RabbitMQ Streams plugin and are not assumed supported without a live probe."
+    ],
+    "privileges": [
+      "configure",
+      "write",
+      "read"
+    ],
+    "fastpath": [],
+    "fields": [
+      {
+        "name": "host",
+        "type": "STRING",
+        "description": "RabbitMQ broker hostname or IP address",
+        "is_required": true,
+        "default": null,
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "port",
+        "type": "INTEGER",
+        "description": "RabbitMQ AMQP port",
+        "is_required": false,
+        "default": "5672",
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "virtual_host",
+        "type": "STRING",
+        "description": "RabbitMQ virtual host",
+        "is_required": false,
+        "default": "/",
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "username",
+        "type": "STRING",
+        "description": "RabbitMQ username",
+        "is_required": false,
+        "default": "guest",
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "password_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to RabbitMQ password secret",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "connect_timeout",
+        "type": "INTEGER",
+        "description": "TCP connect timeout in seconds",
+        "is_required": false,
+        "default": "15",
+        "group": "Connection",
+        "allowed": null
+      }
+    ]
+  },
+  "redis": {
+    "provider_id": "redis",
+    "family": "nosql",
+    "vendor_name": "Redis Ltd.",
+    "version": "1.0.0",
+    "roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "auth": [
+      "PASSWORD"
+    ],
+    "tls": true,
+    "mtls": true,
+    "proof": "IMPLEMENTED",
+    "capabilities": {
+      "KEY_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "REDIS_STREAMS": "SUPPORTED",
+      "PUB_SUB": "SUPPORTED",
+      "CDC_LOG_CAPTURE": "SUPPORTED",
+      "CLUSTER_AWARENESS": "SUPPORTED"
+    },
+    "restrictions": [],
+    "privileges": [],
+    "fastpath": [],
+    "fields": [
+      {
+        "name": "host",
+        "type": "STRING",
+        "description": "REDIS server hostname",
+        "is_required": true,
+        "default": null,
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "port",
+        "type": "INTEGER",
+        "description": "REDIS server port",
+        "is_required": false,
+        "default": "6379",
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "database_name",
+        "type": "STRING",
+        "description": "Redis database index",
+        "is_required": false,
+        "default": "0",
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "username",
+        "type": "STRING",
+        "description": "ACL username (optional)",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "password_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to Redis AUTH secret",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      }
+    ]
+  },
+  "redshift": {
+    "provider_id": "redshift",
+    "family": "warehouse",
+    "vendor_name": "Amazon Web Services",
+    "version": "1.0.0",
+    "roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "auth": [
+      "PASSWORD"
+    ],
+    "tls": true,
+    "mtls": false,
+    "proof": "IMPLEMENTED",
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "S3_COPY": "SUPPORTED",
+      "S3_UNLOAD": "SUPPORTED",
+      "TRANSACTIONS": "SUPPORTED",
+      "DISTRIBUTION_KEYS": "SUPPORTED",
+      "SORT_KEYS": "SUPPORTED"
+    },
+    "restrictions": [],
+    "privileges": [],
+    "fastpath": [
+      "COPY FROM S3 MANIFEST",
+      "UNLOAD TO S3 PARQUET"
+    ],
+    "fields": [
+      {
+        "name": "host",
+        "type": "STRING",
+        "description": "Redshift cluster endpoint hostname",
+        "is_required": true,
+        "default": null,
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "port",
+        "type": "INTEGER",
+        "description": "Redshift port",
+        "is_required": false,
+        "default": "5439",
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "database_name",
+        "type": "STRING",
+        "description": "Target database name",
+        "is_required": true,
+        "default": null,
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "username",
+        "type": "STRING",
+        "description": "Database username",
+        "is_required": true,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "password_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to Redshift password secret",
+        "is_required": true,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "cluster_identifier",
+        "type": "STRING",
+        "description": "AWS Redshift cluster identifier",
+        "is_required": false,
+        "default": null,
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "region",
+        "type": "STRING",
+        "description": "AWS Region",
+        "is_required": false,
+        "default": "us-east-1",
+        "group": "Network",
+        "allowed": null
+      }
+    ]
+  },
+  "s3": {
+    "provider_id": "s3",
+    "family": "storage",
+    "vendor_name": "Amazon Web Services",
+    "version": "1.0.0",
+    "roles": [
+      "SOURCE",
+      "TARGET",
+      "STAGING",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "auth": [
+      "PASSWORD"
+    ],
+    "tls": true,
+    "mtls": false,
+    "proof": "IMPLEMENTED",
+    "capabilities": {
+      "BUCKET_DISCOVERY": "SUPPORTED",
+      "OBJECT_READ": "SUPPORTED",
+      "OBJECT_WRITE": "SUPPORTED",
+      "MULTIPART_UPLOAD": "SUPPORTED",
+      "S3_SELECT": "SUPPORTED",
+      "PARQUET_READ": "SUPPORTED",
+      "CSV_READ": "SUPPORTED"
+    },
+    "restrictions": [],
+    "privileges": [],
+    "fastpath": [
+      "MULTIPART_PARALLEL_UPLOAD",
+      "S3_ACCELERATE"
+    ],
+    "fields": [
+      {
+        "name": "region",
+        "type": "STRING",
+        "description": "AWS Region",
+        "is_required": false,
+        "default": "us-east-1",
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "endpoint_url",
+        "type": "STRING",
+        "description": "Custom S3 endpoint URL (for MinIO, Ceph, LocalStack, or VPC endpoints)",
+        "is_required": false,
+        "default": null,
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "bucket_name",
+        "type": "STRING",
+        "description": "Target S3 bucket name",
+        "is_required": false,
+        "default": null,
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "access_key_id_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to AWS Access Key ID secret (omitted if using ambient IAM)",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "secret_access_key_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to AWS Secret Access Key secret",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "session_token_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to AWS STS Temporary Session Token secret",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      }
+    ]
+  },
+  "salesforce": {
+    "provider_id": "salesforce",
+    "family": "application",
+    "vendor_name": "Salesforce, Inc.",
+    "version": "1.0.0",
+    "roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "auth": [
+      "PASSWORD"
+    ],
+    "tls": true,
+    "mtls": false,
+    "proof": "IMPLEMENTED",
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "TRANSACTIONS": "UNSUPPORTED",
+      "FOREIGN_KEYS": "SUPPORTED",
+      "CDC_LOG_CAPTURE": "UNSUPPORTED"
+    },
+    "restrictions": [
+      "Bulk API 2.0 (for very large extracts) is not implemented -- only SOQL query()/query_more().",
+      "SObject Collections writes are capped at 200 records/call; no server-side transaction spans multiple calls."
+    ],
+    "privileges": [
+      "api",
+      "refresh_token"
+    ],
+    "fastpath": [],
+    "fields": [
+      {
+        "name": "domain",
+        "type": "STRING",
+        "description": "Salesforce login domain ('login' or 'test')",
+        "is_required": false,
+        "default": "login",
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "username",
+        "type": "STRING",
+        "description": "Salesforce username",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "password_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to password secret",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "security_token_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to security token secret",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "consumer_key",
+        "type": "STRING",
+        "description": "Connected App OAuth2 consumer key",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "consumer_secret_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to OAuth2 consumer secret",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      }
+    ]
+  },
+  "sap_application": {
+    "provider_id": "sap_application",
+    "family": "application",
+    "vendor_name": "SAP SE",
+    "version": "1.0.0",
+    "roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "auth": [
+      "PASSWORD"
+    ],
+    "tls": true,
+    "mtls": false,
+    "proof": "IMPLEMENTED",
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "UNSUPPORTED",
+      "TRANSACTIONS": "UNSUPPORTED",
+      "FOREIGN_KEYS": "UNSUPPORTED",
+      "CDC_LOG_CAPTURE": "UNSUPPORTED"
+    },
+    "restrictions": [
+      "interface_mode='odata' is locally provable without proprietary dependencies.",
+      "interface_mode in {'rfc_bapi','idoc'} requires the proprietary 'pyrfc' SDK (SAP NetWeaver RFC SDK C library) and fails closed (DependencyMissingError) when it is not installed -- never silently degrades to OData or a fake success.",
+      "Writes are per-record OData PUT/POST, BAPI calls, or IDoc inbound posts -- not a native SAP batch-input/LSMW/bulk executor."
+    ],
+    "privileges": [
+      "S_RFC",
+      "S_TABU_DIS"
+    ],
+    "fastpath": [],
+    "fields": [
+      {
+        "name": "interface_mode",
+        "type": "STRING",
+        "description": "Interface mode",
+        "is_required": false,
+        "default": "odata",
+        "group": "Connection",
+        "allowed": [
+          "odata",
+          "rfc_bapi",
+          "idoc"
+        ]
+      },
+      {
+        "name": "host",
+        "type": "STRING",
+        "description": "SAP Application Server hostname (RFC/IDoc) or Gateway base URL (OData)",
+        "is_required": true,
+        "default": null,
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "system_number",
+        "type": "STRING",
+        "description": "SAP system number (RFC/BAPI, IDoc modes)",
+        "is_required": false,
+        "default": "00",
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "client",
+        "type": "STRING",
+        "description": "SAP client (RFC/BAPI, IDoc modes)",
+        "is_required": false,
+        "default": "100",
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "service_path",
+        "type": "STRING",
+        "description": "OData service path (OData mode)",
+        "is_required": false,
+        "default": null,
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "username",
+        "type": "STRING",
+        "description": "SAP username",
+        "is_required": true,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "password_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to password secret",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      }
+    ]
+  },
+  "sap_ase": {
+    "provider_id": "sap_ase",
+    "family": "relational",
+    "vendor_name": "SAP SE",
+    "version": "1.0.0",
+    "roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "auth": [
+      "PASSWORD"
+    ],
+    "tls": true,
+    "mtls": false,
+    "proof": "IMPLEMENTED",
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "TRANSACTIONS": "SUPPORTED",
+      "FOREIGN_KEYS": "SUPPORTED",
+      "CDC_LOG_CAPTURE": "UNSUPPORTED"
+    },
+    "restrictions": [
+      "Bulk load uses standard executemany() INSERT, not the native bcp utility.",
+      "Identifiers are treated as unquoted (QUOTED_IDENTIFIER not assumed ON)."
+    ],
+    "privileges": [
+      "SELECT",
+      "INSERT"
+    ],
+    "fastpath": [],
+    "fields": [
+      {
+        "name": "host",
+        "type": "STRING",
+        "description": "SAP ASE server hostname or IP address",
+        "is_required": true,
+        "default": null,
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "port",
+        "type": "INTEGER",
+        "description": "SAP ASE TDS port",
+        "is_required": false,
+        "default": "5000",
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "database_name",
+        "type": "STRING",
+        "description": "Target database name",
+        "is_required": false,
+        "default": null,
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "username",
+        "type": "STRING",
+        "description": "Database username",
+        "is_required": true,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "password_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to password secret",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      }
+    ]
+  },
+  "sap_hana": {
+    "provider_id": "sap_hana",
+    "family": "relational",
+    "vendor_name": "SAP SE",
+    "version": "1.0.0",
+    "roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "auth": [
+      "PASSWORD"
+    ],
+    "tls": true,
+    "mtls": true,
+    "proof": "IMPLEMENTED",
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "TRANSACTIONS": "SUPPORTED",
+      "PARTITION_AWARENESS": "SUPPORTED",
+      "FOREIGN_KEYS": "SUPPORTED",
+      "CDC_LOG_CAPTURE": "UNSUPPORTED"
+    },
+    "restrictions": [
+      "Bulk load uses standard executemany() INSERT, not HANA bulk-import utilities."
+    ],
+    "privileges": [
+      "SELECT",
+      "INSERT"
+    ],
+    "fastpath": [],
+    "fields": [
+      {
+        "name": "host",
+        "type": "STRING",
+        "description": "SAP HANA instance hostname or IP address",
+        "is_required": true,
+        "default": null,
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "port",
+        "type": "INTEGER",
+        "description": "SAP HANA SQL port",
+        "is_required": false,
+        "default": "30015",
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "database_name",
+        "type": "STRING",
+        "description": "Tenant database name (MDC)",
+        "is_required": false,
+        "default": null,
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "username",
+        "type": "STRING",
+        "description": "Database username",
+        "is_required": true,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "password_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to password secret",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "encrypt",
+        "type": "BOOLEAN",
+        "description": "Encrypt session data (TLS)",
+        "is_required": false,
+        "default": "True",
+        "group": "Security",
+        "allowed": null
+      }
+    ]
+  },
+  "scylladb": {
+    "provider_id": "scylladb",
+    "family": "nosql",
+    "vendor_name": "ScyllaDB Inc.",
+    "version": "1.0.0",
+    "roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "auth": [
+      "PASSWORD"
+    ],
+    "tls": true,
+    "mtls": true,
+    "proof": "IMPLEMENTED",
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "SHARD_AWARE_ROUTING": "SUPPORTED",
+      "CDC_LOG_CAPTURE": "SUPPORTED"
+    },
+    "restrictions": [],
+    "privileges": [],
+    "fastpath": [],
+    "fields": [
+      {
+        "name": "host",
+        "type": "STRING",
+        "description": "Initial contact point hostname",
+        "is_required": false,
+        "default": null,
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "port",
+        "type": "INTEGER",
+        "description": "CQL native transport port",
+        "is_required": false,
+        "default": "9042",
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "endpoints",
+        "type": "LIST",
+        "description": "List of cluster contact points",
+        "is_required": false,
+        "default": null,
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "database_name",
+        "type": "STRING",
+        "description": "Default keyspace name",
+        "is_required": false,
+        "default": null,
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "username",
+        "type": "STRING",
+        "description": "CQL username",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "password_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to CQL password secret",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "protocol_version",
+        "type": "INTEGER",
+        "description": "CQL binary protocol version",
+        "is_required": false,
+        "default": "4",
+        "group": "Connection",
+        "allowed": null
+      }
+    ]
+  },
+  "servicenow": {
+    "provider_id": "servicenow",
+    "family": "application",
+    "vendor_name": "ServiceNow, Inc.",
+    "version": "1.0.0",
+    "roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "auth": [
+      "PASSWORD"
+    ],
+    "tls": true,
+    "mtls": false,
+    "proof": "IMPLEMENTED",
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "UNSUPPORTED",
+      "TRANSACTIONS": "UNSUPPORTED",
+      "FOREIGN_KEYS": "SUPPORTED",
+      "CDC_LOG_CAPTURE": "UNSUPPORTED"
+    },
+    "restrictions": [
+      "Writes are per-record Table API calls, not a bulk Import Set/Attachment API executor.",
+      "Incremental reads use sys_updated_on polling, which is honestly NOT change-data-capture."
+    ],
+    "privileges": [
+      "rest_api_explorer",
+      "web_service_admin"
+    ],
+    "fastpath": [],
+    "fields": [
+      {
+        "name": "instance",
+        "type": "STRING",
+        "description": "ServiceNow instance name or full base URL",
+        "is_required": true,
+        "default": null,
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "username",
+        "type": "STRING",
+        "description": "ServiceNow username",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "password_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to password secret",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "access_token_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to OAuth2 access token secret",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      }
+    ]
+  },
+  "singlestore": {
+    "provider_id": "singlestore",
+    "family": "relational",
+    "vendor_name": "SingleStore, Inc.",
+    "version": "1.0.0",
+    "roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "auth": [
+      "PASSWORD"
+    ],
+    "tls": true,
+    "mtls": true,
+    "proof": "IMPLEMENTED",
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "LOAD_DATA_INFILE": "SUPPORTED",
+      "TRANSACTIONS": "SUPPORTED",
+      "DISTRIBUTED_TOPOLOGY": "SUPPORTED",
+      "PARTITION_AWARENESS": "SUPPORTED",
+      "COLUMNAR_STORAGE": "SUPPORTED",
+      "FOREIGN_KEYS": "UNSUPPORTED",
+      "CDC_LOG_CAPTURE": "UNSUPPORTED"
+    },
+    "restrictions": [
+      "Foreign keys are parsed for compatibility but not enforced by SingleStore.",
+      "Change capture requires a dedicated Pipelines-based integration this connector does not implement."
+    ],
+    "privileges": [
+      "SELECT",
+      "PROCESS"
+    ],
+    "fastpath": [],
+    "fields": [
+      {
+        "name": "host",
+        "type": "STRING",
+        "description": "SingleStore aggregator hostname or IP address",
+        "is_required": true,
+        "default": null,
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "port",
+        "type": "INTEGER",
+        "description": "SingleStore SQL port",
+        "is_required": false,
+        "default": "3306",
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "database_name",
+        "type": "STRING",
+        "description": "Target database name",
+        "is_required": false,
+        "default": null,
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "username",
+        "type": "STRING",
+        "description": "Database username",
+        "is_required": true,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "password_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to password secret",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "charset",
+        "type": "STRING",
+        "description": "Character set encoding",
+        "is_required": false,
+        "default": "utf8mb4",
+        "group": "Connection",
+        "allowed": null
+      },
+      {
+        "name": "connect_timeout",
+        "type": "INTEGER",
+        "description": "TCP connect timeout in seconds",
+        "is_required": false,
+        "default": "15",
+        "group": "Connection",
+        "allowed": null
+      }
+    ]
+  },
+  "snowflake": {
+    "provider_id": "snowflake",
+    "family": "warehouse",
+    "vendor_name": "Snowflake Inc.",
+    "version": "1.0.0",
+    "roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "auth": [
+      "PASSWORD"
+    ],
+    "tls": true,
+    "mtls": false,
+    "proof": "IMPLEMENTED",
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "STAGE_COPY": "SUPPORTED",
+      "TRANSACTIONS": "SUPPORTED",
+      "CDC_LOG_CAPTURE": "PARTIAL",
+      "WAREHOUSE_SCALING": "SUPPORTED"
+    },
+    "restrictions": [],
+    "privileges": [],
+    "fastpath": [
+      "COPY INTO @stage",
+      "COPY INTO table FROM @stage",
+      "PUT / GET"
+    ],
+    "fields": [
+      {
+        "name": "account",
+        "type": "STRING",
+        "description": "Snowflake account locator/identifier",
+        "is_required": true,
+        "default": null,
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "warehouse",
+        "type": "STRING",
+        "description": "Default virtual warehouse",
+        "is_required": false,
+        "default": null,
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "database_name",
+        "type": "STRING",
+        "description": "Default database name",
+        "is_required": false,
+        "default": null,
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "schema_name",
+        "type": "STRING",
+        "description": "Default schema name",
+        "is_required": false,
+        "default": "PUBLIC",
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "role",
+        "type": "STRING",
+        "description": "Snowflake user role",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "username",
+        "type": "STRING",
+        "description": "Snowflake username",
+        "is_required": true,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "password_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to Snowflake password secret",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "token_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to OAuth/PAT token secret",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "authenticator",
+        "type": "STRING",
+        "description": "Authenticator mechanism (e.g. 'snowflake', 'externalbrowser', 'oauth')",
+        "is_required": false,
+        "default": "snowflake",
+        "group": "Authentication",
+        "allowed": null
+      }
+    ]
+  },
+  "spanner": {
+    "provider_id": "spanner",
+    "family": "relational",
+    "vendor_name": "Google Cloud",
+    "version": "1.0.0",
+    "roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "auth": [
+      "PASSWORD"
+    ],
+    "tls": true,
+    "mtls": false,
+    "proof": "IMPLEMENTED",
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "TRANSACTIONS": "SUPPORTED",
+      "PARTITION_AWARENESS": "SUPPORTED",
+      "FOREIGN_KEYS": "SUPPORTED",
+      "CDC_LOG_CAPTURE": "UNSUPPORTED"
+    },
+    "restrictions": [
+      "Change Streams (CDC) is a genuine Spanner feature but no capture module exists in this Engine."
+    ],
+    "privileges": [
+      "spanner.databases.select",
+      "spanner.databases.write"
+    ],
+    "fastpath": [],
+    "fields": [
+      {
+        "name": "project_id",
+        "type": "STRING",
+        "description": "GCP project ID",
+        "is_required": true,
+        "default": null,
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "instance_id",
+        "type": "STRING",
+        "description": "Spanner instance ID",
+        "is_required": true,
+        "default": null,
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "database_id",
+        "type": "STRING",
+        "description": "Spanner database ID",
+        "is_required": true,
+        "default": null,
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "service_account_json_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to GCP service account credentials JSON",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      }
+    ]
+  },
+  "sqlite": {
+    "provider_id": "sqlite",
+    "family": "relational",
+    "vendor_name": "SQLite",
+    "version": "1.0.0",
+    "roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "auth": [
+      "PASSWORD"
+    ],
+    "tls": false,
+    "mtls": false,
+    "proof": "LIVE_PROVEN",
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "TRANSACTIONS": "SUPPORTED",
+      "SAVEPOINTS": "SUPPORTED",
+      "FOREIGN_KEYS": "SUPPORTED",
+      "CDC_LOG_CAPTURE": "UNSUPPORTED",
+      "DISTRIBUTED_PARTITIONS": "UNSUPPORTED",
+      "PARALLEL_STREAMING": "UNSUPPORTED"
+    },
+    "restrictions": [
+      "Single-writer concurrency limit",
+      "File-based locking"
+    ],
+    "privileges": [],
+    "fastpath": [
+      "PRAGMA synchronous = OFF",
+      "PRAGMA journal_mode = WAL"
+    ],
+    "fields": [
+      {
+        "name": "database_name",
+        "type": "STRING",
+        "description": "File path to the SQLite database or ':memory:' for an in-memory database",
+        "is_required": true,
+        "default": ":memory:",
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "timeout_seconds",
+        "type": "FLOAT",
+        "description": "Database lock timeout in seconds",
+        "is_required": false,
+        "default": "10.0",
+        "group": "Connection",
+        "allowed": null
+      }
+    ]
+  },
+  "teradata": {
+    "provider_id": "teradata",
+    "family": "relational",
+    "vendor_name": "Teradata Corporation",
+    "version": "1.0.0",
+    "roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "auth": [
+      "PASSWORD"
+    ],
+    "tls": true,
+    "mtls": false,
+    "proof": "IMPLEMENTED",
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "TRANSACTIONS": "SUPPORTED",
+      "PARTITION_AWARENESS": "SUPPORTED",
+      "FOREIGN_KEYS": "SUPPORTED",
+      "CDC_LOG_CAPTURE": "UNSUPPORTED"
+    },
+    "restrictions": [
+      "Bulk load uses standard executemany() INSERT, not FastLoad/TPT/MultiLoad."
+    ],
+    "privileges": [
+      "SELECT",
+      "INSERT"
+    ],
+    "fastpath": [],
+    "fields": [
+      {
+        "name": "host",
+        "type": "STRING",
+        "description": "Teradata COP/node hostname or IP address",
+        "is_required": true,
+        "default": null,
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "database_name",
+        "type": "STRING",
+        "description": "Default database name",
+        "is_required": false,
+        "default": null,
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "username",
+        "type": "STRING",
+        "description": "Database username",
+        "is_required": true,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "password_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to password secret",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "logmech",
+        "type": "STRING",
+        "description": "Logon mechanism",
+        "is_required": false,
+        "default": "TD2",
+        "group": "Authentication",
+        "allowed": [
+          "TD2",
+          "LDAP",
+          "KRB5",
+          "TDNEGO"
+        ]
+      },
+      {
+        "name": "encryptdata",
+        "type": "BOOLEAN",
+        "description": "Encrypt session data",
+        "is_required": false,
+        "default": "False",
+        "group": "Security",
+        "allowed": null
+      }
+    ]
+  },
+  "tidb": {
+    "provider_id": "tidb",
+    "family": "relational",
+    "vendor_name": "PingCAP",
+    "version": "1.0.0",
+    "roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "auth": [
+      "PASSWORD"
+    ],
+    "tls": true,
+    "mtls": true,
+    "proof": "IMPLEMENTED",
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "LOAD_DATA_INFILE": "SUPPORTED",
+      "TRANSACTIONS": "SUPPORTED",
+      "DISTRIBUTED_TOPOLOGY": "SUPPORTED",
+      "PARTITION_AWARENESS": "SUPPORTED",
+      "FOREIGN_KEYS": "SUPPORTED",
+      "SAVEPOINTS": "UNSUPPORTED",
+      "CDC_LOG_CAPTURE": "UNSUPPORTED"
+    },
+    "restrictions": [
+      "CDC requires TiCDC, a separate component not reachable via MySQL's @@log_bin/@@binlog_format vars -- never assumed supported.",
+      "SAVEPOINT support is version-gated (TiDB 6.2+); not assumed supported without a live version probe."
+    ],
+    "privileges": [
+      "SELECT",
+      "PROCESS"
+    ],
+    "fastpath": [],
+    "fields": [
+      {
+        "name": "host",
+        "type": "STRING",
+        "description": "TiDB server hostname or IP address",
+        "is_required": true,
+        "default": null,
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "port",
+        "type": "INTEGER",
+        "description": "TiDB SQL port",
+        "is_required": false,
+        "default": "4000",
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "database_name",
+        "type": "STRING",
+        "description": "Target database name",
+        "is_required": false,
+        "default": null,
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "username",
+        "type": "STRING",
+        "description": "Database username",
+        "is_required": true,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "password_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to password secret",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "charset",
+        "type": "STRING",
+        "description": "Character set encoding",
+        "is_required": false,
+        "default": "utf8mb4",
+        "group": "Connection",
+        "allowed": null
+      },
+      {
+        "name": "connect_timeout",
+        "type": "INTEGER",
+        "description": "TCP connect timeout in seconds",
+        "is_required": false,
+        "default": "15",
+        "group": "Connection",
+        "allowed": null
+      }
+    ]
+  },
+  "vertica": {
+    "provider_id": "vertica",
+    "family": "relational",
+    "vendor_name": "OpenText (Vertica)",
+    "version": "1.0.0",
+    "roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "auth": [
+      "PASSWORD"
+    ],
+    "tls": true,
+    "mtls": true,
+    "proof": "IMPLEMENTED",
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "TRANSACTIONS": "SUPPORTED",
+      "PARTITION_AWARENESS": "SUPPORTED",
+      "FOREIGN_KEYS": "SUPPORTED",
+      "CDC_LOG_CAPTURE": "UNSUPPORTED"
+    },
+    "restrictions": [
+      "Bulk load uses standard executemany() INSERT, not native COPY."
+    ],
+    "privileges": [
+      "SELECT",
+      "INSERT"
+    ],
+    "fastpath": [],
+    "fields": [
+      {
+        "name": "host",
+        "type": "STRING",
+        "description": "Vertica node hostname or IP address",
+        "is_required": true,
+        "default": null,
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "port",
+        "type": "INTEGER",
+        "description": "Vertica SQL port",
+        "is_required": false,
+        "default": "5433",
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "database_name",
+        "type": "STRING",
+        "description": "Target database name",
+        "is_required": true,
+        "default": null,
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "username",
+        "type": "STRING",
+        "description": "Database username",
+        "is_required": true,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "password_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to password secret",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "connect_timeout",
+        "type": "INTEGER",
+        "description": "TCP connect timeout in seconds",
+        "is_required": false,
+        "default": "15",
+        "group": "Connection",
+        "allowed": null
+      }
+    ]
+  },
+  "yugabytedb": {
+    "provider_id": "yugabytedb",
+    "family": "relational",
+    "vendor_name": "Yugabyte, Inc.",
+    "version": "1.0.0",
+    "roles": [
+      "SOURCE",
+      "TARGET",
+      "REFERENCE",
+      "VALIDATION"
+    ],
+    "auth": [
+      "PASSWORD"
+    ],
+    "tls": true,
+    "mtls": true,
+    "proof": "IMPLEMENTED",
+    "capabilities": {
+      "SCHEMA_DISCOVERY": "SUPPORTED",
+      "BULK_READ": "SUPPORTED",
+      "BULK_WRITE": "SUPPORTED",
+      "TRANSACTIONS": "SUPPORTED",
+      "SERIALIZABLE_RETRY_REQUIRED": "SUPPORTED",
+      "DISTRIBUTED_TOPOLOGY": "SUPPORTED",
+      "PARTITION_AWARENESS": "SUPPORTED",
+      "FOREIGN_KEYS": "SUPPORTED",
+      "LOBS": "SUPPORTED",
+      "CDC_LOG_CAPTURE": "UNSUPPORTED"
+    },
+    "restrictions": [
+      "CDC_LOG_CAPTURE requires an active pg_replication_slots entry with the yboutput/pgoutput plugin, not assumed supported without a live probe.",
+      "SQLSTATE 40001 requires whole-transaction retry (distributed transaction conflict), not statement-level retry."
+    ],
+    "privileges": [
+      "CONNECT",
+      "USAGE",
+      "SELECT"
+    ],
+    "fastpath": [],
+    "fields": [
+      {
+        "name": "host",
+        "type": "STRING",
+        "description": "YugabyteDB node or load-balancer hostname",
+        "is_required": true,
+        "default": null,
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "port",
+        "type": "INTEGER",
+        "description": "YugabyteDB YSQL port",
+        "is_required": false,
+        "default": "5433",
+        "group": "Network",
+        "allowed": null
+      },
+      {
+        "name": "database_name",
+        "type": "STRING",
+        "description": "Target database name",
+        "is_required": false,
+        "default": "yugabyte",
+        "group": "Target",
+        "allowed": null
+      },
+      {
+        "name": "username",
+        "type": "STRING",
+        "description": "Database username",
+        "is_required": true,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "password_ref",
+        "type": "SECRET_REF",
+        "description": "Reference pointer to password secret",
+        "is_required": false,
+        "default": null,
+        "group": "Authentication",
+        "allowed": null
+      },
+      {
+        "name": "sslmode",
+        "type": "STRING",
+        "description": "TLS verification mode",
+        "is_required": false,
+        "default": "prefer",
+        "group": "Security",
+        "allowed": [
+          "disable",
+          "prefer",
+          "require",
+          "verify-ca",
+          "verify-full"
+        ]
+      },
+      {
+        "name": "connect_timeout",
+        "type": "INTEGER",
+        "description": "TCP connect timeout in seconds",
+        "is_required": false,
+        "default": "15",
+        "group": "Connection",
+        "allowed": null
+      }
+    ]
+  }
+}

@@ -77,7 +77,7 @@ interface StatusOption {
         <!-- 1. Active KPI Card -->
         <div 
           (click)="toggleKpiFilter('ACTIVE', $event)"
-          class="p-5 rounded-2xl border transition-all duration-150 flex flex-col justify-between h-32 cursor-pointer group select-none shadow-2xs"
+          class="p-4 rounded-2xl border transition-all duration-150 flex flex-col justify-between h-28 cursor-pointer group select-none shadow-2xs"
           [class.border-blue-600]="selectedState() === 'ACTIVE'"
           [class.ring-1]="selectedState() === 'ACTIVE'"
           [class.ring-blue-500]="selectedState() === 'ACTIVE'"
@@ -92,7 +92,7 @@ interface StatusOption {
             </span>
           </div>
           <div class="flex items-baseline justify-between gap-3">
-            <span class="text-3xl font-bold font-mono text-slate-900 tracking-tight tabular-nums">
+            <span class="text-3xl font-bold text-slate-900 tracking-tight tabular-nums">
               {{ mhs.computedCounters().active }}
             </span>
             <span class="text-xs text-slate-500 font-medium tabular-nums text-right truncate">
@@ -104,7 +104,7 @@ interface StatusOption {
         <!-- 2. Attention KPI Card -->
         <div 
           (click)="toggleKpiFilter('ATTENTION', $event)"
-          class="p-5 rounded-2xl border transition-all duration-150 flex flex-col justify-between h-32 cursor-pointer group select-none shadow-2xs"
+          class="p-4 rounded-2xl border transition-all duration-150 flex flex-col justify-between h-28 cursor-pointer group select-none shadow-2xs"
           [class.border-blue-600]="selectedState() === 'ATTENTION'"
           [class.ring-1]="selectedState() === 'ATTENTION'"
           [class.ring-blue-500]="selectedState() === 'ATTENTION'"
@@ -119,11 +119,11 @@ interface StatusOption {
             </span>
           </div>
           <div class="flex items-baseline justify-between gap-3">
-            <span class="text-3xl font-bold font-mono text-slate-900 tracking-tight tabular-nums">
+            <span class="text-3xl font-bold text-slate-900 tracking-tight tabular-nums">
               {{ mhs.computedCounters().attention }}
             </span>
             <span class="text-xs text-slate-500 font-medium tabular-nums text-right truncate">
-              {{ mhs.computedCounters().attention > 0 ? 'Actionable items' : 'All clear' }}
+              {{ mhs.computedCounters().attention > 0 ? (mhs.computedCounters().attention === 1 ? '1 item requires action' : mhs.computedCounters().attention + ' items require action') : 'All clear' }}
             </span>
           </div>
         </div>
@@ -131,7 +131,7 @@ interface StatusOption {
         <!-- 3. Scheduled KPI Card -->
         <div 
           (click)="toggleKpiFilter('SCHEDULED', $event)"
-          class="p-5 rounded-2xl border transition-all duration-150 flex flex-col justify-between h-32 cursor-pointer group select-none shadow-2xs"
+          class="p-4 rounded-2xl border transition-all duration-150 flex flex-col justify-between h-28 cursor-pointer group select-none shadow-2xs"
           [class.border-blue-600]="selectedState() === 'SCHEDULED'"
           [class.ring-1]="selectedState() === 'SCHEDULED'"
           [class.ring-blue-500]="selectedState() === 'SCHEDULED'"
@@ -146,11 +146,11 @@ interface StatusOption {
             </span>
           </div>
           <div class="flex items-baseline justify-between gap-3">
-            <span class="text-3xl font-bold font-mono text-slate-900 tracking-tight tabular-nums">
+            <span class="text-3xl font-bold text-slate-900 tracking-tight tabular-nums">
               {{ mhs.computedCounters().scheduled }}
             </span>
             <span class="text-xs text-slate-500 font-medium tabular-nums text-right truncate">
-              Maintenance window
+              {{ mhs.computedCounters().scheduled > 0 ? mhs.computedCounters().scheduled + ' scheduled' : 'None scheduled' }}
             </span>
           </div>
         </div>
@@ -158,7 +158,7 @@ interface StatusOption {
         <!-- 4. Completed KPI Card -->
         <div 
           (click)="toggleKpiFilter('COMPLETED', $event)"
-          class="p-5 rounded-2xl border transition-all duration-150 flex flex-col justify-between h-32 cursor-pointer group select-none shadow-2xs"
+          class="p-4 rounded-2xl border transition-all duration-150 flex flex-col justify-between h-28 cursor-pointer group select-none shadow-2xs"
           [class.border-blue-600]="selectedState() === 'COMPLETED'"
           [class.ring-1]="selectedState() === 'COMPLETED'"
           [class.ring-blue-500]="selectedState() === 'COMPLETED'"
@@ -173,11 +173,11 @@ interface StatusOption {
             </span>
           </div>
           <div class="flex items-baseline justify-between gap-3">
-            <span class="text-3xl font-bold font-mono text-slate-900 tracking-tight tabular-nums">
+            <span class="text-3xl font-bold text-slate-900 tracking-tight tabular-nums">
               {{ mhs.computedCounters().completed }}
             </span>
             <span class="text-xs text-slate-500 font-medium tabular-nums text-right truncate">
-              100% verified
+              {{ mhs.computedCounters().completed > 0 ? mhs.computedCounters().completed + ' completed' : 'None completed' }}
             </span>
           </div>
         </div>
@@ -228,28 +228,26 @@ interface StatusOption {
           <!-- Right: Search Input + GDS Filter Dropdown + Secondary View All Link -->
           <div class="flex items-center gap-2.5 flex-wrap">
             
-            <!-- Search Input with Pure Inline Style Overlay -->
-            <div class="search-box-wrapper" style="position: relative; display: flex; align-items: center; width: 256px;">
-              <!-- Icon absolutely positioned with z-index, never inline in text flow -->
+            <!-- Search Input with standard GDS / Tailwind styles -->
+            <div class="relative flex items-center w-64">
               <app-lucide-icon 
                 name="search" 
                 [size]="14"
-                style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; color: #94a3b8; pointer-events: none; z-index: 2;"
+                class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none z-10"
               ></app-lucide-icon>
               
-              <!-- Input with explicit padding-left: 36px !important -->
               <input
                 type="text"
                 [ngModel]="searchQuery()"
                 (ngModelChange)="searchQuery.set($event)"
                 placeholder="Search migrations..."
-                style="width: 100%; height: 32px; padding-left: 36px !important; padding-right: 28px; font-size: 12px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; outline: none; color: #0f172a;"
+                class="w-full h-8 pl-9 pr-7 text-xs bg-white border border-slate-200 rounded-md outline-none text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
               />
               @if (searchQuery()) {
                 <button 
                   type="button" 
                   (click)="searchQuery.set('')" 
-                  style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #94a3b8; font-size: 14px; font-weight: bold; cursor: pointer; z-index: 2;">
+                  class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 font-bold text-sm cursor-pointer z-10">
                   &times;
                 </button>
               }
@@ -335,11 +333,10 @@ interface StatusOption {
             <table class="w-full text-left border-collapse table-fixed">
               <thead>
                 <tr class="bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                  <th class="py-2.5 px-4 w-[28%]">Migration</th>
-                  <th class="py-2.5 px-4 w-[20%]">Route</th>
-                  <th class="py-2.5 px-4 w-[16%]">Mode</th>
-                  <th class="py-2.5 px-4 w-[18%]">Current Phase</th>
-                  <th class="py-2.5 px-4 w-[14%]">State</th>
+                  <th class="py-2.5 px-4 w-[36%]">Migration</th>
+                  <th class="py-2.5 px-4 w-[26%]">Route</th>
+                  <th class="py-2.5 px-4 w-[18%]">Mode</th>
+                  <th class="py-2.5 px-4 w-[16%]">State</th>
                   <th class="py-2.5 px-3 w-[4%] text-right"></th>
                 </tr>
               </thead>
@@ -375,19 +372,12 @@ interface StatusOption {
                       <app-status-badge [mode]="m.mode"></app-status-badge>
                     </td>
 
-                    <!-- 4. Current Phase (Coarse Milestone text) -->
-                    <td class="py-2.5 px-4 whitespace-nowrap">
-                      <span class="text-xs text-slate-600 font-medium truncate block">
-                        {{ m.current_stage || 'Initialization' }}
-                      </span>
-                    </td>
-
-                    <!-- 5. State (Title Case with dot) -->
+                    <!-- 4. State (Title Case with dot) -->
                     <td class="py-2.5 px-4 whitespace-nowrap">
                       <app-status-badge [lifecycle]="m.lifecycle_state"></app-status-badge>
                     </td>
 
-                    <!-- 6. Actions (··· Context Menu with dynamic upward flip) -->
+                    <!-- 5. Actions (··· Context Menu with dynamic upward flip) -->
                     <td class="py-2.5 px-3 text-right whitespace-nowrap" (click)="$event.stopPropagation()">
                       <div class="relative inline-block">
                         <button
@@ -541,8 +531,8 @@ interface StatusOption {
                   </div>
                 </div>
 
-                <!-- Dynamic Remaining Time in Monospace -->
-                <div class="flex items-center justify-between text-xs font-mono">
+                <!-- Dynamic Remaining Time in Tabular Nums -->
+                <div class="flex items-center justify-between text-xs">
                   <span class="font-bold text-slate-900 tabular-nums">
                     {{ mhs.formatProjectRemainingTime(proj.target_date).primary }}
                   </span>
@@ -608,7 +598,7 @@ interface StatusOption {
                     <span class="font-bold text-slate-900 text-xs">
                       {{ mhs.formatRelativeTime(act.occurred_at).relative }}
                     </span>
-                    <span class="text-[11px] text-slate-500 font-mono font-medium tabular-nums">
+                    <span class="text-[11px] text-slate-500 font-medium tabular-nums">
                       {{ mhs.formatRelativeTime(act.occurred_at).exactTime }}
                     </span>
                   </div>
@@ -791,31 +781,40 @@ export class MigrationPortfolioComponent {
 
   // Fully Functional Unified Filtered Migrations computed signal
   public filteredMigrations = computed(() => {
-    const list = this.mhs.migrations().filter(m => !m.project_id);
+    const rawList = this.mhs.migrations() || [];
+    const list = rawList.filter(m => m && !m.project_id);
     const query = this.searchQuery().trim().toLowerCase();
     const state = this.selectedState();
 
     return list.filter(item => {
+      if (!item) return false;
+      const name = item.name || '';
+      const src = item.source_provider || '';
+      const tgt = item.target_provider || '';
+      const stage = item.current_stage || '';
+      const mode = item.mode || '';
+
       const matchesSearch = !query || 
-        (item.name || '').toLowerCase().includes(query) || 
-        (item.source_provider || '').toLowerCase().includes(query) ||
-        (item.target_provider || '').toLowerCase().includes(query) ||
-        (`${item.source_provider} -> ${item.target_provider}`).toLowerCase().includes(query) ||
-        (`${item.source_provider} → ${item.target_provider}`).toLowerCase().includes(query) ||
-        (item.current_stage || '').toLowerCase().includes(query) ||
-        (item.mode || '').toLowerCase().includes(query);
+        name.toLowerCase().includes(query) || 
+        src.toLowerCase().includes(query) ||
+        tgt.toLowerCase().includes(query) ||
+        (`${src} -> ${tgt}`).toLowerCase().includes(query) ||
+        (`${src} → ${tgt}`).toLowerCase().includes(query) ||
+        stage.toLowerCase().includes(query) ||
+        mode.toLowerCase().includes(query);
 
       let matchesState = true;
+      const lState = (item.lifecycle_state || '').toUpperCase();
       if (state === 'ACTIVE') {
-        matchesState = item.lifecycle_state === 'ACTIVE' || item.lifecycle_state === 'RUNNING';
+        matchesState = lState === 'ACTIVE' || lState === 'RUNNING';
       } else if (state === 'ATTENTION') {
-        matchesState = item.lifecycle_state === 'ATTENTION' || !!item.attention_level;
+        matchesState = lState === 'ATTENTION' || !!item.attention_level;
       } else if (state === 'SCHEDULED') {
-        matchesState = item.lifecycle_state === 'SCHEDULED' || item.lifecycle_state === 'INITIALIZED';
+        matchesState = lState === 'SCHEDULED' || lState === 'INITIALIZED';
       } else if (state === 'COMPLETED') {
-        matchesState = item.lifecycle_state === 'COMPLETED';
+        matchesState = lState === 'COMPLETED';
       } else if (state === 'PAUSED') {
-        matchesState = item.lifecycle_state === 'PAUSED';
+        matchesState = lState === 'PAUSED';
       }
 
       return matchesSearch && matchesState;
@@ -884,7 +883,7 @@ export class MigrationPortfolioComponent {
   }
 
   public navigateToMigration(id: string): void {
-    this.router.navigate(['/migration', id]);
+    this.router.navigate(['/cockpit', id]);
   }
 
   public launchMissionControl(id: string): void {

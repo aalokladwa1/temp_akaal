@@ -1,0 +1,1080 @@
+{
+  "buttonBreakdown": {
+    "primaryActions": 260,
+    "secondaryActions": 409,
+    "ghostActions": 96,
+    "dangerActions": 56,
+    "iconOnlyButtons": 0,
+    "buttonsWithDecorativeIcons": 454,
+    "blackPrimaryButtons": 12
+  },
+  "pillUsageDetails": [
+    {
+      "file": "modules/admin/connectors-plugins/connectors/connector-registry.component.ts",
+      "count": 1,
+      "pills": [
+        "rounded-full bg-emerald-500"
+      ]
+    },
+    {
+      "file": "modules/admin/connectors-plugins/extensions/plugins-list.component.ts",
+      "count": 1,
+      "pills": [
+        "rounded-full"
+      ]
+    },
+    {
+      "file": "modules/admin/governance/privileged/break-glass-list.component.ts",
+      "count": 1,
+      "pills": [
+        "rounded-full bg-emerald-500 animate-pulse"
+      ]
+    },
+    {
+      "file": "modules/admin/identity/crypto/vault.component.ts",
+      "count": 1,
+      "pills": [
+        "rounded-full bg-emerald-500"
+      ]
+    },
+    {
+      "file": "modules/admin/identity/directory/ldap.component.ts",
+      "count": 1,
+      "pills": [
+        "rounded-full bg-emerald-500 animate-pulse"
+      ]
+    },
+    {
+      "file": "modules/admin/identity/directory/scim.component.ts",
+      "count": 1,
+      "pills": [
+        "rounded-full bg-emerald-500"
+      ]
+    },
+    {
+      "file": "modules/admin/identity/identity-home.component.ts",
+      "count": 1,
+      "pills": [
+        "rounded-full bg-emerald-500 animate-pulse"
+      ]
+    },
+    {
+      "file": "modules/admin/identity/workload/spiffe.component.ts",
+      "count": 1,
+      "pills": [
+        "rounded-full bg-emerald-500 animate-pulse"
+      ]
+    },
+    {
+      "file": "modules/admin/infrastructure/cloud/cloud-environments-list.component.ts",
+      "count": 1,
+      "pills": [
+        "rounded-full bg-emerald-500"
+      ]
+    },
+    {
+      "file": "modules/admin/infrastructure/compute/sites-list.component.ts",
+      "count": 1,
+      "pills": [
+        "rounded-full bg-emerald-500"
+      ]
+    },
+    {
+      "file": "modules/admin/infrastructure/placement/sovereignty-policies.component.ts",
+      "count": 1,
+      "pills": [
+        "rounded-full bg-emerald-500"
+      ]
+    },
+    {
+      "file": "modules/connections/components/connections-inspect-drawer.component.ts",
+      "count": 6,
+      "pills": [
+        "rounded-full bg-emerald-500",
+        "rounded-full bg-amber-500",
+        "rounded-full bg-sky-500",
+        "rounded-full bg-blue-500 animate-ping",
+        "rounded-full bg-rose-500",
+        "rounded-full bg-slate-400"
+      ]
+    },
+    {
+      "file": "modules/connections/components/connections-states.component.ts",
+      "count": 3,
+      "pills": [
+        "rounded-full bg-rose-50 border border-rose-200 flex items-center justify-center mx-auto mb-4 text-rose-600",
+        "rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center mx-auto mb-4 text-slate-400",
+        "rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center mx-auto mb-4 text-slate-400"
+      ]
+    },
+    {
+      "file": "modules/connections/components/connections-table.component.ts",
+      "count": 7,
+      "pills": [
+        "rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200 font-mono",
+        "rounded-full bg-emerald-500",
+        "rounded-full bg-amber-500",
+        "rounded-full bg-sky-500",
+        "rounded-full bg-blue-500 animate-ping",
+        "rounded-full bg-rose-500",
+        "rounded-full bg-slate-400"
+      ]
+    },
+    {
+      "file": "modules/connections/create-connection/create-connection-wizard.component.ts",
+      "count": 4,
+      "pills": [
+        "rounded-full bg-emerald-500 shrink-0",
+        "rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0",
+        "rounded-full bg-slate-100 group-hover:bg-slate-200 text-slate-600 text-[10px] font-bold flex items-center justify-center shrink-0 border border-slate-200",
+        "rounded-full bg-slate-100 border border-slate-200 text-slate-400 text-[10px] font-medium flex items-center justify-center shrink-0"
+      ]
+    },
+    {
+      "file": "modules/connections/create-connection/steps/step1-provider.component.ts",
+      "count": 1,
+      "pills": [
+        "rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] font-bold shrink-0"
+      ]
+    },
+    {
+      "file": "modules/connections/create-connection/steps/step4-capabilities.component.ts",
+      "count": 1,
+      "pills": [
+        "rounded-full bg-emerald-500 shrink-0"
+      ]
+    },
+    {
+      "file": "modules/connections/workspace/components/workspace-header.component.ts",
+      "count": 7,
+      "pills": [
+        "rounded-full bg-amber-500",
+        "rounded-full bg-emerald-500",
+        "rounded-full bg-amber-500",
+        "rounded-full bg-sky-500",
+        "rounded-full bg-blue-500 animate-ping",
+        "rounded-full bg-rose-500",
+        "rounded-full bg-slate-400"
+      ]
+    },
+    {
+      "file": "modules/connections/workspace/components/workspace-nav.component.ts",
+      "count": 1,
+      "pills": [
+        "rounded-full bg-amber-500"
+      ]
+    },
+    {
+      "file": "modules/connections/workspace/tabs/tab-capabilities.component.ts",
+      "count": 1,
+      "pills": [
+        "rounded-full shrink-0"
+      ]
+    },
+    {
+      "file": "modules/connections/workspace/tabs/tab-overview.component.ts",
+      "count": 5,
+      "pills": [
+        "rounded-full bg-emerald-500",
+        "rounded-full bg-emerald-500",
+        "rounded-full bg-emerald-500",
+        "rounded-full bg-emerald-500",
+        "rounded-full bg-emerald-500"
+      ]
+    },
+    {
+      "file": "modules/dashboard/components/active-migrations.component.ts",
+      "count": 4,
+      "pills": [
+        "rounded-full",
+        "rounded-full bg-slate-100 overflow-hidden",
+        "rounded-full",
+        "rounded-full bg-emerald-500 animate-pulse"
+      ]
+    },
+    {
+      "file": "modules/dashboard/components/alerts-incidents.component.ts",
+      "count": 2,
+      "pills": [
+        "rounded-full mt-1.5 shrink-0",
+        "rounded-full bg-emerald-500"
+      ]
+    },
+    {
+      "file": "modules/dashboard/components/attention-queue.component.ts",
+      "count": 2,
+      "pills": [
+        "rounded-full bg-amber-500",
+        "rounded-full bg-amber-600"
+      ]
+    },
+    {
+      "file": "modules/dashboard/components/capacity-summary.component.ts",
+      "count": 2,
+      "pills": [
+        "rounded-full bg-slate-100 overflow-hidden",
+        "rounded-full transition-all duration-300"
+      ]
+    },
+    {
+      "file": "modules/dashboard/components/fleet-cluster.component.ts",
+      "count": 3,
+      "pills": [
+        "rounded-full bg-emerald-500",
+        "rounded-full bg-amber-500",
+        "rounded-full bg-slate-400"
+      ]
+    },
+    {
+      "file": "modules/dashboard/components/metric-surface.component.ts",
+      "count": 1,
+      "pills": [
+        "rounded-full"
+      ]
+    },
+    {
+      "file": "modules/dashboard/components/pending-approvals.component.ts",
+      "count": 1,
+      "pills": [
+        "rounded-full bg-amber-500"
+      ]
+    },
+    {
+      "file": "modules/dashboard/components/platform-status.component.ts",
+      "count": 4,
+      "pills": [
+        "rounded-full bg-emerald-500",
+        "rounded-full bg-amber-500",
+        "rounded-full bg-rose-500",
+        "rounded-full bg-slate-400"
+      ]
+    },
+    {
+      "file": "modules/dashboard/components/recent-activity.component.ts",
+      "count": 1,
+      "pills": [
+        "rounded-full bg-blue-600 shrink-0"
+      ]
+    },
+    {
+      "file": "modules/dashboard/components/security-compliance.component.ts",
+      "count": 4,
+      "pills": [
+        "rounded-full",
+        "rounded-full",
+        "rounded-full",
+        "rounded-full bg-blue-600"
+      ]
+    },
+    {
+      "file": "modules/dashboard/dashboard.component.ts",
+      "count": 1,
+      "pills": [
+        "rounded-full"
+      ]
+    },
+    {
+      "file": "modules/migration/cockpit/components/cockpit-dag-view.component.ts",
+      "count": 1,
+      "pills": [
+        "rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-400 shadow-xs group-hover:border-blue-300 group-hover:text-blue-600 transition-colors"
+      ]
+    },
+    {
+      "file": "modules/migration/cockpit/components/cockpit-status-pulse.component.ts",
+      "count": 2,
+      "pills": [
+        "rounded-full overflow-hidden border border-slate-200/60",
+        "rounded-full"
+      ]
+    },
+    {
+      "file": "modules/migration/cockpit/components/cockpit-workbench.component.ts",
+      "count": 2,
+      "pills": [
+        "rounded-full overflow-hidden border border-slate-200/60",
+        "rounded-full"
+      ]
+    },
+    {
+      "file": "modules/migration/components/dag-viewer.component.ts",
+      "count": 1,
+      "pills": [
+        "rounded-full bg-blue-600"
+      ]
+    },
+    {
+      "file": "modules/migration/components/status-badge.component.ts",
+      "count": 20,
+      "pills": [
+        "rounded-full bg-blue-600",
+        "rounded-full bg-blue-600",
+        "rounded-full bg-amber-500",
+        "rounded-full bg-amber-500",
+        "rounded-full bg-slate-400",
+        "rounded-full bg-slate-400",
+        "rounded-full bg-amber-500",
+        "rounded-full bg-emerald-500",
+        "rounded-full bg-rose-500",
+        "rounded-full bg-slate-400",
+        "rounded-full bg-emerald-500",
+        "rounded-full bg-emerald-500",
+        "rounded-full bg-rose-500",
+        "rounded-full bg-emerald-500",
+        "rounded-full bg-rose-500",
+        "rounded-full bg-rose-500",
+        "rounded-full bg-rose-500",
+        "rounded-full bg-slate-400",
+        "rounded-full bg-blue-600 animate-pulse",
+        "rounded-full bg-slate-400"
+      ]
+    },
+    {
+      "file": "modules/migration/create/create-migration-wizard.component.ts",
+      "count": 5,
+      "pills": [
+        "rounded-full bg-emerald-500 shrink-0",
+        "rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0",
+        "rounded-full bg-slate-100 group-hover:bg-slate-200 text-slate-600 text-[10px] font-bold flex items-center justify-center shrink-0 border border-slate-200",
+        "rounded-full bg-slate-100 border border-slate-200 text-slate-600 text-[10px] font-medium flex items-center justify-center shrink-0",
+        "rounded-full animate-spin"
+      ]
+    },
+    {
+      "file": "modules/migration/create/steps/configuration-standard.component.ts",
+      "count": 4,
+      "pills": [
+        "rounded-full border flex items-center justify-center transition-colors",
+        "rounded-full bg-white",
+        "rounded-full border flex items-center justify-center transition-colors",
+        "rounded-full bg-white"
+      ]
+    },
+    {
+      "file": "modules/migration/create/steps/mapping-map.component.ts",
+      "count": 7,
+      "pills": [
+        "rounded-full bg-rose-600 shrink-0",
+        "rounded-full bg-amber-500 shrink-0",
+        "rounded-full bg-blue-600 shrink-0",
+        "rounded-full bg-emerald-600 shrink-0",
+        "rounded-full bg-rose-600 shrink-0",
+        "rounded-full bg-amber-500 shrink-0",
+        "rounded-full bg-blue-600 shrink-0"
+      ]
+    },
+    {
+      "file": "modules/migration/create/steps/mapping-review.component.ts",
+      "count": 4,
+      "pills": [
+        "rounded-full bg-emerald-100 border border-emerald-300 text-emerald-700 flex items-center justify-center shrink-0",
+        "rounded-full bg-rose-600 shrink-0",
+        "rounded-full bg-amber-500 shrink-0",
+        "rounded-full bg-blue-600 shrink-0"
+      ]
+    },
+    {
+      "file": "modules/migration/create/steps/mapping-structure.component.ts",
+      "count": 4,
+      "pills": [
+        "rounded-full bg-blue-600",
+        "rounded-full bg-rose-600",
+        "rounded-full bg-amber-500",
+        "rounded-full bg-blue-600"
+      ]
+    },
+    {
+      "file": "modules/migration/create/steps/step1-definition.component.ts",
+      "count": 3,
+      "pills": [
+        "rounded-full shrink-0",
+        "rounded-full",
+        "rounded-full bg-blue-600 text-white flex items-center justify-center shrink-0"
+      ]
+    },
+    {
+      "file": "modules/migration/create/steps/step2-source.component.ts",
+      "count": 14,
+      "pills": [
+        "rounded-full",
+        "rounded-full",
+        "rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center",
+        "rounded-full text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200",
+        "rounded-full text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0",
+        "rounded-full bg-emerald-500",
+        "rounded-full text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-200 shrink-0",
+        "rounded-full bg-amber-500",
+        "rounded-full text-[9px] font-bold bg-rose-50 text-rose-700 border border-rose-200 shrink-0",
+        "rounded-full bg-rose-500",
+        "rounded-full overflow-hidden",
+        "rounded-full",
+        "rounded-full bg-emerald-500",
+        "rounded-full bg-rose-500"
+      ]
+    },
+    {
+      "file": "modules/migration/create/steps/step3-target.component.ts",
+      "count": 12,
+      "pills": [
+        "rounded-full",
+        "rounded-full",
+        "rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center",
+        "rounded-full text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200",
+        "rounded-full text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0",
+        "rounded-full bg-emerald-500",
+        "rounded-full text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-200 shrink-0",
+        "rounded-full font-semibold border text-[10px]",
+        "rounded-full overflow-hidden",
+        "rounded-full",
+        "rounded-full bg-emerald-500",
+        "rounded-full bg-rose-500"
+      ]
+    },
+    {
+      "file": "modules/migration/create/steps/step4-scope.component.ts",
+      "count": 4,
+      "pills": [
+        "rounded-full border flex items-center justify-center transition-colors",
+        "rounded-full bg-white",
+        "rounded-full bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center mb-3",
+        "rounded-full bg-blue-600 shrink-0"
+      ]
+    },
+    {
+      "file": "modules/migration/create/steps/step5-mapping.component.ts",
+      "count": 1,
+      "pills": [
+        "rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center shrink-0"
+      ]
+    },
+    {
+      "file": "modules/migration/create/steps/step6-configuration.component.ts",
+      "count": 1,
+      "pills": [
+        "rounded-full"
+      ]
+    },
+    {
+      "file": "modules/migration/create/steps/step7-plan-flow.component.ts",
+      "count": 2,
+      "pills": [
+        "rounded-full bg-purple-600",
+        "rounded-full bg-white border border-slate-300 hover:border-blue-500 hover:bg-blue-50 text-slate-600 hover:text-blue-700 text-[10.5px] font-semibold flex items-center gap-1 shadow-none transition-colors cursor-pointer z-10"
+      ]
+    },
+    {
+      "file": "modules/migration/create/steps/step8-activity-drawer.component.ts",
+      "count": 1,
+      "pills": [
+        "rounded-full border flex items-center justify-center shrink-0 bg-white"
+      ]
+    },
+    {
+      "file": "modules/migration/create/steps/step9-review.component.ts",
+      "count": 2,
+      "pills": [
+        "rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] font-bold shrink-0",
+        "rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] font-bold shrink-0"
+      ]
+    },
+    {
+      "file": "modules/migration/history/history-workspace/history-workspace.component.ts",
+      "count": 1,
+      "pills": [
+        "rounded-full bg-rose-100 text-rose-700 text-xl font-bold mb-3"
+      ]
+    },
+    {
+      "file": "modules/migration/history/history-workspace/tabs/tab-history-audit.component.ts",
+      "count": 1,
+      "pills": [
+        "rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold"
+      ]
+    },
+    {
+      "file": "modules/migration/history/history-workspace/tabs/tab-history-cutover.component.ts",
+      "count": 1,
+      "pills": [
+        "rounded-full bg-slate-100 text-slate-600 mb-3"
+      ]
+    },
+    {
+      "file": "modules/migration/history/history-workspace/tabs/tab-history-overview.component.ts",
+      "count": 1,
+      "pills": [
+        "rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold"
+      ]
+    },
+    {
+      "file": "modules/migration/history/history-workspace/tabs/tab-history-recovery.component.ts",
+      "count": 1,
+      "pills": [
+        "rounded-full bg-emerald-100 text-emerald-800 font-bold shrink-0 mt-0.5"
+      ]
+    },
+    {
+      "file": "modules/migration/history/history-workspace/tabs/tab-history-timeline.component.ts",
+      "count": 1,
+      "pills": [
+        "rounded-full border-2 border-white"
+      ]
+    },
+    {
+      "file": "modules/migration/history/history-workspace/tabs/tab-history-validation.component.ts",
+      "count": 1,
+      "pills": [
+        "rounded-full bg-emerald-100 text-emerald-800 text-base font-bold mb-3"
+      ]
+    },
+    {
+      "file": "modules/migration/portfolio/migration-portfolio.component.ts",
+      "count": 5,
+      "pills": [
+        "rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200",
+        "rounded-full bg-emerald-500",
+        "rounded-full bg-amber-500",
+        "rounded-full transition-all duration-300",
+        "rounded-full shrink-0"
+      ]
+    },
+    {
+      "file": "modules/migration/templates/components/templates-table.component.ts",
+      "count": 1,
+      "pills": [
+        "rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200 font-mono"
+      ]
+    },
+    {
+      "file": "modules/migration/templates/create-template/create-template.component.ts",
+      "count": 4,
+      "pills": [
+        "rounded-full bg-emerald-500 shrink-0",
+        "rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0",
+        "rounded-full bg-slate-100 group-hover:bg-slate-200 text-slate-600 text-[10px] font-bold flex items-center justify-center shrink-0 border border-slate-200",
+        "rounded-full bg-slate-100 border border-slate-200 text-slate-400 text-[10px] font-medium flex items-center justify-center shrink-0"
+      ]
+    },
+    {
+      "file": "modules/migration/templates/create-template/steps/step1-definition.component.ts",
+      "count": 8,
+      "pills": [
+        "rounded-full border flex items-center justify-center",
+        "rounded-full bg-white",
+        "rounded-full border flex items-center justify-center",
+        "rounded-full bg-white",
+        "rounded-full border flex items-center justify-center",
+        "rounded-full bg-white",
+        "rounded-full border flex items-center justify-center shrink-0",
+        "rounded-full bg-white"
+      ]
+    },
+    {
+      "file": "modules/migration/templates/template-workspace/components/template-workspace-header.component.ts",
+      "count": 1,
+      "pills": [
+        "rounded-full"
+      ]
+    },
+    {
+      "file": "modules/migration/templates/template-workspace/tabs/tab-template-activity.component.ts",
+      "count": 1,
+      "pills": [
+        "rounded-full bg-blue-600 border-2 border-white"
+      ]
+    },
+    {
+      "file": "modules/migration/templates/template-workspace/tabs/tab-template-overview.component.ts",
+      "count": 1,
+      "pills": [
+        "rounded-full bg-emerald-500"
+      ]
+    },
+    {
+      "file": "modules/migration/templates/template-workspace/tabs/tab-template-settings.component.ts",
+      "count": 3,
+      "pills": [
+        "rounded-full bg-blue-600",
+        "rounded-full bg-blue-600",
+        "rounded-full bg-blue-600"
+      ]
+    },
+    {
+      "file": "modules/migration/workspace/views/mission-control-view.component.ts",
+      "count": 2,
+      "pills": [
+        "rounded-full bg-slate-100 overflow-hidden",
+        "rounded-full transition-all duration-300"
+      ]
+    },
+    {
+      "file": "modules/monitoring/components/alerts-header.component.ts",
+      "count": 2,
+      "pills": [
+        "rounded-full shrink-0",
+        "rounded-full bg-emerald-500"
+      ]
+    },
+    {
+      "file": "modules/monitoring/components/alerts-tabs/alerts-active-tab.component.ts",
+      "count": 5,
+      "pills": [
+        "rounded-full bg-blue-500",
+        "rounded-full bg-rose-500",
+        "rounded-full bg-amber-500",
+        "rounded-full bg-purple-500",
+        "rounded-full shrink-0 mt-1"
+      ]
+    },
+    {
+      "file": "modules/monitoring/components/alerts-tabs/alerts-correlation-tab.component.ts",
+      "count": 3,
+      "pills": [
+        "rounded-full shrink-0",
+        "rounded-full shrink-0",
+        "rounded-full shrink-0 mt-1"
+      ]
+    },
+    {
+      "file": "modules/monitoring/components/alerts-tabs/alerts-evaluation-tab.component.ts",
+      "count": 5,
+      "pills": [
+        "rounded-full bg-blue-500",
+        "rounded-full bg-rose-500",
+        "rounded-full bg-emerald-500",
+        "rounded-full bg-emerald-500",
+        "rounded-full shrink-0"
+      ]
+    },
+    {
+      "file": "modules/monitoring/components/alerts-tabs/alerts-incidents-tab.component.ts",
+      "count": 3,
+      "pills": [
+        "rounded-full",
+        "rounded-full shrink-0",
+        "rounded-full border-2 border-white"
+      ]
+    },
+    {
+      "file": "modules/monitoring/components/alerts-tabs/alerts-notifications-tab.component.ts",
+      "count": 4,
+      "pills": [
+        "rounded-full bg-blue-500",
+        "rounded-full bg-emerald-500",
+        "rounded-full bg-rose-500",
+        "rounded-full bg-blue-500"
+      ]
+    },
+    {
+      "file": "modules/monitoring/components/alerts-tabs/alerts-timeline-tab.component.ts",
+      "count": 1,
+      "pills": [
+        "rounded-full border-2 border-white ring-2 ring-slate-100"
+      ]
+    },
+    {
+      "file": "modules/monitoring/components/migration-fleet-list.component.ts",
+      "count": 4,
+      "pills": [
+        "rounded-full bg-emerald-500",
+        "rounded-full shrink-0",
+        "rounded-full overflow-hidden",
+        "rounded-full transition-all"
+      ]
+    },
+    {
+      "file": "modules/monitoring/components/mode-telemetry/mode-bulk-cdc-telemetry.component.ts",
+      "count": 1,
+      "pills": [
+        "rounded-full bg-emerald-500"
+      ]
+    },
+    {
+      "file": "modules/monitoring/components/monitoring-active-migrations.component.ts",
+      "count": 5,
+      "pills": [
+        "rounded-full transition-all duration-300",
+        "rounded-full bg-emerald-500",
+        "rounded-full bg-amber-500",
+        "rounded-full bg-rose-500",
+        "rounded-full bg-slate-400"
+      ]
+    },
+    {
+      "file": "modules/monitoring/components/monitoring-alerts.component.ts",
+      "count": 1,
+      "pills": [
+        "rounded-full mt-1.5 shrink-0"
+      ]
+    },
+    {
+      "file": "modules/monitoring/components/monitoring-needs-attention.component.ts",
+      "count": 1,
+      "pills": [
+        "rounded-full mt-1.5 shrink-0"
+      ]
+    },
+    {
+      "file": "modules/monitoring/components/monitoring-operational-pressure.component.ts",
+      "count": 1,
+      "pills": [
+        "rounded-full transition-all duration-300"
+      ]
+    },
+    {
+      "file": "modules/monitoring/components/monitoring-platform-health.component.ts",
+      "count": 4,
+      "pills": [
+        "rounded-full bg-emerald-500",
+        "rounded-full bg-amber-600",
+        "rounded-full bg-rose-600",
+        "rounded-full bg-slate-400"
+      ]
+    },
+    {
+      "file": "modules/monitoring/components/monitoring-recent-events.component.ts",
+      "count": 1,
+      "pills": [
+        "rounded-full mt-1.5 shrink-0"
+      ]
+    },
+    {
+      "file": "modules/monitoring/components/monitoring-summary-strip.component.ts",
+      "count": 10,
+      "pills": [
+        "rounded-full bg-emerald-500",
+        "rounded-full bg-amber-500",
+        "rounded-full bg-rose-500",
+        "rounded-full bg-slate-400",
+        "rounded-full bg-emerald-500",
+        "rounded-full bg-amber-500",
+        "rounded-full bg-slate-400",
+        "rounded-full bg-blue-500",
+        "rounded-full bg-emerald-500",
+        "rounded-full bg-amber-500"
+      ]
+    },
+    {
+      "file": "modules/monitoring/components/platform-header.component.ts",
+      "count": 2,
+      "pills": [
+        "rounded-full shrink-0",
+        "rounded-full bg-emerald-500"
+      ]
+    },
+    {
+      "file": "modules/monitoring/components/platform-tabs/platform-capacity-tab.component.ts",
+      "count": 6,
+      "pills": [
+        "rounded-full overflow-hidden",
+        "rounded-full transition-all",
+        "rounded-full overflow-hidden",
+        "rounded-full transition-all",
+        "rounded-full overflow-hidden",
+        "rounded-full transition-all"
+      ]
+    },
+    {
+      "file": "modules/monitoring/components/platform-tabs/platform-connectivity-tab.component.ts",
+      "count": 2,
+      "pills": [
+        "rounded-full shrink-0",
+        "rounded-full bg-emerald-500"
+      ]
+    },
+    {
+      "file": "modules/monitoring/components/platform-tabs/platform-diagnostics-tab.component.ts",
+      "count": 2,
+      "pills": [
+        "rounded-full bg-emerald-500",
+        "rounded-full bg-emerald-500"
+      ]
+    },
+    {
+      "file": "modules/monitoring/components/platform-tabs/platform-infrastructure-tab.component.ts",
+      "count": 3,
+      "pills": [
+        "rounded-full shrink-0",
+        "rounded-full bg-emerald-500",
+        "rounded-full bg-emerald-500"
+      ]
+    },
+    {
+      "file": "modules/monitoring/components/platform-tabs/platform-overview-tab.component.ts",
+      "count": 8,
+      "pills": [
+        "rounded-full bg-emerald-500",
+        "rounded-full bg-emerald-500",
+        "rounded-full bg-amber-500",
+        "rounded-full bg-amber-500",
+        "rounded-full bg-emerald-500",
+        "rounded-full bg-amber-500",
+        "rounded-full bg-emerald-500",
+        "rounded-full bg-emerald-500"
+      ]
+    },
+    {
+      "file": "modules/monitoring/components/platform-tabs/platform-reliability-tab.component.ts",
+      "count": 2,
+      "pills": [
+        "rounded-full bg-emerald-500",
+        "rounded-full bg-emerald-500"
+      ]
+    },
+    {
+      "file": "modules/monitoring/components/platform-tabs/platform-runtime-tab.component.ts",
+      "count": 2,
+      "pills": [
+        "rounded-full shrink-0",
+        "rounded-full bg-emerald-500"
+      ]
+    },
+    {
+      "file": "modules/monitoring/components/selected-migration-header.component.ts",
+      "count": 2,
+      "pills": [
+        "rounded-full shrink-0",
+        "rounded-full bg-emerald-500"
+      ]
+    },
+    {
+      "file": "modules/monitoring/components/tabs/migration-diagnostics-tab.component.ts",
+      "count": 1,
+      "pills": [
+        "rounded-full bg-emerald-500"
+      ]
+    },
+    {
+      "file": "modules/monitoring/components/tabs/migration-execution-tab.component.ts",
+      "count": 2,
+      "pills": [
+        "rounded-full overflow-hidden",
+        "rounded-full transition-all"
+      ]
+    },
+    {
+      "file": "modules/monitoring/components/tabs/migration-health-tab.component.ts",
+      "count": 5,
+      "pills": [
+        "rounded-full bg-emerald-500",
+        "rounded-full bg-emerald-500",
+        "rounded-full bg-emerald-500",
+        "rounded-full bg-emerald-500",
+        "rounded-full bg-emerald-500"
+      ]
+    },
+    {
+      "file": "modules/monitoring/components/tabs/migration-overview-tab.component.ts",
+      "count": 1,
+      "pills": [
+        "rounded-full bg-emerald-500"
+      ]
+    },
+    {
+      "file": "modules/monitoring/components/tabs/migration-reliability-tab.component.ts",
+      "count": 1,
+      "pills": [
+        "rounded-full bg-emerald-500"
+      ]
+    },
+    {
+      "file": "modules/monitoring/components/tabs/migration-resources-tab.component.ts",
+      "count": 1,
+      "pills": [
+        "rounded-full bg-emerald-500"
+      ]
+    },
+    {
+      "file": "modules/reports/certification/detail/certification-detail-frame.component.ts",
+      "count": 3,
+      "pills": [
+        "rounded-full bg-slate-100 text-slate-600 font-mono",
+        "rounded-full bg-slate-100 text-slate-600 font-mono",
+        "rounded-full bg-slate-100 text-slate-600 font-mono"
+      ]
+    },
+    {
+      "file": "modules/reports/components/reports-overview-strip.component.ts",
+      "count": 2,
+      "pills": [
+        "rounded-full bg-amber-500 shrink-0",
+        "rounded-full bg-emerald-500 shrink-0"
+      ]
+    },
+    {
+      "file": "modules/reports/evidence/certificates-inventory.component.ts",
+      "count": 4,
+      "pills": [
+        "rounded-full bg-emerald-500",
+        "rounded-full bg-rose-500",
+        "rounded-full bg-emerald-500",
+        "rounded-full bg-rose-500"
+      ]
+    },
+    {
+      "file": "modules/reports/evidence/dossiers-inventory.component.ts",
+      "count": 1,
+      "pills": [
+        "rounded-full bg-emerald-500"
+      ]
+    },
+    {
+      "file": "modules/reports/evidence/evidence-detail-frame.component.ts",
+      "count": 2,
+      "pills": [
+        "rounded-full bg-emerald-500",
+        "rounded-full bg-rose-500"
+      ]
+    },
+    {
+      "file": "modules/reports/evidence/evidence-explorer.component.ts",
+      "count": 2,
+      "pills": [
+        "rounded-full bg-emerald-500",
+        "rounded-full bg-rose-500"
+      ]
+    },
+    {
+      "file": "modules/reports/evidence/evidence-verification-workspace.component.ts",
+      "count": 5,
+      "pills": [
+        "rounded-full bg-emerald-500",
+        "rounded-full bg-rose-500",
+        "rounded-full bg-slate-400",
+        "rounded-full bg-emerald-500",
+        "rounded-full bg-rose-500"
+      ]
+    },
+    {
+      "file": "modules/reports/evidence/packages-inventory.component.ts",
+      "count": 1,
+      "pills": [
+        "rounded-full bg-emerald-500"
+      ]
+    },
+    {
+      "file": "modules/reports/library/reports-export-modal.component.ts",
+      "count": 1,
+      "pills": [
+        "rounded-full animate-spin"
+      ]
+    },
+    {
+      "file": "modules/settings/appearance/settings-appearance.component.ts",
+      "count": 2,
+      "pills": [
+        "rounded-full bg-emerald-500",
+        "rounded-full bg-amber-500"
+      ]
+    },
+    {
+      "file": "modules/settings/integrations/settings-integrations.component.ts",
+      "count": 1,
+      "pills": [
+        "rounded-full bg-emerald-500"
+      ]
+    },
+    {
+      "file": "modules/shell/shell.component.ts",
+      "count": 2,
+      "pills": [
+        "rounded-full bg-emerald-500",
+        "rounded-full bg-blue-600"
+      ]
+    },
+    {
+      "file": "modules/validation/create/steps/step1-definition.component.ts",
+      "count": 2,
+      "pills": [
+        "rounded-full shrink-0",
+        "rounded-full"
+      ]
+    },
+    {
+      "file": "modules/validation/create/steps/step2-source.component.ts",
+      "count": 2,
+      "pills": [
+        "rounded-full overflow-hidden",
+        "rounded-full"
+      ]
+    },
+    {
+      "file": "modules/validation/create/steps/step3-target.component.ts",
+      "count": 1,
+      "pills": [
+        "rounded-full overflow-hidden"
+      ]
+    },
+    {
+      "file": "modules/validation/validation-portfolio.component.ts",
+      "count": 7,
+      "pills": [
+        "rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200",
+        "rounded-full transition-all duration-300",
+        "rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200",
+        "rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200",
+        "rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200",
+        "rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200",
+        "rounded-full shrink-0"
+      ]
+    },
+    {
+      "file": "modules/validation/workstation/discrepancies/components/discrepancies-table.component.ts",
+      "count": 1,
+      "pills": [
+        "rounded-full bg-slate-100 flex items-center justify-center text-slate-400"
+      ]
+    },
+    {
+      "file": "modules/validation/workstation/results/components/results-audit-timeline.component.ts",
+      "count": 1,
+      "pills": [
+        "rounded-full bg-blue-600"
+      ]
+    },
+    {
+      "file": "modules/validation/workstation/results/components/results-source-target-proof.component.ts",
+      "count": 2,
+      "pills": [
+        "rounded-full bg-blue-500",
+        "rounded-full bg-white border-2 border-blue-500 text-blue-700 flex flex-col items-center justify-center shadow-xs"
+      ]
+    },
+    {
+      "file": "shared/components/metric-surface.component.ts",
+      "count": 1,
+      "pills": [
+        "rounded-full"
+      ]
+    }
+  ],
+  "gradientDetails": [
+    {
+      "file": "modules/migration/cockpit/components/cockpit-status-pulse.component.ts",
+      "count": 1,
+      "instances": [
+        "bg-gradient-to-r"
+      ]
+    }
+  ],
+  "nativeSelectFiles": [
+    "modules/connections/workspace/tabs/tab-configuration.component.ts",
+    "modules/migration/create/steps/mapping-map.component.ts",
+    "modules/migration/create/steps/step9-review.component.ts",
+    "modules/migration/history/history-workspace/tabs/tab-history-audit.component.ts",
+    "modules/migration/history/history-workspace/tabs/tab-history-plan.component.ts",
+    "modules/migration/history/history-workspace/tabs/tab-history-timeline.component.ts",
+    "modules/migration/projects/project-workspace/project-access.component.ts",
+    "modules/migration/projects/project-workspace/project-migrations.component.ts",
+    "modules/reports/certification/migration-certification-inventory.component.ts",
+    "modules/reports/certification/validation-certification-inventory.component.ts",
+    "modules/reports/evidence/evidence-explorer.component.ts",
+    "modules/reports/library/reports-generated-inventory.component.ts",
+    "modules/validation/create/steps/step6-strategy.component.ts"
+  ],
+  "tablePaginationDetails": [],
+  "pageHeaderPatterns": {
+    "standardTitleSubtitleAction": 0,
+    "customHeaders": 0
+  },
+  "drawers": 6
+}

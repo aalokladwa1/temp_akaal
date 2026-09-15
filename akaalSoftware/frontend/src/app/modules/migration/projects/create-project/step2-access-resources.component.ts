@@ -113,7 +113,7 @@ export interface ProjectRoleOption {
                       </div>
                       <div class="flex flex-col min-w-0">
                         <span class="font-bold text-slate-900 truncate">{{ p.name }}</span>
-                        <span class="text-[10.5px] text-slate-500 font-mono truncate">{{ p.email }}</span>
+                        <span class="text-[10.5px] text-slate-500 truncate">{{ p.email }}</span>
                       </div>
                     </div>
                   </td>
@@ -203,16 +203,6 @@ export interface ProjectRoleOption {
           </span>
         </div>
 
-        <!-- Enterprise Disclaimer Banner (Required) -->
-        <div class="p-3.5 rounded-lg bg-amber-50/80 border border-amber-200 text-amber-950 flex items-start gap-3">
-          <app-lucide-icon name="shield-alert" [size]="16" class="text-amber-600 shrink-0 mt-0.5"></app-lucide-icon>
-          <div class="flex flex-col gap-0.5 text-xs">
-            <span class="font-bold text-amber-900">Resource Visibility &#8800; Resource Use Authorization</span>
-            <p class="text-amber-800 text-[11px] leading-relaxed">
-              Associating a connection profile declares operational intent for this project boundary. Database secrets and encryption keys remain sealed in enterprise vaults and are unlocked per migration run with cryptographic verification.
-            </p>
-          </div>
-        </div>
 
         <!-- Connections Selection List -->
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -247,7 +237,7 @@ export interface ProjectRoleOption {
                   <span class="text-xs font-bold text-slate-900 truncate">{{ conn.connectionName }}</span>
                 </div>
                 @if (conn.host) {
-                  <span class="text-[10.5px] text-slate-500 font-mono truncate">{{ conn.host }}</span>
+                  <span class="text-[10.5px] text-slate-500 truncate">{{ conn.host }}</span>
                 }
                 <div class="flex items-center gap-2 text-[10px] text-slate-400 font-medium">
                   <span>{{ conn.category }}</span>

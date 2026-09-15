@@ -204,10 +204,10 @@ describe('CreateMigrationWizard State & Governance Suite', () => {
     });
 
     it('launchDraftMigration should register new portfolio migration item and return valid id', () => {
-      service.updateDraft({ name: 'Production_Launch_Migration', sourceProvider: 'Oracle', targetProvider: 'PostgreSQL' });
-      const newId = service.launchDraftMigration();
+      service.updateDraft({ migrationId: 'MIG-2026-TEST', name: 'Production_Launch_Migration', sourceProvider: 'Oracle', targetProvider: 'PostgreSQL' });
+      const newId = service.launchDraftMigration('MIG-2026-TEST');
 
-      expect(newId).toMatch(/^mig-\d+/);
+      expect(newId).toBe('MIG-2026-TEST');
       expect(service.selectedMigrationId()).toBe(newId);
       const created = service.portfolioMigrations().find(m => m.id === newId);
       expect(created).toBeDefined();
@@ -964,30 +964,36 @@ describe('CreateMigrationWizard State & Governance Suite', () => {
       step2 = new Step2SourceComponent(service);
     });
 
-    it('should display all 48 database engines across 7 categories', () => {
+    it('should display all 54 catalog entry points across 10 canonical family tabs', () => {
       step2.setConnectionMode('NEW');
-      expect(step2.catalogEngines.length).toBe(48);
+      expect(step2.catalogEngines.length).toBe(54);
 
-      step2.selectedCategoryTab.set('RELATIONAL');
-      expect(step2.filteredCatalogEngines().length).toBe(10);
+      step2.selectedCategoryTab.set('RELATIONAL_DISTRIBUTED_SQL');
+      expect(step2.filteredCatalogEngines().length).toBe(17);
 
-      step2.selectedCategoryTab.set('DISTRIBUTED_SQL');
+      step2.selectedCategoryTab.set('WAREHOUSE_LAKE');
       expect(step2.filteredCatalogEngines().length).toBe(5);
 
-      step2.selectedCategoryTab.set('WAREHOUSE');
-      expect(step2.filteredCatalogEngines().length).toBe(7);
+      step2.selectedCategoryTab.set('NOSQL_GRAPH_KV_SEARCH');
+      expect(step2.filteredCatalogEngines().length).toBe(11);
 
-      step2.selectedCategoryTab.set('NOSQL');
-      expect(step2.filteredCatalogEngines().length).toBe(12);
-
-      step2.selectedCategoryTab.set('STREAMING');
+      step2.selectedCategoryTab.set('STREAMING_MESSAGING');
       expect(step2.filteredCatalogEngines().length).toBe(6);
 
-      step2.selectedCategoryTab.set('STORAGE');
-      expect(step2.filteredCatalogEngines().length).toBe(5);
+      step2.selectedCategoryTab.set('OBJECT_DISTRIBUTED_STORAGE');
+      expect(step2.filteredCatalogEngines().length).toBe(6);
 
-      step2.selectedCategoryTab.set('SAAS');
+      step2.selectedCategoryTab.set('TIME_SERIES');
+      expect(step2.filteredCatalogEngines().length).toBe(1);
+
+      step2.selectedCategoryTab.set('ENTERPRISE_APPLICATIONS');
       expect(step2.filteredCatalogEngines().length).toBe(3);
+
+      step2.selectedCategoryTab.set('FILE_DATASET');
+      expect(step2.filteredCatalogEngines().length).toBe(1);
+
+      step2.selectedCategoryTab.set('MANAGED_CLOUD');
+      expect(step2.filteredCatalogEngines().length).toBe(4);
     });
 
     it('should support all network route options and environment-aware TLS options', () => {
@@ -1005,53 +1011,184 @@ describe('CreateMigrationWizard State & Governance Suite', () => {
       service.updateDraft({ environment: 'Non-Production' });
       expect(step2.tlsModeOptions().some(t => t.value === 'DISABLE')).toBe(true);
     });
+
+    it('Step 2 New Connection configures inline migration connection without embedding standalone wizard', () => {
+      step2.setConnectionMode('NEW');
+      expect(service.wizardDraft().sourceConnectionMode).toBe('NEW');
+      expect(step2.selectedProviderSchema()).toBeUndefined();
+      step2.selectEngine('PostgreSQL');
+      expect(service.wizardDraft().sourceProvider).toBe('PostgreSQL');
+      expect(step2.selectedProviderSchema()?.providerId).toBe('PostgreSQL');
+    });
+
+    it('Step 2 must NOT embed app-create-connection-wizard or rely on CreateConnectionService', () => {
+      expect((step2 as any).createConnService).toBeUndefined();
+    });
+
+    it('Step 2 evaluateSavedConnection enforces canonical provider role-ineligibility', () => {
+      const validConn: any = {
+        id: 'test-valid-01',
+        name: 'PostgreSQL Prod',
+        provider: 'PostgreSQL',
+        category: 'RELATIONAL',
+        environment: 'Production',
+        host: 'host.internal',
+        port: 5432,
+        databaseName: 'db',
+        username: 'user',
+        secretRef: '',
+        tlsEnabled: true,
+        networkRoute: 'DIRECT',
+        status: 'CONNECTED',
+        verificationFreshness: 'Verified',
+        latencyMs: 1.0,
+        capabilities: []
+      };
+
+      const validEval = step2.evaluateSavedConnection(validConn);
+      expect(validEval.isEligible).toBe(true);
+    });
+
+    it('Step 2 selectedSavedConnection returns undefined (no draft projection) when connection id cannot be resolved', () => {
+      service.updateDraft({
+        sourceConnectionId: 'ghost-conn-999',
+        sourceProvider: 'PostgreSQL',
+        sourceHost: 'ghost.internal',
+        sourcePort: 5432
+      });
+
+      expect(step2.selectedSavedConnection()).toBeUndefined();
+    });
+
+    it('Step 2 evaluateSavedConnection rejects unrecognised providers with PROVIDER_UNRECOGNISED', () => {
+      const invalidConn: any = {
+        id: 'conn-fake',
+        name: 'Made-up DB',
+        provider: 'NonExistentProvider',
+        category: 'RELATIONAL'
+      };
+
+      const evalRes = step2.evaluateSavedConnection(invalidConn);
+      expect(evalRes.isEligible).toBe(false);
+      expect(evalRes.errorCategory).toBe('PROVIDER_UNRECOGNISED');
+    });
   });
 
-  describe('Step 3 Target Instance & Compatibility (48 Providers, Network Routes & TLS)', () => {
+  describe('Step 3 Target Instance & Compatibility (49 Providers, Network Routes & TLS)', () => {
     let step3: Step3TargetComponent;
 
     beforeEach(() => {
       step3 = new Step3TargetComponent(service);
     });
 
-    it('should display all 48 database engines across 7 categories in Target step', () => {
+    it('should display all 54 catalog entry points across 10 canonical family tabs in Target step', () => {
       step3.setConnectionMode('NEW');
-      expect(step3.catalogEngines.length).toBe(48);
+      expect(step3.catalogEngines.length).toBe(54);
 
-      step3.selectedCategoryTab.set('RELATIONAL');
-      expect(step3.filteredCatalogEngines().length).toBe(10);
+      step3.selectedCategoryTab.set('RELATIONAL_DISTRIBUTED_SQL');
+      expect(step3.filteredCatalogEngines().length).toBe(17);
 
-      step3.selectedCategoryTab.set('DISTRIBUTED_SQL');
+      step3.selectedCategoryTab.set('WAREHOUSE_LAKE');
       expect(step3.filteredCatalogEngines().length).toBe(5);
 
-      step3.selectedCategoryTab.set('WAREHOUSE');
-      expect(step3.filteredCatalogEngines().length).toBe(7);
+      step3.selectedCategoryTab.set('NOSQL_GRAPH_KV_SEARCH');
+      expect(step3.filteredCatalogEngines().length).toBe(11);
 
-      step3.selectedCategoryTab.set('NOSQL');
-      expect(step3.filteredCatalogEngines().length).toBe(12);
-
-      step3.selectedCategoryTab.set('STREAMING');
+      step3.selectedCategoryTab.set('STREAMING_MESSAGING');
       expect(step3.filteredCatalogEngines().length).toBe(6);
 
-      step3.selectedCategoryTab.set('STORAGE');
-      expect(step3.filteredCatalogEngines().length).toBe(5);
+      step3.selectedCategoryTab.set('OBJECT_DISTRIBUTED_STORAGE');
+      expect(step3.filteredCatalogEngines().length).toBe(6);
 
-      step3.selectedCategoryTab.set('SAAS');
+      step3.selectedCategoryTab.set('TIME_SERIES');
+      expect(step3.filteredCatalogEngines().length).toBe(1);
+
+      step3.selectedCategoryTab.set('ENTERPRISE_APPLICATIONS');
       expect(step3.filteredCatalogEngines().length).toBe(3);
+
+      step3.selectedCategoryTab.set('FILE_DATASET');
+      expect(step3.filteredCatalogEngines().length).toBe(1);
+
+      step3.selectedCategoryTab.set('MANAGED_CLOUD');
+      expect(step3.filteredCatalogEngines().length).toBe(4);
     });
 
-    it('should support all 8 category tabs with exact engine counts', () => {
-      expect(step3.catalogTabs.length).toBe(8);
+    it('should support all 10 category tabs with exact engine counts', () => {
+      expect(step3.catalogTabs.length).toBe(10);
       expect(step3.catalogTabs).toEqual([
-        { id: 'ALL', label: 'All', count: 48 },
-        { id: 'RELATIONAL', label: 'Relational', count: 10 },
-        { id: 'DISTRIBUTED_SQL', label: 'Distributed SQL', count: 5 },
-        { id: 'WAREHOUSE', label: 'Warehouse', count: 7 },
-        { id: 'NOSQL', label: 'NoSQL', count: 12 },
-        { id: 'STREAMING', label: 'Streaming', count: 6 },
-        { id: 'STORAGE', label: 'Storage', count: 5 },
-        { id: 'SAAS', label: 'SaaS & Apps', count: 3 }
+        { id: 'ALL', label: 'All', count: 54 },
+        { id: 'RELATIONAL_DISTRIBUTED_SQL', label: 'Relational & Distributed SQL', count: 17 },
+        { id: 'WAREHOUSE_LAKE', label: 'Warehouse & Lakehouse', count: 5 },
+        { id: 'NOSQL_GRAPH_KV_SEARCH', label: 'NoSQL, Graph & KV', count: 11 },
+        { id: 'STREAMING_MESSAGING', label: 'Streaming & Messaging', count: 6 },
+        { id: 'OBJECT_DISTRIBUTED_STORAGE', label: 'Object & Distributed Storage', count: 6 },
+        { id: 'TIME_SERIES', label: 'Time-Series', count: 1 },
+        { id: 'ENTERPRISE_APPLICATIONS', label: 'Enterprise Apps & SaaS', count: 3 },
+        { id: 'FILE_DATASET', label: 'File Dataset', count: 1 },
+        { id: 'MANAGED_CLOUD', label: 'Managed Cloud', count: 4 }
       ]);
+    });
+
+    it('Step 3 New Connection configures inline target migration connection without embedding standalone wizard', () => {
+      step3.setConnectionMode('NEW');
+      expect(service.wizardDraft().targetConnectionMode).toBe('NEW');
+      expect(step3.selectedProviderSchema()).toBeUndefined();
+      step3.selectTargetEngine('Snowflake');
+      expect(service.wizardDraft().targetProvider).toBe('Snowflake');
+      expect(step3.selectedProviderSchema()?.providerId).toBe('Snowflake');
+    });
+
+    it('Step 3 must NOT embed app-create-connection-wizard or rely on CreateConnectionService', () => {
+      expect((step3 as any).createConnService).toBeUndefined();
+    });
+
+    it('Step 3 evaluateSavedConnection rejects SOURCE_ONLY providers such as Salesforce', () => {
+      const salesforceConn: any = {
+        id: 'conn-sf-01',
+        name: 'Enterprise Salesforce CRM',
+        provider: 'Salesforce',
+        category: 'SAAS',
+        environment: 'Production',
+        host: 'na1.salesforce.com',
+        port: 443,
+        databaseName: 'default',
+        username: 'admin',
+        secretRef: '',
+        tlsEnabled: true,
+        networkRoute: 'DIRECT',
+        status: 'CONNECTED',
+        verificationFreshness: 'Verified',
+        latencyMs: 10.0,
+        capabilities: []
+      };
+
+      const evalRes = step3.evaluateSavedConnection(salesforceConn);
+      expect(evalRes.isEligible).toBe(false);
+      expect(evalRes.reason).toContain('restricted to Source workloads only');
+    });
+
+    it('Step 3 selectedSavedConnection returns undefined (no draft projection) when target connection id cannot be resolved', () => {
+      service.updateDraft({
+        targetConnectionId: 'ghost-target-999',
+        targetProvider: 'PostgreSQL',
+        targetHost: 'ghost-target.internal',
+        targetPort: 5432
+      });
+
+      expect(step3.selectedSavedConnection()).toBeUndefined();
+    });
+
+    it('Step 3 evaluateSavedConnection rejects unrecognised providers with PROVIDER_UNRECOGNISED', () => {
+      const invalidConn: any = {
+        id: 'conn-fake-target',
+        name: 'Made-up Target DB',
+        provider: 'NonExistentTargetProvider',
+        category: 'RELATIONAL'
+      };
+
+      const evalRes = step3.evaluateSavedConnection(invalidConn);
+      expect(evalRes.isEligible).toBe(false);
+      expect(evalRes.errorCategory).toBe('PROVIDER_UNRECOGNISED');
     });
   });
 });

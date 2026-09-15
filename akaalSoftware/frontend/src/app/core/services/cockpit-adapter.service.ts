@@ -51,7 +51,7 @@ export class CockpitAdapterService {
     const lifecycleState = session?.lifecycleState || 'RUNNING';
 
     return {
-      migrationId: session?.id || session?.migrationId || 'MIG-2026-0906-A1',
+      migrationId: session?.id || session?.migrationId || '',
       migrationName: session?.name?.trim() || `${sourceProvider} to ${targetProvider} Migration`,
       environment: session?.environment || 'Production',
       mode,

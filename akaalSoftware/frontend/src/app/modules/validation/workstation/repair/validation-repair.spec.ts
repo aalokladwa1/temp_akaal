@@ -41,20 +41,14 @@ describe('ValidationRepair Workspace & Invariants', () => {
     expect(service.impact()?.protectedDataInvolved).toBe(true);
   });
 
-  it('should handle governance dual-approval and require quorum before authorization', () => {
+  it('should fail closed on approveProposal when backend connection is unavailable (B-VAL-01)', () => {
     service.setFixture('SENSITIVE_DATA_TRANSFORMATION');
     const gov = service.governance();
     expect(gov?.state).toBe('PENDING');
-    expect(gov?.quorumRequired).toBe(2);
-    expect(gov?.quorumSatisfied).toBe(1);
-    expect(gov?.isAuthorized).toBe(false);
 
-    // Sign off as second approver
+    // Sign off attempt fail closes without backend
     service.approveProposal('Security Officer 2 / Compliance Lead');
-    const updatedGov = service.governance();
-    expect(updatedGov?.quorumSatisfied).toBe(2);
-    expect(updatedGov?.isAuthorized).toBe(true);
-    expect(updatedGov?.state).toBe('APPROVED');
+    expect(service.errorMessage()).toContain('Live sign-off & cryptographic signature requires backend connection (CHECK2)');
   });
 
   it('should enforce governance rejection and block execution', () => {

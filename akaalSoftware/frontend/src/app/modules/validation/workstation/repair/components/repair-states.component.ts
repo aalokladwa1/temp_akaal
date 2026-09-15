@@ -49,7 +49,7 @@ import { LucideIconComponent } from '../../../../../shared/components/lucide-ico
                 type="button"
                 (click)="store.setFixture('SINGLE_UPDATE_PROPOSAL')"
                 class="h-9 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold cursor-pointer transition-colors shadow-2xs flex items-center gap-2">
-                <app-lucide-icon name="sparkles" [size]="13"></app-lucide-icon>
+                <app-lucide-icon name="wrench" [size]="13"></app-lucide-icon>
                 <span>Explore Governed Repair Workflow</span>
               </button>
             </div>

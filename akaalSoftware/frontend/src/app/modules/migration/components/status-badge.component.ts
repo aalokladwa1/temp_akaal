@@ -6,8 +6,8 @@ import { CommonModule } from '@angular/common';
   standalone: true,
   imports: [CommonModule],
   template: `
-    @if (lifecycle) {
-      @switch (lifecycle.toUpperCase()) {
+    @if (getLifecycleUpper()) {
+      @switch (getLifecycleUpper()) {
         @case ('RUNNING') {
           <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200 select-none">
             <span class="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
@@ -77,8 +77,8 @@ import { CommonModule } from '@angular/common';
       </span>
     }
 
-    @if (verdict) {
-      @switch (verdict.toUpperCase()) {
+    @if (getVerdictUpper()) {
+      @switch (getVerdictUpper()) {
         @case ('SYNCED_CERTIFIED') {
           <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 select-none">
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
@@ -155,8 +155,16 @@ export class StatusBadgeComponent {
   @Input() verdict?: any;
   @Input() strategy?: any;
 
-  public getCanonicalModeLabel(m: string): string {
-    const upper = (m || '').toUpperCase();
+  public getLifecycleUpper(): string {
+    return typeof this.lifecycle === 'string' ? this.lifecycle.toUpperCase() : (this.lifecycle ? String(this.lifecycle).toUpperCase() : '');
+  }
+
+  public getVerdictUpper(): string {
+    return typeof this.verdict === 'string' ? this.verdict.toUpperCase() : (this.verdict ? String(this.verdict).toUpperCase() : '');
+  }
+
+  public getCanonicalModeLabel(m: any): string {
+    const upper = typeof m === 'string' ? m.toUpperCase() : (m ? String(m).toUpperCase() : '');
     switch (upper) {
       case 'BULK_ONLY':
       case 'M1_BULK':
@@ -191,7 +199,7 @@ export class StatusBadgeComponent {
       case 'M8':
         return 'M8: Validation';
       default:
-        return m;
+        return typeof m === 'string' ? m : String(m || '');
     }
   }
 }

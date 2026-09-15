@@ -17,11 +17,11 @@ import { ProjectsStateFallbackComponent } from './projects-state-fallback.compon
       <div class="p-4 sm:p-4.5 rounded-xl bg-white border border-slate-200 shadow-xs flex items-center justify-between gap-4 flex-wrap">
         
         <!-- Search Input with Pure Inline Style Overlay -->
-        <div style="position: relative; display: flex; align-items: center; width: 280px; max-width: 100%;">
+        <div class="relative flex items-center w-72 max-w-full">
           <app-lucide-icon
             name="search"
             [size]="14"
-            style="position: absolute; left: 11px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; color: #94a3b8; pointer-events: none; z-index: 2;">
+            class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none z-10">
           </app-lucide-icon>
           
           <input
@@ -29,15 +29,14 @@ import { ProjectsStateFallbackComponent } from './projects-state-fallback.compon
             [ngModel]="ps.initiativeFilters().searchQuery"
             (ngModelChange)="ps.setInitiativeSearch($event)"
             placeholder="Search initiatives by name, key, objective..."
-            style="width: 100%; height: 36px; padding-left: 36px !important; padding-right: 28px; font-size: 12px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; outline: none; color: #0f172a;"
+            class="w-full h-9 pl-9 pr-7 text-xs bg-white border border-slate-200 rounded-md outline-none text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
           />
 
           @if (ps.initiativeFilters().searchQuery) {
             <button
               type="button"
               (click)="ps.setInitiativeSearch('')"
-              class="w-5 h-5 rounded-md hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
-              style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%);">
+              class="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 rounded-md hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors cursor-pointer z-10">
               <app-lucide-icon name="x" [size]="12"></app-lucide-icon>
             </button>
           }
@@ -151,7 +150,7 @@ import { ProjectsStateFallbackComponent } from './projects-state-fallback.compon
                     <td class="py-4 px-5">
                       <div class="flex flex-col gap-1.5 min-w-0">
                         <div class="flex items-center gap-2.5">
-                          <span class="px-2.5 py-0.5 rounded-md text-[10px] font-bold font-mono bg-indigo-50 text-indigo-700 border border-indigo-200/80 shrink-0">
+                          <span class="px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200/80 shrink-0">
                             {{ init.key }}
                           </span>
                           <span class="font-bold text-slate-900 group-hover:text-blue-700 transition-colors truncate">
@@ -194,7 +193,7 @@ import { ProjectsStateFallbackComponent } from './projects-state-fallback.compon
                       <div class="flex flex-col gap-0.5 text-xs text-slate-500 font-medium">
                         <span class="tabular-nums">{{ init.lastActivityAt ? (init.lastActivityAt | date:'MMM d, yyyy') : 'Recently' }}</span>
                         @if (init.lastActivityAt) {
-                          <span class="text-[10.5px] text-slate-400 font-mono">{{ init.lastActivityAt | date:'HH:mm UTC' }}</span>
+                          <span class="text-[10.5px] text-slate-400 tabular-nums">{{ init.lastActivityAt | date:'HH:mm UTC' }}</span>
                         }
                       </div>
                     </td>

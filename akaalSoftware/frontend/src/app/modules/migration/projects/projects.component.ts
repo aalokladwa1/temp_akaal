@@ -28,8 +28,10 @@ import { InitiativeDiscoveryComponent } from './components/initiative-discovery.
       <!-- 1. Header (Title, Subtitle, Context Breadcrumb, Actions) -->
       <app-projects-header></app-projects-header>
 
-      <!-- 2. Attention Projection (Actionable alerts banner if present) -->
-      <app-projects-attention></app-projects-attention>
+      <!-- 2. Attention Projection (Actionable alerts banner on Portfolio overview) -->
+      @if (activeTab() === 'portfolio') {
+        <app-projects-attention></app-projects-attention>
+      }
 
       <!-- 3. Navigation Bar (Segmented GDS Tab Slider) -->
       <app-projects-nav-bar

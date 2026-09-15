@@ -193,7 +193,7 @@ const INITIAL_DRAFT: NewValidationDraftState = {
   targetVerificationResult: undefined,
   targetSaveToVault: false,
   purpose: 'POST_MIGRATION_VERIFICATION',
-  owner: 'Aalok Ladwa',
+  owner: undefined,
   priority: 'HIGH',
   referenceConnectionId: '',
   referenceProvider: 'Oracle',

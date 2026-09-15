@@ -74,6 +74,7 @@ export interface SubsystemStatus {
 
 export interface PendingApproval {
   id: string;
+  migrationId?: string | null;
   migrationName: string;
   operation: string;
   boundary: string;
@@ -82,6 +83,8 @@ export interface PendingApproval {
   quorum: string; // e.g. '2 of 3 Required'
   severity: 'critical' | 'normal';
 }
+
+export type DashboardStatus = 'initial' | 'loading' | 'available' | 'unavailable' | 'error';
 
 export interface CapacityMetric {
   resource: string;

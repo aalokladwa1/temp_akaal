@@ -267,14 +267,14 @@ interface StrategyOption {
                       <!-- 1. Mission Name, Key & Scope -->
                       <td class="py-3.5 px-4">
                         <div class="flex items-center gap-2.5 min-w-0">
-                          <span class="px-2 py-0.5 rounded-md text-[10px] font-bold font-mono bg-emerald-50 text-emerald-700 border border-emerald-200/80 shrink-0">
+                          <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/80 shrink-0">
                             {{ v.key }}
                           </span>
                           <div class="flex flex-col min-w-0">
                             <span class="font-bold text-slate-900 group-hover:text-blue-700 transition-colors truncate">
                               {{ v.name }}
                             </span>
-                            <span class="text-[11px] text-slate-500 font-mono truncate">
+                            <span class="text-[11px] text-slate-500 truncate">
                               {{ v.scopeName }}
                             </span>
                           </div>
@@ -326,7 +326,7 @@ interface StrategyOption {
 
                       <!-- 5. Last Run Timestamp -->
                       <td class="py-3.5 px-4 text-slate-600 font-medium whitespace-nowrap">
-                        <span class="text-xs tabular-nums font-mono">
+                        <span class="text-xs tabular-nums">
                           {{ v.lastRunAt ? (v.lastRunAt | date:'MMM d, HH:mm') : (v.nextRunAt ? ('Sched: ' + (v.nextRunAt | date:'MMM d')) : '&mdash;') }}
                         </span>
                       </td>
@@ -410,6 +410,6 @@ export class ProjectValidationsComponent {
   }
 
   public navigateToValidation(id: string): void {
-    this.router.navigate(['/migration/validation/val-mission-11']);
+    this.router.navigate(['/migration/validation', id]);
   }
 }

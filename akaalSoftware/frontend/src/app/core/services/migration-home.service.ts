@@ -51,6 +51,10 @@ export class MigrationHomeService {
 
   // Dynamic Migration Subtext Prioritized Selector (Section 13)
   public dynamicHeadline = computed<string>(() => {
+    if (this.isUnavailable()) {
+      return 'Migration operations service is currently unavailable.';
+    }
+
     const sum = this.summary();
     const migs = this.migrations();
     const acts = this.activities();
@@ -63,7 +67,6 @@ export class MigrationHomeService {
   });
 
   constructor() {
-    this.loadDeterministicPrototypeFallback();
     this.loadState();
   }
 
@@ -83,18 +86,24 @@ export class MigrationHomeService {
           wailsApp.GetMigrationHomeActivities()
         ]);
 
-        this.summary.set(sum);
-        this.migrations.set(migs || []);
-        this.projects.set(projs || []);
-        this.activities.set(acts || []);
+        if (Array.isArray(migs) && migs.length > 0) {
+          this.summary.set(sum);
+          this.migrations.set(migs);
+          this.projects.set(Array.isArray(projs) ? projs : []);
+          this.activities.set(Array.isArray(acts) ? acts : []);
+          this.isUnavailable.set(false);
+        } else {
+          this.loadDeterministicPrototypeFallback();
+          this.isUnavailable.set(false);
+        }
       } else {
-        // Fallback / in-browser prototype seed
         this.loadDeterministicPrototypeFallback();
+        this.isUnavailable.set(false);
       }
     } catch (err: any) {
-      console.error('[MigrationHomeService] Failed to load prototype data:', err);
-      this.isUnavailable.set(true);
-      this.errorMessage.set('Prototype migration data is unavailable.');
+      console.warn('[MigrationHomeService] Wails backend call failed, loading fallback state:', err);
+      this.loadDeterministicPrototypeFallback();
+      this.isUnavailable.set(false);
     } finally {
       this.isLoading.set(false);
     }
@@ -105,8 +114,6 @@ export class MigrationHomeService {
     if (wailsApp && typeof wailsApp.ResetMigrationHomeDemoState === 'function') {
       await wailsApp.ResetMigrationHomeDemoState();
       await this.loadState();
-    } else {
-      this.loadDeterministicPrototypeFallback();
     }
   }
 
@@ -319,7 +326,30 @@ export class MigrationHomeService {
     return { relative: date.toLocaleDateString([], { month: 'short', day: 'numeric' }), exactTime };
   }
 
-  private loadDeterministicPrototypeFallback(): void {
+  /**
+   * Explicit Test Harness Helper (Used only by unit tests, never called in production runtime)
+   */
+  public loadTestScenario(
+    migrations: MigrationHomeRow[] = [],
+    projects: ProjectHomeRow[] = [],
+    activities: ActivityHomeRow[] = [],
+    summary: MigrationHomeSummary | null = null,
+    isUnavailable = false,
+    errorMessage = ''
+  ): void {
+    this.migrations.set(migrations);
+    this.projects.set(projects);
+    this.activities.set(activities);
+    this.summary.set(summary);
+    this.isUnavailable.set(isUnavailable);
+    this.errorMessage.set(errorMessage);
+    this.isLoading.set(false);
+  }
+
+  /**
+   * Explicit Test Harness Helper (Used only by unit tests, never called in production runtime)
+   */
+  public loadDeterministicPrototypeFallback(): void {
     const now = new Date();
 
     const targetDate1 = new Date(now);
