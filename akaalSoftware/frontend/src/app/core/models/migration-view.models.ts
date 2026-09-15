@@ -74,6 +74,8 @@ export type PhysicalProviderId =
   | 'MinIO'
   | 'MinIO Object Storage'
   | 'Apache HDFS'
+  | 'OCI Object Storage'
+  | 'oci_object_storage'
   | 'Salesforce'
   | 'ServiceNow'
   | 'SAP Application Ecosystem';

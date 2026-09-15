@@ -10,7 +10,7 @@ import {
   NetworkRouteType
 } from '../../../../core/models/migration-view.models';
 import {
-  ALL_48_PROVIDER_SCHEMAS,
+  ALL_PROVIDER_SCHEMAS,
   ProviderFormSchema,
   ProviderFormField
 } from '../../../../core/models/provider-form-schemas';
@@ -45,6 +45,21 @@ export interface VerificationPhaseState {
 
 export interface SavedConnectionItemExtended extends ConnectionItem {
   scope?: 'PROJECT' | 'TEAM' | 'ENTERPRISE';
+}
+
+import { ConnectionsService } from '../../../connections/connections.service';
+import { ALL_PROVIDER_CATALOG_ITEMS } from '../../../connections/create-connection/create-connection.schemas';
+
+export function toPhysicalProviderId(val: string): PhysicalProviderId {
+  const norm = val.toLowerCase().replace(/[^a-z0-9]/g, '');
+  for (const item of ALL_PROVIDER_CATALOG_ITEMS) {
+    const itemId = item.id.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const itemName = item.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (norm === itemId || norm === itemName) {
+      return item.name as PhysicalProviderId;
+    }
+  }
+  return val as PhysicalProviderId;
 }
 
 @Component({
@@ -170,15 +185,16 @@ export interface SavedConnectionItemExtended extends ConnectionItem {
             <div class="relative flex-1">
               <input
                 type="text"
-                [(ngModel)]="savedSearchQuery"
+                [ngModel]="savedSearchQuery()"
+                (ngModelChange)="savedSearchQuery.set($event)"
                 placeholder="Search saved connections by name, host, or engine..."
                 class="w-full h-10 pl-11 pr-4 bg-white border border-slate-200 focus:border-blue-600 rounded-xl text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none transition-colors shadow-2xs" />
-              <app-lucide-icon name="search" [size]="15" class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></app-lucide-icon>
+              <app-lucide-icon name="search" [size]="16" class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none z-10"></app-lucide-icon>
               @if (savedSearchQuery()) {
                 <button
                   type="button"
                   (click)="savedSearchQuery.set('')"
-                  class="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer">
+                  class="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer z-10">
                   <app-lucide-icon name="x-circle" [size]="14"></app-lucide-icon>
                 </button>
               }
@@ -457,8 +473,31 @@ export interface SavedConnectionItemExtended extends ConnectionItem {
             }
 
             @if (filteredSavedConnections().length === 0) {
-              <div class="col-span-full py-12 text-center text-slate-400 text-xs bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
-                No saved connections match your active search and filter criteria.
+              <div class="col-span-full py-10 px-6 border-2 border-dashed border-slate-200 rounded-2xl bg-white/80 flex flex-col items-center justify-center text-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400">
+                  <app-lucide-icon name="database-zap" [size]="22"></app-lucide-icon>
+                </div>
+                <div class="flex flex-col gap-1 max-w-md">
+                  <h3 class="text-sm font-bold text-slate-900">No Saved Connections Found</h3>
+                  <p class="text-xs text-slate-500 font-normal leading-relaxed">
+                    No enterprise connections in the Vault match your active search and filter criteria. You can clear your filters or configure a new connection.
+                  </p>
+                </div>
+                <div class="flex items-center gap-3 pt-2">
+                  <button
+                    type="button"
+                    (click)="clearAllFilters()"
+                    class="px-3.5 py-2 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl text-xs font-semibold text-slate-700 shadow-2xs cursor-pointer transition-colors">
+                    Clear All Filters
+                  </button>
+                  <button
+                    type="button"
+                    (click)="setConnectionMode('NEW')"
+                    class="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 rounded-xl text-xs font-semibold text-white shadow-2xs cursor-pointer transition-colors flex items-center gap-1.5">
+                    <app-lucide-icon name="plus" [size]="14"></app-lucide-icon>
+                    <span>Configure New Connection</span>
+                  </button>
+                </div>
               </div>
             }
           </div>
@@ -496,40 +535,64 @@ export interface SavedConnectionItemExtended extends ConnectionItem {
                 </div>
               }
             }
+          } @else if (ms.wizardDraft().sourceConnectionId) {
+            <!-- Truthful Canonical Lookup Failure Strip (NO DRAFT PROJECTION) -->
+            <div class="p-3 bg-rose-50/50 border border-rose-300 rounded-xl flex items-center justify-between gap-3 text-xs animate-in fade-in duration-100">
+              <div class="flex items-center gap-2">
+                <app-lucide-icon name="alert-circle" [size]="16" class="text-rose-600 shrink-0"></app-lucide-icon>
+                <span class="font-semibold text-rose-900">
+                  Bound connection identity <strong class="font-mono text-rose-950">{{ ms.wizardDraft().sourceConnectionId }}</strong> cannot be resolved in the canonical Connection Vault.
+                </span>
+              </div>
+              <button
+                type="button"
+                (click)="ms.updateDraft({ sourceConnectionId: undefined, sourceVerified: false })"
+                class="px-2.5 py-1 text-xs font-semibold text-rose-800 bg-white border border-rose-300 rounded-md hover:bg-rose-50 cursor-pointer shadow-2xs">
+                Clear Stale Binding
+              </button>
+            </div>
           }
 
         </section>
       }
 
       <!-- ========================================================================= -->
-      <!-- BRANCH 2: NEW CONNECTION BRANCH                                           -->
+      <!-- BRANCH 2: NEW SOURCE CONNECTION BRANCH (MIGRATION NATIVE UI)               -->
       <!-- ========================================================================= -->
       @if (ms.wizardDraft().sourceConnectionMode === 'NEW') {
-        <section class="space-y-6 animate-in fade-in duration-150">
+        <section class="space-y-4 animate-in fade-in duration-150">
           
-          <!-- PHASE A: EXPANSIVE PROVIDER CATALOG GRID -->
-          @if (!ms.wizardDraft().sourceProvider) {
-            <div class="flex flex-col gap-4 animate-in fade-in duration-150">
+          <!-- PHASE A: NO PROVIDER SELECTED (EXPANSIVE PROVIDER CATALOG GRID) -->
+          @if (!selectedProviderSchema()) {
+            <div class="p-5 bg-white border border-slate-200 rounded-2xl space-y-4 shadow-2xs">
               
-              <!-- Full-Width Search Bar with Explicit Padding & Left Icon Clearance -->
-              <div class="relative w-full">
+              <div class="flex items-center justify-between pb-3 border-b border-slate-100 flex-wrap gap-2">
+                <div class="flex flex-col gap-0.5">
+                  <h2 class="text-sm font-bold text-slate-900">Select Source Database Engine</h2>
+                  <p class="text-xs text-slate-500 font-normal">Choose from the canonical catalog of {{ catalogEngines.length }} supported physical database engines.</p>
+                </div>
+              </div>
+
+              <!-- Search Bar & Category Filters -->
+              <div class="relative">
                 <input
                   type="text"
-                  [(ngModel)]="searchQuery"
-                  placeholder="Search providers (e.g. Oracle, PostgreSQL, Snowflake, Kafka)..."
+                  [ngModel]="searchQuery()"
+                  (ngModelChange)="searchQuery.set($event)"
+                  placeholder="Search catalog by name, category, or engine ID..."
                   class="w-full h-10 pl-11 pr-4 bg-white border border-slate-200 focus:border-blue-600 rounded-xl text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none transition-colors shadow-2xs" />
-                <app-lucide-icon name="search" [size]="15" class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></app-lucide-icon>
+                <app-lucide-icon name="search" [size]="16" class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none z-10"></app-lucide-icon>
                 @if (searchQuery()) {
                   <button
                     type="button"
                     (click)="searchQuery.set('')"
-                    class="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer">
+                    class="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer z-10">
                     <app-lucide-icon name="x-circle" [size]="14"></app-lucide-icon>
                   </button>
                 }
               </div>
 
-              <!-- Clean Category Filter Pill Tabs -->
+              <!-- Category Pill Tabs -->
               <div class="flex items-center gap-1.5 overflow-x-auto pb-1">
                 @for (tab of catalogTabs; track tab.id) {
                   <button
@@ -551,7 +614,7 @@ export interface SavedConnectionItemExtended extends ConnectionItem {
                 }
               </div>
 
-              <!-- The Engine Grid: grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3.5 -->
+              <!-- Catalog Engine Grid -->
               <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3.5 mt-2">
                 @for (engine of filteredCatalogEngines(); track engine.id) {
                   @let compat = checkEngineCompatibility(engine.id);
@@ -588,21 +651,16 @@ export interface SavedConnectionItemExtended extends ConnectionItem {
                     }
                   </button>
                 }
-                @if (filteredCatalogEngines().length === 0) {
-                  <div class="col-span-full py-12 text-center text-slate-400 text-xs">
-                    No database engines match your search query.
-                  </div>
-                }
               </div>
 
             </div>
           }
 
-          <!-- PHASE B: ENGINE SELECTED (ACTIVE CONTEXT BAR & DYNAMIC FORM) -->
+          <!-- PHASE B: SOURCE PROVIDER SELECTED (CONFIGURATION FORM) -->
           @if (selectedProviderSchema(); as schema) {
             <div class="space-y-5 animate-in fade-in duration-150">
               
-              <!-- Active Context Bar: [ Engine Icon ] Title · Category with [ Change Engine ] -->
+              <!-- Active Context Bar -->
               <div class="p-3.5 bg-blue-50/40 border border-blue-200 rounded-xl flex items-center justify-between flex-wrap gap-2">
                 <div class="flex items-center gap-3 min-w-0">
                   <div class="w-9 h-9 rounded-lg bg-white border border-blue-200 flex items-center justify-center text-blue-600 shrink-0 shadow-2xs">
@@ -630,7 +688,7 @@ export interface SavedConnectionItemExtended extends ConnectionItem {
                 </button>
               </div>
 
-              <!-- Dynamic Field Schema Form Grid with Conditional Field Show/Hide Rules -->
+              <!-- Dynamic Parameters Form Grid -->
               <div class="p-5 bg-white border border-slate-200 rounded-xl space-y-4 shadow-2xs">
                 <div class="pb-2 border-b border-slate-100 flex items-center justify-between">
                   <span class="text-xs font-bold text-slate-900">Endpoint &amp; Authentication Parameters</span>
@@ -642,12 +700,10 @@ export interface SavedConnectionItemExtended extends ConnectionItem {
                     @if (isFieldVisible(field, schema)) {
                       <div [class]="(field.type === 'textarea' || field.type === 'file_path') ? 'flex flex-col gap-1.5 md:col-span-2' : 'flex flex-col gap-1.5'">
                         
-                        <!-- Label with Single Red Asterisk if Required -->
                         <label [for]="'field-' + field.id" class="text-xs font-semibold text-slate-700 flex items-center justify-between">
                           <span>{{ cleanLabel(field.label) }} @if (field.required) { <span class="text-rose-500">*</span> }</span>
                         </label>
 
-                        <!-- Field Type: text / file_path -->
                         @if (field.type === 'text' || field.type === 'file_path') {
                           <input
                             [id]="'field-' + field.id"
@@ -658,7 +714,6 @@ export interface SavedConnectionItemExtended extends ConnectionItem {
                             class="w-full h-9 px-3 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-600 transition-colors" />
                         }
 
-                        <!-- Field Type: number -->
                         @if (field.type === 'number') {
                           <input
                             [id]="'field-' + field.id"
@@ -669,7 +724,6 @@ export interface SavedConnectionItemExtended extends ConnectionItem {
                             class="w-full h-9 px-3 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-600 transition-colors" />
                         }
 
-                        <!-- Field Type: password / secret_ref (STRICTLY ONE CLEAR ICON, NO OVERLAP) -->
                         @if (field.type === 'password' || field.type === 'secret_ref') {
                           <div class="relative">
                             <input
@@ -689,7 +743,6 @@ export interface SavedConnectionItemExtended extends ConnectionItem {
                           </div>
                         }
 
-                        <!-- Field Type: textarea -->
                         @if (field.type === 'textarea') {
                           <textarea
                             [id]="'field-' + field.id"
@@ -700,7 +753,6 @@ export interface SavedConnectionItemExtended extends ConnectionItem {
                             class="w-full p-2.5 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-600 font-mono transition-colors"></textarea>
                         }
 
-                        <!-- Field Type: select -->
                         @if (field.type === 'select') {
                           <app-custom-select
                             [options]="field.options || []"
@@ -710,7 +762,6 @@ export interface SavedConnectionItemExtended extends ConnectionItem {
                           </app-custom-select>
                         }
 
-                        <!-- Field Type: boolean -->
                         @if (field.type === 'boolean') {
                           <label class="flex items-center gap-2 cursor-pointer select-none pt-1">
                             <input
@@ -731,10 +782,10 @@ export interface SavedConnectionItemExtended extends ConnectionItem {
                 </div>
               </div>
 
-              <!-- Collapsed Accordion Sections: Network Route & TLS Security -->
+              <!-- Accordions for Network Route & TLS Security -->
               <div class="space-y-3">
                 
-                <!-- Accordion 1: Network Route (RouteSpec) -->
+                <!-- Accordion 1: Network Route -->
                 <app-accordion
                   title="Network Route"
                   subtitle="Direct, SSH Bastion, PrivateLink, Proxy"
@@ -756,6 +807,13 @@ export interface SavedConnectionItemExtended extends ConnectionItem {
                       <div class="flex flex-col justify-center gap-1 p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-600 text-[11px]">
                         <span class="font-medium text-slate-800">Direct TCP Connection</span>
                         <span>Standard routed IP connectivity over corporate VPC peering, LAN, or local container.</span>
+                      </div>
+                    }
+
+                    @if (ms.wizardDraft().sourceNetworkRoute === 'DNS_HAPPY_EYEBALLS') {
+                      <div class="flex flex-col justify-center gap-1 p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-600 text-[11px]">
+                        <span class="font-medium text-slate-800">Happy Eyeballs Dual-Stack DNS</span>
+                        <span>Concurrent IPv4 and IPv6 resolution with sub-50ms connection racing.</span>
                       </div>
                     }
 
@@ -799,17 +857,6 @@ export interface SavedConnectionItemExtended extends ConnectionItem {
                           (ngModelChange)="sshKeyRef.set($event)"
                           class="w-full h-9 px-3 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:border-blue-600" />
                       </div>
-
-                      <div class="md:col-span-2 flex items-center justify-between text-[11px] text-slate-500 pt-1">
-                        @if (isProductionEnv()) {
-                          <span class="inline-flex items-center gap-1 text-emerald-700 font-medium">
-                            <app-lucide-icon name="lock" [size]="12" class="text-emerald-600"></app-lucide-icon>
-                            <span>Strict SSH host key fingerprint pinning enforced in Production</span>
-                          </span>
-                        } @else {
-                          <span class="text-slate-400">Permissive host key traversal allowed in Non-Production</span>
-                        }
-                      </div>
                     }
 
                     @if (ms.wizardDraft().sourceNetworkRoute === 'PRIVATE_ENDPOINT') {
@@ -842,7 +889,7 @@ export interface SavedConnectionItemExtended extends ConnectionItem {
 
                 </app-accordion>
 
-                <!-- Accordion 2: TLS & Transport Encryption (TLSBinding) -->
+                <!-- Accordion 2: TLS & Security -->
                 <app-accordion
                   title="TLS & Transport Encryption"
                   subtitle="Encryption mode, CA certificate binding, mTLS"
@@ -860,28 +907,14 @@ export interface SavedConnectionItemExtended extends ConnectionItem {
                       </app-custom-select>
                     </div>
 
-                    @if (selectedTlsMode() !== 'DISABLE') {
-                      <div class="flex flex-col gap-1.5">
-                        <label class="text-xs font-semibold text-slate-700 block">Minimum TLS Version</label>
-                        <app-custom-select
-                          [options]="[
-                            { label: 'TLS 1.3 (Recommended)', value: 'TLS_1_3' },
-                            { label: 'TLS 1.2', value: 'TLS_1_2' }
-                          ]"
-                          value="TLS_1_3"
-                          placeholder="Select version...">
-                        </app-custom-select>
-                      </div>
-                    }
-
-                    @if (isProductionEnv() && selectedTlsMode() === 'DISABLE') {
+                    @if (isProductionEnv() && selectedTlsMode() === 'DISABLED') {
                       <div class="md:col-span-2 p-3 bg-rose-50 border border-rose-200 rounded-lg flex items-center gap-2 text-rose-800 text-xs font-medium">
                         <app-lucide-icon name="alert-circle" [size]="16" class="text-rose-600 shrink-0"></app-lucide-icon>
                         <span>Plain unencrypted TCP is strictly blocked in Production. TLS 1.2+ is mandatory.</span>
                       </div>
                     }
 
-                    @if (selectedTlsMode() === 'VERIFY_CA' || selectedTlsMode() === 'VERIFY_FULL' || selectedTlsMode() === 'CERTIFICATE_MTLS') {
+                    @if (selectedTlsMode() === 'VERIFY_CA' || selectedTlsMode() === 'VERIFY_FULL') {
                       <div class="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-slate-100">
                         <div class="flex flex-col gap-1.5">
                           <label class="text-xs font-semibold text-slate-700 block">Enterprise CA Certificate Path</label>
@@ -899,33 +932,47 @@ export interface SavedConnectionItemExtended extends ConnectionItem {
                               class="w-full h-9 px-3 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:border-blue-600" />
                           </div>
                         }
-                        @if (selectedTlsMode() === 'CERTIFICATE_MTLS') {
-                          <div class="flex flex-col gap-1.5">
-                            <label class="text-xs font-semibold text-slate-700 block">Client Certificate Path (.crt / .pem)</label>
-                            <input
-                              type="text"
-                              placeholder="/etc/ssl/client/akaal-agent.crt"
-                              class="w-full h-9 px-3 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:border-blue-600" />
-                          </div>
-                          <div class="flex flex-col gap-1.5">
-                            <label class="text-xs font-semibold text-slate-700 block">Client Private Key (vault:// or .key)</label>
-                            <input
-                              type="password"
-                              placeholder="vault://secret/prod/client_key"
-                              class="w-full h-9 px-3 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:border-blue-600" />
-                          </div>
-                        }
                       </div>
                     }
+
+                    <!-- Section for mTLS client authentication inputs -->
+                    <div class="md:col-span-2 pt-2 border-t border-slate-100 flex flex-col gap-3">
+                      <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold text-slate-800">Mutual TLS (mTLS) Client Authentication</span>
+                        <span class="text-[10px] text-slate-400">Optional client certificate & key</span>
+                      </div>
+                      <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div class="flex flex-col gap-1.5">
+                          <label class="text-[11px] font-semibold text-slate-700">Client Certificate (.crt/.pem)</label>
+                          <input
+                            type="text"
+                            placeholder="vault://secret/cert or /path/to/client.crt"
+                            class="w-full h-8 px-2.5 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:border-blue-600" />
+                        </div>
+                        <div class="flex flex-col gap-1.5">
+                          <label class="text-[11px] font-semibold text-slate-700">Client Private Key (.key)</label>
+                          <input
+                            type="password"
+                            placeholder="vault://secret/key or /path/to/client.key"
+                            class="w-full h-8 px-2.5 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:border-blue-600" />
+                        </div>
+                        <div class="flex flex-col gap-1.5">
+                          <label class="text-[11px] font-semibold text-slate-700">Passphrase / Secret Ref</label>
+                          <input
+                            type="password"
+                            placeholder="vault://secret/passphrase"
+                            class="w-full h-8 px-2.5 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:border-blue-600" />
+                        </div>
+                      </div>
+                    </div>
+
                   </div>
 
                 </app-accordion>
 
               </div>
 
-              <!-- ================================================================= -->
-              <!-- BACKEND VERIFICATION ENGINE: 7-PHASE EXECUTION PROBE             -->
-              <!-- ================================================================= -->
+              <!-- 7-Phase Execution Probe -->
               <div class="p-5 bg-white border border-slate-200 rounded-xl space-y-4 shadow-2xs">
                 <div class="flex items-center justify-between flex-wrap gap-2">
                   <div class="flex flex-col gap-0.5">
@@ -950,7 +997,6 @@ export interface SavedConnectionItemExtended extends ConnectionItem {
                   </button>
                 </div>
 
-                <!-- LIVE PROGRESS DISPLAY DURING EXECUTION PROBE -->
                 @if (isVerifying()) {
                   <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2.5 animate-in fade-in duration-100">
                     <div class="flex items-center justify-between text-xs">
@@ -969,10 +1015,8 @@ export interface SavedConnectionItemExtended extends ConnectionItem {
                   </div>
                 }
 
-                <!-- COMPACT RESULTS DISPLAY: Rendered ONLY AFTER operator clicks Verify -->
                 @if (probeExecuted()) {
                   @if (ms.wizardDraft().sourceVerified) {
-                    <!-- Compact 110px Success Card with 7 Verified Check Chips -->
                     <div class="p-3.5 bg-emerald-50/50 border border-emerald-200 rounded-xl flex flex-col gap-2.5 animate-in fade-in duration-150">
                       <div class="flex items-center justify-between">
                         <div class="flex items-center gap-2">
@@ -984,7 +1028,6 @@ export interface SavedConnectionItemExtended extends ConnectionItem {
                         <span class="text-[11px] font-mono text-emerald-700 font-medium">Ready for Target</span>
                       </div>
 
-                      <!-- Compact 7-Check Chip Row -->
                       <div class="flex items-center gap-1.5 flex-wrap">
                         @for (phase of executionPhases; track phase.index) {
                           <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-white text-emerald-800 border border-emerald-200 shadow-2xs">
@@ -996,74 +1039,16 @@ export interface SavedConnectionItemExtended extends ConnectionItem {
                     </div>
                   }
                   @if (verificationError(); as err) {
-                    <!-- Compact Failure Card -->
                     <div class="p-3.5 bg-rose-50 border border-rose-200 rounded-xl flex flex-col gap-2 animate-in fade-in duration-150">
-                      <div class="flex items-center justify-between">
-                        <div class="flex items-center gap-2">
-                          <span class="w-2 h-2 rounded-full bg-rose-500"></span>
-                          <span class="text-xs font-bold text-rose-900">Verification Blocked ({{ err.phase }})</span>
-                        </div>
-                        <span class="px-2 py-0.5 text-[10px] font-mono font-bold bg-rose-100 text-rose-800 rounded">
-                          {{ err.category }}
-                        </span>
+                      <div class="flex items-center gap-2">
+                        <app-lucide-icon name="alert-circle" [size]="16" class="text-rose-600 shrink-0"></app-lucide-icon>
+                        <span class="text-xs font-bold text-rose-900">{{ err.phase }} — {{ err.category }}</span>
                       </div>
-                      <p class="text-xs text-rose-800 font-normal leading-relaxed">
-                        {{ err.message }}
-                      </p>
+                      <p class="text-xs text-rose-700 font-normal leading-relaxed pl-6">{{ err.message }}</p>
                     </div>
                   }
                 }
-
               </div>
-
-              <!-- ================================================================= -->
-              <!-- AFTER ALL PASS: "SAVE THIS CONNECTION" CHECKBOX                   -->
-              <!-- ================================================================= -->
-              @if (ms.wizardDraft().sourceVerified) {
-                <div class="p-4 bg-slate-50/70 border border-slate-200 rounded-xl space-y-3 animate-in fade-in duration-150">
-                  <label class="flex items-center gap-2.5 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      [ngModel]="ms.wizardDraft().sourceSaveToVault"
-                      (ngModelChange)="onSaveToVaultChange($event)"
-                      class="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-0 cursor-pointer" />
-                    <span class="text-xs font-semibold text-slate-800">
-                      Save this connection to the Enterprise Vault for future migrations
-                    </span>
-                  </label>
-
-                  @if (ms.wizardDraft().sourceSaveToVault) {
-                    <div class="flex flex-col gap-1.5 pl-6 animate-in fade-in duration-100 max-w-xl">
-                      <label class="text-xs font-semibold text-slate-700 block">
-                        Connection Name <span class="text-rose-500">*</span>
-                      </label>
-                      <div class="flex items-center gap-2.5">
-                        <input
-                          type="text"
-                          [ngModel]="vaultConnectionName()"
-                          (ngModelChange)="onVaultConnectionNameChange($event)"
-                          placeholder="e.g. Finance Oracle 19c Production"
-                          class="flex-1 h-9 px-3 text-xs bg-white border border-slate-200 focus:border-blue-600 rounded-lg text-slate-900 focus:outline-none transition-colors" />
-                        
-                        <button
-                          type="button"
-                          (click)="saveSourceToVault()"
-                          [disabled]="!vaultConnectionName().trim() || isSourceVaultSaved()"
-                          class="h-9 px-4 text-xs font-semibold rounded-lg flex items-center gap-1.5 cursor-pointer transition-all shrink-0 shadow-2xs"
-                          [class]="isSourceVaultSaved()
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                            : 'text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed'">
-                          <app-lucide-icon [name]="isSourceVaultSaved() ? 'check' : 'bookmark'" [size]="13"></app-lucide-icon>
-                          <span>{{ isSourceVaultSaved() ? 'Saved to Vault' : 'Save Connection' }}</span>
-                        </button>
-                      </div>
-                      <span class="text-[10px] text-slate-400">
-                        Will be saved to Connection Hub and accessible in "Saved Connection" branch.
-                      </span>
-                    </div>
-                  }
-                </div>
-              }
 
             </div>
           }
@@ -1076,10 +1061,32 @@ export interface SavedConnectionItemExtended extends ConnectionItem {
 })
 export class Step2SourceComponent implements OnInit {
   public ms: MigrationUiService;
+  public connService: ConnectionsService;
   public Math = Math;
 
-  constructor(ms?: MigrationUiService) {
-    this.ms = ms || inject(MigrationUiService);
+  constructor(
+    ms?: MigrationUiService,
+    connService?: ConnectionsService
+  ) {
+    if (ms) {
+      this.ms = ms;
+    } else {
+      try {
+        this.ms = inject(MigrationUiService, { optional: true }) || new MigrationUiService();
+      } catch {
+        this.ms = new MigrationUiService();
+      }
+    }
+
+    if (connService) {
+      this.connService = connService;
+    } else {
+      try {
+        this.connService = inject(ConnectionsService, { optional: true }) || new ConnectionsService();
+      } catch {
+        this.connService = new ConnectionsService();
+      }
+    }
   }
 
   // Mode Control Segmented Pill Options
@@ -1135,7 +1142,7 @@ export class Step2SourceComponent implements OnInit {
     { index: 7, name: 'Phase 7: Teardown & Normalization', description: 'Safely releases test sessions, locks, and temporary channels', chipLabel: 'Clean Teardown', status: 'PENDING' }
   ];
 
-  // The 48 Canonical Engines for the Expansive Catalog Grid
+  // The Canonical Engines for the Expansive Catalog Grid (49 Physical Providers)
   public catalogEngines: CatalogEngineItem[] = [
     // 1. Relational (10)
     { id: 'SQLite', name: 'SQLite', category: 'RELATIONAL', categoryLabel: 'Embedded Relational', icon: 'database' },
@@ -1187,12 +1194,13 @@ export class Step2SourceComponent implements OnInit {
     { id: 'Apache Pulsar', name: 'Apache Pulsar', category: 'STREAMING', categoryLabel: 'Distributed Pub/Sub', icon: 'radio' },
     { id: 'RabbitMQ', name: 'RabbitMQ', category: 'STREAMING', categoryLabel: 'Message Broker', icon: 'radio' },
 
-    // 6. Storage (5)
+    // 6. Storage (6)
     { id: 'Amazon S3', name: 'Amazon S3', category: 'STORAGE', categoryLabel: 'Object Storage', icon: 'hard-drive' },
     { id: 'Google Cloud Storage', name: 'Google Cloud Storage (GCS)', category: 'STORAGE', categoryLabel: 'Object Storage', icon: 'hard-drive' },
     { id: 'Azure Blob Storage', name: 'Azure Blob Storage', category: 'STORAGE', categoryLabel: 'Cloud Blob Storage', icon: 'hard-drive' },
     { id: 'MinIO', name: 'MinIO Object Storage', category: 'STORAGE', categoryLabel: 'S3-Compatible Storage', icon: 'hard-drive' },
     { id: 'Apache HDFS', name: 'Apache HDFS', category: 'STORAGE', categoryLabel: 'Hadoop Distributed FS', icon: 'hard-drive' },
+    { id: 'OCI Object Storage', name: 'OCI Object Storage', category: 'STORAGE', categoryLabel: 'Cloud Object Storage', icon: 'hard-drive' },
 
     // 7. SaaS & Apps (3)
     { id: 'Salesforce', name: 'Salesforce', category: 'SAAS', categoryLabel: 'CRM & Cloud Platform', icon: 'cloud' },
@@ -1202,13 +1210,13 @@ export class Step2SourceComponent implements OnInit {
 
   // Category Pill Tabs with Exact Counts
   public catalogTabs: CatalogCategoryTab[] = [
-    { id: 'ALL', label: 'All', count: 48 },
+    { id: 'ALL', label: 'All', count: 49 },
     { id: 'RELATIONAL', label: 'Relational', count: 10 },
     { id: 'DISTRIBUTED_SQL', label: 'Distributed SQL', count: 5 },
     { id: 'WAREHOUSE', label: 'Warehouse', count: 7 },
     { id: 'NOSQL', label: 'NoSQL', count: 12 },
     { id: 'STREAMING', label: 'Streaming', count: 6 },
-    { id: 'STORAGE', label: 'Storage', count: 5 },
+    { id: 'STORAGE', label: 'Storage', count: 6 },
     { id: 'SAAS', label: 'SaaS & Apps', count: 3 }
   ];
 
@@ -1566,13 +1574,48 @@ export class Step2SourceComponent implements OnInit {
   public selectedSavedConnection = computed<SavedConnectionItemExtended | undefined>(() => {
     const id = this.ms.wizardDraft().sourceConnectionId;
     if (!id) return undefined;
-    return this.enterpriseSavedConnections.find(c => c.id === id);
+
+    // 1. Search in local enterprise saved connection vault list
+    const found = this.enterpriseSavedConnections.find(c => c.id === id);
+    if (found) return found;
+
+    // 2. Search in canonical connection authority store
+    const canonical = this.connService?.connections().find(c => c.id === id);
+    if (canonical) {
+      const portNum = Number(canonical.endpointDisplay.split(':')[1]) || 5432;
+      return {
+        id: canonical.id,
+        name: canonical.name,
+        provider: toPhysicalProviderId(canonical.providerName),
+        category: (canonical.family === 'WAREHOUSE_LAKE' ? 'WAREHOUSE' : canonical.family) as any,
+        environment: canonical.environment,
+        host: canonical.endpointDisplay.split(':')[0] || 'localhost',
+        port: portNum,
+        databaseName: 'default',
+        username: canonical.authMethodDisplay,
+        secretRef: '',
+        tlsEnabled: true,
+        networkRoute: canonical.safeRouteInfo as any,
+        status: (canonical.verificationState === 'VERIFIED_RECENT' || canonical.verificationState === 'VERIFIED_POINT_IN_TIME') ? 'CONNECTED' : 'DISCONNECTED',
+        verificationFreshness: canonical.verificationState,
+        latencyMs: 1.0,
+        capabilities: ['SNAPSHOT_READ'],
+        assignedMigrationCount: 0,
+        assignedProjectCount: 0,
+        createdAt: canonical.createdAt,
+        updatedAt: canonical.updatedAt,
+        scope: 'PROJECT'
+      };
+    }
+
+    // Explicit fail-closed: NO draft projection as identity substitute
+    return undefined;
   });
 
   public selectedProviderSchema = computed<ProviderFormSchema | undefined>(() => {
     const pid = this.ms.wizardDraft().sourceProvider;
     if (!pid) return undefined;
-    return ALL_48_PROVIDER_SCHEMAS[pid];
+    return ALL_PROVIDER_SCHEMAS[pid];
   });
 
   public ngOnInit(): void {
@@ -1624,7 +1667,7 @@ export class Step2SourceComponent implements OnInit {
   }
 
   public getProviderIcon(provider: PhysicalProviderId): string {
-    const s = ALL_48_PROVIDER_SCHEMAS[provider];
+    const s = ALL_PROVIDER_SCHEMAS[provider];
     return s?.icon || 'database';
   }
 
@@ -1707,7 +1750,7 @@ export class Step2SourceComponent implements OnInit {
 
   // Engine Selection in Catalog Grid
   public selectEngine(engineId: PhysicalProviderId): void {
-    const schema = ALL_48_PROVIDER_SCHEMAS[engineId];
+    const schema = ALL_PROVIDER_SCHEMAS[engineId];
     if (!schema) return;
 
     this.ms.updateDraft({
@@ -1927,6 +1970,33 @@ export class Step2SourceComponent implements OnInit {
     errorCategory?: string;
     canRetest?: boolean;
   } {
+    // 1. Canonical provider role applicability check
+    const targetId = (conn as any).providerId || conn.provider;
+    const canonicalItem = ALL_PROVIDER_CATALOG_ITEMS.find(p =>
+      p.id === targetId ||
+      p.id.toLowerCase() === targetId.toLowerCase() ||
+      p.name.toLowerCase() === targetId.toLowerCase()
+    );
+
+    // Strict fail-closed if provider is unrecognised in canonical catalog
+    if (!canonicalItem) {
+      return {
+        isEligible: false,
+        reason: `Provider "${conn.provider}" is unrecognised in canonical catalog metadata.`,
+        errorCategory: 'PROVIDER_UNRECOGNISED',
+        canRetest: false
+      };
+    }
+
+    if (canonicalItem.roleApplicability === 'TARGET_ONLY' || !canonicalItem.supportedRoles.includes('SOURCE')) {
+      return {
+        isEligible: false,
+        reason: `${canonicalItem.name} is restricted to Target workloads only in canonical provider metadata.`,
+        errorCategory: 'ROLE_INELIGIBLE',
+        canRetest: false
+      };
+    }
+
     const compat = this.checkEngineCompatibility(conn.provider);
     if (!compat.compatible) {
       return {
@@ -2078,38 +2148,7 @@ export class Step2SourceComponent implements OnInit {
     this.isSourceVaultSaved.set(false);
   }
 
-  public saveSourceToVault(): void {
-    if (!this.vaultConnectionName().trim()) return;
-    const d = this.ms.wizardDraft();
-    const schema = this.selectedProviderSchema();
-    const newConn: SavedConnectionItemExtended = {
-      id: `conn-${Date.now()}`,
-      name: this.vaultConnectionName().trim(),
-      provider: d.sourceProvider,
-      category: (schema?.category as any) || 'RELATIONAL',
-      environment: (d.environment as any) || 'Production',
-      host: d.sourceHost || 'localhost',
-      port: d.sourcePort || 5432,
-      databaseName: d.sourceDatabase || 'defaultdb',
-      username: d.sourceUsername || 'admin',
-      tlsEnabled: !!d.sourceTls,
-      networkRoute: (d.sourceNetworkRoute as any) || 'DIRECT',
-      status: 'CONNECTED',
-      verificationFreshness: 'Just now',
-      latencyMs: 1.4,
-      secretRef: d.sourceSecretRef || '',
-      capabilities: ['CDC', 'BULK_READ'],
-      assignedMigrationCount: 0,
-      assignedProjectCount: 0,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      scope: 'PROJECT'
-    };
-    this.enterpriseSavedConnections = [newConn, ...this.enterpriseSavedConnections];
-    this.ms.connections.update(list => [newConn, ...list]);
-    this.isSourceVaultSaved.set(true);
-    this.ms.updateDraft({ sourceSaveToVault: true });
-  }
+
 
   public onSaveToVaultChange(checked: boolean): void {
     this.ms.updateDraft({ sourceSaveToVault: checked });

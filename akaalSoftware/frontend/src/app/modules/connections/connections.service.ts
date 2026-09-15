@@ -23,9 +23,9 @@ export class ConnectionsService {
     this.cs = contextService || new ContextService();
   }
 
-  // Primary Data Store Signals
-  public connections = signal<ConnectionRecord[]>(FIXTURE_STANDARD_CONNECTIONS);
-  public availabilityState = signal<EntityAvailabilityState>('READY');
+  // Primary Data Store Signals (Neutral truthful production startup: B-2.2-01)
+  public connections = signal<ConnectionRecord[]>([]);
+  public availabilityState = signal<EntityAvailabilityState>('NOT_CONNECTED');
   public errorMessage = signal<string | null>(null);
 
   // Filter & Search State Signal
@@ -273,7 +273,7 @@ export class ConnectionsService {
     this.selectedConnection.set(null);
   }
 
-  // Interactive Verification Simulation (Point-in-time)
+  // Truthful Verification Handling (Fail-closed when live probe is unexposed: B-2.2-06)
   public verifyConnection(connId: string): void {
     this.triggerPointInTimeVerification(connId);
   }
@@ -281,29 +281,13 @@ export class ConnectionsService {
   public triggerPointInTimeVerification(connId: string): void {
     this.isVerifyingConnectionId.set(connId);
     
-    // Set connection state to TESTING
-    this.connections.update(list => list.map(c => {
-      if (c.id === connId) {
-        return {
-          ...c,
-          verificationState: 'TESTING',
-          lastVerifiedDetails: 'Probe dispatch in progress...'
-        };
-      }
-      return c;
-    }));
-
+    // Truthful handling: Live verification is unexposed before live backend integration
     setTimeout(() => {
-      const nowIso = new Date().toISOString();
       this.connections.update(list => list.map(c => {
         if (c.id === connId) {
           const updated: ConnectionRecord = {
             ...c,
-            verificationState: 'VERIFIED_RECENT',
-            lastVerifiedAt: nowIso,
-            configChangedSinceTest: false,
-            lastVerifiedDetails: 'Point-in-time probe verified · TLS 1.3 · Authentication & catalog read passed',
-            updatedAt: nowIso
+            lastVerifiedDetails: 'Live connection testing is unavailable while connection service is disconnected.'
           };
           if (this.selectedConnection()?.id === connId) {
             this.selectedConnection.set(updated);
@@ -313,14 +297,17 @@ export class ConnectionsService {
         return c;
       }));
       this.isVerifyingConnectionId.set(null);
-    }, 600);
+    }, 200);
   }
 
   public setSorting(field: ConnectionSortField, dir?: SortDirection): void {
     this.setSort(field, dir);
   }
 
-  public resetToFixtures(): void {
+  /**
+   * Explicit test-only fixture loader for test suites & Playwright harnesses (§53)
+   */
+  public loadFixturesForTesting(): void {
     this.connections.set([...FIXTURE_STANDARD_CONNECTIONS]);
     this.clearFilters();
     this.availabilityState.set('READY');
@@ -330,8 +317,16 @@ export class ConnectionsService {
     this.isVerifyingConnectionId.set(null);
   }
 
+  public resetToFixtures(): void {
+    this.loadFixturesForTesting();
+  }
+
   public reload(): void {
-    this.resetToFixtures();
+    if (this.availabilityState() === 'READY' && this.connections().length > 0) {
+      // Keep loaded
+    } else {
+      this.availabilityState.set('NOT_CONNECTED');
+    }
   }
 
   public setMockAvailability(state: EntityAvailabilityState, msg?: string): void {
@@ -342,8 +337,9 @@ export class ConnectionsService {
   public retryConnection(): void {
     this.availabilityState.set('LOADING');
     setTimeout(() => {
-      this.availabilityState.set('READY');
-      this.errorMessage.set(null);
+      // In production, remain truthfully disconnected if no live daemon
+      this.availabilityState.set('NOT_CONNECTED');
+      this.errorMessage.set('Connection service is currently disconnected.');
     }, 400);
   }
 }

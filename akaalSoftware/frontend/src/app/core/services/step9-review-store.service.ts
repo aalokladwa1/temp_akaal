@@ -245,9 +245,10 @@ export class Step9ReviewStoreService {
 
     // 1. Orchestrate Canonical Plan Initialization
     this.submitPhase.set('INITIALIZING');
+    let initRes: any;
 
     try {
-      const initRes = await this.ipc.invoke('engine/migration', 'initialize', {
+      initRes = await this.ipc.invoke('engine/migration', 'initialize', {
         migrationId: identity.migrationId,
         planId: identity.planId,
         environment: identity.environment,
@@ -302,7 +303,18 @@ export class Step9ReviewStoreService {
         }
 
         // Register in portfolio and navigate to Mission Control
-        const newId = this.ms.launchDraftMigration();
+        const canonicalId = startRes?.data?.migrationId || initRes?.data?.migrationId || identity.migrationId;
+        if (!canonicalId) {
+          this.submitPhase.set('ERROR');
+          this.operationError.set({
+            phase: 'START',
+            title: 'Dispatch Failed',
+            message: 'Canonical backend migration ID is required to launch execution.',
+            isRetryable: true
+          });
+          return;
+        }
+        const newId = this.ms.launchDraftMigration(canonicalId);
         this.submitPhase.set('SUCCESS');
         if (this.router) {
           this.router.navigate(['/migration', newId]);
@@ -347,7 +359,18 @@ export class Step9ReviewStoreService {
           scheduleChoice: 'SCHEDULE',
           scheduledTime: `${timing.scheduledDate}T${timing.scheduledTime}:00`
         });
-        this.ms.launchDraftMigration();
+        const canonicalId = schedRes?.data?.migrationId || initRes?.data?.migrationId || identity.migrationId;
+        if (!canonicalId) {
+          this.submitPhase.set('ERROR');
+          this.operationError.set({
+            phase: 'SCHEDULING',
+            title: 'Schedule Registration Failed',
+            message: 'Canonical backend migration ID is required to register schedule.',
+            isRetryable: true
+          });
+          return;
+        }
+        this.ms.launchDraftMigration(canonicalId);
         this.submitPhase.set('SUCCESS');
         if (this.router) {
           this.router.navigate(['/migration/portfolio']);

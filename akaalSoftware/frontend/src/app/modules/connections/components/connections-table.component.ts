@@ -31,7 +31,7 @@ import { CustomSelectComponent, CustomSelectOption } from '../../../shared/compo
         <!-- Left: Inventory Title & Count Badge -->
         <div class="flex items-center gap-2.5">
           <span class="text-xs font-bold text-slate-900 uppercase tracking-wider font-heading">Connection Inventory</span>
-          <span class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200 font-mono">
+          <span class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200 tabular-nums">
             {{ cs.filteredConnections().length }}
           </span>
         </div>
@@ -115,7 +115,7 @@ import { CustomSelectComponent, CustomSelectOption } from '../../../shared/compo
                   (click)="toggleSort('name')"
                   class="flex items-center gap-1.5 text-slate-600 hover:text-slate-900 focus:outline-hidden font-bold cursor-pointer uppercase">
                   <span>Connection</span>
-                  <span class="text-[10px] font-mono text-slate-400" *ngIf="cs.filters().sortBy === 'name'">
+                  <span class="text-[10px] text-slate-400" *ngIf="cs.filters().sortBy === 'name'">
                     {{ cs.filters().sortDirection === 'asc' ? '▲' : '▼' }}
                   </span>
                 </button>
@@ -128,7 +128,7 @@ import { CustomSelectComponent, CustomSelectOption } from '../../../shared/compo
                   (click)="toggleSort('provider')"
                   class="flex items-center gap-1.5 text-slate-600 hover:text-slate-900 focus:outline-hidden font-bold cursor-pointer uppercase">
                   <span>Provider</span>
-                  <span class="text-[10px] font-mono text-slate-400" *ngIf="cs.filters().sortBy === 'provider'">
+                  <span class="text-[10px] text-slate-400" *ngIf="cs.filters().sortBy === 'provider'">
                     {{ cs.filters().sortDirection === 'asc' ? '▲' : '▼' }}
                   </span>
                 </button>
@@ -141,7 +141,7 @@ import { CustomSelectComponent, CustomSelectOption } from '../../../shared/compo
                   (click)="toggleSort('lastVerified')"
                   class="flex items-center gap-1.5 text-slate-600 hover:text-slate-900 focus:outline-hidden font-bold cursor-pointer uppercase">
                   <span>Verification</span>
-                  <span class="text-[10px] font-mono text-slate-400" *ngIf="cs.filters().sortBy === 'lastVerified'">
+                  <span class="text-[10px] text-slate-400" *ngIf="cs.filters().sortBy === 'lastVerified'">
                     {{ cs.filters().sortDirection === 'asc' ? '▲' : '▼' }}
                   </span>
                 </button>
@@ -154,7 +154,7 @@ import { CustomSelectComponent, CustomSelectOption } from '../../../shared/compo
                   (click)="toggleSort('usageCount')"
                   class="flex items-center gap-1.5 text-slate-600 hover:text-slate-900 focus:outline-hidden font-bold cursor-pointer uppercase">
                   <span>Usage</span>
-                  <span class="text-[10px] font-mono text-slate-400" *ngIf="cs.filters().sortBy === 'usageCount'">
+                  <span class="text-[10px] text-slate-400" *ngIf="cs.filters().sortBy === 'usageCount'">
                     {{ cs.filters().sortDirection === 'asc' ? '▲' : '▼' }}
                   </span>
                 </button>
@@ -220,7 +220,7 @@ import { CustomSelectComponent, CustomSelectOption } from '../../../shared/compo
                   </span>
 
                   <span *ngIf="!conn.usage.isUnused" class="text-xs font-medium text-slate-800">
-                    <strong class="font-mono font-bold text-slate-900">{{ conn.usage.referencedProjectCount }}</strong> {{ conn.usage.referencedProjectCount === 1 ? 'Project' : 'Projects' }}
+                    <strong class="font-bold tabular-nums text-slate-900">{{ conn.usage.referencedProjectCount }}</strong> {{ conn.usage.referencedProjectCount === 1 ? 'Project' : 'Projects' }}
                   </span>
                 </div>
               </td>
@@ -290,11 +290,11 @@ import { CustomSelectComponent, CustomSelectOption } from '../../../shared/compo
       <!-- Table Footer / Inventory Record Count & Truth Note -->
       <div class="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 flex-wrap gap-2">
         <div>
-          Showing <span class="font-semibold text-slate-800 font-mono">{{ cs.filteredConnections().length }}</span> of
-          <span class="font-semibold text-slate-800 font-mono">{{ cs.connections().length }}</span> connection profiles
+          Showing <span class="font-semibold text-slate-800 tabular-nums">{{ cs.filteredConnections().length }}</span> of
+          <span class="font-semibold text-slate-800 tabular-nums">{{ cs.connections().length }}</span> connection profiles
         </div>
         <div class="text-[11px] text-slate-400">
-          Point-in-time verification truth &bull; Never synthetic health
+          Point-in-time verification facts
         </div>
       </div>
 
@@ -354,11 +354,7 @@ export class ConnectionsTableComponent {
 
   public onViewConnection(conn: ConnectionRecord): void {
     this.closeAllMenus();
-    if (this.router) {
-      this.router.navigate(['/connections', conn.id]);
-    } else {
-      this.cs.openInspectDrawer(conn);
-    }
+    this.cs.openInspectDrawer(conn);
   }
 
   public onTestConnection(conn: ConnectionRecord): void {

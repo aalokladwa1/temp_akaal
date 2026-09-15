@@ -150,55 +150,35 @@ describe('CreateConnectionService & Wizard Flow (Part B)', () => {
     expect(service.draft().isStaleVerification).toBe(true);
   });
 
-  it('should simulate point-in-time Test Connection with factual probe facts', async () => {
+  it('should handle Test Connection with truthful unexposed backend notice (B-2.2-05)', async () => {
     service.selectProvider('postgresql');
     service.runTestConnection();
     expect(service.draft().isTesting).toBe(true);
-
-    await new Promise(r => setTimeout(r, 650));
-
+    await new Promise(r => setTimeout(r, 250));
     expect(service.draft().isTesting).toBe(false);
-    expect(service.draft().verificationFacts.overallStatus).toBe('PASSED');
-    expect(service.draft().verificationFacts.connectivity.length).toBeGreaterThan(0);
-    expect(service.draft().verificationFacts.cdcCapability.type).toBe('NATIVE_DATABASE_CDC');
-    expect(service.draft().verificationFacts.validationCapability.supported).toBe(true);
+    expect(service.draft().verificationFacts.warnings[0]).toContain('Live connection testing is unavailable');
   });
 
-  it('should correctly classify Streaming Providers as Stream Offset Consumption instead of fake database CDC', async () => {
-    service.selectProvider('kafka');
-    service.runTestConnection();
-
-    await new Promise(r => setTimeout(r, 650));
-
-    expect(service.draft().verificationFacts.cdcCapability.type).toBe('STREAM_OFFSET_CONSUMPTION');
-    expect(service.draft().verificationFacts.cdcCapability.label).toContain('Stream Offset');
-  });
-
-  it('should execute Permission Probe and introspect privileges', async () => {
+  it('should handle Permission Probe with truthful notice', async () => {
     service.selectProvider('postgresql');
     service.runPermissionProbe();
     expect(service.draft().isTestingPermissions).toBe(true);
-
-    await new Promise(r => setTimeout(r, 500));
-
+    await new Promise(r => setTimeout(r, 250));
     expect(service.draft().isTestingPermissions).toBe(false);
-    expect(service.draft().verificationFacts.permissions.length).toBe(7);
-    expect(service.draft().verificationFacts.permissions.some(p => p.privilege.includes('SELECT'))).toBe(true);
+    expect(service.draft().verificationFacts.warnings).toContain('Live permission introspection is unavailable while connection service is disconnected.');
   });
 
-  it('should execute Capability Probe and inspect engine prerequisites', async () => {
+  it('should handle Capability Probe with truthful notice', async () => {
     service.selectProvider('postgresql');
     service.runCapabilityProbe();
     expect(service.draft().isTestingCapabilities).toBe(true);
-
-    await new Promise(r => setTimeout(r, 500));
-
+    await new Promise(r => setTimeout(r, 250));
     expect(service.draft().isTestingCapabilities).toBe(false);
-    expect(service.draft().verificationFacts.capabilities.length).toBe(5);
-    expect(service.draft().verificationFacts.capabilities.some(c => c.category === 'CDC')).toBe(true);
+    expect(service.draft().verificationFacts.warnings).toContain('Live capability attestation is unavailable while connection service is disconnected.');
   });
 
-  it('should successfully create ConnectionRecord and insert into ConnectionsService store without exposing raw secrets', () => {
+  it('should fail closed on createConnection and display truthful notice without inserting fake record into signal (B-2.2-07)', () => {
+    connService.availabilityState.set('NOT_CONNECTED');
     const initialCount = connService.connections().length;
     service.selectProvider('postgresql');
     service.draft().name = 'New Enterprise Postgres';
@@ -211,14 +191,49 @@ describe('CreateConnectionService & Wizard Flow (Part B)', () => {
 
     service.createConnection();
 
-    expect(connService.connections().length).toBe(initialCount + 1);
-    const created = connService.connections()[0];
-    expect(created.name).toBe('New Enterprise Postgres');
-    expect(created.providerId).toBe('postgresql');
-    expect(created.endpointDisplay).toContain('pg-aurora.aws.company.internal:5432/ledger');
-    expect(created.authMethodDisplay).toBeDefined();
-    // Verify secret is NOT stored in plain representation
-    expect((created as any).authSecretValue).toBeUndefined();
-    expect(routerMock.navigate).toHaveBeenCalledWith(['/connections']);
+    // Must NOT insert fake records into production signals before live backend RPC is wired
+    expect(connService.connections().length).toBe(initialCount);
+    expect(service.draft().name).toBe('New Enterprise Postgres');
+    expect(routerMock.navigate).not.toHaveBeenCalled();
+    expect(service.creationNotice()).toBe('Connection saving is unavailable while connection service is disconnected.');
+  });
+
+  it('should fail closed when provider is missing and never fabricate PostgreSQL defaults', () => {
+    service.draft.update(d => ({
+      ...d,
+      selectedProviderId: null,
+      name: 'Unspecified Provider',
+      parameters: {}
+    }));
+
+    service.createConnection();
+
+    expect(service.creationNotice()).toBe('Cannot create connection: No provider selected.');
+  });
+
+  it('should truthfully derive connection parameters without fabricated defaults when connected', () => {
+    vi.spyOn(connService, 'availabilityState').mockReturnValue('READY');
+    let capturedConn: any = null;
+    service.onSuccessHandler = (c) => { capturedConn = c; };
+
+    service.selectProvider('sqlite');
+    service.draft().name = 'Truthful SQLite DB';
+    service.draft().environment = 'Development';
+    service.draft().parameters = { database_path: '/opt/data/test.db' };
+    service.draft().authMethod = 'NONE';
+    service.draft().authUsername = '';
+
+    service.createConnection();
+
+    expect(capturedConn).not.toBeNull();
+    expect(capturedConn.providerId).toBe('sqlite');
+    expect(capturedConn.providerName).toBe('SQLite');
+    expect(capturedConn.endpointDisplay).toBe('/opt/data/test.db');
+    expect(capturedConn.endpointDisplay).not.toContain('db.prod.corp.internal');
+    expect(capturedConn.endpointDisplay).not.toContain('5432');
+    expect(capturedConn.authMethodDisplay).toBe('NONE');
+    expect(capturedConn.authMethodDisplay).not.toContain('Password / Vault Secret');
+    expect(capturedConn.workspaceId).toBe('ws-enterprise-default');
+    expect(capturedConn.environment).toBe('Development');
   });
 });

@@ -109,7 +109,7 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
               (ngModelChange)="ps.setProjectDraftKey($event)"
               placeholder="e.g., CB-MOD"
               maxlength="10"
-              class="w-full h-10 px-3.5 rounded-md bg-white border border-slate-300 font-mono text-xs font-bold text-blue-700 uppercase placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-2xs"
+              class="w-full h-10 px-3.5 rounded-md bg-white border border-slate-300 text-xs font-bold text-blue-700 uppercase placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-2xs"
             />
             <span class="text-[11px] text-slate-500">Short unique prefix identifier.</span>
           </div>
@@ -213,7 +213,7 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
                   class="w-full h-10 px-3.5 rounded-md bg-white hover:bg-slate-50 border border-slate-300 flex items-center justify-between text-xs font-semibold text-slate-800 cursor-pointer transition-colors shadow-2xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
                   <div class="flex items-center gap-2 min-w-0">
                     @if (selectedInitiative(); as init) {
-                      <span class="px-1.5 py-0.2 rounded text-[9.5px] font-bold font-mono bg-indigo-50 text-indigo-700 border border-indigo-200 shrink-0">
+                      <span class="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 shrink-0">
                         {{ init.key }}
                       </span>
                       <span class="truncate font-bold text-slate-900">{{ init.name }}</span>
@@ -249,7 +249,7 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
                           [class.text-blue-700]="ps.projectDraft().initiativeId === init.id">
                           <div class="flex flex-col min-w-0">
                             <div class="flex items-center gap-1.5">
-                              <span class="px-1.5 py-0.2 rounded text-[9.5px] font-bold font-mono bg-indigo-50 text-indigo-700 border border-indigo-200 shrink-0">
+                              <span class="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 shrink-0">
                                 {{ init.key }}
                               </span>
                               <span class="font-bold text-slate-900 truncate text-xs">{{ init.name }}</span>

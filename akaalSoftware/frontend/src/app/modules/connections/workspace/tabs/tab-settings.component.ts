@@ -24,6 +24,14 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
           </div>
         </div>
 
+        <!-- Truthful Action Feedback Banner (Fail-Closed: B-2.2-07) -->
+        @if (ws.configNotice(); as notice) {
+          <div class="p-3.5 bg-amber-50 border border-amber-200 rounded-xl flex items-center gap-2.5 text-xs text-amber-900 shadow-2xs animate-in fade-in duration-150">
+            <app-lucide-icon name="alert-triangle" [size]="16" class="text-amber-600 shrink-0"></app-lucide-icon>
+            <span class="font-medium">{{ notice }}</span>
+          </div>
+        }
+
         <!-- ========================================================================= -->
         <!-- 1. GENERAL METADATA SECTION                                               -->
         <!-- ========================================================================= -->
@@ -89,13 +97,13 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
             <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg flex flex-col gap-1">
               <span class="text-[10px] font-medium text-slate-400">Owning Organization</span>
               <span class="text-xs font-bold text-slate-900">{{ conn.organizationName }}</span>
-              <span class="text-[10px] font-mono text-slate-400">{{ conn.organizationId }}</span>
+              <span class="text-[10px] text-slate-500">{{ conn.organizationId }}</span>
             </div>
 
             <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg flex flex-col gap-1">
               <span class="text-[10px] font-medium text-slate-400">Assigned Workspace</span>
               <span class="text-xs font-bold text-slate-900">{{ conn.workspaceName }}</span>
-              <span class="text-[10px] font-mono text-slate-400">{{ conn.workspaceId }}</span>
+              <span class="text-[10px] text-slate-500">{{ conn.workspaceId }}</span>
             </div>
 
             <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg flex flex-col gap-1">

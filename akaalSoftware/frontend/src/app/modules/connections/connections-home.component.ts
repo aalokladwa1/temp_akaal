@@ -75,6 +75,9 @@ export class ConnectionsHomeComponent implements OnInit {
   private router = inject(Router);
 
   ngOnInit(): void {
+    if (typeof window !== 'undefined') {
+      (window as any).__CONNECTIONS_SERVICE__ = this.cs;
+    }
     if (this.cs.availabilityState() === 'LOADING') {
       setTimeout(() => {
         this.cs.availabilityState.set('READY');

@@ -94,7 +94,7 @@ import { ProjectDiscoveryItem } from '../projects.models';
             @for (p of selectedProjects(); track p.id) {
               <div class="py-3 first:pt-0 last:pb-0 flex items-center justify-between gap-4 text-xs">
                 <div class="flex items-center gap-2.5 min-w-0">
-                  <span class="px-2 py-0.5 rounded-md text-[10px] font-bold font-mono bg-blue-50 text-blue-700 border border-blue-200/80 shrink-0">
+                  <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200/80 shrink-0">
                     {{ p.key }}
                   </span>
                   <span class="font-bold text-slate-900 truncate">{{ p.name }}</span>
@@ -108,20 +108,6 @@ import { ProjectDiscoveryItem } from '../projects.models';
             }
           </div>
         }
-      </div>
-
-      <!-- 3. Truthful Pre-P7D Capability Notice -->
-      <div class="p-5 rounded-xl bg-amber-50/70 border border-amber-200/90 text-amber-950 flex flex-col gap-2.5 shadow-2xs">
-        <div class="flex items-center gap-2">
-          <app-lucide-icon name="alert-circle" [size]="16" class="text-amber-600 shrink-0"></app-lucide-icon>
-          <span class="text-xs font-bold text-amber-900 uppercase tracking-wider font-heading">
-            Backend Persistence Authority: Pre-P7D Convergence Notice
-          </span>
-        </div>
-        <p class="text-xs text-amber-900/90 font-medium leading-relaxed">
-          Canonical Initiative database persistence and cross-project association authorities are scheduled for Pre-P7D backend convergence. 
-          The creation interface records your drafting intent without simulating fake persisted records in the production runtime.
-        </p>
       </div>
 
     </div>

@@ -25,10 +25,10 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
           <!-- Active Streams & Scheduled Runs Counter Badges -->
           <div class="flex items-center gap-2">
             <span class="px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-              <strong class="font-mono">{{ conn.usage.activeStreamsCount }}</strong> Active Streams
+              <strong class="tabular-nums">{{ conn.usage.activeStreamsCount }}</strong> Active Streams
             </span>
             <span class="px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
-              <strong class="font-mono">{{ conn.usage.scheduledExecutionsCount }}</strong> Scheduled
+              <strong class="tabular-nums">{{ conn.usage.scheduledExecutionsCount }}</strong> Scheduled
             </span>
           </div>
         </div>
@@ -81,7 +81,7 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
                 <tbody class="divide-y divide-slate-100 text-xs text-slate-700">
                   @for (proj of conn.usage.projects; track proj.id) {
                     <tr class="hover:bg-slate-50/60 transition-colors">
-                      <td class="py-3 px-3 font-mono font-bold text-blue-700">{{ proj.key }}</td>
+                      <td class="py-3 px-3 font-bold text-blue-700">{{ proj.key }}</td>
                       <td class="py-3 px-3 font-semibold text-slate-900">{{ proj.name }}</td>
                       <td class="py-3 px-3 text-slate-600">{{ proj.environment }}</td>
                       <td class="py-3 px-3">
@@ -89,7 +89,7 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
                           {{ proj.status }}
                         </span>
                       </td>
-                      <td class="py-3 px-3 text-right text-slate-400 font-mono">{{ proj.associatedAt | date:'mediumDate' }}</td>
+                      <td class="py-3 px-3 text-right text-slate-400 tabular-nums">{{ proj.associatedAt | date:'mediumDate' }}</td>
                     </tr>
                   }
                 </tbody>
@@ -132,13 +132,13 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
                   @for (mig of conn.usage.migrations; track mig.id) {
                     <tr class="hover:bg-slate-50/60 transition-colors">
                       <td class="py-3 px-3 font-semibold text-slate-900">{{ mig.name }}</td>
-                      <td class="py-3 px-3 font-mono font-medium text-slate-600">{{ mig.projectKey }}</td>
+                      <td class="py-3 px-3 font-medium text-slate-600">{{ mig.projectKey }}</td>
                       <td class="py-3 px-3">
                         <span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
                           {{ mig.role }}
                         </span>
                       </td>
-                      <td class="py-3 px-3 font-mono text-slate-600">{{ mig.mode }}</td>
+                      <td class="py-3 px-3 text-slate-600">{{ mig.mode }}</td>
                       <td class="py-3 px-3">
                         <span
                           class="px-2 py-0.5 rounded text-[10px] font-semibold"
@@ -152,7 +152,7 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
                           {{ mig.state }}
                         </span>
                       </td>
-                      <td class="py-3 px-3 text-right text-slate-400 font-mono">{{ mig.lastRunAt | date:'medium' }}</td>
+                      <td class="py-3 px-3 text-right text-slate-400 tabular-nums">{{ mig.lastRunAt | date:'medium' }}</td>
                     </tr>
                   }
                 </tbody>
@@ -194,14 +194,14 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
                   @for (val of conn.usage.validations; track val.id) {
                     <tr class="hover:bg-slate-50/60 transition-colors">
                       <td class="py-3 px-3 font-semibold text-slate-900">{{ val.name }}</td>
-                      <td class="py-3 px-3 font-mono font-medium text-slate-600">{{ val.projectKey }}</td>
+                      <td class="py-3 px-3 font-medium text-slate-600">{{ val.projectKey }}</td>
                       <td class="py-3 px-3 text-slate-600">{{ val.role }}</td>
                       <td class="py-3 px-3">
                         <span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                           {{ val.verdict }}
                         </span>
                       </td>
-                      <td class="py-3 px-3 text-right text-slate-400 font-mono">{{ val.lastRunAt | date:'medium' }}</td>
+                      <td class="py-3 px-3 text-right text-slate-400 tabular-nums">{{ val.lastRunAt | date:'medium' }}</td>
                     </tr>
                   }
                 </tbody>

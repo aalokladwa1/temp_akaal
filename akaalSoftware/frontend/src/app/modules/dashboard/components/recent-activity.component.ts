@@ -13,16 +13,15 @@ import { LucideIconComponent } from '../../../shared/components/lucide-icon.comp
       <!-- Card Header -->
       <div class="flex items-center justify-between pb-3 border-b border-slate-200">
         <div class="flex items-center gap-2.5">
-          <app-lucide-icon name="activity" [size]="18" class="text-blue-600"></app-lucide-icon>
+          <app-lucide-icon name="activity" [size]="18" class="text-slate-700 dark:text-slate-300"></app-lucide-icon>
           <h2 class="text-sm font-bold text-slate-900 font-heading">Recent Activity</h2>
         </div>
-        <span class="text-[11px] text-slate-500 font-medium">Audit Trail</span>
       </div>
 
       <!-- Activity Stream (Compact, Low-Profile Height) -->
       @if (events.length === 0) {
         <div class="py-3 flex items-center justify-center gap-3 text-center">
-          <div class="w-7 h-7 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-400 shrink-0">
+          <div class="w-7 h-7 rounded-lg bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 dark:text-slate-500 shrink-0">
             <app-lucide-icon name="clock" [size]="14"></app-lucide-icon>
           </div>
           <div class="text-left">
@@ -42,7 +41,7 @@ import { LucideIconComponent } from '../../../shared/components/lucide-icon.comp
                 </div>
               </div>
 
-              <span class="text-xs font-mono text-slate-400 font-medium tabular-nums shrink-0">{{ ev.timestamp }}</span>
+              <span class="text-xs text-slate-400 font-medium tabular-nums shrink-0">{{ ev.timestamp }}</span>
             </div>
           }
         </div>

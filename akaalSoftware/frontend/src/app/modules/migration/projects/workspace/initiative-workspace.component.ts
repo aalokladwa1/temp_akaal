@@ -55,7 +55,7 @@ import { InitiativeTabType } from '../projects.models';
           <!-- Middle Row: Initiative Key, Title & Status -->
           <div class="flex items-center justify-between gap-4 flex-wrap">
             <div class="flex items-center gap-3 min-w-0">
-              <span class="px-2.5 py-1 rounded-md text-xs font-bold font-mono bg-indigo-50 text-indigo-700 border border-indigo-200/90 shrink-0">
+              <span class="px-2.5 py-1 rounded-md text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200/90 shrink-0">
                 {{ init.key }}
               </span>
               <h1 class="text-2xl font-bold text-slate-900 tracking-tight font-heading truncate">
@@ -114,7 +114,7 @@ import { InitiativeTabType } from '../projects.models';
                 <app-lucide-icon name="folder-kanban" [size]="14"></app-lucide-icon>
                 <span>Projects</span>
                 <span
-                  class="px-1.5 py-0.5 rounded-md text-[10.5px] font-mono font-bold"
+                  class="px-1.5 py-0.5 rounded-md text-[10.5px] font-bold tabular-nums"
                   [class.bg-blue-50]="ps.activeTab() === 'projects'"
                   [class.text-blue-700]="ps.activeTab() === 'projects'"
                   [class.bg-slate-200]="ps.activeTab() !== 'projects'"
@@ -177,9 +177,9 @@ import { InitiativeTabType } from '../projects.models';
         <!-- Fallback view when Initiative is not found or store is unavailable -->
         <div class="py-16">
           <app-projects-state-fallback
-            [state]="'UNAVAILABLE'"
+            [state]="'NOT_FOUND'"
             entityName="initiatives"
-            customErrorMessage="Initiative workspace not found or unavailable in current context."
+            customErrorMessage="Initiative workspace not found in current context."
             (retry)="handleBack()">
           </app-projects-state-fallback>
         </div>

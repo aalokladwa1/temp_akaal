@@ -195,6 +195,9 @@ export class CreateConnectionWizardComponent implements OnInit {
   ];
 
   ngOnInit(): void {
-    // Start at Step 1
+    if (typeof window !== 'undefined') {
+      (window as any).__CREATE_CONN_SERVICE__ = this.cs;
+      (window as any).__CONNECTIONS_ROUTER__ = this.router;
+    }
   }
 }

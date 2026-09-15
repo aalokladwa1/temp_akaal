@@ -34,14 +34,14 @@ export interface TabDef {
             
             <!-- Usage Count Indicator -->
             @if (tab.key === 'usage' && ws.connection()?.usage?.projects?.length; as count) {
-              <span class="px-1.5 py-0.2 text-[10px] font-mono font-bold rounded bg-slate-100 text-slate-600 border border-slate-200">
+              <span class="px-1.5 py-0.2 text-[10px] font-bold rounded bg-slate-100 text-slate-600 border border-slate-200 tabular-nums">
                 {{ count }}
               </span>
             }
 
             <!-- Activity Count Indicator -->
             @if (tab.key === 'activity' && ws.connection()?.activities?.length; as actCount) {
-              <span class="px-1.5 py-0.2 text-[10px] font-mono font-bold rounded bg-slate-100 text-slate-600 border border-slate-200">
+              <span class="px-1.5 py-0.2 text-[10px] font-bold rounded bg-slate-100 text-slate-600 border border-slate-200 tabular-nums">
                 {{ actCount }}
               </span>
             }

@@ -1,6 +1,6 @@
 import { Component, inject, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { ConnectionWorkspaceService } from './connection-workspace.service';
 import { ConnectionWorkspaceTab } from './connection-workspace.models';
@@ -19,6 +19,7 @@ import { LucideIconComponent } from '../../../shared/components/lucide-icon.comp
   standalone: true,
   imports: [
     CommonModule,
+    RouterLink,
     WorkspaceHeaderComponent,
     WorkspaceNavComponent,
     TabOverviewComponent,
@@ -51,6 +52,17 @@ import { LucideIconComponent } from '../../../shared/components/lucide-icon.comp
             <app-lucide-icon name="alert-triangle" [size]="24" class="text-rose-600"></app-lucide-icon>
             <span class="text-sm font-bold text-slate-900">Unable to load connection workspace</span>
             <p class="text-xs text-slate-500">{{ ws.errorMessage() }}</p>
+          </div>
+        } @else if (ws.availabilityState() === 'NOT_FOUND' || !ws.connection()) {
+          <div class="p-12 text-center bg-white border border-slate-200 rounded-xl flex flex-col items-center gap-3 shadow-2xs">
+            <div class="w-12 h-12 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center mx-auto mb-2 text-slate-400">
+              <app-lucide-icon name="alert-circle" [size]="24"></app-lucide-icon>
+            </div>
+            <span class="text-sm font-bold text-slate-900">Connection Profile Not Found</span>
+            <p class="text-xs text-slate-500 max-w-md">The requested connection identifier could not be resolved in the connection registry.</p>
+            <a routerLink="/connections" class="mt-2 px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold">
+              Return to Connections
+            </a>
           </div>
         } @else {
           
@@ -101,6 +113,9 @@ export class ConnectionWorkspaceComponent implements OnInit, OnDestroy {
   private sub?: Subscription;
 
   ngOnInit(): void {
+    if (typeof window !== 'undefined') {
+      (window as any).__WORKSPACE_SERVICE__ = this.ws;
+    }
     this.sub = this.route.paramMap.subscribe(params => {
       const id = params.get('connectionId');
       const tab = params.get('tab') as ConnectionWorkspaceTab | null;

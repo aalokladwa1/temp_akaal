@@ -71,17 +71,23 @@ export class ProjectsService {
   // 1. STATE & DATA SIGNALS (Truthful Production Defaults)
   // ==========================================================================
   // Canonical backend connection state: defaults to NOT_CONNECTED / READY depending on environment
-  public projectsAvailability = signal<EntityAvailabilityState>('READY');
-  public initiativesAvailability = signal<EntityAvailabilityState>('READY');
+  public projectsAvailability = signal<EntityAvailabilityState>('NOT_CONNECTED');
+  public initiativesAvailability = signal<EntityAvailabilityState>('NOT_CONNECTED');
   public errorMessage = signal<string>('');
 
   // Primary Entities (Loaded into store)
-  public projects = signal<ProjectDiscoveryItem[]>(FIXTURE_STANDARD_PROJECTS);
-  public initiatives = signal<InitiativeDiscoveryItem[]>(FIXTURE_STANDARD_INITIATIVES);
-  public attentionItems = signal<PortfolioAttentionItem[]>(FIXTURE_STANDARD_ATTENTION);
+  public projects = signal<ProjectDiscoveryItem[]>([]);
+  public initiatives = signal<InitiativeDiscoveryItem[]>([]);
+  public attentionItems = signal<PortfolioAttentionItem[]>([]);
 
   // Summary Counters (Only projected from canonical aggregates)
-  public summary = signal<ProjectsPortfolioSummary>(FIXTURE_STANDARD_SUMMARY);
+  public summary = signal<ProjectsPortfolioSummary>({
+    totalProjects: null,
+    activeProjects: null,
+    totalInitiatives: null,
+    activeInitiatives: null,
+    attentionCount: null
+  });
 
   // ==========================================================================
   // PART B SIGNALS: INITIATIVE WORKSPACE & CREATION DRAFT
@@ -89,9 +95,9 @@ export class ProjectsService {
   public activeInitiativeId = signal<string | null>(null);
   public activeTab = signal<InitiativeTabType>('overview');
 
-  public initiativeWorkspaces = signal<Record<string, InitiativeWorkspaceDetail>>(FIXTURE_INITIATIVE_WORKSPACES);
-  public initiativeActivities = signal<InitiativeActivityItem[]>(FIXTURE_INITIATIVE_ACTIVITIES);
-  public projectActivities = signal<InitiativeActivityItem[]>(FIXTURE_PROJECT_ACTIVITIES);
+  public initiativeWorkspaces = signal<Record<string, InitiativeWorkspaceDetail>>({});
+  public initiativeActivities = signal<InitiativeActivityItem[]>([]);
+  public projectActivities = signal<InitiativeActivityItem[]>([]);
 
   // Creation Draft State (Initiative)
   public initiativeDraft = signal<InitiativeDraftState>({
@@ -112,9 +118,9 @@ export class ProjectsService {
   public activeProjectId = signal<string | null>(null);
   public activeProjectTab = signal<ProjectWorkspaceTabType>('overview');
 
-  public projectWorkspaces = signal<Record<string, ProjectWorkspaceDetail>>(FIXTURE_PROJECT_WORKSPACES);
-  public availablePrincipals = signal<ProjectPrincipal[]>(FIXTURE_AVAILABLE_PRINCIPALS);
-  public availableConnections = signal<ProjectResourceIntent[]>(FIXTURE_AVAILABLE_CONNECTIONS);
+  public projectWorkspaces = signal<Record<string, ProjectWorkspaceDetail>>({});
+  public availablePrincipals = signal<ProjectPrincipal[]>([]);
+  public availableConnections = signal<ProjectResourceIntent[]>([]);
 
   // Project Creation Draft State
   public projectDraft = signal<ProjectDraftState>({
@@ -140,13 +146,13 @@ export class ProjectsService {
   // ==========================================================================
   // PART D SIGNALS: PROJECT WORK (MIGRATIONS, VALIDATIONS, RESOURCES)
   // ==========================================================================
-  public projectMigrations = signal<ProjectMigrationItem[]>(FIXTURE_PROJECT_MIGRATIONS);
-  public projectValidations = signal<ProjectValidationItem[]>(FIXTURE_PROJECT_VALIDATIONS);
-  public projectResources = signal<ProjectResourceItem[]>(FIXTURE_PROJECT_RESOURCES);
+  public projectMigrations = signal<ProjectMigrationItem[]>([]);
+  public projectValidations = signal<ProjectValidationItem[]>([]);
+  public projectResources = signal<ProjectResourceItem[]>([]);
 
-  public projectMigrationsAvailability = signal<EntityAvailabilityState>('READY');
-  public projectValidationsAvailability = signal<EntityAvailabilityState>('READY');
-  public projectResourcesAvailability = signal<EntityAvailabilityState>('READY');
+  public projectMigrationsAvailability = signal<EntityAvailabilityState>('NOT_CONNECTED');
+  public projectValidationsAvailability = signal<EntityAvailabilityState>('NOT_CONNECTED');
+  public projectResourcesAvailability = signal<EntityAvailabilityState>('NOT_CONNECTED');
 
   public migrationFilters = signal<ProjectMigrationFilterState>({
     searchQuery: '',
@@ -178,14 +184,14 @@ export class ProjectsService {
   // ==========================================================================
   // PART E SIGNALS: PROJECT CONTROL (ACTIVITY, ACCESS, GOVERNANCE, SETTINGS)
   // ==========================================================================
-  public projectDetailedActivities = signal<ProjectActivityItem[]>(FIXTURE_PROJECT_DETAILED_ACTIVITIES);
-  public projectAccessGrants = signal<ProjectAccessGrantItem[]>(FIXTURE_PROJECT_ACCESS_GRANTS);
-  public projectGovernance = signal<ProjectGovernanceItem[]>(FIXTURE_PROJECT_GOVERNANCE_ITEMS);
+  public projectDetailedActivities = signal<ProjectActivityItem[]>([]);
+  public projectAccessGrants = signal<ProjectAccessGrantItem[]>([]);
+  public projectGovernance = signal<ProjectGovernanceItem[]>([]);
 
-  public projectActivityAvailability = signal<EntityAvailabilityState>('READY');
-  public projectAccessAvailability = signal<EntityAvailabilityState>('READY');
-  public projectGovernanceAvailability = signal<EntityAvailabilityState>('READY');
-  public projectSettingsAvailability = signal<EntityAvailabilityState>('READY');
+  public projectActivityAvailability = signal<EntityAvailabilityState>('NOT_CONNECTED');
+  public projectAccessAvailability = signal<EntityAvailabilityState>('NOT_CONNECTED');
+  public projectGovernanceAvailability = signal<EntityAvailabilityState>('NOT_CONNECTED');
+  public projectSettingsAvailability = signal<EntityAvailabilityState>('NOT_CONNECTED');
 
   public activityFilters = signal<ProjectActivityFilterState>({
     searchQuery: '',
@@ -1699,6 +1705,34 @@ export class ProjectsService {
     state: EntityAvailabilityState
   ): void {
     this.projectSettingsAvailability.set(state);
+  }
+
+  public loadFixturesForTesting(): void {
+    this.projectsAvailability.set('READY');
+    this.initiativesAvailability.set('READY');
+    this.projects.set(FIXTURE_STANDARD_PROJECTS);
+    this.initiatives.set(FIXTURE_STANDARD_INITIATIVES);
+    this.attentionItems.set(FIXTURE_STANDARD_ATTENTION);
+    this.summary.set(FIXTURE_STANDARD_SUMMARY);
+    this.initiativeWorkspaces.set(FIXTURE_INITIATIVE_WORKSPACES);
+    this.initiativeActivities.set(FIXTURE_INITIATIVE_ACTIVITIES);
+    this.projectActivities.set(FIXTURE_PROJECT_ACTIVITIES);
+    this.projectWorkspaces.set(FIXTURE_PROJECT_WORKSPACES);
+    this.availablePrincipals.set(FIXTURE_AVAILABLE_PRINCIPALS);
+    this.availableConnections.set(FIXTURE_AVAILABLE_CONNECTIONS);
+    this.projectMigrations.set(FIXTURE_PROJECT_MIGRATIONS);
+    this.projectValidations.set(FIXTURE_PROJECT_VALIDATIONS);
+    this.projectResources.set(FIXTURE_PROJECT_RESOURCES);
+    this.projectDetailedActivities.set(FIXTURE_PROJECT_DETAILED_ACTIVITIES);
+    this.projectAccessGrants.set(FIXTURE_PROJECT_ACCESS_GRANTS);
+    this.projectGovernance.set(FIXTURE_PROJECT_GOVERNANCE_ITEMS);
+    this.projectMigrationsAvailability.set('READY');
+    this.projectValidationsAvailability.set('READY');
+    this.projectResourcesAvailability.set('READY');
+    this.projectActivityAvailability.set('READY');
+    this.projectAccessAvailability.set('READY');
+    this.projectGovernanceAvailability.set('READY');
+    this.projectSettingsAvailability.set('READY');
   }
 }
 

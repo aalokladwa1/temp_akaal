@@ -9,7 +9,7 @@ import {
   ManagedCloudProfile
 } from './create-connection.models';
 import { ALL_PROVIDER_CATALOG_ITEMS, MANAGED_CLOUD_PROFILES } from './create-connection.schemas';
-import { ConnectionRecord } from '../connections.models';
+import { ConnectionRecord, ConnectionVerificationState } from '../connections.models';
 
 export const INITIAL_DRAFT_STATE: CreateConnectionDraft = {
   // Step 1
@@ -295,7 +295,14 @@ export class CreateConnectionService {
     }
   }
 
+  public onCancelHandler: (() => void) | null = null;
+  public onSuccessHandler: ((conn: ConnectionRecord) => void) | null = null;
+
   public cancel(): void {
+    if (this.onCancelHandler) {
+      this.onCancelHandler();
+      return;
+    }
     this.router.navigate(['/connections']);
   }
 
@@ -397,99 +404,23 @@ export class CreateConnectionService {
     }
   }
 
+  // State for truthful submission feedback
+  public isCreating = signal<boolean>(false);
+  public creationNotice = signal<string | null>(null);
+  public isSubmittedModalOpen = signal<boolean>(false);
+
   // =========================================================================
-  // STEP 4: VERIFICATION PROBE SIMULATION (Point-in-Time Pre-P7D Fixture)
+  // STEP 4: VERIFICATION PROBES (Truthful fail-closed handling: B-2.2-05)
   // =========================================================================
 
   public runTestConnection(): void {
     this.draft.update(d => ({ ...d, isTesting: true }));
 
     setTimeout(() => {
-      const d = this.draft();
       const p = this.selectedProvider();
-      const nowIso = new Date().toISOString();
-
-      const connectivity: VerificationFacts['connectivity'] = [
-        {
-          key: 'config_validation',
-          label: 'Configuration & Schemas',
-          status: 'PASSED',
-          value: 'Valid Syntax & Parameters',
-          latencyMs: 1
-        },
-        {
-          key: 'dns_resolution',
-          label: 'DNS Resolution',
-          status: 'PASSED',
-          value: p?.id === 'sqlite' ? 'N/A (Local File)' : 'Resolved to 10.14.28.92',
-          latencyMs: 3
-        },
-        {
-          key: 'tcp_socket',
-          label: 'Socket Connectivity',
-          status: 'PASSED',
-          value: p?.id === 'sqlite' ? 'File Descriptor Open (0.2ms)' : `TCP Port ${p?.defaultPort || 443} Open`,
-          latencyMs: 7
-        },
-        {
-          key: 'tls_handshake',
-          label: 'Transport Security',
-          status: p?.supportsTls && d.tlsMode !== 'DISABLED' ? 'PASSED' : 'SKIPPED',
-          value: p?.supportsTls && d.tlsMode !== 'DISABLED' ? `${d.minTlsVersion} · TLS_AES_256_GCM_SHA384` : 'Plaintext / Local Transport',
-          latencyMs: 12
-        },
-        {
-          key: 'authentication',
-          label: 'Authentication Attestation',
-          status: 'PASSED',
-          value: `Principal Authenticated (${d.authMethod})`,
-          latencyMs: 18
-        },
-        {
-          key: 'server_attestation',
-          label: 'Server & Catalog Attestation',
-          status: 'PASSED',
-          value: `${p?.name || 'Engine'} v16.2 Enterprise Edition`,
-          latencyMs: 24
-        }
-      ];
-
-      // CDC & Validation Capability Mapping
-      let cdcCap: VerificationFacts['cdcCapability'] = {
-        type: 'NONE',
-        label: 'No CDC Support',
-        description: 'Batch/bulk migration and incremental query sync only.'
-      };
-
-      if (['postgresql', 'mysql', 'mariadb', 'oracle', 'mssql', 'mongodb'].includes(p?.id || '')) {
-        cdcCap = {
-          type: 'NATIVE_DATABASE_CDC',
-          label: 'Native Database CDC Available',
-          description: `${p?.name} engine transaction log stream verified (M2 Bulk+CDC / M3 Continuous CDC ready).`
-        };
-      } else if (['kafka', 'pulsar', 'kinesis', 'eventhubs', 'pubsub'].includes(p?.id || '')) {
-        cdcCap = {
-          type: 'STREAM_OFFSET_CONSUMPTION',
-          label: 'Stream Offset Consumption',
-          description: 'Continuous consumer partition offset ingestion (Stream sync mode).'
-        };
-      } else if (['s3', 'gcs', 'azure_blob', 'oci_object_storage'].includes(p?.id || '')) {
-        cdcCap = {
-          type: 'OBJECT_EVENT_NOTIFICATION',
-          label: 'Bucket Event Ingestion',
-          description: 'Object creation/modification event notification ingestion.'
-        };
-      }
-
       const limitations: string[] = [];
-      const warnings: string[] = [];
+      const warnings: string[] = ['Live connection testing is unavailable while connection service is disconnected.'];
 
-      if (d.allowSelfSigned) {
-        warnings.push('Self-signed TLS certificates permitted (Security warning).');
-      }
-      if (d.tlsMode === 'PREFERRED') {
-        warnings.push('TLS mode PREFERRED allows fallback to unencrypted connection if server rejects TLS.');
-      }
       if (p?.id === 'salesforce') {
         limitations.push('Salesforce is supported in Source role only (CRM object extraction).');
       }
@@ -503,167 +434,153 @@ export class CreateConnectionService {
         isStaleVerification: false,
         verificationFacts: {
           ...curr.verificationFacts,
-          testedAt: nowIso,
-          overallStatus: 'PASSED',
-          connectivity,
-          sourceEligibility: 'AVAILABLE',
+          testedAt: null,
+          overallStatus: 'UNTESTED',
+          connectivity: [],
+          sourceEligibility: p?.roleApplicability === 'TARGET_ONLY' ? 'UNAVAILABLE' : 'AVAILABLE',
           targetEligibility: p?.roleApplicability === 'SOURCE_ONLY' ? 'UNAVAILABLE' : 'AVAILABLE',
           discoveryCapability: 'SUPPORTED',
-          cdcCapability: cdcCap,
-          validationCapability: {
-            supported: true,
-            rowHashChecksum: true,
-            columnProfile: true,
-            sampleReconciliation: true,
-            nonMutatingGuaranteed: true
-          },
           limitations,
           warnings
         }
       }));
-    }, 500);
+    }, 200);
   }
 
   public runPermissionProbe(): void {
     this.draft.update(d => ({ ...d, isTestingPermissions: true }));
 
     setTimeout(() => {
-      const p = this.selectedProvider();
-      const isSourceOnly = p?.roleApplicability === 'SOURCE_ONLY';
-
-      const permissions: VerificationFacts['permissions'] = [
-        { privilege: 'SELECT / READ', status: 'VERIFIED', scope: 'TABLES & VIEWS' },
-        { privilege: 'INSERT / WRITE', status: isSourceOnly ? 'UNSUPPORTED' : 'VERIFIED', scope: 'TABLES' },
-        { privilege: 'UPDATE', status: isSourceOnly ? 'UNSUPPORTED' : 'VERIFIED', scope: 'TABLES' },
-        { privilege: 'DELETE', status: isSourceOnly ? 'UNSUPPORTED' : 'VERIFIED', scope: 'TABLES' },
-        { privilege: 'CREATE TABLE / DDL', status: isSourceOnly ? 'UNSUPPORTED' : 'VERIFIED', scope: 'SCHEMA' },
-        { privilege: 'ALTER TABLE / METADATA', status: isSourceOnly ? 'UNSUPPORTED' : 'VERIFIED', scope: 'SCHEMA' },
-        { privilege: 'TRANSACTION LOG READ (CDC)', status: 'VERIFIED', scope: 'LOGMINER / REPLICATION' }
-      ];
-
       this.draft.update(curr => ({
         ...curr,
         isTestingPermissions: false,
         verificationFacts: {
           ...curr.verificationFacts,
-          permissions
+          warnings: [...(curr.verificationFacts.warnings || []), 'Live permission introspection is unavailable while connection service is disconnected.']
         }
       }));
-    }, 400);
+    }, 200);
   }
 
   public runCapabilityProbe(): void {
     this.draft.update(d => ({ ...d, isTestingCapabilities: true }));
 
     setTimeout(() => {
-      const p = this.selectedProvider();
-
-      const capabilities: VerificationFacts['capabilities'] = [
-        { capability: 'Transaction Log Level (wal_level/binlog/archivelog)', status: 'VERIFIED', category: 'CDC', detail: 'Sufficient replication privileges' },
-        { capability: 'High-Throughput Bulk Partition Streaming', status: 'VERIFIED', category: 'STORAGE', detail: 'Parallel worker chunks supported' },
-        { capability: 'Savepoints & Read Consistency Snapshots', status: 'VERIFIED', category: 'TRANSACTION', detail: 'Snapshot isolation verified' },
-        { capability: 'Catalog Schema & Primary Key Introspection', status: 'VERIFIED', category: 'DISCOVERY', detail: 'Full DDL schema parser verified' },
-        { capability: 'Validation #11 Non-Mutating Checksum', status: 'VERIFIED', category: 'VALIDATION', detail: 'MD5/SHA-256 block hashing supported' }
-      ];
-
       this.draft.update(curr => ({
         ...curr,
         isTestingCapabilities: false,
         verificationFacts: {
           ...curr.verificationFacts,
-          capabilities
+          warnings: [...(curr.verificationFacts.warnings || []), 'Live capability attestation is unavailable while connection service is disconnected.']
         }
       }));
-    }, 400);
+    }, 200);
   }
 
   // =========================================================================
-  // STEP 5: CREATE CONNECTION & REGISTRATION
+  // STEP 5: CREATE CONNECTION (Truthful fail-closed handling: B-2.2-07)
   // =========================================================================
 
   public createConnection(): void {
+    const provider = this.selectedProvider();
+    if (!provider) {
+      this.creationNotice.set('Cannot create connection: No provider selected.');
+      return;
+    }
+
     const d = this.draft();
-    const p = this.selectedProvider();
-    if (!p) return;
+    const name = d.name.trim();
+    if (!name) {
+      this.creationNotice.set('Cannot create connection: Connection name is required.');
+      return;
+    }
 
-    const nowIso = new Date().toISOString();
-    const id = `conn-${p.id}-${Date.now().toString(36)}`;
+    // Fail closed if canonical connection authority is disconnected (CHECK1 law: B-2.2-07)
+    if (this.connService.availabilityState() === 'NOT_CONNECTED') {
+      this.creationNotice.set('Connection saving is unavailable while connection service is disconnected.');
+      return;
+    }
 
-    let endpointDisplay = '';
-    if (p.id === 'oracle') {
-      endpointDisplay = d.oracleAddressingMode === 'HOST_SERVICE'
-        ? `${d.oracleHost || 'oracle-db'}:${d.oraclePort || 1521}/${d.oracleServiceName || 'PDB1'}`
-        : `${d.oracleTnsName || d.oracleSid || 'ORCL'}`;
-    } else if (p.id === 'bigquery') {
-      endpointDisplay = `gcp://${d.bigqueryProjectId || 'project'}/${d.bigqueryDataset || 'all_datasets'}`;
-    } else if (p.id === 'spanner') {
-      endpointDisplay = `spanner://${d.spannerProjectId || 'project'}/${d.spannerInstanceId || 'instance'}/${d.spannerDatabaseId || 'db'}`;
-    } else if (p.id === 'salesforce') {
-      endpointDisplay = d.salesforceInstanceUrl || 'company.my.salesforce.com';
-    } else if (p.id === 'servicenow') {
-      endpointDisplay = d.servicenowInstanceUrl || 'company.service-now.com';
-    } else if (p.id === 'sap_application') {
-      endpointDisplay = d.sapConnectionMode === 'RFC_BAPI'
-        ? `sap-rfc://${d.sapAppServerHost || d.sapMessageServerHost || 'sap-host'}:${d.sapSystemNumber || '00'}`
-        : (d.sapOdataServiceUrl || 'sap-odata');
-    } else if (p.id === 'sqlite') {
-      endpointDisplay = (d.parameters['database_path'] as string) || '/var/data/app.db';
-    } else if (p.id === 's3' || p.id === 'gcs' || p.id === 'minio') {
-      endpointDisplay = `s3://${d.parameters['bucket'] || 'enterprise-data-lake'}`;
-    } else {
-      endpointDisplay = `${d.parameters['host'] || 'db.prod.corp.internal'}:${d.parameters['port'] || p.defaultPort || '5432'}/${d.parameters['database'] || 'finance_prod'}`;
+    // Canonical ID originating from connected canonical authority
+    const newId = `conn-${provider.id}-${Date.now().toString().slice(-6)}`;
+    const testStatus = d.verificationFacts?.overallStatus;
+    const isVerified = testStatus === 'PASSED';
+    const verificationState: ConnectionVerificationState = isVerified ? 'VERIFIED_RECENT' : 'NEVER_TESTED';
+
+    // Derive endpointDisplay truthfully from actual parameters (no fabricated host/port)
+    let endpoint = '';
+    if (provider.id === 'sqlite') {
+      endpoint = d.parameters['database_path'] || d.parameters['host'] || 'local';
+    } else if (provider.id === 'bigquery') {
+      endpoint = d.bigqueryProjectId || d.parameters['project_id'] || '';
+    } else if (provider.id === 'spanner') {
+      endpoint = d.spannerInstanceId ? `${d.spannerProjectId || ''}/${d.spannerInstanceId}` : '';
+    } else if (provider.id === 'salesforce') {
+      endpoint = d.salesforceInstanceUrl || '';
+    } else if (provider.id === 'servicenow') {
+      endpoint = d.servicenowInstanceUrl || '';
+    } else if (provider.id === 'kafka') {
+      endpoint = d.parameters['bootstrap_servers'] || d.parameters['host'] || '';
+    } else if (provider.id === 's3' || provider.id === 'gcs' || provider.id === 'minio') {
+      endpoint = d.parameters['bucket'] || d.parameters['bucket_name'] || '';
+    } else if (d.parameters['host']) {
+      const port = d.parameters['port'] || provider.defaultPort;
+      endpoint = port ? `${d.parameters['host']}:${port}` : `${d.parameters['host']}`;
+    }
+
+    // Derive authMethodDisplay truthfully from actual auth configuration (no fabricated strings)
+    let authDisplay = 'None / Inherited';
+    if (d.authSecretRef) {
+      authDisplay = `Vault Secret (${d.authSecretRef})`;
+    } else if (d.authUsername) {
+      authDisplay = `User: ${d.authUsername}`;
+    } else if (d.authMethod) {
+      authDisplay = d.authMethod;
     }
 
     const newRecord: ConnectionRecord = {
-      id,
-      name: d.name || `${p.name} Connection`,
-      description: d.description || `Configured via Create Connection Wizard (${p.categoryLabel})`,
-      providerId: p.id,
-      providerName: p.name,
-      family: p.family,
+      id: newId,
+      name: name,
+      providerId: provider.id,
+      providerName: provider.name,
+      family: provider.family,
       environment: d.environment,
-      workspaceId: d.workspaceId,
-      workspaceName: 'Enterprise Production Vault',
-      endpointDisplay,
-      safeRouteInfo: d.networkRoute === 'SSH_BASTION' ? `SSH Bastion (${d.sshBastionHost || 'bastion'})` : `${d.networkRoute.replace(/_/g, ' ')}`,
-      tlsMode: d.tlsMode === 'DISABLED' ? 'DISABLED' : (d.minTlsVersion === 'TLS_1_3' ? 'TLS_1_3' : 'TLS_1_2'),
-      authMethodDisplay: d.authMethod.replace(/_/g, ' '),
-      roleApplicability: p.roleApplicability,
-      verificationState: d.verificationFacts.overallStatus === 'PASSED' ? 'VERIFIED_RECENT' : 'NEVER_TESTED',
-      lastVerifiedAt: d.verificationFacts.testedAt,
-      lastVerifiedDetails: d.verificationFacts.overallStatus === 'PASSED'
-        ? 'Verified via Create Connection Wizard · All connectivity and authentication probes passed'
-        : undefined,
+      workspaceId: d.workspaceId || '',
+      endpointDisplay: endpoint,
+      safeRouteInfo: d.networkRoute || 'DIRECT',
+      authMethodDisplay: authDisplay,
+      roleApplicability: provider.roleApplicability,
+      verificationState: verificationState,
+      lastVerifiedAt: isVerified ? new Date().toISOString() : null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
       usage: {
-        referencedProjectCount: 0,
         activeMigrationCount: 0,
         activeValidationCount: 0,
+        projectNames: [],
+        referencedProjectCount: 0,
         isUnused: true,
         usageAvailable: true
       },
-      fabric: {
-        site: d.fabricSite,
-        locality: d.fabricLocality,
-        transitVpc: d.fabricTransitVpc
-      },
-      createdAt: nowIso,
-      updatedAt: nowIso
+      tags: [d.environment]
     };
 
-    // Add connection into store
+    // Register into canonical store
     this.connService.connections.update(list => [newRecord, ...list]);
 
-    // Reset draft
-    this.resetDraft();
+    if (this.onSuccessHandler) {
+      this.onSuccessHandler(newRecord);
+      this.resetDraft();
+      return;
+    }
 
-    // Navigate to /connections and open inspect drawer
-    this.router.navigate(['/connections']).then(() => {
-      this.connService.openInspectDrawer(newRecord);
-    });
+    this.isSubmittedModalOpen.set(true);
   }
 
   public resetDraft(): void {
     this.draft.set(JSON.parse(JSON.stringify(INITIAL_DRAFT_STATE)));
     this.currentStep.set(1);
+    this.isSubmittedModalOpen.set(false);
+    this.creationNotice.set(null);
   }
 }

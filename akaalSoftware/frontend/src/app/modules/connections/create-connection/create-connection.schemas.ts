@@ -1113,7 +1113,7 @@ export const ALL_PROVIDER_CATALOG_ITEMS: ProviderCatalogItem[] = [
     name: 'File Dataset',
     family: 'OBJECT_STORAGE',
     categoryLabel: 'File Transport Driver',
-    vendorName: 'AKAAL Local / Network FS',
+    vendorName: 'Local / Network FS',
     icon: 'file-text',
     roleApplicability: 'SOURCE_AND_TARGET',
     supportsTls: false,

@@ -60,7 +60,7 @@ export interface CategoryTabItem {
                 : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'">
               <span>{{ tab.label }}</span>
               <span
-                class="px-1.5 py-0.2 text-[9px] font-mono font-bold rounded"
+                class="px-1.5 py-0.2 text-[9px] font-bold rounded tabular-nums"
                 [class]="selectedCategoryTab() === tab.id
                   ? 'bg-blue-700 text-white'
                   : 'bg-slate-100 text-slate-500'">
@@ -110,7 +110,7 @@ export interface CategoryTabItem {
                           ? 'bg-blue-50/50 border-blue-500 text-blue-900 font-semibold'
                           : 'bg-slate-50/60 hover:bg-slate-100 border-slate-200 text-slate-700'">
                         <span>{{ res.label }}</span>
-                        <span class="text-[10px] text-slate-400 font-mono">{{ res.physicalProviderId }}</span>
+                        <span class="text-[10px] text-slate-400">{{ res.physicalProviderId }}</span>
                       </button>
                     }
                   </div>
@@ -146,7 +146,7 @@ export interface CategoryTabItem {
                   <div class="w-9 h-9 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600">
                     <app-lucide-icon name="file-text" [size]="18"></app-lucide-icon>
                   </div>
-                  <span class="px-2 py-0.5 text-[10px] font-mono font-bold bg-slate-100 text-slate-700 rounded border border-slate-200">
+                  <span class="px-2 py-0.5 text-[10px] font-bold bg-slate-100 text-slate-700 rounded border border-slate-200">
                     {{ fmt }}
                   </span>
                 </div>

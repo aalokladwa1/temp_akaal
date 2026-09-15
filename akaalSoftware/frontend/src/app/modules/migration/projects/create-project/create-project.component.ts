@@ -157,7 +157,7 @@ export interface ProjectStepRailItem {
 
       </footer>
 
-      <!-- Creation Intent Acknowledged Modal (Pre-P7D) -->
+      <!-- Project Created Modal -->
       @if (isSubmittedModalOpen()) {
         <div
           class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"

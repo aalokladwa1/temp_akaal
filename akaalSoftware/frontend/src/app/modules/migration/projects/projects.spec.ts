@@ -14,10 +14,19 @@ describe('Projects & Initiatives (Foundation + Part A Portfolio)', () => {
   beforeEach(() => {
     contextService = new ContextService();
     service = new ProjectsService(contextService);
+    service.loadFixturesForTesting();
   });
 
   describe('1. Store State & Availability Handling', () => {
-    it('should initialize with standard entities and ready state', () => {
+    it('should initialize with truthful NOT_CONNECTED state by default', () => {
+      const freshService = new ProjectsService(contextService);
+      expect(freshService.projects().length).toBe(0);
+      expect(freshService.initiatives().length).toBe(0);
+      expect(freshService.projectsAvailability()).toBe('NOT_CONNECTED');
+      expect(freshService.isUnavailable()).toBe(true);
+    });
+
+    it('should initialize with standard entities and ready state when fixtures loaded', () => {
       expect(service.projects().length).toBeGreaterThan(0);
       expect(service.initiatives().length).toBeGreaterThan(0);
       expect(service.projectsAvailability()).toBe('READY');

@@ -102,14 +102,14 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
               @if (conn.endpointConfig.host) {
                 <div>
                   <span class="text-[11px] font-medium text-slate-400">Host / Addressing</span>
-                  <div class="text-xs font-mono font-bold text-slate-900 pt-0.5">{{ conn.endpointConfig.host }}</div>
+                  <div class="text-xs font-semibold text-slate-900 pt-0.5">{{ conn.endpointConfig.host }}</div>
                 </div>
               }
 
               @if (conn.endpointConfig.port) {
                 <div>
                   <span class="text-[11px] font-medium text-slate-400">Port</span>
-                  <div class="text-xs font-mono font-bold text-slate-900 pt-0.5">{{ conn.endpointConfig.port }}</div>
+                  <div class="text-xs font-semibold text-slate-900 tabular-nums pt-0.5">{{ conn.endpointConfig.port }}</div>
                 </div>
               }
 
@@ -136,7 +136,7 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
 
               @if (conn.endpointConfig.schema) {
                 <div>
-                  <span class="text-[11px] font-medium text-slate-400">Target / Active Schemas</span>
+                  <span class="text-[11px] font-medium text-slate-400">Schema / Catalog</span>
                   <div class="text-xs font-semibold text-slate-800 pt-0.5">{{ conn.endpointConfig.schema }}</div>
                 </div>
               }
@@ -145,7 +145,7 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
               @if (conn.endpointConfig.bootstrapServers) {
                 <div class="col-span-2">
                   <span class="text-[11px] font-medium text-slate-400">Kafka Bootstrap Servers</span>
-                  <div class="text-xs font-mono font-bold text-slate-900 pt-0.5 break-all">{{ conn.endpointConfig.bootstrapServers }}</div>
+                  <div class="text-xs font-semibold text-slate-900 pt-0.5 break-all">{{ conn.endpointConfig.bootstrapServers }}</div>
                 </div>
               }
 
@@ -153,7 +153,7 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
               @if (conn.endpointConfig.bucketName) {
                 <div>
                   <span class="text-[11px] font-medium text-slate-400">Bucket Name</span>
-                  <div class="text-xs font-mono font-bold text-slate-900 pt-0.5">{{ conn.endpointConfig.bucketName }}</div>
+                  <div class="text-xs font-semibold text-slate-900 pt-0.5">{{ conn.endpointConfig.bucketName }}</div>
                 </div>
                 <div>
                   <span class="text-[11px] font-medium text-slate-400">AWS Region</span>
@@ -162,7 +162,7 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
                 @if (conn.endpointConfig.prefix) {
                   <div>
                     <span class="text-[11px] font-medium text-slate-400">Prefix Path</span>
-                    <div class="text-xs font-mono text-slate-800 pt-0.5">{{ conn.endpointConfig.prefix }}</div>
+                    <div class="text-xs text-slate-800 pt-0.5">{{ conn.endpointConfig.prefix }}</div>
                   </div>
                 }
               }
@@ -171,7 +171,7 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
               @if (conn.endpointConfig.projectId) {
                 <div>
                   <span class="text-[11px] font-medium text-slate-400">GCP Project ID</span>
-                  <div class="text-xs font-mono font-bold text-slate-900 pt-0.5">{{ conn.endpointConfig.projectId }}</div>
+                  <div class="text-xs font-semibold text-slate-900 pt-0.5">{{ conn.endpointConfig.projectId }}</div>
                 </div>
                 <div>
                   <span class="text-[11px] font-medium text-slate-400">Dataset</span>
@@ -183,7 +183,7 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
               @if (conn.endpointConfig.instanceUrl) {
                 <div class="col-span-2">
                   <span class="text-[11px] font-medium text-slate-400">Salesforce Instance URL</span>
-                  <div class="text-xs font-mono font-bold text-slate-900 pt-0.5">{{ conn.endpointConfig.instanceUrl }}</div>
+                  <div class="text-xs font-semibold text-slate-900 pt-0.5">{{ conn.endpointConfig.instanceUrl }}</div>
                 </div>
               }
 
@@ -191,7 +191,7 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
               @if (conn.endpointConfig.filePath) {
                 <div class="col-span-2">
                   <span class="text-[11px] font-medium text-slate-400">Database File Path</span>
-                  <div class="text-xs font-mono font-bold text-slate-900 pt-0.5">{{ conn.endpointConfig.filePath }}</div>
+                  <div class="text-xs font-semibold text-slate-900 pt-0.5">{{ conn.endpointConfig.filePath }}</div>
                 </div>
               }
 
@@ -306,7 +306,7 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
               @if (conn.authConfig.username) {
                 <div>
                   <span class="text-[11px] font-medium text-slate-400">Username / Principal</span>
-                  <div class="text-xs font-mono font-semibold text-slate-900 pt-0.5">{{ conn.authConfig.username }}</div>
+                  <div class="text-xs font-semibold text-slate-900 pt-0.5">{{ conn.authConfig.username }}</div>
                 </div>
               }
 
@@ -318,14 +318,14 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
               @if (conn.authConfig.secretRef) {
                 <div class="col-span-2">
                   <span class="text-[11px] font-medium text-slate-400">Secret Reference URI (Safe Metadata)</span>
-                  <div class="text-xs font-mono text-slate-700 pt-0.5">{{ conn.authConfig.secretRef }}</div>
+                  <div class="text-xs text-slate-700 pt-0.5">{{ conn.authConfig.secretRef }}</div>
                 </div>
               }
 
               @if (conn.authConfig.roleArn) {
                 <div class="col-span-2">
                   <span class="text-[11px] font-medium text-slate-400">IAM Role ARN</span>
-                  <div class="text-xs font-mono text-slate-700 pt-0.5">{{ conn.authConfig.roleArn }}</div>
+                  <div class="text-xs text-slate-700 pt-0.5">{{ conn.authConfig.roleArn }}</div>
                 </div>
               }
             </div>
@@ -380,7 +380,7 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
                 @if (conn.tlsConfig.caCertRef) {
                   <div class="col-span-2">
                     <span class="text-[11px] font-medium text-slate-400">CA Certificate Reference</span>
-                    <div class="text-xs font-mono text-slate-700 pt-0.5">{{ conn.tlsConfig.caCertRef }}</div>
+                    <div class="text-xs text-slate-700 pt-0.5">{{ conn.tlsConfig.caCertRef }}</div>
                   </div>
                 }
                 <div>
@@ -395,21 +395,31 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
                   <select
                     [(ngModel)]="ws.configDraft().tlsMode"
                     class="h-8 px-2.5 rounded-md bg-white border border-slate-300 text-xs font-medium text-slate-900 focus:outline-none focus:border-blue-500 shadow-2xs">
-                    <option value="DISABLED">DISABLED</option>
+                    <option value="DISABLED">DISABLED (Plaintext)</option>
                     <option value="PREFERRED">PREFERRED</option>
-                    <option value="REQUIRED">REQUIRED</option>
+                    <option value="REQUIRED">REQUIRED (Strict TLS)</option>
                     <option value="VERIFY_CA">VERIFY_CA</option>
                     <option value="VERIFY_FULL">VERIFY_FULL</option>
                   </select>
                 </div>
+
                 <div class="flex flex-col gap-1">
-                  <label class="text-[11px] font-semibold text-slate-700">Min Version</label>
+                  <label class="text-[11px] font-semibold text-slate-700">Min Protocol Version</label>
                   <select
-                    [(ngModel)]="ws.configDraft().minTlsVersion"
+                    [(ngModel)]="ws.configDraft().tlsMinVersion"
                     class="h-8 px-2.5 rounded-md bg-white border border-slate-300 text-xs font-medium text-slate-900 focus:outline-none focus:border-blue-500 shadow-2xs">
                     <option value="TLS_1_2">TLS 1.2</option>
                     <option value="TLS_1_3">TLS 1.3</option>
                   </select>
+                </div>
+
+                <div class="col-span-2 flex flex-col gap-1">
+                  <label class="text-[11px] font-semibold text-slate-700">CA Certificate Vault Reference</label>
+                  <input
+                    type="text"
+                    [(ngModel)]="ws.configDraft().caCertRef"
+                    placeholder="e.g. secret/certs/corporate-root-ca.pem"
+                    class="h-8 px-3 rounded-md bg-white border border-slate-300 text-xs font-medium text-slate-900 focus:outline-none focus:border-blue-500 shadow-2xs" />
                 </div>
               </div>
             }
@@ -421,7 +431,7 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
               <div class="flex items-center gap-2">
                 <app-lucide-icon name="network" [size]="16" class="text-blue-600"></app-lucide-icon>
                 <span class="text-xs font-bold text-slate-900 uppercase tracking-wider font-heading">
-                  4. Network Route &amp; Transit
+                  4. Fabric Route Configuration
                 </span>
               </div>
             </div>
@@ -434,18 +444,18 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
                 </div>
                 <div>
                   <span class="text-[11px] font-medium text-slate-400">Transit VPC / Route</span>
-                  <div class="text-xs font-mono text-slate-800 pt-0.5">{{ conn.fabric.transitVpc || 'Direct Route' }}</div>
+                  <div class="text-xs text-slate-800 pt-0.5">{{ conn.fabric.transitVpc || 'Direct Route' }}</div>
                 </div>
                 @if (conn.routeConfig.sshHost) {
                   <div>
                     <span class="text-[11px] font-medium text-slate-400">SSH Bastion Host</span>
-                    <div class="text-xs font-mono text-slate-700 pt-0.5">{{ conn.routeConfig.sshHost }}:{{ conn.routeConfig.sshPort }}</div>
+                    <div class="text-xs text-slate-700 pt-0.5">{{ conn.routeConfig.sshHost }}:{{ conn.routeConfig.sshPort }}</div>
                   </div>
                 }
                 @if (conn.routeConfig.privateEndpointUrl) {
                   <div class="col-span-2">
                     <span class="text-[11px] font-medium text-slate-400">Private Endpoint</span>
-                    <div class="text-xs font-mono text-slate-700 pt-0.5">{{ conn.routeConfig.privateEndpointUrl }}</div>
+                    <div class="text-xs text-slate-700 pt-0.5">{{ conn.routeConfig.privateEndpointUrl }}</div>
                   </div>
                 }
               </div>

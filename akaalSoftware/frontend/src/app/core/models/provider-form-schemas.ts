@@ -47,7 +47,7 @@ export interface ProviderFormSchema {
   ingestionEngines?: IngestionEngineOption[];
 }
 
-export const ALL_48_PROVIDER_SCHEMAS: Record<PhysicalProviderId, ProviderFormSchema> = {
+export const ALL_PROVIDER_SCHEMAS: Record<PhysicalProviderId, ProviderFormSchema> = {
   'SQLite': {
     "providerId": "SQLite",
     "name": "SQLite",
@@ -2482,20 +2482,36 @@ export const ALL_48_PROVIDER_SCHEMAS: Record<PhysicalProviderId, ProviderFormSch
         { "id": "username", "label": "SAP User", "type": "text", "required": true, "placeholder": "RFC_USER", "group": "AUTH" },
         { "id": "secret_ref", "label": "Password / Secret Ref", "type": "password", "required": true, "group": "AUTH" }
     ]
+  } as any,
+  'OCI Object Storage': {
+    "providerId": "OCI Object Storage",
+    "name": "OCI Object Storage",
+    "category": "STORAGE",
+    "icon": "hard-drive",
+    "fields": [
+        { "id": "host", "label": "OCI Object Storage Endpoint / Namespace URL", "type": "text", "required": true, "placeholder": "https://objectstorage.us-ashburn-1.oraclecloud.com", "group": "ENDPOINT" },
+        { "id": "bucket_name", "label": "Bucket Name", "type": "text", "required": true, "placeholder": "my-migration-bucket", "group": "ENDPOINT" },
+        { "id": "namespace", "label": "Tenancy Namespace", "type": "text", "required": true, "placeholder": "ax1234567890", "group": "ENDPOINT" },
+        { "id": "user_ocid", "label": "User OCID", "type": "text", "required": true, "placeholder": "ocid1.user.oc1..aaaa...", "group": "AUTH" },
+        { "id": "fingerprint", "label": "API Key Fingerprint", "type": "text", "required": true, "placeholder": "20:3b:97:13...", "group": "AUTH" },
+        { "id": "secret_ref", "label": "Private Key (vault:// or PEM)", "type": "password", "required": true, "group": "AUTH" }
+    ]
   } as any
 } as any;
 
-export const ALL_28_PROVIDER_SCHEMAS = ALL_48_PROVIDER_SCHEMAS;
-ALL_48_PROVIDER_SCHEMAS['Oracle'] = { ...ALL_48_PROVIDER_SCHEMAS['Oracle Database'], providerId: 'Oracle' };
-ALL_48_PROVIDER_SCHEMAS['Microsoft SQL Server'] = { ...ALL_48_PROVIDER_SCHEMAS['Microsoft SQL Server (MSSQL)'], providerId: 'Microsoft SQL Server' };
-ALL_48_PROVIDER_SCHEMAS['IBM Db2'] = { ...ALL_48_PROVIDER_SCHEMAS['IBM Db2 LUW'], providerId: 'IBM Db2' };
-ALL_48_PROVIDER_SCHEMAS['Snowflake'] = { ...ALL_48_PROVIDER_SCHEMAS['Snowflake Data Cloud'], providerId: 'Snowflake' };
-ALL_48_PROVIDER_SCHEMAS['Neo4j Graph Database'] = { ...ALL_48_PROVIDER_SCHEMAS['Neo4j'], providerId: 'Neo4j Graph Database' };
-ALL_48_PROVIDER_SCHEMAS['Databricks / Delta Lake'] = { ...ALL_48_PROVIDER_SCHEMAS['Databricks'], providerId: 'Databricks / Delta Lake' };
-ALL_48_PROVIDER_SCHEMAS['Amazon Kinesis'] = { ...ALL_48_PROVIDER_SCHEMAS['Amazon Kinesis Data Streams'], providerId: 'Amazon Kinesis' };
-ALL_48_PROVIDER_SCHEMAS['SingleStore'] = { ...ALL_48_PROVIDER_SCHEMAS['SingleStore (MemSQL)'], providerId: 'SingleStore' };
-ALL_48_PROVIDER_SCHEMAS['SAP ASE'] = { ...ALL_48_PROVIDER_SCHEMAS['SAP ASE (Sybase)'], providerId: 'SAP ASE' };
-ALL_48_PROVIDER_SCHEMAS['Teradata'] = { ...ALL_48_PROVIDER_SCHEMAS['Teradata Vantage'], providerId: 'Teradata' };
-ALL_48_PROVIDER_SCHEMAS['Amazon S3 Object Storage'] = { ...ALL_48_PROVIDER_SCHEMAS['Amazon S3'], providerId: 'Amazon S3 Object Storage' };
-ALL_48_PROVIDER_SCHEMAS['Google Cloud Storage (GCS)'] = { ...ALL_48_PROVIDER_SCHEMAS['Google Cloud Storage'], providerId: 'Google Cloud Storage (GCS)' };
-ALL_48_PROVIDER_SCHEMAS['MinIO Object Storage'] = { ...ALL_48_PROVIDER_SCHEMAS['MinIO'], providerId: 'MinIO Object Storage' };
+export const ALL_48_PROVIDER_SCHEMAS = ALL_PROVIDER_SCHEMAS;
+export const ALL_28_PROVIDER_SCHEMAS = ALL_PROVIDER_SCHEMAS;
+ALL_PROVIDER_SCHEMAS['Oracle'] = { ...ALL_PROVIDER_SCHEMAS['Oracle Database'], providerId: 'Oracle' };
+ALL_PROVIDER_SCHEMAS['Microsoft SQL Server'] = { ...ALL_PROVIDER_SCHEMAS['Microsoft SQL Server (MSSQL)'], providerId: 'Microsoft SQL Server' };
+ALL_PROVIDER_SCHEMAS['IBM Db2'] = { ...ALL_PROVIDER_SCHEMAS['IBM Db2 LUW'], providerId: 'IBM Db2' };
+ALL_PROVIDER_SCHEMAS['Snowflake'] = { ...ALL_PROVIDER_SCHEMAS['Snowflake Data Cloud'], providerId: 'Snowflake' };
+ALL_PROVIDER_SCHEMAS['Neo4j Graph Database'] = { ...ALL_PROVIDER_SCHEMAS['Neo4j'], providerId: 'Neo4j Graph Database' };
+ALL_PROVIDER_SCHEMAS['Databricks / Delta Lake'] = { ...ALL_PROVIDER_SCHEMAS['Databricks'], providerId: 'Databricks / Delta Lake' };
+ALL_PROVIDER_SCHEMAS['Amazon Kinesis'] = { ...ALL_PROVIDER_SCHEMAS['Amazon Kinesis Data Streams'], providerId: 'Amazon Kinesis' };
+ALL_PROVIDER_SCHEMAS['SingleStore'] = { ...ALL_PROVIDER_SCHEMAS['SingleStore (MemSQL)'], providerId: 'SingleStore' };
+ALL_PROVIDER_SCHEMAS['SAP ASE'] = { ...ALL_PROVIDER_SCHEMAS['SAP ASE (Sybase)'], providerId: 'SAP ASE' };
+ALL_PROVIDER_SCHEMAS['Teradata'] = { ...ALL_PROVIDER_SCHEMAS['Teradata Vantage'], providerId: 'Teradata' };
+ALL_PROVIDER_SCHEMAS['Amazon S3 Object Storage'] = { ...ALL_PROVIDER_SCHEMAS['Amazon S3'], providerId: 'Amazon S3 Object Storage' };
+ALL_PROVIDER_SCHEMAS['Google Cloud Storage (GCS)'] = { ...ALL_PROVIDER_SCHEMAS['Google Cloud Storage'], providerId: 'Google Cloud Storage (GCS)' };
+ALL_PROVIDER_SCHEMAS['MinIO Object Storage'] = { ...ALL_PROVIDER_SCHEMAS['MinIO'], providerId: 'MinIO Object Storage' };
+ALL_PROVIDER_SCHEMAS['oci_object_storage'] = { ...ALL_PROVIDER_SCHEMAS['OCI Object Storage'], providerId: 'oci_object_storage' };

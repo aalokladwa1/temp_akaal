@@ -167,48 +167,7 @@ export const DETAILED_CONNECTION_FIXTURES: Record<string, DetailedConnectionReco
         isReferenced: true
       }
     },
-    activities: [
-      {
-        id: 'act-01',
-        timestamp: '2026-09-07T21:45:00Z',
-        category: 'TEST',
-        title: 'Point-in-Time Connection Test Succeeded',
-        description: 'Automated health probe verified TLS 1.3 handshake, Vault authentication, and LogMiner redo access.',
-        actor: 'system-probe-scheduler',
-        icon: 'shield-check',
-        stateBadge: { label: 'Verified', type: 'success' }
-      },
-      {
-        id: 'act-02',
-        timestamp: '2026-09-01T14:20:00Z',
-        category: 'SECURITY',
-        title: 'Secret Lease Renewed',
-        description: 'HashiCorp Vault dynamic AppRole token rotated smoothly without connection disruption.',
-        actor: 'vault-agent@corp.internal',
-        icon: 'lock',
-        stateBadge: { label: 'Rotated', type: 'info' }
-      },
-      {
-        id: 'act-03',
-        timestamp: '2026-08-15T09:10:00Z',
-        category: 'CONFIG',
-        title: 'Connection Pool Increased',
-        description: 'Connection pool size adjusted from 16 to 32 for multi-worker parallel extraction.',
-        actor: 'admin-aalok@corp.internal',
-        icon: 'sliders',
-        stateBadge: { label: 'Updated', type: 'neutral' }
-      },
-      {
-        id: 'act-04',
-        timestamp: '2026-01-10T08:30:00Z',
-        category: 'LIFECYCLE',
-        title: 'Connection Profile Authored',
-        description: 'Initial creation of Core Banking Oracle RAC connection profile in EMEA Production Workspace.',
-        actor: 'admin-aalok@corp.internal',
-        icon: 'plus-circle',
-        stateBadge: { label: 'Created', type: 'info' }
-      }
-    ]
+    activities: []
   },
 
   // =========================================================================
@@ -363,28 +322,7 @@ export const DETAILED_CONNECTION_FIXTURES: Record<string, DetailedConnectionReco
         isReferenced: true
       }
     },
-    activities: [
-      {
-        id: 'act-pg-01',
-        timestamp: '2026-09-07T14:20:00Z',
-        category: 'TEST',
-        title: 'Connection Test Passed',
-        description: 'Automated verification validated IAM token exchange, SSL handshake, and table write permissions.',
-        actor: 'system-probe-scheduler',
-        icon: 'shield-check',
-        stateBadge: { label: 'Verified', type: 'success' }
-      },
-      {
-        id: 'act-pg-02',
-        timestamp: '2026-08-20T11:00:00Z',
-        category: 'SECURITY',
-        title: 'IAM Role Policy Updated',
-        description: 'Extended rds-db:connect permission to include standby replica endpoint.',
-        actor: 'cloud-infra-team@corp.internal',
-        icon: 'shield',
-        stateBadge: { label: 'Security', type: 'info' }
-      }
-    ]
+    activities: []
   },
 
   // =========================================================================
@@ -534,18 +472,7 @@ export const DETAILED_CONNECTION_FIXTURES: Record<string, DetailedConnectionReco
         isReferenced: true
       }
     },
-    activities: [
-      {
-        id: 'act-kf-01',
-        timestamp: '2026-09-07T20:30:00Z',
-        category: 'TEST',
-        title: 'Kafka Cluster Probe Verified',
-        description: 'Verified SASL_SSL authentication across 6 brokers and Schema Registry endpoint.',
-        actor: 'system-probe-scheduler',
-        icon: 'shield-check',
-        stateBadge: { label: 'Verified', type: 'success' }
-      }
-    ]
+    activities: []
   },
 
   // =========================================================================
@@ -686,28 +613,7 @@ export const DETAILED_CONNECTION_FIXTURES: Record<string, DetailedConnectionReco
         isReferenced: true
       }
     },
-    activities: [
-      {
-        id: 'act-s3-01',
-        timestamp: '2026-09-08T09:30:00Z',
-        category: 'CONFIG',
-        title: 'Bucket Prefix Modified',
-        description: 'Prefix updated to "finance/ledger_archive_2026/". Previous verification transitioned to STALE.',
-        actor: 'admin-aalok@corp.internal',
-        icon: 'sliders',
-        stateBadge: { label: 'Needs Retest', type: 'warning' }
-      },
-      {
-        id: 'act-s3-02',
-        timestamp: '2026-09-05T10:00:00Z',
-        category: 'TEST',
-        title: 'Connection Test Passed',
-        description: 'Point-in-time probe verified STS role delegation and PutObject permission.',
-        actor: 'admin-aalok@corp.internal',
-        icon: 'shield-check',
-        stateBadge: { label: 'Verified', type: 'success' }
-      }
-    ]
+    activities: []
   },
 
   // =========================================================================
@@ -801,28 +707,7 @@ export const DETAILED_CONNECTION_FIXTURES: Record<string, DetailedConnectionReco
         isReferenced: false
       }
     },
-    activities: [
-      {
-        id: 'act-un-01',
-        timestamp: '2026-09-06T12:00:00Z',
-        category: 'TEST',
-        title: 'Connection Test Succeeded',
-        description: 'Point-in-time test reached sandbox MySQL server.',
-        actor: 'dev-operator',
-        icon: 'shield-check',
-        stateBadge: { label: 'Verified', type: 'success' }
-      },
-      {
-        id: 'act-un-02',
-        timestamp: '2026-09-01T10:00:00Z',
-        category: 'LIFECYCLE',
-        title: 'Connection Created',
-        description: 'Created for temporary schema experimentation.',
-        actor: 'dev-operator',
-        icon: 'plus-circle',
-        stateBadge: { label: 'Created', type: 'info' }
-      }
-    ]
+    activities: []
   },
 
   // =========================================================================
@@ -913,17 +798,6 @@ export const DETAILED_CONNECTION_FIXTURES: Record<string, DetailedConnectionReco
         isReferenced: false
       }
     },
-    activities: [
-      {
-        id: 'act-fl-01',
-        timestamp: '2026-09-08T08:00:00Z',
-        category: 'TEST',
-        title: 'Connection Probe Failed',
-        description: 'TCP Port 5000 connection timed out. Host sybase-dr-01.legacy.corp unreachable.',
-        actor: 'system-probe-scheduler',
-        icon: 'alert-triangle',
-        stateBadge: { label: 'Failed', type: 'danger' }
-      }
-    ]
+    activities: []
   }
 };

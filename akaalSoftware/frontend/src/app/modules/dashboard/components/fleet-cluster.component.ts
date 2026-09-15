@@ -13,16 +13,15 @@ import { LucideIconComponent } from '../../../shared/components/lucide-icon.comp
       <!-- Card Header -->
       <div class="flex items-center justify-between pb-4 border-b border-slate-200">
         <div class="flex items-center gap-2.5">
-          <app-lucide-icon name="server" [size]="20" class="text-blue-600"></app-lucide-icon>
+          <app-lucide-icon name="boxes" [size]="20" class="text-slate-700 dark:text-slate-300"></app-lucide-icon>
           <h2 class="text-base font-bold text-slate-900 font-heading">Fleet / Cluster</h2>
         </div>
-        <span class="text-xs text-slate-500 font-medium">Topology</span>
       </div>
 
       <!-- Main Content -->
       @if (!fleet) {
         <div class="py-8 flex flex-col items-center justify-center text-center gap-2 my-auto">
-          <app-lucide-icon name="server" [size]="24" class="text-slate-400"></app-lucide-icon>
+          <app-lucide-icon name="boxes" [size]="24" class="text-slate-400 dark:text-slate-500"></app-lucide-icon>
           <span class="text-xs font-bold text-slate-800">Fleet information unavailable</span>
           <p class="text-[11px] text-slate-500 font-medium">Detailed fleet operations are configured in Monitoring.</p>
         </div>
@@ -31,17 +30,17 @@ import { LucideIconComponent } from '../../../shared/components/lucide-icon.comp
         <div class="grid grid-cols-3 divide-x divide-slate-200 p-4 rounded-xl bg-slate-50/70 border border-slate-200 text-center my-auto">
           <div class="px-3 flex flex-col items-center gap-1">
             <span class="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Nodes</span>
-            <span class="text-2xl font-bold font-mono text-slate-900 tabular-nums">{{ fleet.nodeCount ?? '—' }}</span>
+            <span class="text-2xl font-bold text-slate-900 tabular-nums">{{ fleet.nodeCount ?? '—' }}</span>
           </div>
 
           <div class="px-3 flex flex-col items-center gap-1">
             <span class="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Workers</span>
-            <span class="text-2xl font-bold font-mono text-slate-900 tabular-nums">{{ fleet.activeWorkers ?? '—' }}</span>
+            <span class="text-2xl font-bold text-slate-900 tabular-nums">{{ fleet.activeWorkers ?? '—' }}</span>
           </div>
 
           <div class="px-3 flex flex-col items-center gap-1">
             <span class="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Cores</span>
-            <span class="text-2xl font-bold font-mono text-slate-900 tabular-nums">{{ fleet.totalCapacityCores ?? '—' }}</span>
+            <span class="text-2xl font-bold text-slate-900 tabular-nums">{{ fleet.totalCapacityCores ?? '—' }}</span>
           </div>
         </div>
 
@@ -61,6 +60,11 @@ import { LucideIconComponent } from '../../../shared/components/lucide-icon.comp
             <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 select-none">
               <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
               <span>Degraded</span>
+            </span>
+          } @else if (fleet.clusterState === 'unavailable') {
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200 select-none">
+              <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+              <span>Unavailable</span>
             </span>
           } @else {
             <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200 select-none">

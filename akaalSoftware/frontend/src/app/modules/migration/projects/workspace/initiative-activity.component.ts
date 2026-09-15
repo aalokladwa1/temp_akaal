@@ -74,7 +74,7 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
                     <span class="font-bold text-slate-900 text-xs">
                       {{ act.occurredAt | date:'MMM d, yyyy' }}
                     </span>
-                    <span class="text-[10.5px] text-slate-500 font-mono font-medium tabular-nums">
+                    <span class="text-[10.5px] text-slate-500 font-medium tabular-nums">
                       {{ act.occurredAt | date:'HH:mm:ss UTC' }}
                     </span>
                   </div>

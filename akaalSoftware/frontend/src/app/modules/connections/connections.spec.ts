@@ -18,8 +18,20 @@ describe('Connections Module — Part A Unit Tests', () => {
     service.resetToFixtures();
   });
 
-  describe('Domain & Fixtures Integrity', () => {
-    it('should initialize with standard fixtures representing diverse provider families', () => {
+  describe('Startup & Neutral State (B-2.2-01)', () => {
+    it('should initialize with empty connections and NOT_CONNECTED state without synthetic fixtures', () => {
+      const freshService = new ConnectionsService(contextService);
+      expect(freshService.connections()).toEqual([]);
+      expect(freshService.availabilityState()).toBe('NOT_CONNECTED');
+    });
+  });
+
+  describe('Domain & Fixtures Integrity (via test fixture loader)', () => {
+    beforeEach(() => {
+      service.loadFixturesForTesting();
+    });
+
+    it('should load standard fixtures representing diverse provider families when requested for test harness', () => {
       const conns = service.connections();
       expect(conns.length).toBeGreaterThanOrEqual(10);
 
@@ -56,6 +68,10 @@ describe('Connections Module — Part A Unit Tests', () => {
   });
 
   describe('Search and Multi-Dimensional Filtering', () => {
+    beforeEach(() => {
+      service.loadFixturesForTesting();
+    });
+
     it('should filter connections by search query matching name', () => {
       service.setSearchQuery('Oracle RAC');
       const filtered = service.filteredConnections();
@@ -125,6 +141,10 @@ describe('Connections Module — Part A Unit Tests', () => {
   });
 
   describe('Deterministic Sorting', () => {
+    beforeEach(() => {
+      service.loadFixturesForTesting();
+    });
+
     it('should sort connections by name ascending and descending', () => {
       service.setSorting('name', 'asc');
       const ascNames = service.filteredConnections().map(c => c.name);
@@ -149,6 +169,10 @@ describe('Connections Module — Part A Unit Tests', () => {
   });
 
   describe('Summary Counters', () => {
+    beforeEach(() => {
+      service.loadFixturesForTesting();
+    });
+
     it('should accurately compute summary counters', () => {
       const counters = service.summaryCounters();
       const all = service.connections();
@@ -169,7 +193,11 @@ describe('Connections Module — Part A Unit Tests', () => {
     });
   });
 
-  describe('Inspection Drawer & Verification Probe Execution', () => {
+  describe('Inspection Drawer & Truthful Verification Probe Execution', () => {
+    beforeEach(() => {
+      service.loadFixturesForTesting();
+    });
+
     it('should open and close inspect drawer with selected connection', () => {
       const conn = service.connections()[0];
       service.openInspectDrawer(conn);
@@ -181,21 +209,17 @@ describe('Connections Module — Part A Unit Tests', () => {
       expect(service.selectedConnection()).toBeNull();
     });
 
-    it('should execute simulated point-in-time verification probe', async () => {
+    it('should execute truthful verification notice without synthetic fake status change', async () => {
       const conn = service.connections().find(c => c.verificationState === 'NEVER_TESTED') || service.connections()[0];
       
       service.verifyConnection(conn.id);
       expect(service.isVerifyingConnectionId()).toBe(conn.id);
 
-      const connInList = service.connections().find(c => c.id === conn.id);
-      expect(connInList?.verificationState).toBe('TESTING');
-
-      // Wait for probe simulation to complete
-      await new Promise(resolve => setTimeout(resolve, 650));
+      // Wait for probe notice resolution
+      await new Promise(resolve => setTimeout(resolve, 250));
 
       const updatedConn = service.connections().find(c => c.id === conn.id);
-      expect(updatedConn?.verificationState).toBe('VERIFIED_RECENT');
-      expect(updatedConn?.lastVerifiedAt).toBeDefined();
+      expect(updatedConn?.lastVerifiedDetails).toContain('Live connection testing is unavailable');
       expect(service.isVerifyingConnectionId()).toBeNull();
     });
   });
@@ -210,7 +234,7 @@ describe('Connections Module — Part A Unit Tests', () => {
       expect(service.availabilityState()).toBe('ERROR');
       expect(service.errorMessage()).toBe('Connection authority timeout');
 
-      service.reload();
+      service.loadFixturesForTesting();
       expect(service.availabilityState()).toBe('READY');
       expect(service.connections().length).toBeGreaterThan(0);
     });

@@ -51,7 +51,7 @@ import { SapAppExtensionComponent } from './step2-extensions/sap-app-extension.c
             <div class="flex flex-col min-w-0">
               <div class="flex items-center gap-2">
                 <span class="text-xs font-bold text-slate-900 truncate">{{ provider.name }}</span>
-                <span class="px-1.5 py-0.2 text-[9px] font-mono font-bold bg-blue-100 text-blue-800 rounded">
+                <span class="px-1.5 py-0.2 text-[9px] font-bold bg-blue-100 text-blue-800 rounded">
                   {{ provider.id }}
                 </span>
                 @if (cs.draft().isManagedCloud) {
@@ -299,7 +299,7 @@ import { SapAppExtensionComponent } from './step2-extensions/sap-app-extension.c
                         [(ngModel)]="cs.draft().parameters['bootstrap_servers']"
                         (ngModelChange)="cs.markConfigurationMutated()"
                         placeholder="kafka-broker1.corp:9092,kafka-broker2.corp:9092"
-                        class="w-full h-9 px-3 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:border-blue-600 font-mono" />
+                        class="w-full h-9 px-3 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:border-blue-600" />
                     </div>
                     <div class="flex flex-col gap-1.5">
                       <label class="text-xs font-semibold text-slate-700">Consumer Group ID</label>
@@ -307,7 +307,7 @@ import { SapAppExtensionComponent } from './step2-extensions/sap-app-extension.c
                         type="text"
                         [(ngModel)]="cs.draft().parameters['consumer_group']"
                         (ngModelChange)="cs.markConfigurationMutated()"
-                        placeholder="akaal-migration-group"
+                        placeholder="migration-consumer-group"
                         class="w-full h-9 px-3 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:border-blue-600" />
                     </div>
                     <div class="flex flex-col gap-1.5">
@@ -328,7 +328,7 @@ import { SapAppExtensionComponent } from './step2-extensions/sap-app-extension.c
                         [(ngModel)]="cs.draft().parameters['service_url']"
                         (ngModelChange)="cs.markConfigurationMutated()"
                         placeholder="pulsar://pulsar-proxy.corp:6650 or pulsar+ssl://..."
-                        class="w-full h-9 px-3 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:border-blue-600 font-mono" />
+                        class="w-full h-9 px-3 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:border-blue-600" />
                     </div>
                   }
                   @if (p.id === 'eventhubs') {
@@ -377,7 +377,7 @@ import { SapAppExtensionComponent } from './step2-extensions/sap-app-extension.c
                         type="text"
                         [(ngModel)]="cs.draft().parameters['csv_delimiter']"
                         placeholder=","
-                        class="w-full h-9 px-3 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:border-blue-600 font-mono" />
+                        class="w-full h-9 px-3 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:border-blue-600" />
                     </div>
                     <div class="flex flex-col justify-center gap-1.5 pt-4">
                       <label class="flex items-center gap-2 cursor-pointer select-none">
@@ -501,7 +501,7 @@ import { SapAppExtensionComponent } from './step2-extensions/sap-app-extension.c
             <input
               type="text"
               [(ngModel)]="cs.draft().parameters['application_name']"
-              placeholder="AKAAL_Enterprise_Bridge"
+              placeholder="DevKros_Connection_Agent"
               class="w-full h-9 px-3 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:border-blue-600" />
           </div>
 

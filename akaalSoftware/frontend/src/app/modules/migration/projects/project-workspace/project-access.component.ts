@@ -87,16 +87,6 @@ interface SourceOption {
             </button>
           </div>
 
-          <!-- Enterprise RBAC Law Banner (Access != Administration) -->
-          <div class="p-3.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-800 flex items-start gap-3">
-            <app-lucide-icon name="shield-check" [size]="16" class="text-slate-600 shrink-0 mt-0.5"></app-lucide-icon>
-            <div class="flex flex-col gap-0.5 text-xs">
-              <span class="font-bold text-slate-900">Project Access &ne; Identity Administration</span>
-              <p class="text-slate-600 text-[11px] leading-relaxed">
-                Project Access assigns existing enterprise users, groups, and service accounts to project operational roles. Organization directories, SSO federation, and global role definitions are governed centrally by Platform Security Administrators.
-              </p>
-            </div>
-          </div>
 
           <!-- Controls Bar: Search, Type Filter, Role Filter, Source Filter & Reset -->
           <div class="flex items-center justify-between gap-3 flex-wrap">
@@ -307,7 +297,7 @@ interface SourceOption {
                       <td class="py-3.5 px-4">
                         <div class="flex flex-col min-w-0">
                           <span class="font-bold text-slate-900 truncate">{{ g.principalName }}</span>
-                          <span class="text-[11px] text-slate-500 font-mono truncate">{{ g.principalEmail }}</span>
+                          <span class="text-[11px] text-slate-500 truncate">{{ g.principalEmail }}</span>
                         </div>
                       </td>
 
@@ -422,9 +412,6 @@ interface SourceOption {
               </select>
             </div>
 
-            <div class="p-3 rounded-lg bg-blue-50/70 border border-blue-200 text-[11px] text-blue-900 leading-normal">
-              <strong>Pre-P7D Authority Note:</strong> Project role grant intent will be compiled into the workspace security manifest. Production mutation occurs upon backend authority confirmation.
-            </div>
 
             <div class="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
               <button

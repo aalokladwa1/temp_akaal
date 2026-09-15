@@ -36,7 +36,7 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
               <h2 class="text-sm font-bold text-slate-900 uppercase tracking-wider font-heading">
                 Endpoint Capabilities &amp; Attestation
               </h2>
-              <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200">
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
                 {{ conn.capabilities.proofLevel }}
               </span>
             </div>
@@ -101,17 +101,17 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
                   </span>
                   <div class="flex flex-col">
                     <span class="text-xs font-bold text-slate-900">{{ probe.name }}</span>
-                    <span class="text-[11px] text-slate-500 font-mono">{{ probe.step }}</span>
+                    <span class="text-[11px] text-slate-500">{{ probe.step }}</span>
                   </div>
                 </div>
 
                 <div class="flex items-center gap-4">
                   <span class="text-xs text-slate-600 max-w-md truncate">{{ probe.details }}</span>
                   @if (probe.latencyMs !== undefined) {
-                    <span class="text-[11px] font-mono text-slate-400 font-medium whitespace-nowrap">{{ probe.latencyMs }}ms</span>
+                    <span class="text-[11px] tabular-nums text-slate-400 font-medium whitespace-nowrap">{{ probe.latencyMs }}ms</span>
                   }
                   <span
-                    class="px-2 py-0.5 rounded text-[10px] font-mono font-bold whitespace-nowrap"
+                    class="px-2 py-0.5 rounded text-[10px] font-bold whitespace-nowrap"
                     [class.bg-emerald-50]="probe.status === 'VERIFIED'"
                     [class.text-emerald-700]="probe.status === 'VERIFIED'"
                     [class.border-emerald-200]="probe.status === 'VERIFIED'"
@@ -142,7 +142,7 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
               </span>
             </div>
             <span class="text-[11px] text-slate-500">
-              Evaluated against assigned principal: <strong class="font-mono text-slate-800">{{ conn.authConfig.username || 'Current Identity' }}</strong>
+              Evaluated against assigned principal: <strong class="text-slate-800">{{ conn.authConfig.username || 'Current Identity' }}</strong>
             </span>
           </div>
 
@@ -150,13 +150,13 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
             @for (perm of conn.capabilities.permissionChecks; track perm.permission) {
               <div class="p-3 flex items-center justify-between gap-3 hover:bg-slate-50/50 transition-colors">
                 <div class="flex items-center gap-3">
-                  <span class="font-mono font-bold text-xs text-slate-900">{{ perm.permission }}</span>
+                  <span class="font-bold text-xs text-slate-900">{{ perm.permission }}</span>
                   <span class="text-[11px] text-slate-400 font-medium">[{{ perm.scope }}]</span>
                 </div>
 
                 <div class="flex items-center gap-3">
                   <span class="text-xs text-slate-600">{{ perm.details }}</span>
-                  <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                     {{ perm.status }}
                   </span>
                 </div>
@@ -180,7 +180,7 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
           <div class="p-6 bg-white border border-slate-200 rounded-xl shadow-2xs flex flex-col gap-3.5">
             <div class="flex items-center justify-between pb-2.5 border-b border-slate-100">
               <span class="text-xs font-bold text-slate-900 uppercase tracking-wider font-heading">Source Engine Extraction</span>
-              <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                 {{ conn.capabilities.sourceCapability.status }}
               </span>
             </div>
@@ -197,7 +197,7 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
           <div class="p-6 bg-white border border-slate-200 rounded-xl shadow-2xs flex flex-col gap-3.5">
             <div class="flex items-center justify-between pb-2.5 border-b border-slate-100">
               <span class="text-xs font-bold text-slate-900 uppercase tracking-wider font-heading">Target Engine Ingestion</span>
-              <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                 {{ conn.capabilities.targetCapability.status }}
               </span>
             </div>
@@ -214,7 +214,7 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
           <div class="p-6 bg-white border border-slate-200 rounded-xl shadow-2xs flex flex-col gap-3.5">
             <div class="flex items-center justify-between pb-2.5 border-b border-slate-100">
               <span class="text-xs font-bold text-slate-900 uppercase tracking-wider font-heading">Metadata Discovery Fidelity</span>
-              <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                 {{ conn.capabilities.discoveryCapability.status }}
               </span>
             </div>
@@ -234,7 +234,7 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
           <div class="p-6 bg-white border border-slate-200 rounded-xl shadow-2xs flex flex-col gap-3.5">
             <div class="flex items-center justify-between pb-2.5 border-b border-slate-100">
               <span class="text-xs font-bold text-slate-900 uppercase tracking-wider font-heading">CDC &amp; Continuous Replication</span>
-              <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200">
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
                 {{ conn.capabilities.cdcCapability.status }}
               </span>
             </div>

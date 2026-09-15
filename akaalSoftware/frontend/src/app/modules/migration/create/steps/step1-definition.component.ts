@@ -293,19 +293,19 @@ export class Step1DefinitionComponent implements OnInit {
   public nameTouched = signal<boolean>(false);
 
   // 1. Canonical Project Options from MigrationHomeService
-  public availableProjects = computed<ProjectHomeRow[]>(() => this.homeService.projects());
+  public availableProjects = computed<ProjectHomeRow[]>(() => this.homeService.projects() || []);
 
   public filteredProjects = computed(() => {
     const q = this.projectSearchQuery().trim().toLowerCase();
-    const list = this.availableProjects();
+    const list = this.availableProjects() || [];
     if (!q) return list;
-    return list.filter(p => p.name.toLowerCase().includes(q) || p.environment.toLowerCase().includes(q));
+    return list.filter(p => (p?.name || '').toLowerCase().includes(q) || (p?.environment || '').toLowerCase().includes(q));
   });
 
   public selectedProject = computed(() => {
     const pid = this.ms.wizardDraft().projectId;
     if (!pid) return undefined;
-    return this.availableProjects().find(p => p.id === pid);
+    return (this.availableProjects() || []).find(p => p?.id === pid);
   });
 
   // 2. Strictly Two Environment Options: Production & Non-Production

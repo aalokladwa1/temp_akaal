@@ -20,7 +20,7 @@ import { ConnectionVerificationState } from '../../connections.models';
             
             <!-- Breadcrumbs & Context Badges -->
             <div class="flex items-center flex-wrap gap-2 text-xs">
-              <span class="text-slate-400 font-medium">AKAAL Enterprise</span>
+              <span class="text-slate-400 font-medium">DevKros</span>
               <span class="text-slate-300">/</span>
               <a routerLink="/connections" class="text-slate-500 hover:text-blue-600 font-medium transition-colors">
                 Connections
@@ -31,7 +31,7 @@ import { ConnectionVerificationState } from '../../connections.models';
               <button
                 type="button"
                 (click)="ws.copyConnectionId()"
-                class="inline-flex items-center gap-1.5 font-mono text-xs font-semibold px-2.5 py-1 rounded-md bg-slate-50 hover:bg-blue-50 text-slate-700 hover:text-blue-700 hover:border-blue-300 transition-colors border border-slate-200 cursor-pointer"
+                class="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-md bg-slate-50 hover:bg-blue-50 text-slate-700 hover:text-blue-700 hover:border-blue-300 transition-colors border border-slate-200 cursor-pointer"
                 [title]="'Click to copy connection ID: ' + conn.id">
                 <span>{{ conn.id }}</span>
                 <app-lucide-icon
@@ -104,7 +104,7 @@ import { ConnectionVerificationState } from '../../connections.models';
 
             <!-- Contextual Endpoint Line -->
             <div class="text-xs text-slate-500 flex items-center flex-wrap gap-2 pt-0.5">
-              <span class="font-mono text-slate-700 font-medium">{{ conn.endpointDisplay }}</span>
+              <span class="text-slate-700 font-medium">{{ conn.endpointDisplay }}</span>
               <span class="text-slate-300">&bull;</span>
               <span>{{ conn.safeRouteInfo }}</span>
               <span class="text-slate-300">&bull;</span>

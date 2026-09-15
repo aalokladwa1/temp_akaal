@@ -87,17 +87,6 @@ interface AvailabilityOption {
             </div>
           </div>
 
-          <!-- Enterprise Security Disclaimer Banner (Required by Law 35) -->
-          <div class="p-3.5 rounded-lg bg-amber-50/80 border border-amber-200 text-amber-950 flex items-start gap-3">
-            <app-lucide-icon name="shield-alert" [size]="16" class="text-amber-600 shrink-0 mt-0.5"></app-lucide-icon>
-            <div class="flex flex-col gap-0.5 text-xs">
-              <span class="font-bold text-amber-900">Resource Visibility &#8800; Resource Use Authorization</span>
-              <p class="text-amber-800 text-[11px] leading-relaxed">
-                Associating a connection profile declares operational intent within this project boundary. Database secrets, credentials, and encryption keys remain sealed in enterprise vaults and are validated per migration run with cryptographic verification.
-              </p>
-            </div>
-          </div>
-
           <!-- Controls Bar: Search, Category Filter, Association Filter & Reset -->
           <div class="flex items-center justify-between gap-3 flex-wrap">
             
@@ -300,7 +289,7 @@ interface AvailabilityOption {
                       <!-- 1. Resource Name & Provider Badge -->
                       <td class="py-3.5 px-4">
                         <div class="flex items-center gap-2.5 min-w-0">
-                          <span class="px-2 py-0.5 rounded-md text-[10px] font-bold font-mono bg-slate-100 text-slate-700 border border-slate-200 shrink-0">
+                          <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 shrink-0">
                             {{ r.provider }}
                           </span>
                           <div class="flex flex-col min-w-0">
@@ -317,14 +306,14 @@ interface AvailabilityOption {
                       </td>
 
                       <!-- 2. Host / Endpoint -->
-                      <td class="py-3.5 px-4 font-mono text-[11px] text-slate-600 truncate">
+                      <td class="py-3.5 px-4 text-[11px] text-slate-600 truncate">
                         {{ r.host || '&mdash;' }}
                       </td>
 
                       <!-- 3. Category Badge -->
                       <td class="py-3.5 px-4">
-                        <span class="px-2 py-0.5 rounded-md text-[10.5px] font-semibold bg-slate-100 text-slate-700 border border-slate-200 uppercase">
-                          {{ r.category }}
+                        <span class="px-2 py-0.5 rounded-md text-[10.5px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                          {{ getCategoryDisplayLabel(r.category) }}
                         </span>
                       </td>
 
@@ -408,7 +397,7 @@ interface AvailabilityOption {
               </div>
               <div class="p-3 rounded-lg bg-slate-50 border border-slate-200 flex flex-col gap-0.5 col-span-2">
                 <span class="text-[10px] font-semibold text-slate-400 uppercase">Endpoint Host</span>
-                <span class="font-mono font-medium text-slate-800 break-all">{{ res.host || 'Managed Platform Endpoint' }}</span>
+                <span class="font-medium text-slate-800 break-all">{{ res.host || 'Managed Platform Endpoint' }}</span>
               </div>
               <div class="p-3 rounded-lg bg-slate-50 border border-slate-200 flex flex-col gap-0.5 col-span-2">
                 <span class="text-[10px] font-semibold text-slate-400 uppercase">Capability Notes</span>
@@ -537,6 +526,16 @@ export class ProjectResourcesComponent {
 
   public closeDetail(): void {
     this.selectedResource.set(null);
+  }
+
+  public getCategoryDisplayLabel(category: string): string {
+    switch (category) {
+      case 'RELATIONAL': return 'Relational DB';
+      case 'WAREHOUSE': return 'Data Warehouse';
+      case 'STREAMING': return 'Event Streaming';
+      case 'OBJECT_STORE': return 'Object Storage';
+      default: return category;
+    }
   }
 
   public toggleBinding(connectionId: string): void {

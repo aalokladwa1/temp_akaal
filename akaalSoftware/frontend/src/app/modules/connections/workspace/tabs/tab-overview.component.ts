@@ -33,22 +33,22 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
           </div>
         }
 
-        <!-- P7C Non-Binding Advisory Banner (If Available) -->
+        <!-- System Advisory Banner (If Available) -->
         @if (conn.advisory; as adv) {
           <div class="p-4 bg-blue-50/60 border border-blue-200 rounded-xl flex items-start gap-3.5 text-xs text-blue-950 shadow-2xs">
             <app-lucide-icon name="sparkles" [size]="16" class="text-blue-600 shrink-0 mt-0.5"></app-lucide-icon>
             <div class="flex flex-col gap-1">
               <div class="flex items-center gap-2">
                 <span class="font-bold text-slate-900">{{ adv.headline }}</span>
-                <span class="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-blue-100 text-blue-800 border border-blue-200">
-                  AI Advisory
+                <span class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-blue-100 text-blue-800 border border-blue-200">
+                  System Advisory
                 </span>
               </div>
               @if (adv.description) {
                 <p class="text-slate-600 font-normal leading-relaxed">{{ adv.description }}</p>
               }
               <span class="text-[10px] text-slate-400 font-medium">
-                P7C Intelligence advises. Canonical AKAAL authorities validate, authorize and execute.
+                Advisory recommendations are informational. DevKros authorities validate, authorize and execute.
               </span>
             </div>
           </div>
@@ -101,7 +101,7 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
                     <span class="text-[10px] font-medium text-slate-400">Managed Cloud Resolver</span>
                     <div class="text-xs font-bold text-slate-800">{{ conn.managedCloudName }}</div>
                   </div>
-                  <span class="text-[11px] font-mono text-slate-500">{{ conn.managedResourceType }}</span>
+                  <span class="text-[11px] text-slate-500">{{ conn.managedResourceType }}</span>
                 </div>
               }
 
@@ -111,7 +111,7 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
                   <div class="font-semibold text-slate-800 pt-0.5">{{ conn.workspaceName }}</div>
                 </div>
                 <div>
-                  <span class="font-medium text-slate-400">P7B Locality & Site</span>
+                  <span class="font-medium text-slate-400">Locality &amp; Site</span>
                   <div class="font-semibold text-slate-800 pt-0.5">{{ conn.fabric.site || 'Default DC' }} ({{ conn.fabric.locality || 'Primary' }})</div>
                 </div>
               </div>
@@ -136,48 +136,35 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
             </div>
 
             <div class="flex flex-col gap-3">
-              <!-- Point-in-time test facts list -->
+              <!-- Point-in-time test facts list (Fact-derived or dynamic from connectivityProbes) -->
               <div class="divide-y divide-slate-100 border border-slate-100 rounded-lg overflow-hidden bg-slate-50/50">
                 
-                <div class="p-2.5 flex items-center justify-between">
-                  <div class="flex items-center gap-2">
-                    <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-                    <span class="text-xs font-medium text-slate-800">Transport Reachability & DNS</span>
+                @if (conn.capabilities.connectivityProbes && conn.capabilities.connectivityProbes.length > 0) {
+                  @for (probe of conn.capabilities.connectivityProbes; track probe.step) {
+                    <div class="p-2.5 flex items-center justify-between">
+                      <div class="flex items-center gap-2">
+                        <span
+                          class="w-2 h-2 rounded-full"
+                          [class.bg-emerald-500]="probe.status === 'VERIFIED'"
+                          [class.bg-rose-500]="probe.status === 'FAILED'"
+                          [class.bg-slate-300]="probe.status === 'NOT_CHECKED'">
+                        </span>
+                        <span class="text-xs font-medium text-slate-800">{{ probe.name }}</span>
+                      </div>
+                      <span
+                        class="text-[11px] font-semibold tabular-nums"
+                        [class.text-emerald-700]="probe.status === 'VERIFIED'"
+                        [class.text-rose-700]="probe.status === 'FAILED'"
+                        [class.text-slate-500]="probe.status === 'NOT_CHECKED'">
+                        {{ probe.status === 'VERIFIED' ? (probe.latencyMs !== undefined ? 'Verified (' + probe.latencyMs + 'ms)' : 'Verified') : (probe.status === 'FAILED' ? 'Failed' : 'Not Checked') }}
+                      </span>
+                    </div>
+                  }
+                } @else {
+                  <div class="p-3 text-center text-slate-400 text-xs">
+                    No probe verification facts recorded for this connection profile.
                   </div>
-                  <span class="text-[11px] font-mono text-emerald-700 font-semibold">Verified (0.8ms)</span>
-                </div>
-
-                <div class="p-2.5 flex items-center justify-between">
-                  <div class="flex items-center gap-2">
-                    <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-                    <span class="text-xs font-medium text-slate-800">Transport Security (TLS Handshake)</span>
-                  </div>
-                  <span class="text-[11px] font-mono text-emerald-700 font-semibold">Verified (TLS 1.3)</span>
-                </div>
-
-                <div class="p-2.5 flex items-center justify-between">
-                  <div class="flex items-center gap-2">
-                    <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-                    <span class="text-xs font-medium text-slate-800">Authentication & Principal Attestation</span>
-                  </div>
-                  <span class="text-[11px] font-mono text-emerald-700 font-semibold">Verified</span>
-                </div>
-
-                <div class="p-2.5 flex items-center justify-between">
-                  <div class="flex items-center gap-2">
-                    <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-                    <span class="text-xs font-medium text-slate-800">Catalog & Permission Probe</span>
-                  </div>
-                  <span class="text-[11px] font-mono text-emerald-700 font-semibold">Checked</span>
-                </div>
-
-                <div class="p-2.5 flex items-center justify-between">
-                  <div class="flex items-center gap-2">
-                    <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-                    <span class="text-xs font-medium text-slate-800">CDC & Synchronization Engine</span>
-                  </div>
-                  <span class="text-[11px] font-mono text-emerald-700 font-semibold">Attested</span>
-                </div>
+                }
 
               </div>
 
@@ -186,7 +173,7 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
                 <span>
                   <strong>Verification Law:</strong> Configured &ne; Reachable &ne; Authenticated &ne; Permitted &ne; Capable &ne; Ready.
                 </span>
-                <span class="text-slate-400 whitespace-nowrap pl-2">
+                <span class="text-slate-400 whitespace-nowrap pl-2 tabular-nums">
                   Last: {{ conn.lastVerifiedAt ? (conn.lastVerifiedAt | date:'medium') : 'Never' }}
                 </span>
               </div>
@@ -220,7 +207,7 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
               
               <div>
                 <span class="text-[11px] font-medium text-slate-400">Endpoint / Addressing</span>
-                <div class="text-xs font-mono font-bold text-slate-900 pt-0.5 break-all">
+                <div class="text-xs font-bold text-slate-900 pt-0.5 break-all">
                   {{ conn.endpointDisplay }}
                 </div>
               </div>
@@ -241,7 +228,7 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
 
               <div>
                 <span class="text-[11px] font-medium text-slate-400">Secret Reference</span>
-                <div class="text-xs font-mono text-emerald-700 font-semibold pt-0.5 flex items-center gap-1.5">
+                <div class="text-xs text-emerald-700 font-semibold pt-0.5 flex items-center gap-1.5">
                   <app-lucide-icon name="lock" [size]="11"></app-lucide-icon>
                   <span>Configured (Redacted)</span>
                 </div>
@@ -304,21 +291,21 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
 
               <div>
                 <span class="text-[11px] font-medium text-slate-400">Proof Classification</span>
-                <div class="text-xs font-mono font-bold text-blue-700 pt-0.5">
+                <div class="text-xs font-bold text-blue-700 pt-0.5">
                   {{ conn.capabilities.proofLevel }}
                 </div>
               </div>
 
               <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg">
                 <span class="text-[10px] font-medium text-slate-400">Referenced Projects</span>
-                <div class="text-sm font-bold text-slate-900 pt-0.5 font-mono">
+                <div class="text-sm font-bold text-slate-900 pt-0.5 tabular-nums">
                   {{ conn.usage.projects.length }} {{ conn.usage.projects.length === 1 ? 'Project' : 'Projects' }}
                 </div>
               </div>
 
               <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg">
                 <span class="text-[10px] font-medium text-slate-400">Active / Historical Migrations</span>
-                <div class="text-sm font-bold text-slate-900 pt-0.5 font-mono">
+                <div class="text-sm font-bold text-slate-900 pt-0.5 tabular-nums">
                   {{ conn.usage.migrations.length }} {{ conn.usage.migrations.length === 1 ? 'Migration' : 'Migrations' }}
                 </div>
               </div>

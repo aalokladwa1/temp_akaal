@@ -39,6 +39,7 @@ export type EntityAvailabilityState =
   | 'FILTERED_EMPTY'
   | 'UNAVAILABLE'
   | 'NOT_CONNECTED'
+  | 'NOT_FOUND'
   | 'UNAUTHORIZED'
   | 'ERROR';
 

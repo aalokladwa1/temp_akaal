@@ -45,7 +45,7 @@ import { Router } from '@angular/router';
       <!-- Bottom Number & Subtext Aligned to Baseline -->
       <div class="flex items-baseline justify-between gap-3">
         <span 
-          class="text-3xl font-bold font-mono text-slate-900 tracking-tight tabular-nums"
+          class="text-3xl font-bold text-slate-900 tracking-tight tabular-nums"
           [class.text-blue-600]="isAccent"
           [class.text-amber-600]="isWarning && !isAccent">
           {{ value }}

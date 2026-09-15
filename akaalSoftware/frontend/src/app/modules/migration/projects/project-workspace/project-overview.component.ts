@@ -20,15 +20,12 @@ import { ProjectWorkspaceTabType } from '../projects.models';
         <div class="p-6 sm:p-7 rounded-xl bg-white border border-slate-200 shadow-xs flex flex-col gap-5">
           
           <div class="flex items-start justify-between gap-4 pb-4 border-b border-slate-100 flex-wrap">
-            <div class="flex flex-col gap-1 max-w-3xl">
+            <div class="flex flex-col gap-1.5 max-w-3xl">
               <span class="text-xs font-bold text-slate-500 uppercase tracking-wider font-heading">
                 Operational Scope &amp; Architecture
               </span>
-              <h2 class="text-lg font-bold text-slate-900 font-heading">
-                {{ proj.name }}
-              </h2>
-              <p class="text-xs text-slate-600 font-normal leading-relaxed">
-                {{ proj.description || 'No detailed architecture narrative specified for this project scope.' }}
+              <p class="text-xs text-slate-700 font-medium leading-relaxed">
+                {{ proj.description || 'Governed operational scope for migration pipelines and validation assurance workloads.' }}
               </p>
             </div>
 
@@ -296,7 +293,7 @@ import { ProjectWorkspaceTabType } from '../projects.models';
                         </span>
                         <span class="text-xs font-bold text-slate-900">{{ evt.title }}</span>
                       </div>
-                      <span class="text-[10.5px] font-mono font-semibold text-slate-600 shrink-0">
+                      <span class="text-[10.5px] font-semibold text-slate-600 tabular-nums shrink-0">
                         {{ evt.scheduledAt | date:'MMM d, yyyy HH:mm' }}
                       </span>
                     </div>
@@ -379,7 +376,7 @@ import { ProjectWorkspaceTabType } from '../projects.models';
                     </div>
                   </div>
 
-                  <span class="text-[10.5px] font-mono text-slate-500 whitespace-nowrap shrink-0">
+                  <span class="text-[10.5px] text-slate-500 tabular-nums whitespace-nowrap shrink-0">
                     {{ act.occurredAt | date:'MMM d, HH:mm' }}
                   </span>
 

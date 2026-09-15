@@ -4,6 +4,14 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    include: ['src/**/*.spec.ts']
+    include: ['src/**/*.spec.ts'],
+    poolOptions: {
+      threads: {
+        execArgv: ['--max-old-space-size=8192']
+      },
+      forks: {
+        execArgv: ['--max-old-space-size=8192']
+      }
+    }
   }
 });

@@ -1,4 +1,4 @@
-import { Component, signal, inject, HostListener, computed } from '@angular/core';
+import { Component, signal, inject, HostListener, ViewChild, ElementRef, AfterViewChecked } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterOutlet, RouterLink, RouterLinkActive, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -44,7 +44,6 @@ interface CommandItem {
             </div>
             <div class="flex flex-col">
               <span class="text-base font-bold tracking-tight text-slate-900 leading-none">DEVKROS</span>
-              <span class="text-[10px] text-slate-600 font-semibold tracking-wide">ENTERPRISE</span>
             </div>
           </div>
 
@@ -244,7 +243,7 @@ interface CommandItem {
             class="h-9 px-3 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 flex items-center gap-3 text-slate-600 hover:text-slate-900 transition-colors cursor-pointer group shadow-2xs focus:outline-none focus:ring-2 focus:ring-blue-500/20">
             <app-lucide-icon name="search" [size]="15" class="text-slate-400 group-hover:text-slate-600"></app-lucide-icon>
             <span class="text-xs font-medium hidden sm:inline">Search or command...</span>
-            <kbd class="px-1.5 py-0.5 rounded bg-white border border-slate-200 text-[10px] font-mono font-medium text-slate-500">Ctrl K</kbd>
+            <kbd class="px-1.5 py-0.5 rounded bg-white border border-slate-200 text-[10px] font-medium text-slate-500">Ctrl K</kbd>
           </button>
 
           <!-- Notification Bell -->
@@ -267,8 +266,8 @@ interface CommandItem {
                   <span class="text-xs font-bold text-slate-900 font-heading">Notifications</span>
                   <button 
                     type="button" 
-                    (click)="isNotificationsOpen.set(false)"
-                    class="text-[11px] text-blue-600 hover:text-blue-700 font-semibold cursor-pointer select-none">
+                    disabled
+                    class="text-[11px] text-slate-400 font-semibold cursor-not-allowed select-none opacity-60">
                     Mark all as read
                   </button>
                 </div>
@@ -278,7 +277,7 @@ interface CommandItem {
                     <app-lucide-icon name="bell" [size]="15"></app-lucide-icon>
                   </div>
                   <span class="text-xs font-semibold text-slate-800">No unread notifications</span>
-                  <p class="text-[11px] text-slate-500 font-medium">All operational events and barriers are up to date.</p>
+                  <p class="text-[11px] text-slate-500 font-medium">No pending operational alerts.</p>
                 </div>
               </div>
             }
@@ -305,7 +304,6 @@ interface CommandItem {
                 class="absolute right-0 mt-1.5 w-60 rounded-xl bg-white border border-slate-200 shadow-xl p-1.5 flex flex-col gap-0.5 z-50 animate-in fade-in zoom-in-95 duration-150">
                 <div class="px-3 py-2 border-b border-slate-200 mb-1">
                   <p class="text-xs font-bold text-slate-900 leading-none">{{ ds.userName() }} Ladwa</p>
-                  <p class="text-[11px] text-slate-500 font-medium mt-1">Lead Migration Operator</p>
                 </div>
 
                 <div class="flex flex-col gap-0.5">
@@ -333,7 +331,7 @@ interface CommandItem {
                       <app-lucide-icon name="sliders" [size]="14" class="text-slate-500"></app-lucide-icon>
                       <span>Keyboard Shortcuts</span>
                     </div>
-                    <kbd class="px-1.5 py-0.5 text-[10px] bg-slate-100 border border-slate-200 rounded font-mono text-slate-500">Ctrl+/</kbd>
+                    <kbd class="px-1.5 py-0.5 text-[10px] bg-slate-100 border border-slate-200 rounded text-slate-500">Ctrl+K</kbd>
                   </button>
 
                   <button 
@@ -354,16 +352,6 @@ interface CommandItem {
                   <app-lucide-icon name="settings" [size]="14" class="text-slate-500"></app-lucide-icon>
                   <span>Settings</span>
                 </a>
-
-                <div class="border-t border-slate-200 my-1 mx-1"></div>
-
-                <button 
-                  type="button" 
-                  (click)="isUserMenuOpen.set(false)" 
-                  class="w-full text-left px-3 py-2 rounded-lg text-xs font-semibold text-rose-600 hover:bg-rose-50 transition-colors flex items-center gap-2.5 cursor-pointer">
-                  <app-lucide-icon name="circle-x" [size]="14" class="text-rose-500"></app-lucide-icon>
-                  <span>Lock Session</span>
-                </button>
               </div>
             }
           </div>
@@ -465,13 +453,15 @@ interface CommandItem {
             <div class="p-3 border-b border-slate-200 flex items-center gap-3 bg-white">
               <app-lucide-icon name="search" [size]="18" class="text-slate-400 shrink-0"></app-lucide-icon>
               <input 
+                #searchInput
                 type="text" 
-                [(ngModel)]="searchQuery"
+                [ngModel]="searchQuery"
+                (ngModelChange)="onSearchQueryChange($event)"
                 (keydown)="handleSearchKeydown($event)"
                 placeholder="Search navigation or actions..." 
                 class="w-full bg-transparent text-sm font-medium text-slate-900 focus:outline-none placeholder:text-slate-400"
                 autofocus />
-              <kbd class="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-[10px] text-slate-500 font-mono">ESC</kbd>
+              <kbd class="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-[10px] text-slate-500">ESC</kbd>
             </div>
 
             <!-- Command List with Clean Category Grouping -->
@@ -482,13 +472,26 @@ interface CommandItem {
                   @for (cmd of navigationCommands(); track cmd.id) {
                     <button
                       type="button"
+                      [id]="'cmd-item-' + getCommandIndex(cmd)"
                       (click)="executeCommand(cmd)"
-                      class="w-full px-3 py-2 rounded-lg text-left text-xs font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50 transition-colors flex items-center justify-between cursor-pointer group">
+                      (mouseenter)="setSelectedIndex(getCommandIndex(cmd))"
+                      class="w-full px-3 py-2 rounded-lg text-left text-xs font-medium transition-colors flex items-center justify-between cursor-pointer group select-none"
+                      [class.bg-blue-50]="selectedIndex() === getCommandIndex(cmd)"
+                      [class.text-blue-700]="selectedIndex() === getCommandIndex(cmd)"
+                      [class.text-slate-700]="selectedIndex() !== getCommandIndex(cmd)"
+                      [class.hover:bg-slate-50]="selectedIndex() !== getCommandIndex(cmd)"
+                      [class.hover:text-slate-900]="selectedIndex() !== getCommandIndex(cmd)">
                       <div class="flex items-center gap-2.5">
-                        <app-lucide-icon [name]="cmd.icon" [size]="16" class="text-slate-400 group-hover:text-blue-600"></app-lucide-icon>
-                        <span class="font-medium text-slate-800 group-hover:text-blue-700">{{ cmd.label }}</span>
+                        <app-lucide-icon 
+                          [name]="cmd.icon" 
+                          [size]="16" 
+                          [class.text-blue-600]="selectedIndex() === getCommandIndex(cmd)"
+                          [class.text-slate-400]="selectedIndex() !== getCommandIndex(cmd)"
+                          class="group-hover:text-blue-600 shrink-0">
+                        </app-lucide-icon>
+                        <span class="font-medium" [class.text-blue-700]="selectedIndex() === getCommandIndex(cmd)">{{ cmd.label }}</span>
                       </div>
-                      <span class="text-[10px] text-slate-400 font-medium">Navigate</span>
+                      <span class="text-[10px] font-medium" [class.text-blue-500]="selectedIndex() === getCommandIndex(cmd)" [class.text-slate-400]="selectedIndex() !== getCommandIndex(cmd)">Navigate</span>
                     </button>
                   }
                 </div>
@@ -500,13 +503,26 @@ interface CommandItem {
                   @for (cmd of actionCommands(); track cmd.id) {
                     <button
                       type="button"
+                      [id]="'cmd-item-' + getCommandIndex(cmd)"
                       (click)="executeCommand(cmd)"
-                      class="w-full px-3 py-2 rounded-lg text-left text-xs font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50 transition-colors flex items-center justify-between cursor-pointer group">
+                      (mouseenter)="setSelectedIndex(getCommandIndex(cmd))"
+                      class="w-full px-3 py-2 rounded-lg text-left text-xs font-medium transition-colors flex items-center justify-between cursor-pointer group select-none"
+                      [class.bg-blue-50]="selectedIndex() === getCommandIndex(cmd)"
+                      [class.text-blue-700]="selectedIndex() === getCommandIndex(cmd)"
+                      [class.text-slate-700]="selectedIndex() !== getCommandIndex(cmd)"
+                      [class.hover:bg-slate-50]="selectedIndex() !== getCommandIndex(cmd)"
+                      [class.hover:text-slate-900]="selectedIndex() !== getCommandIndex(cmd)">
                       <div class="flex items-center gap-2.5">
-                        <app-lucide-icon [name]="cmd.icon" [size]="16" class="text-slate-400 group-hover:text-blue-600"></app-lucide-icon>
-                        <span class="font-medium text-slate-800 group-hover:text-blue-700">{{ cmd.label }}</span>
+                        <app-lucide-icon 
+                          [name]="cmd.icon" 
+                          [size]="16" 
+                          [class.text-blue-600]="selectedIndex() === getCommandIndex(cmd)"
+                          [class.text-slate-400]="selectedIndex() !== getCommandIndex(cmd)"
+                          class="group-hover:text-blue-600 shrink-0">
+                        </app-lucide-icon>
+                        <span class="font-medium" [class.text-blue-700]="selectedIndex() === getCommandIndex(cmd)">{{ cmd.label }}</span>
                       </div>
-                      <span class="text-[10px] text-slate-400 font-medium">Action</span>
+                      <span class="text-[10px] font-medium" [class.text-blue-500]="selectedIndex() === getCommandIndex(cmd)" [class.text-slate-400]="selectedIndex() !== getCommandIndex(cmd)">Action</span>
                     </button>
                   }
                 </div>
@@ -520,16 +536,62 @@ interface CommandItem {
             </div>
 
             <!-- Footer Hints -->
-            <div class="px-4 py-2 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-500 font-medium">
+            <div class="px-4 py-2 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-500 font-medium select-none">
               <span>Use &uarr;&darr; to navigate &bull; Enter to select</span>
-              <span class="font-mono text-[10px] text-slate-400">ESC to exit</span>
+              <span class="text-[10px] text-slate-400">ESC to exit</span>
             </div>
           </div>
         </div>
       }
 
       <!-- =============================================================== -->
-      <!-- 4. HELP & DOCUMENTATION DIALOG                                  -->
+      <!-- 4. KEYBOARD SHORTCUTS DIALOG                                    -->
+      <!-- =============================================================== -->
+      @if (isShortcutsOpen()) {
+        <div 
+          (click)="closeAllDropdowns()"
+          class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div 
+            class="w-full max-w-md rounded-2xl bg-white border border-slate-200 shadow-2xl p-6 flex flex-col gap-4"
+            (click)="$event.stopPropagation()">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-200">
+              <div class="flex items-center gap-2.5">
+                <app-lucide-icon name="sliders" [size]="20" class="text-blue-600"></app-lucide-icon>
+                <h3 class="text-base font-bold text-slate-900 font-heading">Keyboard Shortcuts</h3>
+              </div>
+              <button type="button" (click)="isShortcutsOpen.set(false)" class="p-1 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 cursor-pointer">
+                <app-lucide-icon name="x" [size]="16"></app-lucide-icon>
+              </button>
+            </div>
+            <div class="flex flex-col divide-y divide-slate-100 text-xs">
+              <div class="py-2.5 flex items-center justify-between">
+                <span class="text-slate-700 font-medium">Open Command Palette</span>
+                <kbd class="px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-[11px] text-slate-600">Ctrl + K</kbd>
+              </div>
+              <div class="py-2.5 flex items-center justify-between">
+                <span class="text-slate-700 font-medium">Navigate Palette Items</span>
+                <kbd class="px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-[11px] text-slate-600">&uarr; / &darr;</kbd>
+              </div>
+              <div class="py-2.5 flex items-center justify-between">
+                <span class="text-slate-700 font-medium">Execute Selected Action</span>
+                <kbd class="px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-[11px] text-slate-600">Enter</kbd>
+              </div>
+              <div class="py-2.5 flex items-center justify-between">
+                <span class="text-slate-700 font-medium">Close Dialogs &amp; Menus</span>
+                <kbd class="px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-[11px] text-slate-600">Esc</kbd>
+              </div>
+            </div>
+            <div class="pt-3 border-t border-slate-200 flex justify-end">
+              <button type="button" (click)="isShortcutsOpen.set(false)" class="h-9 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-2xs transition-colors cursor-pointer">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- =============================================================== -->
+      <!-- 5. HELP & DOCUMENTATION DIALOG                                  -->
       <!-- =============================================================== -->
       @if (isHelpOpen()) {
         <div 
@@ -561,7 +623,7 @@ interface CommandItem {
       }
 
       <!-- =============================================================== -->
-      <!-- 5. ABOUT DIALOG                                                 -->
+      <!-- 6. ABOUT DIALOG                                                 -->
       <!-- =============================================================== -->
       @if (isAboutOpen()) {
         <div 
@@ -573,13 +635,9 @@ interface CommandItem {
             <div class="w-12 h-12 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-base shadow-md">
               DK
             </div>
-            <h3 class="text-base font-bold text-slate-900 font-heading">DevKros Enterprise Platform</h3>
-            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200 text-xs font-semibold select-none">
-              <span class="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
-              <span>v1.0.0-PROD • Wails Native Shell</span>
-            </span>
+            <h3 class="text-base font-bold text-slate-900 font-heading">DevKros</h3>
             <p class="text-xs text-slate-600 font-medium">
-              Direct Named Pipe IPC Bridge • Non-destructive Client Lifecycle
+              Enterprise Database Migration and Replication Platform
             </p>
             <div class="pt-3 w-full border-t border-slate-200 flex justify-center">
               <button type="button" (click)="isAboutOpen.set(false)" class="h-9 px-4 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold shadow-2xs transition-colors cursor-pointer">
@@ -591,7 +649,7 @@ interface CommandItem {
       }
 
       <!-- =============================================================== -->
-      <!-- 6. GLOBAL DESTRUCTIVE ACTION CONFIRMATION MODAL                 -->
+      <!-- 7. GLOBAL DESTRUCTIVE ACTION CONFIRMATION MODAL                 -->
       <!-- =============================================================== -->
       @if (ms.isDestructiveConfirmModalOpen()) {
         <div 
@@ -623,14 +681,14 @@ interface CommandItem {
 
             <div class="flex flex-col gap-2">
               <label class="text-xs font-semibold text-slate-700">
-                Type <span class="font-mono font-bold text-rose-700 select-all">DROP TARGET TABLES</span> to confirm:
+                Type <span class="font-bold text-rose-700 select-all">DROP TARGET TABLES</span> to confirm:
               </label>
               <input
                 type="text"
                 [ngModel]="ms.dropConfirmationInput()"
                 (ngModelChange)="ms.dropConfirmationInput.set($event)"
                 placeholder="DROP TARGET TABLES"
-                class="w-full h-9 px-3 text-xs bg-white border border-slate-300 focus:border-rose-600 rounded-lg text-slate-900 font-mono focus:outline-none"
+                class="w-full h-9 px-3 text-xs bg-white border border-slate-300 focus:border-rose-600 rounded-lg text-slate-900 focus:outline-none"
                 autofocus />
             </div>
 
@@ -658,11 +716,25 @@ interface CommandItem {
   `
 })
 export class ShellComponent {
-  public ds = inject(DashboardService);
-  public cs = inject(ContextService);
-  public ipc = inject(IpcService);
-  public ms = inject(MigrationUiService);
-  private router = inject(Router);
+  public ds: DashboardService;
+  public cs: ContextService;
+  public ipc: IpcService;
+  public ms: MigrationUiService;
+  public router: Router;
+
+  constructor(
+    ds?: DashboardService,
+    cs?: ContextService,
+    ipc?: IpcService,
+    ms?: MigrationUiService,
+    router?: Router
+  ) {
+    this.ds = ds || (inject(DashboardService, { optional: true }) as DashboardService);
+    this.cs = cs || (inject(ContextService, { optional: true }) as ContextService);
+    this.ipc = ipc || (inject(IpcService, { optional: true }) as IpcService);
+    this.ms = ms || (inject(MigrationUiService, { optional: true }) as MigrationUiService);
+    this.router = router || (inject(Router, { optional: true }) as Router);
+  }
 
   public isExpanded = signal<boolean>(true);
   
@@ -676,9 +748,11 @@ export class ShellComponent {
   public isNotificationsOpen = signal<boolean>(false);
   public isUserMenuOpen = signal<boolean>(false);
   public isCommandPaletteOpen = signal<boolean>(false);
+  public isShortcutsOpen = signal<boolean>(false);
   public isHelpOpen = signal<boolean>(false);
   public isAboutOpen = signal<boolean>(false);
   public searchQuery = '';
+  public selectedIndex = signal<number>(0);
 
   public primaryNavItems: NavItem[] = [
     { path: '/dashboard', label: 'Dashboard', icon: 'layout-dashboard' },
@@ -697,7 +771,7 @@ export class ShellComponent {
     { id: '2e', label: 'Go to Validation Studio', category: 'Module', icon: 'shield-check', action: () => this.navigate('/validation') },
     { id: '2f', label: 'Go to Migration Templates', category: 'Module', icon: 'file-code-2', action: () => this.navigate('/migration/templates') },
     { id: '3', label: 'Go to Monitoring Overview', category: 'Module', icon: 'activity', action: () => this.navigate('/monitoring') },
-    { id: '3b', label: 'Go to Migration Monitoring (3.2 Telemetry)', category: 'Module', icon: 'activity', action: () => this.navigate('/monitoring/migrations') },
+    { id: '3b', label: 'Go to Migration Monitoring', category: 'Module', icon: 'activity', action: () => this.navigate('/monitoring/migration') },
     { id: '4', label: 'Go to Reports & Audits', category: 'Module', icon: 'file-text', action: () => this.navigate('/reports') },
     { id: '5', label: 'Go to Administration', category: 'Module', icon: 'building-2', action: () => this.navigate('/administration') },
     { id: '6', label: 'Go to Platform Settings', category: 'Module', icon: 'settings', action: () => this.navigate('/settings') },
@@ -706,22 +780,107 @@ export class ShellComponent {
     { id: '9', label: 'Create New Migration', category: 'Action', icon: 'plus', action: () => this.navigate('/migration/create') },
   ];
 
+  @ViewChild('searchInput') public searchInput?: ElementRef<HTMLInputElement>;
+  private wasPaletteOpen = false;
+
+  public ngAfterViewChecked(): void {
+    if (this.isCommandPaletteOpen() && !this.wasPaletteOpen) {
+      this.wasPaletteOpen = true;
+      setTimeout(() => {
+        this.focusSearchInput();
+      }, 10);
+    } else if (!this.isCommandPaletteOpen() && this.wasPaletteOpen) {
+      this.wasPaletteOpen = false;
+    }
+  }
+
+  public focusSearchInput(): void {
+    if (typeof document === 'undefined') return;
+    if (this.searchInput?.nativeElement) {
+      this.searchInput.nativeElement.focus();
+      this.searchInput.nativeElement.select();
+    }
+  }
+
   public filteredCommands(): CommandItem[] {
     if (!this.searchQuery.trim()) return this.commands;
     const q = this.searchQuery.toLowerCase();
     return this.commands.filter(c => c.label.toLowerCase().includes(q) || c.category.toLowerCase().includes(q));
   }
 
-  public navigationCommands = computed(() => this.filteredCommands().filter(c => c.category === 'Module'));
-  public actionCommands = computed(() => this.filteredCommands().filter(c => c.category === 'Action'));
+  public navigationCommands(): CommandItem[] {
+    return this.filteredCommands().filter(c => c.category === 'Module');
+  }
+
+  public actionCommands(): CommandItem[] {
+    return this.filteredCommands().filter(c => c.category === 'Action');
+  }
+
+  public flatCommands(): CommandItem[] {
+    return [...this.navigationCommands(), ...this.actionCommands()];
+  }
+
+  public getCommandIndex(cmd: CommandItem): number {
+    return this.flatCommands().indexOf(cmd);
+  }
+
+  public setSelectedIndex(index: number): void {
+    if (index >= 0 && index < this.flatCommands().length) {
+      this.selectedIndex.set(index);
+    }
+  }
+
+  public onSearchQueryChange(query: string): void {
+    this.searchQuery = query;
+    this.selectedIndex.set(0);
+  }
+
+  public navigatePalette(delta: number): void {
+    const items = this.flatCommands();
+    if (items.length === 0) return;
+    const current = this.selectedIndex();
+    const next = (current + delta + items.length) % items.length;
+    this.selectedIndex.set(next);
+    this.scrollActiveItemIntoView();
+  }
+
+  public selectCurrentCommand(): void {
+    const items = this.flatCommands();
+    const current = this.selectedIndex();
+    if (items.length > 0 && current >= 0 && current < items.length) {
+      this.executeCommand(items[current]);
+    }
+  }
+
+  public scrollActiveItemIntoView(): void {
+    if (typeof document === 'undefined') return;
+    setTimeout(() => {
+      if (typeof document === 'undefined') return;
+      const idx = this.selectedIndex();
+      const el = document.getElementById('cmd-item-' + idx);
+      if (el) {
+        el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }
+    }, 0);
+  }
 
   @HostListener('window:keydown', ['$event'])
   public handleGlobalKeydown(event: KeyboardEvent): void {
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
       event.preventDefault();
-      this.openCommandPalette();
+      if (this.isCommandPaletteOpen()) {
+        this.closeAllDropdowns();
+      } else {
+        this.openCommandPalette();
+      }
     } else if (event.key === 'Escape') {
       this.closeAllDropdowns();
+    } else if (this.isCommandPaletteOpen()) {
+      if (typeof document !== 'undefined' && document.activeElement !== this.searchInput?.nativeElement) {
+        if (event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Enter') {
+          this.handleSearchKeydown(event);
+        }
+      }
     }
   }
 
@@ -738,6 +897,7 @@ export class ShellComponent {
     this.isCommandPaletteOpen.set(false);
     this.isNotificationsOpen.set(false);
     this.isUserMenuOpen.set(false);
+    this.isShortcutsOpen.set(false);
     this.isHelpOpen.set(false);
     this.isAboutOpen.set(false);
   }
@@ -788,7 +948,11 @@ export class ShellComponent {
     event?.stopPropagation();
     this.closeAllDropdowns();
     this.searchQuery = '';
+    this.selectedIndex.set(0);
     this.isCommandPaletteOpen.set(true);
+    setTimeout(() => {
+      this.focusSearchInput();
+    }, 20);
   }
 
   public openHelpDialog(event?: MouseEvent): void {
@@ -800,7 +964,7 @@ export class ShellComponent {
   public openShortcutsDialog(event?: MouseEvent): void {
     event?.stopPropagation();
     this.closeAllDropdowns();
-    this.openCommandPalette();
+    this.isShortcutsOpen.set(true);
   }
 
   public openAboutDialog(event?: MouseEvent): void {
@@ -834,11 +998,32 @@ export class ShellComponent {
   }
 
   public handleSearchKeydown(event: KeyboardEvent): void {
-    if (event.key === 'Enter') {
-      const items = this.filteredCommands();
+    const items = this.flatCommands();
+    if (event.key === 'ArrowDown') {
+      event.preventDefault?.();
+      event.stopPropagation?.();
       if (items.length > 0) {
-        this.executeCommand(items[0]);
+        this.selectedIndex.update(i => (i + 1) % items.length);
+        this.scrollActiveItemIntoView();
       }
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault?.();
+      event.stopPropagation?.();
+      if (items.length > 0) {
+        this.selectedIndex.update(i => (i - 1 + items.length) % items.length);
+        this.scrollActiveItemIntoView();
+      }
+    } else if (event.key === 'Enter') {
+      event.preventDefault?.();
+      event.stopPropagation?.();
+      const current = this.selectedIndex();
+      if (items.length > 0 && current >= 0 && current < items.length) {
+        this.executeCommand(items[current]);
+      }
+    } else if (event.key === 'Escape') {
+      event.preventDefault?.();
+      event.stopPropagation?.();
+      this.closeAllDropdowns();
     }
   }
 

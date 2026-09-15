@@ -23,7 +23,7 @@ import { ProjectDiscoveryItem } from '../projects.models';
               Optionally link existing migration projects to this initiative. Standalone initiatives with 0 projects are fully valid.
             </p>
           </div>
-          <span class="px-3 py-1 rounded-md text-xs font-bold font-mono bg-blue-50 text-blue-700 border border-blue-200">
+          <span class="px-3 py-1 rounded-md text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 tabular-nums">
             {{ ps.initiativeDraft().selectedProjectIds.length }} Selected
           </span>
         </div>
@@ -38,7 +38,7 @@ import { ProjectDiscoveryItem } from '../projects.models';
           <div class="flex items-center gap-2 flex-wrap">
             @for (p of selectedProjects(); track p.id) {
               <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-white border border-blue-200 text-xs font-medium text-slate-800 shadow-2xs">
-                <span class="font-mono text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">{{ p.key }}</span>
+                <span class="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">{{ p.key }}</span>
                 <span class="font-semibold text-slate-900">{{ p.name }}</span>
                 <button
                   type="button"
@@ -56,25 +56,24 @@ import { ProjectDiscoveryItem } from '../projects.models';
       <!-- Search & Filter Bar -->
       <div class="p-4 rounded-xl bg-white border border-slate-200 shadow-xs flex items-center justify-between gap-4 flex-wrap">
         
-        <!-- Search Input with Pure Inline Style Overlay -->
-        <div style="position: relative; display: flex; align-items: center; width: 320px; max-width: 100%;">
+        <!-- Search Input with standard GDS / Tailwind classes -->
+        <div class="relative flex items-center w-80 max-w-full">
           <app-lucide-icon
             name="search"
             [size]="14"
-            style="position: absolute; left: 11px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; color: #94a3b8; pointer-events: none; z-index: 2;">
+            class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none z-10">
           </app-lucide-icon>
           <input
             type="text"
             [(ngModel)]="searchQuery"
             placeholder="Search available projects..."
-            style="width: 100%; height: 36px; padding-left: 36px !important; padding-right: 28px; font-size: 12px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; outline: none; color: #0f172a;"
+            class="w-full h-9 pl-9 pr-7 text-xs bg-white border border-slate-200 rounded-md outline-none text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
           />
           @if (searchQuery) {
             <button
               type="button"
               (click)="searchQuery = ''"
-              class="w-5 h-5 rounded-md hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
-              style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%);">
+              class="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 rounded-md hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors cursor-pointer z-10">
               <app-lucide-icon name="x" [size]="12"></app-lucide-icon>
             </button>
           }
@@ -118,7 +117,7 @@ import { ProjectDiscoveryItem } from '../projects.models';
 
                   <div class="flex flex-col gap-1 min-w-0">
                     <div class="flex items-center gap-2">
-                      <span class="px-2 py-0.5 rounded-md text-[10px] font-bold font-mono bg-blue-50 text-blue-700 border border-blue-200/80 shrink-0">
+                      <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200/80 shrink-0">
                         {{ p.key }}
                       </span>
                       <span class="font-bold text-slate-900 group-hover:text-blue-700 transition-colors truncate text-xs">

@@ -25,11 +25,11 @@ import { ConnectionsService } from '../connections.service';
           <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider group-hover:text-slate-800 transition-colors">
             Total Inventory
           </span>
-          <span class="text-[10px] font-mono text-slate-400">All Systems</span>
+          <span class="w-2 h-2 rounded-xs bg-blue-500"></span>
         </div>
         <div class="flex items-baseline justify-between gap-3">
-          <span class="text-3xl font-bold font-mono text-slate-900 tracking-tight tabular-nums">
-            {{ cs.summaryCounters().total }}
+          <span class="text-3xl font-bold text-slate-900 tracking-tight tabular-nums">
+            {{ cs.availabilityState() === 'READY' ? cs.summaryCounters().total : '—' }}
           </span>
           <span class="text-xs text-slate-500 font-medium tabular-nums text-right truncate">
             configured profiles
@@ -56,8 +56,8 @@ import { ConnectionsService } from '../connections.service';
           <span class="w-2 h-2 rounded-xs bg-emerald-500"></span>
         </div>
         <div class="flex items-baseline justify-between gap-3">
-          <span class="text-3xl font-bold font-mono text-slate-900 tracking-tight tabular-nums">
-            {{ cs.summaryCounters().verified }}
+          <span class="text-3xl font-bold text-slate-900 tracking-tight tabular-nums">
+            {{ cs.availabilityState() === 'READY' ? cs.summaryCounters().verified : '—' }}
           </span>
           <span class="text-xs text-slate-500 font-medium tabular-nums text-right truncate">
             passed probe checks
@@ -84,8 +84,8 @@ import { ConnectionsService } from '../connections.service';
           <span class="w-2 h-2 rounded-xs bg-amber-500"></span>
         </div>
         <div class="flex items-baseline justify-between gap-3">
-          <span class="text-3xl font-bold font-mono text-slate-900 tracking-tight tabular-nums">
-            {{ cs.summaryCounters().needsAttention }}
+          <span class="text-3xl font-bold text-slate-900 tracking-tight tabular-nums">
+            {{ cs.availabilityState() === 'READY' ? cs.summaryCounters().needsAttention : '—' }}
           </span>
           <span class="text-xs text-slate-500 font-medium tabular-nums text-right truncate">
             failed, stale, or mutated
@@ -109,11 +109,11 @@ import { ConnectionsService } from '../connections.service';
           <span class="text-[11px] font-bold text-slate-600 uppercase tracking-wider">
             Unused Resources
           </span>
-          <span class="text-[10px] font-mono text-slate-400">Zero Workloads</span>
+          <span class="w-2 h-2 rounded-xs bg-slate-400"></span>
         </div>
         <div class="flex items-baseline justify-between gap-3">
-          <span class="text-3xl font-bold font-mono text-slate-900 tracking-tight tabular-nums">
-            {{ cs.summaryCounters().unused }}
+          <span class="text-3xl font-bold text-slate-900 tracking-tight tabular-nums">
+            {{ cs.availabilityState() === 'READY' ? cs.summaryCounters().unused : '—' }}
           </span>
           <span class="text-xs text-slate-500 font-medium tabular-nums text-right truncate">
             no active workloads

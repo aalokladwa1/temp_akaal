@@ -66,7 +66,7 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
 
           <div class="pt-3 border-t border-slate-100 flex items-center justify-between">
             <span class="text-[11px] text-slate-500 font-medium">
-              Changes record local operator intent. Canonical persistence connects in Pre-P7D.
+              Save changes to update initiative configuration.
             </span>
             <div class="flex items-center gap-2">
               <button
@@ -174,13 +174,13 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
 
             <div class="flex flex-col gap-1.5">
               <label class="text-xs font-semibold text-slate-700">
-                Type <span class="font-mono font-bold text-rose-700 select-all">ARCHIVE INITIATIVE</span> to confirm:
+                Type <span class="font-bold text-rose-700 select-all">ARCHIVE INITIATIVE</span> to confirm:
               </label>
               <input
                 type="text"
                 [(ngModel)]="archiveConfirmInput"
                 placeholder="ARCHIVE INITIATIVE"
-                class="w-full h-9 px-3 text-xs bg-white border border-slate-300 focus:border-rose-600 rounded-md text-slate-900 font-mono focus:outline-none"
+                class="w-full h-9 px-3 text-xs bg-white border border-slate-300 focus:border-rose-600 rounded-md text-slate-900 focus:outline-none"
                 autofocus
               />
             </div>

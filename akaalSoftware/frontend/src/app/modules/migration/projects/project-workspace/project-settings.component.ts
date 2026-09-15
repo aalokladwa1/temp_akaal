@@ -60,7 +60,7 @@ import { CustomSelectComponent, CustomSelectOption } from '../../../../shared/co
                   </p>
                 </div>
                 
-                <span class="px-2.5 py-1 rounded-md text-xs font-bold font-mono bg-blue-50 text-blue-700 border border-blue-200/90 shrink-0">
+                <span class="px-2.5 py-1 rounded-md text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200/90 shrink-0">
                   {{ proj.key }}
                 </span>
               </div>

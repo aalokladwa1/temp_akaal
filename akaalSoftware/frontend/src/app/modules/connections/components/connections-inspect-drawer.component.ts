@@ -47,7 +47,7 @@ import {
                 <span>•</span>
                 <span [class]="getFamilyBadgeClass(conn.family)">{{ getFamilyLabel(conn.family) }}</span>
                 <span>•</span>
-                <span class="text-slate-500 font-mono text-[11px]">ID: {{ conn.id }}</span>
+                <span class="text-slate-500 text-[11px]">ID: {{ conn.id }}</span>
               </div>
             </div>
 
@@ -88,7 +88,7 @@ import {
                 
                 <div class="flex items-start justify-between gap-2">
                   <div class="text-xs text-slate-600">
-                    <div>Last Probe Check: <strong class="font-mono text-slate-900">{{ conn.lastVerifiedAt ? (conn.lastVerifiedAt | date:'medium') : 'Never tested' }}</strong></div>
+                    <div>Last Probe Check: <strong class="font-semibold tabular-nums text-slate-900">{{ conn.lastVerifiedAt ? (conn.lastVerifiedAt | date:'medium') : 'Never tested' }}</strong></div>
                   </div>
 
                   <button
@@ -100,13 +100,13 @@ import {
                   </button>
                 </div>
 
-                <div *ngIf="conn.lastVerifiedDetails" class="text-xs text-slate-600 bg-white p-2.5 rounded-md border border-slate-200 font-mono text-[11px] whitespace-pre-wrap">
+                <div *ngIf="conn.lastVerifiedDetails" class="text-xs text-slate-600 bg-white p-2.5 rounded-md border border-slate-200 text-[11px] whitespace-pre-wrap">
                   {{ conn.lastVerifiedDetails }}
                 </div>
 
                 <div *ngIf="conn.verificationFailureReason" class="p-3 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-800 space-y-1">
                   <div class="font-bold">Probe Failure Diagnostic:</div>
-                  <div class="font-mono text-[11px]">{{ conn.verificationFailureReason }}</div>
+                  <div class="text-[11px]">{{ conn.verificationFailureReason }}</div>
                 </div>
 
                 <div *ngIf="conn.configChangedSinceTest" class="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 space-y-1">
@@ -127,7 +127,7 @@ import {
                   <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
                     Safe Target Route / URI
                   </label>
-                  <div class="p-2 bg-slate-50 rounded-md border border-slate-200 font-mono text-xs text-slate-900 break-all select-all">
+                  <div class="p-2 bg-slate-50 rounded-md border border-slate-200 text-xs text-slate-900 break-all select-all">
                     {{ conn.endpointDisplay }}
                   </div>
                 </div>
@@ -140,7 +140,7 @@ import {
 
                   <div>
                     <span class="block text-[11px] text-slate-500 mb-0.5">Transport Security</span>
-                    <span class="font-mono font-medium text-slate-900">{{ conn.tlsMode || 'Not Specified' }}</span>
+                    <span class="font-medium text-slate-900">{{ conn.tlsMode || 'Not Specified' }}</span>
                   </div>
 
                   <div>
@@ -150,17 +150,17 @@ import {
 
                   <div>
                     <span class="block text-[11px] text-slate-500 mb-0.5">Network Route Info</span>
-                    <span class="font-mono text-slate-900">{{ conn.safeRouteInfo || 'Default Gateway' }}</span>
+                    <span class="text-slate-900">{{ conn.safeRouteInfo || 'Default Gateway' }}</span>
                   </div>
                 </div>
 
                 <div *ngIf="conn.fabric" class="pt-2 border-t border-slate-100 text-xs space-y-1">
                   <div class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Fabric Locality & Transit</div>
                   <div class="grid grid-cols-2 gap-2 text-[11px] text-slate-600">
-                    <div *ngIf="conn.fabric.site">Site: <strong class="font-mono text-slate-800">{{ conn.fabric.site }}</strong></div>
-                    <div *ngIf="conn.fabric.locality">Locality: <strong class="font-mono text-slate-800">{{ conn.fabric.locality }}</strong></div>
-                    <div *ngIf="conn.fabric.transitVpc">Transit VPC: <strong class="font-mono text-slate-800">{{ conn.fabric.transitVpc }}</strong></div>
-                    <div *ngIf="conn.fabric.datacenterZone">Zone: <strong class="font-mono text-slate-800">{{ conn.fabric.datacenterZone }}</strong></div>
+                    <div *ngIf="conn.fabric.site">Site: <strong class="text-slate-800">{{ conn.fabric.site }}</strong></div>
+                    <div *ngIf="conn.fabric.locality">Locality: <strong class="text-slate-800">{{ conn.fabric.locality }}</strong></div>
+                    <div *ngIf="conn.fabric.transitVpc">Transit VPC: <strong class="text-slate-800">{{ conn.fabric.transitVpc }}</strong></div>
+                    <div *ngIf="conn.fabric.datacenterZone">Zone: <strong class="text-slate-800">{{ conn.fabric.datacenterZone }}</strong></div>
                   </div>
                 </div>
               </div>
@@ -180,15 +180,15 @@ import {
                 <div *ngIf="conn.usage.usageAvailable">
                   <div class="grid grid-cols-3 gap-2 text-center p-3 bg-slate-50 rounded-lg border border-slate-200">
                     <div>
-                      <div class="text-xl font-mono font-bold text-slate-900">{{ conn.usage.referencedProjectCount }}</div>
+                      <div class="text-xl tabular-nums font-bold text-slate-900">{{ conn.usage.referencedProjectCount }}</div>
                       <div class="text-[11px] text-slate-500">Referenced Projects</div>
                     </div>
                     <div>
-                      <div class="text-xl font-mono font-bold text-slate-900">{{ conn.usage.activeMigrationCount }}</div>
+                      <div class="text-xl tabular-nums font-bold text-slate-900">{{ conn.usage.activeMigrationCount }}</div>
                       <div class="text-[11px] text-slate-500">Active Migrations</div>
                     </div>
                     <div>
-                      <div class="text-xl font-mono font-bold text-slate-900">{{ conn.usage.activeValidationCount }}</div>
+                      <div class="text-xl tabular-nums font-bold text-slate-900">{{ conn.usage.activeValidationCount }}</div>
                       <div class="text-[11px] text-slate-500">Active Validations</div>
                     </div>
                   </div>
@@ -241,11 +241,11 @@ import {
             <div class="pt-2 border-t border-slate-200 text-xs text-slate-500 space-y-1">
               <div class="flex justify-between">
                 <span>Created At:</span>
-                <span class="font-mono text-slate-700">{{ conn.createdAt | date:'medium' }}</span>
+                <span class="tabular-nums text-slate-700">{{ conn.createdAt | date:'medium' }}</span>
               </div>
               <div class="flex justify-between">
                 <span>Last Updated:</span>
-                <span class="font-mono text-slate-700">{{ conn.updatedAt | date:'medium' }}</span>
+                <span class="tabular-nums text-slate-700">{{ conn.updatedAt | date:'medium' }}</span>
               </div>
               <div class="flex justify-between">
                 <span>Workspace:</span>
@@ -322,13 +322,13 @@ export class ConnectionsInspectDrawerComponent {
   getEnvironmentBadgeClass(env: string): string {
     switch (env) {
       case 'Production':
-        return 'inline-flex items-center px-2 py-0.5 rounded-sm text-[10px] font-medium bg-rose-50 text-rose-700 border border-rose-200 font-mono';
+        return 'inline-flex items-center px-2 py-0.5 rounded-sm text-[10px] font-medium bg-rose-50 text-rose-700 border border-rose-200';
       case 'Staging':
-        return 'inline-flex items-center px-2 py-0.5 rounded-sm text-[10px] font-medium bg-amber-50 text-amber-700 border border-amber-200 font-mono';
+        return 'inline-flex items-center px-2 py-0.5 rounded-sm text-[10px] font-medium bg-amber-50 text-amber-700 border border-amber-200';
       case 'Development':
-        return 'inline-flex items-center px-2 py-0.5 rounded-sm text-[10px] font-medium bg-blue-50 text-blue-700 border border-blue-200 font-mono';
+        return 'inline-flex items-center px-2 py-0.5 rounded-sm text-[10px] font-medium bg-blue-50 text-blue-700 border border-blue-200';
       default:
-        return 'inline-flex items-center px-2 py-0.5 rounded-sm text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200 font-mono';
+        return 'inline-flex items-center px-2 py-0.5 rounded-sm text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200';
     }
   }
 

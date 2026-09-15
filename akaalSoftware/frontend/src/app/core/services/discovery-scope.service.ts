@@ -109,40 +109,19 @@ export class DiscoveryScopeService {
 
   private async runStageProgression(depth: DiscoveryDepthTier): Promise<void> {
     try {
-      // Stage 1: Identity
-      await this.delay(200);
       if (this.isCancelled()) return;
-      this.updateStage('identity', 'COMPLETED', 120, undefined, 'Connected and authenticated');
-      this.updateStage('namespace', 'RUNNING');
+      this.updateStage('identity', 'COMPLETED', 0, undefined, 'Connected and authenticated');
+      this.updateStage('namespace', 'COMPLETED', 0, undefined, 'Catalog namespaces identified');
 
-      // Stage 2: Namespace
-      await this.delay(250);
-      if (this.isCancelled()) return;
-      this.updateStage('namespace', 'COMPLETED', 240, undefined, 'Catalog namespaces identified');
-      this.updateStage('inventory', 'RUNNING');
-
-      // Stage 3: Inventory
-      await this.delay(300);
-      if (this.isCancelled()) return;
-      const count = depth === 'QUICK' ? 420 : depth === 'STANDARD' ? 1420 : 3890;
-      this.updateStage('inventory', 'COMPLETED', 310, count, `${count.toLocaleString()} resources discovered`);
-      this.updateStage('structure', 'RUNNING');
-
-      // Stage 4: Structure
-      await this.delay(250);
-      if (this.isCancelled()) return;
-      this.updateStage('structure', 'COMPLETED', 280, undefined, 'Columns, keys, and constraints extracted');
-      this.updateStage('capability', 'RUNNING');
-
-      // Stage 5: Capability
-      await this.delay(200);
-      if (this.isCancelled()) return;
-      this.updateStage('capability', 'COMPLETED', 150, undefined, 'CDC and eligibility verified');
-
-      // Complete discovery
-      if (this.timerInterval) clearInterval(this.timerInterval);
       const draft = this.ms.wizardDraft();
       this.generateDiscoveredEstate(draft.sourceProvider, depth, draft.mode);
+
+      const realCount = this.getMigratableLeafNodes().length;
+      this.updateStage('inventory', 'COMPLETED', 0, realCount, `${realCount.toLocaleString()} resources discovered`);
+      this.updateStage('structure', 'COMPLETED', 0, undefined, 'Columns, keys, and constraints extracted');
+      this.updateStage('capability', 'COMPLETED', 0, undefined, 'CDC and eligibility verified');
+
+      if (this.timerInterval) clearInterval(this.timerInterval);
 
       const snapshotHash = '7f9a2b8e';
       const initialSelected = this.getMigratableLeafNodes()
@@ -167,14 +146,10 @@ export class DiscoveryScopeService {
   }
 
   public cancelDiscovery(): void {
-    if (this.lifecycleState() !== 'DISCOVERING') return;
-    this.isCancelling.set(true);
-    setTimeout(() => {
-      this.isCancelled.set(true);
-      this.isCancelling.set(false);
-      if (this.timerInterval) clearInterval(this.timerInterval);
-      this.lifecycleState.set('DEPTH_SELECTION');
-    }, 200);
+    this.isCancelling.set(false);
+    this.isCancelled.set(true);
+    if (this.timerInterval) clearInterval(this.timerInterval);
+    this.lifecycleState.set('DEPTH_SELECTION');
   }
 
   public retryDiscovery(): void {

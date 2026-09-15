@@ -89,11 +89,11 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
           <div class="pb-2 border-b border-slate-100 flex items-center justify-between">
             <div class="flex items-center gap-2">
               <span class="text-xs font-bold text-slate-900">1. Connectivity Facts</span>
-              <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 font-mono">
+              <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                 ALL PASSED
               </span>
             </div>
-            <span class="text-[11px] text-slate-400 font-mono">
+            <span class="text-[11px] text-slate-400 tabular-nums">
               Tested: {{ cs.draft().verificationFacts.testedAt | date:'mediumTime' }}
             </span>
           </div>
@@ -110,7 +110,7 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
                 </div>
 
                 @if (fact.latencyMs !== undefined) {
-                  <span class="text-[10px] font-mono text-slate-400 bg-white px-1.5 py-0.5 rounded border border-slate-200 shrink-0">
+                  <span class="text-[10px] text-slate-400 tabular-nums bg-white px-1.5 py-0.5 rounded border border-slate-200 shrink-0">
                     {{ fact.latencyMs }}ms
                   </span>
                 }
@@ -150,7 +150,7 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
                 <div class="p-2.5 bg-slate-50 border border-slate-200 rounded-lg flex flex-col justify-between gap-1 text-xs">
                   <span class="font-bold text-slate-900 text-[11px] truncate">{{ perm.privilege }}</span>
                   <div class="flex items-center justify-between text-[10px]">
-                    <span class="text-slate-400 font-mono">{{ perm.scope || 'ALL' }}</span>
+                    <span class="text-slate-400">{{ perm.scope || 'ALL' }}</span>
                     <span class="px-1.5 py-0.2 rounded font-bold"
                       [class]="perm.status === 'VERIFIED'
                         ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
@@ -194,7 +194,7 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
               @for (cap of cs.draft().verificationFacts.capabilities; track cap.capability) {
                 <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between gap-3 text-xs">
                   <div class="flex items-center gap-2.5 min-w-0">
-                    <span class="px-1.5 py-0.5 text-[9px] font-bold font-mono bg-blue-50 text-blue-700 border border-blue-200 rounded shrink-0">
+                    <span class="px-1.5 py-0.5 text-[9px] font-bold bg-blue-50 text-blue-700 border border-blue-200 rounded shrink-0">
                       {{ cap.category }}
                     </span>
                     <div class="flex flex-col min-w-0">
@@ -256,7 +256,7 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
               <div class="p-2.5 bg-slate-50 border border-slate-200 rounded-lg flex flex-col gap-0.5">
                 <div class="flex items-center justify-between">
                   <span class="font-semibold text-slate-800">CDC Classification:</span>
-                  <span class="font-mono text-[10px] font-bold text-slate-700">
+                  <span class="text-[10px] font-bold text-slate-700">
                     {{ cs.draft().verificationFacts.cdcCapability.label }}
                   </span>
                 </div>

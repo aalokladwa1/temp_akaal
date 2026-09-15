@@ -18,6 +18,14 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
         </p>
       </div>
 
+      <!-- Creation Unavailable Notice (Fail-Closed: B-2.2-07) -->
+      @if (cs.creationNotice(); as notice) {
+        <div class="p-3.5 bg-amber-50 border border-amber-200 rounded-xl flex items-center gap-2.5 text-xs text-amber-900 shadow-2xs animate-in fade-in duration-150">
+          <app-lucide-icon name="alert-triangle" [size]="16" class="text-amber-600 shrink-0"></app-lucide-icon>
+          <span class="font-medium">{{ notice }}</span>
+        </div>
+      }
+
       <!-- Overview Cards Grid -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         
@@ -79,7 +87,7 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
           <div class="space-y-2 text-xs">
             <div class="flex items-center justify-between">
               <span class="text-slate-500">Endpoint String:</span>
-              <span class="font-mono font-bold text-slate-900 truncate max-w-[240px]">{{ endpointSummary() }}</span>
+              <span class="font-bold text-slate-900 truncate max-w-[240px]">{{ endpointSummary() }}</span>
             </div>
 
             @if (cs.selectedProvider()?.id === 'oracle') {
@@ -132,14 +140,14 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
             @if (cs.draft().authUsername) {
               <div class="flex items-center justify-between">
                 <span class="text-slate-500">Principal / Username:</span>
-                <span class="font-mono text-slate-800">{{ cs.draft().authUsername }}</span>
+                <span class="text-slate-800">{{ cs.draft().authUsername }}</span>
               </div>
             }
 
             @if (cs.draft().authRoleArn) {
               <div class="flex items-center justify-between">
                 <span class="text-slate-500">IAM Role ARN:</span>
-                <span class="font-mono text-slate-800 truncate max-w-[200px]">{{ cs.draft().authRoleArn }}</span>
+                <span class="text-slate-800 truncate max-w-[200px]">{{ cs.draft().authRoleArn }}</span>
               </div>
             }
 
@@ -181,13 +189,13 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
             @if (cs.draft().networkRoute === 'SSH_BASTION') {
               <div class="flex items-center justify-between">
                 <span class="text-slate-500">Bastion Host:</span>
-                <span class="font-mono text-slate-800">{{ cs.draft().sshBastionHost }}:{{ cs.draft().sshBastionPort }}</span>
+                <span class="text-slate-800">{{ cs.draft().sshBastionHost }}:{{ cs.draft().sshBastionPort }}</span>
               </div>
             }
 
             <div class="flex items-center justify-between">
               <span class="text-slate-500">Fabric Locality:</span>
-              <span class="text-slate-700 font-mono">{{ cs.draft().fabricSite }} &middot; {{ cs.draft().fabricLocality }}</span>
+              <span class="text-slate-700">{{ cs.draft().fabricSite }} &middot; {{ cs.draft().fabricLocality }}</span>
             </div>
           </div>
         </div>
@@ -222,7 +230,7 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
 
           <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between">
             <span class="text-slate-600">CDC Capability:</span>
-            <span class="font-mono text-[10px] font-bold text-slate-800">
+            <span class="text-[10px] font-bold text-slate-800">
               {{ cs.draft().verificationFacts.cdcCapability.label }}
             </span>
           </div>

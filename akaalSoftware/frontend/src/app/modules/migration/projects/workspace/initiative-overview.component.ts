@@ -33,7 +33,7 @@ import { InitiativeTabType } from '../projects.models';
             <div class="p-4 rounded-lg bg-slate-50/80 border border-slate-200/80 flex flex-col gap-1">
               <span class="text-[10.5px] font-bold text-slate-500 uppercase tracking-wider">Associated Projects</span>
               <div class="flex items-baseline gap-2">
-                <span class="text-2xl font-bold font-mono text-slate-900 tabular-nums">
+                <span class="text-2xl font-bold text-slate-900 tabular-nums">
                   {{ init.associatedProjectIds.length }}
                 </span>
                 <span class="text-[11px] text-slate-500 font-medium">in current scope</span>
@@ -43,7 +43,7 @@ import { InitiativeTabType } from '../projects.models';
             <div class="p-4 rounded-lg bg-slate-50/80 border border-slate-200/80 flex flex-col gap-1">
               <span class="text-[10.5px] font-bold text-slate-500 uppercase tracking-wider">Total Workloads</span>
               <div class="flex items-baseline gap-2">
-                <span class="text-2xl font-bold font-mono text-slate-900 tabular-nums">
+                <span class="text-2xl font-bold text-slate-900 tabular-nums">
                   {{ totalWorkloads() }}
                 </span>
                 <span class="text-[11px] text-slate-500 font-medium">migrations active</span>
@@ -56,7 +56,7 @@ import { InitiativeTabType } from '../projects.models';
                 <span class="text-sm font-bold text-slate-900 tabular-nums">
                   {{ init.lastActivityAt ? (init.lastActivityAt | date:'MMM d, yyyy') : 'Recent' }}
                 </span>
-                <span class="text-[10.5px] text-slate-400 font-mono">
+                <span class="text-[10.5px] text-slate-400 tabular-nums">
                   {{ init.lastActivityAt ? (init.lastActivityAt | date:'HH:mm UTC') : '' }}
                 </span>
               </div>
@@ -162,7 +162,7 @@ import { InitiativeTabType } from '../projects.models';
                       
                       <td class="py-3.5 px-5">
                         <div class="flex items-center gap-2.5 min-w-0">
-                          <span class="px-2 py-0.5 rounded-md text-[10px] font-bold font-mono bg-blue-50 text-blue-700 border border-blue-200/80 shrink-0">
+                          <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200/80 shrink-0">
                             {{ p.key }}
                           </span>
                           <span class="font-bold text-slate-900 group-hover:text-blue-700 transition-colors truncate">

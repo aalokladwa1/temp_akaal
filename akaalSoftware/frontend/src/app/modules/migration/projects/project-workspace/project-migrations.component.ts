@@ -251,10 +251,10 @@ interface ModeOption {
               <table class="w-full text-left border-collapse table-fixed">
                 <thead>
                   <tr class="bg-slate-50 text-[10px] font-bold uppercase tracking-wider text-slate-600 border-b border-slate-200 select-none">
-                    <th class="py-3 px-4 w-[28%]">Migration Pipeline</th>
-                    <th class="py-3 px-4 w-[22%]">Source &rarr; Target Route</th>
-                    <th class="py-3 px-4 w-[14%]">Execution Mode</th>
-                    <th class="py-3 px-4 w-[14%]">Lifecycle State</th>
+                    <th class="py-3 px-4 w-[26%]">Migration Pipeline</th>
+                    <th class="py-3 px-4 w-[26%]">Source &rarr; Target Route</th>
+                    <th class="py-3 px-4 w-[13%]">Execution Mode</th>
+                    <th class="py-3 px-4 w-[13%]">Lifecycle State</th>
                     <th class="py-3 px-4 w-[12%]">Last Activity</th>
                     <th class="py-3 px-4 w-[10%] text-right">Actions</th>
                   </tr>
@@ -268,7 +268,7 @@ interface ModeOption {
                       <!-- 1. Pipeline Name & Key -->
                       <td class="py-3.5 px-4">
                         <div class="flex items-center gap-2.5 min-w-0">
-                          <span class="px-2 py-0.5 rounded-md text-[10px] font-bold font-mono bg-blue-50 text-blue-700 border border-blue-200/80 shrink-0">
+                          <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200/80 shrink-0">
                             {{ m.key }}
                           </span>
                           <div class="flex flex-col min-w-0">
@@ -327,7 +327,7 @@ interface ModeOption {
 
                       <!-- 5. Last Activity Timestamp -->
                       <td class="py-3.5 px-4 text-slate-600 font-medium whitespace-nowrap">
-                        <span class="text-xs tabular-nums font-mono">
+                        <span class="text-xs tabular-nums">
                           {{ m.lastActivityAt | date:'MMM d, HH:mm' }}
                         </span>
                       </td>
@@ -388,7 +388,7 @@ interface ModeOption {
             <div class="p-3 rounded-lg bg-slate-50 border border-slate-200 flex flex-col gap-2 text-xs">
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-2">
-                  <span class="px-2 py-0.5 rounded-md text-[10px] font-bold font-mono bg-blue-50 text-blue-700 border border-blue-200">
+                  <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
                     {{ targetMig.key }}
                   </span>
                   <span class="font-bold text-slate-900">{{ targetMig.name }}</span>
@@ -552,6 +552,6 @@ export class ProjectMigrationsComponent {
   }
 
   public navigateToMigration(id: string): void {
-    this.router.navigate(['/migration/cockpit', id]);
+    this.router.navigate(['/cockpit', id]);
   }
 }

@@ -57,7 +57,7 @@ import { AccordionComponent } from '../../../../shared/components/accordion.comp
                 type="text"
                 [(ngModel)]="cs.draft().authUsername"
                 (ngModelChange)="cs.markConfigurationMutated()"
-                placeholder="akaal_service_account or db_user"
+                placeholder="migration_service_account or db_user"
                 class="w-full h-9 px-3 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-600" />
             </div>
           }
@@ -74,8 +74,8 @@ import { AccordionComponent } from '../../../../shared/components/accordion.comp
               type="text"
               [(ngModel)]="cs.draft().authRoleArn"
               (ngModelChange)="cs.markConfigurationMutated()"
-              placeholder="arn:aws:iam::123456789012:role/AKAALMigrationExecutionRole"
-              class="w-full h-9 px-3 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-600 font-mono" />
+              placeholder="arn:aws:iam::123456789012:role/DevKrosMigrationRole"
+              class="w-full h-9 px-3 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-600" />
           </div>
         }
 
@@ -95,7 +95,7 @@ import { AccordionComponent } from '../../../../shared/components/accordion.comp
                   [(ngModel)]="cs.draft().authSecretRef"
                   (ngModelChange)="cs.markConfigurationMutated()"
                   placeholder="vault://secret/prod/database_password or Enter credential..."
-                  class="w-full h-9 px-3 pr-10 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-600 font-mono" />
+                  class="w-full h-9 px-3 pr-10 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-600" />
                 <button
                   type="button"
                   (click)="isSecretVisible.set(!isSecretVisible())"
@@ -173,7 +173,7 @@ import { AccordionComponent } from '../../../../shared/components/accordion.comp
                     [(ngModel)]="cs.draft().caCertificateRef"
                     (ngModelChange)="cs.markConfigurationMutated()"
                     placeholder="/etc/ssl/certs/internal-root-ca.pem or vault://secret/ca_cert"
-                    class="w-full h-9 px-3 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:border-blue-600 font-mono" />
+                    class="w-full h-9 px-3 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:border-blue-600" />
                 </div>
 
                 <!-- Server Name Override (SNI) -->
@@ -228,8 +228,8 @@ import { AccordionComponent } from '../../../../shared/components/accordion.comp
                     type="text"
                     [(ngModel)]="cs.draft().clientCertRef"
                     (ngModelChange)="cs.markConfigurationMutated()"
-                    placeholder="/etc/akaal/certs/client.crt or vault://secret/client_cert"
-                    class="w-full h-9 px-3 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:border-blue-600 font-mono" />
+                    placeholder="/etc/ssl/certs/client.crt or vault://secret/client_cert"
+                    class="w-full h-9 px-3 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:border-blue-600" />
                 </div>
 
                 <div class="flex flex-col gap-1.5">
@@ -239,7 +239,7 @@ import { AccordionComponent } from '../../../../shared/components/accordion.comp
                     [(ngModel)]="cs.draft().clientPrivateKeyRef"
                     (ngModelChange)="cs.markConfigurationMutated()"
                     placeholder="vault://secret/client_key"
-                    class="w-full h-9 px-3 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:border-blue-600 font-mono" />
+                    class="w-full h-9 px-3 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:border-blue-600" />
                 </div>
               </div>
             </app-accordion>
@@ -332,7 +332,7 @@ import { AccordionComponent } from '../../../../shared/components/accordion.comp
                   [(ngModel)]="cs.draft().sshBastionKeyRef"
                   (ngModelChange)="cs.markConfigurationMutated()"
                   placeholder="vault://secret/bastion_key"
-                  class="w-full h-9 px-3 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:border-blue-600 font-mono" />
+                  class="w-full h-9 px-3 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:border-blue-600" />
               </div>
 
               <div class="flex flex-col gap-1.5 md:col-span-3">
@@ -342,7 +342,7 @@ import { AccordionComponent } from '../../../../shared/components/accordion.comp
                   [(ngModel)]="cs.draft().sshHostKeyFingerprint"
                   (ngModelChange)="cs.markConfigurationMutated()"
                   placeholder="SHA256:4t7a1G8eM2u9... (Fail-closed host attestation)"
-                  class="w-full h-9 px-3 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:border-blue-600 font-mono" />
+                  class="w-full h-9 px-3 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:border-blue-600" />
               </div>
             </div>
           </div>
@@ -382,7 +382,7 @@ import { AccordionComponent } from '../../../../shared/components/accordion.comp
               [(ngModel)]="cs.draft().privateEndpointUrl"
               (ngModelChange)="cs.markConfigurationMutated()"
               placeholder="vpce-0123456789abcdef0.vpce-svc-0123.us-east-1.vpce.amazonaws.com"
-              class="w-full h-9 px-3 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:border-blue-600 font-mono" />
+              class="w-full h-9 px-3 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:border-blue-600" />
           </div>
         }
 

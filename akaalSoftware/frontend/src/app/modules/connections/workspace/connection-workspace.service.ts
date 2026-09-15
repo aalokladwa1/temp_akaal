@@ -12,6 +12,7 @@ import {
   ActivityEvent,
   ActivityCategory
 } from './connection-workspace.models';
+import { EntityAvailabilityState } from '../connections.models';
 import { DETAILED_CONNECTION_FIXTURES } from './connection-workspace.fixtures';
 import { ConnectionsService } from '../connections.service';
 
@@ -38,8 +39,9 @@ export class ConnectionWorkspaceService {
     }
   }
 
-  // Active Connection Store
-  public connection = signal<DetailedConnectionRecord | null>(DETAILED_CONNECTION_FIXTURES['conn-ora-rac-01']);
+  // Active Connection Store (Neutral truthful startup: B-2.2-01)
+  public connection = signal<DetailedConnectionRecord | null>(null);
+  public availabilityState = signal<EntityAvailabilityState>('NOT_CONNECTED');
   public activeTab = signal<ConnectionWorkspaceTab>('overview');
   public isLoading = signal<boolean>(false);
   public errorMessage = signal<string | null>(null);
@@ -131,11 +133,27 @@ export class ConnectionWorkspaceService {
 
     if (found) {
       this.connection.set(JSON.parse(JSON.stringify(found)));
+      this.availabilityState.set('READY');
       this.isLoading.set(false);
     } else {
-      // Default to Oracle RAC fixture for resilient demo viewing
-      this.connection.set(JSON.parse(JSON.stringify(DETAILED_CONNECTION_FIXTURES['conn-ora-rac-01'])));
+      // Truthful NOT_FOUND state (Zero fake Oracle fallback: B-2.2-02)
+      this.connection.set(null);
+      this.availabilityState.set('NOT_FOUND');
       this.isLoading.set(false);
+    }
+  }
+
+  /**
+   * Explicit test-only fixture loader for test suites & Playwright harnesses (§53)
+   */
+  public loadFixtureForTesting(id: string = 'conn-ora-rac-01', tab?: ConnectionWorkspaceTab): void {
+    const found = DETAILED_CONNECTION_FIXTURES[id] || DETAILED_CONNECTION_FIXTURES['conn-ora-rac-01'];
+    this.connection.set(JSON.parse(JSON.stringify(found)));
+    this.availabilityState.set('READY');
+    this.errorMessage.set(null);
+    this.isLoading.set(false);
+    if (tab) {
+      this.activeTab.set(tab);
     }
   }
 
@@ -205,104 +223,16 @@ export class ConnectionWorkspaceService {
     const conn = this.connection();
     if (!conn) return;
 
-    const draft = this.configDraft();
-    const nowIso = new Date().toISOString();
-
-    // Check if material endpoint / security fields changed
-    const materialChange =
-      draft.host !== conn.endpointConfig.host ||
-      draft.port !== conn.endpointConfig.port ||
-      draft.database !== conn.endpointConfig.database ||
-      draft.serviceName !== conn.endpointConfig.serviceName ||
-      draft.bootstrapServers !== conn.endpointConfig.bootstrapServers ||
-      draft.bucketName !== conn.endpointConfig.bucketName ||
-      draft.authMethod !== conn.authConfig.authMethod ||
-      draft.username !== conn.authConfig.username ||
-      draft.tlsMode !== conn.tlsConfig.mode ||
-      draft.routeType !== conn.routeConfig.type;
-
-    this.connection.update(curr => {
-      if (!curr) return null;
-      const updated: DetailedConnectionRecord = {
-        ...curr,
-        endpointConfig: {
-          ...curr.endpointConfig,
-          host: draft.host,
-          port: draft.port,
-          database: draft.database,
-          schema: draft.schema,
-          serviceName: draft.serviceName,
-          bootstrapServers: draft.bootstrapServers,
-          bucketName: draft.bucketName,
-          region: draft.region,
-          projectId: draft.projectId,
-          datasetId: draft.datasetId,
-          instanceUrl: draft.instanceUrl,
-          filePath: draft.filePath
-        },
-        authConfig: {
-          ...curr.authConfig,
-          authMethod: draft.authMethod,
-          username: draft.username,
-          secretRef: draft.secretRef
-        },
-        tlsConfig: {
-          ...curr.tlsConfig,
-          mode: draft.tlsMode,
-          minVersion: draft.minTlsVersion
-        },
-        routeConfig: {
-          ...curr.routeConfig,
-          type: draft.routeType,
-          sshHost: draft.sshHost,
-          sshPort: draft.sshPort,
-          proxyHost: draft.proxyHost,
-          proxyPort: draft.proxyPort
-        },
-        advancedSettings: {
-          ...curr.advancedSettings,
-          dnsTimeoutMs: draft.dnsTimeoutMs,
-          connectTimeoutMs: draft.connectTimeoutMs,
-          socketTimeoutMs: draft.socketTimeoutMs
-        },
-        // Staleness semantics
-        verificationState: materialChange ? 'CONFIG_CHANGED_SINCE_TEST' : curr.verificationState,
-        configChangedSinceTest: materialChange ? true : curr.configChangedSinceTest,
-        lastVerifiedDetails: materialChange
-          ? 'Configuration modified after last verification probe. Retest required.'
-          : curr.lastVerifiedDetails,
-        updatedAt: nowIso,
-        activities: [
-          {
-            id: 'act-' + Date.now(),
-            timestamp: nowIso,
-            category: 'CONFIG',
-            title: 'Configuration Updated',
-            description: materialChange
-              ? 'Endpoint/security parameters updated. Prior verification marked stale.'
-              : 'Connection configuration parameters updated.',
-            actor: 'admin-operator@corp.internal',
-            icon: 'sliders',
-            stateBadge: materialChange ? { label: 'Needs Retest', type: 'warning' } : { label: 'Updated', type: 'neutral' }
-          },
-          ...curr.activities
-        ]
-      };
-      return updated;
-    });
-
-    this.isSavingConfig.set(false);
-    this.isEditingConfig.set(false);
-    this.configNotice.set(
-      materialChange
-        ? 'Configuration saved. Previous verification is now stale. Retest connection to verify new parameters.'
-        : 'Configuration saved successfully.'
-    );
-    setTimeout(() => this.configNotice.set(null), 5000);
+    this.isSavingConfig.set(true);
+    setTimeout(() => {
+      this.isSavingConfig.set(false);
+      this.configNotice.set('Configuration saving is unavailable while connection service is disconnected.');
+      setTimeout(() => this.configNotice.set(null), 5000);
+    }, 300);
   }
 
   // ==========================================================================
-  // INTERACTIVE TEST PROBES (Point-in-Time Factual Verification)
+  // INTERACTIVE TEST PROBES (Fail-closed before live backend wiring: B-2.2-06)
   // ==========================================================================
 
   public testConnection(): void {
@@ -312,235 +242,58 @@ export class ConnectionWorkspaceService {
     this.isRunningTest.set(true);
     this.testResultMessage.set(null);
 
-    // Set state to TESTING
-    this.connection.update(c => {
-      if (!c) return null;
-      return {
-        ...c,
-        verificationState: 'TESTING',
-        lastVerifiedDetails: 'Dispatching connectivity probe...'
-      };
-    });
-
     setTimeout(() => {
-      const nowIso = new Date().toISOString();
-      this.connection.update(c => {
-        if (!c) return null;
-        return {
-          ...c,
-          verificationState: 'VERIFIED_RECENT',
-          lastVerifiedAt: nowIso,
-          configChangedSinceTest: false,
-          lastVerifiedDetails: 'Point-in-time probe verified in 1.4ms · TLS 1.3 · Authentication & catalog read passed',
-          updatedAt: nowIso,
-          capabilities: {
-            ...c.capabilities,
-            lastCheckedAt: nowIso,
-            configChangedSinceTest: false,
-            connectivityProbes: c.capabilities.connectivityProbes.map(p => ({
-              ...p,
-              status: 'VERIFIED'
-            }))
-          },
-          activities: [
-            {
-              id: 'act-' + Date.now(),
-              timestamp: nowIso,
-              category: 'TEST',
-              title: 'Connection Test Passed',
-              description: 'Point-in-time verification probe verified DNS, TLS 1.3 handshake, and authentication.',
-              actor: 'system-probe-scheduler',
-              icon: 'shield-check',
-              stateBadge: { label: 'Verified', type: 'success' }
-            },
-            ...c.activities
-          ]
-        };
-      });
-
       this.isRunningTest.set(false);
-      this.testResultMessage.set('Connection probe verified successfully.');
-      setTimeout(() => this.testResultMessage.set(null), 4000);
-    }, 600);
+      this.testResultMessage.set('Live connection testing is unavailable while connection service is disconnected.');
+      setTimeout(() => this.testResultMessage.set(null), 5000);
+    }, 300);
   }
 
   public runPermissionProbe(): void {
     this.isRunningPermissionProbe.set(true);
     setTimeout(() => {
-      const nowIso = new Date().toISOString();
-      this.connection.update(c => {
-        if (!c) return null;
-        return {
-          ...c,
-          capabilities: {
-            ...c.capabilities,
-            permissionChecks: c.capabilities.permissionChecks.map(p => ({
-              ...p,
-              status: 'VERIFIED'
-            }))
-          },
-          activities: [
-            {
-              id: 'act-' + Date.now(),
-              timestamp: nowIso,
-              category: 'SECURITY',
-              title: 'Permission Probe Completed',
-              description: 'Introspected and verified database table and schema privileges.',
-              actor: 'system-permission-probe',
-              icon: 'shield-check',
-              stateBadge: { label: 'Permitted', type: 'success' }
-            },
-            ...c.activities
-          ]
-        };
-      });
       this.isRunningPermissionProbe.set(false);
-    }, 500);
+      this.testResultMessage.set('Live permission introspection is unavailable while connection service is disconnected.');
+      setTimeout(() => this.testResultMessage.set(null), 5000);
+    }, 300);
   }
 
   public runCapabilityProbe(): void {
     this.isRunningCapabilityProbe.set(true);
     setTimeout(() => {
-      const nowIso = new Date().toISOString();
-      this.connection.update(c => {
-        if (!c) return null;
-        return {
-          ...c,
-          capabilities: {
-            ...c.capabilities,
-            sourceCapability: { ...c.capabilities.sourceCapability, status: 'VERIFIED' },
-            targetCapability: { ...c.capabilities.targetCapability, status: 'VERIFIED' },
-            discoveryCapability: { ...c.capabilities.discoveryCapability, status: 'VERIFIED' },
-            cdcCapability: { ...c.capabilities.cdcCapability, status: 'VERIFIED' }
-          },
-          activities: [
-            {
-              id: 'act-' + Date.now(),
-              timestamp: nowIso,
-              category: 'TEST',
-              title: 'Capability Probe Completed',
-              description: 'Attested engine discovery depth and synchronization capabilities.',
-              actor: 'system-capability-probe',
-              icon: 'activity',
-              stateBadge: { label: 'Capable', type: 'info' }
-            },
-            ...c.activities
-          ]
-        };
-      });
       this.isRunningCapabilityProbe.set(false);
-    }, 500);
+      this.testResultMessage.set('Live capability attestation is unavailable while connection service is disconnected.');
+      setTimeout(() => this.testResultMessage.set(null), 5000);
+    }, 300);
   }
 
   // ==========================================================================
-  // SETTINGS & LIFECYCLE
+  // SETTINGS & LIFECYCLE (Fail-closed before durable persistence wiring: B-2.2-07)
   // ==========================================================================
 
   public saveMetadata(name: string, description: string, tags: string[]): void {
-    const nowIso = new Date().toISOString();
-    this.connection.update(c => {
-      if (!c) return null;
-      return {
-        ...c,
-        name,
-        description,
-        tags,
-        updatedAt: nowIso,
-        activities: [
-          {
-            id: 'act-' + Date.now(),
-            timestamp: nowIso,
-            category: 'CONFIG',
-            title: 'General Metadata Updated',
-            description: `Updated connection display name and description.`,
-            actor: 'admin-operator@corp.internal',
-            icon: 'sliders',
-            stateBadge: { label: 'Updated', type: 'neutral' }
-          },
-          ...c.activities
-        ]
-      };
-    });
+    this.configNotice.set('Connection renaming is unavailable while connection service is disconnected.');
+    setTimeout(() => this.configNotice.set(null), 5000);
   }
 
   public toggleDisableConnection(): void {
-    const conn = this.connection();
-    if (!conn) return;
-    const nowIso = new Date().toISOString();
-    const isDisabling = conn.lifecycleState === 'ACTIVE';
-
-    this.connection.update(c => {
-      if (!c) return null;
-      return {
-        ...c,
-        lifecycleState: isDisabling ? 'DISABLED' : 'ACTIVE',
-        disabledAt: isDisabling ? nowIso : undefined,
-        updatedAt: nowIso,
-        activities: [
-          {
-            id: 'act-' + Date.now(),
-            timestamp: nowIso,
-            category: 'LIFECYCLE',
-            title: isDisabling ? 'Connection Disabled' : 'Connection Enabled',
-            description: isDisabling
-              ? 'Connection profile disabled for new workflow assignments.'
-              : 'Connection profile re-enabled for active use.',
-            actor: 'admin-operator@corp.internal',
-            icon: isDisabling ? 'pause-circle' : 'play-circle',
-            stateBadge: isDisabling ? { label: 'Disabled', type: 'warning' } : { label: 'Active', type: 'success' }
-          },
-          ...c.activities
-        ]
-      };
-    });
     this.isDisableDialogOpen.set(false);
+    this.configNotice.set('Connection lifecycle changes are unavailable while connection service is disconnected.');
+    setTimeout(() => this.configNotice.set(null), 5000);
   }
 
   public archiveConnection(): void {
-    const conn = this.connection();
-    if (!conn) return;
-    const nowIso = new Date().toISOString();
-
-    this.connection.update(c => {
-      if (!c) return null;
-      return {
-        ...c,
-        lifecycleState: 'ARCHIVED',
-        archivedAt: nowIso,
-        updatedAt: nowIso,
-        activities: [
-          {
-            id: 'act-' + Date.now(),
-            timestamp: nowIso,
-            category: 'LIFECYCLE',
-            title: 'Connection Archived',
-            description: 'Connection archived. Removed from active pickers while preserving historical references.',
-            actor: 'admin-operator@corp.internal',
-            icon: 'archive',
-            stateBadge: { label: 'Archived', type: 'neutral' }
-          },
-          ...c.activities
-        ]
-      };
-    });
     this.isArchiveDialogOpen.set(false);
+    this.configNotice.set('Connection archiving is unavailable while connection service is disconnected.');
+    setTimeout(() => this.configNotice.set(null), 5000);
   }
 
   public deleteConnection(): void {
     const conn = this.connection();
     if (!conn) return;
 
-    if (!conn.usage.referenceProtection.canDelete) {
-      alert('Cannot delete connection with active references.');
-      return;
-    }
-
-    if (this.connectionsService) {
-      this.connectionsService.connections.update(list => list.filter(c => c.id !== conn.id));
-    }
     this.isDeleteDialogOpen.set(false);
-    if (this.router) {
-      this.router.navigate(['/connections']);
-    }
+    this.configNotice.set('Connection deletion is unavailable while connection service is disconnected.');
+    setTimeout(() => this.configNotice.set(null), 5000);
   }
 }

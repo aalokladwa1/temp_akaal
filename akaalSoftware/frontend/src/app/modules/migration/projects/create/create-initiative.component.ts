@@ -157,7 +157,7 @@ export interface InitiativeStepRailItem {
 
       </footer>
 
-      <!-- Creation Intent Acknowledged Modal (Pre-P7D) -->
+      <!-- Creation Success Modal -->
       @if (isSubmittedModalOpen()) {
         <div
           class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
@@ -171,19 +171,19 @@ export interface InitiativeStepRailItem {
                 <app-lucide-icon name="folder-plus" [size]="20"></app-lucide-icon>
               </div>
               <div class="flex flex-col">
-                <h3 class="text-base font-bold text-slate-900 font-heading">Initiative Intent Recorded</h3>
-                <span class="text-[11px] text-slate-500 font-semibold">Pre-P7D Product Model</span>
+                <h3 class="text-base font-bold text-slate-900 font-heading">Initiative Created</h3>
+                <span class="text-[11px] text-slate-500 font-semibold">Portfolio Workspace</span>
               </div>
             </div>
 
             <p class="text-xs text-slate-700 leading-relaxed font-normal">
               Your initiative specification for <strong>{{ ps.initiativeDraft().name }}</strong> with 
               {{ ps.initiativeDraft().selectedProjectIds.length }} associated project{{ ps.initiativeDraft().selectedProjectIds.length === 1 ? '' : 's' }} 
-              has been recorded in the workspace drafting state.
+              has been recorded in the workspace.
             </p>
 
-            <div class="p-3 bg-slate-50 rounded-lg border border-slate-200 text-[11px] text-slate-600">
-              Direct canonical database persistence will be linked during Pre-P7D backend convergence.
+            <div class="p-3 bg-indigo-50/60 rounded-lg border border-indigo-200/80 text-[11px] text-indigo-900 leading-normal">
+              You can now align projects and track aggregated operational milestones under this initiative.
             </div>
 
             <div class="pt-2 border-t border-slate-100 flex justify-end">

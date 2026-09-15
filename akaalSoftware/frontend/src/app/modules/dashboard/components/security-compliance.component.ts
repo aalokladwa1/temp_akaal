@@ -13,18 +13,17 @@ import { LucideIconComponent } from '../../../shared/components/lucide-icon.comp
       <!-- Card Header -->
       <div class="flex items-center justify-between pb-4 border-b border-slate-200">
         <div class="flex items-center gap-2.5">
-          <app-lucide-icon name="shield" [size]="20" class="text-blue-600"></app-lucide-icon>
+          <app-lucide-icon name="shield" [size]="20" class="text-slate-700 dark:text-slate-300"></app-lucide-icon>
           <h2 class="text-base font-bold text-slate-900 font-heading">Security / Compliance</h2>
         </div>
-        <span class="text-xs text-slate-500 font-medium">Posture</span>
       </div>
 
       <!-- Main Content -->
       @if (!security) {
         <div class="py-8 flex flex-col items-center justify-center text-center gap-2 my-auto">
-          <app-lucide-icon name="shield-check" [size]="24" class="text-slate-400"></app-lucide-icon>
+          <app-lucide-icon name="shield-check" [size]="24" class="text-slate-400 dark:text-slate-500"></app-lucide-icon>
           <span class="text-xs font-bold text-slate-800">Security posture unavailable</span>
-          <p class="text-[11px] text-slate-500 font-medium">Security subsystem is unconfigured.</p>
+          <p class="text-[11px] text-slate-500 font-medium">Security subsystem telemetry is not currently reported.</p>
         </div>
       } @else {
         <!-- 3 Security Checklist Rows -->
@@ -41,7 +40,7 @@ import { LucideIconComponent } from '../../../shared/components/lucide-icon.comp
               [class.bg-slate-100]="!security.mTLSEnabled"
               [class.text-slate-700]="!security.mTLSEnabled">
               <span class="w-1.5 h-1.5 rounded-full" [class.bg-emerald-500]="security.mTLSEnabled" [class.bg-slate-400]="!security.mTLSEnabled"></span>
-              <span>{{ security.mTLSEnabled ? 'Enforced' : 'Disabled' }}</span>
+              <span>{{ security.mTLSEnabled === null ? 'Unavailable' : (security.mTLSEnabled ? 'Enforced' : 'Disabled') }}</span>
             </span>
           </div>
 
@@ -56,7 +55,7 @@ import { LucideIconComponent } from '../../../shared/components/lucide-icon.comp
               [class.bg-slate-100]="!security.vaultEncryption"
               [class.text-slate-700]="!security.vaultEncryption">
               <span class="w-1.5 h-1.5 rounded-full" [class.bg-emerald-500]="security.vaultEncryption" [class.bg-slate-400]="!security.vaultEncryption"></span>
-              <span>{{ security.vaultEncryption ? 'Active' : 'Unencrypted' }}</span>
+              <span>{{ security.vaultEncryption === null ? 'Unavailable' : (security.vaultEncryption ? 'Active' : 'Unencrypted') }}</span>
             </span>
           </div>
 
@@ -71,7 +70,7 @@ import { LucideIconComponent } from '../../../shared/components/lucide-icon.comp
               [class.bg-slate-100]="!security.auditLedgerActive"
               [class.text-slate-700]="!security.auditLedgerActive">
               <span class="w-1.5 h-1.5 rounded-full" [class.bg-emerald-500]="security.auditLedgerActive" [class.bg-slate-400]="!security.auditLedgerActive"></span>
-              <span>{{ security.auditLedgerActive ? 'Sealed' : 'Inactive' }}</span>
+              <span>{{ security.auditLedgerActive === null ? 'Unavailable' : (security.auditLedgerActive ? 'Sealed' : 'Inactive') }}</span>
             </span>
           </div>
 
@@ -83,9 +82,24 @@ import { LucideIconComponent } from '../../../shared/components/lucide-icon.comp
             <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Standard</span>
             <span class="text-xs text-slate-700 font-medium truncate">{{ security.detail }}</span>
           </div>
-          <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200 text-[11px] font-semibold select-none">
-            <span class="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
-            <span>{{ security.posture === 'enforced' ? 'Enforced' : 'Active' }}</span>
+          <span 
+            class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md border text-[11px] font-semibold select-none"
+            [class.bg-emerald-50]="security.posture === 'enforced'"
+            [class.text-emerald-700]="security.posture === 'enforced'"
+            [class.border-emerald-200]="security.posture === 'enforced'"
+            [class.bg-blue-50]="security.posture === 'partial'"
+            [class.text-blue-700]="security.posture === 'partial'"
+            [class.border-blue-200]="security.posture === 'partial'"
+            [class.bg-slate-100]="security.posture === 'unconfigured' || security.posture === 'unavailable'"
+            [class.text-slate-700]="security.posture === 'unconfigured' || security.posture === 'unavailable'"
+            [class.border-slate-200]="security.posture === 'unconfigured' || security.posture === 'unavailable'">
+            <span 
+              class="w-1.5 h-1.5 rounded-full" 
+              [class.bg-emerald-500]="security.posture === 'enforced'"
+              [class.bg-blue-500]="security.posture === 'partial'"
+              [class.bg-slate-400]="security.posture === 'unconfigured' || security.posture === 'unavailable'">
+            </span>
+            <span>{{ security.posture === 'enforced' ? 'Enforced' : (security.posture === 'partial' ? 'Partial' : (security.posture === 'unavailable' ? 'Unavailable' : 'Unconfigured')) }}</span>
           </span>
         </div>
       }

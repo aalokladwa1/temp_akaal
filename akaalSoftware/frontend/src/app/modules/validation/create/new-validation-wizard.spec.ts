@@ -19,6 +19,7 @@ describe('NewValidationWizardComponent & Step 1 Definition (8-Step Foundation)',
   beforeEach(() => {
     vs = new ValidationUiService();
     homeService = new MigrationHomeService();
+    homeService.loadDeterministicPrototypeFallback();
     mockRouter = {
       navigate: vi.fn()
     };

@@ -56,43 +56,7 @@ export class CockpitStoreService {
   // --------------------------------------------------------------------------
   // RAW REACTIVE STATE SIGNALS
   // --------------------------------------------------------------------------
-  public session = signal<any>({
-    id: 'MIG-2026-0906-A1',
-    name: 'Core Banking Ledger Migration',
-    environment: 'Production',
-    mode: 'M2_BULK_CDC',
-    sourceProvider: 'Oracle',
-    sourceHost: 'orcl-prod.corp.internal',
-    sourcePort: 1521,
-    sourceDatabase: 'ORCLPDB',
-    targetProvider: 'PostgreSQL',
-    targetHost: 'pg-aurora.internal',
-    targetPort: 5432,
-    targetDatabase: 'finance',
-    planRevision: 1,
-    planFingerprint: '7f9a2b8e3c1d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f',
-    activeAttempt: 1,
-    lifecycleState: 'RUNNING',
-    currentStage: 'Parallel Bulk Table Extraction & Load',
-    activeTaskDescription: 'Copying CUSTOMER_LEDGER · Partition 18/32',
-    activeEntityName: 'CUSTOMER_LEDGER',
-    rowsProcessed: 418700000,
-    rowsTotal: 600000000,
-    progressPercent: 69.8,
-    throughputRowsSec: 327000,
-    throughputRowsSecFormatted: '327K',
-    throughputBytesSecFormatted: '1.42 GB/s',
-    etaString: '09:18',
-    elapsedTimeString: '01:18:42',
-    elapsedSec: 4722,
-    activeWorkers: 16,
-    cdcLagMs: 12,
-    backlogMbFormatted: '14.2 MB',
-    applyTxSecFormatted: '38.4K',
-    convergenceState: 'CONVERGED',
-    checkpointFreshness: '1.2s',
-    isHealthDegraded: false
-  });
+  public session = signal<any>(null);
 
   public selectedDagNodeId = signal<string | null>(null);
   public activeWorkbenchTab = signal<string>('data_movement');
@@ -149,8 +113,7 @@ export class CockpitStoreService {
     const found = portfolio.find(m => m.id === migrationId);
 
     if (found) {
-      this.session.update(s => ({
-        ...s,
+      this.session.set({
         id: found.id,
         name: found.name,
         mode: found.mode,
@@ -159,15 +122,17 @@ export class CockpitStoreService {
         targetProvider: found.targetEngine || 'PostgreSQL',
         lifecycleState: found.lifecycleState || 'RUNNING',
         currentStage: found.currentStage || 'Parallel Bulk Table Extraction & Load',
-        progressPercent: found.progressPercent || 69.8,
-        throughputRowsSecFormatted: `${Math.round((found.throughputRowsSec || 327000) / 1000)}K`,
-        etaString: found.etaString || '09:18'
-      }));
+        progressPercent: found.progressPercent ?? 0,
+        throughputRowsSecFormatted: found.throughputRowsSec ? `${Math.round(found.throughputRowsSec / 1000)}K` : '0',
+        etaString: found.etaString || 'Indeterminate'
+      });
+    } else {
+      this.session.set(null);
     }
   }
 
   public setSessionState(overrides: Partial<any>): void {
-    this.session.update(s => ({ ...s, ...overrides }));
+    this.session.update(s => s ? ({ ...s, ...overrides }) : null);
   }
 
   public selectDagNode(nodeId: string | null): void {
@@ -188,7 +153,7 @@ export class CockpitStoreService {
 
   public copyMigrationId(): void {
     const id = this.identity().migrationId;
-    if (navigator.clipboard) {
+    if (id && navigator.clipboard) {
       navigator.clipboard.writeText(id).then(() => {
         this.copiedMigrationId.set(true);
         setTimeout(() => this.copiedMigrationId.set(false), 2000);
@@ -210,11 +175,11 @@ export class CockpitStoreService {
     }
   }
 
-  public confirmPendingAction(): void {
+  public async confirmPendingAction(): Promise<void> {
     const action = this.pendingConfirmationAction();
     if (!action) return;
     this.pendingConfirmationAction.set(null);
-    this.executeActionDirectly(action);
+    await this.executeActionDirectly(action);
   }
 
   public cancelPendingAction(): void {
@@ -225,6 +190,29 @@ export class CockpitStoreService {
     this.actionInFlight.set(true);
 
     try {
+      const actionMap: Record<string, string> = {
+        PAUSE: 'pause',
+        DRAIN_AND_PAUSE: 'pause',
+        RESUME: 'resume',
+        RECOVER_EXECUTION: 'resume',
+        TERMINATE: 'terminate',
+        REQUEST_CHECKPOINT: 'checkpoint',
+        RESCAN_HEALTH: 'health_check'
+      };
+
+      const backendAction = actionMap[action.id];
+      if (backendAction) {
+        const res = await this.ipc.invoke('engine/migration', backendAction, {
+          migrationId: this.identity().migrationId
+        });
+
+        if (!res || res.status !== 'SUCCESS') {
+          console.error(`[CockpitStoreService] Action ${action.id} failed or unconfirmed`);
+          this.actionInFlight.set(false);
+          return;
+        }
+      }
+
       if (action.id === 'PAUSE' || action.id === 'DRAIN_AND_PAUSE') {
         this.session.update(s => ({
           ...s,
@@ -236,19 +224,13 @@ export class CockpitStoreService {
       } else if (action.id === 'RESUME') {
         this.session.update(s => ({
           ...s,
-          lifecycleState: 'RUNNING',
-          throughputRowsSec: 327000,
-          throughputRowsSecFormatted: '327K',
-          activeWorkers: 16
+          lifecycleState: 'RUNNING'
         }));
       } else if (action.id === 'RECOVER_EXECUTION') {
         this.session.update(s => ({
           ...s,
           lifecycleState: 'RUNNING',
-          isHealthDegraded: false,
-          throughputRowsSec: 327000,
-          throughputRowsSecFormatted: '327K',
-          activeWorkers: 16
+          isHealthDegraded: false
         }));
       } else if (action.id === 'TERMINATE') {
         this.session.update(s => ({

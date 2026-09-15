@@ -19,6 +19,35 @@ import { LucideIconComponent } from '../../../shared/components/lucide-icon.comp
       </div>
     </div>
 
+    <!-- 1B. NOT_CONNECTED STATE (Truthful unexposed daemon state: B-2.2-01) -->
+    <div
+      *ngIf="cs.availabilityState() === 'NOT_CONNECTED'"
+      class="w-full bg-white border border-slate-200 rounded-xl p-12 text-center shadow-2xs">
+      <div class="w-12 h-12 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center mx-auto mb-4 text-slate-400">
+        <app-lucide-icon name="network" [size]="24"></app-lucide-icon>
+      </div>
+      <h3 class="text-base font-bold text-slate-900 mb-1">
+        Connection Service Disconnected
+      </h3>
+      <p class="text-xs text-slate-500 max-w-md mx-auto mb-6">
+        {{ cs.errorMessage() || 'Connection service is disconnected. Reconnect or configure a new connection profile.' }}
+      </p>
+      <div class="flex items-center justify-center gap-3">
+        <button
+          type="button"
+          (click)="onRetry()"
+          class="h-9 px-4 text-xs font-medium text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-md transition-colors cursor-pointer shadow-2xs focus:outline-hidden focus:ring-2 focus:ring-slate-400">
+          Reconnect Service
+        </button>
+        <button
+          type="button"
+          (click)="onCreate()"
+          class="h-9 px-4 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors cursor-pointer shadow-2xs focus:outline-hidden focus:ring-2 focus:ring-blue-500">
+          Create Connection
+        </button>
+      </div>
+    </div>
+
     <!-- 2. ERROR / UNAVAILABLE STATE -->
     <div
       *ngIf="cs.availabilityState() === 'ERROR' || cs.availabilityState() === 'UNAVAILABLE'"

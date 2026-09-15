@@ -31,6 +31,7 @@ describe('Step 9 — Review, Schedule & Initialize Master Test Suite', () => {
     environment: 'Production' | 'Staging' | 'Development' = 'Production'
   ): WizardDraftState => ({
     ...ms.wizardDraft(),
+    migrationId: 'MIG-2026-TEST-001',
     name: 'Oracle to Aurora Postgres Migration',
     description: 'Core banking ledger database migration',
     mode,

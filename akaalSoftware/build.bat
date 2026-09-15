@@ -10,6 +10,7 @@ set "NG_BUILD_MAX_WORKERS=1"
 set "NG_BUILD_PARALLEL_TS=0"
 set "NG_BUILD_TYPE_CHECK=0"
 set "ESBUILD_WORKER_THREADS=1"
+set "NODE_OPTIONS=--max-old-space-size=8192"
 
 echo.
 echo [1/4] Terminating running instances...
