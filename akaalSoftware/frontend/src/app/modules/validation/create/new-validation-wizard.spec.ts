@@ -250,30 +250,36 @@ describe('Step 2 Source Instance & Connectivity', () => {
     expect(wizard.isCurrentStepValid()).toBe(false);
   });
 
-  it('NEW branch: should display 48 database engines and allow category filtering', () => {
+  it('NEW branch: should display 54 database engines and allow category filtering', () => {
     step2.setConnectionMode('NEW');
-    expect(step2.catalogEngines.length).toBe(48);
+    expect(step2.catalogEngines.length).toBe(54);
 
-    step2.selectedCategoryTab.set('RELATIONAL');
-    expect(step2.filteredCatalogEngines().length).toBe(10);
+    step2.selectedCategoryTab.set('RELATIONAL_DISTRIBUTED_SQL');
+    expect(step2.filteredCatalogEngines().length).toBe(17);
 
-    step2.selectedCategoryTab.set('DISTRIBUTED_SQL');
+    step2.selectedCategoryTab.set('WAREHOUSE_LAKE');
     expect(step2.filteredCatalogEngines().length).toBe(5);
 
-    step2.selectedCategoryTab.set('WAREHOUSE');
-    expect(step2.filteredCatalogEngines().length).toBe(7);
+    step2.selectedCategoryTab.set('NOSQL_GRAPH_KV_SEARCH');
+    expect(step2.filteredCatalogEngines().length).toBe(11);
 
-    step2.selectedCategoryTab.set('NOSQL');
-    expect(step2.filteredCatalogEngines().length).toBe(12);
-
-    step2.selectedCategoryTab.set('STREAMING');
+    step2.selectedCategoryTab.set('STREAMING_MESSAGING');
     expect(step2.filteredCatalogEngines().length).toBe(6);
 
-    step2.selectedCategoryTab.set('STORAGE');
-    expect(step2.filteredCatalogEngines().length).toBe(5);
+    step2.selectedCategoryTab.set('OBJECT_DISTRIBUTED_STORAGE');
+    expect(step2.filteredCatalogEngines().length).toBe(6);
 
-    step2.selectedCategoryTab.set('SAAS');
+    step2.selectedCategoryTab.set('TIME_SERIES');
+    expect(step2.filteredCatalogEngines().length).toBe(1);
+
+    step2.selectedCategoryTab.set('ENTERPRISE_APPLICATIONS');
     expect(step2.filteredCatalogEngines().length).toBe(3);
+
+    step2.selectedCategoryTab.set('FILE_DATASET');
+    expect(step2.filteredCatalogEngines().length).toBe(1);
+
+    step2.selectedCategoryTab.set('MANAGED_CLOUD');
+    expect(step2.filteredCatalogEngines().length).toBe(4);
   });
 
   it('NEW branch: selecting engine loads provider schema and sets default port', () => {
@@ -462,30 +468,36 @@ describe('Step 3 Target Instance & Compatibility (48 Providers, Read Attestation
     expect(wizard.isCurrentStepValid()).toBe(false);
   });
 
-  it('NEW branch: should display 48 database engines and allow 7-category filtering', () => {
+  it('NEW branch: should display 53 database engines and allow 10-category filtering', () => {
     step3.setConnectionMode('NEW');
-    expect(step3.catalogEngines.length).toBe(48);
+    expect(step3.catalogEngines.length).toBe(53);
 
-    step3.selectedCategoryTab.set('RELATIONAL');
-    expect(step3.filteredCatalogEngines().length).toBe(10);
+    step3.selectedCategoryTab.set('RELATIONAL_DISTRIBUTED_SQL');
+    expect(step3.filteredCatalogEngines().length).toBe(17);
 
-    step3.selectedCategoryTab.set('DISTRIBUTED_SQL');
+    step3.selectedCategoryTab.set('WAREHOUSE_LAKE');
     expect(step3.filteredCatalogEngines().length).toBe(5);
 
-    step3.selectedCategoryTab.set('WAREHOUSE');
-    expect(step3.filteredCatalogEngines().length).toBe(7);
+    step3.selectedCategoryTab.set('NOSQL_GRAPH_KV_SEARCH');
+    expect(step3.filteredCatalogEngines().length).toBe(11);
 
-    step3.selectedCategoryTab.set('NOSQL');
-    expect(step3.filteredCatalogEngines().length).toBe(12);
-
-    step3.selectedCategoryTab.set('STREAMING');
+    step3.selectedCategoryTab.set('STREAMING_MESSAGING');
     expect(step3.filteredCatalogEngines().length).toBe(6);
 
-    step3.selectedCategoryTab.set('STORAGE');
-    expect(step3.filteredCatalogEngines().length).toBe(5);
+    step3.selectedCategoryTab.set('OBJECT_DISTRIBUTED_STORAGE');
+    expect(step3.filteredCatalogEngines().length).toBe(6);
 
-    step3.selectedCategoryTab.set('SAAS');
-    expect(step3.filteredCatalogEngines().length).toBe(3);
+    step3.selectedCategoryTab.set('TIME_SERIES');
+    expect(step3.filteredCatalogEngines().length).toBe(1);
+
+    step3.selectedCategoryTab.set('ENTERPRISE_APPLICATIONS');
+    expect(step3.filteredCatalogEngines().length).toBe(2);
+
+    step3.selectedCategoryTab.set('FILE_DATASET');
+    expect(step3.filteredCatalogEngines().length).toBe(1);
+
+    step3.selectedCategoryTab.set('MANAGED_CLOUD');
+    expect(step3.filteredCatalogEngines().length).toBe(4);
   });
 
   it('NEW branch: selecting engine loads provider schema and sets default port', () => {

@@ -95,12 +95,9 @@ import { LucideIconComponent } from '../../../shared/components/lucide-icon.comp
                 (click)="service.openEvidenceDetail(item.id)"
                 class="hover:bg-slate-50/80 transition-colors cursor-pointer group">
                 
-                <!-- Primary Title with Secondary ID -->
+                <!-- Primary Title -->
                 <td class="py-3.5 px-4 font-medium text-slate-900 group-hover:text-blue-600 transition-colors">
-                  <div class="flex flex-col gap-0.5">
-                    <span class="font-semibold">{{ item.title }}</span>
-                    <span class="text-[11px] text-slate-400 font-mono">{{ item.id }}</span>
-                  </div>
+                  <span class="font-semibold text-xs">{{ item.title }}</span>
                 </td>
 
                 <!-- Type -->

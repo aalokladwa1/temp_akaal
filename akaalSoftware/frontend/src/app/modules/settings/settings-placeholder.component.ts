@@ -140,7 +140,7 @@ const CATEGORY_MAP: Record<string, CategoryInfo> = {
       <div class="p-6 rounded-xl bg-white border border-slate-200 shadow-2xs flex flex-col gap-5">
         <div class="flex items-center gap-3">
           <div class="w-9 h-9 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600">
-            <app-lucide-icon name="sparkles" [size]="18"></app-lucide-icon>
+            <app-lucide-icon name="layers" [size]="18"></app-lucide-icon>
           </div>
           <div>
             <h3 class="text-sm font-semibold text-slate-900">Planned Configuration Capabilities</h3>

@@ -19,7 +19,7 @@ import { TEMPLATE_MODE_DESCRIPTORS, TemplateMigrationMode, TemplateLifecycle, Te
             
             <!-- Breadcrumbs & Context Badges -->
             <div class="flex items-center flex-wrap gap-2 text-xs">
-              <span class="text-slate-500 font-medium">AKAAL Enterprise</span>
+              <span class="text-slate-500 font-medium">DevKros</span>
               <span class="text-slate-300">/</span>
               <a routerLink="/migration/templates" class="text-slate-500 hover:text-blue-600 font-medium transition-colors">
                 Templates
@@ -30,7 +30,7 @@ import { TEMPLATE_MODE_DESCRIPTORS, TemplateMigrationMode, TemplateLifecycle, Te
               <button
                 type="button"
                 (click)="ws.copyTemplateId()"
-                class="inline-flex items-center gap-1.5 font-mono text-xs font-semibold px-2.5 py-1 rounded-md bg-slate-50 hover:bg-blue-50 text-slate-700 hover:text-blue-700 hover:border-blue-300 transition-colors border border-slate-200 cursor-pointer"
+                class="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-md bg-slate-50 hover:bg-blue-50 text-slate-700 hover:text-blue-700 hover:border-blue-300 transition-colors border border-slate-200 cursor-pointer"
                 [title]="'Click to copy template ID: ' + tmpl.id">
                 <span>{{ tmpl.id }}</span>
                 <app-lucide-icon
@@ -45,7 +45,7 @@ import { TEMPLATE_MODE_DESCRIPTORS, TemplateMigrationMode, TemplateLifecycle, Te
               </span>
 
               <!-- Version Tag -->
-              <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200">
+              <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] tabular-nums font-bold bg-blue-50 text-blue-700 border border-blue-200">
                 {{ tmpl.versionLabel }}
               </span>
             </div>
@@ -67,7 +67,7 @@ import { TEMPLATE_MODE_DESCRIPTORS, TemplateMigrationMode, TemplateLifecycle, Te
               </span>
 
               <!-- Applicability Pair: Source -> Target -->
-              <span class="px-2.5 py-0.5 rounded-md text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200 shrink-0 font-mono">
+              <span class="px-2.5 py-0.5 rounded-md text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200 shrink-0">
                 {{ tmpl.applicability.sourceProviderName }} &rarr; {{ tmpl.applicability.targetProviderName }}
               </span>
 

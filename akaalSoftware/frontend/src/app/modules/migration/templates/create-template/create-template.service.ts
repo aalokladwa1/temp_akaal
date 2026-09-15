@@ -308,52 +308,10 @@ export class CreateTemplateService {
   // FINAL TRANSACTION: CREATE TEMPLATE
   // =========================================================================
 
+  public persistenceError = signal<string | null>(null);
+
   public createTemplate(): void {
-    const d = this.draft();
-    const newTemplateId = 'tmpl-' + Math.random().toString(36).substring(2, 9);
-    const nowIso = new Date().toISOString();
-
-    const providerDisplay = (id: string) => {
-      const map: Record<string, string> = {
-        oracle: 'Oracle',
-        postgresql: 'PostgreSQL',
-        mysql: 'MySQL',
-        sqlserver: 'SQL Server',
-        mongodb: 'MongoDB',
-        snowflake: 'Snowflake',
-        bigquery: 'BigQuery',
-        kafka: 'Kafka',
-        s3: 'Amazon S3',
-        universal: 'Universal Any'
-      };
-      return map[id.toLowerCase()] || id.charAt(0).toUpperCase() + id.slice(1);
-    };
-
-    const newTemplate: TemplateItem = {
-      id: newTemplateId,
-      name: d.definition.name.trim(),
-      description: d.definition.description.trim() || 'Custom instantiated migration template.',
-      mode: d.definition.mode,
-      applicability: {
-        sourceProviderName: providerDisplay(d.definition.sourceProvider),
-        targetProviderName: providerDisplay(d.definition.targetProvider)
-      },
-      scope: d.definition.scope,
-      versionLabel: 'v1.0.0',
-      lifecycle: 'PUBLISHED',
-      usage: {
-        referencedProjectCount: 0,
-        migrationCount: 0,
-        lastUsedAt: null,
-        isUsageKnown: true,
-        isUnused: true
-      },
-      createdAt: nowIso,
-      updatedAt: nowIso
-    };
-
-    this.templatesService.addTemplate(newTemplate);
-    this.resetDraft();
-    this.router.navigate(['/migration/templates']);
+    // Fail closed: Template persistence requires backend connectivity in CHECK1
+    this.persistenceError.set('Template persistence is not connected. Saving this template requires backend connectivity.');
   }
 }

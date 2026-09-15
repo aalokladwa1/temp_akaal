@@ -58,7 +58,7 @@ describe('Migration History Workspace Suite', () => {
     });
 
     it('should dynamically generate rich workspace records for any home fixture (M1 to M8)', () => {
-      const homeIds = ['mig-001', 'mig-002', 'mig-003', 'mig-004', 'mig-005', 'mig-006', 'mig-007', 'mig-008'];
+      const homeIds = ['mig-fin-core-01', 'mig-audit-m8-01', 'mig-retail-inv-04', 'mig-stream-kafka-02', 'mig-crm-delta-07', 'mig-analytics-dw-01', 'mig-banking-ddl-01', 'mig-user-profiles-09'];
       
       homeIds.forEach(id => {
         service.loadMigration(id);
@@ -77,6 +77,13 @@ describe('Migration History Workspace Suite', () => {
       service.loadMigration('');
       expect(service.viewState()).toBe('EMPTY');
       expect(service.errorMessage()).toContain('No migration identifier provided');
+    });
+
+    it('B-TH-03: fails closed on unknown migration run ID without silent fallback', () => {
+      service.loadMigration('mig-non-existent-999');
+      expect(service.viewState()).toBe('ERROR');
+      expect(service.currentRecord()).toBeNull();
+      expect(service.errorMessage()).toContain('could not be located');
     });
   });
 

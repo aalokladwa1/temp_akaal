@@ -2,11 +2,13 @@
  * AKAAL Administration — 5.8 Compliance, 5.9 Audit, 5.10 Platform Administration, 5.11 Integrations & Notifications Unit Tests
  */
 
+import '@angular/compiler';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { ComplianceService } from './services/compliance.service';
 import { AuditService } from './services/audit.service';
 import { PlatformAdminService } from './services/platform-admin.service';
 import { IntegrationsService } from './services/integrations.service';
+import { ExceptionRequestComponent } from './compliance/controls/exception-request.component';
 
 describe('5.8 Compliance Service & Governance Workflows', () => {
   let complianceService: ComplianceService;
@@ -94,6 +96,25 @@ describe('5.8 Compliance Service & Governance Workflows', () => {
     expect(created).toBeDefined();
     expect(created?.status).toBe('APPROVED');
     expect(created?.approvedBy).toBe('Chief Information Security Officer');
+  });
+
+  it('should fail closed on ExceptionRequestComponent onSubmit when governance engine is unavailable and not generate EXC-* codes', async () => {
+    const component = new ExceptionRequestComponent();
+    component.title = 'Legacy Service Account Exemption';
+    component.controlCode = 'HIPAA-164.312(a)';
+    component.scope = 'svc-batch-importer-01';
+    component.justification = 'Isolated VPC under mutual TLS';
+
+    expect(component.isValid()).toBe(true);
+    expect(component.submissionError()).toBeNull();
+
+    component.onSubmit();
+    expect(component.isSubmitting()).toBe(true);
+
+    await new Promise(resolve => setTimeout(resolve, 450));
+
+    expect(component.isSubmitting()).toBe(false);
+    expect(component.submissionError()).toBe('Compliance exception submission requires active governance engine connectivity.');
   });
 
   it('should track verifiable compliance evidence records with cryptographic SHA-256 digests', () => {

@@ -13,7 +13,7 @@ import { SettingsService } from '../services/settings.service';
       <!-- Section Header -->
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-5">
         <div>
-          <div class="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider font-mono">System &amp; Intelligence</div>
+          <div class="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider font-sans">System Control</div>
           <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100 mt-1">Advanced</h2>
           <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
             Low-level engine capability tuning, developer instrumentation flags, and local storage diagnostic health.
@@ -120,7 +120,7 @@ import { SettingsService } from '../services/settings.service';
         <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
           <div class="flex items-center gap-3">
             <div class="w-9 h-9 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
-              <app-lucide-icon name="sparkles" [size]="18"></app-lucide-icon>
+              <app-lucide-icon name="sliders" [size]="18"></app-lucide-icon>
             </div>
             <div>
               <h3 class="text-base font-bold text-slate-900 dark:text-slate-100">Experimental Capabilities</h3>

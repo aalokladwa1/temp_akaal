@@ -18,6 +18,16 @@ import { TEMPLATE_MODE_DESCRIPTORS } from '../../templates.models';
         </p>
       </div>
 
+      @if (ts.persistenceError(); as err) {
+        <div class="p-3.5 bg-amber-50 border border-amber-200 text-amber-900 rounded-lg text-xs font-medium flex items-center justify-between gap-3 shadow-2xs">
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-amber-500 shrink-0"></span>
+            <span>{{ err }}</span>
+          </div>
+          <span class="text-[11px] font-semibold text-amber-700 uppercase tracking-wider">Persistence Unavailable</span>
+        </div>
+      }
+
       <!-- High-Level Metric Header Strip (Harmonious UI Theme) -->
       <div class="p-4 bg-slate-50 border border-slate-200 rounded-lg flex flex-wrap items-center justify-between gap-4 shadow-2xs">
         <div class="flex flex-col gap-1.5">

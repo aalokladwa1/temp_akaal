@@ -41,10 +41,9 @@ import {
                 </span>
               </td>
 
-              <!-- 2. Mode Badge (Clean Name Only, No MX) -->
+              <!-- 2. Mode (Plain Text) -->
               <td class="py-3.5 px-4 align-middle whitespace-nowrap">
-                <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold border"
-                  [ngClass]="getModeBadgeClass(item.mode)">
+                <span class="text-xs font-medium text-slate-600">
                   {{ getModeDescriptor(item.mode).label }}
                 </span>
               </td>
@@ -58,7 +57,7 @@ import {
                 </div>
               </td>
 
-              <!-- 4. Outcome Badge (Only Badge, No Text Below) -->
+              <!-- 4. Outcome Badge (Single Primary Semantic Badge) -->
               <td class="py-3.5 px-4 align-middle whitespace-nowrap">
                 <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold border"
                   [ngClass]="getOutcomeBadgeClass(item.outcome)">
@@ -66,10 +65,15 @@ import {
                 </span>
               </td>
 
-              <!-- 5. Validation Verdict (Clean Tag Only, Zero Numbers) -->
+              <!-- 5. Validation Verdict (Subtle Plain Text) -->
               <td class="py-3.5 px-4 align-middle text-right whitespace-nowrap">
-                <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold border"
-                  [ngClass]="getValidationBadgeClass(item.validationState)">
+                <span class="text-xs font-medium"
+                  [ngClass]="{
+                    'text-emerald-700': item.validationState === 'PASSED',
+                    'text-amber-700 font-semibold': item.validationState === 'MISMATCHES_DETECTED',
+                    'text-rose-700 font-semibold': item.validationState === 'FAILED',
+                    'text-slate-500': item.validationState !== 'PASSED' && item.validationState !== 'MISMATCHES_DETECTED' && item.validationState !== 'FAILED'
+                  }">
                   {{ getValidationLabel(item) }}
                 </span>
               </td>

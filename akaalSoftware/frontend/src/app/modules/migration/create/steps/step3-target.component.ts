@@ -1993,4 +1993,9 @@ export class Step3TargetComponent implements OnInit {
 
     runStage(1);
   }
+
+  public cleanLabel(label: string | undefined): string {
+    if (!label) return '';
+    return label.replace(/^AKAAL\s+/i, '').replace(/AKAAL/g, '');
+  }
 }

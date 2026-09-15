@@ -209,7 +209,7 @@ export class TemplateWorkspaceService {
 
     // Simulated calm resolution from fixtures or fallback
     setTimeout(() => {
-      const found = TEMPLATE_WORKSPACE_FIXTURES[id] || TEMPLATE_WORKSPACE_FIXTURES['tmpl-ora-pg-m2'];
+      const found = TEMPLATE_WORKSPACE_FIXTURES[id];
       if (found) {
         // Clone to protect fixture immutability
         const clone = JSON.parse(JSON.stringify(found)) as TemplateDetail;
@@ -222,7 +222,8 @@ export class TemplateWorkspaceService {
           this.selectedCompareVersion.set(clone.versions[0].versionLabel);
         }
       } else {
-        this.errorMessage.set(`Template with ID "${id}" could not be located.`);
+        this.template.set(null);
+        this.errorMessage.set(`Template with ID "${id}" was not found or is inaccessible.`);
       }
       this.isLoading.set(false);
     }, 150);

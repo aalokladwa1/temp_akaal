@@ -56,7 +56,7 @@ export const SETTINGS_NAV_SECTIONS: SettingsNavSection[] = [
     ]
   },
   {
-    title: 'SYSTEM & INTELLIGENCE',
+    title: 'SYSTEM CONTROL',
     categories: [
       {
         id: 'notifications',
@@ -72,14 +72,6 @@ export const SETTINGS_NAV_SECTIONS: SettingsNavSection[] = [
         path: '/settings/integrations',
         icon: 'layers',
         description: 'Local CLI discovery, cloud bindings, and tools',
-        status: 'ACTIVE'
-      },
-      {
-        id: 'ai-intelligence',
-        label: 'AI & Intelligence',
-        path: '/settings/ai-intelligence',
-        icon: 'bot',
-        description: 'Model endpoints, schema anonymization, and advice',
         status: 'ACTIVE'
       },
       {
@@ -113,7 +105,7 @@ export const SETTINGS_NAV_SECTIONS: SettingsNavSection[] = [
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-200">
         <div class="flex flex-col gap-1">
           <div class="flex items-center gap-2">
-            <span class="text-[11px] font-bold text-slate-500 tracking-wider uppercase font-mono">
+            <span class="text-[11px] font-bold text-slate-500 tracking-wider uppercase font-sans">
               SETTINGS &bull; WORKSTATION CONTROL
             </span>
           </div>
@@ -142,7 +134,7 @@ export const SETTINGS_NAV_SECTIONS: SettingsNavSection[] = [
           
           @for (section of navSections; track section.title) {
             <div class="flex flex-col gap-1.5">
-              <div class="px-2 py-1 text-[10px] font-bold text-slate-600 uppercase tracking-wider font-mono">
+              <div class="px-2 py-1 text-[10px] font-bold text-slate-600 uppercase tracking-wider font-sans">
                 {{ section.title }}
               </div>
 

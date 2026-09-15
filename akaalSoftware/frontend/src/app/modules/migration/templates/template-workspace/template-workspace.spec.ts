@@ -123,6 +123,14 @@ describe('Template Workspace (Part C) — Unit & Hostile Test Suite', () => {
       service.copyTemplateId();
       expect(service.copiedId()).toBe(true);
     });
+
+    it('B-TH-02: fails closed on unknown template ID without silent fixture fallback', async () => {
+      service.loadTemplate('tmpl-non-existent-999');
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      expect(service.template()).toBeNull();
+      expect(service.errorMessage()).toContain('was not found or is inaccessible');
+    });
   });
 
   // =========================================================================

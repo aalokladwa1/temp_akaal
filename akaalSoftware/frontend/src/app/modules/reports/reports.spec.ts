@@ -497,5 +497,24 @@ describe('Reports Module & ReportsService', () => {
       expect(service.verificationHistory()[0].target_identifier).toBe('CORRUPTED-TARGET-999');
     });
   });
+
+  describe('B-FINALUI-02: Report Export Authority & Fail-Closed Semantics', () => {
+    it('should fail closed when backend engine export is unavailable and not generate EXP-* IDs', async () => {
+      const mockReport = service.recentReports()[0];
+      service.openExportModal(mockReport);
+      expect(service.isExportModalOpen()).toBe(true);
+      expect(service.exportError()).toBeNull();
+      expect(service.lastExportResult()).toBeNull();
+
+      service.dispatchExport('PDF');
+      expect(service.isExporting()).toBe(true);
+
+      await new Promise(resolve => setTimeout(resolve, 450));
+
+      expect(service.isExporting()).toBe(false);
+      expect(service.lastExportResult()).toBeNull();
+      expect(service.exportError()).toBe('Report export requires an active backend engine connection.');
+    });
+  });
 });
 

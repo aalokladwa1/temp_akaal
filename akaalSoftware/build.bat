@@ -6,11 +6,8 @@ echo   AKAAL Platform - Quick Build ^& Launch
 echo ========================================================
 
 set "NG_CLI_ANALYTICS=false"
-set "NG_BUILD_MAX_WORKERS=1"
-set "NG_BUILD_PARALLEL_TS=0"
-set "NG_BUILD_TYPE_CHECK=0"
-set "ESBUILD_WORKER_THREADS=1"
-set "NODE_OPTIONS=--max-old-space-size=8192"
+set "NODE_OPTIONS="
+
 
 echo.
 echo [1/4] Terminating running instances...
@@ -19,7 +16,9 @@ taskkill /F /IM akaalSoftware.exe >nul 2>&1
 
 echo [2/4] Building Angular frontend...
 cd /d "%~dp0frontend"
-call npm run build:fast
+if exist ".angular\cache" rmdir /s /q ".angular\cache" >nul 2>&1
+if exist "dist" rmdir /s /q "dist" >nul 2>&1
+call node --max-old-space-size=4096 ./node_modules/@angular/cli/bin/ng build --configuration development --base-href ./
 
 if %ERRORLEVEL% neq 0 (
     echo.

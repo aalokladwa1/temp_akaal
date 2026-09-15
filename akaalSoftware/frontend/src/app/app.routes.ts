@@ -1021,7 +1021,7 @@ export const routes: Routes = [
       { path: 'storage', loadComponent: () => import('./modules/settings/storage/settings-storage.component').then(m => m.SettingsStorageComponent) },
       { path: 'notifications', loadComponent: () => import('./modules/settings/notifications/settings-notifications.component').then(m => m.SettingsNotificationsComponent) },
       { path: 'integrations', loadComponent: () => import('./modules/settings/integrations/settings-integrations.component').then(m => m.SettingsIntegrationsComponent) },
-      { path: 'ai-intelligence', loadComponent: () => import('./modules/settings/ai-intelligence/settings-ai-intelligence.component').then(m => m.SettingsAiIntelligenceComponent) },
+      { path: 'ai-intelligence', redirectTo: 'general', pathMatch: 'full' },
       { path: 'logging', loadComponent: () => import('./modules/settings/logging/settings-logging.component').then(m => m.SettingsLoggingComponent) },
       { path: 'advanced', loadComponent: () => import('./modules/settings/advanced/settings-advanced.component').then(m => m.SettingsAdvancedComponent) }
     ]

@@ -302,13 +302,13 @@ describe('AKAAL Settings — Master Test Suite', () => {
   });
 
   describe('5. Settings Navigation Structure & Category Status', () => {
-    it('should define exactly 3 navigation sections with all 10 structural categories as ACTIVE', () => {
+    it('should define exactly 3 navigation sections with all 9 structural categories as ACTIVE', () => {
       expect(SETTINGS_NAV_SECTIONS.length).toBe(3);
 
       const allCategories = SETTINGS_NAV_SECTIONS.flatMap(s => s.categories);
-      expect(allCategories.length).toBe(10);
+      expect(allCategories.length).toBe(9);
 
-      // Verify all 10 categories across Parts 1-4 are ACTIVE
+      // Verify all 9 categories across Parts 1-4 are ACTIVE
       const allCategoryIds = [
         'general',
         'appearance',
@@ -317,7 +317,6 @@ describe('AKAAL Settings — Master Test Suite', () => {
         'storage',
         'notifications',
         'integrations',
-        'ai-intelligence',
         'logging',
         'advanced'
       ];

@@ -148,7 +148,7 @@ export interface EnvironmentOption {
 
                   <div class="border-t border-slate-100 my-0.5"></div>
 
-                  <!-- Option 2: Existing AKAAL project -->
+                  <!-- Option 2: Existing DevKros project -->
                   <button
                     type="button"
                     (click)="setContextType('EXISTING_PROJECT')"

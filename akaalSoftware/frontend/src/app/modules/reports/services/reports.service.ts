@@ -138,7 +138,7 @@ const INITIAL_CERTIFICATION_ENVELOPES: Record<string, CertificationDetailEnvelop
     exceptions: [],
     integrity: {
       sha256_fingerprint: '4a8f9b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a',
-      producer_authority: 'AKAAL Migration Assurance Service v2.4',
+      producer_authority: 'DevKros Migration Assurance Service v2.4',
       verification_status: 'VERIFIED',
       verification_method: 'SHA-256 Digest Match',
       verified_at: new Date(Date.now() - 1000 * 60 * 40).toISOString()
@@ -215,7 +215,7 @@ const INITIAL_CERTIFICATION_ENVELOPES: Record<string, CertificationDetailEnvelop
     exceptions: [],
     integrity: {
       sha256_fingerprint: '9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1f0e9d8c7b6a5f4e3d2c1b0a9f8e',
-      producer_authority: 'AKAAL Validation Engine v3.1',
+      producer_authority: 'DevKros Validation Engine v3.1',
       verification_status: 'VERIFIED',
       verification_method: 'SHA-256 Digest Match',
       verified_at: new Date(Date.now() - 1000 * 60 * 58).toISOString()
@@ -266,7 +266,7 @@ const INITIAL_CERTIFICATION_ENVELOPES: Record<string, CertificationDetailEnvelop
     exceptions: [],
     integrity: {
       sha256_fingerprint: '3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c',
-      producer_authority: 'AKAAL Analytics Bridge v1.8',
+      producer_authority: 'DevKros Analytics Bridge v1.8',
       verification_status: 'VERIFIED',
       verification_method: 'SHA-256 Digest Match'
     },
@@ -323,7 +323,7 @@ const INITIAL_CERTIFICATION_ENVELOPES: Record<string, CertificationDetailEnvelop
     ],
     integrity: {
       sha256_fingerprint: '7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b',
-      producer_authority: 'AKAAL Validation Engine v3.1',
+      producer_authority: 'DevKros Validation Engine v3.1',
       verification_status: 'VERIFIED',
       verification_method: 'SHA-256 Digest Match'
     },
@@ -381,7 +381,7 @@ const INITIAL_CERTIFICATION_ENVELOPES: Record<string, CertificationDetailEnvelop
     ],
     integrity: {
       sha256_fingerprint: '2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d',
-      producer_authority: 'AKAAL CDC Engine v2.0',
+      producer_authority: 'DevKros CDC Engine v2.0',
       verification_status: 'VERIFIED',
       verification_method: 'SHA-256 Digest Match'
     },
@@ -430,7 +430,7 @@ const INITIAL_CERTIFICATION_ENVELOPES: Record<string, CertificationDetailEnvelop
     exceptions: [],
     integrity: {
       sha256_fingerprint: '5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a',
-      producer_authority: 'AKAAL Validation Engine v3.1',
+      producer_authority: 'DevKros Validation Engine v3.1',
       verification_status: 'VERIFIED',
       verification_method: 'SHA-256 Digest Match'
     },
@@ -1067,7 +1067,7 @@ function buildReportEnvelope(report: ReportItemDTO): ReportDetailEnvelopeDTO {
     trust_and_provenance: {
       report_id: report.id,
       generated_at: report.generated_at,
-      producer_engine: 'AKAAL Unified Reporting & Assurance Subsystem',
+      producer_engine: 'DevKros Unified Reporting & Assurance Subsystem',
       producer_version: 'v2.0.0-release (M8 Engine)',
       run_or_plan_binding: 'plan-v2.4.1 :: run-' + report.id.toLowerCase(),
       artifact_sha256_fingerprint: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
@@ -1193,6 +1193,7 @@ export class ReportsService {
   public exportTargetReport = signal<ReportItemDTO | ReportDetailEnvelopeDTO | null>(null);
   public isExporting = signal<boolean>(false);
   public lastExportResult = signal<ExportResponseDTO | null>(null);
+  public exportError = signal<string | null>(null);
 
   // Home Page Search Signal
   public reportSearchQuery = signal<string>('');
@@ -1338,6 +1339,7 @@ export class ReportsService {
   public openExportModal(report: ReportItemDTO | ReportDetailEnvelopeDTO): void {
     this.exportTargetReport.set(report);
     this.lastExportResult.set(null);
+    this.exportError.set(null);
     this.isExportModalOpen.set(true);
   }
 
@@ -1345,6 +1347,7 @@ export class ReportsService {
     this.isExportModalOpen.set(false);
     this.exportTargetReport.set(null);
     this.isExporting.set(false);
+    this.exportError.set(null);
   }
 
   public dispatchExport(format: ExportFormat): void {
@@ -1352,21 +1355,14 @@ export class ReportsService {
     if (!target) return;
 
     this.isExporting.set(true);
+    this.exportError.set(null);
 
     setTimeout(() => {
       this.isExporting.set(false);
-      const ext = format.toLowerCase();
-      const filename = `${target.id.toLowerCase()}_${target.category.toLowerCase()}_export.${ext}`;
-      this.lastExportResult.set({
-        export_id: 'EXP-' + Math.random().toString(36).substring(2, 9).toUpperCase(),
-        report_id: target.id,
-        format,
-        status: 'READY',
-        file_name: filename,
-        byte_size: format === 'ZIP' ? 428000 : (format === 'PDF' ? 184000 : 12400),
-        generated_at: new Date().toISOString()
-      });
-    }, 600);
+      // Fail closed when backend report export engine is unavailable:
+      this.lastExportResult.set(null);
+      this.exportError.set('Report export requires an active backend engine connection.');
+    }, 400);
   }
 
   public refresh(): void {
@@ -1618,7 +1614,7 @@ export class ReportsService {
       subject_name: 'Enterprise Data Lakehouse',
       subject_id: 'mig-ent-analytics',
       created_at: new Date(Date.now() - 1000 * 60 * 185).toISOString(),
-      producer_authority: 'AKAAL Analytics Bridge',
+      producer_authority: 'DevKros Analytics Bridge',
       fingerprint: '3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c',
       byte_size: 90177536,
       lifecycle: 'ACTIVE',

@@ -171,16 +171,16 @@ import { CustomSelectComponent } from '../../../../shared/components/custom-sele
                   </span>
                 </td>
 
-                <!-- Column 2: Migration Use (Only Name, No MN) -->
+                <!-- Column 2: Migration Use (Plain Text) -->
                 <td class="py-3.5 px-4 align-middle whitespace-nowrap">
-                  <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-100 text-slate-800 border border-slate-200">
+                  <span class="text-xs font-medium text-slate-700">
                     {{ getModeDescriptor(tmpl.mode).label }}
                   </span>
                 </td>
 
                 <!-- Column 3: Applicability (Source -> Target Clean Text) -->
                 <td class="py-3.5 px-4 align-middle whitespace-nowrap">
-                  <div class="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
+                  <div class="text-xs font-medium text-slate-800 flex items-center gap-1.5">
                     <span>{{ tmpl.applicability.sourceProviderName }}</span>
                     <span class="text-slate-400 font-normal">→</span>
                     <span>{{ tmpl.applicability.targetProviderName }}</span>
@@ -194,14 +194,12 @@ import { CustomSelectComponent } from '../../../../shared/components/custom-sele
                       Usage unavailable
                     </span>
                   } @else if (tmpl.usage.isUnused) {
-                    <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
-                      Unused
-                    </span>
+                    <span class="text-xs text-slate-500 font-medium">Unused</span>
                   } @else {
-                    <div class="text-xs font-medium text-slate-800">
-                      <strong class="font-mono font-bold text-slate-900">{{ tmpl.usage.migrationCount }}</strong> {{ tmpl.usage.migrationCount === 1 ? 'migration' : 'migrations' }}
-                      <span class="text-slate-300 mx-1">•</span>
-                      <strong class="font-mono font-bold text-slate-900">{{ tmpl.usage.referencedProjectCount }}</strong> {{ tmpl.usage.referencedProjectCount === 1 ? 'project' : 'projects' }}
+                    <div class="text-xs text-slate-700 font-normal">
+                      <span class="tabular-nums font-semibold text-slate-900">{{ tmpl.usage.migrationCount }}</span> {{ tmpl.usage.migrationCount === 1 ? 'migration' : 'migrations' }}
+                      <span class="text-slate-300 mx-1">&middot;</span>
+                      <span class="tabular-nums font-semibold text-slate-900">{{ tmpl.usage.referencedProjectCount }}</span> {{ tmpl.usage.referencedProjectCount === 1 ? 'project' : 'projects' }}
                     </div>
                   }
                 </td>

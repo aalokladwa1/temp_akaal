@@ -336,7 +336,7 @@ describe('Part B: Create Template Workflow', () => {
   // 7. STEP 6: REVIEW & FINAL CREATION TRANSACTION
   // =========================================================================
   describe('7. Step 6: Review & Final Instantiation', () => {
-    it('instantiates new template, prepends to inventory, and navigates home', () => {
+    it('B-TH-01: fails closed on create template when backend persistence is not connected', () => {
       const initialInventoryCount = templatesService.templates().length;
 
       service.updateDefinition({
@@ -350,16 +350,10 @@ describe('Part B: Create Template Workflow', () => {
 
       service.createTemplate();
 
-      expect(templatesService.templates().length).toBe(initialInventoryCount + 1);
-      const created = templatesService.templates()[0];
-      expect(created.name).toBe('Enterprise MySQL to PostgreSQL Migration Template');
-      expect(created.mode).toBe('M2_BULK_CDC');
-      expect(created.applicability.sourceProviderName).toBe('MySQL');
-      expect(created.applicability.targetProviderName).toBe('PostgreSQL');
-      expect(created.scope).toBe('ORGANIZATION');
-      expect(created.lifecycle).toBe('PUBLISHED');
-      expect(created.usage.isUnused).toBe(true);
-      expect(routerMock.navigate).toHaveBeenCalledWith(['/migration/templates']);
+      // Does not invent fake template ID or fabricate local persistence
+      expect(templatesService.templates().length).toBe(initialInventoryCount);
+      expect(service.persistenceError()).toContain('Template persistence is not connected');
+      expect(service.draft().definition.name).toBe('Enterprise MySQL to PostgreSQL Migration Template');
     });
   });
 });

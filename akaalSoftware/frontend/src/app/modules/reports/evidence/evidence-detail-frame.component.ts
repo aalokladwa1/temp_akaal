@@ -50,8 +50,10 @@ export type EvidenceDetailTab = 'OVERVIEW' | 'SCOPE' | 'PROVENANCE' | 'INTEGRITY
           </button>
 
           <button
-            (click)="service.downloadEvidenceArtifact(envelope.id)"
-            class="h-9 px-3.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs inline-flex items-center justify-center cursor-pointer transition-colors shadow-2xs">
+            type="button"
+            disabled
+            title="Artifact download requires backend connection"
+            class="h-9 px-3.5 rounded-lg border border-slate-200 bg-slate-100 text-slate-400 font-medium text-xs inline-flex items-center justify-center cursor-not-allowed shadow-2xs">
             Download Proof
           </button>
         </div>

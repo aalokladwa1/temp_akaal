@@ -3,7 +3,7 @@
  * Centered single-task request form.
  */
 
-import { Component, inject } from '@angular/core';
+import { Component, inject, Optional, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -99,6 +99,19 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
             class="p-3 rounded-lg border border-slate-300 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"></textarea>
         </div>
 
+        <!-- Error alert banner -->
+        @if (submissionError()) {
+          <div class="p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3 text-amber-900 animate-in fade-in duration-150">
+            <div class="w-6 h-6 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 mt-0.5">
+              <app-lucide-icon name="alert-triangle" [size]="15"></app-lucide-icon>
+            </div>
+            <div class="flex flex-col gap-0.5 text-xs">
+              <span class="font-bold">Governance Engine Unavailable</span>
+              <span class="text-amber-800 font-sans">{{ submissionError() }}</span>
+            </div>
+          </div>
+        }
+
         <!-- Actions -->
         <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
           <a
@@ -109,9 +122,13 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
           <button
             type="button"
             (click)="onSubmit()"
-            [disabled]="!isValid()"
+            [disabled]="!isValid() || isSubmitting()"
             class="h-9 px-5 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-xs inline-flex items-center justify-center transition-colors shadow-2xs cursor-pointer">
-            Submit Exception Request
+            @if (!isSubmitting()) {
+              <span>Submit Exception Request</span>
+            } @else {
+              <span>Submitting...</span>
+            }
           </button>
         </div>
 
@@ -121,8 +138,33 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
   `
 })
 export class ExceptionRequestComponent {
-  private complianceService = inject(ComplianceService);
-  private router = inject(Router);
+  private complianceService?: ComplianceService;
+  private router?: Router;
+
+  constructor(
+    @Optional() complianceService?: ComplianceService,
+    @Optional() router?: Router
+  ) {
+    if (complianceService) {
+      this.complianceService = complianceService;
+    } else {
+      try {
+        this.complianceService = inject(ComplianceService, { optional: true }) || undefined;
+      } catch {
+        this.complianceService = undefined;
+      }
+    }
+
+    if (router) {
+      this.router = router;
+    } else {
+      try {
+        this.router = inject(Router, { optional: true }) || undefined;
+      } catch {
+        this.router = undefined;
+      }
+    }
+  }
 
   public title = '';
   public controlCode = '';
@@ -130,6 +172,9 @@ export class ExceptionRequestComponent {
   public scope = '';
   public reason = '';
   public justification = '';
+
+  public submissionError = signal<string | null>(null);
+  public isSubmitting = signal<boolean>(false);
 
   public isValid(): boolean {
     return (
@@ -142,17 +187,13 @@ export class ExceptionRequestComponent {
 
   public onSubmit(): void {
     if (!this.isValid()) return;
-    this.complianceService.createException({
-      code: `EXC-2026-${Math.floor(100 + Math.random() * 900)}`,
-      title: this.title.trim(),
-      frameworkId: 'fw-hipaa',
-      controlCode: this.controlCode.trim().toUpperCase(),
-      reason: this.reason.trim(),
-      scope: this.scope.trim(),
-      justification: this.justification.trim(),
-      approvedBy: 'Pending Security Review',
-      validUntil: this.validUntil
-    });
-    this.router.navigate(['/administration/compliance/controls/exceptions']);
+    this.isSubmitting.set(true);
+    this.submissionError.set(null);
+
+    setTimeout(() => {
+      this.isSubmitting.set(false);
+      // Fail closed when backend governance engine is unavailable:
+      this.submissionError.set('Compliance exception submission requires active governance engine connectivity.');
+    }, 400);
   }
 }

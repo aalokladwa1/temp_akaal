@@ -1,5 +1,6 @@
 import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { HistoryWorkspaceService } from '../history-workspace.service';
 import {
@@ -11,10 +12,25 @@ import {
 @Component({
   selector: 'app-history-workspace-nav',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   template: `
-    <nav class="bg-white border-b border-slate-200 px-6 overflow-x-auto select-none" aria-label="History Workspace Sections">
-      <div class="flex items-center space-x-1 min-w-max" role="tablist">
+    <nav class="bg-white border-b border-slate-200 px-6 select-none" aria-label="History Workspace Sections">
+      <!-- 1024px Responsive Select Dropdown (Guarantees 100% Tab Discoverability at 1024px) -->
+      <div class="block xl:hidden py-2.5">
+        <label for="history-tab-select" class="sr-only">Select History Section</label>
+        <select
+          id="history-tab-select"
+          [ngModel]="hws.activeTab()"
+          (ngModelChange)="selectTab($event)"
+          class="w-full text-xs font-semibold py-2 px-3 rounded-lg border border-slate-300 bg-white text-slate-800 focus:outline-none focus:border-blue-500 cursor-pointer">
+          @for (tab of tabs; track tab.id) {
+            <option [value]="tab.id">{{ tab.label }}</option>
+          }
+        </select>
+      </div>
+
+      <!-- Desktop Tab List -->
+      <div class="hidden xl:flex items-center space-x-1 min-w-max" role="tablist">
         @for (tab of tabs; track tab.id) {
           <button
             type="button"

@@ -62,7 +62,22 @@ import { LucideIconComponent } from '../../../shared/components/lucide-icon.comp
               </div>
             }
 
-            <!-- Export Success Result -->
+            <!-- Export Error / Disconnected State -->
+            @else if (service.exportError()) {
+              <div class="py-4 flex flex-col gap-4">
+                <div class="p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-center gap-3 text-amber-900">
+                  <div class="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                    <app-lucide-icon name="alert-triangle" [size]="16"></app-lucide-icon>
+                  </div>
+                  <div class="flex flex-col">
+                    <span class="text-xs font-bold font-heading">Report Export Unavailable</span>
+                    <span class="text-[11px] text-amber-800 font-sans">{{ service.exportError() }}</span>
+                  </div>
+                </div>
+              </div>
+            }
+
+            <!-- Export Success Result (when backend provides canonical output) -->
             @else if (service.lastExportResult()) {
               <div class="py-4 flex flex-col gap-4">
                 <div class="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-3">

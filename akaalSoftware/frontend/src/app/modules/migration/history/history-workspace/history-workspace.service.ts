@@ -63,11 +63,6 @@ export class HistoryWorkspaceService {
       return this.generateWorkspaceRecordFromHome(homeRecord);
     }
 
-    // Fallback default
-    if (HISTORY_WORKSPACE_FIXTURES['mig-fin-core-01']) {
-      return HISTORY_WORKSPACE_FIXTURES['mig-fin-core-01'];
-    }
-
     return null;
   });
 
@@ -231,8 +226,10 @@ export class HistoryWorkspaceService {
   }
 
   public retry(): void {
-    const id = this.activeMigrationId() || 'mig-fin-core-01';
-    this.loadMigration(id);
+    const id = this.activeMigrationId();
+    if (id) {
+      this.loadMigration(id);
+    }
   }
 
   // Smart Generator from HistoryHome item
