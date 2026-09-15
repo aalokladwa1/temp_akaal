@@ -139,9 +139,9 @@ class GovernedHookExecutor:
                     raise HookExecutionError(f"Hook '{hook.hook_id}' rolled back and aborted: {clean_err}")
 
         # Emit Authority #12 Evidence Artifact if EvidenceAuthority is configured
-        if self.evidence_authority and hasattr(self.evidence_authority, "package_hook_execution_evidence"):
+        if self.evidence_authority and hasattr(self.evidence_authority, "package_hook_execution_artifact"):
             try:
-                self.evidence_authority.package_hook_execution_evidence(
+                self.evidence_authority.package_hook_execution_artifact(
                     migration_id=workflow_id,
                     run_id=run_id,
                     hook_results=stage_results,

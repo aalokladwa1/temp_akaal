@@ -7,7 +7,8 @@ Produces syntax-exact PostgreSQL functions and procedures with error handling an
 
 from __future__ import annotations
 
-from typing import List, Tuple
+import re
+from typing import List, Optional, Tuple
 
 from akaalEngine.schema.models.programmables import ParameterMode, RoutineKind
 from akaalEngine.schema.procedural.ast_nodes import (
@@ -47,6 +48,18 @@ from akaalEngine.schema.procedural.transforms.exceptions import ExceptionTransfo
 class PLpgSQLEmitter:
     """Emits syntax-exact PostgreSQL PL/pgSQL code from RoutineAST."""
 
+    @staticmethod
+    def _clean_identifier(name: str) -> str:
+        if not name:
+            return name
+        return name.lstrip("@")
+
+    @staticmethod
+    def _clean_expression(expr: Optional[str]) -> Optional[str]:
+        if not expr:
+            return expr
+        return re.sub(r"(?<![a-zA-Z0-9_])@([a-zA-Z_][a-zA-Z0-9_]*)", r"\1", expr)
+
     @classmethod
     def emit_routine(cls, ast: RoutineAST, schema_name: str = "public") -> ProceduralConversionResult:
         diagnostics: List[ProceduralDiagnostic] = []
@@ -74,8 +87,9 @@ class PLpgSQLEmitter:
                 mode_str = "INOUT "
             
             p_type = cls._map_datatype(p.data_type)
-            default_str = f" DEFAULT {p.default_value}" if p.default_value else ""
-            param_defs.append(f"{mode_str}{p.name} {p_type}{default_str}")
+            p_name = cls._clean_identifier(p.name)
+            default_str = f" DEFAULT {cls._clean_expression(p.default_value)}" if p.default_value else ""
+            param_defs.append(f"{mode_str}{p_name} {p_type}{default_str}")
 
         qual_name = f'"{schema_name}"."{ast.name}"' if schema_name else f'"{ast.name}"'
         sig_str = f"({', '.join(param_defs)})"
@@ -92,11 +106,15 @@ class PLpgSQLEmitter:
         for d in ast.body.declarations:
             if isinstance(d, VariableDeclaration):
                 v_type = cls._map_datatype(d.data_type)
+                d_name = cls._clean_identifier(d.name)
                 const_str = "CONSTANT " if d.is_constant else ""
-                def_str = f" := {d.default_value}" if d.default_value else ""
-                declare_lines.append(f"    {d.name} {const_str}{v_type}{def_str};")
+                def_str = f" := {cls._clean_expression(d.default_value)}" if d.default_value else ""
+                declare_lines.append(f"    {d_name} {const_str}{v_type}{def_str};")
             elif isinstance(d, CursorDefinition):
-                declare_lines.append(f"    {d.name} CURSOR FOR {d.query_sql};")
+                c_name = cls._clean_identifier(d.name)
+                q_sql = cls._clean_expression(d.query_sql)
+                declare_lines.append(f"    {c_name} CURSOR FOR {q_sql};")
+
 
         # 4. Statements Section
         body_lines = []
@@ -154,16 +172,21 @@ class PLpgSQLEmitter:
             return f"{indent}NULL;"
 
         elif isinstance(node, AssignmentStatement):
-            return f"{indent}{node.target} := {node.expression};"
+            target = cls._clean_identifier(node.target)
+            expr = cls._clean_expression(node.expression)
+            return f"{indent}{target} := {expr};"
 
         elif isinstance(node, ReturnStatement):
-            if node.expression:
-                return f"{indent}RETURN {node.expression};"
+            expr = cls._clean_expression(node.expression)
+            if expr:
+                return f"{indent}RETURN {expr};"
             return f"{indent}RETURN;"
 
         elif isinstance(node, CallStatement):
-            args_str = f"({', '.join(node.arguments)})" if node.arguments else "()"
-            return f"{indent}CALL {node.routine_name}{args_str};"
+            r_name = cls._clean_identifier(node.routine_name)
+            args = [cls._clean_expression(a) for a in node.arguments]
+            args_str = f"({', '.join(args)})" if args else "()"
+            return f"{indent}CALL {r_name}{args_str};"
 
         elif isinstance(node, RaiseStatement):
             if node.message:
@@ -173,11 +196,13 @@ class PLpgSQLEmitter:
             return f"{indent}RAISE;"
 
         elif isinstance(node, IfStatement):
-            lines = [f"{indent}IF {node.condition} THEN"]
+            cond = cls._clean_expression(node.condition)
+            lines = [f"{indent}IF {cond} THEN"]
             for s in node.then_statements:
                 lines.append(cls._emit_statement(s, indent_level + 1))
             for e in node.elsif_clauses:
-                lines.append(f"{indent}ELSIF {e.condition} THEN")
+                e_cond = cls._clean_expression(e.condition)
+                lines.append(f"{indent}ELSIF {e_cond} THEN")
                 for s in e.statements:
                     lines.append(cls._emit_statement(s, indent_level + 1))
             if node.else_statements:
@@ -188,10 +213,11 @@ class PLpgSQLEmitter:
             return "\n".join(lines)
 
         elif isinstance(node, CaseStatement):
-            expr_str = f" {node.expression}" if node.expression else ""
+            expr_str = f" {cls._clean_expression(node.expression)}" if node.expression else ""
             lines = [f"{indent}CASE{expr_str}"]
             for w in node.when_clauses:
-                lines.append(f"{indent}    WHEN {w.condition} THEN")
+                w_cond = cls._clean_expression(w.condition)
+                lines.append(f"{indent}    WHEN {w_cond} THEN")
                 for s in w.statements:
                     lines.append(cls._emit_statement(s, indent_level + 2))
             if node.else_statements:
@@ -202,7 +228,8 @@ class PLpgSQLEmitter:
             return "\n".join(lines)
 
         elif isinstance(node, WhileStatement):
-            lines = [f"{indent}WHILE {node.condition} LOOP"]
+            cond = cls._clean_expression(node.condition)
+            lines = [f"{indent}WHILE {cond} LOOP"]
             for s in node.statements:
                 lines.append(cls._emit_statement(s, indent_level + 1))
             lines.append(f"{indent}END LOOP;")
@@ -210,14 +237,19 @@ class PLpgSQLEmitter:
 
         elif isinstance(node, ForLoopStatement):
             rev_str = "REVERSE " if node.is_reverse else ""
-            lines = [f"{indent}FOR {node.iterator_name} IN {rev_str}{node.lower_bound}..{node.upper_bound} LOOP"]
+            it_name = cls._clean_identifier(node.iterator_name)
+            lb = cls._clean_expression(str(node.lower_bound))
+            ub = cls._clean_expression(str(node.upper_bound))
+            lines = [f"{indent}FOR {it_name} IN {rev_str}{lb}..{ub} LOOP"]
             for s in node.statements:
                 lines.append(cls._emit_statement(s, indent_level + 1))
             lines.append(f"{indent}END LOOP;")
             return "\n".join(lines)
 
         elif isinstance(node, CursorForLoopStatement):
-            lines = [f"{indent}FOR {node.record_name} IN ({node.cursor_or_query}) LOOP"]
+            rec_name = cls._clean_identifier(node.record_name)
+            cq = cls._clean_expression(node.cursor_or_query)
+            lines = [f"{indent}FOR {rec_name} IN ({cq}) LOOP"]
             for s in node.statements:
                 lines.append(cls._emit_statement(s, indent_level + 1))
             lines.append(f"{indent}END LOOP;")
@@ -231,19 +263,23 @@ class PLpgSQLEmitter:
             return "\n".join(lines)
 
         elif isinstance(node, CursorOpenStatement):
-            return f"{indent}OPEN {node.cursor_name};"
+            c_name = cls._clean_identifier(node.cursor_name)
+            return f"{indent}OPEN {c_name};"
 
         elif isinstance(node, CursorFetchStatement):
-            vars_str = ", ".join(node.target_variables)
-            return f"{indent}FETCH {node.cursor_name} INTO {vars_str};"
+            c_name = cls._clean_identifier(node.cursor_name)
+            vars_str = ", ".join(cls._clean_identifier(v) for v in node.target_variables)
+            return f"{indent}FETCH {c_name} INTO {vars_str};"
 
         elif isinstance(node, CursorCloseStatement):
-            return f"{indent}CLOSE {node.cursor_name};"
+            c_name = cls._clean_identifier(node.cursor_name)
+            return f"{indent}CLOSE {c_name};"
 
         elif isinstance(node, DynamicSQLNode):
-            into_str = f" INTO {', '.join(node.into_variables)}" if node.into_variables else ""
-            using_str = f" USING {', '.join(node.using_variables)}" if node.using_variables else ""
-            return f"{indent}EXECUTE {node.sql_expression}{into_str}{using_str};"
+            sql_expr = cls._clean_expression(node.sql_expression)
+            into_str = f" INTO {', '.join(cls._clean_identifier(v) for v in node.into_variables)}" if node.into_variables else ""
+            using_str = f" USING {', '.join(cls._clean_expression(v) for v in node.using_variables)}" if node.using_variables else ""
+            return f"{indent}EXECUTE {sql_expr}{into_str}{using_str};"
 
         elif isinstance(node, DMLStatement):
             sql_clean = node.sql.strip().rstrip(';')
@@ -257,6 +293,7 @@ class PLpgSQLEmitter:
             return "\n".join(lines)
 
         return f"{indent}-- Unsupported or unhandled construct;"
+
 
     @staticmethod
     def _map_datatype(type_str: str) -> str:

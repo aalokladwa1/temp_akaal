@@ -157,7 +157,37 @@ class ManagerAgent:
         self._loop_governor.register_freeze_callback(self._on_freeze)
         self._loop_governor.register_escalation_callback(self._on_escalation)
 
+        # CORRECTION (bypass-closure campaign, this session): lazily constructed,
+        # test-injectable reference to the ONE canonical physical execution
+        # authority (`AkaalSuperEngine.execute_migration`). ManagerAgent's own
+        # task-dispatch state machine (this class) and GBAgent's independent
+        # adapter-based transport engine are a real, separately-tested
+        # orchestration system (the "Phase 12 AkaalPipeline") that predates and
+        # is architecturally independent of `PlanCompiler`/`ExecutionMode`
+        # (different state store: GlobalState/MessageBus here vs
+        # CentralStateStore + compiled DAG there). Rearchitecting the whole
+        # GBAgent transport/checkpoint/recovery subsystem to route through
+        # AkaalSuperEngine is out of scope for this correction (would require
+        # rewriting akaal/agents/gb/gb_agent.py's checkpoint/recovery model and
+        # is not safely achievable without touching engine/facade.py, which is
+        # off-limits here). Instead, at the single physical-dispatch choke
+        # point (`_dispatch_physical_migration_task`) this agent now checks for
+        # a compiled, governance-approved plan for the migration_id in
+        # CentralStateStore: if one exists, physical execution is delegated for
+        # real into AkaalSuperEngine.execute_migration; if not (true for every
+        # caller today, since this pipeline never compiles/approves a DAG
+        # plan), the dispatch FAILS CLOSED rather than silently running GBAgent
+        # transport outside the canonical mode-fence/governance authority.
+        self._super_engine = None
+
         logger.info("[ManagerAgent] Constructed. ID=%s (Backup=%s)", self.agent_id, self._is_backup)
+
+    @property
+    def super_engine(self):
+        if self._super_engine is None:
+            from akaal.engine.facade import AkaalSuperEngine
+            self._super_engine = AkaalSuperEngine()
+        return self._super_engine
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -893,7 +923,7 @@ class ManagerAgent:
                     parameters={"batch_number": 1, "batch_total": 1},
                 )
 
-                result = await self._dispatch_task(mig_task, project)
+                result = await self._dispatch_physical_migration_task(mig_task, project, session)
 
                 if not result.success:
                     decision = await self._handle_task_failure(project, session, mig_task, result)
@@ -998,7 +1028,7 @@ class ManagerAgent:
                     priority=Priority.P1_MIGRATION,
                     parameters={"table_name": table_name},
                 )
-                res = await self._dispatch_task(task, project)
+                res = await self._dispatch_physical_migration_task(task, project, session)
                 logger.debug("Worker completed", extra={"event": "worker_completed", "table_name": table_name})
                 return table_name, res.success, res.error_message
 
@@ -1477,6 +1507,137 @@ class ManagerAgent:
     # ------------------------------------------------------------------
     # Task Dispatch
     # ------------------------------------------------------------------
+
+    async def _dispatch_physical_migration_task(
+        self,
+        task: Task,
+        project: MigrationProject,
+        session: MigrationSession,
+    ) -> TaskResult:
+        """
+        Single choke point for PHYSICAL (production, row-transporting)
+        migration work dispatched by this Manager (TaskType.MIGRATION_BATCH,
+        assigned_to=AgentType.GB), covering both the legacy single-batch path
+        and the parallel per-table scheduler path.
+
+        CORRECTION (bypass-closure campaign, this session): this method used
+        to just be an unconditional `await self._dispatch_task(task, project)`
+        straight to GBAgent's own independent adapter-based transport engine —
+        real physical execution with no mode-fence (M1-M8) or governance/plan-
+        fingerprint check from `akaal.engine.facade.AkaalSuperEngine`. That made
+        this a confirmed, real, mode-blind bypass of the canonical DAG-driven
+        physical execution authority, exactly like the one closed in
+        `akaal.runtime.process.daemon.MigrationRuntimeDaemon`.
+
+        Genuinely rewiring GBAgent's whole checkpoint/recovery/adaptive-batch
+        transport engine to execute *through* `AkaalSuperEngine.execute_migration`
+        is out of scope here (different state store, different orchestration
+        model, and would require editing engine/facade.py which is off-limits
+        for this correction). So, mirroring the daemon.py precedent exactly:
+        if a compiled, governance-approved DAG plan exists for this
+        migration_id in CentralStateStore, physical execution is delegated for
+        real into `AkaalSuperEngine.execute_migration`. If no such plan exists
+        (true today for every caller of this pipeline, since it never compiles
+        or governance-approves a DAG), this method FAILS CLOSED and returns a
+        failed TaskResult instead of silently running GBAgent transport outside
+        the canonical authority — the existing TaskExecutionError/retry
+        machinery in `run_migration` then handles it like any other real task
+        failure.
+        """
+        from akaal.core.state.state_store import CentralStateStore
+        from akaal.engine.facade import (
+            ApprovalRequiredError,
+            PlanFingerprintMissingError,
+            PlanFingerprintMismatchError,
+            PhysicalExecutionContractError,
+            PhysicalValidationContractError,
+        )
+
+        migration_id = session.migration_id
+        state_store = CentralStateStore()
+        dag_dict = state_store.get_state(migration_id, category="execution_plan")
+
+        if not dag_dict or not isinstance(dag_dict, dict) or not dag_dict.get("dag_stages"):
+            msg = (
+                f"MANAGER_AGENT_BYPASS_CLOSED: no compiled dag_dict (with dag_stages) is available for "
+                f"migration '{migration_id}' in CentralStateStore under category='execution_plan'. "
+                f"ManagerAgent refuses to dispatch physical migration work (task_type={task.task_type.value}) "
+                f"to GBAgent's independent transport engine outside the canonical, mode-fence-enforcing "
+                f"DAG-driven execution authority. Compile a plan via "
+                f"akaal.planner.engine.plan_compiler.PlanCompiler and obtain governance approval, then retry."
+            )
+            logger.error("[ManagerAgent] %s", msg)
+            self._audit.log(
+                event_type=AuditEventType.TASK_FAILED,
+                actor=AgentType.MANAGER.value,
+                description="Physical migration dispatch refused: no canonical governance-approved plan.",
+                project_id=project.project_id,
+                migration_id=migration_id,
+                details={"task_id": task.task_id, "task_type": task.task_type.value, "error_code": "PLAN_NOT_LOAD_BEARING"},
+            )
+            task.fail(msg)
+            return TaskResult(
+                task_id=task.task_id,
+                project_id=task.project_id,
+                migration_id=task.migration_id,
+                agent_type=task.assigned_to,
+                success=False,
+                output={},
+                error_message=msg,
+                is_recoverable=False,
+                duration_seconds=0.0,
+                objects_processed=0,
+            )
+
+        spec_dict = state_store.get_state(migration_id, category="migration") or {}
+        source_params = task.parameters.get("source_params")
+        target_params = task.parameters.get("target_params")
+
+        try:
+            result = self.super_engine.execute_migration(
+                workflow_id=migration_id,
+                spec_dict=spec_dict,
+                dag_dict=dag_dict,
+                source_params=source_params,
+                target_params=target_params,
+                is_physical=True,
+                is_synthetic_test=bool(task.parameters.get("is_synthetic_test", False)),
+            )
+            exec_record = state_store.get_state(f"{migration_id}_plan_execution", category="runtime") or {}
+            is_ok = bool(exec_record.get("success", True))
+            if is_ok:
+                task.complete()
+            else:
+                task.fail(str(exec_record.get("error", "Canonical plan execution reported failure.")))
+            return TaskResult(
+                task_id=task.task_id,
+                project_id=task.project_id,
+                migration_id=task.migration_id,
+                agent_type=task.assigned_to,
+                success=is_ok,
+                output={"trace": result, "plan_execution": exec_record} if is_ok else {},
+                error_message=None if is_ok else str(exec_record.get("error", "Canonical plan execution reported failure.")),
+                is_recoverable=True,
+                duration_seconds=0.0,
+                objects_processed=exec_record.get("tables_processed", 0),
+            )
+        except (ApprovalRequiredError, PlanFingerprintMissingError, PlanFingerprintMismatchError,
+                PhysicalExecutionContractError, PhysicalValidationContractError) as exc:
+            msg = f"Governance/contract gate rejected canonical execution: {exc}"
+            logger.error("[ManagerAgent] %s", msg)
+            task.fail(msg)
+            return TaskResult(
+                task_id=task.task_id,
+                project_id=task.project_id,
+                migration_id=task.migration_id,
+                agent_type=task.assigned_to,
+                success=False,
+                output={},
+                error_message=msg,
+                is_recoverable=False,
+                duration_seconds=0.0,
+                objects_processed=0,
+            )
 
     async def _dispatch_task(
         self,

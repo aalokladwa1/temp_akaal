@@ -207,6 +207,23 @@ class SQLiteWalBackend(BaseDurableStorageBackend):
                 );
                 """)
 
+                # M4 correction: durable watermark authority (numeric / timestamp /
+                # compound). Additive table -- no destructive migration needed.
+                conn.execute("""
+                CREATE TABLE IF NOT EXISTS watermarks (
+                    migration_id TEXT NOT NULL,
+                    table_name TEXT NOT NULL,
+                    watermark_type TEXT NOT NULL,
+                    value_json TEXT NOT NULL,
+                    plan_fingerprint TEXT NOT NULL,
+                    execution_id TEXT NOT NULL,
+                    fencing_epoch INTEGER NOT NULL,
+                    checksum TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    PRIMARY KEY (migration_id, table_name)
+                );
+                """)
+
                 conn.execute("COMMIT;")
             except Exception as e:
                 conn.execute("ROLLBACK;")

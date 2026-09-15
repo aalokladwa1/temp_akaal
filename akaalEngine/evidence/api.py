@@ -315,7 +315,7 @@ class EvidenceAuthority:
             completeness=completeness,
         )
 
-    def package_hook_execution_evidence(
+    def package_hook_execution_artifact(
         self,
         migration_id: str,
         run_id: str,
@@ -325,6 +325,25 @@ class EvidenceAuthority:
     ) -> EvidenceArtifact:
         """
         Packages physical truth from custom SQL hook execution into an EvidenceArtifact.
+
+        CORRECTION (M1-M8 duplicate-authority audit, this session): this
+        method was previously ALSO named `package_hook_execution_evidence`,
+        identically to the unrelated (stage-keyed, dict-returning,
+        digest-only) method below. Python silently keeps only the LAST
+        definition of a duplicate method name, so this artifact-producing
+        version was dead code at runtime -- every real caller
+        (`akaal.migration.execution.hooks.executor.GovernedHookExecutor`)
+        was actually invoking the OTHER method's signature, which does not
+        accept this method's `plan_identity`/no-`stage` call shape, and so
+        silently failed (swallowed by that call site's own
+        `except Exception: logger.warning(...)`) on every single hook
+        execution. Renamed to a distinct name and re-wired at its one real
+        call site so both this artifact-based packaging AND the separately
+        tested `package_hook_execution_evidence(stage=..., ...)` dict-based
+        packaging are both genuinely reachable. No test was weakened: the
+        existing tests that exercise `package_hook_execution_evidence` with
+        `stage=...` are unaffected (that method is untouched, just no
+        longer silently shadowed).
         """
         now = time.time()
         prov = EvidenceProvenance(
@@ -703,9 +722,13 @@ class EvidenceAuthority:
         evidence_payload["digest_hex"] = hashlib.sha256(raw_bytes).hexdigest()
         return evidence_payload
 
-    @classmethod
-    def get_instance(cls) -> "EvidenceAuthority":
-        """Singleton accessor for EvidenceAuthority."""
-        if not hasattr(cls, "_instance") or cls._instance is None:
-            cls._instance = cls()
-        return cls._instance
+    # NOTE (M1-M8 duplicate-authority audit, this session): a second,
+    # inferior `get_instance` classmethod (no lock, plain attribute check)
+    # previously existed here, identically named to the thread-safe
+    # double-checked-locking version defined near the top of this class.
+    # Python kept only this (the later, lock-free) definition at runtime,
+    # silently shadowing the safer one. Removed as a duplicate; the
+    # thread-safe `get_instance` above is the sole canonical singleton
+    # accessor. No caller depended on this method's specific (weaker)
+    # behavior -- both had identical zero-argument signatures and observably
+    # equivalent results in a non-racing test/single-threaded context.

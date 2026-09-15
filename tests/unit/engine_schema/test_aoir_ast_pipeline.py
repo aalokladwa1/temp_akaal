@@ -127,3 +127,9 @@ def test_tsql_procedure_parsing():
     assert ast.parameters[1].mode == ParameterMode.OUT
     assert len(ast.body.declarations) == 1
     assert len(ast.body.exception_handlers) == 1
+
+    res = PLpgSQLEmitter.emit_routine(ast, schema_name="public")
+    assert "order_id INTEGER" in res.target_sql
+    assert "OUT result VARCHAR" in res.target_sql
+    assert "current_status VARCHAR" in res.target_sql
+    assert "result := 'OK';" in res.target_sql

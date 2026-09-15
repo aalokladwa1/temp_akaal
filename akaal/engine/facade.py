@@ -386,11 +386,25 @@ class AkaalSuperEngine:
             self.event_bus.publish("migration.stage", {"migration_id": workflow_id, "stage": "certification", "message": "Digital trust certificate generated & sealed."})
             time.sleep(0.2)
         else:
-            # Physical Execution Path
-            logger.info("[STAGE 1/5] Pre-Start Authority Validation — Executing live physical connectivity check...")
-            from akaal.workflow.steps.migration_steps import PreStartValidationStep, SchemaExecutionStep, DataTransportStep, ValidationStep
+            # Physical Execution Path — PLAN-DRIVEN (canonical DAG is the execution truth).
+            #
+            # `dag_dict` is the exact compiled-plan artifact (akaal.planner.engine.plan_compiler
+            # .PlanCompiler.compile(...).execution_plan) that `verify_governance_authorization`
+            # already fingerprinted and required governance approval for, above. Execution now
+            # consumes that SAME object's dag_stages -- the DAG that was approved is the DAG
+            # that runs; changing it changes what physically executes (correction #1/#4).
+            if not dag_dict or not isinstance(dag_dict.get("dag_stages"), list) or not dag_dict.get("dag_stages"):
+                raise PhysicalExecutionContractError(
+                    f"PLAN_NOT_LOAD_BEARING: execute_migration requires a compiled dag_dict with "
+                    f"dag_stages to drive physical execution for '{workflow_id}'. Compile via "
+                    f"PlanCompiler before calling execute_migration."
+                )
+
+            logger.info("[STAGE 1/N] Pre-Start Authority Validation — Executing live physical connectivity check...")
+            from akaal.workflow.steps.migration_steps import PreStartValidationStep
             from akaal.workflow.models.context import WorkflowContext
             from akaal.workflow.models.sub_contexts import ExecutionContext, RuntimeContext, UserContext
+            from akaal.engine.plan_dispatch import PlanExecutionDispatcher
 
             rt_params = {**spec_dict, "migration_id": workflow_id, "source_params": source_params, "target_params": target_params}
             wf_ctx = WorkflowContext(
@@ -398,43 +412,38 @@ class AkaalSuperEngine:
                 runtime_context=RuntimeContext(transient_parameters=rt_params),
                 user_context=UserContext(user_id="operator")
             )
+            # Carried for legacy-step delegation inside the dispatcher (postgresql/oracle
+            # target dialects only); never treated as execution truth itself (correction #4).
+            rt_params["__wf_ctx__"] = wf_ctx
 
-            # Pre-start check
-            self.state_store.update_progress(workflow_id, {"status": "RUNNING", "current_stage": "schema_exec"})
+            self.state_store.update_progress(workflow_id, {"status": "RUNNING", "current_stage": "pre_start"})
             p_step = PreStartValidationStep()
             p_res = p_step.execute(wf_ctx)
-            logger.info("[STAGE 1/5] Pre-Start Authority Validation — PASSED.")
+            if not p_res.success:
+                self.state_store.set_state(f"{workflow_id}_status", {"status": "FAILED", "error": "PRE_START_VALIDATION_FAILED"}, category="runtime")
+                raise RuntimeError(f"Pre-start authority validation failed: {p_res.errors}")
+            logger.info("[STAGE 1/N] Pre-Start Authority Validation — PASSED.")
 
-            # Schema Execution
-            self.state_store.update_progress(workflow_id, {"status": "RUNNING", "current_stage": "schema_exec"})
-            logger.info(f"[STAGE 2/5] Target Schema DDL Execution — Applying DDL for {tot_tbls:,} tables...")
-            s_step = SchemaExecutionStep()
-            s_res = s_step.execute(wf_ctx)
-            if not s_res.success:
-                raise RuntimeError(f"Physical schema DDL execution failed: {s_res.errors}")
-            logger.info("[STAGE 2/5] Target Schema DDL Execution — PASSED.")
+            mode_str = str(spec_dict.get("execution_mode") or spec_dict.get("configuration", {}).get("execution_mode") or "M1")
+            dag_stages = dag_dict["dag_stages"]
 
-            # Data Transport Step
-            self.state_store.update_progress(workflow_id, {"status": "RUNNING", "current_stage": "transport"})
-            logger.info(f"[STAGE 3/5] Parallel Stream Data Transport — Streaming physical rows from Oracle to PostgreSQL...")
-            dt_step = DataTransportStep()
-            res = dt_step.execute(wf_ctx)
-            if not res.success:
-                raise RuntimeError(f"Physical data transport failed: {res.errors}")
-            logger.info(f"[STAGE 3/5] Parallel Stream Data Transport — PASSED ({res.context_updates.get('rows_migrated', 0):,} rows written).")
+            dispatcher = PlanExecutionDispatcher(mode_str=mode_str, plan_fingerprint=fingerprint, rt_ctx=rt_params)
+            try:
+                for stage in dag_stages:
+                    self.state_store.update_progress(workflow_id, {"status": "RUNNING", "current_stage": stage.get("name", "?")})
+                exec_result = dispatcher.run(dag_stages)
+            finally:
+                dispatcher.close()
 
-            # Validation Step
-            self.state_store.update_progress(workflow_id, {"status": "RUNNING", "current_stage": "validation"})
-            logger.info("[STAGE 4/5] Physical Checksum Validation — Reconciling Oracle vs PostgreSQL row counts...")
-            val_step = ValidationStep()
-            val_res = val_step.execute(wf_ctx)
-            if not val_res.success:
-                raise RuntimeError(f"Physical checksum validation failed: {val_res.errors}")
-            logger.info("[STAGE 4/5] Physical Checksum Validation — PASSED.")
-            
-            # Certification Step
-            self.state_store.update_progress(workflow_id, {"status": "RUNNING", "current_stage": "certification"})
-            logger.info("[STAGE 5/5] Digital Trust Certification — Sealed SHA-256 custody digest certificate.")
+            self.state_store.set_state(f"{workflow_id}_plan_execution", exec_result.to_dict(), category="runtime")
+
+            if not exec_result.success:
+                failed_stages = [o.stage_name for o in exec_result.stage_outcomes if not o.success and o.skipped_reason != "UPSTREAM_STAGE_FAILED"]
+                self.state_store.set_state(f"{workflow_id}_status", {"status": "FAILED", "error": "PLAN_DRIVEN_EXECUTION_FAILED", "failed_stages": failed_stages}, category="runtime")
+                raise RuntimeError(f"Plan-driven physical execution failed at stage(s): {failed_stages}. Detail: {exec_result.to_dict()}")
+
+            logger.info(f"[PLAN EXECUTION] All {len(dag_stages)} DAG stages dispatched and succeeded "
+                        f"({exec_result.rows_read:,} rows read, {exec_result.rows_written:,} rows written).")
 
         # Stage 5: Completion
         self.state_store.update_progress(workflow_id, {

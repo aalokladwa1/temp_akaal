@@ -147,6 +147,20 @@ class DurabilityAuthority:
         """Advances table row position. Requires an authenticated FencingToken — no bypass."""
         self.checkpoint_registry.save_row_position(migration_id, table_name, position, token)
 
+    # --- Durable Watermarks (M4) ---
+    def save_watermark(self, watermark, token: FencingToken) -> None:
+        """Atomically persists a durable numeric/timestamp/compound watermark.
+        Requires an authenticated FencingToken — no bypass. See
+        `MigrationCheckpointRegistry.save_watermark` for the full invariant
+        set enforced (monotonic ordering, plan/execution identity, stale
+        fencing rejection)."""
+        self.checkpoint_registry.save_watermark(watermark, token)
+
+    def get_watermark(self, migration_id: str, table_name: str):
+        """Returns the current durable Watermark for (migration_id, table_name),
+        or None if none has ever been saved (null-watermark baseline)."""
+        return self.checkpoint_registry.get_watermark(migration_id, table_name)
+
     def _sanitize_text(self, text: str) -> str:
         if not text:
             return ""

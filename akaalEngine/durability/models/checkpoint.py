@@ -113,3 +113,40 @@ class ValidationCheckpointSeam:
     mismatched_rows: int
     last_verified_key: Optional[RowPosition] = None
     status: str = "IN_PROGRESS"
+
+
+class WatermarkType(str, Enum):
+    """M4 correction: the durable watermark's comparison semantics.
+
+    NUMERIC   -- value is an int/float; monotonic advance = new >= old.
+    TIMESTAMP -- value is an ISO-8601 string; monotonic advance = new >= old
+                 (equal timestamps -- ties -- are accepted, not rejected).
+    COMPOUND  -- value is a list/tuple of independently-typed components
+                 (e.g. [timestamp, sequence_no]); monotonic advance uses
+                 Python's own lexicographic tuple ordering component-by-
+                 component, so an equal leading component correctly falls
+                 through to compare the next (tie-breaker) component.
+    """
+    NUMERIC = "NUMERIC"
+    TIMESTAMP = "TIMESTAMP"
+    COMPOUND = "COMPOUND"
+
+
+@dataclass(frozen=True)
+class Watermark:
+    """M4 correction: durable incremental-execution watermark.
+
+    Bound to (migration_id, table_name) as its identity key, and additionally
+    carries plan_fingerprint + execution_id so an incompatible/superseded
+    compiled plan or a stale/concurrent execution cannot reuse or silently
+    advance another execution's watermark (see
+    `MigrationCheckpointRegistry.save_watermark`).
+    """
+    migration_id: str
+    table_name: str
+    watermark_type: "WatermarkType"
+    value: Any  # NUMERIC: int/float. TIMESTAMP: ISO-8601 str. COMPOUND: list/tuple.
+    plan_fingerprint: str
+    execution_id: str
+    fencing_epoch: int
+    updated_at: Optional[str] = None

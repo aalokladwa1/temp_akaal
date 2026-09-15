@@ -127,3 +127,18 @@ class ManifestAlreadyExistsError(ManifestError):
     """Raised when attempting to overwrite an immutable execution manifest."""
     pass
 
+
+class WatermarkRegressionError(DurabilityError):
+    """Raised (M4) when a candidate watermark value is not >= the currently
+    persisted durable watermark for the same migration_id/table_name (fails
+    safe rather than silently accepting a non-monotonic/invalid position)."""
+    pass
+
+
+class WatermarkIdentityMismatchError(DurabilityError):
+    """Raised (M4) when a watermark write targets a migration_id/table_name
+    whose durable watermark is already bound to a different, incompatible
+    plan_fingerprint -- prevents incompatible checkpoint/watermark reuse
+    across an unrelated or superseded compiled plan."""
+    pass
+

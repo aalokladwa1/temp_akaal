@@ -30,6 +30,15 @@ logger = logging.getLogger(__name__)
 
 
 def _extract_target_config(rt_ctx: Dict[str, Any]) -> ConnectionConfig:
+    tgt_params = rt_ctx.get("target_params") or {}
+    if str(tgt_params.get("system_type") or tgt_params.get("engine") or "").upper() == "SQLITE":
+        db_path = tgt_params.get("database_name") or tgt_params.get("db_path")
+        if not db_path:
+            raise ValueError("MIGRATION_CONFIGURATION_INCOMPLETE: sqlite target requires database_name/db_path.")
+        return ConnectionConfig(
+            system_type=SystemType.SQLITE, host="local", port=0, database_name=db_path,
+            credentials_ref="local-file", read_only=False, extra={},
+        )
     tgt_auth_dict = rt_ctx.get("target_authority") or {}
     host = tgt_auth_dict.get("host") or rt_ctx.get("target_host") or rt_ctx.get("host") or ("localhost" if not rt_ctx.get("require_strict_authority") else None)
     port_val = tgt_auth_dict.get("port") or rt_ctx.get("target_port") or rt_ctx.get("port") or (5433 if not rt_ctx.get("require_strict_authority") else None)
@@ -99,6 +108,15 @@ def _extract_target_config(rt_ctx: Dict[str, Any]) -> ConnectionConfig:
 
 
 def _extract_source_config(rt_ctx: Dict[str, Any]) -> ConnectionConfig:
+    src_params = rt_ctx.get("source_params") or {}
+    if str(src_params.get("system_type") or src_params.get("engine") or "").upper() == "SQLITE":
+        db_path = src_params.get("database_name") or src_params.get("db_path")
+        if not db_path:
+            raise ValueError("MIGRATION_CONFIGURATION_INCOMPLETE: sqlite source requires database_name/db_path.")
+        return ConnectionConfig(
+            system_type=SystemType.SQLITE, host="local", port=0, database_name=db_path,
+            credentials_ref="local-file", read_only=True, extra={},
+        )
     src_auth_dict = rt_ctx.get("source_authority") or {}
     src_sys_str = str(rt_ctx.get("source_engine") or src_auth_dict.get("engine") or "ORACLE").upper()
     if "ORACLE" in src_sys_str:
@@ -545,7 +563,7 @@ class DataTransportStep(AbstractStep):
 
                 if o_type in ("TABLE", "CANONICALTABLE"):
                     # Check target table existence (P0.10-G & Section 10 ownership check)
-                    if pg_conn and pg_pg_adapter.is_connected and hasattr(pg_conn, "cursor"):
+                    if pg_conn and pg_adapter.is_connected and hasattr(pg_conn, "cursor"):
                         with pg_conn.cursor() as check_cur:
                             try:
                                 check_cur.execute(f"SELECT 1 FROM {t_schema}.{o_name} WHERE 1=0")
@@ -640,7 +658,7 @@ class DataTransportStep(AbstractStep):
                                         r_count_batch = len(batch_rows)
                                         table_rows_read += r_count_batch
 
-                                        if pg_conn and pg_pg_adapter.is_connected and hasattr(pg_conn, "cursor"):
+                                        if pg_conn and pg_adapter.is_connected and hasattr(pg_conn, "cursor"):
                                             with pg_conn.cursor() as p_cur:
                                                 p_cur.executemany(insert_sql, batch_rows)
                                             pg_conn.commit()
@@ -814,7 +832,7 @@ class ValidationStep(AbstractStep):
                             logger.warning(f"[ValidationStep] Direct source count failed for {s_schema}.{s_name}: {s_cnt_err}")
 
                     t_count_sql = None
-                    if pg_conn and pg_pg_adapter.is_connected and hasattr(pg_conn, "cursor"):
+                    if pg_conn and pg_adapter.is_connected and hasattr(pg_conn, "cursor"):
                         try:
                             with pg_conn.cursor() as t_cur:
                                 t_cur.execute(f"SELECT COUNT(*) FROM {t_schema}.{o_name}")

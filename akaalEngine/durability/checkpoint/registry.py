@@ -10,13 +10,14 @@ import datetime
 import json
 import sqlite3
 from typing import Dict, Any, List, Optional
-from akaalEngine.durability.models.checkpoint import MigrationCheckpoint, TableCheckpoint, RowPosition
+from akaalEngine.durability.models.checkpoint import MigrationCheckpoint, TableCheckpoint, RowPosition, WatermarkType
 from akaalEngine.durability.models.errors import (
     CheckpointConflictError,
     StaleGenerationError,
     FencingViolationError,
     DurabilityError,
     StateCorruptError,
+    InvalidResumePositionError,
 )
 from akaalEngine.durability.models.fencing import FencingToken
 from akaalEngine.durability.checkpoint.position import RowPositionTracker
@@ -293,3 +294,217 @@ class MigrationCheckpointRegistry:
                 if isinstance(e, DurabilityError):
                     raise e
                 raise CheckpointConflictError(f"Failed to save row position: {e}")
+
+    # --- M4 correction: durable watermark authority ---------------------
+    #
+    # Watermarks are the canonical M4 DAG responsibility's persisted proof of
+    # "how far incremental execution has durably advanced" for one
+    # (migration_id, table_name) pair. This extends the SAME canonical,
+    # atomically-persisted store used by checkpoints/positions above; it is
+    # not a second durability/checkpoint/watermark authority.
+    #
+    # Invariant this module enforces (Principle: "AKAAL MUST NEVER advance
+    # the durable watermark until the corresponding target work has safely
+    # committed"): this registry has no visibility into the target database
+    # and cannot itself prove cross-database atomicity (and must not claim
+    # to) -- the invariant is enforced by CALL ORDER: callers (the M4
+    # incremental-poll dispatch step) MUST only invoke `save_watermark`
+    # AFTER a target commit has been confirmed successful. What this
+    # registry DOES guarantee, physically, within its own atomic SQLite
+    # transaction: (a) a watermark write either fully commits or fully rolls
+    # back (a partial/interrupted persistence attempt leaves the prior
+    # durable watermark completely unchanged -- verified by restart/replay);
+    # (b) a candidate watermark that regresses/is invalid for its declared
+    # type is rejected, never silently accepted; (c) a watermark bound to
+    # one compiled plan cannot be silently overwritten by an incompatible
+    # plan/execution identity; (d) a stale (lower) fencing epoch cannot
+    # advance a watermark a fresher execution already owns.
+
+    @staticmethod
+    def _watermark_sort_key(watermark_type: str, value: Any):
+        """Returns a Python-comparable key for the given watermark type.
+
+        NUMERIC/TIMESTAMP: value itself (numbers compare numerically; ISO-8601
+        strings with zero-padded components compare correctly as strings, but
+        we still parse TIMESTAMP explicitly for correctness against
+        non-zero-padded or differently-timezoned inputs).
+        COMPOUND: a tuple, compared lexicographically component-by-component
+        (Python's native tuple ordering) -- correct compound-key ordering:
+        equal leading components correctly fall through to the next one.
+        """
+        wt = str(watermark_type)
+        if wt == WatermarkType.NUMERIC.value:
+            if value is None:
+                raise InvalidResumePositionError("NUMERIC watermark value must not be null.")
+            return float(value)
+        if wt == WatermarkType.TIMESTAMP.value:
+            if not value:
+                raise InvalidResumePositionError("TIMESTAMP watermark value must not be null/empty.")
+            import datetime as _dt
+            try:
+                return _dt.datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+            except Exception as e:
+                raise InvalidResumePositionError(f"Invalid TIMESTAMP watermark value '{value}': {e}")
+        if wt == WatermarkType.COMPOUND.value:
+            if value is None:
+                raise InvalidResumePositionError("COMPOUND watermark value must not be null.")
+            seq = list(value) if isinstance(value, (list, tuple)) else [value]
+            normalized = []
+            for component in seq:
+                if isinstance(component, str):
+                    import datetime as _dt
+                    try:
+                        normalized.append((0, _dt.datetime.fromisoformat(component.replace("Z", "+00:00"))))
+                        continue
+                    except Exception:
+                        normalized.append((1, component))
+                        continue
+                normalized.append((2, component))
+            return tuple(normalized)
+        raise InvalidResumePositionError(f"Unknown watermark_type '{watermark_type}'.")
+
+    def get_watermark(self, migration_id: str, table_name: str, conn: Optional[sqlite3.Connection] = None):
+        """Returns the current durable Watermark for (migration_id, table_name),
+        or None if no watermark has ever been saved (null-watermark baseline
+        state -- callers must treat this as 'start from the beginning', never
+        as an error)."""
+        from akaalEngine.durability.models.checkpoint import Watermark, WatermarkType
+        use_conn = conn or self.backend._get_connection()
+        cursor = use_conn.execute(
+            "SELECT migration_id, table_name, watermark_type, value_json, plan_fingerprint, execution_id, fencing_epoch, checksum, updated_at "
+            "FROM watermarks WHERE migration_id = ? AND table_name = ?;",
+            (migration_id, table_name),
+        )
+        row = cursor.fetchone()
+        if not row:
+            return None
+        try:
+            value = json.loads(row["value_json"])
+        except Exception as e:
+            raise StateCorruptError(f"Corrupted watermark value_json for '{migration_id}'/'{table_name}': {e}") from e
+        expected_checksum = StateIntegritySanitizer.compute_dict_checksum({
+            "migration_id": row["migration_id"], "table_name": row["table_name"],
+            "watermark_type": row["watermark_type"], "value": value,
+            "plan_fingerprint": row["plan_fingerprint"], "execution_id": row["execution_id"],
+            "fencing_epoch": row["fencing_epoch"],
+        })
+        if expected_checksum != row["checksum"]:
+            raise StateCorruptError(f"Watermark checksum mismatch for '{migration_id}'/'{table_name}' -- durable record does not match its own integrity checksum.")
+        return Watermark(
+            migration_id=row["migration_id"],
+            table_name=row["table_name"],
+            watermark_type=WatermarkType(row["watermark_type"]),
+            value=value,
+            plan_fingerprint=row["plan_fingerprint"],
+            execution_id=row["execution_id"],
+            fencing_epoch=row["fencing_epoch"],
+            updated_at=row["updated_at"],
+        )
+
+    def save_watermark(self, watermark, token: FencingToken, conn: Optional[sqlite3.Connection] = None) -> None:
+        """Atomically persists a new durable watermark for
+        (watermark.migration_id, watermark.table_name), enforcing:
+
+        - an authenticated FencingToken (HMAC + exact live-epoch match, same
+          rule as save_checkpoint/save_row_position -- no bypass);
+        - plan/version/execution identity protection: if a watermark already
+          exists for this key bound to a DIFFERENT plan_fingerprint, the
+          write is refused (`WatermarkIdentityMismatchError`) rather than
+          silently reusing an incompatible checkpoint;
+        - concurrent/stale execution fencing: a candidate fencing_epoch lower
+          than the currently-stored epoch is refused
+          (`StaleGenerationError`) -- a stale/superseded execution cannot
+          advance a watermark a fresher execution already owns;
+        - monotonic/valid position enforcement: a candidate value that is not
+          >= the existing value under its declared comparison semantics is
+          refused (`WatermarkRegressionError`) -- non-monotonic or otherwise
+          invalid positions fail safe, never silently applied;
+        - idempotent replay: saving the exact same value again (a repeated
+          batch/replay) is accepted as a no-op-equivalent update, not an
+          error -- tie timestamps and exact-duplicate replay both succeed.
+        """
+        from akaalEngine.durability.models.checkpoint import WatermarkType
+        from akaalEngine.durability.models.errors import WatermarkRegressionError, WatermarkIdentityMismatchError
+
+        self._require_fencing_manager()
+        use_conn = conn or self.backend._get_connection()
+        own_tx = conn is None
+
+        with self.backend._mutex:
+            try:
+                if own_tx:
+                    use_conn.execute("BEGIN IMMEDIATE;")
+
+                if token.resource_id != watermark.migration_id and not token.resource_id.startswith(f"{watermark.migration_id}/"):
+                    raise FencingViolationError(
+                        f"Fencing violation: token resource_id '{token.resource_id}' does not match watermark migration_id '{watermark.migration_id}'."
+                    )
+                # HMAC verification + exact epoch equality in the same transaction
+                self._fencing_manager.validate_token_in_tx(token, use_conn)
+
+                cursor = use_conn.execute(
+                    "SELECT watermark_type, value_json, plan_fingerprint, execution_id, fencing_epoch "
+                    "FROM watermarks WHERE migration_id = ? AND table_name = ?;",
+                    (watermark.migration_id, watermark.table_name),
+                )
+                row = cursor.fetchone()
+
+                if row is not None:
+                    existing_plan_fp = row["plan_fingerprint"]
+                    existing_epoch = row["fencing_epoch"]
+                    if existing_plan_fp and watermark.plan_fingerprint and existing_plan_fp != watermark.plan_fingerprint:
+                        raise WatermarkIdentityMismatchError(
+                            f"Watermark for '{watermark.migration_id}'/'{watermark.table_name}' is bound to plan_fingerprint "
+                            f"'{existing_plan_fp}'; refusing incompatible write from plan_fingerprint '{watermark.plan_fingerprint}'."
+                        )
+                    if watermark.fencing_epoch < existing_epoch:
+                        raise StaleGenerationError(
+                            f"Watermark update rejected: fencing epoch {watermark.fencing_epoch} is lower than existing "
+                            f"epoch {existing_epoch} for '{watermark.migration_id}'/'{watermark.table_name}' (stale/concurrent execution)."
+                        )
+                    existing_value = json.loads(row["value_json"])
+                    existing_key = self._watermark_sort_key(row["watermark_type"], existing_value)
+                    candidate_key = self._watermark_sort_key(watermark.watermark_type.value, watermark.value)
+                    if candidate_key < existing_key:
+                        raise WatermarkRegressionError(
+                            f"Watermark update rejected: candidate value {watermark.value!r} is not >= existing durable "
+                            f"value {existing_value!r} for '{watermark.migration_id}'/'{watermark.table_name}' "
+                            f"(non-monotonic/invalid position)."
+                        )
+                else:
+                    # First-ever watermark for this key (null-watermark baseline):
+                    # still validate the candidate's own type/value are well-formed.
+                    self._watermark_sort_key(watermark.watermark_type.value, watermark.value)
+
+                now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+                value_json = json.dumps(watermark.value, sort_keys=True)
+                checksum = StateIntegritySanitizer.compute_dict_checksum({
+                    "migration_id": watermark.migration_id, "table_name": watermark.table_name,
+                    "watermark_type": watermark.watermark_type.value, "value": watermark.value,
+                    "plan_fingerprint": watermark.plan_fingerprint, "execution_id": watermark.execution_id,
+                    "fencing_epoch": watermark.fencing_epoch,
+                })
+
+                if row is not None:
+                    use_conn.execute("""
+                        UPDATE watermarks SET
+                            watermark_type = ?, value_json = ?, plan_fingerprint = ?,
+                            execution_id = ?, fencing_epoch = ?, checksum = ?, updated_at = ?
+                        WHERE migration_id = ? AND table_name = ?;
+                    """, (watermark.watermark_type.value, value_json, watermark.plan_fingerprint,
+                          watermark.execution_id, watermark.fencing_epoch, checksum, now,
+                          watermark.migration_id, watermark.table_name))
+                else:
+                    use_conn.execute("""
+                        INSERT INTO watermarks
+                            (migration_id, table_name, watermark_type, value_json, plan_fingerprint, execution_id, fencing_epoch, checksum, updated_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+                    """, (watermark.migration_id, watermark.table_name, watermark.watermark_type.value, value_json,
+                          watermark.plan_fingerprint, watermark.execution_id, watermark.fencing_epoch, checksum, now))
+
+                if own_tx:
+                    use_conn.execute("COMMIT;")
+            except Exception as e:
+                if own_tx:
+                    use_conn.execute("ROLLBACK;")
+                raise e

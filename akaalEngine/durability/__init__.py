@@ -46,6 +46,10 @@ from akaalEngine.durability.models import (
     IntegrityFailureError,
     ManifestError,
     ManifestAlreadyExistsError,
+    Watermark,
+    WatermarkType,
+    WatermarkRegressionError,
+    WatermarkIdentityMismatchError,
 )
 from akaalEngine.durability.api import DurabilityAuthority
 from akaalEngine.durability.store.base import BaseDurableStorageBackend, StorageBackendCapabilities
@@ -129,4 +133,8 @@ __all__ = [
     "IntegrityFailureError",
     "ManifestError",
     "ManifestAlreadyExistsError",
+    "Watermark",
+    "WatermarkType",
+    "WatermarkRegressionError",
+    "WatermarkIdentityMismatchError",
 ]

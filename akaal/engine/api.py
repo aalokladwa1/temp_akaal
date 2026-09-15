@@ -35,8 +35,47 @@ from akaal.engine.writer import PostgreSQLTargetWriter
 logger = logging.getLogger("akaal.engine.api")
 
 
+class LegacyEngineBypassClosedError(RuntimeError):
+    """
+    Raised by `AkaalMigrationEngine.start_migration` (see class docstring below)
+    when asked to perform physical migration execution. This class is a
+    confirmed, real, mode-blind bypass of the canonical execution authority
+    and its physical-execution path is closed; it fails closed instead of
+    silently running its own independent transport engine.
+    """
+
+
 class AkaalMigrationEngine:
-    """Canonical Native Python Execution Core for AKAAL Migrations."""
+    """
+    Legacy Native Python Execution Core for AKAAL Migrations.
+
+    CORRECTION (bypass-closure campaign, this session): despite the historical
+    "Canonical Native Python Execution Core" docstring above, this class is
+    NOT the canonical execution authority. `start_migration` previously ran
+    its own entirely independent Oracle->Postgres multiprocess transport
+    engine (TransportPartitioner + MigrationScheduler + PostgreSQLTargetWriter
+    + EngineValidator, with its own EngineStateRepository/CheckpointStore) with
+    zero awareness of `akaal.engine.facade.AkaalSuperEngine`,
+    `akaal.planner.engine.plan_compiler.PlanCompiler`, `ExecutionMode` (M1-M8),
+    or governance/plan-fingerprint approval — a confirmed, real, mode-blind
+    bypass of the canonical DAG-driven physical execution authority.
+
+    Existing test coverage already treats this class as legacy/dead code that
+    must NEVER be reachable from the canonical production transport path (see
+    tests/unit/replication/test_step_5_2_canonical_transport.py,
+    tests/unit/runtime/test_step_5_4_failure_recovery.py::test_08_legacy_transport_isolation,
+    and tests/unit/workflow/test_step_5_5_workflow_gating_telemetry.py), and no
+    production code path in this repository calls `start_migration`. Genuinely
+    rewiring this class's independent multiprocess transport engine to
+    delegate into `AkaalSuperEngine.execute_migration` would mean rebuilding it
+    on entirely different primitives (compiled DAG, CentralStateStore,
+    governance-approval records) it was never designed around — an
+    out-of-scope rearchitecture of code that is supposed to be unreachable
+    anyway. So `start_migration` now FAILS CLOSED unconditionally: it refuses
+    to perform any physical execution and raises `LegacyEngineBypassClosedError`
+    naming the canonical replacement, rather than silently running its own
+    alternate physical execution.
+    """
 
     def __init__(self, db_path_state: Optional[str] = None, db_path_checkpoint: Optional[str] = None):
         self.state_repo = EngineStateRepository(db_path=db_path_state)
@@ -123,110 +162,41 @@ class AkaalMigrationEngine:
         source_pass: str,
         target_pass: str,
     ) -> Dict[str, Any]:
-        """Execute end-to-end migration using parallel multiprocess transport engine."""
-        self.state_repo.set_migration_state(spec.migration_id, MigrationState.STARTING)
+        """
+        FAILS CLOSED (bypass-closure campaign, this session): this method used
+        to execute end-to-end physical migration using its own independent
+        parallel multiprocess transport engine (TransportPartitioner +
+        MigrationScheduler + PostgreSQLTargetWriter + EngineValidator),
+        entirely bypassing `akaal.engine.facade.AkaalSuperEngine.execute_migration`
+        / `PlanExecutionDispatcher` and therefore the compiled-DAG mode fence
+        (M1-M8) and governance plan-fingerprint approval those enforce.
 
-        src_params = {
-            "username": spec.source_authority.username,
-            "password": source_pass,
-            "host": spec.source_authority.host,
-            "port": spec.source_authority.port,
-            "database": spec.source_authority.database,
-            "database_name": spec.source_authority.database,
-            "privilege_mode": getattr(spec.source_authority, "privilege_mode", "NORMAL"),
-        }
-
-        tgt_params = {
-            "username": spec.target_authority.username,
-            "password": target_pass,
-            "host": spec.target_authority.host,
-            "port": spec.target_authority.port,
-            "database": spec.target_authority.database,
-            "database_name": spec.target_authority.database,
-        }
-
-        # 1. Target Schema Preparation
-        tgt_writer = PostgreSQLTargetWriter(tgt_params)
-        
-        if isinstance(spec.selected_scope, list):
-            raw_tables = spec.selected_scope
-        elif isinstance(spec.selected_scope, dict):
-            raw_tables = spec.selected_scope.get("selected_objects") or spec.selected_scope.get("tables") or spec.selected_scope.get("objects") or []
-        else:
-            raw_tables = []
-
-        tables = []
-        for item in raw_tables:
-            if isinstance(item, dict):
-                o_type = str(item.get("object_type") or item.get("type") or "TABLE").upper()
-                if o_type in ("TABLE", "CANONICALTABLE") or "table" in o_type.lower():
-                    tables.append(item)
-            else:
-                tables.append(item)
-
-        table_names = []
-        for t in tables:
-            tname = t.get("object_name") or t.get("name") if isinstance(t, dict) else str(t)
-            tsch = t.get("schema_name") or t.get("schema") if isinstance(t, dict) else spec.source_authority.username
-            target_schema = str(t.get("target_schema") or tsch or "public").lower()
-            table_names.append(tname)
-
-            ddl = f'CREATE SCHEMA IF NOT EXISTS "{target_schema}"; CREATE TABLE IF NOT EXISTS "{target_schema}"."{tname.lower()}" (id TEXT);'
-            try:
-                tgt_writer.prepare_target_table(tname, ddl, target_schema=target_schema)
-            except Exception as prep_err:
-                logger.warning(f"[ENGINE API] Pre-flight table DDL skipped for {tname}: {prep_err}")
-
-        try:
-            tgt_writer.close()
-        except Exception:
-            pass
-
-        # 2. Partitioning
-        partitioner = TransportPartitioner(tuning_policy=spec.tuning_policy)
-        all_partitions = []
-        for t in tables:
-            tname = t.get("object_name") or t.get("name") if isinstance(t, dict) else str(t)
-            tsch = t.get("schema_name") or t.get("schema") if isinstance(t, dict) else spec.source_authority.username
-            target_schema = str(t.get("target_schema") or tsch or "public").lower()
-            pk_cols = t.get("pk_columns") or t.get("primary_keys") if isinstance(t, dict) else None
-            strat = PartitionStrategy.PK_NUMERIC_RANGE if pk_cols else PartitionStrategy.SINGLE_STREAM
-            parts = partitioner.generate_partitions_for_table(
-                table_name=tname,
-                schema_name=tsch,
-                target_schema=target_schema,
-                total_rows=1000,
-                pk_columns=pk_cols,
-                strategy=strat,
-            )
-            all_partitions.extend(parts)
-
-        # 3. Multiprocess Scheduler Execution
-        scheduler = MigrationScheduler(spec, src_params, tgt_params)
-        telemetry = TelemetryEmitter(spec.migration_id)
-
-        t_start = time.time()
-        res = scheduler.execute_partitions(all_partitions)
-        t_dur = time.time() - t_start
-
-        # 4. Validation
-        src_counts = {t: res["total_rows"] // len(table_names) for t in table_names}
-        tgt_counts = {t: res["total_rows"] // len(table_names) for t in table_names}
-
-        validator = EngineValidator(spec.validation_policy)
-        val_res = validator.validate_tables(table_names, src_counts, tgt_counts)
-
-        self.state_repo.set_migration_state(spec.migration_id, MigrationState.COMPLETED)
-        telemetry.build_snapshot("COMPLETED", len(table_names), len(table_names), res["total_rows"], res["total_rows"], spec.tuning_policy.parallelism)
-
-        return {
-            "migration_id": spec.migration_id,
-            "status": "COMPLETED",
-            "total_rows": res["total_rows"],
-            "duration_sec": round(t_dur, 2),
-            "throughput_rows_sec": round(res["total_rows"] / max(0.001, t_dur), 2),
-            "validation": val_res,
-        }
+        This class is legacy/dead code: no production code path in this
+        repository calls `start_migration`, and existing tests
+        (tests/unit/replication/test_step_5_2_canonical_transport.py,
+        tests/unit/runtime/test_step_5_4_failure_recovery.py,
+        tests/unit/workflow/test_step_5_5_workflow_gating_telemetry.py) already
+        assert this class must be absent from the canonical production
+        transport path. Rebuilding its independent multiprocess engine to
+        genuinely delegate into `AkaalSuperEngine.execute_migration` would mean
+        re-architecting it onto entirely different primitives (compiled DAG,
+        CentralStateStore, governance-approval records) it was never designed
+        around, for a class that is supposed to be unreachable in production
+        anyway — out of scope for this correction. Rather than leave the
+        independent transport engine reachable as a silent, mode-blind
+        alternate physical-execution path, `start_migration` now refuses to
+        run it at all.
+        """
+        self.state_repo.set_migration_state(spec.migration_id, MigrationState.FAILED)
+        msg = (
+            f"LEGACY_ENGINE_BYPASS_CLOSED: AkaalMigrationEngine.start_migration refuses to execute "
+            f"physical migration work for '{spec.migration_id}'. This class's independent multiprocess "
+            f"transport engine is NOT the canonical execution authority and is not wired to it. Use "
+            f"akaal.engine.facade.AkaalSuperEngine.execute_migration (with a plan compiled via "
+            f"akaal.planner.engine.plan_compiler.PlanCompiler and governance approval recorded) instead."
+        )
+        logger.error(f"[ENGINE API] {msg}")
+        raise LegacyEngineBypassClosedError(msg)
 
     def get_status(self, migration_id: str) -> Dict[str, Any]:
         state_dict = self.state_repo.get_migration_state(migration_id)

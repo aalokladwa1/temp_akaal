@@ -208,15 +208,35 @@ class ZeroDuplicateMigrationEngine(ExactlyOnceController):
         """
         Executes full inline deduplication on a record batch and generates target collision SQL.
         """
-        unique_records, filtered_count = self.filter_batch_duplicates(
+        if not pk_columns or not records:
+            sql = self.generate_collision_statement(
+                table_name=table_name,
+                columns=columns,
+                pk_columns=pk_columns,
+                collision_policy=collision_policy,
+            )
+            return DeduplicationResult(
+                total_input_rows=len(records),
+                deduplicated_rows=len(records),
+                duplicates_filtered=0,
+                upsert_sql=sql,
+                collision_policy=collision_policy.value if isinstance(collision_policy, Enum) else str(collision_policy),
+                disposition_records=[],
+            )
+
+        survivors, duplicates, metrics = self.deduplicator.deduplicate_batch(
             records=records,
-            pk_columns=pk_columns,
-            survivor_strategy=survivor_strategy,
+            key_columns=pk_columns,
+            survivor_strategy=survivor_strategy.value if isinstance(survivor_strategy, Enum) else str(survivor_strategy),
             order_by_columns=order_by_columns,
             priority_field=priority_field,
             priority_order=priority_order,
-            disposition=disposition,
+            disposition=disposition.value if isinstance(disposition, Enum) else str(disposition),
         )
+
+        for s in survivors:
+            kh = self.deduplicator.compute_key_hash(s, pk_columns)
+            self._seen_pk_hashes.add(kh)
 
         sql = self.generate_collision_statement(
             table_name=table_name,
@@ -227,10 +247,11 @@ class ZeroDuplicateMigrationEngine(ExactlyOnceController):
 
         return DeduplicationResult(
             total_input_rows=len(records),
-            deduplicated_rows=len(unique_records),
-            duplicates_filtered=filtered_count,
+            deduplicated_rows=len(survivors),
+            duplicates_filtered=metrics.get("duplicates_detected", len(duplicates)),
             upsert_sql=sql,
             collision_policy=collision_policy.value if isinstance(collision_policy, Enum) else str(collision_policy),
-            disposition_records=[],
+            disposition_records=duplicates,
         )
+
 

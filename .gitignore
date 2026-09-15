@@ -25,6 +25,9 @@ sample_data.sql
 # Akaal runtime
 validation_workspace_resume/
 
+# Simulated 1M-row database estate (generated, deterministic, rebuildable)
+tests/fixtures/estate/data/
+
 # Runtime logs
 *.log
 *.jsonl

@@ -158,7 +158,7 @@ class TestParallelMigration(unittest.IsolatedAsyncioTestCase):
 
         original_dispatch = self.manager._dispatch_task
 
-        async def mock_dispatch(task, proj):
+        async def mock_dispatch(task, proj, session=None):
             nonlocal current_concurrent_active, max_concurrent_active
             tbl = task.parameters.get("table_name")
             
@@ -179,7 +179,7 @@ class TestParallelMigration(unittest.IsolatedAsyncioTestCase):
                 agent_type=task.assigned_to, success=True, output={}, duration_seconds=0.01, objects_processed=0
             )
 
-        with patch.object(self.manager, "_dispatch_task", mock_dispatch):
+        with patch.object(self.manager, "_dispatch_physical_migration_task", mock_dispatch):
             await self.manager._run_production_migration_stage(project, session)
             
         self.assertLessEqual(max_concurrent_active, 2)
@@ -215,7 +215,7 @@ class TestParallelMigration(unittest.IsolatedAsyncioTestCase):
         scheduled_sequence = []
         dispatch_lock = asyncio.Lock()
 
-        async def mock_dispatch(task, proj):
+        async def mock_dispatch(task, proj, session=None):
             tbl = task.parameters.get("table_name")
             if task.task_type == TaskType.MIGRATION_BATCH and tbl:
                 async with dispatch_lock:
@@ -226,7 +226,7 @@ class TestParallelMigration(unittest.IsolatedAsyncioTestCase):
                 agent_type=task.assigned_to, success=True, output={}, duration_seconds=0.01, objects_processed=0
             )
 
-        with patch.object(self.manager, "_dispatch_task", mock_dispatch):
+        with patch.object(self.manager, "_dispatch_physical_migration_task", mock_dispatch):
             await self.manager._run_production_migration_stage(project, session)
 
         self.assertIn("t1", scheduled_sequence[:2])
@@ -255,7 +255,7 @@ class TestParallelMigration(unittest.IsolatedAsyncioTestCase):
         ]
         self._create_mock_snapshot(project.project_id, session.migration_id, schema_objects)
 
-        async def mock_dispatch(task, proj):
+        async def mock_dispatch(task, proj, session=None):
             tbl = task.parameters.get("table_name")
             if task.task_type == TaskType.MIGRATION_BATCH and tbl:
                 chk = CheckpointRecord(
@@ -270,7 +270,7 @@ class TestParallelMigration(unittest.IsolatedAsyncioTestCase):
                 agent_type=task.assigned_to, success=True, output={}, duration_seconds=0.01, objects_processed=0
             )
 
-        with patch.object(self.manager, "_dispatch_task", mock_dispatch):
+        with patch.object(self.manager, "_dispatch_physical_migration_task", mock_dispatch):
             await self.manager._run_production_migration_stage(project, session)
 
         records = await self.checkpoint_mgr.list_checkpoints(project.project_id, session.migration_id)
@@ -305,7 +305,7 @@ class TestParallelMigration(unittest.IsolatedAsyncioTestCase):
 
         # First run: t2 fails
         original_dispatch = self.manager._dispatch_task
-        async def mock_dispatch_fail(task, proj):
+        async def mock_dispatch_fail(task, proj, session=None):
             tbl = task.parameters.get("table_name")
             if task.task_type == TaskType.MIGRATION_BATCH and tbl == "t2":
                 return TaskResult(
@@ -325,7 +325,7 @@ class TestParallelMigration(unittest.IsolatedAsyncioTestCase):
                 agent_type=task.assigned_to, success=True, output={}, duration_seconds=0.01, objects_processed=0
             )
 
-        with patch.object(self.manager, "_dispatch_task", mock_dispatch_fail):
+        with patch.object(self.manager, "_dispatch_physical_migration_task", mock_dispatch_fail):
             with self.assertRaises(RuntimeError):
                 await self.manager._run_production_migration_stage(project, session)
 
@@ -337,7 +337,7 @@ class TestParallelMigration(unittest.IsolatedAsyncioTestCase):
 
         # Second run: Resume!
         scheduled_tables = []
-        async def mock_dispatch_resume(task, proj):
+        async def mock_dispatch_resume(task, proj, session=None):
             tbl = task.parameters.get("table_name")
             if task.task_type == TaskType.MIGRATION_BATCH and tbl:
                 scheduled_tables.append(tbl)
@@ -346,7 +346,7 @@ class TestParallelMigration(unittest.IsolatedAsyncioTestCase):
                 agent_type=task.assigned_to, success=True, output={}, duration_seconds=0.01, objects_processed=0
             )
 
-        with patch.object(self.manager, "_dispatch_task", mock_dispatch_resume):
+        with patch.object(self.manager, "_dispatch_physical_migration_task", mock_dispatch_resume):
             await self.manager._run_parallel_production_migration(project, session, ["t1", "t2"], {
                 "t1": {"object_name": "t1", "dependency_references": []},
                 "t2": {"object_name": "t2", "dependency_references": []}
@@ -378,13 +378,13 @@ class TestParallelMigration(unittest.IsolatedAsyncioTestCase):
         ]
         self._create_mock_snapshot(project.project_id, session.migration_id, schema_objects)
 
-        async def mock_dispatch(task, proj):
+        async def mock_dispatch(task, proj, session=None):
             return TaskResult(
                 task_id=task.task_id, project_id=task.project_id, migration_id=task.migration_id,
                 agent_type=task.assigned_to, success=True, output={}, duration_seconds=0.01, objects_processed=0
             )
 
-        with patch.object(self.manager, "_dispatch_task", mock_dispatch):
+        with patch.object(self.manager, "_dispatch_physical_migration_task", mock_dispatch):
             await self.manager._run_production_migration_stage(project, session)
 
     # 14. Retry compatibility & 20. Queue exhaustion
@@ -409,13 +409,13 @@ class TestParallelMigration(unittest.IsolatedAsyncioTestCase):
         ]
         self._create_mock_snapshot(project.project_id, session.migration_id, schema_objects)
 
-        async def mock_dispatch(task, proj):
+        async def mock_dispatch(task, proj, session=None):
             return TaskResult(
                 task_id=task.task_id, project_id=task.project_id, migration_id=task.migration_id,
                 agent_type=task.assigned_to, success=True, output={}, duration_seconds=0.01, objects_processed=0
             )
 
-        with patch.object(self.manager, "_dispatch_task", mock_dispatch):
+        with patch.object(self.manager, "_dispatch_physical_migration_task", mock_dispatch):
             await self.manager._run_production_migration_stage(project, session)
 
     # 18. Worker shutdown & 19. Worker idle timeout
@@ -457,7 +457,7 @@ class TestParallelMigration(unittest.IsolatedAsyncioTestCase):
         self._create_mock_snapshot(project.project_id, session.migration_id, schema_objects)
 
         scheduled = []
-        async def mock_dispatch(task, proj):
+        async def mock_dispatch(task, proj, session=None):
             tbl = task.parameters.get("table_name")
             if task.task_type == TaskType.MIGRATION_BATCH and tbl:
                 scheduled.append(tbl)
@@ -466,7 +466,7 @@ class TestParallelMigration(unittest.IsolatedAsyncioTestCase):
                 agent_type=task.assigned_to, success=True, output={}, duration_seconds=0.01, objects_processed=0
             )
 
-        with patch.object(self.manager, "_dispatch_task", mock_dispatch):
+        with patch.object(self.manager, "_dispatch_physical_migration_task", mock_dispatch):
             await self.manager._run_production_migration_stage(project, session)
 
         self.assertEqual(scheduled, ["t1", "t2", "t3"])
@@ -495,7 +495,7 @@ class TestParallelMigration(unittest.IsolatedAsyncioTestCase):
         self._create_mock_snapshot(project.project_id, session.migration_id, schema_objects)
 
         scheduled = []
-        async def mock_dispatch(task, proj):
+        async def mock_dispatch(task, proj, session=None):
             tbl = task.parameters.get("table_name")
             if task.task_type == TaskType.MIGRATION_BATCH and tbl:
                 scheduled.append(tbl)
@@ -504,7 +504,7 @@ class TestParallelMigration(unittest.IsolatedAsyncioTestCase):
                 agent_type=task.assigned_to, success=True, output={}, duration_seconds=0.01, objects_processed=0
             )
 
-        with patch.object(self.manager, "_dispatch_task", mock_dispatch):
+        with patch.object(self.manager, "_dispatch_physical_migration_task", mock_dispatch):
             await self.manager._run_production_migration_stage(project, session)
         self.assertEqual(len(scheduled), 2)
 

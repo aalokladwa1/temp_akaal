@@ -12,6 +12,7 @@ import os
 import sqlite3
 import tempfile
 import unittest
+from unittest.mock import patch
 from typing import Any, Dict, List, Optional
 
 from akaal.core.models.enums import SystemType
@@ -855,6 +856,42 @@ class TestP57CustomSQLHooks(unittest.TestCase):
         results = asyncio.run(executor.execute_stage_hooks([hook], stage=HookStage.PRE_MIGRATION, workflow_id="wf-evd-101"))
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].state, HookExecutionState.COMPLETED)
+
+    def test_40b_authority_12_evidence_packaging_actually_succeeds_not_silently_swallowed(self):
+        """Regression (M1-M8 duplicate-authority audit): `EvidenceAuthority` previously had
+        TWO methods both named `package_hook_execution_evidence` with incompatible signatures;
+        Python kept only the later (dict/stage-based) definition, so GovernedHookExecutor's real
+        call site -- which used the OTHER (artifact/plan_identity-based) signature -- raised
+        TypeError on every single hook execution, silently caught by
+        `except Exception: logger.warning(...)` in `executor.py`. test_40 above did not catch
+        this because it only asserts on hook results, not on evidence packaging outcome. This
+        test asserts the packaging call itself genuinely completes without error by patching
+        `EvidenceAuthority.package_hook_execution_artifact` (post-rename) with a spy and
+        confirming it is actually invoked and returns without exception."""
+        evidence_auth = EvidenceAuthority.get_instance()
+        adapter = MockDatabaseAdapter()
+        executor = GovernedHookExecutor(
+            source_adapter=adapter,
+            target_adapter=adapter,
+            state_store=self.state_store,
+            evidence_authority=evidence_auth,
+        )
+
+        calls = []
+        original = evidence_auth.package_hook_execution_artifact
+
+        def _spy(*args, **kwargs):
+            result = original(*args, **kwargs)
+            calls.append(result)
+            return result
+
+        with patch.object(evidence_auth, "package_hook_execution_artifact", side_effect=_spy):
+            hook = HookDefinition(hook_id="h_evd2", name="Evidence Hook 2", stage=HookStage.PRE_MIGRATION, sql_statement="SELECT 1")
+            results = asyncio.run(executor.execute_stage_hooks([hook], stage=HookStage.PRE_MIGRATION, workflow_id="wf-evd-102"))
+
+        self.assertEqual(len(results), 1)
+        self.assertEqual(len(calls), 1, "package_hook_execution_artifact must be called exactly once and must not raise")
+        self.assertIsNotNone(calls[0])
 
     # ---------------------------------------------------------------------------
     # 12. Advanced Hostile Parameter, Injection & Security Tests

@@ -67,3 +67,5 @@ def test_zero_duplicate_process_batch():
     assert res.deduplicated_rows == 1
     assert res.duplicates_filtered == 1
     assert "ON CONFLICT (id)" in res.upsert_sql
+    assert len(res.disposition_records) == 1
+    assert res.disposition_records[0]["id"] == 10
