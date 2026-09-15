@@ -19,7 +19,7 @@ import { CustomSelectComponent, CustomSelectOption } from '../../../../shared/co
 import { SegmentedControlComponent, SegmentedControlOption } from '../../../../shared/components/segmented-control.component';
 import { AccordionComponent } from '../../../../shared/components/accordion.component';
 import { ConnectionsService } from '../../../connections/connections.service';
-import { ALL_PROVIDER_CATALOG_ITEMS } from '../../../connections/create-connection/create-connection.schemas';
+import { ALL_PROVIDER_CATALOG_ITEMS, MANAGED_CLOUD_PROFILES } from '../../../connections/create-connection/create-connection.schemas';
 
 export function toPhysicalProviderId(val: string): PhysicalProviderId {
   const norm = val.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -36,13 +36,13 @@ export function toPhysicalProviderId(val: string): PhysicalProviderId {
 export interface CatalogEngineItem {
   id: PhysicalProviderId;
   name: string;
-  category: 'RELATIONAL' | 'DISTRIBUTED_SQL' | 'WAREHOUSE' | 'NOSQL' | 'STREAMING' | 'STORAGE' | 'SAAS';
+  category: string;
   categoryLabel: string;
   icon: string;
 }
 
 export interface CatalogCategoryTab {
-  id: 'ALL' | 'RELATIONAL' | 'DISTRIBUTED_SQL' | 'WAREHOUSE' | 'NOSQL' | 'STREAMING' | 'STORAGE' | 'SAAS';
+  id: string;
   label: string;
   count: number;
 }
@@ -934,15 +934,15 @@ export interface SavedConnectionItemExtended extends ConnectionItem {
 
                 @if (probeExecuted()) {
                   @if (ms.wizardDraft().targetVerified) {
-                    <div class="p-3.5 bg-emerald-50/50 border border-emerald-200 rounded-xl flex flex-col gap-2.5 animate-in fade-in duration-150">
+                    <div class="p-3.5 bg-blue-50/40 border border-blue-200 rounded-xl flex flex-col gap-2.5 animate-in fade-in duration-150">
                       <div class="flex items-center justify-between">
                         <div class="flex items-center gap-2">
-                          <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-                          <span class="text-xs font-bold text-emerald-900">
+                          <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+                          <span class="text-xs font-bold text-blue-950">
                             All 6 Target Stages Verified Successfully · Ready for Scope &amp; Mapping
                           </span>
                         </div>
-                        <span class="text-[11px] font-mono text-emerald-700 font-medium">Attested</span>
+                        <span class="text-[11px] font-mono text-amber-700 font-medium">CHECK2 Live Pending</span>
                       </div>
 
                       <div class="flex items-center gap-1.5 flex-wrap">
@@ -1016,7 +1016,7 @@ export class Step3TargetComponent implements OnInit {
 
   // Catalog & Search Signals
   public searchQuery = signal<string>('');
-  public selectedCategoryTab = signal<CatalogCategoryTab['id']>('ALL');
+  public selectedCategoryTab = signal<string>('ALL');
 
   // Saved Grid Signals
   public savedSearchQuery = signal<string>('');
@@ -1043,89 +1043,58 @@ export class Step3TargetComponent implements OnInit {
 
   // 6-Stage Target Attestation Lifecycle
   public targetStages: TargetStageState[] = [
-    { index: 1, name: 'Stage 1: Transport & Network Route Ping', description: 'Resolves DNS, TCP latency, and negotiates TLS 1.2/1.3', chipLabel: 'Transport & TLS', status: 'PENDING' },
-    { index: 2, name: 'Stage 2: Target Identity & Charset Check', description: 'Validates target engine edition, version, and character encoding', chipLabel: 'Identity & Charset', status: 'PENDING' },
-    { index: 3, name: 'Stage 3: Live DDL & Write Canary Probe', description: 'Executes ephemeral sandboxed CREATE, INSERT, and DROP canary test', chipLabel: 'Write & DDL Canary', status: 'PENDING' },
-    { index: 4, name: 'Stage 4: High-Throughput Ingestion Fast-Path', description: 'Probes native bulk load APIs (COPY, Direct-Path, Snowpipe)', chipLabel: 'Fast-Path Verified', status: 'PENDING' },
-    { index: 5, name: 'Stage 5: Storage Headroom & Tablespace Capacity', description: 'Verifies free disk space and quota threshold (>10% free)', chipLabel: 'Storage Headroom', status: 'PENDING' },
-    { index: 6, name: 'Stage 6: Pre-Existing Object Collision Audit', description: 'Audits target schema for colliding table names against collision policy', chipLabel: 'Collision Audit', status: 'PENDING' }
+    { index: 1, name: 'Stage 1: Transport & Network Config Check', description: 'Frontend static network route & TLS enforcement verification', chipLabel: 'Transport & TLS', status: 'PENDING' },
+    { index: 2, name: 'Stage 2: Target Identity & Charset Metadata Audit', description: 'Static target engine version & character encoding declaration audit', chipLabel: 'Identity & Charset', status: 'PENDING' },
+    { index: 3, name: 'Stage 3: DDL & Write Capability Compatibility Analysis', description: 'Static matrix evaluation of write capability against Step 1 strategy', chipLabel: 'Write & DDL Analysis', status: 'PENDING' },
+    { index: 4, name: 'Stage 4: Ingestion Fast-Path Interface Verification', description: 'Frontend static verification of bulk load interface parameters', chipLabel: 'Fast-Path Interface', status: 'PENDING' },
+    { index: 5, name: 'Stage 5: Storage Headroom Threshold Policy Audit', description: 'Static storage quota & headroom policy declaration check', chipLabel: 'Headroom Policy', status: 'PENDING' },
+    { index: 6, name: 'Stage 6: Target Pre-Flight Attestation (CHECK2 Live Probe Pending)', description: 'Frontend pre-flight complete. Backend live network/socket probe deferred to CHECK2', chipLabel: 'CHECK2 Live Pending', status: 'PENDING' }
   ];
 
   // The Canonical Engines for the Expansive Catalog Grid (49 Physical Providers)
+    // Dynamic Canonical Catalog Engines (54 UI Entry Points)
   public catalogEngines: CatalogEngineItem[] = [
-    // 1. Relational (10)
-    { id: 'SQLite', name: 'SQLite', category: 'RELATIONAL', categoryLabel: 'Embedded Relational', icon: 'database' },
-    { id: 'PostgreSQL', name: 'PostgreSQL', category: 'RELATIONAL', categoryLabel: 'Relational DB', icon: 'database' },
-    { id: 'MySQL', name: 'MySQL', category: 'RELATIONAL', categoryLabel: 'Relational DB', icon: 'database' },
-    { id: 'MariaDB', name: 'MariaDB', category: 'RELATIONAL', categoryLabel: 'Relational DB', icon: 'database' },
-    { id: 'Oracle', name: 'Oracle Database', category: 'RELATIONAL', categoryLabel: 'Enterprise RDBMS', icon: 'database' },
-    { id: 'Microsoft SQL Server', name: 'SQL Server (MSSQL)', category: 'RELATIONAL', categoryLabel: 'Enterprise RDBMS', icon: 'database' },
-    { id: 'IBM Db2', name: 'IBM Db2 LUW', category: 'RELATIONAL', categoryLabel: 'Enterprise RDBMS', icon: 'database' },
-    { id: 'SAP HANA', name: 'SAP HANA', category: 'RELATIONAL', categoryLabel: 'In-Memory RDBMS', icon: 'database' },
-    { id: 'SAP ASE', name: 'SAP ASE (Sybase)', category: 'RELATIONAL', categoryLabel: 'Enterprise RDBMS', icon: 'database' },
-    { id: 'IBM Informix', name: 'IBM Informix', category: 'RELATIONAL', categoryLabel: 'OLTP & Timeseries', icon: 'database' },
-
-    // 2. Distributed SQL (5)
-    { id: 'CockroachDB', name: 'CockroachDB', category: 'DISTRIBUTED_SQL', categoryLabel: 'Distributed SQL', icon: 'network' },
-    { id: 'YugabyteDB', name: 'YugabyteDB', category: 'DISTRIBUTED_SQL', categoryLabel: 'Distributed SQL', icon: 'network' },
-    { id: 'TiDB', name: 'TiDB (PingCAP)', category: 'DISTRIBUTED_SQL', categoryLabel: 'HTAP Distributed SQL', icon: 'network' },
-    { id: 'SingleStore', name: 'SingleStore (MemSQL)', category: 'DISTRIBUTED_SQL', categoryLabel: 'Real-Time Distributed', icon: 'network' },
-    { id: 'Google Cloud Spanner', name: 'Google Cloud Spanner', category: 'DISTRIBUTED_SQL', categoryLabel: 'Global Distributed SQL', icon: 'network' },
-
-    // 3. Warehouse (7)
-    { id: 'Snowflake', name: 'Snowflake Data Cloud', category: 'WAREHOUSE', categoryLabel: 'Cloud Data Warehouse', icon: 'layers' },
-    { id: 'Google BigQuery', name: 'Google BigQuery', category: 'WAREHOUSE', categoryLabel: 'Serverless Warehouse', icon: 'layers' },
-    { id: 'Amazon Redshift', name: 'Amazon Redshift', category: 'WAREHOUSE', categoryLabel: 'Cloud Data Warehouse', icon: 'layers' },
-    { id: 'Databricks', name: 'Databricks Delta Lake', category: 'WAREHOUSE', categoryLabel: 'Lakehouse & Delta', icon: 'layers' },
-    { id: 'ClickHouse', name: 'ClickHouse', category: 'WAREHOUSE', categoryLabel: 'Columnar Analytics', icon: 'layers' },
-    { id: 'Teradata', name: 'Teradata Vantage', category: 'WAREHOUSE', categoryLabel: 'Enterprise Warehouse', icon: 'layers' },
-    { id: 'OpenText Vertica', name: 'OpenText Vertica', category: 'WAREHOUSE', categoryLabel: 'Columnar Analytics', icon: 'layers' },
-
-    // 4. NoSQL (12)
-    { id: 'MongoDB', name: 'MongoDB', category: 'NOSQL', categoryLabel: 'Document Store', icon: 'boxes' },
-    { id: 'Apache Cassandra', name: 'Apache Cassandra', category: 'NOSQL', categoryLabel: 'Wide-Column Store', icon: 'boxes' },
-    { id: 'ScyllaDB', name: 'ScyllaDB', category: 'NOSQL', categoryLabel: 'Real-Time NoSQL', icon: 'boxes' },
-    { id: 'Neo4j', name: 'Neo4j Graph Database', category: 'NOSQL', categoryLabel: 'Native Graph DB', icon: 'boxes' },
-    { id: 'Redis', name: 'Redis', category: 'NOSQL', categoryLabel: 'In-Memory Cache & KV', icon: 'boxes' },
-    { id: 'KeyDB', name: 'KeyDB', category: 'NOSQL', categoryLabel: 'Multithreaded In-Memory', icon: 'boxes' },
-    { id: 'Elasticsearch', name: 'Elasticsearch', category: 'NOSQL', categoryLabel: 'Search & Analytics', icon: 'boxes' },
-    { id: 'OpenSearch', name: 'OpenSearch', category: 'NOSQL', categoryLabel: 'Search & Analytics', icon: 'boxes' },
-    { id: 'Apache Couchbase', name: 'Apache Couchbase', category: 'NOSQL', categoryLabel: 'Document & KV DB', icon: 'boxes' },
-    { id: 'Amazon DynamoDB', name: 'Amazon DynamoDB', category: 'NOSQL', categoryLabel: 'Serverless Key-Value', icon: 'boxes' },
-    { id: 'Azure Cosmos DB', name: 'Azure Cosmos DB', category: 'NOSQL', categoryLabel: 'Multi-Model Distributed', icon: 'boxes' },
-    { id: 'InfluxDB', name: 'InfluxDB', category: 'NOSQL', categoryLabel: 'Time-Series Engine', icon: 'boxes' },
-
-    // 5. Streaming (6)
-    { id: 'Apache Kafka', name: 'Apache Kafka', category: 'STREAMING', categoryLabel: 'Event Streaming', icon: 'radio' },
-    { id: 'Amazon Kinesis', name: 'Amazon Kinesis Data Streams', category: 'STREAMING', categoryLabel: 'Cloud Event Streaming', icon: 'radio' },
-    { id: 'Azure Event Hubs', name: 'Azure Event Hubs', category: 'STREAMING', categoryLabel: 'Cloud Event Ingestion', icon: 'radio' },
-    { id: 'Google Cloud Pub/Sub', name: 'Google Cloud Pub/Sub', category: 'STREAMING', categoryLabel: 'Enterprise Messaging', icon: 'radio' },
-    { id: 'Apache Pulsar', name: 'Apache Pulsar', category: 'STREAMING', categoryLabel: 'Distributed Pub/Sub', icon: 'radio' },
-    { id: 'RabbitMQ', name: 'RabbitMQ', category: 'STREAMING', categoryLabel: 'Message Broker', icon: 'radio' },
-
-    // 6. Storage (6)
-    { id: 'Amazon S3', name: 'Amazon S3', category: 'STORAGE', categoryLabel: 'Object Storage', icon: 'hard-drive' },
-    { id: 'Google Cloud Storage', name: 'Google Cloud Storage (GCS)', category: 'STORAGE', categoryLabel: 'Object Storage', icon: 'hard-drive' },
-    { id: 'Azure Blob Storage', name: 'Azure Blob Storage', category: 'STORAGE', categoryLabel: 'Cloud Blob Storage', icon: 'hard-drive' },
-    { id: 'MinIO', name: 'MinIO Object Storage', category: 'STORAGE', categoryLabel: 'S3-Compatible Storage', icon: 'hard-drive' },
-    { id: 'Apache HDFS', name: 'Apache HDFS', category: 'STORAGE', categoryLabel: 'Hadoop Distributed FS', icon: 'hard-drive' },
-    { id: 'OCI Object Storage', name: 'OCI Object Storage', category: 'STORAGE', categoryLabel: 'Cloud Object Storage', icon: 'hard-drive' },
-
-    // 7. SaaS & Apps (3)
-    { id: 'Salesforce', name: 'Salesforce', category: 'SAAS', categoryLabel: 'CRM & Cloud Platform', icon: 'cloud' },
-    { id: 'ServiceNow', name: 'ServiceNow', category: 'SAAS', categoryLabel: 'Enterprise ITSM / Tables', icon: 'cloud' },
-    { id: 'SAP Application Ecosystem', name: 'SAP Application Ecosystem', category: 'SAAS', categoryLabel: 'SAP NetWeaver / RFC', icon: 'cloud' }
+    ...ALL_PROVIDER_CATALOG_ITEMS.map(item => {
+      const catMap: Record<string, string> = {
+        'RELATIONAL': 'RELATIONAL_DISTRIBUTED_SQL',
+        'WAREHOUSE_LAKE': 'WAREHOUSE_LAKE',
+        'NOSQL_GRAPH': 'NOSQL_GRAPH_KV_SEARCH',
+        'STREAMING': 'STREAMING_MESSAGING',
+        'OBJECT_STORAGE': 'OBJECT_DISTRIBUTED_STORAGE',
+        'TIME_SERIES': 'TIME_SERIES',
+        'APPLICATION': 'ENTERPRISE_APPLICATIONS',
+        'ENTERPRISE_APPS': 'ENTERPRISE_APPLICATIONS',
+        'FILE_DATASET': 'FILE_DATASET'
+      };
+      return {
+        id: (item.id === 'file_dataset' ? 'File Dataset' : item.name) as PhysicalProviderId,
+        name: item.name,
+        category: item.id === 'file_dataset' ? 'FILE_DATASET' : (catMap[item.family] || item.family),
+        categoryLabel: item.categoryLabel,
+        icon: item.icon
+      };
+    }),
+    ...MANAGED_CLOUD_PROFILES.map(profile => ({
+      id: profile.name as PhysicalProviderId,
+      name: profile.name,
+      category: 'MANAGED_CLOUD',
+      categoryLabel: 'Managed Cloud Profile',
+      icon: profile.icon
+    }))
   ];
 
+  // 10 Canonical Family Tabs
   public catalogTabs: CatalogCategoryTab[] = [
-    { id: 'ALL', label: 'All', count: 49 },
-    { id: 'RELATIONAL', label: 'Relational', count: 10 },
-    { id: 'DISTRIBUTED_SQL', label: 'Distributed SQL', count: 5 },
-    { id: 'WAREHOUSE', label: 'Warehouse', count: 7 },
-    { id: 'NOSQL', label: 'NoSQL', count: 12 },
-    { id: 'STREAMING', label: 'Streaming', count: 6 },
-    { id: 'STORAGE', label: 'Storage', count: 6 },
-    { id: 'SAAS', label: 'SaaS & Apps', count: 3 }
+    { id: 'ALL', label: 'All', count: 54 },
+    { id: 'RELATIONAL_DISTRIBUTED_SQL', label: 'Relational & Distributed SQL', count: 17 },
+    { id: 'WAREHOUSE_LAKE', label: 'Warehouse & Lakehouse', count: 5 },
+    { id: 'NOSQL_GRAPH_KV_SEARCH', label: 'NoSQL, Graph & KV', count: 11 },
+    { id: 'STREAMING_MESSAGING', label: 'Streaming & Messaging', count: 6 },
+    { id: 'OBJECT_DISTRIBUTED_STORAGE', label: 'Object & Distributed Storage', count: 6 },
+    { id: 'TIME_SERIES', label: 'Time-Series', count: 1 },
+    { id: 'ENTERPRISE_APPLICATIONS', label: 'Enterprise Apps & SaaS', count: 3 },
+    { id: 'FILE_DATASET', label: 'File Dataset', count: 1 },
+    { id: 'MANAGED_CLOUD', label: 'Managed Cloud', count: 4 }
   ];
 
   public routeFiltersList: { label: string; value: NetworkRouteType }[] = [
@@ -1469,20 +1438,23 @@ export class Step3TargetComponent implements OnInit {
   public getCategoryFilterLabel(cat: string): string {
     switch (cat) {
       case 'ALL': return 'All';
-      case 'RELATIONAL': return 'Relational';
-      case 'DISTRIBUTED_SQL': return 'Distributed SQL';
-      case 'WAREHOUSE': return 'Warehouse';
-      case 'NOSQL': return 'NoSQL';
-      case 'STREAMING': return 'Streaming';
-      case 'STORAGE': return 'Storage';
-      case 'SAAS': return 'SaaS & Apps';
+      case 'RELATIONAL':
+      case 'RELATIONAL_DISTRIBUTED_SQL': return 'Relational & Distributed SQL';
+      case 'WAREHOUSE':
+      case 'WAREHOUSE_LAKE': return 'Warehouse & Lakehouse';
+      case 'NOSQL':
+      case 'NOSQL_GRAPH_KV_SEARCH': return 'NoSQL, Graph & KV';
+      case 'STREAMING':
+      case 'STREAMING_MESSAGING': return 'Streaming & Messaging';
+      case 'STORAGE':
+      case 'OBJECT_DISTRIBUTED_STORAGE': return 'Object & Distributed Storage';
+      case 'TIME_SERIES': return 'Time-Series';
+      case 'ENTERPRISE_APPLICATIONS':
+      case 'SAAS': return 'Enterprise Apps & SaaS';
+      case 'FILE_DATASET': return 'File Dataset';
+      case 'MANAGED_CLOUD': return 'Managed Cloud';
       default: return cat;
     }
-  }
-
-  public cleanLabel(label: string): string {
-    if (!label) return '';
-    return label.replace(/\s*\*+\s*$/, '').trim();
   }
 
   public getProviderIcon(provider: PhysicalProviderId): string {

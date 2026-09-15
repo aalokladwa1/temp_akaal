@@ -964,30 +964,36 @@ describe('CreateMigrationWizard State & Governance Suite', () => {
       step2 = new Step2SourceComponent(service);
     });
 
-    it('should display all 49 database engines across 7 categories', () => {
+    it('should display all 54 catalog entry points across 10 canonical family tabs', () => {
       step2.setConnectionMode('NEW');
-      expect(step2.catalogEngines.length).toBe(49);
+      expect(step2.catalogEngines.length).toBe(54);
 
-      step2.selectedCategoryTab.set('RELATIONAL');
-      expect(step2.filteredCatalogEngines().length).toBe(10);
+      step2.selectedCategoryTab.set('RELATIONAL_DISTRIBUTED_SQL');
+      expect(step2.filteredCatalogEngines().length).toBe(17);
 
-      step2.selectedCategoryTab.set('DISTRIBUTED_SQL');
+      step2.selectedCategoryTab.set('WAREHOUSE_LAKE');
       expect(step2.filteredCatalogEngines().length).toBe(5);
 
-      step2.selectedCategoryTab.set('WAREHOUSE');
-      expect(step2.filteredCatalogEngines().length).toBe(7);
+      step2.selectedCategoryTab.set('NOSQL_GRAPH_KV_SEARCH');
+      expect(step2.filteredCatalogEngines().length).toBe(11);
 
-      step2.selectedCategoryTab.set('NOSQL');
-      expect(step2.filteredCatalogEngines().length).toBe(12);
-
-      step2.selectedCategoryTab.set('STREAMING');
+      step2.selectedCategoryTab.set('STREAMING_MESSAGING');
       expect(step2.filteredCatalogEngines().length).toBe(6);
 
-      step2.selectedCategoryTab.set('STORAGE');
+      step2.selectedCategoryTab.set('OBJECT_DISTRIBUTED_STORAGE');
       expect(step2.filteredCatalogEngines().length).toBe(6);
 
-      step2.selectedCategoryTab.set('SAAS');
+      step2.selectedCategoryTab.set('TIME_SERIES');
+      expect(step2.filteredCatalogEngines().length).toBe(1);
+
+      step2.selectedCategoryTab.set('ENTERPRISE_APPLICATIONS');
       expect(step2.filteredCatalogEngines().length).toBe(3);
+
+      step2.selectedCategoryTab.set('FILE_DATASET');
+      expect(step2.filteredCatalogEngines().length).toBe(1);
+
+      step2.selectedCategoryTab.set('MANAGED_CLOUD');
+      expect(step2.filteredCatalogEngines().length).toBe(4);
     });
 
     it('should support all network route options and environment-aware TLS options', () => {
@@ -1075,43 +1081,51 @@ describe('CreateMigrationWizard State & Governance Suite', () => {
       step3 = new Step3TargetComponent(service);
     });
 
-    it('should display all 49 database engines across 7 categories in Target step', () => {
+    it('should display all 54 catalog entry points across 10 canonical family tabs in Target step', () => {
       step3.setConnectionMode('NEW');
-      expect(step3.catalogEngines.length).toBe(49);
+      expect(step3.catalogEngines.length).toBe(54);
 
-      step3.selectedCategoryTab.set('RELATIONAL');
-      expect(step3.filteredCatalogEngines().length).toBe(10);
+      step3.selectedCategoryTab.set('RELATIONAL_DISTRIBUTED_SQL');
+      expect(step3.filteredCatalogEngines().length).toBe(17);
 
-      step3.selectedCategoryTab.set('DISTRIBUTED_SQL');
+      step3.selectedCategoryTab.set('WAREHOUSE_LAKE');
       expect(step3.filteredCatalogEngines().length).toBe(5);
 
-      step3.selectedCategoryTab.set('WAREHOUSE');
-      expect(step3.filteredCatalogEngines().length).toBe(7);
+      step3.selectedCategoryTab.set('NOSQL_GRAPH_KV_SEARCH');
+      expect(step3.filteredCatalogEngines().length).toBe(11);
 
-      step3.selectedCategoryTab.set('NOSQL');
-      expect(step3.filteredCatalogEngines().length).toBe(12);
-
-      step3.selectedCategoryTab.set('STREAMING');
+      step3.selectedCategoryTab.set('STREAMING_MESSAGING');
       expect(step3.filteredCatalogEngines().length).toBe(6);
 
-      step3.selectedCategoryTab.set('STORAGE');
+      step3.selectedCategoryTab.set('OBJECT_DISTRIBUTED_STORAGE');
       expect(step3.filteredCatalogEngines().length).toBe(6);
 
-      step3.selectedCategoryTab.set('SAAS');
+      step3.selectedCategoryTab.set('TIME_SERIES');
+      expect(step3.filteredCatalogEngines().length).toBe(1);
+
+      step3.selectedCategoryTab.set('ENTERPRISE_APPLICATIONS');
       expect(step3.filteredCatalogEngines().length).toBe(3);
+
+      step3.selectedCategoryTab.set('FILE_DATASET');
+      expect(step3.filteredCatalogEngines().length).toBe(1);
+
+      step3.selectedCategoryTab.set('MANAGED_CLOUD');
+      expect(step3.filteredCatalogEngines().length).toBe(4);
     });
 
-    it('should support all 8 category tabs with exact engine counts', () => {
-      expect(step3.catalogTabs.length).toBe(8);
+    it('should support all 10 category tabs with exact engine counts', () => {
+      expect(step3.catalogTabs.length).toBe(10);
       expect(step3.catalogTabs).toEqual([
-        { id: 'ALL', label: 'All', count: 49 },
-        { id: 'RELATIONAL', label: 'Relational', count: 10 },
-        { id: 'DISTRIBUTED_SQL', label: 'Distributed SQL', count: 5 },
-        { id: 'WAREHOUSE', label: 'Warehouse', count: 7 },
-        { id: 'NOSQL', label: 'NoSQL', count: 12 },
-        { id: 'STREAMING', label: 'Streaming', count: 6 },
-        { id: 'STORAGE', label: 'Storage', count: 6 },
-        { id: 'SAAS', label: 'SaaS & Apps', count: 3 }
+        { id: 'ALL', label: 'All', count: 54 },
+        { id: 'RELATIONAL_DISTRIBUTED_SQL', label: 'Relational & Distributed SQL', count: 17 },
+        { id: 'WAREHOUSE_LAKE', label: 'Warehouse & Lakehouse', count: 5 },
+        { id: 'NOSQL_GRAPH_KV_SEARCH', label: 'NoSQL, Graph & KV', count: 11 },
+        { id: 'STREAMING_MESSAGING', label: 'Streaming & Messaging', count: 6 },
+        { id: 'OBJECT_DISTRIBUTED_STORAGE', label: 'Object & Distributed Storage', count: 6 },
+        { id: 'TIME_SERIES', label: 'Time-Series', count: 1 },
+        { id: 'ENTERPRISE_APPLICATIONS', label: 'Enterprise Apps & SaaS', count: 3 },
+        { id: 'FILE_DATASET', label: 'File Dataset', count: 1 },
+        { id: 'MANAGED_CLOUD', label: 'Managed Cloud', count: 4 }
       ]);
     });
 
