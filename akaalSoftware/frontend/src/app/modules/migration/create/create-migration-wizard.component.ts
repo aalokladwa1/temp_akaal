@@ -651,7 +651,6 @@ export class CreateMigrationWizardComponent implements OnInit, OnDestroy {
     }
 
     if (typeof window !== 'undefined') {
-      (window as any).__wizardMs = this.ms;
       (window as any).__step5Store = this.step5Store;
       (window as any).__step6Store = this.step6Store;
       (window as any).__step7Store = this.step7Store;

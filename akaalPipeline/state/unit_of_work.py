@@ -856,6 +856,69 @@ class SQLiteUnitOfWork(UnitOfWorkPort):
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             );
+
+            -- Phase 2 Validation Durability Tables
+            CREATE TABLE IF NOT EXISTS validation_missions (
+                mission_id TEXT PRIMARY KEY,
+                tenant_id TEXT NOT NULL DEFAULT 'default-tenant',
+                workspace_id TEXT NOT NULL DEFAULT 'default-workspace',
+                project_id TEXT,
+                name TEXT,
+                source_provider TEXT,
+                target_provider TEXT,
+                source_connection_id TEXT,
+                target_connection_id TEXT,
+                validation_context TEXT,
+                linked_migration_id TEXT,
+                baseline_id TEXT,
+                temporal_strategy TEXT,
+                is_continuous INTEGER DEFAULT 0,
+                state TEXT,
+                schedule_id TEXT,
+                scope_config TEXT,
+                execution_policy TEXT,
+                last_evaluated_at TEXT,
+                last_change_position TEXT,
+                evaluation_count INTEGER DEFAULT 0,
+                pass_count INTEGER DEFAULT 0,
+                fail_count INTEGER DEFAULT 0,
+                last_result_status TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS validation_baselines (
+                baseline_id TEXT PRIMARY KEY,
+                mission_id TEXT NOT NULL,
+                tenant_id TEXT NOT NULL DEFAULT 'default-tenant',
+                workspace_id TEXT NOT NULL DEFAULT 'default-workspace',
+                project_id TEXT,
+                baseline_type TEXT,
+                condition_type TEXT,
+                position_type TEXT,
+                position_value TEXT,
+                migration_id TEXT,
+                checkpoint_id TEXT,
+                is_verified INTEGER DEFAULT 0,
+                verification_method TEXT,
+                verification_status TEXT,
+                provenance_details TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS validation_import_proposals (
+                proposal_id TEXT PRIMARY KEY,
+                tenant_id TEXT NOT NULL DEFAULT 'default-tenant',
+                workspace_id TEXT NOT NULL DEFAULT 'default-workspace',
+                project_id TEXT,
+                format_type TEXT NOT NULL,
+                source_provider_hint TEXT,
+                target_provider_hint TEXT,
+                fingerprint TEXT NOT NULL,
+                proposal_data TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            );
         """)
 
         # Migration columns if missing

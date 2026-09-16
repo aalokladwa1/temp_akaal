@@ -7,6 +7,7 @@ echo ========================================================
 
 set "NG_CLI_ANALYTICS=false"
 set "NODE_OPTIONS="
+if exist "C:\Program Files\Go\bin" set "PATH=C:\Program Files\Go\bin;!PATH!"
 
 
 echo.

@@ -7,6 +7,7 @@ import { ContextService, Organization, Workspace, Environment } from '../../core
 import { IpcService } from '../../core/services/ipc.service';
 import { MigrationUiService } from '../../core/services/migration-ui.service';
 import { LucideIconComponent } from '../../shared/components/lucide-icon.component';
+import { SettingsService } from '../settings/services/settings.service';
 
 interface NavItem {
   path: string;
@@ -29,6 +30,102 @@ interface CommandItem {
   template: `
     <div class="flex flex-col h-screen w-screen bg-slate-50 text-slate-900 font-sans overflow-hidden select-none">
       
+      <!-- =============================================================== -->
+      <!-- 0. DESKTOP TITLE STRIP (AUTO-HIDE ON NORMAL USE, REVEAL ON TOP) -->
+      <!-- =============================================================== -->
+      <!-- Top-Edge Reveal Zone (Invisible 8px target at top edge) -->
+      <div 
+        id="desktop-top-edge-reveal-zone"
+        (mouseenter)="onTopEdgeEnter()"
+        class="fixed top-0 left-0 right-0 h-2 z-[99] pointer-events-auto bg-transparent"
+        aria-hidden="true">
+      </div>
+
+      <!-- Desktop Upper Title Strip Overlay (Auto-Hiding) -->
+      <!-- Desktop Upper Title Strip Overlay (Auto-Hiding) -->
+      <aside 
+        id="desktop-title-strip"
+        role="region"
+        aria-label="Desktop Window Controls"
+        (mouseenter)="onTitleStripEnter()"
+        (mouseleave)="onTitleStripLeave()"
+        (focusin)="onTitleStripFocusIn()"
+        (focusout)="onTitleStripFocusOut($event)"
+        (dblclick)="toggleMaximizeWindow()"
+        class="fixed top-0 left-0 right-0 h-8 z-[100] flex items-center justify-between pl-3 pr-0 bg-[#f8fafc] dark:bg-[#08090a] border-b border-slate-200/80 dark:border-white/[0.06] shadow-[0_1px_2px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.5)] select-none transition-all duration-200 ease-out"
+        [class.translate-y-0]="isTitleStripVisible()"
+        [class.opacity-100]="isTitleStripVisible()"
+        [class.pointer-events-auto]="isTitleStripVisible()"
+        [class.-translate-y-full]="!isTitleStripVisible()"
+        [class.opacity-0]="!isTitleStripVisible()"
+        [class.pointer-events-none]="!isTitleStripVisible()"
+        style="--wails-draggable: drag;">
+
+        <!-- Left: Application Brand Identity & Window Title -->
+        <div class="flex items-center gap-2 pointer-events-none select-none">
+          <div class="w-[18px] h-[18px] rounded-[4px] bg-[#0f172a] dark:bg-[#191a1e] border border-slate-700/20 dark:border-white/[0.12] text-white flex items-center justify-center font-bold text-[8.5px] tracking-wider shadow-2xs shrink-0">
+            DK
+          </div>
+          <span class="desktop-titlebar-title text-[11.5px] font-medium tracking-tight text-slate-700 dark:text-[#c5c6cb] flex items-center gap-1.5">
+            <span class="font-semibold text-slate-900 dark:text-white">DevKros</span>
+            <span class="font-normal text-slate-500 dark:text-[#8e9096]">Enterprise Platform</span>
+          </span>
+        </div>
+
+        <!-- Center: Draggable Spacer -->
+        <div class="flex-1 h-full cursor-default" style="--wails-draggable: drag;"></div>
+
+        <!-- Right: Window Action Controls -->
+        <div class="flex items-center h-full shrink-0" style="--wails-draggable: no-drag;">
+          <!-- Minimize -->
+          <button
+            id="window-minimize-btn"
+            type="button"
+            (click)="minimizeWindow()"
+            title="Minimize"
+            aria-label="Minimize Window"
+            class="w-11 h-8 flex items-center justify-center text-slate-500 hover:text-slate-900 dark:text-[#9ca3af] dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-white/[0.08] transition-colors focus:outline-none focus:bg-slate-200/80 dark:focus:bg-white/[0.1] cursor-pointer">
+            <svg class="w-2.5 h-2.5" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round">
+              <line x1="1" y1="5" x2="9" y2="5"></line>
+            </svg>
+          </button>
+
+          <!-- Maximize / Restore -->
+          <button
+            id="window-maximize-btn"
+            type="button"
+            (click)="toggleMaximizeWindow()"
+            [title]="isMaximized() ? 'Restore' : 'Maximize'"
+            [attr.aria-label]="isMaximized() ? 'Restore Window' : 'Maximize Window'"
+            class="w-11 h-8 flex items-center justify-center text-slate-500 hover:text-slate-900 dark:text-[#9ca3af] dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-white/[0.08] transition-colors focus:outline-none focus:bg-slate-200/80 dark:focus:bg-white/[0.1] cursor-pointer">
+            @if (isMaximized()) {
+              <svg class="w-2.5 h-2.5" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 2h5a1 1 0 0 1 1 1v5"></path>
+                <rect x="1.5" y="3.5" width="5.5" height="5.5" rx="0.5"></rect>
+              </svg>
+            } @else {
+              <svg class="w-2.5 h-2.5" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="1" y="1" width="8" height="8" rx="0.75"></rect>
+              </svg>
+            }
+          </button>
+
+          <!-- Close -->
+          <button
+            id="window-close-btn"
+            type="button"
+            (click)="closeWindow()"
+            title="Close"
+            aria-label="Close Application"
+            class="w-11 h-8 flex items-center justify-center text-slate-500 hover:text-white dark:text-[#9ca3af] dark:hover:text-white hover:bg-[#e81123] dark:hover:bg-[#e81123] transition-colors focus:outline-none focus:bg-[#e81123] focus:text-white cursor-pointer">
+            <svg class="w-2.5 h-2.5" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linecap="round">
+              <line x1="2" y1="2" x2="8" y2="8"></line>
+              <line x1="8" y1="2" x2="2" y2="8"></line>
+            </svg>
+          </button>
+        </div>
+      </aside>
+
       <!-- =============================================================== -->
       <!-- 1. FULL-WIDTH GLOBAL HEADER (TOP CHROME)                        -->
       <!-- =============================================================== -->
@@ -721,24 +818,35 @@ export class ShellComponent {
   public ipc: IpcService;
   public ms: MigrationUiService;
   public router: Router;
+  public ss?: SettingsService;
 
   constructor(
     ds?: DashboardService,
     cs?: ContextService,
     ipc?: IpcService,
     ms?: MigrationUiService,
-    router?: Router
+    router?: Router,
+    ss?: SettingsService
   ) {
     this.ds = ds || (inject(DashboardService, { optional: true }) as DashboardService);
     this.cs = cs || (inject(ContextService, { optional: true }) as ContextService);
     this.ipc = ipc || (inject(IpcService, { optional: true }) as IpcService);
     this.ms = ms || (inject(MigrationUiService, { optional: true }) as MigrationUiService);
     this.router = router || (inject(Router, { optional: true }) as Router);
+    try {
+      this.ss = ss || (inject(SettingsService, { optional: true }) as SettingsService);
+    } catch {
+      this.ss = ss;
+    }
   }
 
   public isExpanded = signal<boolean>(true);
   
-  // Context dropdowns
+  // Desktop Title Strip Signals & State (Owner Requirement 11)
+  public isTitleStripVisible = signal<boolean>(false);
+  public isMaximized = signal<boolean>(false);
+  public isTitleStripFocused = signal<boolean>(false);
+  private titleStripHideTimer: any = null;
   public isOrgOpen = signal<boolean>(false);
   public isWorkspaceOpen = signal<boolean>(false);
   public isEnvOpen = signal<boolean>(false);
@@ -1024,6 +1132,89 @@ export class ShellComponent {
       event.preventDefault?.();
       event.stopPropagation?.();
       this.closeAllDropdowns();
+    }
+  }
+
+  // =========================================================================
+  // Desktop Title Strip Interaction & Auto-Hide Behavior (Owner Requirement 11)
+  // =========================================================================
+
+  public onTopEdgeEnter(): void {
+    if (this.titleStripHideTimer) {
+      clearTimeout(this.titleStripHideTimer);
+      this.titleStripHideTimer = null;
+    }
+    this.isTitleStripVisible.set(true);
+  }
+
+  public onTitleStripEnter(): void {
+    if (this.titleStripHideTimer) {
+      clearTimeout(this.titleStripHideTimer);
+      this.titleStripHideTimer = null;
+    }
+    this.isTitleStripVisible.set(true);
+  }
+
+  public onTitleStripLeave(): void {
+    if (this.isTitleStripFocused()) return;
+    if (this.titleStripHideTimer) {
+      clearTimeout(this.titleStripHideTimer);
+    }
+    this.titleStripHideTimer = setTimeout(() => {
+      if (!this.isTitleStripFocused()) {
+        this.isTitleStripVisible.set(false);
+      }
+    }, 450);
+  }
+
+  public onTitleStripFocusIn(): void {
+    this.isTitleStripFocused.set(true);
+    if (this.titleStripHideTimer) {
+      clearTimeout(this.titleStripHideTimer);
+      this.titleStripHideTimer = null;
+    }
+    this.isTitleStripVisible.set(true);
+  }
+
+  public onTitleStripFocusOut(event: FocusEvent): void {
+    const currentTarget = event.currentTarget as HTMLElement;
+    const related = event.relatedTarget as HTMLElement;
+    if (currentTarget && related && currentTarget.contains(related)) {
+      return;
+    }
+    this.isTitleStripFocused.set(false);
+    if (this.titleStripHideTimer) {
+      clearTimeout(this.titleStripHideTimer);
+    }
+    this.titleStripHideTimer = setTimeout(() => {
+      if (!this.isTitleStripFocused()) {
+        this.isTitleStripVisible.set(false);
+      }
+    }, 450);
+  }
+
+  public minimizeWindow(): void {
+    if (typeof window !== 'undefined' && (window as any).runtime?.WindowMinimise) {
+      (window as any).runtime.WindowMinimise();
+    }
+  }
+
+  public toggleMaximizeWindow(): void {
+    if (typeof window !== 'undefined' && (window as any).runtime?.WindowToggleMaximise) {
+      (window as any).runtime.WindowToggleMaximise();
+    }
+    if (typeof window !== 'undefined' && (window as any).runtime?.WindowIsMaximised) {
+      (window as any).runtime.WindowIsMaximised().then((m: boolean) => this.isMaximized.set(m));
+    } else {
+      this.isMaximized.update(v => !v);
+    }
+  }
+
+  public closeWindow(): void {
+    if (typeof window !== 'undefined' && (window as any).runtime?.Quit) {
+      (window as any).runtime.Quit();
+    } else if (typeof window !== 'undefined' && (window as any).close) {
+      (window as any).close();
     }
   }
 

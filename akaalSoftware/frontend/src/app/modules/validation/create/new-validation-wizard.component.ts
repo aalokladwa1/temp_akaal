@@ -4,6 +4,7 @@ import { Router, ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { ValidationUiService } from '../../../core/services/validation-ui.service';
+import { IpcService } from '../../../core/services/ipc.service';
 import { LucideIconComponent } from '../../../shared/components/lucide-icon.component';
 import { Step1DefinitionComponent } from './steps/step1-definition.component';
 import { Step2SourceComponent } from './steps/step2-source.component';
@@ -291,7 +292,9 @@ export class NewValidationWizardComponent implements OnInit, OnDestroy {
     return this.vs.isStepValid(this.currentStep());
   });
 
-  constructor(vs?: ValidationUiService, router?: Router, route?: ActivatedRoute) {
+  public ipc: IpcService;
+
+  constructor(vs?: ValidationUiService, router?: Router, route?: ActivatedRoute, ipc?: IpcService) {
     if (vs) {
       this.vs = vs;
     } else {
@@ -308,6 +311,12 @@ export class NewValidationWizardComponent implements OnInit, OnDestroy {
       this.route = route;
     } else {
       try { this.route = inject(ActivatedRoute); } catch { this.route = undefined as any; }
+    }
+
+    if (ipc) {
+      this.ipc = ipc;
+    } else {
+      try { this.ipc = inject(IpcService); } catch { this.ipc = new IpcService(); }
     }
   }
 
@@ -420,8 +429,77 @@ export class NewValidationWizardComponent implements OnInit, OnDestroy {
     }
   }
 
-  public initializeValidation(): void {
-    if (this.isCurrentStepValid()) {
+  public isSubmitting = signal<boolean>(false);
+  public submitError = signal<string | null>(null);
+
+  public async initializeValidation(): Promise<void> {
+    if (!this.isCurrentStepValid() || this.isSubmitting()) return;
+
+    this.isSubmitting.set(true);
+    this.submitError.set(null);
+    const draft = this.vs.newValidationDraft();
+
+    try {
+      // 1. Create Mission via IPC
+      const createRes = await this.ipc.invoke('validation', 'create_mission', {
+        name: draft.name || 'Untitled Validation Mission',
+        source_id: draft.sourceDatabase || draft.sourceHost || 'src-1',
+        target_id: draft.targetDatabase || draft.targetHost || 'tgt-1',
+        source_provider: draft.sourceProvider || 'Oracle',
+        target_provider: draft.targetProvider || 'PostgreSQL',
+        temporal_strategy: draft.temporalCadence || (draft.step8TimingChoice === 'CONTINUOUS' ? 'CONTINUOUS' : (draft.step8TimingChoice === 'RECURRING' ? 'RECURRING' : (draft.step8TimingChoice === 'SCHEDULE_LATER' ? 'SCHEDULE_LATER' : 'EXECUTE_ON_INIT'))),
+        assurance_level: draft.assuranceLevel || 'PARTITION_FINGERPRINT',
+        environment: draft.environment || 'Production',
+        project_id: draft.projectId
+      });
+
+      if (createRes.status !== 'SUCCESS') {
+        throw new Error(createRes.error || 'Failed to create validation mission via IPC');
+      }
+
+      const missionId = createRes.data?.mission_id || `miss_${Date.now()}`;
+
+      // 2. Establish Baseline via IPC if configured
+      if (draft.baselineIntent) {
+        if (draft.baselineIntent === 'MAINTENANCE_COORDINATED') {
+          await this.ipc.invoke('validation', 'establish_baseline', {
+            mission_id: missionId,
+            baseline_type: 'MAINTENANCE_COORDINATED',
+            condition: draft.maintenanceCondition || 'WRITES_STOPPED_DECLARED',
+            operator_declaration: 'Operator declared operational condition prior to initialization'
+          });
+        } else if (draft.baselineIntent === 'INHERITED_MIGRATION' || draft.validationContext === 'EXISTING_PROJECT') {
+          await this.ipc.invoke('validation', 'establish_baseline', {
+            mission_id: missionId,
+            baseline_type: 'INHERITED_MIGRATION',
+            migration_id: draft.projectId || 'mig-1',
+            checkpoint_id: draft.backendBaselineId || 'chk-1'
+          });
+        } else if (draft.baselineIntent === 'EXTERNAL_REPLICATION') {
+          await this.ipc.invoke('validation', 'establish_baseline', {
+            mission_id: missionId,
+            baseline_type: 'EXTERNAL_REPLICATION',
+            provider: (draft.sourceProvider || 'ORACLE').toUpperCase(),
+            position_type: draft.externalPositionType || 'ORACLE_SCN',
+            position_value: draft.externalPositionValue || '123456'
+          });
+        }
+      }
+
+      // 3. Initialize Mission via IPC
+      await this.ipc.invoke('validation', 'initialize_mission', {
+        mission_id: missionId
+      });
+
+      // 4. Handle Execution Timing Choice
+      const choice = draft.step8TimingChoice || 'INITIALIZATION';
+      if (choice === 'INITIALIZATION') {
+        await this.ipc.invoke('validation', 'execute_mission', { mission_id: missionId });
+      } else if (choice === 'CONTINUOUS') {
+        await this.ipc.invoke('validation', 'control_continuous', { mission_id: missionId, action: 'start' });
+      }
+
+      this.isSubmitting.set(false);
       const pid = this.projectId();
       this.vs.resetDraft();
       if (pid) {
@@ -429,6 +507,9 @@ export class NewValidationWizardComponent implements OnInit, OnDestroy {
       } else {
         this.router.navigate(['/migration/validation']);
       }
+    } catch (err: any) {
+      this.isSubmitting.set(false);
+      this.submitError.set(err?.message || 'Initialization failed');
     }
   }
 }

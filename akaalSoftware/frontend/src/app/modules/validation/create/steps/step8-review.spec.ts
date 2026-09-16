@@ -86,10 +86,9 @@ describe('Step 8 Review, Schedule & Initialize Component', () => {
     expect(step8.recurrenceFrequency()).toBe('WEEKLY');
     expect(vs.newValidationDraft().step8RecurringFrequency).toBe('WEEKLY');
 
-    // Continuous Validation must be unavailable
+    // Continuous Validation selection
     step8.setTimingChoice('CONTINUOUS');
-    // Choice remains RECURRING
-    expect(step8.timingChoice()).toBe('RECURRING');
+    expect(step8.timingChoice()).toBe('CONTINUOUS');
   });
 
   it('Mandate 10: Technical Configuration Modal toggle and inspection', () => {
@@ -120,7 +119,7 @@ describe('Step 8 Review, Schedule & Initialize Component', () => {
     expect(vs.newValidationDraft().currentStep).toBe(4);
   });
 
-  it('Mandate 11: Wizard completion resets draft and navigates without simulating fake runs', () => {
+  it('Mandate 11: Wizard completion resets draft and navigates without simulating fake runs', async () => {
     // Populate valid steps 1-6
     vs.updateDraft({
       name: 'Production Core Settlement Validation',
@@ -153,7 +152,8 @@ describe('Step 8 Review, Schedule & Initialize Component', () => {
     expect(vs.isStep8Valid()).toBe(true);
     expect(wizard.isCurrentStepValid()).toBe(true);
 
-    wizard.initializeValidation();
+    wizard.ipc = { invoke: vi.fn().mockResolvedValue({ status: 'SUCCESS' }) } as any;
+    await wizard.initializeValidation();
     expect(mockRouter.navigate).toHaveBeenCalledWith(['/migration/validation']);
   });
 });

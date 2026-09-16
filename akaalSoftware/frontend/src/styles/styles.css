@@ -135,125 +135,527 @@ body:has([aria-modal="true"]:not([style*="display: none"]):not(.hidden)) .h-\[ca
 /* AKAAL Appearance & Accessibility Orthogonal Layers                         */
 /* ========================================================================== */
 
-/* 1. DARK THEME CSS VARIABLES & SURFACE OVERRIDES */
+/* 1. LUNOR-INSPIRED MATTE GRAPHITE & CHARCOAL DARK THEME (100% ZERO BLUE) */
 html.dark, :root[data-theme="dark"] {
-  --color-bg-canvas: #090d16;
-  --color-bg-surface: #0f172a;
-  --color-bg-elevated: #1e293b;
-  --color-bg-subtle: #111827;
+  /* Level 0 - Deepest Matte Charcoal / Title strip / Backdrops */
+  --color-bg-deepest: #0a0b0d;
 
-  --color-border-default: #334155;
-  --color-border-strong: #475569;
-  --color-border-subtle: #1e293b;
+  /* Level 1 - Application Canvas (smooth matte dark graphite from inspiration) */
+  --color-bg-canvas: #111214;
 
-  --color-text-primary: #f8fafc;
-  --color-text-secondary: #cbd5e1;
-  --color-text-muted: #94a3b8;
+  /* Level 2 - Primary Surface (panels, content surfaces, sidebar, header) */
+  --color-bg-surface: #17181b;
 
-  --color-accent: #3b82f6;
-  --color-accent-hover: #60a5fa;
-  --color-accent-muted: rgba(59, 130, 246, 0.15);
+  /* Level 3 - Raised / Card Surface (cards, controls, raised panels, inputs) */
+  --color-bg-elevated: #1d1e22;
+  --color-bg-subtle: #191a1d;
 
-  --color-status-success: #10b981;
+  /* Level 4 - Interactive / Emphasized Neutral (hover, active neutral) */
+  --color-bg-interactive: #242529;
+  --color-bg-hover: #212226;
+
+  /* Low-Contrast Hairline Borders (from inspiration: soft, low-glare) */
+  --color-border-subtle: #202125;
+  --color-border-default: #26272b;
+  --color-border-strong: #33343a;
+
+  /* Neutral Typography Hierarchy (Soft warm off-white, not harsh glaring white) */
+  --color-text-primary: #ededed;
+  --color-text-secondary: #c5c6c9;
+  --color-text-muted: #7e8086;
+
+  /* 100% NON-BLUISH ACCENT & HIGHLIGHT (From Inspiration: Sleek Neutral Highlight) */
+  --color-accent: #ffffff;
+  --color-accent-hover: #e5e5e5;
+  --color-accent-muted: rgba(255, 255, 255, 0.08);
+
+  /* Semantic Status Indicators */
+  --color-status-success: #22c55e;
   --color-status-warning: #f59e0b;
   --color-status-error: #ef4444;
-  --color-status-info: #38bdf8;
+  --color-status-info: #9ca3af;
 }
 
 html.dark body {
-  background-color: #090d16;
-  color: #f8fafc;
+  background-color: #111214 !important;
+  color: #ededed !important;
 }
 
+/* Primary Structural Surfaces: Shell Header, Sidebar */
+html.dark header,
 html.dark header.bg-white,
-html.dark aside.bg-white,
+html.dark aside:not(#desktop-title-strip),
+html.dark aside.bg-white:not(#desktop-title-strip) {
+  background-color: #0d0e10 !important;
+  border-color: #1e1f23 !important;
+}
+
+/* ========================================================================== */
+/* DESKTOP TITLE STRIP — EXECUTIVE PROFESSIONAL TYPOGRAPHY & CHROMES          */
+/* ========================================================================== */
+
+/* Universal Professional Font for Title Strip in Both Modes */
+#desktop-title-strip,
+#desktop-title-strip *,
+#desktop-title-strip span,
+#desktop-title-strip button {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Light Mode Desktop Title Strip: Refined Executive Slate/Mist */
+html:not(.dark) #desktop-title-strip {
+  background-color: #f8fafc !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.07) !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03) !important;
+}
+
+html:not(.dark) #desktop-title-strip .desktop-titlebar-title {
+  color: #334155 !important;
+}
+
+/* Dark Mode Desktop Title Strip: Deep Velvet Charcoal Black (Darker than Dark Mode Canvas) */
+html.dark #desktop-title-strip {
+  background-color: #08090a !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5) !important;
+}
+
+html.dark #desktop-title-strip .desktop-titlebar-title {
+  color: #c5c6cb !important;
+}
+
+/* Content Surfaces, Containers, Cards, Dialogs, Modals */
 html.dark div.bg-white,
-html.dark button.bg-white,
+html.dark section.bg-white,
+html.dark article.bg-white,
+html.dark nav.bg-white,
 html.dark .bg-white {
-  background-color: #0f172a !important;
+  background-color: #17181b !important;
+  border-color: #242529 !important;
 }
 
+/* Canvas Backgrounds (Level 1 Matte Graphite) */
 html.dark .bg-slate-50,
-html.dark .bg-slate-50\/50 {
-  background-color: #090d16 !important;
+html.dark .bg-slate-50\/40,
+html.dark .bg-slate-50\/50,
+html.dark .bg-slate-50\/60,
+html.dark .bg-slate-50\/80 {
+  background-color: #111214 !important;
 }
 
+/* Elevated / Card / Secondary Surfaces (Level 3 Matte Charcoal) */
 html.dark .bg-slate-100,
+html.dark .bg-slate-100\/40,
+html.dark .bg-slate-100\/50,
+html.dark .bg-slate-100\/60,
 html.dark .bg-slate-100\/80,
 html.dark .bg-slate-100\/90 {
-  background-color: #1e293b !important;
+  background-color: #1a1b1e !important;
 }
 
+/* Subtle Neutral Fill Badges & Inactive Chips */
+html.dark .bg-slate-200,
+html.dark .bg-slate-200\/60,
+html.dark .bg-slate-200\/80 {
+  background-color: #222327 !important;
+}
+
+/* Tailwind dark: slate utilities neutralization to Lunor palette */
+html.dark .dark\:bg-slate-950 { background-color: #0d0e10 !important; }
+html.dark .dark\:bg-slate-900 { background-color: #17181b !important; }
+html.dark .dark\:bg-slate-900\/40,
+html.dark .dark\:bg-slate-900\/50,
+html.dark .dark\:bg-slate-900\/60,
+html.dark .dark\:bg-slate-900\/80 { background-color: #1a1b1e !important; }
+html.dark .dark\:bg-slate-800 { background-color: #1f2023 !important; }
+html.dark .dark\:bg-slate-800\/40,
+html.dark .dark\:bg-slate-800\/50,
+html.dark .dark\:bg-slate-800\/60,
+html.dark .dark\:bg-slate-800\/80 { background-color: #242529 !important; }
+html.dark .dark\:bg-slate-700 { background-color: #2a2b30 !important; }
+html.dark .dark\:hover\:bg-slate-800:hover { background-color: #242529 !important; }
+html.dark .dark\:hover\:bg-slate-700:hover { background-color: #2d2e33 !important; }
+
+/* ========================================================================== */
+/* COMPLETE ELIMINATION OF ALL BLUISH TINTS & HIGHLIGHTS FROM DARK MODE       */
+/* ========================================================================== */
+
+/* 1. All Blue Backgrounds (bg-blue-*) Neutralized to Sleek Matte Charcoal */
+html.dark .bg-blue-50,
+html.dark .bg-blue-50\/20,
+html.dark .bg-blue-50\/30,
+html.dark .bg-blue-50\/40,
+html.dark .bg-blue-50\/50,
+html.dark .bg-blue-50\/60,
+html.dark .bg-blue-50\/70,
+html.dark .bg-blue-50\/80,
+html.dark .bg-blue-100,
+html.dark .bg-blue-100\/20,
+html.dark .bg-blue-100\/30,
+html.dark .bg-blue-100\/40,
+html.dark .bg-blue-100\/50,
+html.dark .bg-blue-100\/60,
+html.dark .bg-blue-100\/80,
+html.dark .bg-blue-200,
+html.dark .bg-blue-900,
+html.dark .bg-blue-900\/20,
+html.dark .bg-blue-900\/30,
+html.dark .bg-blue-900\/40,
+html.dark .bg-blue-950,
+html.dark .bg-blue-950\/20,
+html.dark .bg-blue-950\/30,
+html.dark .bg-blue-950\/40,
+html.dark .dark\:bg-blue-950,
+html.dark .dark\:bg-blue-950\/20,
+html.dark .dark\:bg-blue-950\/30,
+html.dark .dark\:bg-blue-950\/40,
+html.dark .dark\:bg-blue-900,
+html.dark .dark\:bg-blue-900\/40 {
+  background-color: #1d1e22 !important;
+}
+
+/* Mid-tone blue bars, miniature indicators & mockups -> clean neutral off-white / light slate */
+html.dark .bg-blue-300:not([title*="Primary Blue"]):not([title*="Safe Blue"]),
+html.dark .bg-blue-400:not([title*="Primary Blue"]):not([title*="Safe Blue"]),
+html.dark .bg-blue-500:not([title*="Primary Blue"]):not([title*="Safe Blue"]) {
+  background-color: #d1d5db !important;
+}
+
+/* Dots and small indicator pills */
+html.dark span.rounded-full.bg-blue-500,
+html.dark span.rounded-full.bg-blue-600 {
+  background-color: #9ca3af !important;
+  border: none !important;
+}
+
+/* 2. Primary Action Buttons (bg-blue-600/700) -> Sleek Matte Charcoal with Hairline Border */
+html.dark button.bg-blue-600,
+html.dark button.bg-blue-700,
+html.dark a.bg-blue-600,
+html.dark a.bg-blue-700,
+html.dark .bg-blue-600:not([title*="Primary Blue"]):not(.w-4) {
+  background-color: #26272b !important;
+  color: #ededed !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+}
+
+html.dark button.bg-blue-600:hover,
+html.dark button.bg-blue-700:hover,
+html.dark a.bg-blue-600:hover,
+html.dark a.bg-blue-700:hover {
+  background-color: #303136 !important;
+  border-color: rgba(255, 255, 255, 0.22) !important;
+  color: #ffffff !important;
+}
+
+/* 3. DK Brand Badge in Header & Title Strip -> Sleek Matte Charcoal Badge */
+html.dark header .bg-blue-600,
+html.dark aside .bg-blue-600,
+html.dark #desktop-title-strip .bg-blue-600 {
+  background-color: #1f2024 !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  color: #ffffff !important;
+}
+
+/* 4. Active Sidebar & Navigation Items (from Lunor: elevated matte pill, white text) */
+html.dark a[routerLinkActive*="bg-blue-50"],
+html.dark a.routerLinkActive,
+html.dark .routerLinkActive.bg-blue-50,
+html.dark nav a[routerLinkActive].bg-blue-50,
+html.dark a[routerlinkactive].active-nav-blue {
+  background-color: #222327 !important;
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3) !important;
+}
+
+html.dark a[routerLinkActive*="bg-blue-50"] app-lucide-icon,
+html.dark a[routerLinkActive*="bg-blue-50"] svg,
+html.dark a.routerLinkActive app-lucide-icon,
+html.dark a.routerLinkActive svg,
+html.dark nav a[routerLinkActive] app-lucide-icon,
+html.dark nav a[routerLinkActive] svg {
+  color: #ffffff !important;
+}
+
+/* 5. Selected Cards & Radios (Workspace Theme, Accessibility Palette, Contrast Calibration) */
+html.dark [role="radio"].border-blue-600,
+html.dark [role="radio"].bg-blue-50,
+html.dark [role="radio"].ring-2,
+html.dark div.border-blue-600,
+html.dark div.ring-blue-500,
+html.dark div.ring-2.ring-blue-500,
+html.dark div.ring-2.border-blue-600 {
+  background-color: #1b1c20 !important;
+  border-color: rgba(255, 255, 255, 0.35) !important;
+  --tw-ring-color: rgba(255, 255, 255, 0.15) !important;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2) !important;
+}
+
+/* Checkmarks inside selected cards */
+html.dark [role="radio"] app-lucide-icon[name="circle-check"],
+html.dark [role="radio"] app-lucide-icon[name="check"],
+html.dark div.border-blue-600 app-lucide-icon,
+html.dark div.border-blue-600 svg {
+  color: #ffffff !important;
+}
+
+/* 6. Notification Banners & Toast Alerts (e.g. "Workspace theme updated to dark") */
+html.dark .bg-blue-50.border-blue-200,
+html.dark .bg-blue-50.border {
+  background-color: #18191c !important;
+  border-color: #2b2c31 !important;
+  color: #e4e4e7 !important;
+}
+
+html.dark .bg-blue-50.border-blue-200 app-lucide-icon,
+html.dark .bg-blue-50.border-blue-200 svg,
+html.dark .bg-blue-50.border-blue-200 span,
+html.dark .bg-blue-50.border-blue-200 div {
+  color: #e4e4e7 !important;
+}
+
+html.dark .bg-blue-50.border-blue-200 button {
+  color: #9ca3af !important;
+}
+
+html.dark .bg-blue-50.border-blue-200 button:hover {
+  color: #ffffff !important;
+}
+
+/* 7. All Blue Borders (border-blue-*) Neutralized to Hairline Dark Gray */
+html.dark .border-blue-100,
+html.dark .border-blue-200,
+html.dark .border-blue-200\/60,
+html.dark .border-blue-200\/80,
+html.dark .border-blue-200\/90,
+html.dark .border-blue-300,
+html.dark .border-blue-400,
+html.dark .border-blue-500,
+html.dark .border-blue-500\/20,
+html.dark .border-blue-500\/30,
+html.dark .border-blue-600,
+html.dark .border-blue-700,
+html.dark .border-blue-800,
+html.dark .border-blue-900,
+html.dark .dark\:border-blue-900,
+html.dark .dark\:border-blue-900\/40,
+html.dark .dark\:border-blue-900\/50,
+html.dark .dark\:border-blue-800 {
+  border-color: #27282c !important;
+}
+
+/* 8. All Blue Text (text-blue-*) Neutralized in Dark Mode */
+html.dark .text-blue-50,
+html.dark .text-blue-100,
+html.dark .text-blue-200,
+html.dark .text-blue-300,
+html.dark .text-blue-400,
+html.dark .text-blue-500,
+html.dark .text-blue-600,
+html.dark .text-blue-700,
+html.dark .text-blue-800,
+html.dark .text-blue-900,
+html.dark .text-blue-950,
+html.dark .dark\:text-blue-300,
+html.dark .dark\:text-blue-400,
+html.dark .dark\:text-blue-500,
+html.dark .text-indigo-500,
+html.dark .text-indigo-600 {
+  color: #c5c6c9 !important;
+}
+
+html.dark [class*="text-blue-"] svg,
+html.dark [class*="text-blue-"] app-lucide-icon,
+html.dark .text-blue-400 svg,
+html.dark .text-blue-500 svg,
+html.dark .text-blue-600 svg,
+html.dark .text-blue-700 svg,
+html.dark .text-blue-800 svg,
+html.dark .text-blue-900 svg {
+  color: #c5c6c9 !important;
+}
+
+/* Headers / uppercase section tags that used text-blue-600 -> Crisp Neutral */
+html.dark span.text-blue-600,
+html.dark div.text-blue-600,
+html.dark h2.text-blue-600,
+html.dark h3.text-blue-600,
+html.dark .font-bold.text-blue-600,
+html.dark .font-mono.text-blue-600 {
+  color: #9ca3af !important;
+}
+
+/* Active item text becomes bright white */
+html.dark .routerLinkActive span,
+html.dark .routerLinkActive .text-blue-700,
+html.dark [role="radio"][aria-checked="true"] span.text-slate-900 {
+  color: #ffffff !important;
+}
+
+/* 9. Focus Rings & Outlines */
+html.dark .ring-blue-500,
+html.dark .ring-blue-600,
+html.dark .ring-blue-500\/20,
+html.dark .ring-blue-500\/30,
+html.dark .focus\:ring-blue-500:focus,
+html.dark .focus\:ring-blue-500\/20:focus,
+html.dark .focus\:border-blue-500:focus,
+html.dark input:focus,
+html.dark select:focus,
+html.dark textarea:focus {
+  --tw-ring-color: rgba(255, 255, 255, 0.16) !important;
+  border-color: #38393f !important;
+  outline: none !important;
+}
+
+/* 10. Low-Contrast Hairline Neutral Borders */
+html.dark .border-slate-100,
 html.dark .border-slate-200,
-html.dark .border-slate-100 {
-  border-color: #334155 !important;
+html.dark .border-slate-200\/60,
+html.dark .border-slate-200\/80 {
+  border-color: #232428 !important;
 }
 
 html.dark .border-slate-300 {
-  border-color: #475569 !important;
+  border-color: #2e2f35 !important;
 }
 
-html.dark .text-slate-900 {
-  color: #f8fafc !important;
+html.dark .border-slate-400 {
+  border-color: #3b3c43 !important;
 }
 
-html.dark .text-slate-800 {
-  color: #f1f5f9 !important;
+html.dark .dark\:border-slate-900 { border-color: #17181b !important; }
+html.dark .dark\:border-slate-800 { border-color: #232428 !important; }
+html.dark .dark\:border-slate-700 { border-color: #2a2b30 !important; }
+html.dark .dark\:border-slate-600 { border-color: #35363c !important; }
+
+/* 11. Typography Grayscale Contrast Hierarchy */
+html.dark .text-slate-900,
+html.dark .dark\:text-slate-100 {
+  color: #ededed !important;
 }
 
-html.dark .text-slate-700 {
-  color: #e2e8f0 !important;
+html.dark .text-slate-800,
+html.dark .dark\:text-slate-200 {
+  color: #d1d2d5 !important;
 }
 
-html.dark .text-slate-600 {
-  color: #cbd5e1 !important;
+html.dark .text-slate-700,
+html.dark .dark\:text-slate-300 {
+  color: #b5b6ba !important;
 }
 
-html.dark .text-slate-500 {
-  color: #94a3b8 !important;
+html.dark .text-slate-600,
+html.dark .dark\:text-slate-400 {
+  color: #94959a !important;
+}
+
+html.dark .text-slate-500,
+html.dark .dark\:text-slate-500 {
+  color: #7e8086 !important;
 }
 
 html.dark .text-slate-400 {
-  color: #64748b !important;
+  color: #63646a !important;
 }
 
+/* 12. Interactive Hover States (One Neutral Step Upward) */
 html.dark .hover\:bg-slate-50:hover {
-  background-color: #1e293b !important;
+  background-color: #1d1e22 !important;
 }
 
 html.dark .hover\:bg-slate-100:hover,
 html.dark .hover\:bg-slate-100\/80:hover,
 html.dark .hover\:bg-slate-100\/90:hover {
-  background-color: #334155 !important;
+  background-color: #242529 !important;
 }
 
-html.dark .bg-blue-50 {
-  background-color: rgba(59, 130, 246, 0.15) !important;
+html.dark .hover\:border-slate-300:hover {
+  border-color: #33343a !important;
 }
 
-html.dark .border-blue-200,
-html.dark .border-blue-200\/80,
-html.dark .border-blue-300 {
-  border-color: rgba(59, 130, 246, 0.4) !important;
-}
-
-html.dark .text-blue-700,
-html.dark .text-blue-600 {
-  color: #60a5fa !important;
-}
-
+/* 13. Keyboard Keys */
 html.dark kbd {
-  background-color: #1e293b !important;
-  border-color: #475569 !important;
-  color: #cbd5e1 !important;
+  background-color: #1a1b1e !important;
+  border-color: #28292d !important;
+  color: #c5c6c9 !important;
 }
 
+/* 14. Form Controls (Inputs, Selects, Textareas - from Lunor) */
 html.dark input:not([type="checkbox"]):not([type="radio"]),
 html.dark select,
 html.dark textarea {
-  background-color: #1e293b !important;
-  color: #f8fafc !important;
-  border-color: #334155 !important;
+  background-color: #1a1b1e !important;
+  color: #ededed !important;
+  border-color: #27282c !important;
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: #5c5d63 !important;
+}
+
+/* 15. Tables in Dark Mode */
+html.dark table thead th {
+  background-color: #141518 !important;
+  color: #94959a !important;
+  border-color: #232428 !important;
+}
+
+html.dark table tbody tr {
+  background-color: #17181b !important;
+  border-color: #202125 !important;
+}
+
+html.dark table tbody tr:hover {
+  background-color: #1d1e22 !important;
+}
+
+html.dark table tbody td {
+  border-color: #202125 !important;
+}
+
+/* 16. Overlays: Dropdowns, Popovers, Modals */
+html.dark [role="dialog"],
+html.dark [aria-modal="true"],
+html.dark header div.absolute.rounded-xl.bg-white,
+html.dark header div.absolute.rounded-2xl.bg-white,
+html.dark [role="menu"] {
+  background-color: #141518 !important;
+  border-color: #26272b !important;
+  color: #ededed !important;
+}
+
+/* Command Palette Items in Dark Mode */
+html.dark [id^="cmd-item-"] {
+  color: #c5c6c9 !important;
+}
+
+html.dark [id^="cmd-item-"].bg-blue-50,
+html.dark [id^="cmd-item-"]:hover {
+  background-color: #242529 !important;
+  color: #ffffff !important;
+}
+
+html.dark [id^="cmd-item-"].bg-blue-50 app-lucide-icon,
+html.dark [id^="cmd-item-"]:hover app-lucide-icon {
+  color: #ffffff !important;
+}
+
+/* 17. Universal Custom Scrollbars in Dark Mode */
+html.dark *::-webkit-scrollbar-thumb {
+  background: #28292d !important;
+}
+
+html.dark *::-webkit-scrollbar-thumb:hover {
+  background: #36373d !important;
+}
+
+html.dark {
+  scrollbar-color: #28292d transparent !important;
 }
 
 /* 2. COLOR VISION SAFE ACCESSIBILITY PALETTE */
@@ -320,7 +722,7 @@ html.high-contrast:not(.dark) .border {
 
 html.high-contrast.dark {
   --color-bg-canvas: #000000;
-  --color-bg-surface: #050811;
+  --color-bg-surface: #0a0a0a;
   --color-border-default: #ffffff;
   --color-border-strong: #ffffff;
   --color-text-primary: #ffffff;
@@ -367,7 +769,7 @@ html.enhanced-focus.dark button:focus-visible,
 html.enhanced-focus.dark a:focus-visible,
 html.enhanced-focus.dark input:focus-visible,
 html.enhanced-focus.dark select:focus-visible {
-  outline: 3px solid #60a5fa !important;
+  outline: 3px solid rgba(255, 255, 255, 0.45) !important;
   outline-offset: 2px !important;
 }
 

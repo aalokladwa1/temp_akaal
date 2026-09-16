@@ -1063,22 +1063,23 @@ describe('Step 5 Boundary & Consistency Baseline Component', () => {
     expect(vs.newValidationDraft().operatorNotes).toBe('Window approved for CR-9812');
   });
 
-  it('State D: External Replication baseline is unsupported and strictly fail-closed', () => {
+  it('State D: External Replication baseline is supported with provider position inputs', () => {
     vs.updateDraft({
       validationContext: 'INDEPENDENT',
-      currentStep: 5
+      currentStep: 5,
+      sourceHost: 'oracle-prod.internal',
+      targetHost: 'postgres-prod.internal'
     });
     step5.ngOnInit();
 
     const extOption = step5.baselineConceptCards().find(c => c.id === 'EXTERNAL_REPLICATION');
-    expect(extOption?.isSupported).toBe(false);
+    expect(extOption?.isSupported).toBe(true);
 
     step5.selectIntent('EXTERNAL_REPLICATION');
     expect(vs.newValidationDraft().baselineIntent).toBe('EXTERNAL_REPLICATION');
-    // Gate remains closed
-    expect(vs.isStep5Valid()).toBe(false);
-    expect(wizard.isCurrentStepValid()).toBe(false);
-    expect(step5.isInsufficientBaseline()).toBe(true);
+    step5.onPositionValueChange('1048576');
+    expect(vs.newValidationDraft().externalPositionValue).toBe('1048576');
+    expect(step5.isInsufficientBaseline()).toBe(false);
   });
 
   it('Technical Details progressive disclosure toggles and provides read-only insight', () => {

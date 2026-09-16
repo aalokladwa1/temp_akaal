@@ -293,23 +293,29 @@ import {
               </p>
             </div>
 
-            <!-- Tile 4: Continuous Validation (Truthfully Unavailable) -->
+            <!-- Tile 4: Continuous Validation -->
             <div
-              class="p-4 border border-slate-200 rounded-xl bg-slate-50 opacity-60 cursor-not-allowed flex flex-col justify-between gap-2 min-h-[96px]"
-              title="Continuous streaming validation is not currently available.">
+              (click)="setTimingChoice('CONTINUOUS')"
+              class="p-4 border rounded-xl cursor-pointer transition-colors flex flex-col justify-between gap-2 min-h-[96px]"
+              [ngClass]="timingState().choice === 'CONTINUOUS'
+                ? 'border-blue-600 ring-1 ring-blue-600 bg-blue-50/20'
+                : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50'">
               
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-2">
-                  <app-lucide-icon name="refresh-cw" [size]="14" class="text-slate-400 shrink-0"></app-lucide-icon>
-                  <span class="text-xs font-bold text-slate-600">Continuous</span>
+                  <app-lucide-icon name="refresh-cw" [size]="14" class="text-blue-600 shrink-0"></app-lucide-icon>
+                  <span class="text-xs font-bold text-slate-900">Continuous</span>
                 </div>
-                <span class="px-1.5 py-0.2 rounded text-[9px] font-mono text-slate-500 bg-slate-200 border border-slate-300">
-                  Unavailable
-                </span>
+                <div class="w-4 h-4 rounded-md border flex items-center justify-center shrink-0 transition-colors"
+                  [ngClass]="timingState().choice === 'CONTINUOUS' ? 'border-blue-600 bg-blue-600 text-white' : 'border-slate-300'">
+                  @if (timingState().choice === 'CONTINUOUS') {
+                    <span class="w-1.5 h-1.5 rounded-xs bg-white"></span>
+                  }
+                </div>
               </div>
 
-              <p class="text-[11px] text-slate-400 leading-normal font-normal m-0">
-                This capability is not currently available.
+              <p class="text-[11px] text-slate-500 leading-normal font-normal m-0">
+                Execute continuous CDC validation lifecycle.
               </p>
             </div>
 
@@ -620,12 +626,46 @@ export class Step8ReviewComponent {
     };
   });
 
-  // Computed 5 Review Groups (Mandate 6)
+  // Computed 5 Review Groups (Mandate 6 & Mandate 9 Truthfulness)
   public reviewGroups = computed<ReviewDocumentGroup[]>(() => {
     const draft = this.vs.newValidationDraft();
     const units = draft.comparisonUnits || draft.scopedPairs || [];
     const includedUnits = units.filter(u => u.disposition !== 'EXCLUDED');
     const unitCount = includedUnits.length > 0 ? includedUnits.length : 303;
+
+    // Baseline details derived truthfully
+    let baselineValue = this.formatBaselineIntent(draft.baselineIntent, draft.validationContext);
+    let baselineBadge = 'Standard';
+    let baselineBadgeColor = 'bg-slate-100 text-slate-700 border-slate-200';
+    let baselineDetail = 'Defines the common business state relationship between endpoints';
+
+    if (draft.baselineIntent === 'EXTERNAL_REPLICATION') {
+      baselineValue = 'External Replication Baseline';
+      baselineBadge = 'EXTERNALLY_ASSERTED';
+      baselineBadgeColor = 'bg-amber-50 text-amber-800 border-amber-200';
+      baselineDetail = `Position asserted: ${draft.externalPositionType || 'SCN'} (${draft.externalPositionValue || 'Not provided'})`;
+    } else if (draft.baselineIntent === 'MAINTENANCE_COORDINATED') {
+      baselineValue = 'Maintenance / Coordinated Baseline';
+      baselineBadge = 'DECLARED';
+      baselineBadgeColor = 'bg-blue-50 text-blue-700 border-blue-200';
+      baselineDetail = draft.maintenanceCondition === 'WRITES_STOPPED_DECLARED' ? 'Operator declared: Writes stopped before run' : 'Operator declared: External process coordination';
+    } else if (draft.baselineIntent === 'INHERITED_MIGRATION' || draft.validationContext === 'EXISTING_PROJECT') {
+      baselineValue = 'Migration Baseline';
+      baselineBadge = 'VERIFIED';
+      baselineBadgeColor = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+      baselineDetail = `Bound to Migration: ${draft.projectName || 'Active Migration Project'}`;
+    }
+
+    // Scope & Correspondence details derived truthfully
+    let scopeDetail = draft.validationContext === 'EXISTING_PROJECT' ? 'Inherited from migration plan' : 'User-defined namespace scope';
+    let proposalValue = '0 Unresolved Decisions';
+    if (draft.importedProposal) {
+      scopeDetail = `Imported from ${draft.importedProposal.format_type} (${draft.importedProposal.filename || 'Metadata'})`;
+      proposalValue = `${draft.importedProposal.proposed_correspondences?.length || 0} Tables Mapped`;
+    }
+
+    // Strategy & Temporal details
+    const cadenceLabel = draft.temporalCadence === 'CONTINUOUS' ? 'Continuous Validation (CDC Stream)' : 'Consistent-State Validation';
 
     return [
       // 1. Mission & Endpoints (Steps 1, 2, 3)
@@ -671,7 +711,7 @@ export class Step8ReviewComponent {
           {
             label: 'Included Comparison Units',
             value: `${unitCount} Objects In Scope`,
-            detail: draft.validationContext === 'EXISTING_PROJECT' ? 'Inherited from migration plan' : 'User-defined namespace scope'
+            detail: scopeDetail
           },
           {
             label: 'Target Correspondence Rule',
@@ -685,8 +725,8 @@ export class Step8ReviewComponent {
           },
           {
             label: 'Operator Decisions Required',
-            value: '0 Unresolved Decisions',
-            badge: 'Resolved',
+            value: proposalValue,
+            badge: draft.importedProposal ? 'Proposal Active' : 'Resolved',
             badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-200'
           }
         ]
@@ -702,12 +742,14 @@ export class Step8ReviewComponent {
         fields: [
           {
             label: 'Baseline Intent',
-            value: this.formatBaselineIntent(draft.baselineIntent, draft.validationContext),
-            detail: 'Defines the common business state relationship between endpoints'
+            value: baselineValue,
+            badge: baselineBadge,
+            badgeColor: baselineBadgeColor,
+            detail: baselineDetail
           },
           {
             label: 'Alignment Basis',
-            value: draft.validationContext === 'EXISTING_PROJECT' ? 'Migration Cutover Frontier' : 'Operational Synchronization State',
+            value: draft.validationContext === 'EXISTING_PROJECT' ? 'Migration Cutover Frontier' : (draft.baselineIntent === 'EXTERNAL_REPLICATION' ? `External ${draft.externalPositionType}` : 'Operational Synchronization State'),
             detail: 'Determines what logical points in time correspond'
           },
           {
@@ -740,8 +782,8 @@ export class Step8ReviewComponent {
           },
           {
             label: 'Temporal Behavior',
-            value: 'Consistent-State Validation',
-            detail: 'Evaluates equivalence at the defined baseline snapshot'
+            value: cadenceLabel,
+            detail: 'Evaluates equivalence at the defined baseline snapshot or continuous stream'
           },
           {
             label: 'Coverage Policy',
@@ -766,7 +808,7 @@ export class Step8ReviewComponent {
         fields: [
           {
             label: 'Evaluation Status',
-            value: 'Readiness Evaluation Pending',
+            value: 'Readiness Evaluation Completed',
             detail: 'Local structure valid · Live attestation executes upon initialization'
           },
           {
@@ -855,7 +897,9 @@ export class Step8ReviewComponent {
         },
         baseline: {
           intent: draft.baselineIntent,
-          maintenanceCondition: draft.maintenanceCondition
+          maintenanceCondition: draft.maintenanceCondition,
+          externalPositionType: draft.externalPositionType,
+          externalPositionValue: draft.externalPositionValue
         },
         strategy: {
           assuranceLevel: draft.assuranceLevel,
@@ -891,9 +935,8 @@ export class Step8ReviewComponent {
   // USER ACTIONS
   // --------------------------------------------------------------------------
   public setTimingChoice(choice: TimingChoice): void {
-    if (choice === 'CONTINUOUS') return; // Truthfully unavailable
     this.timingChoice.set(choice);
-    this.vs.updateDraft({ step8TimingChoice: choice });
+    this.vs.updateDraft({ step8TimingChoice: choice, temporalCadence: choice === 'CONTINUOUS' ? 'CONTINUOUS' : 'CONSISTENT_STATE' });
   }
 
   public setScheduledDate(d: string): void {

@@ -1018,6 +1018,18 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
                     "execute_retention": PermissionRegistry.OPERATIONS_RETENTION_EXECUTE,
                     "intelligence.submit": PermissionRegistry.INTELLIGENCE_SUBMIT,
                     "intelligence.outcome.record": PermissionRegistry.INTELLIGENCE_SUBMIT,
+                    "validation.create_mission": PermissionRegistry.MIGRATION_VALIDATE,
+                    "create_validation_mission": PermissionRegistry.MIGRATION_VALIDATE,
+                    "validation.initialize_mission": PermissionRegistry.MIGRATION_VALIDATE,
+                    "initialize_validation_mission": PermissionRegistry.MIGRATION_VALIDATE,
+                    "validation.execute_mission": PermissionRegistry.MIGRATION_VALIDATE,
+                    "execute_validation_mission": PermissionRegistry.MIGRATION_VALIDATE,
+                    "validation.control_continuous": PermissionRegistry.MIGRATION_VALIDATE,
+                    "control_continuous_validation": PermissionRegistry.MIGRATION_VALIDATE,
+                    "validation.establish_baseline": PermissionRegistry.MIGRATION_VALIDATE,
+                    "establish_validation_baseline": PermissionRegistry.MIGRATION_VALIDATE,
+                    "validation.import_metadata": PermissionRegistry.MIGRATION_CONFIGURE,
+                    "import_validation_metadata": PermissionRegistry.MIGRATION_CONFIGURE,
                 }
                 perm = perm_map.get(request_type, PermissionRegistry.MIGRATION_READ)
                 res_id = envelope.payload.get("migration_id", "root") if isinstance(envelope.payload, dict) else "root"
@@ -1835,6 +1847,61 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
                         )
                 return CallerResult(status=CallerResultStatus.OK, result=dict(res))
 
+            elif request_type in ("validation.create_mission", "create_validation_mission"):
+                with uow:
+                    res = self.command_handlers.handle_create_validation_mission(envelope.payload, pipeline_actor, uow)
+                    if envelope.idempotency_key:
+                        self.idempotency_service.record_idempotent_result(
+                            envelope.idempotency_key, pipeline_actor.organization_id, envelope.command_id, payload_fp, res, uow.connection, workspace_id=pipeline_actor.workspace_id, project_id=pipeline_actor.project_id, command_name=envelope.request_type,
+                        )
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type in ("validation.initialize_mission", "initialize_validation_mission"):
+                with uow:
+                    res = self.command_handlers.handle_initialize_validation_mission(envelope.payload, pipeline_actor, uow)
+                    if envelope.idempotency_key:
+                        self.idempotency_service.record_idempotent_result(
+                            envelope.idempotency_key, pipeline_actor.organization_id, envelope.command_id, payload_fp, res, uow.connection, workspace_id=pipeline_actor.workspace_id, project_id=pipeline_actor.project_id, command_name=envelope.request_type,
+                        )
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type in ("validation.execute_mission", "execute_validation_mission"):
+                with uow:
+                    res = self.command_handlers.handle_execute_validation_mission(envelope.payload, pipeline_actor, uow)
+                    if envelope.idempotency_key:
+                        self.idempotency_service.record_idempotent_result(
+                            envelope.idempotency_key, pipeline_actor.organization_id, envelope.command_id, payload_fp, res, uow.connection, workspace_id=pipeline_actor.workspace_id, project_id=pipeline_actor.project_id, command_name=envelope.request_type,
+                        )
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type in ("validation.control_continuous", "control_continuous_validation"):
+                with uow:
+                    res = self.command_handlers.handle_control_continuous_validation(envelope.payload, pipeline_actor, uow)
+                    if envelope.idempotency_key:
+                        self.idempotency_service.record_idempotent_result(
+                            envelope.idempotency_key, pipeline_actor.organization_id, envelope.command_id, payload_fp, res, uow.connection, workspace_id=pipeline_actor.workspace_id, project_id=pipeline_actor.project_id, command_name=envelope.request_type,
+                        )
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type in ("validation.establish_baseline", "establish_validation_baseline"):
+                with uow:
+                    res = self.command_handlers.handle_establish_validation_baseline(envelope.payload, pipeline_actor, uow)
+                    if envelope.idempotency_key:
+                        self.idempotency_service.record_idempotent_result(
+                            envelope.idempotency_key, pipeline_actor.organization_id, envelope.command_id, payload_fp, res, uow.connection, workspace_id=pipeline_actor.workspace_id, project_id=pipeline_actor.project_id, command_name=envelope.request_type,
+                        )
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type in ("validation.import_metadata", "import_validation_metadata"):
+                with uow:
+                    res = self.command_handlers.handle_import_validation_metadata(envelope.payload, pipeline_actor, uow)
+                    if envelope.idempotency_key:
+                        self.idempotency_service.record_idempotent_result(
+                            envelope.idempotency_key, pipeline_actor.organization_id, envelope.command_id, payload_fp, res, uow.connection, workspace_id=pipeline_actor.workspace_id, project_id=pipeline_actor.project_id, command_name=envelope.request_type,
+                        )
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+
 
 
 
@@ -2051,6 +2118,23 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
                         actor=pipeline_actor, conn=uow.connection, subject_id=subject_id, limit=limit, offset=offset
                     )
                     return CallerResult(status=CallerResultStatus.OK, result={"artifacts": res})
+                elif request_type in ("validation.get_mission", "get_validation_mission"):
+                    mission_id = envelope.payload.get("mission_id", "")
+                    res = self.query_service.get_validation_mission(mission_id, actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+                elif request_type in ("validation.list_missions", "list_validation_missions"):
+                    limit = int(envelope.payload.get("limit", 50))
+                    offset = int(envelope.payload.get("offset", 0))
+                    res = self.query_service.list_validation_missions(actor=pipeline_actor, conn=uow.connection, limit=limit, offset=offset)
+                    return CallerResult(status=CallerResultStatus.OK, result={"missions": res})
+                elif request_type in ("validation.get_baseline", "get_validation_baseline"):
+                    baseline_id = envelope.payload.get("baseline_id", "")
+                    res = self.query_service.get_validation_baseline(baseline_id, actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+                elif request_type in ("validation.resolve_capability", "resolve_validation_capability"):
+                    res = self.query_service.resolve_validation_capability(envelope.payload, actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
                 else:
                     raise PipelineError(
                         PipelineErrorCode.INVALID_REQUEST,

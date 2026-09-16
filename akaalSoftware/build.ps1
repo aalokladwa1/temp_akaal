@@ -4,6 +4,7 @@ $env:NG_BUILD_MAX_WORKERS = "1"
 $env:NG_BUILD_PARALLEL_TS = "0"
 $env:NG_BUILD_TYPE_CHECK = "0"
 $env:ESBUILD_WORKER_THREADS = "1"
+if (Test-Path "C:\Program Files\Go\bin") { $env:PATH = "C:\Program Files\Go\bin;$env:PATH" }
 
 Write-Host "1. Building Angular production frontend (4096MB heap)..." -ForegroundColor Cyan
 Set-Location -Path "$PSScriptRoot\frontend"

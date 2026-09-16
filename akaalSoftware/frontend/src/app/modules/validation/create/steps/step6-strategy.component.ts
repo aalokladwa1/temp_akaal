@@ -897,8 +897,7 @@ export class Step6StrategyComponent implements AfterViewInit, OnDestroy {
       title: 'Continuous Validation',
       description: 'Continuously evaluate equivalence across changing data streams using CDC integration.',
       icon: 'refresh-cw',
-      capability: 'UNAVAILABLE',
-      capabilityNotice: 'Continuous streaming validation requires change data capture stream integration. This capability is not currently available.'
+      capability: 'AVAILABLE'
     }
   ];
 

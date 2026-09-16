@@ -1,0 +1,38 @@
+{
+  "routesAudited": [
+    "/dashboard",
+    "/migration/portfolio",
+    "/migration/create",
+    "/migration/projects",
+    "/migration/history",
+    "/migration/templates",
+    "/validation",
+    "/validation/create",
+    "/connections",
+    "/connections/new",
+    "/cockpit",
+    "/monitoring",
+    "/reports",
+    "/administration",
+    "/administration/enterprise",
+    "/administration/people",
+    "/administration/governance-centre",
+    "/administration/identity",
+    "/administration/templates-library",
+    "/administration/connectors",
+    "/administration/infrastructure",
+    "/settings"
+  ],
+  "viewportsTested": [
+    "1366x768",
+    "1440x900",
+    "1920x1080"
+  ],
+  "consoleErrors": [],
+  "overflowDefects": [],
+  "fontViolations": [],
+  "pillViolations": [],
+  "emojiViolations": [],
+  "lightModeDefects": [],
+  "darkModeDefects": []
+}

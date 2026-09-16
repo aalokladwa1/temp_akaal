@@ -2496,6 +2496,227 @@ export const ALL_PROVIDER_SCHEMAS: Record<PhysicalProviderId, ProviderFormSchema
         { "id": "fingerprint", "label": "API Key Fingerprint", "type": "text", "required": true, "placeholder": "20:3b:97:13...", "group": "AUTH" },
         { "id": "secret_ref", "label": "Private Key (vault:// or PEM)", "type": "password", "required": true, "group": "AUTH" }
     ]
+  } as any,
+  'AWS Managed Cloud': {
+    providerId: 'AWS Managed Cloud',
+    name: 'AWS Managed Cloud',
+    category: 'MANAGED_CLOUD',
+    icon: 'cloud',
+    fields: [
+      {
+        id: 'managed_service',
+        label: 'AWS Managed Service',
+        type: 'select',
+        required: true,
+        defaultValue: 'RDS_POSTGRESQL',
+        options: [
+          { label: 'Amazon RDS PostgreSQL', value: 'RDS_POSTGRESQL', desc: 'Managed PostgreSQL database engine on AWS RDS' },
+          { label: 'Amazon RDS MySQL', value: 'RDS_MYSQL', desc: 'Managed MySQL database engine on AWS RDS' },
+          { label: 'Amazon RDS MariaDB', value: 'RDS_MARIADB', desc: 'Managed MariaDB database engine on AWS RDS' },
+          { label: 'Amazon RDS Oracle', value: 'RDS_ORACLE', desc: 'Managed Oracle database engine on AWS RDS' },
+          { label: 'Amazon RDS SQL Server', value: 'RDS_MSSQL', desc: 'Managed SQL Server database engine on AWS RDS' },
+          { label: 'Amazon Aurora PostgreSQL', value: 'AURORA_POSTGRESQL', desc: 'High-performance Aurora PostgreSQL cluster' },
+          { label: 'Amazon Aurora MySQL', value: 'AURORA_MYSQL', desc: 'High-performance Aurora MySQL cluster' }
+        ],
+        group: 'ENDPOINT'
+      },
+      { id: 'aws_region', label: 'AWS Region', type: 'text', required: true, defaultValue: 'us-east-1', placeholder: 'us-east-1', group: 'ENDPOINT' },
+      { id: 'host', label: 'AWS Endpoint URL / Hostname', type: 'text', required: true, placeholder: 'my-db.c123456789.us-east-1.rds.amazonaws.com', group: 'ENDPOINT' },
+      { id: 'port', label: 'Port', type: 'number', required: true, defaultValue: 5432, placeholder: '5432', group: 'ENDPOINT' },
+      { id: 'database', label: 'Database Name', type: 'text', required: true, placeholder: 'postgres', group: 'ENDPOINT' },
+      {
+        id: 'auth_mode',
+        label: 'Authentication Mode',
+        type: 'select',
+        required: true,
+        defaultValue: 'SECRET_REF',
+        options: [
+          { label: 'Secret Reference / IAM Vault Token', value: 'SECRET_REF', desc: 'Enterprise Vault credential reference' },
+          { label: 'Master User Password', value: 'PASSWORD', desc: 'Database master user password' },
+          { label: 'AWS IAM Database Auth', value: 'IAM_AUTH', desc: 'Short-lived IAM token authentication' }
+        ],
+        group: 'AUTH'
+      },
+      { id: 'username', label: 'Master / Admin Username', type: 'text', required: true, placeholder: 'postgres', group: 'AUTH' },
+      { id: 'secret_ref', label: 'Password / Secret Reference', type: 'password', required: true, placeholder: 'vault://secret/aws/rds/main', group: 'AUTH' }
+    ]
+  } as any,
+  'Azure Managed Cloud': {
+    providerId: 'Azure Managed Cloud',
+    name: 'Azure Managed Cloud',
+    category: 'MANAGED_CLOUD',
+    icon: 'cloud',
+    fields: [
+      {
+        id: 'managed_service',
+        label: 'Azure Managed Service',
+        type: 'select',
+        required: true,
+        defaultValue: 'AZURE_PG',
+        options: [
+          { label: 'Azure Database for PostgreSQL', value: 'AZURE_PG', desc: 'Flexible server PostgreSQL instance on Azure' },
+          { label: 'Azure Database for MySQL', value: 'AZURE_MYSQL', desc: 'Flexible server MySQL instance on Azure' },
+          { label: 'Azure SQL Database', value: 'AZURE_SQL_DB', desc: 'Fully managed Azure SQL PaaS database' },
+          { label: 'Azure SQL Managed Instance', value: 'AZURE_SQL_MI', desc: 'Fully compatible SQL Server instance in Azure Cloud' }
+        ],
+        group: 'ENDPOINT'
+      },
+      { id: 'azure_subscription_id', label: 'Subscription ID', type: 'text', placeholder: '00000000-0000-0000-0000-000000000000', group: 'ENDPOINT' },
+      { id: 'resource_group', label: 'Resource Group', type: 'text', placeholder: 'rg-prod-migration', group: 'ENDPOINT' },
+      { id: 'host', label: 'Server Name / Endpoint URL', type: 'text', required: true, placeholder: 'myserver.postgres.database.azure.com', group: 'ENDPOINT' },
+      { id: 'port', label: 'Port', type: 'number', required: true, defaultValue: 5432, placeholder: '5432', group: 'ENDPOINT' },
+      { id: 'database', label: 'Database Name', type: 'text', required: true, placeholder: 'app_production', group: 'ENDPOINT' },
+      {
+        id: 'auth_mode',
+        label: 'Authentication Mode',
+        type: 'select',
+        required: true,
+        defaultValue: 'SECRET_REF',
+        options: [
+          { label: 'Secret Reference / Key Vault', value: 'SECRET_REF', desc: 'Enterprise Key Vault reference' },
+          { label: 'SQL Admin Password', value: 'PASSWORD', desc: 'SQL Server/PostgreSQL admin user password' },
+          { label: 'Azure Entra ID (Active Directory)', value: 'AZURE_AD', desc: 'Entra ID Managed Identity authentication' }
+        ],
+        group: 'AUTH'
+      },
+      { id: 'username', label: 'Admin User', type: 'text', required: true, placeholder: 'azureuser', group: 'AUTH' },
+      { id: 'secret_ref', label: 'Password / Key Vault Ref', type: 'password', required: true, placeholder: 'vault://secret/azure/db', group: 'AUTH' }
+    ]
+  } as any,
+  'Google Cloud Managed': {
+    providerId: 'Google Cloud Managed',
+    name: 'Google Cloud Managed',
+    category: 'MANAGED_CLOUD',
+    icon: 'cloud',
+    fields: [
+      {
+        id: 'managed_service',
+        label: 'Google Cloud Managed Service',
+        type: 'select',
+        required: true,
+        defaultValue: 'CLOUD_SQL_PG',
+        options: [
+          { label: 'Cloud SQL PostgreSQL', value: 'CLOUD_SQL_PG', desc: 'Managed PostgreSQL service on GCP' },
+          { label: 'Cloud SQL MySQL', value: 'CLOUD_SQL_MYSQL', desc: 'Managed MySQL service on GCP' },
+          { label: 'Cloud SQL SQL Server', value: 'CLOUD_SQL_MSSQL', desc: 'Managed SQL Server service on GCP' },
+          { label: 'AlloyDB for PostgreSQL', value: 'ALLOYDB_PG', desc: 'Enterprise-grade PostgreSQL-compatible database' }
+        ],
+        group: 'ENDPOINT'
+      },
+      { id: 'gcp_project_id', label: 'GCP Project ID', type: 'text', required: true, defaultValue: 'my-gcp-project', placeholder: 'my-gcp-project-123', group: 'ENDPOINT' },
+      { id: 'gcp_region', label: 'GCP Region', type: 'text', defaultValue: 'us-central1', placeholder: 'us-central1', group: 'ENDPOINT' },
+      { id: 'host', label: 'Instance Connection Name / IP', type: 'text', required: true, placeholder: '10.128.0.5 or project:region:instance', group: 'ENDPOINT' },
+      { id: 'port', label: 'Port', type: 'number', required: true, defaultValue: 5432, placeholder: '5432', group: 'ENDPOINT' },
+      { id: 'database', label: 'Database Name', type: 'text', required: true, placeholder: 'main_db', group: 'ENDPOINT' },
+      {
+        id: 'auth_mode',
+        label: 'Authentication Mode',
+        type: 'select',
+        required: true,
+        defaultValue: 'SECRET_REF',
+        options: [
+          { label: 'Secret Reference / Service Account', value: 'SECRET_REF', desc: 'GCP Secret Manager reference' },
+          { label: 'Database User Password', value: 'PASSWORD', desc: 'Native database credentials' },
+          { label: 'Cloud SQL IAM Database Authentication', value: 'IAM_AUTH', desc: 'GCP IAM principal authentication' }
+        ],
+        group: 'AUTH'
+      },
+      { id: 'username', label: 'Database User', type: 'text', required: true, placeholder: 'postgres', group: 'AUTH' },
+      { id: 'secret_ref', label: 'Password / Service Account Key', type: 'password', required: true, placeholder: 'vault://secret/gcp/cloudsql', group: 'AUTH' }
+    ]
+  } as any,
+  'Oracle Cloud Infrastructure Managed': {
+    providerId: 'Oracle Cloud Infrastructure Managed',
+    name: 'Oracle Cloud Infrastructure Managed',
+    category: 'MANAGED_CLOUD',
+    icon: 'cloud',
+    fields: [
+      {
+        id: 'managed_service',
+        label: 'OCI Managed Service',
+        type: 'select',
+        required: true,
+        defaultValue: 'OCI_AUTONOMOUS',
+        options: [
+          { label: 'Autonomous Database (ATP/ADW)', value: 'OCI_AUTONOMOUS', desc: 'Oracle Autonomous Transaction Processing / Data Warehouse' },
+          { label: 'Base Database Service', value: 'OCI_BASE_DB', desc: 'Oracle Co-managed Virtual Machine / Bare Metal DB' },
+          { label: 'Exadata Cloud Service', value: 'OCI_EXADATA', desc: 'Enterprise Exadata Cloud Infrastructure' }
+        ],
+        group: 'ENDPOINT'
+      },
+      { id: 'oci_region', label: 'OCI Region', type: 'text', defaultValue: 'us-ashburn-1', placeholder: 'us-ashburn-1', group: 'ENDPOINT' },
+      { id: 'host', label: 'OCI Endpoint Hostname / SCAN Listener', type: 'text', required: true, placeholder: 'adb.us-ashburn-1.oraclecloud.com', group: 'ENDPOINT' },
+      { id: 'port', label: 'Port', type: 'number', required: true, defaultValue: 1522, placeholder: '1522', group: 'ENDPOINT' },
+      { id: 'database', label: 'Service Name / PDB Name', type: 'text', required: true, placeholder: 'ab123456_high.adb.oraclecloud.com', group: 'ENDPOINT' },
+      {
+        id: 'auth_mode',
+        label: 'Authentication Mode',
+        type: 'select',
+        required: true,
+        defaultValue: 'SECRET_REF',
+        options: [
+          { label: 'Secret Reference (Wallet / OCI Vault)', value: 'SECRET_REF', desc: 'OCI Vault encrypted credentials & Wallet' },
+          { label: 'Database Password', value: 'PASSWORD', desc: 'ADMIN user database password' }
+        ],
+        group: 'AUTH'
+      },
+      { id: 'username', label: 'Database User', type: 'text', required: true, defaultValue: 'ADMIN', placeholder: 'ADMIN', group: 'AUTH' },
+      { id: 'secret_ref', label: 'Password / Wallet Reference', type: 'password', required: true, placeholder: 'vault://secret/oci/atp/admin', group: 'AUTH' }
+    ]
+  } as any,
+  'File Dataset': {
+    providerId: 'File Dataset',
+    name: 'File Dataset',
+    category: 'FILE_DATASET',
+    icon: 'file-text',
+    fields: [
+      {
+        id: 'file_format',
+        label: 'Dataset File Format',
+        type: 'select',
+        required: true,
+        defaultValue: 'CSV',
+        options: [
+          { label: 'CSV / TSV Structured Text File', value: 'CSV', desc: 'Comma/Tab separated tabular dataset' },
+          { label: 'JSON / JSONL Document Dataset', value: 'JSON', desc: 'Structured JSON objects or newline-delimited JSON' },
+          { label: 'Apache Parquet Columnar File', value: 'PARQUET', desc: 'Compressed columnar binary format' }
+        ],
+        group: 'ENDPOINT'
+      },
+      { id: 'database_path', label: 'Dataset File Path / Directory Reference', type: 'file_path', required: true, placeholder: '/data/exports/customers_2026.csv', group: 'ENDPOINT' },
+      { id: 'delimiter', label: 'Field Delimiter (CSV)', type: 'text', defaultValue: ',', placeholder: ',', group: 'OPTIONS' },
+      {
+        id: 'has_header',
+        label: 'Has Header Row',
+        type: 'boolean',
+        defaultValue: true,
+        group: 'OPTIONS'
+      },
+      {
+        id: 'encoding',
+        label: 'Text Encoding',
+        type: 'select',
+        defaultValue: 'UTF-8',
+        options: [
+          { label: 'UTF-8 (Default)', value: 'UTF-8' },
+          { label: 'ASCII', value: 'ASCII' },
+          { label: 'ISO-8859-1 (Latin-1)', value: 'ISO-8859-1' }
+        ],
+        group: 'OPTIONS'
+      },
+      {
+        id: 'compression',
+        label: 'Compression Codec',
+        type: 'select',
+        defaultValue: 'NONE',
+        options: [
+          { label: 'None (Uncompressed)', value: 'NONE' },
+          { label: 'GZIP (.gz)', value: 'GZIP' },
+          { label: 'Snappy (.snappy)', value: 'SNAPPY' }
+        ],
+        group: 'OPTIONS'
+      }
+    ]
   } as any
 } as any;
 
@@ -2515,3 +2736,6 @@ ALL_PROVIDER_SCHEMAS['Amazon S3 Object Storage'] = { ...ALL_PROVIDER_SCHEMAS['Am
 ALL_PROVIDER_SCHEMAS['Google Cloud Storage (GCS)'] = { ...ALL_PROVIDER_SCHEMAS['Google Cloud Storage'], providerId: 'Google Cloud Storage (GCS)' };
 ALL_PROVIDER_SCHEMAS['MinIO Object Storage'] = { ...ALL_PROVIDER_SCHEMAS['MinIO'], providerId: 'MinIO Object Storage' };
 ALL_PROVIDER_SCHEMAS['oci_object_storage'] = { ...ALL_PROVIDER_SCHEMAS['OCI Object Storage'], providerId: 'oci_object_storage' };
+ALL_PROVIDER_SCHEMAS['Oracle Cloud Infrastructure'] = ALL_PROVIDER_SCHEMAS['Oracle Cloud Infrastructure Managed'];
+ALL_PROVIDER_SCHEMAS['OCI Managed Cloud'] = ALL_PROVIDER_SCHEMAS['Oracle Cloud Infrastructure Managed'];
+ALL_PROVIDER_SCHEMAS['file_dataset'] = ALL_PROVIDER_SCHEMAS['File Dataset'];

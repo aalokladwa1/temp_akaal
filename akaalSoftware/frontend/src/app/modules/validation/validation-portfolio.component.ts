@@ -336,7 +336,7 @@ interface FilterOption {
                 [ngModel]="vs.searchQuery()"
                 (ngModelChange)="vs.searchQuery.set($event)"
                 placeholder="Search validations..."
-                style="width: 100%; height: 32px; padding-left: 36px !important; padding-right: 28px; font-size: 12px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; outline: none; color: #0f172a;"
+                class="w-full h-8 pl-9 pr-7 text-xs bg-white border border-slate-200 rounded-md outline-none text-slate-900 focus:border-blue-500"
               />
               @if (vs.searchQuery()) {
                 <button 

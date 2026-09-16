@@ -302,13 +302,65 @@ import {
 
             <!-- Fail-closed warning if unsupported External Replication is picked -->
             @if (selectedIntent() === 'EXTERNAL_REPLICATION') {
-              <div class="p-4 bg-amber-50/60 border border-amber-200/80 rounded-xl flex items-start gap-3 text-xs text-amber-900">
-                <app-lucide-icon name="alert-circle" [size]="16" class="text-amber-600 shrink-0 mt-0.5"></app-lucide-icon>
-                <div class="space-y-1">
-                  <div class="font-bold text-slate-900">External baseline integration unavailable</div>
-                  <p class="text-slate-600 leading-relaxed font-normal">
-                    External baseline integration is not currently available for this configuration. Select an alternative baseline concept above to continue.
-                  </p>
+              <div class="rounded-xl bg-slate-50/70 border border-slate-200 p-4 space-y-3 mt-3">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <app-lucide-icon name="folder-input" [size]="14" class="text-blue-600"></app-lucide-icon>
+                    <h4 class="text-xs font-bold text-slate-900">External Replication Position Assertion</h4>
+                  </div>
+                  <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                    EXTERNALLY_ASSERTED
+                  </span>
+                </div>
+                <p class="text-xs text-slate-500 font-normal leading-relaxed">
+                  Provide the replication boundary coordinate captured from your external replication engine (GoldenGate, AWS DMS, Debezium, or log sequence).
+                </p>
+
+                <!-- Provider-specific Position Selector & Value Input -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  
+                  <!-- Position Model Type Select -->
+                  <div class="space-y-1">
+                    <label class="text-[11px] font-semibold text-slate-700">Position Model Type</label>
+                    <select
+                      [ngModel]="externalPositionType()"
+                      (ngModelChange)="onPositionTypeChange($event)"
+                      class="w-full h-8 px-2.5 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:border-blue-600">
+                      @if (sourceProvider() === 'Oracle' || targetProvider() === 'Oracle') {
+                        <option value="ORACLE_SCN">Oracle System Change Number (SCN)</option>
+                      }
+                      @if (sourceProvider() === 'PostgreSQL' || targetProvider() === 'PostgreSQL') {
+                        <option value="POSTGRES_LSN">PostgreSQL Log Sequence Number (LSN)</option>
+                      }
+                      @if (sourceProvider() === 'MySQL' || targetProvider() === 'MySQL') {
+                        <option value="MYSQL_GTID">MySQL / MariaDB GTID Set</option>
+                        <option value="MYSQL_BINLOG">MySQL / MariaDB Binlog Position</option>
+                      }
+                      <option value="STREAM_OFFSET">Stream / Kafka Offset (topic:partition:offset)</option>
+                    </select>
+                  </div>
+
+                  <!-- Position Value Input -->
+                  <div class="space-y-1">
+                    <label class="text-[11px] font-semibold text-slate-700">
+                      Position Value / Coordinate <span class="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      [ngModel]="externalPositionValue()"
+                      (ngModelChange)="onPositionValueChange($event)"
+                      [placeholder]="getPositionPlaceholder()"
+                      class="w-full h-8 px-2.5 text-xs font-mono bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:border-blue-600 placeholder:text-slate-400 placeholder:font-sans" />
+                  </div>
+
+                </div>
+
+                <!-- Strict Asserted vs Verified Notice -->
+                <div class="p-2.5 bg-slate-100/80 rounded-md border border-slate-200 flex items-center gap-2 text-[11px] text-slate-600">
+                  <app-lucide-icon name="info" [size]="13" class="text-slate-500 shrink-0"></app-lucide-icon>
+                  <span>
+                    <strong>Asserted position semantics:</strong> Submitted position is recorded as <em>EXTERNALLY_ASSERTED</em> and validated against backend format rules. It is not displayed as independently verified until evaluated by backend machinery.
+                  </span>
                 </div>
               </div>
             }
@@ -450,8 +502,7 @@ export class Step5BoundaryComponent {
       title: 'External replication baseline',
       description: 'Systems synchronized via external replication tools (GoldenGate, AWS DMS, Debezium, or external CSN log sequence).',
       icon: 'folder-input',
-      isSupported: false,
-      unsupportedNotice: 'This capability is not currently available.'
+      isSupported: true
     },
     {
       id: 'STATIC_IMMUTABLE',
@@ -461,6 +512,21 @@ export class Step5BoundaryComponent {
       isSupported: true
     }
   ];
+
+  // External Replication Position state derived from draft
+  public externalPositionType = computed<string>(() => {
+    const draft = this.vs.newValidationDraft();
+    if (draft.externalPositionType) return draft.externalPositionType;
+    const src = this.sourceProvider();
+    if (src === 'Oracle') return 'ORACLE_SCN';
+    if (src === 'PostgreSQL') return 'POSTGRES_LSN';
+    if (src === 'MySQL') return 'MYSQL_GTID';
+    return 'STREAM_OFFSET';
+  });
+
+  public externalPositionValue = computed<string>(() => {
+    return this.vs.newValidationDraft().externalPositionValue || '';
+  });
 
   // Computed state
   public isInheritedPathway = computed<boolean>(() => {
@@ -521,8 +587,8 @@ export class Step5BoundaryComponent {
       alignmentValue = 'Declared unchanging datasets';
       alignmentProv = 'Selected comparison correspondence';
     } else if (intent === 'EXTERNAL_REPLICATION') {
-      alignmentValue = 'External replication boundary';
-      alignmentProv = 'Integration unavailable for current configuration';
+      alignmentValue = `External replication ${this.externalPositionType()}`;
+      alignmentProv = `Position asserted: ${this.externalPositionValue() || 'Pending input'} (EXTERNALLY_ASSERTED)`;
     }
 
     return [
@@ -576,7 +642,7 @@ export class Step5BoundaryComponent {
   public baselineConceptCards = computed<BaselineConceptOption[]>(() => this.independentOptions);
   public technicalDetails = computed<TechnicalDetailItem[]>(() => this.technicalDetailsList());
   public isMaintenanceSelected = computed<boolean>(() => this.selectedIntent() === 'MAINTENANCE_COORDINATED');
-  public isInsufficientBaseline = computed<boolean>(() => !this.selectedIntent() || this.selectedIntent() === 'EXTERNAL_REPLICATION');
+  public isInsufficientBaseline = computed<boolean>(() => !this.selectedIntent());
   public baselineCardSummary = computed(() => ({
     title: this.isInheritedPathway() ? 'Inherited Migration Baseline' : 'Comparison baseline',
     intent: this.selectedIntent()
@@ -612,6 +678,29 @@ export class Step5BoundaryComponent {
     this.vs.updateDraft({
       maintenanceCondition: cond
     });
+  }
+
+  public onPositionTypeChange(type: string): void {
+    this.vs.updateDraft({
+      externalPositionType: type
+    });
+  }
+
+  public onPositionValueChange(val: string): void {
+    this.vs.updateDraft({
+      externalPositionValue: val
+    });
+  }
+
+  public getPositionPlaceholder(): string {
+    const type = this.externalPositionType();
+    switch (type) {
+      case 'ORACLE_SCN': return 'e.g. 1234567890';
+      case 'POSTGRES_LSN': return 'e.g. 0/16B3748';
+      case 'MYSQL_GTID': return 'e.g. 3E11FA47-71CA-11E1-9E33-C80AA9429562:1-5';
+      case 'MYSQL_BINLOG': return 'e.g. mysql-bin.000003:107';
+      default: return 'e.g. orders-topic:0:10500';
+    }
   }
 
   public onNotesChange(notes: string): void {

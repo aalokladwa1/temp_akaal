@@ -2,7 +2,7 @@ import '@angular/compiler';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { MigrationUiService } from '../../../core/services/migration-ui.service';
 import { MigrationDevFixturesAdapter } from '../../../core/fixtures/migration-dev-fixtures.adapter';
-import { ALL_48_PROVIDER_SCHEMAS, ALL_28_PROVIDER_SCHEMAS } from '../../../core/models/provider-form-schemas';
+import { ALL_48_PROVIDER_SCHEMAS, ALL_28_PROVIDER_SCHEMAS, ALL_PROVIDER_SCHEMAS } from '../../../core/models/provider-form-schemas';
 import { PhysicalProviderId, DiscoveryDepthTier } from '../../../core/models/migration-view.models';
 import { Step2SourceComponent } from './steps/step2-source.component';
 import { Step3TargetComponent } from './steps/step3-target.component';
@@ -436,6 +436,81 @@ describe('CreateMigrationWizard State & Governance Suite', () => {
       const s3Meta = ALL_28_PROVIDER_SCHEMAS['Amazon S3'];
       expect(s3Meta.fields.some(f => f.id === 'bucket_name')).toBe(true);
       expect(s3Meta.fields.some(f => f.id === 'region')).toBe(true);
+    });
+
+    it('Phase 4: Managed Cloud and File Dataset schemas must be defined in ALL_PROVIDER_SCHEMAS', () => {
+      const awsSchema = ALL_PROVIDER_SCHEMAS['AWS Managed Cloud'];
+      expect(awsSchema).toBeDefined();
+      expect(awsSchema.category).toBe('MANAGED_CLOUD');
+      expect(awsSchema.fields.some(f => f.id === 'managed_service')).toBe(true);
+      expect(awsSchema.fields.some(f => f.id === 'host')).toBe(true);
+
+      const azureSchema = ALL_PROVIDER_SCHEMAS['Azure Managed Cloud'];
+      expect(azureSchema).toBeDefined();
+      expect(azureSchema.category).toBe('MANAGED_CLOUD');
+      expect(azureSchema.fields.some(f => f.id === 'managed_service')).toBe(true);
+
+      const gcpSchema = ALL_PROVIDER_SCHEMAS['Google Cloud Managed'];
+      expect(gcpSchema).toBeDefined();
+      expect(gcpSchema.category).toBe('MANAGED_CLOUD');
+      expect(gcpSchema.fields.some(f => f.id === 'gcp_project_id')).toBe(true);
+
+      const ociSchema = ALL_PROVIDER_SCHEMAS['Oracle Cloud Infrastructure'];
+      expect(ociSchema).toBeDefined();
+      expect(ociSchema.category).toBe('MANAGED_CLOUD');
+      expect(ociSchema.fields.some(f => f.id === 'managed_service')).toBe(true);
+
+      const fileSchema = ALL_PROVIDER_SCHEMAS['File Dataset'];
+      expect(fileSchema).toBeDefined();
+      expect(fileSchema.category).toBe('FILE_DATASET');
+      expect(fileSchema.fields.some(f => f.id === 'file_format')).toBe(true);
+      expect(fileSchema.fields.some(f => f.id === 'database_path')).toBe(true);
+    });
+
+    it('Phase 4: Step 2 validation must accept verified Managed Cloud source and reject unverified', () => {
+      service.updateDraft({
+        sourceConnectionMode: 'NEW',
+        sourceProvider: 'AWS Managed Cloud',
+        sourceHost: 'rds-instance.aws.com',
+        sourcePort: 5432,
+        sourceVerified: false
+      });
+      expect(service.isStepValid(2)).toBe(false);
+
+      service.updateDraft({
+        sourceVerified: true,
+        sourceVerificationResult: {
+          fingerprint: 'aws-fp-123',
+          isVerified: true,
+          hasBlockingIssues: false,
+          physicalConnection: { status: 'PASSED' },
+          identityAttestation: { status: 'PASSED' },
+          capabilityDiscovery: { status: 'PASSED', capabilities: [] },
+          permissionProbe: { status: 'PASSED', permissions: [] }
+        }
+      });
+      expect(service.isStepValid(2)).toBe(true);
+    });
+
+    it('Phase 4: Step 2 validation must accept verified File Dataset source and unlock Continue', () => {
+      service.updateDraft({
+        sourceConnectionMode: 'NEW',
+        sourceProvider: 'File Dataset',
+        sourceDatabase: '/data/exports/customers.csv',
+        sourceParams: { file_format: 'CSV', has_header: true },
+        sourceVerified: false
+      });
+      expect(service.isStepValid(2)).toBe(false);
+
+      service.updateDraft({
+        sourceVerified: true,
+        sourceVerificationResult: {
+          fingerprint: 'file-fp-456',
+          isVerified: true,
+          hasBlockingIssues: false
+        }
+      });
+      expect(service.isStepValid(2)).toBe(true);
     });
   });
 

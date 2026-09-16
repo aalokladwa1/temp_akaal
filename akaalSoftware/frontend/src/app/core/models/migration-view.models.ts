@@ -13,7 +13,9 @@ export type ProviderCategory =
   | 'NOSQL_GRAPH_SEARCH'
   | 'STREAMING'
   | 'STORAGE'
-  | 'SAAS';
+  | 'SAAS'
+  | 'FILE_DATASET'
+  | 'MANAGED_CLOUD';
 
 export type PhysicalProviderId =
   | 'SQLite'
@@ -78,7 +80,15 @@ export type PhysicalProviderId =
   | 'oci_object_storage'
   | 'Salesforce'
   | 'ServiceNow'
-  | 'SAP Application Ecosystem';
+  | 'SAP Application Ecosystem'
+  | 'AWS Managed Cloud'
+  | 'Azure Managed Cloud'
+  | 'Google Cloud Managed'
+  | 'Oracle Cloud Infrastructure'
+  | 'Oracle Cloud Infrastructure Managed'
+  | 'OCI Managed Cloud'
+  | 'File Dataset'
+  | 'file_dataset';
 
 export interface PhysicalProviderMeta {
   id: PhysicalProviderId;

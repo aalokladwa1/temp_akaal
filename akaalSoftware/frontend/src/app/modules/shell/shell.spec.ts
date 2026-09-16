@@ -151,4 +151,85 @@ describe('Global Shell Module — CHECK 1 Correct Verification Suite', () => {
       expect(shellComp.primaryNavItems).toEqual(expectedNav);
     });
   });
+
+  describe('SHELL-006: Desktop Upper Title Strip Auto-Hide & Reveal (Owner Requirement 11)', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    it('should initialize with title strip hidden during normal application use', () => {
+      expect(shellComp.isTitleStripVisible()).toBe(false);
+      expect(shellComp.isMaximized()).toBe(false);
+      expect(shellComp.isTitleStripFocused()).toBe(false);
+    });
+
+    it('should reveal title strip when cursor enters top-edge reveal zone', () => {
+      shellComp.onTopEdgeEnter();
+      expect(shellComp.isTitleStripVisible()).toBe(true);
+    });
+
+    it('should remain visible while interacting with the title strip', () => {
+      shellComp.onTopEdgeEnter();
+      expect(shellComp.isTitleStripVisible()).toBe(true);
+
+      shellComp.onTitleStripEnter();
+      expect(shellComp.isTitleStripVisible()).toBe(true);
+    });
+
+    it('should hide title strip after intentional delay when pointer leaves', () => {
+      shellComp.onTopEdgeEnter();
+      expect(shellComp.isTitleStripVisible()).toBe(true);
+
+      shellComp.onTitleStripLeave();
+      // Still visible immediately before delay expires
+      expect(shellComp.isTitleStripVisible()).toBe(true);
+
+      // Fast-forward delay
+      vi.advanceTimersByTime(500);
+      expect(shellComp.isTitleStripVisible()).toBe(false);
+    });
+
+    it('should cancel pending hide when pointer re-enters before delay expires', () => {
+      shellComp.onTopEdgeEnter();
+      shellComp.onTitleStripLeave();
+
+      // Pointer returns at 200ms
+      vi.advanceTimersByTime(200);
+      shellComp.onTitleStripEnter();
+
+      // Advance past original 500ms
+      vi.advanceTimersByTime(350);
+      expect(shellComp.isTitleStripVisible()).toBe(true);
+    });
+
+    it('should preserve visibility while keyboard focus is inside title strip', () => {
+      shellComp.onTitleStripFocusIn();
+      expect(shellComp.isTitleStripVisible()).toBe(true);
+      expect(shellComp.isTitleStripFocused()).toBe(true);
+
+      // Even if mouse leaves, focused strip must not hide
+      shellComp.onTitleStripLeave();
+      vi.advanceTimersByTime(600);
+      expect(shellComp.isTitleStripVisible()).toBe(true);
+    });
+
+    it('should delegate window control actions safely to runtime APIs', () => {
+      const mockRuntime = {
+        WindowMinimise: vi.fn(),
+        WindowToggleMaximise: vi.fn(),
+        WindowIsMaximised: vi.fn().mockResolvedValue(true),
+        Quit: vi.fn()
+      };
+      (globalThis as any).window = { runtime: mockRuntime };
+
+      shellComp.minimizeWindow();
+      expect(mockRuntime.WindowMinimise).toHaveBeenCalled();
+
+      shellComp.toggleMaximizeWindow();
+      expect(mockRuntime.WindowToggleMaximise).toHaveBeenCalled();
+
+      shellComp.closeWindow();
+      expect(mockRuntime.Quit).toHaveBeenCalled();
+    });
+  });
 });

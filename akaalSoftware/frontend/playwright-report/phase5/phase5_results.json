@@ -1,0 +1,144 @@
+{
+  "viewportsTested": [
+    {
+      "name": "1366x768",
+      "width": 1366,
+      "height": 768,
+      "titleStripWorks": true
+    },
+    {
+      "name": "1440x900",
+      "width": 1440,
+      "height": 900,
+      "titleStripWorks": true
+    },
+    {
+      "name": "1920x1080",
+      "width": 1920,
+      "height": 1080,
+      "titleStripWorks": true
+    }
+  ],
+  "routesAudited": [
+    "/dashboard",
+    "/migration",
+    "/migration/projects",
+    "/migration/create",
+    "/validation",
+    "/validation/create",
+    "/monitoring",
+    "/reports",
+    "/settings",
+    "/administration"
+  ],
+  "titleStripTests": {
+    "hiddenNormally": true,
+    "revealsOnTopEdgeHover": true,
+    "darkNeutralBackground": true,
+    "remainsVisibleDuringInteraction": true,
+    "hidesAfterDelay": true,
+    "cancelPendingHideOnReturn": true,
+    "keyboardFocusPreservesVisibility": true,
+    "focusPreventsUnwantedHide": true
+  },
+  "colorNeutralityAudits": [
+    {
+      "route": "/dashboard",
+      "name": "Dashboard",
+      "bodyBg": "rgb(17, 18, 20)",
+      "mainBg": "rgb(17, 18, 20)",
+      "headerBg": "rgb(13, 14, 16)",
+      "asideBg": "rgb(13, 14, 16)",
+      "allNeutral": true
+    },
+    {
+      "route": "/migration",
+      "name": "Migration Portfolio",
+      "bodyBg": "rgb(17, 18, 20)",
+      "mainBg": "rgb(17, 18, 20)",
+      "headerBg": "rgb(13, 14, 16)",
+      "asideBg": "rgb(13, 14, 16)",
+      "allNeutral": true
+    },
+    {
+      "route": "/migration/projects",
+      "name": "Projects & Initiatives",
+      "bodyBg": "rgb(17, 18, 20)",
+      "mainBg": "rgb(17, 18, 20)",
+      "headerBg": "rgb(13, 14, 16)",
+      "asideBg": "rgb(13, 14, 16)",
+      "allNeutral": true
+    },
+    {
+      "route": "/migration/create",
+      "name": "New Migration Wizard",
+      "bodyBg": "rgb(17, 18, 20)",
+      "mainBg": "rgb(17, 18, 20)",
+      "headerBg": "rgb(13, 14, 16)",
+      "asideBg": "rgb(13, 14, 16)",
+      "allNeutral": true
+    },
+    {
+      "route": "/validation",
+      "name": "Validation Studio",
+      "bodyBg": "rgb(17, 18, 20)",
+      "mainBg": "rgb(17, 18, 20)",
+      "headerBg": "rgb(13, 14, 16)",
+      "asideBg": "rgb(13, 14, 16)",
+      "allNeutral": true
+    },
+    {
+      "route": "/validation/create",
+      "name": "New Validation Wizard",
+      "bodyBg": "rgb(17, 18, 20)",
+      "mainBg": "rgb(17, 18, 20)",
+      "headerBg": "rgb(13, 14, 16)",
+      "asideBg": "rgb(13, 14, 16)",
+      "allNeutral": true
+    },
+    {
+      "route": "/monitoring",
+      "name": "Monitoring",
+      "bodyBg": "rgb(17, 18, 20)",
+      "mainBg": "rgb(17, 18, 20)",
+      "headerBg": "rgb(13, 14, 16)",
+      "asideBg": "rgb(13, 14, 16)",
+      "allNeutral": true
+    },
+    {
+      "route": "/reports",
+      "name": "Reports",
+      "bodyBg": "rgb(17, 18, 20)",
+      "mainBg": "rgb(17, 18, 20)",
+      "headerBg": "rgb(13, 14, 16)",
+      "asideBg": "rgb(13, 14, 16)",
+      "allNeutral": true
+    },
+    {
+      "route": "/settings",
+      "name": "Settings",
+      "bodyBg": "rgb(17, 18, 20)",
+      "mainBg": "rgb(17, 18, 20)",
+      "headerBg": "rgb(13, 14, 16)",
+      "asideBg": "rgb(13, 14, 16)",
+      "allNeutral": true
+    },
+    {
+      "route": "/administration",
+      "name": "Administration",
+      "bodyBg": "rgb(17, 18, 20)",
+      "mainBg": "rgb(17, 18, 20)",
+      "headerBg": "rgb(13, 14, 16)",
+      "asideBg": "rgb(13, 14, 16)",
+      "allNeutral": true
+    }
+  ],
+  "themeSwitching": {
+    "lightModeBodyBg": "rgb(248, 250, 252)",
+    "lightModeHeaderBg": "rgb(255, 255, 255)",
+    "lightModeClean": true,
+    "returnDarkClean": true
+  },
+  "lightModeIntegrity": {},
+  "consoleErrors": []
+}

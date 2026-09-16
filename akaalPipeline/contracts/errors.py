@@ -32,6 +32,7 @@ class PipelineError(Exception):
     def to_ipc_error(self) -> IPCError:
         category_map = {
             PipelineErrorCode.INVALID_REQUEST: IPCErrorCategory.INVALID_REQUEST,
+            PipelineErrorCode.FAILED_PRECONDITION: IPCErrorCategory.INVALID_REQUEST,
             PipelineErrorCode.REVISION_CONFLICT: IPCErrorCategory.REVISION_CONFLICT,
             PipelineErrorCode.IDEMPOTENCY_CONFLICT: IPCErrorCategory.IDEMPOTENCY_CONFLICT,
             PipelineErrorCode.INVALID_TRANSITION: IPCErrorCategory.INVALID_REQUEST,

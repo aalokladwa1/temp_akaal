@@ -28,9 +28,12 @@ class PipelineQueryService:
         operation_service: OperationService,
         intelligence_kernel: Optional[IntelligenceKernel] = None,
     ) -> None:
+        from akaalPipeline.validation import ValidationPipelineService
+
         self.repository = repository
         self.operation_service = operation_service
         self.intelligence_kernel = intelligence_kernel or IntelligenceKernel()
+        self.validation_service = ValidationPipelineService()
 
     def get_intelligence_artifact(
         self,
@@ -707,6 +710,56 @@ class PipelineQueryService:
         effective_tenant = actor.organization_id if actor else "default-tenant"
         deliveries = service.list_deliveries(effective_tenant, conn, limit=limit)
         return [d.to_dict() for d in deliveries]
+
+    def get_validation_mission(
+        self,
+        mission_id: str,
+        actor: PipelineActorContext,
+        conn: sqlite3.Connection,
+    ) -> Mapping[str, Any]:
+        mission = self.validation_service.get_mission(mission_id, actor, conn)
+        return mission.to_dict()
+
+    def list_validation_missions(
+        self,
+        actor: PipelineActorContext,
+        conn: sqlite3.Connection,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> List[Mapping[str, Any]]:
+        missions = self.validation_service.list_missions(actor, conn, limit=limit, offset=offset)
+        return [m.to_dict() for m in missions]
+
+    def get_validation_baseline(
+        self,
+        baseline_id: str,
+        actor: PipelineActorContext,
+        conn: sqlite3.Connection,
+    ) -> Mapping[str, Any]:
+        baseline = self.validation_service.boundary_manager.get_baseline(baseline_id, conn)
+        if baseline is None:
+            raise PipelineError(PipelineErrorCode.NOT_FOUND, f"Validation baseline '{baseline_id}' not found.")
+        actor.enforce_resource_scope(
+            resource_tenant_id=baseline.tenant_id,
+            resource_workspace_id=baseline.workspace_id,
+            resource_project_id=baseline.project_id,
+            resource_kind="ValidationBaseline",
+            resource_id=baseline_id,
+        )
+        return baseline.to_dict()
+
+    def resolve_validation_capability(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        conn: sqlite3.Connection,
+    ) -> Mapping[str, Any]:
+        source_id = payload.get("source_id", "src-1")
+        target_id = payload.get("target_id", "tgt-1")
+        strategy = payload.get("temporal_strategy")
+        cap = self.validation_service.resolve_capability(source_id, target_id, strategy, actor, conn)
+        return cap.to_dict()
+
 
 
 

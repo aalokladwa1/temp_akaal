@@ -54,10 +54,27 @@ export interface NewValidationDraftState {
   selectedSourceNodeIds?: string[];
   scopedPairs?: ScopedComparisonPair[];
 
-  // Step 5: Boundary & Consistency Baseline (Operator Intent Draft)
+  // Step 5: Boundary & Consistency Baseline (Operator Intent Draft & Phase 2 Capabilities)
   baselineIntent?: OperatorBaselineIntent;
   maintenanceCondition?: OperatorMaintenanceCondition;
+  externalPositionType?: string;
+  externalPositionValue?: string;
+  externalPositionStatus?: 'EXTERNALLY_ASSERTED' | 'VERIFIED' | 'UNVERIFIED';
   operatorNotes?: string;
+
+  // Metadata Import Proposal (Phase 2 Secure Importer)
+  importedProposal?: any;
+  importFilename?: string;
+  importFormat?: string;
+  importRedactions?: string[];
+  importWarnings?: string[];
+
+  // Backend Integration Execution (Phase 2 & Phase 3 IPC)
+  backendMissionId?: string;
+  backendBaselineId?: string;
+  backendScheduleId?: string;
+  backendReadinessResult?: any;
+  backendCapabilityInfo?: any;
 
   // Step 6: Validation Strategy & Assurance (Operator Intent Draft)
   assuranceLevel?: AssuranceLevel;
@@ -70,7 +87,7 @@ export interface NewValidationDraftState {
   step7AcknowledgedIds?: string[];
 
   // Step 8: Review, Schedule & Initialize (Operator Draft State)
-  step8TimingChoice?: TimingChoice;
+  step8TimingChoice?: TimingChoice | 'CONTINUOUS';
   step8ScheduledDate?: string;
   step8ScheduledTime?: string;
   step8ScheduledTimezone?: string;
@@ -361,8 +378,8 @@ export class ValidationUiService {
         // Must have an explicit operator-declared operational condition
         return !!draft.maintenanceCondition;
       case 'EXTERNAL_REPLICATION':
-        // Truthfully fail-closed: external migration baseline integration is not currently available
-        return false;
+        // Supported in Phase 2: requires provider position type and non-empty position value
+        return !!draft.externalPositionType && !!draft.externalPositionValue && draft.externalPositionValue.trim().length > 0;
       default:
         return false;
     }
@@ -372,11 +389,6 @@ export class ValidationUiService {
     const draft = this.newValidationDraft();
     if (!draft.assuranceLevel) return false;
     if (!draft.temporalCadence) return false;
-
-    // Continuous validation is currently unavailable (P7D runtime deferred)
-    if (draft.temporalCadence === 'CONTINUOUS') {
-      return false;
-    }
 
     // If exceptions exist, each group must have valid non-empty reason, target level, and >= 1 object
     if (draft.assuranceExceptions && draft.assuranceExceptions.length > 0) {
@@ -396,9 +408,6 @@ export class ValidationUiService {
   });
 
   public isStep7Valid = computed<boolean>(() => {
-    // Mandate 1: Angular is NOT the canonical readiness authority.
-    // Production default NOT_EVALUATED / READINESS_NOT_CONNECTED does NOT block proceeding to Step 8.
-    // Step 7 validates local draft completeness: Are the required inputs from steps 1-6 present and structurally valid?
     return this.isStep1Valid() &&
            this.isStep2Valid() &&
            this.isStep3Valid() &&
@@ -412,6 +421,9 @@ export class ValidationUiService {
     const draft = this.newValidationDraft();
     if (draft.step8TimingChoice === 'SCHEDULE_LATER') {
       return !!draft.step8ScheduledDate && !!draft.step8ScheduledTime;
+    }
+    if (draft.step8TimingChoice === 'RECURRING') {
+      return !!draft.step8RecurringFrequency;
     }
     return true;
   });

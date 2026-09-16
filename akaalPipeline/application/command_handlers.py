@@ -75,12 +75,17 @@ class CommandHandlerRegistry:
         from akaalPipeline.operations.incidents import IncidentService
         from akaalPipeline.operations.notifications import NotificationService
 
+        from akaalPipeline.validation import ValidationPipelineService
+        from akaalPipeline.orchestration.importer import MigrationMetadataImporter
+
         self.schedule_service = ScheduleService(self.execution_controller.lease_manager)
         self.retention_service = OperationalRetentionService()
         self.capacity_service = CapacityIntelligenceService()
         self.alert_service = AlertService()
         self.incident_service = IncidentService()
         self.notification_service = NotificationService()
+        self.validation_service = ValidationPipelineService()
+        self.metadata_importer = MigrationMetadataImporter()
 
 
 
@@ -1787,6 +1792,79 @@ class CommandHandlerRegistry:
         )
         self.audit_service.record_event(actor, "intelligence.outcome.recorded", outcome.outcome_id, uow.connection)
         return outcome.to_dict()
+
+    def handle_create_validation_mission(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        mission = self.validation_service.create_mission(payload, actor, uow.connection)
+        self.audit_service.record_event(actor, "validation.mission.created", mission.mission_id, uow.connection)
+        return mission.to_dict()
+
+    def handle_initialize_validation_mission(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        mission_id = payload["mission_id"]
+        mission = self.validation_service.initialize_mission(mission_id, actor, uow.connection)
+        self.audit_service.record_event(actor, "validation.mission.initialized", mission.mission_id, uow.connection)
+        return mission.to_dict()
+
+    def handle_execute_validation_mission(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        mission_id = payload["mission_id"]
+        res = self.validation_service.execute_mission(mission_id, actor, uow.connection)
+        self.audit_service.record_event(actor, "validation.mission.executed", mission_id, uow.connection)
+        return res
+
+    def handle_control_continuous_validation(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        mission_id = payload["mission_id"]
+        action = payload["action"]
+        mission = self.validation_service.control_continuous(mission_id, action, actor, uow.connection)
+        self.audit_service.record_event(actor, f"validation.continuous.{action}", mission_id, uow.connection)
+        return mission.to_dict()
+
+    def handle_establish_validation_baseline(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        baseline = self.validation_service.establish_baseline(payload, actor, uow.connection)
+        self.audit_service.record_event(actor, "validation.baseline.established", baseline.baseline_id, uow.connection)
+        return baseline.to_dict()
+
+    def handle_import_validation_metadata(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        content = payload["content"]
+        filename = payload.get("filename", "metadata.json")
+        proposal = self.metadata_importer.parse_and_create_proposal(
+            content=content,
+            filename=filename,
+            tenant_id=actor.tenant_id,
+            workspace_id=actor.workspace_id,
+            project_id=actor.project_id,
+        )
+        self.audit_service.record_event(actor, "validation.metadata.imported", proposal.proposal_id, uow.connection)
+        return proposal.to_dict()
+
 
 
 

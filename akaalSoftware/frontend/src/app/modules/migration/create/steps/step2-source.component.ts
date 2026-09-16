@@ -84,7 +84,7 @@ export function toPhysicalProviderId(val: string): PhysicalProviderId {
           <div class="flex items-center justify-between flex-wrap gap-2">
             <div class="flex flex-col gap-0.5">
               <h1 class="text-base font-bold text-slate-900 tracking-tight">Source Connection</h1>
-              <p class="text-xs text-slate-500 font-normal">Choose how AKAAL should connect to the source system.</p>
+              <p class="text-xs text-slate-500 font-normal">Choose how DevKros should connect to the source system.</p>
             </div>
 
             <!-- Compact Segmented Control (Top-Right) -->
@@ -107,7 +107,7 @@ export function toPhysicalProviderId(val: string): PhysicalProviderId {
           <div class="flex flex-col items-center text-center gap-1.5 pb-6">
             <h1 class="text-xl font-bold text-slate-900 tracking-tight">Source Connection</h1>
             <p class="text-sm text-slate-500 max-w-md font-normal">
-              Choose how AKAAL should connect to your source database system.
+              Choose how DevKros should connect to your source database system.
             </p>
           </div>
 
@@ -568,8 +568,8 @@ export function toPhysicalProviderId(val: string): PhysicalProviderId {
               
               <div class="flex items-center justify-between pb-3 border-b border-slate-100 flex-wrap gap-2">
                 <div class="flex flex-col gap-0.5">
-                  <h2 class="text-sm font-bold text-slate-900">Select Source Database Engine</h2>
-                  <p class="text-xs text-slate-500 font-normal">Choose from the canonical catalog of {{ catalogEngines.length }} supported physical database engines.</p>
+                  <h2 class="text-sm font-bold text-slate-900">Select Source System or Connection Profile</h2>
+                  <p class="text-xs text-slate-500 font-normal">Choose from DevKros-supported source systems and connection profiles.</p>
                 </div>
               </div>
 
@@ -1728,14 +1728,59 @@ export class Step2SourceComponent implements OnInit {
     const schema = ALL_PROVIDER_SCHEMAS[engineId];
     if (!schema) return;
 
+    let defaultHost = '';
+    let defaultPort = schema.defaultPort || 0;
+    let defaultDatabase = '';
+    let defaultUsername = '';
+    let defaultSecretRef = '';
+    const initialParams: Record<string, any> = {};
+
+    if (schema.fields) {
+      schema.fields.forEach(f => {
+        if (f.defaultValue !== undefined) {
+          initialParams[f.id] = f.defaultValue;
+        }
+      });
+    }
+
+    if (engineId === 'AWS Managed Cloud') {
+      defaultHost = 'rds-instance.c123456789.us-east-1.rds.amazonaws.com';
+      defaultPort = 5432;
+      defaultDatabase = 'postgres';
+      defaultUsername = 'postgres';
+      defaultSecretRef = 'vault://secret/aws/rds/main';
+    } else if (engineId === 'Azure Managed Cloud') {
+      defaultHost = 'myserver.postgres.database.azure.com';
+      defaultPort = 5432;
+      defaultDatabase = 'app_production';
+      defaultUsername = 'azureuser';
+      defaultSecretRef = 'vault://secret/azure/db';
+    } else if (engineId === 'Google Cloud Managed') {
+      defaultHost = '10.128.0.5';
+      defaultPort = 5432;
+      defaultDatabase = 'main_db';
+      defaultUsername = 'postgres';
+      defaultSecretRef = 'vault://secret/gcp/cloudsql';
+    } else if (engineId === 'Oracle Cloud Infrastructure' || engineId === 'Oracle Cloud Infrastructure Managed') {
+      defaultHost = 'adb.us-ashburn-1.oraclecloud.com';
+      defaultPort = 1522;
+      defaultDatabase = 'atp_high.adb.oraclecloud.com';
+      defaultUsername = 'ADMIN';
+      defaultSecretRef = 'vault://secret/oci/atp/admin';
+    } else if (engineId === 'File Dataset') {
+      defaultDatabase = '/data/exports/customers_2026.csv';
+      initialParams['file_format'] = 'CSV';
+      initialParams['has_header'] = true;
+    }
+
     this.ms.updateDraft({
       sourceProvider: engineId,
-      sourceHost: '',
-      sourcePort: schema.defaultPort || 0,
-      sourceDatabase: '',
-      sourceUsername: '',
-      sourceSecretRef: '',
-      sourceParams: {},
+      sourceHost: defaultHost,
+      sourcePort: defaultPort,
+      sourceDatabase: defaultDatabase,
+      sourceUsername: defaultUsername,
+      sourceSecretRef: defaultSecretRef,
+      sourceParams: initialParams,
       sourceVerified: false,
       sourceVerificationResult: undefined,
       sourceSaveToVault: false
@@ -1759,6 +1804,7 @@ export class Step2SourceComponent implements OnInit {
       sourceVerificationResult: undefined,
       sourceSaveToVault: false
     });
+    this.searchQuery.set('');
     this.probeExecuted.set(false);
     this.verificationError.set(null);
   }
@@ -1768,6 +1814,11 @@ export class Step2SourceComponent implements OnInit {
   // ===========================================================================
   public checkEngineCompatibility(engineId: PhysicalProviderId): { compatible: boolean; reason?: string } {
     const mode = this.ms.wizardDraft().mode || 'M1_BULK';
+
+    // Managed Cloud profiles and File Dataset are universally compatible
+    if (engineId === 'AWS Managed Cloud' || engineId === 'Azure Managed Cloud' || engineId === 'Google Cloud Managed' || engineId === 'Oracle Cloud Infrastructure Managed' || engineId === 'File Dataset') {
+      return { compatible: true };
+    }
 
     // M1: Bulk Migration & M7: Data Only -> All 28 Available
     if (mode === 'M1_BULK' || mode === 'M7_DATA_ONLY') {
@@ -2237,7 +2288,7 @@ export class Step2SourceComponent implements OnInit {
           // Phase 2: TCP Handshake & TLS Negotiation
           const isProd = this.isProductionEnv();
           const tls = this.selectedTlsMode();
-          if (isProd && tls === 'DISABLE') {
+          if (isProd && tls === 'DISABLE' && schema.category !== 'FILE_DATASET') {
             phase.status = 'FAILED';
             this.verificationError.set({
               phase: 'Phase 2: TCP Handshake & TLS Negotiation',
@@ -2250,7 +2301,7 @@ export class Step2SourceComponent implements OnInit {
             return;
           }
           phase.status = 'PASSED';
-          phase.detail = 'TLS 1.3 negotiated';
+          phase.detail = schema.category === 'FILE_DATASET' ? 'File transport driver active' : 'TLS 1.3 negotiated';
           runPhase(phaseIndex + 1);
         } else if (phaseIndex === 3) {
           // Phase 3: Vault Decryption & Credential Auth

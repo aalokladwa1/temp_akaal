@@ -133,15 +133,22 @@ describe('Step 6 Strategy & Assurance Component', () => {
     expect(step6.exceptionGroups().length).toBe(0);
   });
 
-  it('STATE H — Continuous Validation Unavailable: selecting continuous warns and halts progression', () => {
+  it('STATE H — Continuous Validation Available: selecting continuous updates temporal cadence cleanly', () => {
+    vs.updateDraft({
+      currentStep: 6,
+      name: 'Standard Oracle to PG Mission',
+      sourceProvider: 'Oracle',
+      targetProvider: 'PostgreSQL',
+      assuranceLevel: 'PARTITION_FINGERPRINT'
+    });
     step6.selectTemporalCadence('CONTINUOUS');
     expect(step6.selectedCadence()).toBe('CONTINUOUS');
 
-    // Continuous is unavailable on current platform -> fail-closed
-    expect(vs.isStep6Valid()).toBe(false);
-    expect(wizard.isCurrentStepValid()).toBe(false);
+    // Continuous is now available via Phase 2 capability
+    expect(vs.isStep6Valid()).toBe(true);
+    expect(wizard.isCurrentStepValid()).toBe(true);
 
-    // Switching back to Consistent-State restores validity
+    // Switching back to CONSISTENT_STATE maintains validity
     step6.selectTemporalCadence('CONSISTENT_STATE');
     expect(step6.selectedCadence()).toBe('CONSISTENT_STATE');
     expect(vs.isStep6Valid()).toBe(true);

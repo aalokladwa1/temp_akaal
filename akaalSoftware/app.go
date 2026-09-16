@@ -122,21 +122,52 @@ type IPCResponse struct {
 
 // InvokeIPC passes requests directly to Python EngineGateway via Named Pipe / Domain Socket
 func (a *App) InvokeIPC(req IPCRequest) (IPCResponse, error) {
-	a.mu.Lock()
-	defer a.mu.Unlock()
+	networkType := "unix"
+	socketAddress := UnixSocketPath
+	if runtime.GOOS == "windows" {
+		networkType = "tcp"
+		socketAddress = "127.0.0.1:52199"
+	}
 
 	fmt.Printf("[Wails Named Pipe IPC] Endpoint: %s, Action: %s\n", req.Endpoint, req.Action)
 
-	// Return initial success envelope if mock/offline, or serialize to socket
-	return IPCResponse{
-		Status: "SUCCESS",
-		Data: map[string]interface{}{
-			"channel": "Named Pipe / Domain Socket (Decoupled Engine)",
-			"endpoint": req.Endpoint,
-			"action": req.Action,
-			"receivedAt": time.Now().UTC().Format(time.RFC3339),
-		},
-	}, nil
+	conn, err := net.DialTimeout(networkType, socketAddress, 1*time.Second)
+	if err != nil {
+		return IPCResponse{
+			Status: "ERROR",
+			Error:  "ENGINE_DISCONNECTED: Daemon IPC socket connection unavailable",
+		}, nil
+	}
+	defer conn.Close()
+
+	_ = conn.SetDeadline(time.Now().Add(5 * time.Second))
+
+	reqData, err := json.Marshal(req)
+	if err != nil {
+		return IPCResponse{
+			Status: "ERROR",
+			Error:  fmt.Sprintf("IPC_SERIALIZATION_ERROR: %v", err),
+		}, nil
+	}
+
+	reqData = append(reqData, '\n')
+	if _, err := conn.Write(reqData); err != nil {
+		return IPCResponse{
+			Status: "ERROR",
+			Error:  fmt.Sprintf("IPC_WRITE_ERROR: %v", err),
+		}, nil
+	}
+
+	var resp IPCResponse
+	decoder := json.NewDecoder(conn)
+	if err := decoder.Decode(&resp); err != nil {
+		return IPCResponse{
+			Status: "ERROR",
+			Error:  fmt.Sprintf("IPC_READ_ERROR: %v", err),
+		}, nil
+	}
+
+	return resp, nil
 }
 
 // ============================================================================
