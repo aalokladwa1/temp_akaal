@@ -56,7 +56,7 @@ export interface GroupedSelectOption {
         aria-haspopup="listbox"
         [attr.aria-expanded]="isOpen()"
         [attr.aria-label]="placeholder || selectedLabel()"
-        class="w-full bg-white hover:bg-slate-50 border border-slate-200 flex items-center justify-between text-left text-xs font-medium text-slate-800 transition-colors cursor-pointer focus:outline-none focus:border-blue-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-md"
+        class="w-full bg-white dark:bg-[#191a1e] hover:bg-slate-50 dark:hover:bg-[#202126] border border-slate-200 dark:border-white/[0.12] flex items-center justify-between text-left text-xs font-medium text-slate-800 dark:text-slate-200 transition-colors cursor-pointer focus:outline-none focus:border-blue-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-md"
         [class.h-8]="size === 'sm'"
         [class.px-2.5]="size === 'sm'"
         [class.h-9]="size !== 'sm'"
@@ -65,13 +65,13 @@ export interface GroupedSelectOption {
         
         <div class="flex items-center gap-2 min-w-0 flex-1">
           @if (selectedOption()?.icon; as iconName) {
-            <app-lucide-icon [name]="iconName" [size]="size === 'sm' ? 12 : 13" class="text-slate-500 shrink-0"></app-lucide-icon>
+            <app-lucide-icon [name]="iconName" [size]="size === 'sm' ? 12 : 13" class="text-slate-500 dark:text-slate-400 shrink-0"></app-lucide-icon>
           }
           <span class="truncate" [class.text-slate-400]="!selectedOption()">
             {{ selectedLabel() }}
           </span>
           @if (selectedOption()?.badge; as badgeText) {
-            <span class="px-1.5 py-0.2 text-[9px] font-mono font-bold bg-slate-100 text-slate-600 rounded shrink-0">
+            <span class="px-1.5 py-0.2 text-[9px] font-mono font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded shrink-0">
               {{ badgeText }}
             </span>
           }
@@ -88,7 +88,7 @@ export interface GroupedSelectOption {
       @if (isOpen()) {
         <div
           role="listbox"
-          class="absolute left-0 right-0 z-50 bg-white border border-slate-200 rounded-md p-1 flex flex-col gap-0.5 shadow-lg animate-in fade-in duration-100 max-h-64 overflow-y-auto w-full min-w-[200px]"
+          class="absolute left-0 right-0 z-50 bg-white dark:bg-[#191a1e] border border-slate-200 dark:border-white/[0.12] rounded-md p-1 flex flex-col gap-0.5 shadow-lg animate-in fade-in duration-100 max-h-64 overflow-y-auto w-full min-w-[200px]"
           [class.top-full]="!openUpward()"
           [class.mt-1.5]="!openUpward()"
           [class.bottom-full]="openUpward()"
@@ -97,19 +97,19 @@ export interface GroupedSelectOption {
           
           <!-- Optional Search Bar -->
           @if (searchable) {
-            <div class="relative px-1 pb-1 pt-0.5 border-b border-slate-100 mb-0.5">
+            <div class="relative px-1 pb-1 pt-0.5 border-b border-slate-100 dark:border-white/[0.08] mb-0.5">
               <input
                 type="text"
                 [ngModel]="searchQuery()"
                 (ngModelChange)="searchQuery.set($event)"
                 [placeholder]="searchPlaceholder"
-                class="w-full h-8 pl-8 pr-7 bg-slate-50 border border-slate-200 focus:border-blue-600 rounded-md text-xs font-medium text-slate-900 focus:outline-none transition-all placeholder:text-slate-400" />
+                class="w-full h-8 pl-8 pr-7 bg-slate-50 dark:bg-[#141517] border border-slate-200 dark:border-white/[0.1] focus:border-blue-600 rounded-md text-xs font-medium text-slate-900 dark:text-slate-100 focus:outline-none transition-all placeholder:text-slate-400" />
               <app-lucide-icon name="search" [size]="13" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></app-lucide-icon>
               @if (searchQuery()) {
                 <button
                   type="button"
                   (click)="searchQuery.set('')"
-                  class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer">
+                  class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer">
                   <app-lucide-icon name="x" [size]="13"></app-lucide-icon>
                 </button>
               }
@@ -150,13 +150,15 @@ export interface GroupedSelectOption {
               [disabled]="opt.disabled"
               (click)="selectOption(opt.value, $event)"
               [attr.data-value]="opt.value"
-              class="w-full text-left px-2.5 py-1.5 rounded-md text-xs font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50 transition-colors flex items-center justify-between cursor-pointer gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
-              [class.bg-blue-50]="isSelected(opt.value)"
-              [class.text-blue-700]="isSelected(opt.value)">
+              class="w-full text-left px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors flex items-center justify-between cursor-pointer gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+              [ngClass]="{
+                'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 font-semibold': isSelected(opt.value),
+                'text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-[#22242a]': !isSelected(opt.value)
+              }">
               
               <div class="flex items-center gap-2 min-w-0 flex-1">
                 @if (opt.icon) {
-                  <app-lucide-icon [name]="opt.icon" [size]="13" class="text-slate-500 shrink-0"></app-lucide-icon>
+                  <app-lucide-icon [name]="opt.icon" [size]="13" class="text-slate-500 dark:text-slate-400 shrink-0"></app-lucide-icon>
                 }
                 <div class="flex flex-col min-w-0 flex-1">
                   <div class="flex items-center gap-1.5 flex-wrap">
@@ -164,7 +166,7 @@ export interface GroupedSelectOption {
                       {{ opt.label }}
                     </span>
                     @if (opt.badge) {
-                      <span class="px-1.5 py-0.2 text-[9px] font-mono font-bold bg-slate-100 text-slate-600 rounded">
+                      <span class="px-1.5 py-0.2 text-[9px] font-mono font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded">
                         {{ opt.badge }}
                       </span>
                     }
@@ -178,7 +180,7 @@ export interface GroupedSelectOption {
               </div>
 
               @if (isSelected(opt.value)) {
-                <app-lucide-icon name="check" [size]="13" class="text-blue-600 shrink-0 ml-1.5"></app-lucide-icon>
+                <app-lucide-icon name="check" [size]="13" class="text-blue-600 dark:text-blue-400 shrink-0 ml-1.5"></app-lucide-icon>
               }
             </button>
           </ng-template>

@@ -140,7 +140,7 @@ interface CommandItem {
               DK
             </div>
             <div class="flex flex-col">
-              <span class="text-base font-bold tracking-tight text-slate-900 leading-none">DEVKROS</span>
+              <span class="text-base font-bold tracking-tight text-slate-900 leading-none">DevKros</span>
             </div>
           </div>
 

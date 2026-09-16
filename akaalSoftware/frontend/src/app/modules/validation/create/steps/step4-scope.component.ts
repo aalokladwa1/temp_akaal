@@ -416,7 +416,7 @@ import {
                   (ngModelChange)="importContent.set($event)"
                   rows="4"
                   placeholder="Paste JSON settings, GoldenGate PRM commands, or CSV correspondence rows..."
-                  class="w-full p-3 font-mono text-xs bg-slate-900 text-slate-100 rounded-lg border border-slate-700 focus:outline-none focus:border-blue-500"></textarea>
+                  class="w-full p-3 font-mono text-xs bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-lg border border-slate-300 dark:border-slate-700 focus:outline-none focus:border-blue-500"></textarea>
               </div>
 
               <!-- Parse & Import Button -->

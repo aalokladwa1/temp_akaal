@@ -500,13 +500,8 @@ export class NewValidationWizardComponent implements OnInit, OnDestroy {
       }
 
       this.isSubmitting.set(false);
-      const pid = this.projectId();
       this.vs.resetDraft();
-      if (pid) {
-        this.router.navigate(['/migration/projects', pid, 'validations']);
-      } else {
-        this.router.navigate(['/migration/validation']);
-      }
+      this.router.navigate(['/validation', missionId]);
     } catch (err: any) {
       this.isSubmitting.set(false);
       this.submitError.set(err?.message || 'Initialization failed');

@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DashboardService } from '../../core/services/dashboard.service';
 import { IpcService } from '../../core/services/ipc.service';
@@ -35,34 +35,29 @@ import { RecentActivityComponent } from './components/recent-activity.component'
       <!-- =============================================================== -->
       <!-- TOP GREETING AREA (PREMIUM REFINED WITH GDS BADGE)              -->
       <!-- =============================================================== -->
-      <div class="flex items-start justify-between gap-6 pb-4 border-b border-slate-200 flex-wrap">
+      <div class="flex items-start justify-between gap-6 pb-4 border-b border-slate-200 dark:border-white/[0.08] flex-wrap animate-in fade-in duration-200">
         
         <!-- Left: Local Time Greeting & State Phrase -->
         <div class="flex flex-col gap-1">
-          <h1 class="text-2xl font-bold font-heading text-slate-900 tracking-tight">
+          <h1 class="text-2xl font-bold font-heading text-slate-900 dark:text-slate-100 tracking-tight">
             {{ ds.greetingContext().greeting }}
           </h1>
-          <p class="text-sm text-slate-600 font-medium">
+          <p class="text-xs sm:text-sm text-slate-600 dark:text-slate-400 font-medium">
             {{ ds.greetingContext().statePhrase }}
           </p>
         </div>
 
         <!-- Right: Contextual Live Meta (Formatted with comma, year, and GDS Live Badge) -->
         <div class="flex items-center gap-3 pt-1 text-sm">
-          <span class="text-slate-600 font-medium text-xs">{{ ds.greetingContext().formattedDate }}</span>
-          <span class="text-slate-300 font-bold">&middot;</span>
-          <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-semibold select-none shadow-2xs"
-            [class.bg-emerald-50]="ipc.connectionState() === 'connected'"
-            [class.text-emerald-700]="ipc.connectionState() === 'connected'"
-            [class.border]="ipc.connectionState() === 'connected'"
-            [class.border-emerald-200]="ipc.connectionState() === 'connected'"
-            [class.bg-amber-50]="ipc.connectionState() === 'connecting'"
-            [class.text-amber-700]="ipc.connectionState() === 'connecting'"
-            [class.border-amber-200]="ipc.connectionState() === 'connecting'"
-            [class.bg-rose-50]="ipc.connectionState() === 'disconnected'"
-            [class.text-rose-700]="ipc.connectionState() === 'disconnected'"
-            [class.border-rose-200]="ipc.connectionState() === 'disconnected'">
-            <span class="w-1.5 h-1.5 rounded-full" 
+          <span class="text-slate-600 dark:text-slate-400 font-medium text-xs">{{ ds.greetingContext().formattedDate }}</span>
+          <span class="text-slate-300 dark:text-slate-600 font-bold">&middot;</span>
+          <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-semibold select-none shadow-2xs border"
+            [ngClass]="{
+              'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/40': ipc.connectionState() === 'connected',
+              'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800/40': ipc.connectionState() === 'connecting',
+              'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-800/40': ipc.connectionState() === 'disconnected'
+            }">
+            <span class="w-1.5 h-1.5 rounded-full animate-pulse" 
               [class.bg-emerald-500]="ipc.connectionState() === 'connected'" 
               [class.bg-amber-500]="ipc.connectionState() === 'connecting'" 
               [class.bg-rose-500]="ipc.connectionState() === 'disconnected'">
@@ -190,7 +185,11 @@ import { RecentActivityComponent } from './components/recent-activity.component'
     </div>
   `
 })
-export class DashboardComponent {
+export class DashboardComponent implements OnInit {
   public ds = inject(DashboardService);
   public ipc = inject(IpcService);
+
+  ngOnInit(): void {
+    this.ds.refreshDashboard();
+  }
 }

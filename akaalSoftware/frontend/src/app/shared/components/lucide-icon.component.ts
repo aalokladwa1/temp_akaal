@@ -381,6 +381,10 @@ import { CommonModule } from '@angular/common';
         @case ('circle') {
           <circle cx="12" cy="12" r="10"/>
         }
+        @case ('circle-dot') {
+          <circle cx="12" cy="12" r="10"/>
+          <circle cx="12" cy="12" r="3"/>
+        }
         @case ('workflow') {
           <rect width="8" height="8" x="3" y="3" rx="2"/>
           <path d="M7 11v4a2 2 0 0 0 2 2h4"/>

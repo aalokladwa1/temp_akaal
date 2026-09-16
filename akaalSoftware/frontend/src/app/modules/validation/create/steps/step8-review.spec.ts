@@ -154,6 +154,6 @@ describe('Step 8 Review, Schedule & Initialize Component', () => {
 
     wizard.ipc = { invoke: vi.fn().mockResolvedValue({ status: 'SUCCESS' }) } as any;
     await wizard.initializeValidation();
-    expect(mockRouter.navigate).toHaveBeenCalledWith(['/migration/validation']);
+    expect(mockRouter.navigate).toHaveBeenCalledWith(['/validation', expect.any(String)]);
   });
 });
