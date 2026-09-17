@@ -5,7 +5,7 @@
  * and independent section loading states.
  */
 
-import { Injectable, signal, computed } from '@angular/core';
+import { Injectable, signal, computed, inject } from '@angular/core';
 import { 
   ReportsHomeDataDTO,
   ReportsSummaryMetricsDTO,
@@ -39,6 +39,7 @@ import {
   PaginatedResult
 } from '../models/evidence.models';
 import { IpcService } from '../../../core/services/ipc.service';
+import { ReportsIpcService } from './reports.ipc';
 
 export type LibraryViewMode = 'CATALOG' | 'INVENTORY' | 'CATEGORY_VIEW' | 'REPORT_DETAIL';
 export type CertificationViewMode = 'OVERVIEW' | 'MIGRATION' | 'VALIDATION' | 'VERIFICATION';
@@ -1096,7 +1097,22 @@ function buildReportEnvelope(report: ReportItemDTO): ReportDetailEnvelopeDTO {
   providedIn: 'root'
 })
 export class ReportsService {
-  constructor(private ipc?: IpcService) {}
+  private reportsIpc: ReportsIpcService;
+
+  constructor(
+    private ipc?: IpcService,
+    reportsIpc?: ReportsIpcService
+  ) {
+    if (reportsIpc) {
+      this.reportsIpc = reportsIpc;
+    } else {
+      try {
+        this.reportsIpc = inject(ReportsIpcService, { optional: true }) || new ReportsIpcService(this.ipc);
+      } catch {
+        this.reportsIpc = new ReportsIpcService(this.ipc);
+      }
+    }
+  }
 
   // Section Loading States
   public summaryState = signal<SectionLoadingState>('AVAILABLE_WITH_DATA');
@@ -1357,16 +1373,37 @@ export class ReportsService {
     this.isExporting.set(true);
     this.exportError.set(null);
 
-    setTimeout(() => {
+    // Call backend report export authority via IPC
+    this.reportsIpc.exportReport(target.id, format).then(res => {
       this.isExporting.set(false);
-      // Fail closed when backend report export engine is unavailable:
+      if (res && res.status === 'SUCCESS' && res.data && res.data.export_id) {
+        this.lastExportResult.set(res.data);
+      } else {
+        this.lastExportResult.set(null);
+        const errMsg = typeof res?.error === 'string' ? res.error : (res?.error as any)?.message;
+        this.exportError.set(errMsg || 'Report export requires an active backend engine connection.');
+      }
+    }).catch(() => {
+      this.isExporting.set(false);
       this.lastExportResult.set(null);
       this.exportError.set('Report export requires an active backend engine connection.');
-    }, 400);
+    });
   }
 
   public refresh(): void {
     this.isRefreshing.set(true);
+    this.reportsIpc.getReportsSummary().then(summaryRes => {
+      if (summaryRes.status === 'SUCCESS' && summaryRes.data) {
+        this._summary.set(summaryRes.data);
+      }
+    }).catch(() => {});
+
+    this.reportsIpc.listReports().then(reportsRes => {
+      if (reportsRes.status === 'SUCCESS' && reportsRes.data?.reports) {
+        this._allReports.set(reportsRes.data.reports);
+      }
+    }).catch(() => {});
+
     setTimeout(() => {
       this.isRefreshing.set(false);
     }, 400);
@@ -1378,7 +1415,20 @@ export class ReportsService {
       if (customData.recent_reports) this._allReports.set(customData.recent_reports);
       if (customData.certification_attention) this._certificationAttention.set(customData.certification_attention);
       if (customData.evidence_activity) this._evidenceActivity.set(customData.evidence_activity);
+      return;
     }
+
+    this.reportsIpc.getReportsSummary().then(summaryRes => {
+      if (summaryRes.status === 'SUCCESS' && summaryRes.data) {
+        this._summary.set(summaryRes.data);
+      }
+    }).catch(() => {});
+
+    this.reportsIpc.listReports().then(reportsRes => {
+      if (reportsRes.status === 'SUCCESS' && reportsRes.data?.reports) {
+        this._allReports.set(reportsRes.data.reports);
+      }
+    }).catch(() => {});
   }
 
   public setSectionState(
@@ -2072,6 +2122,15 @@ export class ReportsService {
   }
 
   public verifyArtifactTarget(targetId: string): void {
+    // Asynchronously dispatch verification to canonical Evidence Authority via IPC
+    this.reportsIpc.verifyEvidence(targetId).then(ipcRes => {
+      if (ipcRes.status === 'SUCCESS' && ipcRes.data && ipcRes.data.result_status) {
+        const verified = ipcRes.data;
+        this.activeVerificationResult.set(verified);
+        this.verificationHistory.update(list => [verified, ...list.filter(item => item.target_identifier !== targetId).slice(0, 9)]);
+      }
+    }).catch(() => {});
+
     // 1. Check in packages
     const pkg = this.evidencePackages().find(p => p.id === targetId);
     if (pkg && pkg.fingerprint) {

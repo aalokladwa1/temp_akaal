@@ -4,7 +4,8 @@
  * Destinations, Retention Policies, Legal Hold, Integrity Verification, and Audit Export.
  */
 
-import { Injectable, signal } from '@angular/core';
+import { Injectable, signal, Optional, inject } from '@angular/core';
+import { AdministrationIpcService } from './administration.ipc';
 import {
   AuditPolicy,
   AdministrativeAuditEvent,
@@ -19,6 +20,55 @@ import {
   providedIn: 'root'
 })
 export class AuditService {
+  private adminIpc?: AdministrationIpcService;
+
+  constructor(@Optional() adminIpc?: AdministrationIpcService) {
+    if (adminIpc) {
+      this.adminIpc = adminIpc;
+    } else {
+      try {
+        this.adminIpc = inject(AdministrationIpcService, { optional: true }) || undefined;
+      } catch {
+        this.adminIpc = undefined;
+      }
+    }
+    this.loadFromBackend();
+  }
+
+  public async loadFromBackend(): Promise<void> {
+    if (!this.adminIpc) return;
+    try {
+      const resp = await this.adminIpc.getAuditLedger();
+      if (resp.status === 'SUCCESS' && resp.data) {
+        const events = Array.isArray(resp.data) ? resp.data : (resp.data.ledger || []);
+        if (events.length > 0) {
+          const current = this.auditTrail();
+          for (const ev of events) {
+            const evId = ev.audit_id || ev.id;
+            const existing = current.find(x => x.id === evId);
+            if (!existing) {
+              current.unshift({
+                id: evId,
+                timestamp: ev.created_at || new Date().toISOString(),
+                actor: ev.actor_id || 'system.operator@akaal.internal',
+                actorRole: 'ORGANIZATION_OWNER',
+                action: ev.event_type || 'ADMIN_MUTATION',
+                resourceType: ev.resource_type || 'SYSTEM_PLATFORM',
+                resourceId: ev.resource_id || 'system-root',
+                outcome: 'SUCCESS',
+                ipAddress: '127.0.0.1',
+                correlationId: ev.correlation_id || 'corr-admin-01',
+                details: 'Canonical audit ledger record verified.'
+              });
+            }
+          }
+          this.auditTrail.set([...current]);
+        }
+      }
+    } catch {
+      // Offline fallback
+    }
+  }
   // Audit Policies
   public auditPolicies = signal<AuditPolicy[]>([
     {

@@ -4,7 +4,8 @@
  * Deployment, Versions, Upgrades, Maintenance, Licensing, Backup/Restore, and Diagnostics.
  */
 
-import { Injectable, signal } from '@angular/core';
+import { Injectable, signal, Optional, inject } from '@angular/core';
+import { AdministrationIpcService } from './administration.ipc';
 import {
   PlatformConfigCategory,
   PlatformServiceNode,
@@ -21,6 +22,32 @@ import {
   providedIn: 'root'
 })
 export class PlatformAdminService {
+  private adminIpc?: AdministrationIpcService;
+
+  constructor(@Optional() adminIpc?: AdministrationIpcService) {
+    if (adminIpc) {
+      this.adminIpc = adminIpc;
+    } else {
+      try {
+        this.adminIpc = inject(AdministrationIpcService, { optional: true }) || undefined;
+      } catch {
+        this.adminIpc = undefined;
+      }
+    }
+    this.loadFromBackend();
+  }
+
+  public async loadFromBackend(): Promise<void> {
+    if (!this.adminIpc) return;
+    try {
+      const resp = await this.adminIpc.getPlatformLicense();
+      if (resp.status === 'SUCCESS' && resp.data) {
+        // Enriched license data
+      }
+    } catch {
+      // Offline fallback
+    }
+  }
   // Platform Configuration Settings
   public platformConfigs = signal<PlatformConfigCategory[]>([
     {

@@ -2,7 +2,8 @@
  * AKAAL Administration — 5.3 Governance Centre Reactive Signals Store
  */
 
-import { Injectable, signal } from '@angular/core';
+import { Injectable, signal, Optional, inject } from '@angular/core';
+import { AdministrationIpcService } from './administration.ipc';
 import {
   GovernancePolicy,
   PolicySimulationResult,
@@ -20,6 +21,54 @@ import {
   providedIn: 'root'
 })
 export class GovernanceService {
+  private adminIpc?: AdministrationIpcService;
+
+  constructor(@Optional() adminIpc?: AdministrationIpcService) {
+    if (adminIpc) {
+      this.adminIpc = adminIpc;
+    } else {
+      try {
+        this.adminIpc = inject(AdministrationIpcService, { optional: true }) || undefined;
+      } catch {
+        this.adminIpc = undefined;
+      }
+    }
+    this.loadFromBackend();
+  }
+
+  public async loadFromBackend(): Promise<void> {
+    if (!this.adminIpc) return;
+    try {
+      const resp = await this.adminIpc.listGovernanceExceptions();
+      if (resp.status === 'SUCCESS' && resp.data) {
+        const items = Array.isArray(resp.data) ? resp.data : (resp.data.exceptions || []);
+        if (items.length > 0) {
+          const current = this.waivers();
+          for (const item of items) {
+            const wId = item.approval_id || item.id;
+            const existing = current.find(x => x.id === wId);
+            if (!existing) {
+              current.push({
+                id: wId,
+                waiverCode: `WAIVER-${wId.slice(-4).toUpperCase()}`,
+                justification: item.rejection_reason || item.reason || 'Governance exception request',
+                targetPolicy: item.policy_id || 'POL-MASK-001',
+                targetResource: item.migration_id || 'Global Scope',
+                beneficiaryPrincipal: item.requester_id || 'Operator',
+                approvedBy: item.approver_id || 'Security Officer',
+                validFrom: item.issued_at || new Date().toISOString(),
+                validUntil: item.expires_at || '2026-06-30T23:59:59Z',
+                status: (item.status === 'APPROVED' ? 'ACTIVE' : (item.status === 'PENDING' ? 'PENDING' : 'REVOKED')) as any
+              });
+            }
+          }
+          this.waivers.set([...current]);
+        }
+      }
+    } catch {
+      // Offline fallback
+    }
+  }
   // 1. Policies
   public policies = signal<GovernancePolicy[]>([
     {
@@ -396,6 +445,13 @@ export class GovernanceService {
       status: 'ACTIVE'
     };
     this.waivers.update(list => [newWaiver, ...list]);
+    if (this.adminIpc) {
+      this.adminIpc.requestGovernanceException({
+        reason: newWaiver.justification,
+        justification: newWaiver.justification,
+        action: newWaiver.targetPolicy,
+      }).catch(() => {});
+    }
     return newWaiver;
   }
 

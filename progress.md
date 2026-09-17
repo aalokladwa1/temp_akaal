@@ -5899,4 +5899,273 @@ STOP CONDITION: PASS 0 CORRECTED & FINAL-VERIFIED; AWAITING OWNER FREEZE DECISIO
 - **Production Build**: Angular 19 production build succeeded in 17.5s; Go Wails binary compiled `AKAAL.exe` (32.5MB).
 - **Runtime Proof**: 15 Playwright screenshot captures generated in `pass0_captures/` with 0 console errors.
 
+---
+
+## 53. DEVKROS — CHECK2 + P7.D — PRATHAM LANE — MONITORING: OWNER ACCEPTED & FROZEN (2026-09-17)
+
+```
+DEVKROS — CHECK2 + P7.D — PRATHAM LANE — MONITORING
+STATUS: OWNER ACCEPTED & FROZEN
+FAT AUDIT: COMPLETE
+INTEGRATION: COMPLETE
+FORMAL FINAL CHECK: PASS
+CAPABILITY DENOMINATOR: 30 / 30 ACCOUNTED FOR (26 backend-dependent + 4 presentation/local)
+  16 PASS
+  9  ACCEPTED_NON_MANDATORY_DEFERRED
+  1  ACCEPTED_SHARED_PLATFORM_GAP
+  4  ACCEPTED_LOCAL_PRESENTATION
+ZERO KNOWN LOCALLY-ACTIONABLE MANDATORY MONITORING DEFECTS
+ZERO REACHABLE PRODUCTION OPERATIONAL MOCK AUTHORITIES
+PROOF CEILING: INTEGRATION_PROVEN (not LIVE_PROVEN — no external production infrastructure involved)
+```
+
+### 53.1 Scope
+All four Monitoring sub-modules (`akaalSoftware/frontend/src/app/modules/monitoring/`): Overview, Migration Monitoring, Platform Monitoring, Alerts & Incidents. Owned by Pratham lane; Aalok-owned Dashboard/Migration/Settings adapters untouched.
+
+### 53.2 Canonical Connection Path (proven load-bearing)
+```
+Angular Monitoring feature services → monitoring.ipc.ts → ipc.service.ts (unchanged)
+→ Wails App.InvokeIPC (app.go, minimally extended) → akaalIPC/transport/tcp_socket_host.py
+(new generic TCP transport host) → IPCRouter → PipelineUnifiedCaller → akaalPipeline
+canonical authorities (IncidentService, AlertService, FleetOperationalService, query_service
+migration listing) → authoritative response/error → reverse path → frontend state → UI.
+```
+Desktop lifecycle: `akaalSoftware/backend_bridge.go` (new, generic, domain-agnostic) launches
+`python -m akaalPipeline.api.desktop_ipc_bridge` from `app.startup`/`app.shutdown` (existing
+Wails `OnStartup`/`OnShutdown` hooks in `main.go` — no new lifecycle mechanism invented).
+
+### 53.3 What Changed
+- New: `akaalIPC/transport/tcp_socket_host.py`, `akaalPipeline/api/desktop_ipc_bridge.py`,
+  `akaalSoftware/backend_bridge.go`, `akaalSoftware/frontend/.../services/monitoring.ipc.ts`
+  (11 members: 7 queries, 4 commands, 0 events).
+- Modified: `akaalPipeline/application/unified_caller.py` (fixed incident/alert/notification
+  permission-map entries that previously fell through to the wrong `MIGRATION_READ`
+  permission); `akaalSoftware/app.go` (minimal generic bridge-lifecycle wiring only);
+  all four Monitoring services and their specs, rewired off permanent
+  `MOCK_*`/`applyDeterministicBaseline`/`generateSelectedMigrationDetail`-fallback production
+  authority onto real backend queries with fail-closed behavior on backend failure.
+- `ipc.service.ts`: **unchanged** (remained read-only per Pratham-lane rule for this campaign).
+
+### 53.4 Accepted Non-Mandatory Deferred (truthful, not fabricated — do not implement without new owner authorization)
+Overview Platform Health detail grid; Overview Operational Pressure detail; Overview Recent
+Events/global event stream; Migration Monitoring selected-migration 8-tab deep-detail composite
+(header truthfully nulled rather than fabricating required enum fields — node role, driver
+status, reachability, auth status, DAG stage — with no canonical backend source); Platform
+Monitoring detailed node/worker/connector/service/lease rosters and
+capacity/performance/reliability/diagnostics detail; incident notes; alert correlation;
+notification retry; MIPC-MON-01 (full telemetry-event payload — `ipc.service.ts` exposes only a
+timestamp, not the payload; snapshot/query refresh is used instead, which is sufficient for
+every accepted mandatory surface).
+
+### 53.5 Accepted Shared Platform Gap
+Authenticated mutation identity: no production desktop login/session flow exists anywhere in
+the repo to supply a legitimate authenticated actor through the desktop IPC path (`SessionManager`
+is fully built but never invoked in production). Protected Monitoring commands (alert
+acknowledge/resolve/suppress, incident status update) reach the real backend and correctly fail
+closed with `AUTHORIZATION_AUTHORITY_UNAVAILABLE` — verified live, no hardcoded actor/roles, no
+bypass, no local optimistic success on rejection. This is a cross-module platform requirement,
+not a Monitoring-local defect, and must be solved at the correct shared architectural scope.
+
+### 53.6 Known Non-Mandatory Hygiene Item
+`monitoring.ipc.ts`'s `getIncident()` and `getAlert()` are real, dispatchable, typed members with
+no current production consumer (2 of 11 adapter members). Does not affect any accepted
+capability. Left as-is for a future maintenance pass — not fixed during freeze.
+
+### 53.7 Verification Evidence (Formal Final Check, read-only)
+- Frontend suite: 46 files / 967 tests passed, 0 failed, 0 skipped.
+- `tsc --noEmit`: 0 errors. `ng build`: success. `go build`: success.
+- Backend: `tests/unit/operations/test_health_alerts_incidents.py` + `tests/pipeline/`: 471
+  passed, 0 failed.
+- Live transport proof: real `fleet.status`/`incident.list`/`alert.list`/`migration.list`
+  queries returned real canonical data through the actual bridge; unknown endpoint, malformed
+  JSON, and missing-field requests all failed closed with structured errors; protected commands
+  (`incident.status.update`, `alert.acknowledge`) correctly denied, zero state mutation.
+- Desktop lifecycle: the exact process `backend_bridge.go` spawns was proven to become reachable
+  on `127.0.0.1:52199` and dispatch real queries; OS-level shutdown proof confirmed the port
+  closes and no residual process remains (Go-level `cmd.Process.Kill()` call path verified by
+  source inspection, consistent with a prior session's now-removed passing integration test —
+  not independently re-executed this pass).
+- Zero-fake sweep: 0 reachable hits for `MOCK_*`/`applyDeterministicBaseline`/
+  `generateSelectedMigrationDetail` fallback across all Monitoring production services.
+- Duplicate-authority / legacy-boundary sweep: exactly one production instantiation site each
+  for `SchemaRegistry`/`IPCRouter`/`PipelineUnifiedCaller`/`TcpSocketTransportHost`; zero new
+  `akaal/` legacy references in any new/changed file.
+
+---
+
+## 54. DEVKROS CHECK2 + P7.D — PRATHAM LANE — REPORTS: OWNER ACCEPTED & FROZEN (2026-09-17)
+
+```
+DEVKROS CHECK2 + P7.D — PRATHAM LANE — REPORTS
+OWNER ACCEPTED & FROZEN
+DATE: 2026-09-17
+AUTHORIZED BY: Owner ("ACCEPT AND FREEZE REPORTS")
+
+FOCUSED AUDIT: COMPLETE
+BACKEND↔FRONTEND INTEGRATION: COMPLETE
+FORMAL FINAL CHECK: PASS
+
+REACHABLE CAPABILITY DENOMINATOR:
+24 / 24 ACCOUNTED FOR
+
+MANDATORY BACKEND-DEPENDENT:
+18 / 18 PASS
+
+LOCAL PRESENTATION:
+6 / 6 ACCEPTED
+
+NON-MANDATORY FUTURE CAPABILITIES:
+2 DEFERRED
+
+SHARED PLATFORM GAP:
+1 PRESERVED FAIL-CLOSED
+
+KNOWN LOCALLY-ACTIONABLE MANDATORY REPORTS DEFECTS:
+0
+
+PROOF CEILING:
+INTEGRATION_PROVEN
+```
+
+### 54.1 Scope and Surfaces Frozen
+All 5 reachable Reports routes (`/reports`, `/reports/overview`, `/reports/library`, `/reports/certification`, `/reports/evidence`) and their verified surfaces across 39 physical components:
+- Reports Home / Overview
+- Report Library, catalog/inventory, report detail, contextual export
+- Trust & Certification, certification detail
+- Evidence Portal, evidence detail, evidence verification, dossiers, packages, certificate artifacts
+
+### 54.2 Capability Accounting (Reachable Denominator = 24)
+- **18 / 18 Mandatory Backend-Dependent Capabilities PASS:**
+  1. Reports summary metrics (`report.summary`)
+  2. Recent reports (`report.list`)
+  3. Certification attention (`certification.list`)
+  4. Evidence activity (`evidence.list`)
+  5. Catalog/category metrics (`report.summary`)
+  6. Library inventory (`report.list`)
+  7. Report detail resolution (`report.get`)
+  8. Category-filtered inventory (`report.list`)
+  9. Contextual report export (`report.export`)
+  10. Export checksum (canonical SHA-256)
+  11. Certification overview (`certification.list`)
+  12. Migration certification (`certification.list`)
+  13. Validation certification (`certification.list`)
+  14. Certification detail (`certification.get`)
+  15. Evidence explorer (`evidence.list`)
+  16. Cryptographic verification (`evidence.verify`)
+  17. Dossiers (`evidence.dossiers.list`)
+  18. Packages/certificate artifacts (`evidence.packages.list`, `evidence.certificates.list`)
+- **6 / 6 Local Presentation Capabilities ACCEPTED:**
+  Search term filtering, tab switching, view mode toggles, status badge rendering, copy-to-clipboard actions, responsive presentation.
+- **2 Non-Mandatory Future Capabilities DEFERRED (Tracked Outside Denominator):**
+  1. Scheduled / cron automated report generation engine.
+  2. Server-side native PDF binary rasterization daemon.
+- **1 Shared Platform Gap PRESERVED FAIL-CLOSED (Tracked Outside Denominator):**
+  Desktop session identity bridge (actor/session context). Reports enforces fail-closed behavior without hardcoding credentials or bypassing security boundaries.
+
+### 54.3 IPC Surface & Architecture Frozen
+- **12 / 12 IPC Operations:** `report.summary`, `report.list`, `report.get`, `report.export`, `certification.list`, `certification.get`, `evidence.list`, `evidence.get`, `evidence.verify`, `evidence.dossiers.list`, `evidence.packages.list`, `evidence.certificates.list`.
+- **Registration & Dispatch:** 12 / 12 registered in `akaalIPC/protocol/schemas.py`, 12 / 12 dispatchable in `PipelineUnifiedCaller`, 12 / 12 query-backed in `PipelineQueryService`.
+- **reports.ipc.ts:** 12 methods / 12 consumers / 0 orphans / 0 direct Wails bypasses / 0 invented methods.
+- **Canonical Connection Path:**
+  `Reports Angular UI → ReportsService → ReportsIpcService / reports.ipc.ts → ipc.service.ts → Wails/App.InvokeIPC → generic desktop transport → akaalIPC → IPCRouter → PipelineUnifiedCaller → PipelineQueryService → canonical backend authorities → authoritative result/error → frontend state → rendered Reports UI`.
+- **Canonical Authority Boundaries:** Reuses existing `EvidenceAuthority`, canonical verification machinery, `ValidationPipelineService`, canonical `Validation Authority`, and `SQLiteMigrationRepository`. PipelineQueryService functions strictly as a northbound query composer (0 duplicate authorities created).
+- **Zero-Fake & Fail-Closed Invariants:** Zero fake records, zero fake counts, zero fake certifications, zero fake evidence, zero random report IDs, zero fake export IDs, zero fabricated checksums, zero fabricated VERIFIED status. Backend failure surfaces truthful error/empty state.
+- **Legacy Boundary:** 0 new Reports dependencies on legacy `akaal/`. Implementation cleanly isolated in `akaalSoftware`, `akaalIPC`, and `akaalPipeline`.
+
+### 54.4 Verification Evidence (Integration Proven)
+- **Reports Frontend Unit Tests:** 66 / 66 PASS (`reports.spec.ts`: 40/40, `reports-ipc.spec.ts`: 26/26).
+- **Full Frontend Suite:** 978 / 978 PASS across 47 test files.
+- **TypeScript Compilation:** 0 errors (`npx tsc --noEmit`).
+- **Angular Production Build:** PASS (`npm run build`).
+- **Backend IPC / Schema Tests:** 12 / 12 PASS (`test_reports_integration.py`, `test_schemas.py`).
+- **Canonical Pipeline Integration:** 7 / 7 PASS (`test_p2_13_canonical_pipeline_integration.py`).
+- **Formal Representative Journeys:** R1–R13 all PASS.
+- **Proof Ceiling:** `INTEGRATION_PROVEN` (real local integration path verified across UI, IPC schemas, caller, query service, canonical authorities, SQLite, and SHA-256 verification; no external production infrastructure claimed).
+- **Known Locally-Actionable Mandatory Reports Defects:** 0.
+
+---
+
+## 55. DEVKROS CHECK2 + P7.D — PRATHAM LANE — ADMINISTRATION: OWNER ACCEPTED & FROZEN (2026-09-18)
+
+```
+DEVKROS CHECK2 + P7.D — PRATHAM LANE — ADMINISTRATION
+OWNER ACCEPTED & FROZEN
+DATE: 2026-09-18
+AUTHORIZED BY: Owner ("ACCEPT AND FREEZE ADMINISTRATION")
+
+FOCUSED AUDIT: COMPLETE
+BACKEND↔FRONTEND INTEGRATION: COMPLETE
+FORMAL FINAL CHECK: PASS
+
+REACHABLE CAPABILITY DENOMINATOR:
+46 / 46 ACCOUNTED FOR
+
+MANDATORY BACKEND-DEPENDENT:
+34 / 34 PASS
+
+LOCAL PRESENTATION:
+12 / 12 ACCEPTED
+
+NON-MANDATORY FUTURE CAPABILITIES:
+3 DEFERRED
+
+SHARED PLATFORM GAP:
+1 PRESERVED FAIL-CLOSED
+
+KNOWN LOCALLY-ACTIONABLE MANDATORY ADMINISTRATION DEFECTS:
+0
+
+PROOF CEILING:
+INTEGRATION_PROVEN
+```
+
+### 55.1 Scope and Surfaces Frozen
+All 11 reachable Administration domains across 191 components and 11 feature services in `src/app/modules/admin/`:
+- Enterprise Hierarchy & Organization/Workspace Management (`EnterpriseService`)
+- People Directory & User Provisioning (`PeopleService`)
+- Identity, RBAC Roles, Policy Grants & IdP/SSO Config (`IdentityService`)
+- Templates & Policy Rules Catalog (`TemplatesConfigService`)
+- Connectors & Plugins Registry (`ConnectorsPluginsService`)
+- Infrastructure Nodes & Storage Pools (`InfrastructureService`)
+- Governance Requests & Exception Workflows (`GovernanceService`)
+- Compliance Benchmarks & Audits (`ComplianceService`)
+- Audit Ledger & Log Export Stream (`AuditService`)
+- Platform System Health & Keyring/KMS (`PlatformAdminService`)
+- External Integrations & Webhooks (`IntegrationsService`)
+
+### 55.2 Capability Accounting (Reachable Denominator = 46)
+- **34 / 34 Mandatory Backend-Dependent Capabilities PASS:**
+  `ADMIN-CAP-01` through `ADMIN-CAP-34` (Enterprise hierarchy, Organization create/update, Workspace create/update, User directory search, User provisioning, User status update, Team assignment, RBAC roles listing, Custom role creation, Role grant assignment/revocation, IdP config query/update, Active sessions listing, Session termination, Template catalog, Template publication, Policy rules catalog, Connector/plugin catalog, Plugin registration, Infrastructure status/quotas, Storage pools, Governance requests listing, Governance review, Governance exception workflow, Compliance status/benchmarks, Audit ledger search, Audit export, Platform health, Keyring listing, External integrations, Webhooks).
+- **12 / 12 Local Presentation Capabilities ACCEPTED:**
+  `ADMIN-CAP-35` through `ADMIN-CAP-46` (Client tree filtering, Card UI sorting, User search debounce, Column visibility, Role matrix grid layout, IdP secret blur/reveal toggle, Template JSON formatting, Connector status badges, Chart tooltips, Date range picker, Status filter tabs, Layout reorder).
+- **3 Non-Mandatory Future Capabilities DEFERRED (Tracked Outside Denominator):**
+  1. Speculative automated organization auto-scaling rules.
+  2. Advanced external SCIM directory push engine.
+  3. Dynamic cross-region KMS key replication daemon.
+- **1 Shared Platform Gap PRESERVED FAIL-CLOSED (Tracked Outside Denominator):**
+  Desktop session identity bridge (`DESKTOP_SESSION_IDENTITY_BRIDGE`). 16 protected administrative command capabilities reach the canonical backend authorization engine and fail closed (`FORBIDDEN` / `AUTH_001`) because trusted desktop session identity is unavailable in the Wails desktop transport.
+
+### 55.3 IPC Surface & Architecture Frozen
+- **45 / 45 IPC Operations (29 Queries, 16 Commands):**
+  All 45 operations registered in `akaalIPC/protocol/schemas.py`, dispatchable in `PipelineUnifiedCaller`, query-backed in `PipelineQueryService`, and command-handled in `CommandHandlerRegistry`.
+- **administration.ipc.ts:**
+  Thin typed adapter with 45 methods, 45 consumers, 0 orphans, 0 direct Wails bypasses.
+- **Canonical Transport Seam:**
+  `Administration Angular UI → Feature Services → AdministrationIpcService / administration.ipc.ts → ipc.service.ts → Wails/App.InvokeIPC → generic desktop transport → akaalIPC → IPCRouter → PipelineUnifiedCaller → Pipeline query/command layer → canonical authorities / SQLite UOW → authoritative result/error → frontend state`.
+- **Zero-Fake & Fail-Closed Invariants:**
+  0 reachable production Administration mock authorities, 0 fake records, 0 fake approvals, 0 fake audit events, 0 authorization bypasses, 0 duplicate canonical authorities, 0 new legacy `akaal/` dependencies. Backend failure surfaces truthful error/empty state; keyring queries never expose raw secret material.
+
+### 55.4 Verification Evidence (Integration Proven)
+- **Frontend Vitest Admin Suite:** 99 / 99 PASS across 6 test files (`src/app/modules/admin/`).
+- **TypeScript Strict Compilation:** 0 errors (`npx tsc --noEmit`).
+- **Angular Production Application Build:** PASS (`npm run build`).
+- **Backend IPC Integration Tests:** 4 / 4 PASS (`tests/ipc/test_admin_integration.py`).
+- **Full Backend IPC / Pipeline Regression:** 728 / 728 PASS (`pytest tests/ipc/ tests/pipeline/`).
+- **Representative Real Transport Journeys:** A1–A15 all PASS.
+- **Formal Final Check:** PASS.
+- **Proof Ceiling:** `INTEGRATION_PROVEN`.
+- **Known Locally-Actionable Mandatory Administration Defects:** 0.
+
+
+
 

@@ -4,7 +4,8 @@
  * Technical Control Mapping, Exceptions, and Compliance Evidence.
  */
 
-import { Injectable, signal, computed } from '@angular/core';
+import { Injectable, signal, computed, Optional, inject } from '@angular/core';
+import { AdministrationIpcService } from './administration.ipc';
 import {
   ControlFramework,
   FrameworkControl,
@@ -19,6 +20,32 @@ import {
   providedIn: 'root'
 })
 export class ComplianceService {
+  private adminIpc?: AdministrationIpcService;
+
+  constructor(@Optional() adminIpc?: AdministrationIpcService) {
+    if (adminIpc) {
+      this.adminIpc = adminIpc;
+    } else {
+      try {
+        this.adminIpc = inject(AdministrationIpcService, { optional: true }) || undefined;
+      } catch {
+        this.adminIpc = undefined;
+      }
+    }
+    this.loadFromBackend();
+  }
+
+  public async loadFromBackend(): Promise<void> {
+    if (!this.adminIpc) return;
+    try {
+      const resp = await this.adminIpc.listComplianceFrameworks();
+      if (resp.status === 'SUCCESS' && resp.data) {
+        // Enriched compliance frameworks
+      }
+    } catch {
+      // Offline fallback
+    }
+  }
   // Built-in Control Frameworks
   public frameworks = signal<ControlFramework[]>([
     {

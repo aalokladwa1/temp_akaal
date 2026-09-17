@@ -1030,6 +1030,54 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
                     "establish_validation_baseline": PermissionRegistry.MIGRATION_VALIDATE,
                     "validation.import_metadata": PermissionRegistry.MIGRATION_CONFIGURE,
                     "import_validation_metadata": PermissionRegistry.MIGRATION_CONFIGURE,
+                    # Monitoring (P7.D Pratham lane) northbound exposure: these request_types
+                    # were already dispatched below (incident/alert commands) but had no
+                    # perm_map entry, so they silently fell through to MIGRATION_READ -- the
+                    # wrong permission for a non-migration domain. Mapped to the existing,
+                    # previously-unused OPERATIONS_INCIDENT_*/OPERATIONS_ALERT_*/
+                    # OPERATIONS_NOTIFICATION_* constants (permission_registry.py:99-108).
+                    "incident.create": PermissionRegistry.OPERATIONS_INCIDENT_MANAGE,
+                    "incident.alert.attach": PermissionRegistry.OPERATIONS_INCIDENT_MANAGE,
+                    "incident.status.update": PermissionRegistry.OPERATIONS_INCIDENT_MANAGE,
+                    "alert.rule.create": PermissionRegistry.OPERATIONS_ALERT_EVALUATE,
+                    "alert.evaluate": PermissionRegistry.OPERATIONS_ALERT_EVALUATE,
+                    "alert.acknowledge": PermissionRegistry.OPERATIONS_ALERT_ACK,
+                    "alert.resolve": PermissionRegistry.OPERATIONS_ALERT_RESOLVE,
+                    "alert.suppress": PermissionRegistry.OPERATIONS_ALERT_SUPPRESS,
+                    "notification.send": PermissionRegistry.OPERATIONS_NOTIFICATION_SEND,
+                    # Administration (P7.D Pratham Lane) Commands
+                    "admin.organization.create": PermissionRegistry.SYSTEM_TENANT_CREATE,
+                    "create_organization": PermissionRegistry.SYSTEM_TENANT_CREATE,
+                    "admin.organization.update": PermissionRegistry.SYSTEM_TENANT_CREATE,
+                    "update_organization": PermissionRegistry.SYSTEM_TENANT_CREATE,
+                    "admin.workspace.create": PermissionRegistry.SYSTEM_WORKSPACE_CREATE,
+                    "create_workspace": PermissionRegistry.SYSTEM_WORKSPACE_CREATE,
+                    "admin.workspace.update": PermissionRegistry.SYSTEM_WORKSPACE_CREATE,
+                    "update_workspace": PermissionRegistry.SYSTEM_WORKSPACE_CREATE,
+                    "admin.user.create": PermissionRegistry.IDENTITY_PRINCIPAL_CREATE,
+                    "create_user": PermissionRegistry.IDENTITY_PRINCIPAL_CREATE,
+                    "admin.user.update": PermissionRegistry.IDENTITY_PRINCIPAL_UPDATE,
+                    "update_user": PermissionRegistry.IDENTITY_PRINCIPAL_UPDATE,
+                    "admin.user.delete": PermissionRegistry.IDENTITY_PRINCIPAL_DELETE,
+                    "delete_user": PermissionRegistry.IDENTITY_PRINCIPAL_DELETE,
+                    "admin.role.create": PermissionRegistry.IDENTITY_ROLE_CREATE,
+                    "create_role": PermissionRegistry.IDENTITY_ROLE_CREATE,
+                    "admin.role.update": PermissionRegistry.IDENTITY_ROLE_UPDATE,
+                    "update_role": PermissionRegistry.IDENTITY_ROLE_UPDATE,
+                    "admin.role.assign": PermissionRegistry.IDENTITY_GRANT_CREATE,
+                    "assign_role": PermissionRegistry.IDENTITY_GRANT_CREATE,
+                    "admin.governance.request_exception": PermissionRegistry.GOVERNANCE_APPROVAL_REQUEST,
+                    "request_exception": PermissionRegistry.GOVERNANCE_APPROVAL_REQUEST,
+                    "admin.governance.approve_exception": PermissionRegistry.GOVERNANCE_APPROVAL_SUBMIT,
+                    "approve_exception": PermissionRegistry.GOVERNANCE_APPROVAL_SUBMIT,
+                    "admin.key.rotate": PermissionRegistry.SECURITY_KEY_ROTATE,
+                    "rotate_key": PermissionRegistry.SECURITY_KEY_ROTATE,
+                    "admin.mfa.enforce": PermissionRegistry.SYSTEM_PLATFORM_ADMIN,
+                    "enforce_mfa": PermissionRegistry.SYSTEM_PLATFORM_ADMIN,
+                    "admin.plugin.install": PermissionRegistry.SYSTEM_PLATFORM_ADMIN,
+                    "install_plugin": PermissionRegistry.SYSTEM_PLATFORM_ADMIN,
+                    "admin.connector.create": PermissionRegistry.SYSTEM_PLATFORM_ADMIN,
+                    "create_connector": PermissionRegistry.SYSTEM_PLATFORM_ADMIN,
                 }
                 perm = perm_map.get(request_type, PermissionRegistry.MIGRATION_READ)
                 res_id = envelope.payload.get("migration_id", "root") if isinstance(envelope.payload, dict) else "root"
@@ -1901,6 +1949,151 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
                         )
                 return CallerResult(status=CallerResultStatus.OK, result=dict(res))
 
+            # --- Administration Commands (P7.D Pratham Lane) ---
+            elif request_type in ("admin.organization.create", "create_organization"):
+                with uow:
+                    res = self.command_handlers.handle_admin_organization_create(envelope.payload, pipeline_actor, uow)
+                    if envelope.idempotency_key:
+                        self.idempotency_service.record_idempotent_result(
+                            envelope.idempotency_key, pipeline_actor.organization_id, envelope.command_id, payload_fp, res, uow.connection, workspace_id=pipeline_actor.workspace_id, project_id=pipeline_actor.project_id, command_name=envelope.request_type,
+                        )
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type in ("admin.organization.update", "update_organization"):
+                with uow:
+                    res = self.command_handlers.handle_admin_organization_update(envelope.payload, pipeline_actor, uow)
+                    if envelope.idempotency_key:
+                        self.idempotency_service.record_idempotent_result(
+                            envelope.idempotency_key, pipeline_actor.organization_id, envelope.command_id, payload_fp, res, uow.connection, workspace_id=pipeline_actor.workspace_id, project_id=pipeline_actor.project_id, command_name=envelope.request_type,
+                        )
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type in ("admin.workspace.create", "create_workspace"):
+                with uow:
+                    res = self.command_handlers.handle_admin_workspace_create(envelope.payload, pipeline_actor, uow)
+                    if envelope.idempotency_key:
+                        self.idempotency_service.record_idempotent_result(
+                            envelope.idempotency_key, pipeline_actor.organization_id, envelope.command_id, payload_fp, res, uow.connection, workspace_id=pipeline_actor.workspace_id, project_id=pipeline_actor.project_id, command_name=envelope.request_type,
+                        )
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type in ("admin.workspace.update", "update_workspace"):
+                with uow:
+                    res = self.command_handlers.handle_admin_workspace_update(envelope.payload, pipeline_actor, uow)
+                    if envelope.idempotency_key:
+                        self.idempotency_service.record_idempotent_result(
+                            envelope.idempotency_key, pipeline_actor.organization_id, envelope.command_id, payload_fp, res, uow.connection, workspace_id=pipeline_actor.workspace_id, project_id=pipeline_actor.project_id, command_name=envelope.request_type,
+                        )
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type in ("admin.user.create", "create_user"):
+                with uow:
+                    res = self.command_handlers.handle_admin_user_create(envelope.payload, pipeline_actor, uow)
+                    if envelope.idempotency_key:
+                        self.idempotency_service.record_idempotent_result(
+                            envelope.idempotency_key, pipeline_actor.organization_id, envelope.command_id, payload_fp, res, uow.connection, workspace_id=pipeline_actor.workspace_id, project_id=pipeline_actor.project_id, command_name=envelope.request_type,
+                        )
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type in ("admin.user.update", "update_user"):
+                with uow:
+                    res = self.command_handlers.handle_admin_user_update(envelope.payload, pipeline_actor, uow)
+                    if envelope.idempotency_key:
+                        self.idempotency_service.record_idempotent_result(
+                            envelope.idempotency_key, pipeline_actor.organization_id, envelope.command_id, payload_fp, res, uow.connection, workspace_id=pipeline_actor.workspace_id, project_id=pipeline_actor.project_id, command_name=envelope.request_type,
+                        )
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type in ("admin.user.delete", "delete_user"):
+                with uow:
+                    res = self.command_handlers.handle_admin_user_delete(envelope.payload, pipeline_actor, uow)
+                    if envelope.idempotency_key:
+                        self.idempotency_service.record_idempotent_result(
+                            envelope.idempotency_key, pipeline_actor.organization_id, envelope.command_id, payload_fp, res, uow.connection, workspace_id=pipeline_actor.workspace_id, project_id=pipeline_actor.project_id, command_name=envelope.request_type,
+                        )
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type in ("admin.role.create", "create_role"):
+                with uow:
+                    res = self.command_handlers.handle_admin_role_create(envelope.payload, pipeline_actor, uow)
+                    if envelope.idempotency_key:
+                        self.idempotency_service.record_idempotent_result(
+                            envelope.idempotency_key, pipeline_actor.organization_id, envelope.command_id, payload_fp, res, uow.connection, workspace_id=pipeline_actor.workspace_id, project_id=pipeline_actor.project_id, command_name=envelope.request_type,
+                        )
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type in ("admin.role.update", "update_role"):
+                with uow:
+                    res = self.command_handlers.handle_admin_role_update(envelope.payload, pipeline_actor, uow)
+                    if envelope.idempotency_key:
+                        self.idempotency_service.record_idempotent_result(
+                            envelope.idempotency_key, pipeline_actor.organization_id, envelope.command_id, payload_fp, res, uow.connection, workspace_id=pipeline_actor.workspace_id, project_id=pipeline_actor.project_id, command_name=envelope.request_type,
+                        )
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type in ("admin.role.assign", "assign_role"):
+                with uow:
+                    res = self.command_handlers.handle_admin_role_assign(envelope.payload, pipeline_actor, uow)
+                    if envelope.idempotency_key:
+                        self.idempotency_service.record_idempotent_result(
+                            envelope.idempotency_key, pipeline_actor.organization_id, envelope.command_id, payload_fp, res, uow.connection, workspace_id=pipeline_actor.workspace_id, project_id=pipeline_actor.project_id, command_name=envelope.request_type,
+                        )
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type in ("admin.governance.request_exception", "request_exception"):
+                with uow:
+                    res = self.command_handlers.handle_admin_governance_request_exception(envelope.payload, pipeline_actor, uow)
+                    if envelope.idempotency_key:
+                        self.idempotency_service.record_idempotent_result(
+                            envelope.idempotency_key, pipeline_actor.organization_id, envelope.command_id, payload_fp, res, uow.connection, workspace_id=pipeline_actor.workspace_id, project_id=pipeline_actor.project_id, command_name=envelope.request_type,
+                        )
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type in ("admin.governance.approve_exception", "approve_exception"):
+                with uow:
+                    res = self.command_handlers.handle_admin_governance_approve_exception(envelope.payload, pipeline_actor, uow)
+                    if envelope.idempotency_key:
+                        self.idempotency_service.record_idempotent_result(
+                            envelope.idempotency_key, pipeline_actor.organization_id, envelope.command_id, payload_fp, res, uow.connection, workspace_id=pipeline_actor.workspace_id, project_id=pipeline_actor.project_id, command_name=envelope.request_type,
+                        )
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type in ("admin.key.rotate", "rotate_key"):
+                with uow:
+                    res = self.command_handlers.handle_admin_key_rotate(envelope.payload, pipeline_actor, uow)
+                    if envelope.idempotency_key:
+                        self.idempotency_service.record_idempotent_result(
+                            envelope.idempotency_key, pipeline_actor.organization_id, envelope.command_id, payload_fp, res, uow.connection, workspace_id=pipeline_actor.workspace_id, project_id=pipeline_actor.project_id, command_name=envelope.request_type,
+                        )
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type in ("admin.mfa.enforce", "enforce_mfa"):
+                with uow:
+                    res = self.command_handlers.handle_admin_mfa_enforce(envelope.payload, pipeline_actor, uow)
+                    if envelope.idempotency_key:
+                        self.idempotency_service.record_idempotent_result(
+                            envelope.idempotency_key, pipeline_actor.organization_id, envelope.command_id, payload_fp, res, uow.connection, workspace_id=pipeline_actor.workspace_id, project_id=pipeline_actor.project_id, command_name=envelope.request_type,
+                        )
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type in ("admin.plugin.install", "install_plugin"):
+                with uow:
+                    res = self.command_handlers.handle_admin_plugin_install(envelope.payload, pipeline_actor, uow)
+                    if envelope.idempotency_key:
+                        self.idempotency_service.record_idempotent_result(
+                            envelope.idempotency_key, pipeline_actor.organization_id, envelope.command_id, payload_fp, res, uow.connection, workspace_id=pipeline_actor.workspace_id, project_id=pipeline_actor.project_id, command_name=envelope.request_type,
+                        )
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type in ("admin.connector.create", "create_connector"):
+                with uow:
+                    res = self.command_handlers.handle_admin_connector_create(envelope.payload, pipeline_actor, uow)
+                    if envelope.idempotency_key:
+                        self.idempotency_service.record_idempotent_result(
+                            envelope.idempotency_key, pipeline_actor.organization_id, envelope.command_id, payload_fp, res, uow.connection, workspace_id=pipeline_actor.workspace_id, project_id=pipeline_actor.project_id, command_name=envelope.request_type,
+                        )
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
 
 
 
@@ -2134,6 +2327,179 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
                 elif request_type in ("validation.resolve_capability", "resolve_validation_capability"):
                     res = self.query_service.resolve_validation_capability(envelope.payload, actor=pipeline_actor, conn=uow.connection)
                     return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+                elif request_type in ("report.summary", "get_reports_summary"):
+                    res = self.query_service.get_reports_summary(actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=res)
+
+                elif request_type in ("report.list", "list_reports"):
+                    res = self.query_service.list_reports(envelope.payload, actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result={"reports": res})
+
+                elif request_type in ("report.get", "get_report"):
+                    rep_id = envelope.payload.get("report_id", "")
+                    res = self.query_service.get_report(rep_id, actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=res)
+
+                elif request_type in ("report.export", "export_report"):
+                    rep_id = envelope.payload.get("report_id", "")
+                    fmt = envelope.payload.get("format", "JSON")
+                    res = self.query_service.export_report(rep_id, fmt, actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=res)
+
+                elif request_type in ("certification.list", "list_certifications"):
+                    res = self.query_service.list_certifications(envelope.payload, actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result={"certifications": res})
+
+                elif request_type in ("certification.get", "get_certification"):
+                    cert_id = envelope.payload.get("certification_id", "")
+                    res = self.query_service.get_certification(cert_id, actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=res)
+
+                elif request_type in ("evidence.list", "list_evidence"):
+                    res = self.query_service.list_evidence(envelope.payload, actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result={"evidence": res})
+
+                elif request_type in ("evidence.get", "get_evidence"):
+                    art_id = envelope.payload.get("artifact_id", "")
+                    res = self.query_service.get_evidence(art_id, actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=res)
+
+                elif request_type in ("evidence.verify", "verify_evidence"):
+                    res = self.query_service.verify_evidence(envelope.payload, actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=res)
+
+                elif request_type in ("evidence.dossiers.list", "list_evidence_dossiers"):
+                    res = self.query_service.list_evidence_dossiers(envelope.payload, actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result={"dossiers": res})
+
+                elif request_type in ("evidence.packages.list", "list_evidence_packages"):
+                    res = self.query_service.list_evidence_packages(envelope.payload, actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result={"packages": res})
+
+                elif request_type in ("evidence.certificates.list", "list_certificate_artifacts"):
+                    res = self.query_service.list_certificate_artifacts(envelope.payload, actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result={"certificates": res})
+
+                # --- Administration Queries (P7.D Pratham Lane) ---
+                elif request_type in ("admin.enterprise.hierarchy", "get_enterprise_hierarchy"):
+                    res = self.query_service.get_admin_enterprise_hierarchy(actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=res)
+
+                elif request_type in ("admin.organization.list", "list_admin_organizations"):
+                    res = self.query_service.list_admin_organizations(actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=res)
+
+                elif request_type in ("admin.workspace.list", "list_admin_workspaces"):
+                    org_id = envelope.payload.get("org_id") if isinstance(envelope.payload, dict) else None
+                    res = self.query_service.list_admin_workspaces(org_id=org_id, actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=res)
+
+                elif request_type in ("admin.environment.list", "list_admin_environments"):
+                    res = self.query_service.list_admin_environments(actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=res)
+
+                elif request_type in ("admin.cost_center.list", "list_admin_cost_centers"):
+                    res = self.query_service.list_admin_cost_centers(actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=res)
+
+                elif request_type in ("admin.user.list", "list_admin_users"):
+                    res = self.query_service.list_admin_users(actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=res)
+
+                elif request_type in ("admin.team.list", "list_admin_teams"):
+                    res = self.query_service.list_admin_teams(actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=res)
+
+                elif request_type in ("admin.contractor.list", "list_admin_contractors"):
+                    res = self.query_service.list_admin_contractors(actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=res)
+
+                elif request_type in ("admin.service_account.list", "list_admin_service_accounts"):
+                    res = self.query_service.list_admin_service_accounts(actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=res)
+
+                elif request_type in ("admin.governance.summary", "get_governance_summary"):
+                    res = self.query_service.get_admin_governance_summary(actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=res)
+
+                elif request_type in ("admin.governance.exceptions", "list_admin_governance_exceptions"):
+                    res = self.query_service.list_admin_governance_exceptions(actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=res)
+
+                elif request_type in ("admin.governance.gates", "list_admin_governance_gates"):
+                    res = self.query_service.list_admin_governance_gates(actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=res)
+
+                elif request_type in ("admin.role.list", "list_admin_roles"):
+                    res = self.query_service.list_admin_roles(actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=res)
+
+                elif request_type in ("admin.directory.sync_status", "get_admin_directory_sync_status"):
+                    res = self.query_service.get_admin_directory_sync_status(actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=res)
+
+                elif request_type in ("admin.template.list", "list_admin_templates"):
+                    res = self.query_service.list_admin_templates(actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=res)
+
+                elif request_type in ("admin.profile.list", "list_admin_profiles"):
+                    res = self.query_service.list_admin_profiles(actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=res)
+
+                elif request_type in ("admin.connector.list", "list_admin_connectors"):
+                    res = self.query_service.list_admin_connectors(actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=res)
+
+                elif request_type in ("admin.plugin.list", "list_admin_plugins"):
+                    res = self.query_service.list_admin_plugins(actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=res)
+
+                elif request_type in ("admin.infra.agents", "list_admin_infra_agents"):
+                    res = self.query_service.list_admin_infra_agents(actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=res)
+
+                elif request_type in ("admin.infra.endpoints", "list_admin_infra_endpoints"):
+                    res = self.query_service.list_admin_infra_endpoints(actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=res)
+
+                elif request_type in ("admin.compliance.frameworks", "list_admin_compliance_frameworks"):
+                    res = self.query_service.list_admin_compliance_frameworks(actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=res)
+
+                elif request_type in ("admin.compliance.evidence_retention", "get_admin_compliance_evidence_retention"):
+                    res = self.query_service.get_admin_compliance_evidence_retention(actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=res)
+
+                elif request_type in ("admin.audit.ledger", "get_admin_audit_ledger"):
+                    limit = int(envelope.payload.get("limit", 50)) if isinstance(envelope.payload, dict) else 50
+                    offset = int(envelope.payload.get("offset", 0)) if isinstance(envelope.payload, dict) else 0
+                    res = self.query_service.get_admin_audit_ledger(actor=pipeline_actor, conn=uow.connection, limit=limit, offset=offset)
+                    return CallerResult(status=CallerResultStatus.OK, result=res)
+
+                elif request_type in ("admin.audit.sessions", "list_admin_audit_sessions"):
+                    res = self.query_service.list_admin_audit_sessions(actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=res)
+
+                elif request_type in ("admin.platform.license", "get_admin_platform_license"):
+                    res = self.query_service.get_admin_platform_license(actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=res)
+
+                elif request_type in ("admin.platform.health", "get_admin_platform_health"):
+                    res = self.query_service.get_admin_platform_health(actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=res)
+
+                elif request_type in ("admin.integration.siem", "get_admin_integration_siem"):
+                    res = self.query_service.get_admin_integration_siem(actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=res)
+
+                elif request_type in ("admin.integration.webhooks", "list_admin_integration_webhooks"):
+                    res = self.query_service.list_admin_integration_webhooks(actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=res)
+
+                elif request_type in ("admin.integration.keys", "list_admin_integration_keys"):
+                    res = self.query_service.list_admin_integration_keys(actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=res)
 
                 else:
                     raise PipelineError(

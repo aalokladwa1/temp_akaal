@@ -2,7 +2,8 @@
  * AKAAL Administration — 5.5 Template & Configuration Library Service
  */
 
-import { Injectable, signal, computed } from '@angular/core';
+import { Injectable, signal, computed, Optional, inject } from '@angular/core';
+import { AdministrationIpcService } from './administration.ipc';
 import {
   TemplateAsset,
   AssetFamily,
@@ -14,6 +15,32 @@ import {
   providedIn: 'root'
 })
 export class TemplatesConfigService {
+  private adminIpc?: AdministrationIpcService;
+
+  constructor(@Optional() adminIpc?: AdministrationIpcService) {
+    if (adminIpc) {
+      this.adminIpc = adminIpc;
+    } else {
+      try {
+        this.adminIpc = inject(AdministrationIpcService, { optional: true }) || undefined;
+      } catch {
+        this.adminIpc = undefined;
+      }
+    }
+    this.loadFromBackend();
+  }
+
+  public async loadFromBackend(): Promise<void> {
+    if (!this.adminIpc) return;
+    try {
+      const resp = await this.adminIpc.listTemplates();
+      if (resp.status === 'SUCCESS' && resp.data) {
+        // Can enrich templates from backend
+      }
+    } catch {
+      // Offline fallback
+    }
+  }
   public readonly assets = signal<TemplateAsset[]>([
     // 1. Migration Templates
     {

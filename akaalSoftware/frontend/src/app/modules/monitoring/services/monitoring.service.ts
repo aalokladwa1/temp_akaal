@@ -1,6 +1,5 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
 import {
-  MonitoringHomeState,
   OperationalSummaryDTO,
   NeedsAttentionCondition,
   ActiveMigrationOperationalItem,
@@ -9,23 +8,125 @@ import {
   MonitoringAlertItem,
   OperationalEventItem,
   FreshnessState,
-  HealthState
+  CanonicalMigrationMode
 } from '../models/monitoring.models';
-import { IpcService } from '../../../core/services/ipc.service';
+import {
+  MonitoringIpcService,
+  MigrationAggregateDTO,
+  BackendMigrationMode,
+  BackendMigrationLifecycleState,
+  IncidentRecordDTO,
+  IncidentSeverity as BackendIncidentSeverity,
+  AlertRecordDTO,
+  AlertLifecycleState as BackendAlertLifecycleState
+} from './monitoring.ipc';
+
+// ---------------------------------------------------------------------------
+// Real backend record -> Overview view-model projections. See
+// migration-monitoring.service.ts / alerts-monitoring.service.ts for the
+// same enum-mapping principle applied to their respective sub-modules; kept
+// local here (not shared) since the target DTOs differ per sub-module.
+// ---------------------------------------------------------------------------
+
+const BACKEND_TO_CANONICAL_MODE: Record<Exclude<BackendMigrationMode, 'M8'>, CanonicalMigrationMode> = {
+  M1: 'M1_BULK', M2: 'M2_BULK_CDC', M3: 'M3_CDC', M4: 'M4_INCREMENTAL',
+  M5: 'M5_STATE_SYNC', M6: 'M6_SCHEMA_ONLY', M7: 'M7_DATA_ONLY'
+};
+
+function mapOperationalState(state: BackendMigrationLifecycleState): ActiveMigrationOperationalItem['operational_state'] {
+  switch (state) {
+    case 'ACTIVE': return 'ACTIVE';
+    case 'PAUSING':
+    case 'PAUSED': return 'PAUSED';
+    case 'DRAFT': case 'CONFIGURING': case 'DISCOVERED': case 'PLANNED':
+    case 'GOVERNANCE_PENDING': case 'AUTHORIZED': case 'INITIALIZED': return 'INITIALIZING';
+    case 'COMPLETED': case 'ARCHIVED': return 'COMPLETED';
+    case 'FAILED': case 'CANCELLED': return 'FAILED';
+    default: return 'ATTENTION';
+  }
+}
+
+function mapMigrationToOverviewItem(rec: MigrationAggregateDTO): ActiveMigrationOperationalItem | null {
+  if (rec.mode === 'M8') return null;
+  return {
+    id: rec.migration_id,
+    name: rec.name,
+    source_provider: '',
+    source_instance: '',
+    target_provider: '',
+    target_instance: '',
+    mode: BACKEND_TO_CANONICAL_MODE[rec.mode as Exclude<BackendMigrationMode, 'M8'>],
+    current_stage: '',
+    operational_state: mapOperationalState(rec.state),
+    health: 'UNKNOWN',
+    progress_percent: null,
+    observed_at: rec.updated_at,
+    freshness_state: 'CURRENT',
+    deep_link_route: `/monitoring/migration?id=${rec.migration_id}`
+  };
+}
+
+function mapIncidentSeverityToUi(sev: BackendIncidentSeverity): 'CRITICAL' | 'WARNING' | 'INFO' | 'UNKNOWN' {
+  if (sev === 'SEV1' || sev === 'SEV2') return 'CRITICAL';
+  if (sev === 'SEV3') return 'WARNING';
+  return 'INFO';
+}
+
+function mapIncidentToNeedsAttention(rec: IncidentRecordDTO): NeedsAttentionCondition {
+  const ageMin = Math.max(0, Math.round((Date.now() - new Date(rec.created_at).getTime()) / 60000));
+  return {
+    id: rec.incident_id,
+    entity_type: 'INCIDENT',
+    entity_id: rec.incident_id,
+    entity_name: rec.title,
+    condition_title: rec.title,
+    condition_detail: rec.summary,
+    severity: mapIncidentSeverityToUi(rec.severity),
+    duration_label: ageMin < 60 ? `${ageMin}m` : `${Math.round(ageMin / 60)}h`,
+    direction: 'stable',
+    deep_link_route: `/monitoring/alerts?incident=${rec.incident_id}`,
+    deep_link_label: 'View Incident'
+  };
+}
+
+function mapAlertLifecycleToUiStatus(state: BackendAlertLifecycleState): 'FIRING' | 'ACKNOWLEDGED' | 'RESOLVED' {
+  if (state === 'OPEN' || state === 'REOPENED') return 'FIRING';
+  if (state === 'ACKNOWLEDGED' || state === 'SUPPRESSED') return 'ACKNOWLEDGED';
+  return 'RESOLVED';
+}
+
+function mapAlertToMonitoringAlertItem(rec: AlertRecordDTO): MonitoringAlertItem {
+  return {
+    id: rec.alert_id,
+    alert_rule_name: rec.signal_name,
+    severity: rec.severity === 'CRITICAL' ? 'CRITICAL' : rec.severity === 'HIGH' || rec.severity === 'MEDIUM' ? 'WARNING' : 'INFO',
+    affected_entity: rec.signal_name,
+    entity_type: 'SYSTEM',
+    summary: rec.message,
+    triggered_at: rec.first_observed_at,
+    status: mapAlertLifecycleToUiStatus(rec.lifecycle_state),
+    deep_link_route: '/monitoring/alerts'
+  };
+}
 
 @Injectable({
   providedIn: 'root'
 })
 export class MonitoringService {
-  private ipc: IpcService;
+  private ipc: MonitoringIpcService;
 
   // Core State Signals
   public summary = signal<OperationalSummaryDTO | null>(null);
   public needsAttention = signal<NeedsAttentionCondition[]>([]);
   public activeMigrations = signal<ActiveMigrationOperationalItem[]>([]);
+  // No canonical composite platform-health-by-area or resource-pressure-by-
+  // dimension authority is wired to Monitoring today (LEGITIMATE_CAPABILITY_ABSENT) --
+  // see Platform Monitoring, which has the same finding for its own richer surfaces.
   public platformHealth = signal<PlatformHealthArea[]>([]);
   public operationalPressure = signal<ResourcePressureMetric[]>([]);
   public activeAlerts = signal<MonitoringAlertItem[]>([]);
+  // No canonical global operational-event-stream authority is wired to
+  // Monitoring today (LEGITIMATE_CAPABILITY_ABSENT).
   public recentEvents = signal<OperationalEventItem[]>([]);
 
   // Status & Telemetry Signals
@@ -34,7 +135,7 @@ export class MonitoringService {
   public isUnavailable = signal<boolean>(false);
   public errorMessage = signal<string>('');
   public lastObservedAt = signal<string | null>(null);
-  public telemetryConfidence = signal<FreshnessState>('CURRENT');
+  public telemetryConfidence = signal<FreshnessState>('NO_DATA' as FreshnessState);
 
   // Interactive Filter Signals
   public migrationSearchQuery = signal<string>('');
@@ -56,7 +157,7 @@ export class MonitoringService {
     const query = this.migrationSearchQuery().trim().toLowerCase();
     if (!query) return list;
 
-    return list.filter(m => 
+    return list.filter(m =>
       m.name.toLowerCase().includes(query) ||
       m.source_provider.toLowerCase().includes(query) ||
       m.target_provider.toLowerCase().includes(query) ||
@@ -71,17 +172,17 @@ export class MonitoringService {
     return alerts.filter(a => a.severity === sev);
   });
 
-  constructor(ipcService?: IpcService) {
-    if (ipcService) {
-      this.ipc = ipcService;
+  constructor(monitoringIpc?: MonitoringIpcService) {
+    if (monitoringIpc) {
+      this.ipc = monitoringIpc;
     } else {
       try {
-        this.ipc = inject(IpcService, { optional: true }) || new IpcService();
+        this.ipc = inject(MonitoringIpcService, { optional: true }) || new MonitoringIpcService();
       } catch {
-        this.ipc = new IpcService();
+        this.ipc = new MonitoringIpcService();
       }
     }
-    this.initializeState();
+    void this.initializeState();
   }
 
   public async initializeState(): Promise<void> {
@@ -95,15 +196,12 @@ export class MonitoringService {
       console.error('[MonitoringService] Failed to load initial monitoring state:', err);
       this.isUnavailable.set(true);
       this.errorMessage.set('Monitoring telemetry engine is currently unavailable.');
+      this.telemetryConfidence.set('NO_DATA');
     } finally {
       this.isLoading.set(false);
     }
   }
 
-  /**
-   * Refreshes backend state truthfully without mutating local observed timestamp
-   * unless fresh backend telemetry payload is returned.
-   */
   public async refresh(): Promise<void> {
     this.isRefreshing.set(true);
     try {
@@ -116,308 +214,80 @@ export class MonitoringService {
     }
   }
 
+  /**
+   * Composes Overview state from real canonical read queries -- no single
+   * "get_home_state" backend authority exists (the previous production code's
+   * `akaal:monitoring`/`get_home_state` call had no matching handler anywhere
+   * in the repository and always fell through to a hardcoded baseline).
+   *
+   *   summary.{active,total}_migrations_count, activeMigrations <- migration.list
+   *   needsAttention          <- incident.list (unresolved incidents, projected
+   *                              into the NeedsAttentionCondition INCIDENT entity_type)
+   *   activeAlerts, summary.active_alerts_count <- alert.list
+   *   summary.overall_platform_health/engine_connection_state <- fleet.status
+   *     (deterministic mapping from real node liveness, same formula as
+   *     PlatformMonitoringService.refresh())
+   *
+   * platform_health (per-area breakdown) and operational_pressure
+   * (CPU/memory/storage/network/queues) and recentEvents (a global event
+   * stream) have no canonical backend authority wired to Monitoring today and
+   * are left truthfully empty rather than fabricated.
+   */
   private async fetchMonitoringData(): Promise<void> {
-    // Attempt Wails Go native bridge first
-    const wailsApp = typeof window !== 'undefined' ? (window as any).go?.main?.App : undefined;
+    const [migrationsRes, incidentsRes, alertsRes, fleetRes] = await Promise.all([
+      this.ipc.listMigrations({ limit: 200 }),
+      this.ipc.listIncidents(),
+      this.ipc.listAlerts(),
+      this.ipc.getFleetStatus()
+    ]);
 
-    if (wailsApp && typeof wailsApp.GetMonitoringHomeState === 'function') {
-      const data: MonitoringHomeState = await wailsApp.GetMonitoringHomeState();
-      this.applyState(data);
+    if (migrationsRes.status !== 'SUCCESS' || !migrationsRes.data) {
+      this.isUnavailable.set(true);
+      this.errorMessage.set(migrationsRes.error || 'Monitoring backend unavailable.');
+      this.telemetryConfidence.set('NO_DATA');
       return;
     }
 
-    // Attempt direct IPC invocation
-    const ipcRes = await this.ipc.invoke<MonitoringHomeState>('akaal:monitoring', 'get_home_state');
-    if (ipcRes.status === 'SUCCESS' && ipcRes.data && (ipcRes.data as any).summary) {
-      this.applyState(ipcRes.data as MonitoringHomeState);
-      return;
-    }
+    const activeMigrations = migrationsRes.data.migrations
+      .map(mapMigrationToOverviewItem)
+      .filter((x): x is ActiveMigrationOperationalItem => x !== null);
 
-    // Deterministic Enterprise Baseline Data
-    this.applyDeterministicBaseline();
-  }
+    const needsAttention = incidentsRes.status === 'SUCCESS' && incidentsRes.data
+      ? incidentsRes.data.incidents.filter(i => i.status !== 'RESOLVED' && i.status !== 'CLOSED').map(mapIncidentToNeedsAttention)
+      : [];
 
-  private applyState(data: MonitoringHomeState): void {
-    this.summary.set(data.summary);
-    this.needsAttention.set(data.needs_attention || []);
-    this.activeMigrations.set(data.active_migrations || []);
-    this.platformHealth.set(data.platform_health || []);
-    this.operationalPressure.set(data.operational_pressure || []);
-    this.activeAlerts.set(data.active_alerts || []);
-    this.recentEvents.set(data.recent_events || []);
-    this.lastObservedAt.set(data.summary?.observed_at || new Date().toISOString());
-    this.telemetryConfidence.set(data.summary?.telemetry_confidence || 'CURRENT');
-  }
+    const activeAlerts = alertsRes.status === 'SUCCESS' && alertsRes.data
+      ? alertsRes.data.alerts.map(mapAlertToMonitoringAlertItem)
+      : [];
 
-  private applyDeterministicBaseline(): void {
-    const nowIso = new Date().toISOString();
+    const nodes = fleetRes.status === 'SUCCESS' && fleetRes.data ? fleetRes.data.nodes : [];
+    const anyDead = nodes.some(n => n.liveness === 'DEAD');
+    const anyDegraded = nodes.some(n => n.liveness === 'DEGRADED' || n.liveness === 'UNKNOWN');
+    const overallHealth = anyDead ? 'UNHEALTHY' : anyDegraded ? 'DEGRADED' : nodes.length > 0 ? 'HEALTHY' : 'UNKNOWN';
+    const engineConnectionState = fleetRes.status === 'SUCCESS' ? 'CONNECTED' : 'DISCONNECTED';
 
-    const baselineState: MonitoringHomeState = {
-      summary: {
-        overall_platform_health: 'HEALTHY',
-        telemetry_confidence: 'CURRENT',
-        observed_at: nowIso,
-        active_migrations_count: 2,
-        total_migrations_count: 5,
-        attention_conditions_count: 1,
-        active_alerts_count: 1,
-        engine_connection_state: 'CONNECTED',
-        headline_message: 'Platform and active workloads progressing within normal operational parameters.'
-      },
-      needs_attention: [
-        {
-          id: 'attn-101',
-          entity_type: 'MIGRATION',
-          entity_id: 'mig-ora-pg-prod',
-          entity_name: 'Core Ledger (Oracle 19c → PostgreSQL 16)',
-          condition_title: 'CDC Write Lag Approaching Threshold',
-          condition_detail: 'Target commit rate in batch partition 4 is 380ms behind source transaction stream.',
-          severity: 'WARNING',
-          duration_label: '8m',
-          direction: 'stable',
-          deep_link_route: '/migration/cockpit/mig-ora-pg-prod',
-          deep_link_label: 'Inspect Cockpit'
-        }
-      ],
-      active_migrations: [
-        {
-          id: 'mig-ora-pg-prod',
-          name: 'Core Ledger Migration',
-          source_provider: 'Oracle 19c Enterprise',
-          source_instance: 'ora-rac-prod-01:1521/FINANCE',
-          target_provider: 'PostgreSQL 16 High-Availability',
-          target_instance: 'pg-aurora-cluster.internal:5432/ledger',
-          mode: 'M2_BULK_CDC',
-          current_stage: 'CDC Steady State Catchup',
-          operational_state: 'ACTIVE',
-          health: 'DEGRADED',
-          progress_percent: 88,
-          work_unit_label: '14.2M / 16.1M rows',
-          lag_label: '380ms CDC lag',
-          throughput_label: '18,400 rows/s',
-          observed_at: nowIso,
-          freshness_state: 'CURRENT',
-          deep_link_route: '/migration/cockpit/mig-ora-pg-prod'
-        },
-        {
-          id: 'mig-mysql-snow',
-          name: 'Customer Analytics Sync',
-          source_provider: 'MySQL 8.0 RDS',
-          source_instance: 'mysql-analytics-replica:3306/customers',
-          target_provider: 'Snowflake Enterprise Warehouse',
-          target_instance: 'xy12345.snowflakecomputing.com/ANALYTICS_WH',
-          mode: 'M3_CDC',
-          current_stage: 'Streaming Microbatch Ingest',
-          operational_state: 'ACTIVE',
-          health: 'HEALTHY',
-          progress_percent: null, // Unknown total work for continuous streaming CDC (truthful: no false 0%)
-          work_unit_label: 'Offset 8,921,400',
-          lag_label: '42ms CDC lag',
-          throughput_label: '6,200 events/s',
-          observed_at: nowIso,
-          freshness_state: 'CURRENT',
-          deep_link_route: '/migration/cockpit/mig-mysql-snow'
-        },
-        {
-          id: 'mig-pg-schema',
-          name: 'Catalog DDL Staging',
-          source_provider: 'PostgreSQL 15 RDS',
-          source_instance: 'pg-catalog-source:5432/catalog',
-          target_provider: 'PostgreSQL 16 Cloud SQL',
-          target_instance: 'pg-cloudsql-target:5432/catalog_v2',
-          mode: 'M6_SCHEMA_ONLY',
-          current_stage: 'Constraint Validation',
-          operational_state: 'RUNNING',
-          health: 'HEALTHY',
-          progress_percent: 94,
-          work_unit_label: '342 / 364 objects',
-          lag_label: 'N/A',
-          throughput_label: '42 DDL/s',
-          observed_at: nowIso,
-          freshness_state: 'CURRENT',
-          deep_link_route: '/migration/cockpit/mig-pg-schema'
-        }
-      ],
-      platform_health: [
-        {
-          key: 'SOURCES_CONNECTORS',
-          title: 'Sources & Connectors',
-          description: 'Connection pools, heartbeat keepalives, and driver sessions across registered endpoints.',
-          health: 'HEALTHY',
-          active_count: 8,
-          total_count: 8,
-          deep_link_route: '/connections'
-        },
-        {
-          key: 'AKAAL_RUNTIME',
-          title: 'AKAAL Runtime',
-          description: 'Execution kernel workers, scheduler loops, and memory coordinator.',
-          health: 'HEALTHY',
-          active_count: 4,
-          total_count: 4,
-          deep_link_route: '/monitoring'
-        },
-        {
-          key: 'QUEUES_BUFFERS',
-          title: 'Queues & Buffers',
-          description: 'In-memory ring buffers, ring spillover channels, and backpressure limiters.',
-          health: 'DEGRADED',
-          active_count: 3,
-          total_count: 3,
-          degraded_summary: 'Spill buffer active for Oracle batch channel',
-          deep_link_route: '/monitoring'
-        },
-        {
-          key: 'STORAGE',
-          title: 'Storage & Checkpoints',
-          description: 'WAL storage, offset durability logs, and local SQLite state stores.',
-          health: 'HEALTHY',
-          active_count: 2,
-          total_count: 2,
-          deep_link_route: '/monitoring'
-        },
-        {
-          key: 'TARGET_ENDPOINTS',
-          title: 'Target Endpoints',
-          description: 'Target database loaders, bulk copy pipelines, and staging buckets.',
-          health: 'HEALTHY',
-          active_count: 4,
-          total_count: 4,
-          deep_link_route: '/connections'
-        },
-        {
-          key: 'SERVICES_DEPENDENCIES',
-          title: 'Services & Dependencies',
-          description: 'Named Pipe IPC bridge, KMS credential providers, and schema registries.',
-          health: 'HEALTHY',
-          active_count: 3,
-          total_count: 3,
-          deep_link_route: '/monitoring'
-        }
-      ],
-      operational_pressure: [
-        {
-          key: 'CPU',
-          label: 'CPU Utilization',
-          current_value_label: '38%',
-          utilization_percent: 38,
-          headroom_label: '62% available',
-          trend: 'stable',
-          health: 'HEALTHY',
-          threshold_warning_percent: 70,
-          threshold_critical_percent: 85
-        },
-        {
-          key: 'MEMORY',
-          label: 'Memory Headroom',
-          current_value_label: '2.4 GB / 8.0 GB',
-          utilization_percent: 30,
-          headroom_label: '5.6 GB available',
-          trend: 'stable',
-          health: 'HEALTHY',
-          threshold_warning_percent: 75,
-          threshold_critical_percent: 90
-        },
-        {
-          key: 'STORAGE',
-          label: 'Checkpoint Disk',
-          current_value_label: '42 GB / 500 GB',
-          utilization_percent: 8.4,
-          headroom_label: '458 GB free',
-          trend: 'stable',
-          health: 'HEALTHY',
-          threshold_warning_percent: 80,
-          threshold_critical_percent: 90
-        },
-        {
-          key: 'NETWORK',
-          label: 'Network Ingress/Egress',
-          current_value_label: '64 MB/s',
-          utilization_percent: 42,
-          headroom_label: '1 Gbps wire',
-          trend: 'improving',
-          health: 'HEALTHY',
-          threshold_warning_percent: 75,
-          threshold_critical_percent: 90
-        },
-        {
-          key: 'BUFFERS_QUEUES',
-          label: 'Ring Buffers & Queues',
-          current_value_label: '74% fill',
-          utilization_percent: 74,
-          headroom_label: '26% headroom',
-          trend: 'worsening',
-          health: 'DEGRADED',
-          threshold_warning_percent: 70,
-          threshold_critical_percent: 85
-        }
-      ],
-      active_alerts: [
-        {
-          id: 'alt-401',
-          alert_rule_name: 'CDC Consumer Lag Threshold Exceeded',
-          severity: 'WARNING',
-          affected_entity: 'Core Ledger Migration (Oracle 19c → PostgreSQL 16)',
-          entity_type: 'MIGRATION',
-          summary: 'Replication lag exceeded 350ms warning threshold (current: 380ms).',
-          triggered_at: new Date(Date.now() - 8 * 60 * 1000).toISOString(),
-          status: 'FIRING',
-          deep_link_route: '/migration/cockpit/mig-ora-pg-prod'
-        }
-      ],
-      recent_events: [
-        {
-          id: 'evt-501',
-          timestamp: new Date(Date.now() - 2 * 60 * 1000).toISOString(),
-          category: 'STAGE_TRANSITION',
-          category_label: 'Stage Advance',
-          entity_name: 'Customer Analytics Sync',
-          summary: 'Stream catchup phase completed; transitioned into steady-state microbatch replication.',
-          severity: 'INFO',
-          deep_link_route: '/migration/cockpit/mig-mysql-snow'
-        },
-        {
-          id: 'evt-502',
-          timestamp: new Date(Date.now() - 8 * 60 * 1000).toISOString(),
-          category: 'ALERT_LIFECYCLE',
-          category_label: 'Alert Triggered',
-          entity_name: 'Core Ledger Migration',
-          summary: 'CDC Consumer Lag Threshold Exceeded triggered (lag: 380ms).',
-          severity: 'WARNING',
-          deep_link_route: '/migration/cockpit/mig-ora-pg-prod'
-        },
-        {
-          id: 'evt-503',
-          timestamp: new Date(Date.now() - 14 * 60 * 1000).toISOString(),
-          category: 'BACKLOG_CHANGE',
-          category_label: 'Buffer Spill',
-          entity_name: 'Queue & Buffer Subsystem',
-          summary: 'Ring buffer exceeded 70% threshold; enabled temporary secondary disk staging buffer.',
-          severity: 'WARNING'
-        },
-        {
-          id: 'evt-504',
-          timestamp: new Date(Date.now() - 28 * 60 * 1000).toISOString(),
-          category: 'STATE_CHANGE',
-          category_label: 'Worker Online',
-          entity_name: 'AKAAL Runtime Worker #4',
-          summary: 'Executor worker allocated to partition 4 and verified health.',
-          severity: 'INFO'
-        },
-        {
-          id: 'evt-505',
-          timestamp: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
-          category: 'RECOVERY',
-          category_label: 'Connection Recovered',
-          entity_name: 'Snowflake Enterprise Warehouse',
-          summary: 'Warehouse session re-established after automated TLS certificate renewal.',
-          severity: 'INFO',
-          deep_link_route: '/connections'
-        }
-      ]
+    const observedAt = new Date().toISOString();
+    const summary: OperationalSummaryDTO = {
+      overall_platform_health: overallHealth,
+      telemetry_confidence: 'CURRENT',
+      observed_at: observedAt,
+      active_migrations_count: activeMigrations.filter(m => m.operational_state === 'ACTIVE' || m.operational_state === 'RUNNING').length,
+      total_migrations_count: activeMigrations.length,
+      attention_conditions_count: needsAttention.length,
+      active_alerts_count: activeAlerts.filter(a => a.status === 'FIRING').length,
+      engine_connection_state: engineConnectionState,
+      headline_message: needsAttention.length > 0
+        ? `${needsAttention.length} operational condition${needsAttention.length === 1 ? '' : 's'} require attention.`
+        : 'No unresolved incidents reported by the canonical Alerts & Incidents authority.'
     };
 
-    this.applyState(baselineState);
+    this.summary.set(summary);
+    this.needsAttention.set(needsAttention);
+    this.activeMigrations.set(activeMigrations);
+    this.activeAlerts.set(activeAlerts);
+    this.lastObservedAt.set(observedAt);
+    this.telemetryConfidence.set('CURRENT');
+    this.isUnavailable.set(false);
   }
 
   // Format label helper ensuring no snake_case leaks into UI

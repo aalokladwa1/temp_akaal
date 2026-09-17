@@ -2,7 +2,8 @@
  * AKAAL Administration — 5.2 People & Access Reactive Signals Store
  */
 
-import { Injectable, signal, computed } from '@angular/core';
+import { Injectable, signal, computed, Optional, inject } from '@angular/core';
+import { AdministrationIpcService } from './administration.ipc';
 import {
   AdminUser,
   AdminTeam,
@@ -20,6 +21,58 @@ import {
   providedIn: 'root'
 })
 export class PeopleService {
+  private adminIpc?: AdministrationIpcService;
+
+  constructor(@Optional() adminIpc?: AdministrationIpcService) {
+    if (adminIpc) {
+      this.adminIpc = adminIpc;
+    } else {
+      try {
+        this.adminIpc = inject(AdministrationIpcService, { optional: true }) || undefined;
+      } catch {
+        this.adminIpc = undefined;
+      }
+    }
+    this.loadFromBackend();
+  }
+
+  public async loadFromBackend(): Promise<void> {
+    if (!this.adminIpc) return;
+    try {
+      const resp = await this.adminIpc.listUsers();
+      if (resp.status === 'SUCCESS' && resp.data) {
+        const users = Array.isArray(resp.data) ? resp.data : (resp.data.users || []);
+        if (users.length > 0) {
+          const current = this.users();
+          for (const u of users) {
+            const uId = u.principal_id || u.id;
+            const existing = current.find(x => x.id === uId);
+            if (!existing) {
+              current.push({
+                id: uId,
+                name: u.display_name || u.name || uId,
+                email: u.email || `${uId}@akaaltech.internal`,
+                title: 'Team Member',
+                department: 'Engineering',
+                type: 'EMPLOYEE',
+                status: (u.is_active === 0 ? 'DEACTIVATED' : 'ACTIVE') as any,
+                primaryOrgId: u.tenant_id || 'org-global-corp',
+                primaryOrgName: 'Akaal Corporate Global',
+                assignedRolesCount: 1,
+                teamsCount: 1,
+                lastActive: 'Just now',
+                mfaEnforced: true,
+                createdAt: u.created_at || new Date().toISOString()
+              });
+            }
+          }
+          this.users.set([...current]);
+        }
+      }
+    } catch {
+      // Offline fallback
+    }
+  }
   // 1. Users / Principals
   public users = signal<AdminUser[]>([
     {
@@ -338,11 +391,26 @@ export class PeopleService {
       createdAt: new Date().toISOString()
     };
     this.users.update(list => [newUser, ...list]);
+    if (this.adminIpc) {
+      this.adminIpc.createUser({
+        user_id: newUser.id,
+        name: newUser.name,
+        email: newUser.email,
+        role: 'MEMBER',
+      }).catch(() => {});
+    }
     return newUser;
   }
 
   public updateUser(id: string, updates: Partial<AdminUser>): void {
     this.users.update(list => list.map(u => u.id === id ? { ...u, ...updates } : u));
+    if (this.adminIpc) {
+      this.adminIpc.updateUser({
+        user_id: id,
+        name: updates.name,
+        status: updates.status,
+      }).catch(() => {});
+    }
   }
 
   public createTeam(data: Partial<AdminTeam>): AdminTeam {
@@ -403,11 +471,24 @@ export class PeopleService {
       createdAt: new Date().toISOString()
     };
     this.roles.update(list => [newRole, ...list]);
+    if (this.adminIpc) {
+      this.adminIpc.createRole({
+        role_id: newRole.id,
+        role_name: newRole.name,
+        permissions: newRole.permissions,
+      }).catch(() => {});
+    }
     return newRole;
   }
 
   public updateRole(id: string, updates: Partial<AdminRole>): void {
     this.roles.update(list => list.map(r => r.id === id ? { ...r, ...updates } : r));
+    if (this.adminIpc) {
+      this.adminIpc.updateRole({
+        role_id: id,
+        permissions: updates.permissions || [],
+      }).catch(() => {});
+    }
   }
 
   public assignAccess(data: Partial<AccessAssignment>): AccessAssignment {
@@ -425,6 +506,12 @@ export class PeopleService {
       status: 'ACTIVE'
     };
     this.assignments.update(list => [newAsg, ...list]);
+    if (this.adminIpc) {
+      this.adminIpc.assignRole({
+        user_id: newAsg.principalId,
+        role_name: newAsg.roleId,
+      }).catch(() => {});
+    }
     return newAsg;
   }
 

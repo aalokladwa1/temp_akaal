@@ -2,7 +2,8 @@
  * AKAAL Administration — 5.4 Identity & Security Service
  */
 
-import { Injectable, signal } from '@angular/core';
+import { Injectable, signal, Optional, inject } from '@angular/core';
+import { AdministrationIpcService } from './administration.ipc';
 import {
   AuthPolicy,
   MfaConfig,
@@ -22,6 +23,19 @@ import {
   providedIn: 'root'
 })
 export class IdentityService {
+  private adminIpc?: AdministrationIpcService;
+
+  constructor(@Optional() adminIpc?: AdministrationIpcService) {
+    if (adminIpc) {
+      this.adminIpc = adminIpc;
+    } else {
+      try {
+        this.adminIpc = inject(AdministrationIpcService, { optional: true }) || undefined;
+      } catch {
+        this.adminIpc = undefined;
+      }
+    }
+  }
   // Auth Policies
   public readonly authPolicies = signal<AuthPolicy[]>([
     {
@@ -395,6 +409,12 @@ export class IdentityService {
 
   public updateMfaConfig(data: Partial<MfaConfig>): void {
     this.mfaConfig.update(cfg => ({ ...cfg, ...data }));
+    if (this.adminIpc) {
+      this.adminIpc.enforceMfa({
+        user_id: 'global',
+        mfa_policy: (data as any).enforcementLevel || (data.enforceFido2WebAuthn ? 'FIDO2' : 'ENFORCED_ALL'),
+      }).catch(() => {});
+    }
   }
 
   public createSsoProvider(data: Partial<SsoProvider>): SsoProvider {
@@ -449,5 +469,8 @@ export class IdentityService {
           : r
       )
     );
+    if (this.adminIpc) {
+      this.adminIpc.rotateKey({ key_id: ruleId }).catch(() => {});
+    }
   }
 }

@@ -3,8 +3,9 @@
  * Single source of truth for 5.1 Enterprise domains with bi-directional ContextService synchronization.
  */
 
-import { Injectable, signal, computed, Optional } from '@angular/core';
+import { Injectable, signal, computed, Optional, inject } from '@angular/core';
 import { ContextService } from '../../../core/services/context.service';
+import { AdministrationIpcService } from './administration.ipc';
 import {
   EnterpriseSettings,
   AdminOrganization,
@@ -23,6 +24,7 @@ import {
   providedIn: 'root'
 })
 export class EnterpriseService {
+  private adminIpc?: AdministrationIpcService;
   // 1. Enterprise Root Settings
   public settings = signal<EnterpriseSettings>({
     id: 'ent-root-default',
@@ -198,9 +200,61 @@ export class EnterpriseService {
     }
   ]);
 
-  constructor(@Optional() private cs?: ContextService) {
+  constructor(
+    @Optional() private cs?: ContextService,
+    @Optional() adminIpc?: AdministrationIpcService
+  ) {
+    if (adminIpc) {
+      this.adminIpc = adminIpc;
+    } else {
+      try {
+        this.adminIpc = inject(AdministrationIpcService, { optional: true }) || undefined;
+      } catch {
+        this.adminIpc = undefined;
+      }
+    }
     this.initializeFromContext();
     this.syncContextService();
+    this.loadFromBackend();
+  }
+
+  public async loadFromBackend(): Promise<void> {
+    if (!this.adminIpc) return;
+    try {
+      const resp = await this.adminIpc.listOrganizations();
+      if (resp.status === 'SUCCESS' && resp.data) {
+        const orgs = Array.isArray(resp.data) ? resp.data : (resp.data.organizations || []);
+        if (orgs.length > 0) {
+          const current = this.organizations();
+          for (const o of orgs) {
+            const orgId = o.tenant_id || o.id;
+            const existing = current.find(x => x.id === orgId);
+            if (!existing) {
+              current.push({
+                id: orgId,
+                name: o.name || orgId,
+                code: (o.name || orgId).toUpperCase().slice(0, 8),
+                description: o.description || 'Enterprise tenant scope',
+                tier: 'GLOBAL_PARENT',
+                status: (o.status || 'ACTIVE') as any,
+                primaryContactName: 'Administrator',
+                primaryContactEmail: 'admin@enterprise.internal',
+                workspacesCount: 0,
+                activeUsersCount: 0,
+                defaultRegion: 'us-east-1',
+                costCenterCode: 'CC-DEFAULT',
+                createdAt: o.created_at || new Date().toISOString(),
+                updatedAt: o.updated_at || new Date().toISOString()
+              });
+            }
+          }
+          this.organizations.set([...current]);
+          this.syncContextService();
+        }
+      }
+    } catch {
+      // Offline fallback: preserve signals
+    }
   }
 
   // ==========================================
@@ -386,6 +440,13 @@ export class EnterpriseService {
     };
     this.organizations.update(list => [newOrg, ...list]);
     this.syncContextService();
+    if (this.adminIpc) {
+      this.adminIpc.createOrganization({
+        org_id: newOrg.id,
+        name: newOrg.name,
+        tier: newOrg.tier,
+      }).catch(() => {});
+    }
     return newOrg;
   }
 
@@ -397,6 +458,13 @@ export class EnterpriseService {
       return o;
     }));
     this.syncContextService();
+    if (this.adminIpc) {
+      this.adminIpc.updateOrganization({
+        org_id: orgId,
+        name: updates.name,
+        status: updates.status,
+      }).catch(() => {});
+    }
   }
 
   public deleteOrganization(orgId: string): void {
@@ -458,6 +526,13 @@ export class EnterpriseService {
 
     this.organizations.update(list => list.map(o => o.id === data.orgId ? { ...o, workspacesCount: o.workspacesCount + 1 } : o));
     this.syncContextService();
+    if (this.adminIpc) {
+      this.adminIpc.createWorkspace({
+        workspace_id: newWs.id,
+        org_id: newWs.orgId,
+        name: newWs.name,
+      }).catch(() => {});
+    }
     return newWs;
   }
 
@@ -469,6 +544,12 @@ export class EnterpriseService {
       return w;
     }));
     this.syncContextService();
+    if (this.adminIpc) {
+      this.adminIpc.updateWorkspace({
+        workspace_id: workspaceId,
+        name: updates.name,
+      }).catch(() => {});
+    }
   }
 
   public deleteWorkspace(workspaceId: string): void {

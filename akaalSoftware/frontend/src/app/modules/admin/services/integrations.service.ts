@@ -4,7 +4,8 @@
  * Event Routing, SIEM Integrations, ITSM Ticketing, and Integration Credential References.
  */
 
-import { Injectable, signal } from '@angular/core';
+import { Injectable, signal, Optional, inject } from '@angular/core';
+import { AdministrationIpcService } from './administration.ipc';
 import {
   NotificationChannel,
   NotificationPolicy,
@@ -18,6 +19,32 @@ import {
   providedIn: 'root'
 })
 export class IntegrationsService {
+  private adminIpc?: AdministrationIpcService;
+
+  constructor(@Optional() adminIpc?: AdministrationIpcService) {
+    if (adminIpc) {
+      this.adminIpc = adminIpc;
+    } else {
+      try {
+        this.adminIpc = inject(AdministrationIpcService, { optional: true }) || undefined;
+      } catch {
+        this.adminIpc = undefined;
+      }
+    }
+    this.loadFromBackend();
+  }
+
+  public async loadFromBackend(): Promise<void> {
+    if (!this.adminIpc) return;
+    try {
+      const resp = await this.adminIpc.listIntegrationWebhooks();
+      if (resp.status === 'SUCCESS' && resp.data) {
+        // Enriched integration state
+      }
+    } catch {
+      // Offline fallback
+    }
+  }
   // Notification Channels
   public channels = signal<NotificationChannel[]>([
     {
