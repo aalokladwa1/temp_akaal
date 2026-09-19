@@ -3216,7 +3216,3 @@ class PipelineQueryService:
 
     get_readiness = get_migration_readiness
     get_plan = get_migration_plan
-
-
-
-

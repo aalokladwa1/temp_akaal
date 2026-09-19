@@ -11,7 +11,6 @@ if "typer" not in sys.modules:
     dummy_typer.Option = lambda default=None, *a, **kw: default
     dummy_typer.Argument = lambda default=None, *a, **kw: default
     sys.modules["typer"] = dummy_typer
-
 import pytest
 from akaalIPC.security.context import ActorContext, ActorReference, CorrelationContext
 from akaalIPC.transport.ports import CallerResultStatus

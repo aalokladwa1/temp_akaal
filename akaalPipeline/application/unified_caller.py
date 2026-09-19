@@ -2442,7 +2442,6 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
                 elif request_type in ("account.current.get", "admin.account.current.get", "get_current_account"):
                     res = self.query_service.get_current_account(actor=pipeline_actor, conn=uow.connection)
                     return CallerResult(status=CallerResultStatus.OK, result=res)
-
                 elif request_type in ("admin.user.list", "list_admin_users"):
                     res = self.query_service.list_admin_users(actor=pipeline_actor, conn=uow.connection)
                     return CallerResult(status=CallerResultStatus.OK, result=res)
@@ -2559,7 +2558,6 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
                     migration_id = envelope.payload.get("migration_id")
                     res = self.query_service.get_migration_readiness(migration_id=migration_id, actor=pipeline_actor, conn=uow.connection)
                     return CallerResult(status=CallerResultStatus.OK, result=res)
-
                 else:
                     raise PipelineError(
                         PipelineErrorCode.INVALID_REQUEST,

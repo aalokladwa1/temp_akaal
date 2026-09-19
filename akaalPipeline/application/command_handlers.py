@@ -2103,7 +2103,6 @@ class CommandHandlerRegistry:
         self.audit_service.record_event(actor, "account.password.changed", principal_id, uow.connection)
 
         return {"status": "SUCCESS", "message": "Password updated successfully"}
-
     def handle_admin_user_update(
         self,
         payload: Mapping[str, Any],
@@ -2406,9 +2405,6 @@ class CommandHandlerRegistry:
         }
 
     handle_trigger_checkpoint = handle_checkpoint_migration
-
-
-
 
 
 
