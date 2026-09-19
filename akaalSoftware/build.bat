@@ -19,7 +19,7 @@ echo [2/4] Building Angular frontend...
 cd /d "%~dp0frontend"
 if exist ".angular\cache" rmdir /s /q ".angular\cache" >nul 2>&1
 if exist "dist" rmdir /s /q "dist" >nul 2>&1
-call node --max-old-space-size=4096 ./node_modules/@angular/cli/bin/ng build --configuration development --base-href ./
+call node --max-old-space-size=4096 ./node_modules/@angular/cli/bin/ng build --configuration production --base-href ./
 
 if %ERRORLEVEL% neq 0 (
     echo.
@@ -39,7 +39,7 @@ if exist "%APPDATA%\akaalSoftware.exe\EBWebView" (
 echo.
 echo [4/4] Compiling Go Wails GUI Binary...
 cd /d "%~dp0"
-go build -tags "desktop,production" -ldflags "-H windowsgui -s -w" -o AKAAL.exe .
+go build -tags "desktop,production" -ldflags="-H=windowsgui -s -w" -o AKAAL.exe .
 
 if %ERRORLEVEL% neq 0 (
     echo.

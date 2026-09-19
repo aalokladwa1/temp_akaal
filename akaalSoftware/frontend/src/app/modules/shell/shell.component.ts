@@ -7,6 +7,7 @@ import { ContextService, Organization, Workspace, Environment } from '../../core
 import { IpcService } from '../../core/services/ipc.service';
 import { MigrationUiService } from '../../core/services/migration-ui.service';
 import { LucideIconComponent } from '../../shared/components/lucide-icon.component';
+import { DevkrosLogoComponent } from '../../shared/components/devkros-logo.component';
 import { SettingsService } from '../settings/services/settings.service';
 
 interface NavItem {
@@ -26,7 +27,7 @@ interface CommandItem {
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, RouterLink, RouterLinkActive, FormsModule, LucideIconComponent],
+  imports: [CommonModule, RouterOutlet, RouterLink, RouterLinkActive, FormsModule, LucideIconComponent, DevkrosLogoComponent],
   template: `
     <div class="flex flex-col h-screen w-screen bg-slate-50 text-slate-900 font-sans overflow-hidden select-none">
       
@@ -63,9 +64,7 @@ interface CommandItem {
 
         <!-- Left: Application Brand Identity & Window Title -->
         <div class="flex items-center gap-2 pointer-events-none select-none">
-          <div class="w-[18px] h-[18px] rounded-[4px] bg-[#0f172a] dark:bg-[#191a1e] border border-slate-700/20 dark:border-white/[0.12] text-white flex items-center justify-center font-bold text-[8.5px] tracking-wider shadow-2xs shrink-0">
-            DK
-          </div>
+          <app-devkros-logo [size]="16" variant="auto" class="shrink-0"></app-devkros-logo>
           <span class="desktop-titlebar-title text-[11.5px] font-medium tracking-tight text-slate-700 dark:text-[#c5c6cb] flex items-center gap-1.5">
             <span class="font-semibold text-slate-900 dark:text-white">DevKros</span>
             <span class="font-normal text-slate-500 dark:text-[#8e9096]">Enterprise Platform</span>
@@ -129,23 +128,21 @@ interface CommandItem {
       <!-- =============================================================== -->
       <!-- 1. FULL-WIDTH GLOBAL HEADER (TOP CHROME)                        -->
       <!-- =============================================================== -->
-      <header class="h-16 w-full px-6 lg:px-8 bg-white border-b border-slate-200 flex items-center justify-between z-40 shrink-0 shadow-2xs">
+      <header class="h-16 w-full px-6 lg:px-8 bg-white dark:bg-[#08090a] border-b border-slate-200 dark:border-white/[0.08] flex items-center justify-between z-40 shrink-0 shadow-2xs">
         
         <!-- Left: Product Identity & Operational Context Switchers -->
         <div class="flex items-center gap-5 lg:gap-6">
           
           <!-- DevKros Brand Identity -->
           <div class="flex items-center gap-3 cursor-pointer" routerLink="/dashboard" (click)="closeAllDropdowns()">
-            <div class="w-9 h-9 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-sm shadow-xs">
-              DK
-            </div>
+            <app-devkros-logo [size]="32" variant="auto" class="shrink-0"></app-devkros-logo>
             <div class="flex flex-col">
-              <span class="text-base font-bold tracking-tight text-slate-900 leading-none">DevKros</span>
+              <span class="text-base font-bold tracking-tight text-slate-900 dark:text-white leading-none">DevKros</span>
             </div>
           </div>
 
           <!-- Divider -->
-          <div class="h-6 w-px bg-slate-200 hidden sm:block"></div>
+          <div class="h-6 w-px bg-slate-200 dark:bg-white/10 hidden sm:block"></div>
 
           <!-- Operational Context Switchers (Desktop: 3 Compact Popovers) -->
           <div class="hidden lg:flex items-center gap-2">
@@ -729,9 +726,7 @@ interface CommandItem {
           <div 
             class="w-full max-w-md rounded-2xl bg-white border border-slate-200 shadow-2xl p-6 flex flex-col items-center text-center gap-3"
             (click)="$event.stopPropagation()">
-            <div class="w-12 h-12 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-base shadow-md">
-              DK
-            </div>
+            <app-devkros-logo [size]="56" variant="auto" class="shrink-0 mb-1"></app-devkros-logo>
             <h3 class="text-base font-bold text-slate-900 font-heading">DevKros</h3>
             <p class="text-xs text-slate-600 font-medium">
               Enterprise Database Migration and Replication Platform

@@ -2,11 +2,12 @@ import { Component, Input, HostBinding } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { SubsystemStatus } from '../../../core/models/dashboard.models';
 import { LucideIconComponent } from '../../../shared/components/lucide-icon.component';
+import { DevkrosLogoComponent } from '../../../shared/components/devkros-logo.component';
 
 @Component({
   selector: 'app-platform-status',
   standalone: true,
-  imports: [CommonModule, LucideIconComponent],
+  imports: [CommonModule, LucideIconComponent, DevkrosLogoComponent],
   template: `
     <div class="p-7 rounded-2xl bg-white border border-slate-200 flex flex-col justify-between gap-6 shadow-xs h-full flex-1">
       
@@ -35,7 +36,7 @@ import { LucideIconComponent } from '../../../shared/components/lucide-icon.comp
               <div class="flex items-center gap-3">
                 <div class="w-8 h-8 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-300 shrink-0">
                   @switch (sub.name) {
-                    @case ('DevKros Engine Core') { <app-lucide-icon name="server" [size]="16"></app-lucide-icon> }
+                    @case ('DevKros Engine Core') { <app-devkros-logo [size]="16" variant="auto"></app-devkros-logo> }
                     @case ('Named Pipe IPC') { <app-lucide-icon name="network" [size]="16"></app-lucide-icon> }
                     @case ('Worker Concurrency Pool') { <app-lucide-icon name="cpu" [size]="16"></app-lucide-icon> }
                     @default { <app-lucide-icon name="hard-drive" [size]="16"></app-lucide-icon> }

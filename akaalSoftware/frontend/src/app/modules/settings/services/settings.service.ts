@@ -577,7 +577,9 @@ export class SettingsService {
     }
   }
 
-  public formatDatePreview(date: Date = new Date()): string {
+  private static readonly PREVIEW_STABLE_DATE = new Date();
+
+  public formatDatePreview(date: Date = SettingsService.PREVIEW_STABLE_DATE): string {
     const gen = this.generalSettings();
     const pad = (n: number) => (n < 10 ? '0' + n : '' + n);
 

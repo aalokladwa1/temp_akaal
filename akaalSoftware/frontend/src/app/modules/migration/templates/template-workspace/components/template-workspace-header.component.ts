@@ -3,12 +3,13 @@ import { CommonModule } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { TemplateWorkspaceService } from '../template-workspace.service';
 import { LucideIconComponent } from '../../../../../shared/components/lucide-icon.component';
+import { DevkrosLogoComponent } from '../../../../../shared/components/devkros-logo.component';
 import { TEMPLATE_MODE_DESCRIPTORS, TemplateMigrationMode, TemplateLifecycle, TemplateScope } from '../../templates.models';
 
 @Component({
   selector: 'app-template-workspace-header',
   standalone: true,
-  imports: [CommonModule, RouterLink, LucideIconComponent],
+  imports: [CommonModule, RouterLink, LucideIconComponent, DevkrosLogoComponent],
   template: `
     <header class="bg-white border-b border-slate-200 px-6 lg:px-8 py-4 sticky top-0 z-30 shadow-2xs select-none">
       <div class="max-w-[1680px] mx-auto flex flex-col lg:flex-row lg:items-center justify-between gap-4">
@@ -19,7 +20,7 @@ import { TEMPLATE_MODE_DESCRIPTORS, TemplateMigrationMode, TemplateLifecycle, Te
             
             <!-- Breadcrumbs & Context Badges -->
             <div class="flex items-center flex-wrap gap-2 text-xs">
-              <span class="text-slate-500 font-medium">DevKros</span>
+              <span class="text-slate-500 font-medium inline-flex items-center gap-1.5"><app-devkros-logo [size]="16" variant="auto"></app-devkros-logo><span>DevKros</span></span>
               <span class="text-slate-300">/</span>
               <a routerLink="/migration/templates" class="text-slate-500 hover:text-blue-600 font-medium transition-colors">
                 Templates

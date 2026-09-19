@@ -773,4 +773,28 @@ html.enhanced-focus.dark select:focus-visible {
   outline-offset: 2px !important;
 }
 
+/* ==========================================================================
+   6. BRAND LOGO THEME SWITCHING INVARIANT
+   ========================================================================== */
+html.dark .devkros-logo-dark-img {
+  display: none !important;
+}
+html.dark .devkros-logo-light-img {
+  display: block !important;
+}
+html:not(.dark) .devkros-logo-dark-img {
+  display: block !important;
+}
+html:not(.dark) .devkros-logo-light-img {
+  display: none !important;
+}
+
+/* Fail-safe invariant: ensure any logo rendering inside dark theme is pure white */
+html.dark app-devkros-logo img,
+html[data-theme="dark"] app-devkros-logo img {
+  filter: brightness(0) invert(1) !important;
+}
+
+
+
 

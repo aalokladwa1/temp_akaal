@@ -5,12 +5,13 @@ import { ValidationWorkstationService } from '../validation-workstation.service'
 import { ValidationDiscrepanciesService } from '../discrepancies/validation-discrepancies.service';
 import { LucideIconComponent } from '../../../../shared/components/lucide-icon.component';
 import { CustomSelectComponent, CustomSelectOption } from '../../../../shared/components/custom-select.component';
+import { DevkrosLogoComponent } from '../../../../shared/components/devkros-logo.component';
 import { ValidationExecutionState, ValidationVerdict } from '../validation-workstation.models';
 
 @Component({
   selector: 'app-workstation-header',
   standalone: true,
-  imports: [CommonModule, RouterLink, LucideIconComponent, CustomSelectComponent],
+  imports: [CommonModule, RouterLink, LucideIconComponent, CustomSelectComponent, DevkrosLogoComponent],
   template: `
     <header class="bg-white border-b border-slate-200 px-6 lg:px-8 py-4 sticky top-0 z-30 shadow-2xs">
       <div class="max-w-[1680px] mx-auto flex flex-col lg:flex-row lg:items-center justify-between gap-4">
@@ -20,7 +21,7 @@ import { ValidationExecutionState, ValidationVerdict } from '../validation-works
           
           <!-- Breadcrumbs & Identity Badges (Rectangular, rounded-md, NO pill capsules) -->
           <div class="flex items-center flex-wrap gap-2 text-xs">
-            <span class="text-slate-400 font-medium">DevKros Enterprise</span>
+            <span class="text-slate-400 font-medium inline-flex items-center gap-1.5"><app-devkros-logo [size]="16" variant="auto"></app-devkros-logo><span>DevKros Enterprise</span></span>
             <span class="text-slate-300">/</span>
             <a routerLink="/migration/validation" class="text-slate-500 hover:text-blue-600 font-medium transition-colors">
               Validation Missions
