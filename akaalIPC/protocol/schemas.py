@@ -212,6 +212,8 @@ def register_core_pipeline_schemas(registry: SchemaRegistry) -> None:
         "admin.organization.create", "admin.organization.update",
         "admin.workspace.create", "admin.workspace.update",
         "admin.user.create", "admin.user.update", "admin.user.delete",
+        "account.profile.update", "account.avatar.update", "account.avatar.remove", "account.password.change",
+        "admin.account.profile.update", "admin.account.avatar.update", "admin.account.avatar.remove", "admin.account.password.change",
         "admin.role.create", "admin.role.update", "admin.role.assign",
         "admin.governance.request_exception", "admin.governance.approve_exception",
         "admin.key.rotate", "admin.mfa.enforce",
@@ -246,7 +248,7 @@ def register_core_pipeline_schemas(registry: SchemaRegistry) -> None:
 
     # Queries
     query_types = [
-        "estate.summary", "settings.get",
+        "estate.summary", "settings.get", "account.current.get", "admin.account.current.get",
         "migration.get", "migration.list", "migration.get_plan", "migration.readiness",
         "operation.get", "mutability.evaluate",
         "project.list", "project.get", "initiative.list", "initiative.get",

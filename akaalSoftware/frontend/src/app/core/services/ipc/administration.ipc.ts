@@ -250,6 +250,33 @@ export class AdministrationIpc {
   public async createConnector(payload: Record<string, any>): Promise<IPCResponse<any>> {
     return this.ipc.invoke<any>('admin', 'connector.create', payload);
   }
+
+  // =========================================================================
+  // Self-Service Account Commands & Queries
+  // =========================================================================
+
+  public async getCurrentAccount(): Promise<IPCResponse<any>> {
+    return this.ipc.invoke<any>('account', 'current.get', {});
+  }
+
+  public async updateSelfProfile(payload: { display_name?: string; name?: string; email?: string }): Promise<IPCResponse<any>> {
+    return this.ipc.invoke<any>('account', 'profile.update', payload);
+  }
+
+  public async updateSelfAvatar(avatarData: string): Promise<IPCResponse<any>> {
+    return this.ipc.invoke<any>('account', 'avatar.update', { avatar: avatarData });
+  }
+
+  public async removeSelfAvatar(): Promise<IPCResponse<any>> {
+    return this.ipc.invoke<any>('account', 'avatar.remove', {});
+  }
+
+  public async changeSelfPassword(currentPassword: string, newPassword: string): Promise<IPCResponse<any>> {
+    return this.ipc.invoke<any>('account', 'password.change', {
+      current_password: currentPassword,
+      new_password: newPassword
+    });
+  }
 }
 
 // Backward compatibility alias for AdministrationIpcService

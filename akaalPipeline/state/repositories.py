@@ -490,7 +490,15 @@ class SQLitePrincipalRepository:
         res["metadata"] = json.loads(res["metadata"]) if res.get("metadata") else {}
         return res
 
-    def update_principal(self, tenant_id: str, principal_id: str, is_active: Optional[bool] = None, display_name: Optional[str] = None) -> None:
+    def update_principal(
+        self,
+        tenant_id: str,
+        principal_id: str,
+        is_active: Optional[bool] = None,
+        display_name: Optional[str] = None,
+        email: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> None:
         p = self.get_by_id(tenant_id, principal_id) or self.get_by_username(tenant_id, principal_id)
         real_id = p["principal_id"] if p else principal_id
         if is_active is not None:
@@ -502,6 +510,17 @@ class SQLitePrincipalRepository:
             self.conn.execute(
                 "UPDATE enterprise_principals SET display_name = ? WHERE tenant_id = ? AND principal_id = ?",
                 (display_name, tenant_id, real_id),
+            )
+        if email is not None:
+            self.conn.execute(
+                "UPDATE enterprise_principals SET email = ? WHERE tenant_id = ? AND principal_id = ?",
+                (email, tenant_id, real_id),
+            )
+        if metadata is not None:
+            meta_json = json.dumps(metadata)
+            self.conn.execute(
+                "UPDATE enterprise_principals SET metadata = ? WHERE tenant_id = ? AND principal_id = ?",
+                (meta_json, tenant_id, real_id),
             )
 
     def disable(self, tenant_id: str, principal_id: str, updated_at: str = "") -> None:

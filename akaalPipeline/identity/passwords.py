@@ -45,7 +45,7 @@ class PasswordAuthenticationEngine:
         if not password:
             raise ValueError("Password cannot be empty")
 
-        algo = algorithm or self.config.kdf_default_algorithm
+        algo = algorithm or (self.config.kdf_default_algorithm if HAS_ARGON2 else KDFAlgorithm.PBKDF2_SHA256.value)
 
         if algo == KDFAlgorithm.ARGON2ID.value:
             if not HAS_ARGON2:

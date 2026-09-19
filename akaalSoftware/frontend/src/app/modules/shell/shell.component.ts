@@ -451,9 +451,10 @@ interface CommandItem {
                 <button
                   type="button"
                   (click)="signOut($event)"
+                  title="Exit application runtime"
                   class="w-full text-left px-3 py-2 rounded-lg text-xs font-medium text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2.5 cursor-pointer">
                   <app-lucide-icon name="log-out" [size]="14" class="text-red-500"></app-lucide-icon>
-                  <span>Sign Out</span>
+                  <span>Exit DevKros</span>
                 </button>
               </div>
             }

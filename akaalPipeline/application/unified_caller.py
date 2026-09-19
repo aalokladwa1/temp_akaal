@@ -2004,6 +2004,26 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
                         )
                 return CallerResult(status=CallerResultStatus.OK, result=dict(res))
 
+            elif request_type in ("account.profile.update", "admin.account.profile.update"):
+                with uow:
+                    res = self.command_handlers.handle_account_profile_update(envelope.payload, pipeline_actor, uow)
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type in ("account.avatar.update", "admin.account.avatar.update"):
+                with uow:
+                    res = self.command_handlers.handle_account_avatar_update(envelope.payload, pipeline_actor, uow)
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type in ("account.avatar.remove", "admin.account.avatar.remove"):
+                with uow:
+                    res = self.command_handlers.handle_account_avatar_remove(envelope.payload, pipeline_actor, uow)
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type in ("account.password.change", "admin.account.password.change"):
+                with uow:
+                    res = self.command_handlers.handle_account_password_change(envelope.payload, pipeline_actor, uow)
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
             elif request_type in ("admin.user.delete", "delete_user"):
                 with uow:
                     res = self.command_handlers.handle_admin_user_delete(envelope.payload, pipeline_actor, uow)
@@ -2417,6 +2437,10 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
 
                 elif request_type in ("admin.cost_center.list", "list_admin_cost_centers"):
                     res = self.query_service.list_admin_cost_centers(actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=res)
+
+                elif request_type in ("account.current.get", "admin.account.current.get", "get_current_account"):
+                    res = self.query_service.get_current_account(actor=pipeline_actor, conn=uow.connection)
                     return CallerResult(status=CallerResultStatus.OK, result=res)
 
                 elif request_type in ("admin.user.list", "list_admin_users"):

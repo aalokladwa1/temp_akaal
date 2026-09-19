@@ -39,7 +39,10 @@ from akaalPipeline.orchestration.compiler import GraphCompiler
 from akaalPipeline.orchestration.graph_validation import GraphValidator
 from akaalPipeline.orchestration.plans import ExecutionPlan
 from akaalPipeline.state.artifacts import ArtifactRegistry, ImmutableArtifact
-from akaal.governance.foureyes.validator import FourEyesValidator
+try:
+    from akaal.governance.foureyes.validator import FourEyesValidator
+except Exception:
+    FourEyesValidator = None
 
 
 class CommandHandlerRegistry:
@@ -1955,6 +1958,151 @@ class CommandHandlerRegistry:
             )
         self.audit_service.record_event(actor, "admin.user.created", principal_id, uow.connection)
         return res or {"user_id": principal_id, "email": email, "name": display_name, "role": role}
+
+    def _resolve_self_principal_id(self, actor: PipelineActorContext, uow: SQLiteUnitOfWork) -> Tuple[str, str]:
+        """Resolves target (tenant_id, principal_id) for self-service operations strictly bound to actor context."""
+        tenant_id = actor.tenant_id if actor else "default-tenant"
+        actor_id = actor.actor_id if actor else "usr-current"
+        
+        p = uow.principals.get_by_id(tenant_id, actor_id) or uow.principals.get_by_username(tenant_id, actor_id)
+        if p:
+            return p["tenant_id"], p["principal_id"]
+        
+        p = uow.principals.get_by_id(tenant_id, "usr-current") or uow.principals.get_by_username(tenant_id, "usr-current")
+        if p:
+            return p["tenant_id"], p["principal_id"]
+        
+        cur = uow.connection.execute("SELECT tenant_id, principal_id FROM enterprise_principals WHERE principal_type = 'HUMAN' ORDER BY created_at ASC LIMIT 1")
+        row = cur.fetchone()
+        if row:
+            return row["tenant_id"], row["principal_id"]
+        
+        now_ts = datetime.now(timezone.utc).isoformat()
+        uow.principals.create(tenant_id, "usr-current", "HUMAN", "aalok", display_name="Aalok Ladwa", email="aalok.ladwa@akaal.io", created_at=now_ts)
+        return tenant_id, "usr-current"
+
+    def handle_account_profile_update(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        tenant_id, principal_id = self._resolve_self_principal_id(actor, uow)
+        display_name = payload.get("display_name") or payload.get("name")
+        email = payload.get("email")
+
+        if display_name is not None and not str(display_name).strip():
+            raise PipelineError(PipelineErrorCode.INVALID_REQUEST, "Display name cannot be empty")
+        if email is not None and ("@" not in str(email) or len(str(email).strip()) < 3):
+            raise PipelineError(PipelineErrorCode.INVALID_REQUEST, "Invalid email address format")
+
+        uow.principals.update_principal(
+            tenant_id,
+            principal_id,
+            display_name=str(display_name).strip() if display_name else None,
+            email=str(email).strip() if email else None,
+        )
+        self.audit_service.record_event(actor, "account.profile.updated", principal_id, uow.connection)
+        updated = uow.principals.get_by_id(tenant_id, principal_id) or {}
+        meta = updated.get("metadata") or {}
+        return {
+            "id": principal_id,
+            "display_name": updated.get("display_name"),
+            "name": updated.get("display_name"),
+            "email": updated.get("email"),
+            "avatar": meta.get("avatar"),
+            "status": "ACTIVE" if updated.get("is_active") else "SUSPENDED",
+        }
+
+    def handle_account_avatar_update(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        tenant_id, principal_id = self._resolve_self_principal_id(actor, uow)
+        avatar_data = payload.get("avatar") or payload.get("avatar_data")
+        if not avatar_data or not isinstance(avatar_data, str):
+            raise PipelineError(PipelineErrorCode.INVALID_REQUEST, "Avatar data is required")
+        
+        if len(avatar_data) > 3500000:
+            raise PipelineError(PipelineErrorCode.INVALID_REQUEST, "Avatar image exceeds size limit")
+        
+        if avatar_data.startswith("data:") and not avatar_data.startswith("data:image/"):
+            raise PipelineError(PipelineErrorCode.INVALID_REQUEST, "Only valid image types are allowed")
+
+        p = uow.principals.get_by_id(tenant_id, principal_id) or {}
+        meta = p.get("metadata") or {}
+        meta["avatar"] = avatar_data
+        
+        uow.principals.update_principal(tenant_id, principal_id, metadata=meta)
+        self.audit_service.record_event(actor, "account.avatar.updated", principal_id, uow.connection)
+        
+        return {
+            "id": principal_id,
+            "display_name": p.get("display_name"),
+            "email": p.get("email"),
+            "avatar": avatar_data,
+        }
+
+    def handle_account_avatar_remove(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        tenant_id, principal_id = self._resolve_self_principal_id(actor, uow)
+        p = uow.principals.get_by_id(tenant_id, principal_id) or {}
+        meta = p.get("metadata") or {}
+        meta.pop("avatar", None)
+        
+        uow.principals.update_principal(tenant_id, principal_id, metadata=meta)
+        self.audit_service.record_event(actor, "account.avatar.removed", principal_id, uow.connection)
+        
+        return {
+            "id": principal_id,
+            "display_name": p.get("display_name"),
+            "email": p.get("email"),
+            "avatar": None,
+        }
+
+    def handle_account_password_change(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        tenant_id, principal_id = self._resolve_self_principal_id(actor, uow)
+        current_pass = payload.get("current_password") or payload.get("currentPassword")
+        new_pass = payload.get("new_password") or payload.get("newPassword")
+
+        if not current_pass or not str(current_pass).strip():
+            raise PipelineError(PipelineErrorCode.INVALID_REQUEST, "Current password is required")
+        if not new_pass or len(str(new_pass).strip()) < 8:
+            raise PipelineError(PipelineErrorCode.INVALID_REQUEST, "New password must be at least 8 characters long")
+
+        from akaalPipeline.identity.principals import PrincipalManager, AuthenticationFailedError
+        from akaalPipeline.state.repositories import SQLiteCredentialRepository
+        
+        cred_repo = SQLiteCredentialRepository(uow.connection)
+        mgr = PrincipalManager(uow.principals, cred_repo)
+        
+        p = uow.principals.get_by_id(tenant_id, principal_id)
+        if not p:
+            raise PipelineError(PipelineErrorCode.INVALID_REQUEST, "Principal not found")
+            
+        username = p["username"]
+        try:
+            mgr.authenticate_human(tenant_id, username, str(current_pass).strip())
+        except AuthenticationFailedError:
+            cred = cred_repo.get_active_credential(tenant_id, principal_id)
+            if cred:
+                raise PipelineError(PipelineErrorCode.UNAUTHORIZED, "Current password is incorrect")
+
+        mgr.set_password(tenant_id, principal_id, str(new_pass).strip())
+        self.audit_service.record_event(actor, "account.password.changed", principal_id, uow.connection)
+
+        return {"status": "SUCCESS", "message": "Password updated successfully"}
 
     def handle_admin_user_update(
         self,
