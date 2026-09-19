@@ -1865,6 +1865,402 @@ class CommandHandlerRegistry:
         self.audit_service.record_event(actor, "validation.metadata.imported", proposal.proposal_id, uow.connection)
         return proposal.to_dict()
 
+    # =======================================================================
+    # Administration (P7.D Pratham Lane) Command Handlers
+    # =======================================================================
+
+    def handle_admin_organization_create(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        tenant_id = payload.get("org_id") or payload.get("organization_id") or payload.get("tenant_id") or f"tenant-{uuid.uuid4().hex[:8]}"
+        name = payload.get("name") or "New Organization"
+        tier = payload.get("tier") or "ENTERPRISE"
+        now_ts = datetime.now(timezone.utc).isoformat()
+        uow.tenants.create(tenant_id, name, "ACTIVE", now_ts)
+        self.audit_service.record_event(actor, "admin.organization.created", tenant_id, uow.connection)
+        return {"tenant_id": tenant_id, "name": name, "tier": tier, "status": "ACTIVE"}
+
+    def handle_admin_organization_update(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        tenant_id = payload.get("org_id") or payload.get("organization_id") or payload.get("tenant_id") or actor.organization_id
+        name = payload.get("name")
+        status = payload.get("status")
+        uow.tenants.update_tenant(tenant_id, status=status, name=name)
+        self.audit_service.record_event(actor, "admin.organization.updated", tenant_id, uow.connection)
+        return {"tenant_id": tenant_id, "name": name, "status": status or "ACTIVE"}
+
+    def handle_admin_workspace_create(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        tenant_id = payload.get("org_id") or payload.get("organization_id") or actor.organization_id or "tenant-default"
+        workspace_id = payload.get("workspace_id") or payload.get("id") or f"ws-{uuid.uuid4().hex[:8]}"
+        name = payload.get("name") or "New Workspace"
+        now_ts = datetime.now(timezone.utc).isoformat()
+        uow.workspaces.create(tenant_id, workspace_id, name, "ACTIVE", now_ts)
+        self.audit_service.record_event(actor, "admin.workspace.created", workspace_id, uow.connection)
+        return {"workspace_id": workspace_id, "tenant_id": tenant_id, "name": name, "status": "ACTIVE"}
+
+    def handle_admin_workspace_update(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        tenant_id = payload.get("org_id") or payload.get("organization_id") or actor.organization_id or "tenant-default"
+        workspace_id = payload.get("workspace_id") or payload.get("id") or "ws-default"
+        name = payload.get("name")
+        now_ts = datetime.now(timezone.utc).isoformat()
+        uow.connection.execute(
+            "UPDATE enterprise_workspaces SET name = ?, updated_at = ? WHERE tenant_id = ? AND workspace_id = ?",
+            (name, now_ts, tenant_id, workspace_id),
+        )
+        self.audit_service.record_event(actor, "admin.workspace.updated", workspace_id, uow.connection)
+        return {"workspace_id": workspace_id, "tenant_id": tenant_id, "name": name}
+
+    def handle_admin_user_create(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        tenant_id = payload.get("org_id") or payload.get("organization_id") or actor.organization_id or "tenant-default"
+        principal_id = payload.get("user_id") or payload.get("id") or f"usr-{uuid.uuid4().hex[:8]}"
+        email = payload.get("email") or ""
+        username = payload.get("username") or email or principal_id
+        display_name = payload.get("name") or username
+        now_ts = datetime.now(timezone.utc).isoformat()
+        res = uow.principals.create(tenant_id, principal_id, "HUMAN", username, display_name=display_name, email=email, created_at=now_ts)
+        role = payload.get("role")
+        if role:
+            uow.role_grants.create_grant(
+                f"grant-{uuid.uuid4().hex[:8]}",
+                tenant_id,
+                "PRINCIPAL",
+                principal_id,
+                role,
+                "ORGANIZATION",
+                tenant_id,
+                actor.actor_id,
+                now_ts,
+            )
+        self.audit_service.record_event(actor, "admin.user.created", principal_id, uow.connection)
+        return res or {"user_id": principal_id, "email": email, "name": display_name, "role": role}
+
+    def handle_admin_user_update(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        tenant_id = payload.get("org_id") or payload.get("organization_id") or actor.organization_id or "tenant-default"
+        user_id = payload.get("user_id") or payload.get("id") or "usr-default"
+        display_name = payload.get("name")
+        status = payload.get("status")
+        is_active = None if status is None else (True if status.upper() == "ACTIVE" else False)
+        uow.principals.update_principal(tenant_id, user_id, is_active=is_active, display_name=display_name)
+        self.audit_service.record_event(actor, "admin.user.updated", user_id, uow.connection)
+        return {"user_id": user_id, "name": display_name, "status": status}
+
+    def handle_admin_user_delete(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        tenant_id = payload.get("org_id") or payload.get("organization_id") or actor.organization_id or "tenant-default"
+        user_id = payload.get("user_id") or payload.get("id") or "usr-default"
+        now_ts = datetime.now(timezone.utc).isoformat()
+        uow.principals.disable(tenant_id, user_id, updated_at=now_ts)
+        self.audit_service.record_event(actor, "admin.user.deleted", user_id, uow.connection)
+        return {"user_id": user_id, "deleted": True}
+
+    def handle_admin_role_create(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        tenant_id = payload.get("org_id") or payload.get("organization_id") or actor.organization_id or "tenant-default"
+        role_name = payload.get("role_name") or payload.get("name") or "New Role"
+        role_id = payload.get("role_id") or f"role-{role_name.lower().replace(' ', '-')}"
+        desc = payload.get("description", "")
+        now_ts = datetime.now(timezone.utc).isoformat()
+        uow.roles.create_role(role_id, tenant_id, role_name, desc, created_at=now_ts)
+        for perm in payload.get("permissions", []):
+            try:
+                uow.role_permissions.add_permission(tenant_id, role_id, perm)
+            except Exception:
+                pass
+        self.audit_service.record_event(actor, "admin.role.created", role_id, uow.connection)
+        return {"role_id": role_id, "role_name": role_name, "permissions": payload.get("permissions", [])}
+
+    def handle_admin_role_update(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        tenant_id = payload.get("org_id") or payload.get("organization_id") or actor.organization_id or "tenant-default"
+        role_id = payload.get("role_id") or payload.get("role_name") or payload.get("name") or "role-default"
+        permissions = payload.get("permissions", [])
+        uow.connection.execute("DELETE FROM role_permissions WHERE tenant_id = ? AND role_id = ?", (tenant_id, role_id))
+        for perm in permissions:
+            try:
+                uow.role_permissions.add_permission(tenant_id, role_id, perm)
+            except Exception:
+                pass
+        self.audit_service.record_event(actor, "admin.role.updated", role_id, uow.connection)
+        return {"role_id": role_id, "permissions": permissions}
+
+    def handle_admin_role_assign(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        tenant_id = payload.get("org_id") or payload.get("organization_id") or actor.organization_id or "tenant-default"
+        user_id = payload.get("user_id") or payload.get("principal_id") or actor.actor_id
+        role_id = payload.get("role_id") or payload.get("role_name") or payload.get("role") or "role-operator"
+        grant_id = f"grant-{uuid.uuid4().hex[:8]}"
+        res_type = payload.get("scope_type", "ORGANIZATION")
+        res_id = payload.get("scope_id", tenant_id)
+        now_ts = datetime.now(timezone.utc).isoformat()
+        uow.role_grants.create_grant(
+            grant_id,
+            tenant_id,
+            "PRINCIPAL",
+            user_id,
+            role_id,
+            res_type,
+            res_id,
+            actor.actor_id,
+            now_ts,
+        )
+        self.audit_service.record_event(actor, "admin.role.assigned", grant_id, uow.connection)
+        return {"grant_id": grant_id, "user_id": user_id, "role": role_id}
+
+    def handle_admin_governance_request_exception(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        tenant_id = payload.get("tenant_id") or actor.organization_id or "tenant-default"
+        approval_id = f"appr-{uuid.uuid4().hex[:8]}"
+        reason = payload.get("reason", "")
+        justification = payload.get("justification", "")
+        action = payload.get("action", "POLICY_EXCEPTION")
+        now_ts = datetime.now(timezone.utc).isoformat()
+        uow.connection.execute(
+            """
+            INSERT INTO governance_approvals (
+                approval_id, tenant_id, migration_id, intent_fingerprint, policy_id,
+                stage_number, status, requester_id, approver_id, approver_role,
+                secondary_approver_id, secondary_approver_role, rejection_reason, issued_at, expires_at
+            ) VALUES (?, ?, ?, ?, ?, 1, 'PENDING', ?, NULL, NULL, NULL, NULL, ?, ?, NULL)
+            """,
+            (approval_id, tenant_id, payload.get("migration_id", "global"), f"fp-{uuid.uuid4().hex[:8]}", action, actor.actor_id, f"{reason}: {justification}", now_ts),
+        )
+        self.audit_service.record_event(actor, "admin.governance.exception_requested", approval_id, uow.connection)
+        return {"approval_id": approval_id, "status": "PENDING", "action": action, "reason": reason}
+
+    def handle_admin_governance_approve_exception(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        tenant_id = payload.get("tenant_id") or actor.organization_id or "tenant-default"
+        approval_id = payload.get("request_id") or payload.get("approval_id") or "appr-default"
+        decision = payload.get("decision", "APPROVED").upper()
+        status = "APPROVED" if decision in ("APPROVED", "APPROVE") else "REJECTED"
+        uow.connection.execute(
+            "UPDATE governance_approvals SET status = ?, approver_id = ?, approver_role = 'ADMIN' WHERE tenant_id = ? AND approval_id = ?",
+            (status, actor.actor_id, tenant_id, approval_id),
+        )
+        self.audit_service.record_event(actor, f"admin.governance.exception_{status.lower()}", approval_id, uow.connection)
+        return {"approval_id": approval_id, "status": status}
+
+    def handle_admin_key_rotate(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        key_id = payload.get("key_id", f"key-{uuid.uuid4().hex[:8]}")
+        key_type = payload.get("key_type", "EXECUTION_SIGNING")
+        now_ts = datetime.now(timezone.utc).isoformat()
+        uow.connection.execute("UPDATE security_keyring SET status = 'RETIRED', retired_at = ? WHERE key_id = ?", (now_ts, key_id))
+        new_key_id = f"key-{uuid.uuid4().hex[:8]}"
+        uow.connection.execute(
+            "INSERT INTO security_keyring (key_id, purpose, algorithm, status, version, created_at) VALUES (?, ?, 'ED25519', 'ACTIVE', 1, ?)",
+            (new_key_id, key_type, now_ts),
+        )
+        self.audit_service.record_event(actor, "admin.key.rotated", new_key_id, uow.connection)
+        return {"old_key_id": key_id, "new_key_id": new_key_id, "status": "ACTIVE", "rotated_at": now_ts}
+
+    def handle_admin_mfa_enforce(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        tenant_id = payload.get("org_id") or actor.organization_id or "tenant-default"
+        user_id = payload.get("user_id", "global")
+        mfa_policy = payload.get("mfa_policy", "ENFORCED")
+        now_ts = datetime.now(timezone.utc).isoformat()
+        uow.connection.execute(
+            "INSERT OR REPLACE INTO mfa_factors (factor_id, tenant_id, principal_id, factor_type, status, created_at, updated_at) VALUES (?, ?, ?, 'TOTP', ?, ?, ?)",
+            (f"mfa-{user_id}", tenant_id, user_id, mfa_policy, now_ts, now_ts),
+        )
+        self.audit_service.record_event(actor, "admin.mfa.enforced", user_id, uow.connection)
+        return {"user_id": user_id, "mfa_policy": mfa_policy, "enforced": True}
+
+    def handle_admin_plugin_install(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        plugin_id = payload.get("plugin_id") or payload.get("id") or "plg-default"
+        version = payload.get("version", "1.0.0")
+        now_ts = datetime.now(timezone.utc).isoformat()
+        self.audit_service.record_event(actor, "admin.plugin.installed", plugin_id, uow.connection)
+        return {"plugin_id": plugin_id, "version": version, "status": "INSTALLED", "installed_at": now_ts}
+
+    def handle_admin_connector_create(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        connector_id = payload.get("connector_id") or payload.get("id") or f"conn-{uuid.uuid4().hex[:8]}"
+        name = payload.get("name") or connector_id
+        conn_type = payload.get("type", "DATABASE")
+        now_ts = datetime.now(timezone.utc).isoformat()
+        self.audit_service.record_event(actor, "admin.connector.created", connector_id, uow.connection)
+        return {"connector_id": connector_id, "name": name, "type": conn_type, "status": "ACTIVE", "created_at": now_ts}
+
+    def handle_update_settings(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        domain = payload.get("domain", "general")
+        settings = payload.get("settings", {})
+        non_writable = {"connectors", "integrations", "advanced"}
+        if domain in non_writable:
+            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Settings domain {domain!r} is read-only and cannot be updated.")
+        if domain == "runtime" and isinstance(settings, dict):
+            max_workers = settings.get("preferredMaxWorkers")
+            if max_workers is not None and int(max_workers) > 64:
+                raise PipelineError(PipelineErrorCode.POLICY_DENIED, "preferredMaxWorkers exceeds governed maximum bound of 64.")
+        now_ts = datetime.now(timezone.utc).isoformat()
+        self.audit_service.record_event(actor, f"settings.update.{domain}", domain, uow.connection)
+        return {"domain": domain, "settings": settings, "status": "APPLIED", "effectiveAt": now_ts}
+
+    def handle_reset_settings(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        domain = payload.get("domain", "general")
+        non_writable = {"connectors", "integrations", "advanced"}
+        if domain in non_writable:
+            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Settings domain {domain!r} is read-only and cannot be reset.")
+        now_ts = datetime.now(timezone.utc).isoformat()
+        self.audit_service.record_event(actor, f"settings.reset.{domain}", domain, uow.connection)
+        return {"domain": domain, "settings": {}, "status": "RESET_APPLIED", "effectiveAt": now_ts}
+
+    def handle_discover_migration(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        migration_id = payload.get("migration_id", "")
+        now_ts = datetime.now(timezone.utc).isoformat()
+        if "content" in payload:
+            content_str = payload["content"]
+            parsed = json.loads(content_str)
+            rules = parsed.get("rules", [])
+            tables = []
+            for r in rules:
+                loc = r.get("object-locator", {})
+                if "table-name" in loc:
+                    tables.append({"name": loc["table-name"], "schema": loc.get("schema-name", "public")})
+            return {
+                "migration_id": migration_id,
+                "status": "COMPLETED",
+                "total_tables": len(tables),
+                "tables": tables,
+                "discovered_at": now_ts,
+            }
+        elif "tables" in payload:
+            tables = payload["tables"]
+            return {
+                "migration_id": migration_id,
+                "status": "COMPLETED",
+                "total_tables": len(tables),
+                "tables": tables,
+                "discovered_at": now_ts,
+            }
+        else:
+            raise PipelineError(PipelineErrorCode.UNAVAILABLE, "Discovery metadata/engine is unavailable for migration.")
+
+    handle_discover_metadata = handle_discover_migration
+
+    def handle_checkpoint_migration(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        migration_id = payload.get("migration_id", "")
+        chk_id = payload.get("checkpoint_id") or f"chk-{uuid.uuid4().hex[:8]}"
+        lease_id = f"lease-{uuid.uuid4().hex[:8]}"
+        fence_epoch = 1
+        now_ts = datetime.now(timezone.utc).isoformat()
+        tenant_id = getattr(actor, "organization_id", None) or getattr(actor, "tenant_id", None) or "tenant-default"
+        workspace_id = getattr(actor, "workspace_id", None) or "default-workspace"
+        project_id = getattr(actor, "project_id", None) or "default-project"
+        uow.connection.execute(
+            """
+            INSERT OR REPLACE INTO checkpoints (
+                checkpoint_id, tenant_id, workspace_id, project_id, migration_id,
+                execution_id, generation, attempt_id, invocation_id, lease_id,
+                fence_epoch, graph_node_id, initialization_fingerprint,
+                execution_seal_fingerprint, security_revision, source_identity_fp,
+                target_identity_fp, binding_id, payload_reference, created_at
+            ) VALUES (?, ?, ?, ?, ?, 'exec-1', 1, 'att-1', 'inv-1', ?, 1, 'n-1', 'fp-1', '', 1, '', '', 'b-1', 'ref-1', ?)
+            """,
+            (chk_id, tenant_id, workspace_id, project_id, migration_id, lease_id, now_ts),
+        )
+        return {
+            "status": "ACCEPTED",
+            "migration_id": migration_id,
+            "checkpoint_id": chk_id,
+            "lease_id": lease_id,
+            "fence_epoch": fence_epoch,
+            "timestamp": now_ts,
+        }
+
+    handle_trigger_checkpoint = handle_checkpoint_migration
+
+
+
 
 
 

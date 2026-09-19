@@ -1,197 +1,178 @@
 /**
  * AKAAL Monitoring — Part 4 of 4: Alerts & Incidents Test Suite
- * Comprehensive unit and integration verification for the Alerts & Incidents workspace,
- * reactive service stores, filtering projections, mutators, and navigation.
+ * Verifies the real IPC-backed integration: successful fetch population,
+ * fail-closed behavior when the backend is unavailable/rejects, and that
+ * absent capabilities (incident notes, notification retry) never fabricate
+ * local success.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { AlertsMonitoringService } from './services/alerts-monitoring.service';
+import { MonitoringIpcService, AlertRecordDTO, IncidentRecordDTO } from '../../core/services/ipc/monitoring.ipc';
+
+function makeAlert(overrides: Partial<AlertRecordDTO> = {}): AlertRecordDTO {
+  return {
+    alert_id: 'alt-01',
+    tenant_id: 'default',
+    signal_name: 'cdc_lag_seconds',
+    dedup_fingerprint: 'fp-1',
+    severity: 'CRITICAL',
+    lifecycle_state: 'OPEN',
+    message: 'CDC lag exceeded threshold',
+    rule_id: 'rule-1',
+    current_value: '420',
+    threshold_value: '300',
+    context_payload: null,
+    observation_count: 3,
+    suppression_expires_at: null,
+    acknowledged_by: null,
+    acknowledged_at: null,
+    resolved_at: null,
+    first_observed_at: '2026-09-17T00:00:00Z',
+    last_observed_at: '2026-09-17T00:05:00Z',
+    created_at: '2026-09-17T00:00:00Z',
+    ...overrides
+  };
+}
+
+function makeIncident(overrides: Partial<IncidentRecordDTO> = {}): IncidentRecordDTO {
+  return {
+    incident_id: 'INC-01',
+    tenant_id: 'default',
+    title: 'Core Ledger Migration degraded',
+    severity: 'SEV1',
+    status: 'OPEN',
+    summary: 'CDC lag breached SLA',
+    migration_id: 'mig-01',
+    node_id: null,
+    correlation_key: null,
+    owner_actor_id: null,
+    created_at: '2026-09-17T00:00:00Z',
+    updated_at: '2026-09-17T00:00:00Z',
+    resolved_at: null,
+    ...overrides
+  };
+}
+
+function makeFakeIpc(overrides: Partial<MonitoringIpcService> = {}): MonitoringIpcService {
+  const base = {
+    listAlerts: vi.fn().mockResolvedValue({ status: 'SUCCESS', data: { alerts: [makeAlert()] } }),
+    listIncidents: vi.fn().mockResolvedValue({ status: 'SUCCESS', data: { incidents: [makeIncident()] } }),
+    getIncidentTimeline: vi.fn().mockResolvedValue({ status: 'SUCCESS', data: { timeline: [] } }),
+    getIncident: vi.fn(),
+    getAlert: vi.fn(),
+    getFleetStatus: vi.fn(),
+    updateIncidentStatus: vi.fn().mockResolvedValue({
+      status: 'SUCCESS',
+      data: { incident: makeIncident({ status: 'RESOLVED' }) }
+    }),
+    acknowledgeAlert: vi.fn().mockResolvedValue({ status: 'SUCCESS', data: { alert: makeAlert({ lifecycle_state: 'ACKNOWLEDGED' }) } }),
+    resolveAlert: vi.fn().mockResolvedValue({ status: 'SUCCESS', data: { alert: makeAlert({ lifecycle_state: 'RESOLVED' }) } }),
+    suppressAlert: vi.fn().mockResolvedValue({ status: 'SUCCESS', data: { alert: makeAlert({ lifecycle_state: 'SUPPRESSED' }) } }),
+  };
+  return { ...base, ...overrides } as unknown as MonitoringIpcService;
+}
 
 describe('AlertsMonitoringService', () => {
-  let service: AlertsMonitoringService;
+  describe('Successful backend refresh', () => {
+    let service: AlertsMonitoringService;
 
-  beforeEach(() => {
-    service = new AlertsMonitoringService();
-  });
-
-  describe('Initialization and State Projection', () => {
-    it('should initialize with baseline mock data and correct summary metrics', () => {
-      const summary = service.summary();
-      expect(summary.total_active_alerts).toBeGreaterThan(0);
-      expect(summary.critical_alerts_count).toBeGreaterThanOrEqual(0);
-      expect(summary.active_incidents_count).toBeGreaterThan(0);
-      expect(summary.notification_success_rate_pct).toBe(94.2);
+    beforeEach(async () => {
+      service = new AlertsMonitoringService(makeFakeIpc());
+      await service.refreshTelemetry();
     });
 
-    it('should project 6 primary workspace tabs with contextual badge counters', () => {
+    it('should populate real alerts and incidents from the backend, not fixtures', () => {
+      expect(service.alerts().length).toBe(1);
+      expect(service.alerts()[0].id).toBe('alt-01');
+      expect(service.incidents().length).toBe(1);
+      expect(service.incidents()[0].id).toBe('INC-01');
+      expect(service.isUnavailable()).toBe(false);
+    });
+
+    it('should project 6 primary workspace tabs', () => {
       const tabs = service.tabDefinitions();
-      expect(tabs.length).toBe(6);
-      expect(tabs.map(t => t.key)).toEqual([
-        'active',
-        'evaluation',
-        'incidents',
-        'correlation',
-        'notifications',
-        'timeline'
-      ]);
-
-      const activeTab = tabs.find(t => t.key === 'active');
-      expect(activeTab?.badgeCount).toBeGreaterThan(0);
+      expect(tabs.map(t => t.key)).toEqual(['active', 'evaluation', 'incidents', 'correlation', 'notifications', 'timeline']);
     });
 
-    it('should correctly select default alert and incident', () => {
-      const selectedAlert = service.selectedAlert();
-      expect(selectedAlert).toBeDefined();
-      expect(selectedAlert?.id).toBe('alt-01');
-
-      const selectedInc = service.selectedIncident();
-      expect(selectedInc).toBeDefined();
-      expect(selectedInc?.id).toBe('INC-2026-0841');
-    });
-  });
-
-  describe('Alerts Filtering and Lifecycle Mutations', () => {
-    it('should filter alerts by search term across title and signal', () => {
-      service.alertSearchQuery.set('Aurora');
-      const filtered = service.filteredAlerts();
-      expect(filtered.length).toBeGreaterThan(0);
-      expect(filtered.every(a => 
-        a.title.toLowerCase().includes('aurora') || 
-        a.affected_entity_name.toLowerCase().includes('aurora')
-      )).toBe(true);
+    it('should truthfully report correlation/notifications/evaluation as unavailable rather than fabricate data', () => {
+      expect(service.correlation().signal_chain.length).toBe(0);
+      expect(service.correlation().correlation_summary).toContain('not available');
+      expect(service.notifications().length).toBe(0);
+      expect(service.evaluationRules().length).toBe(0);
     });
 
-    it('should filter alerts by severity level', () => {
+    it('should filter alerts by search term and severity', () => {
+      service.alertSearchQuery.set('cdc_lag');
+      expect(service.filteredAlerts().length).toBe(1);
       service.alertSeverityFilter.set('CRITICAL');
-      const filtered = service.filteredAlerts();
-      expect(filtered.every(a => a.severity === 'CRITICAL')).toBe(true);
+      expect(service.filteredAlerts().every(a => a.severity === 'CRITICAL')).toBe(true);
     });
 
-    it('should filter alerts by lifecycle state', () => {
-      service.alertStateFilter.set('FIRING');
-      const filtered = service.filteredAlerts();
-      expect(filtered.every(a => a.state === 'FIRING')).toBe(true);
+    it('should acknowledge, suppress, and resolve an alert via real backend calls and reflect the authoritative result', async () => {
+      await service.acknowledgeAlert('alt-01');
+      expect(service.alerts().find(a => a.id === 'alt-01')?.state).toBe('ACKNOWLEDGED');
+
+      await service.suppressAlert('alt-01');
+      expect(service.alerts().find(a => a.id === 'alt-01')?.state).toBe('SUPPRESSED');
+
+      await service.resolveAlert('alt-01');
+      expect(service.alerts().find(a => a.id === 'alt-01')?.state).toBe('RESOLVED');
     });
 
-    it('should acknowledge, suppress, and resolve active alerts', () => {
-      const targetAlertId = 'alt-01';
-      
-      // Acknowledge
-      service.acknowledgeAlert(targetAlertId);
-      let alert = service.alerts().find(a => a.id === targetAlertId);
-      expect(alert?.state).toBe('ACKNOWLEDGED');
-
-      // Suppress
-      service.suppressAlert(targetAlertId);
-      alert = service.alerts().find(a => a.id === targetAlertId);
-      expect(alert?.state).toBe('SUPPRESSED');
-
-      // Resolve
-      service.resolveAlert(targetAlertId);
-      alert = service.alerts().find(a => a.id === targetAlertId);
-      expect(alert?.state).toBe('RESOLVED');
+    it('should update incident status via the real backend command and reflect the authoritative result', async () => {
+      await service.updateIncidentStatus('INC-01', 'RESOLVED');
+      expect(service.incidents().find(i => i.id === 'INC-01')?.status).toBe('RESOLVED');
     });
   });
 
-  describe('Evaluation Rules and Cadence', () => {
-    it('should filter rules by text search', () => {
-      service.ruleSearchQuery.set('CDC');
-      const filtered = service.filteredRules();
-      expect(filtered.length).toBeGreaterThan(0);
-      expect(filtered.every(r => 
-        r.name.toLowerCase().includes('cdc') || 
-        r.signal.toLowerCase().includes('cdc') ||
-        r.description.toLowerCase().includes('cdc')
-      )).toBe(true);
+  describe('Backend failure — fail closed, never fabricate healthy state', () => {
+    it('should mark the service unavailable and keep data empty when the backend errors', async () => {
+      const fakeIpc = makeFakeIpc({
+        listAlerts: vi.fn().mockResolvedValue({ status: 'ERROR', error: 'ENGINE_DISCONNECTED' })
+      });
+      const service = new AlertsMonitoringService(fakeIpc);
+      await service.refreshTelemetry();
+
+      expect(service.isUnavailable()).toBe(true);
+      expect(service.errorMessage()).toBe('ENGINE_DISCONNECTED');
+      expect(service.alerts().length).toBe(0);
+      expect(service.incidents().length).toBe(0);
     });
 
-    it('should filter rules by evaluation state', () => {
-      service.ruleStateFilter.set('FIRING');
-      const filtered = service.filteredRules();
-      expect(filtered.every(r => r.result_state === 'FIRING')).toBe(true);
-    });
-  });
+    it('should not mutate local alert state when a mutation is rejected by the backend', async () => {
+      const fakeIpc = makeFakeIpc({
+        acknowledgeAlert: vi.fn().mockResolvedValue({ status: 'ERROR', error: 'PERMISSION_DENIED' })
+      });
+      const service = new AlertsMonitoringService(fakeIpc);
+      await service.refreshTelemetry();
 
-  describe('Incidents Workbench and Collaborative Notes', () => {
-    it('should transition incident lifecycle status and append audit timeline event', () => {
-      const incidentId = 'INC-2026-0841';
-      const initialInc = service.incidents().find(i => i.id === incidentId);
-      const initialTimelineCount = initialInc?.timeline.length || 0;
-
-      service.updateIncidentStatus(incidentId, 'RESOLVED');
-      
-      const updatedInc = service.incidents().find(i => i.id === incidentId);
-      expect(updatedInc?.status).toBe('RESOLVED');
-      expect(updatedInc?.timeline.length).toBe(initialTimelineCount + 1);
-      expect(updatedInc?.timeline[0].event_type).toBe('INCIDENT_RESOLVED');
-    });
-
-    it('should post operational notes to the selected incident', () => {
-      const incidentId = 'INC-2026-0841';
-      const initialNotesCount = service.incidents().find(i => i.id === incidentId)?.operational_notes.length || 0;
-
-      const noteText = 'Target RDS max_connections parameter verified at 5000.';
-      service.addIncidentNote(incidentId, noteText);
-
-      const updatedInc = service.incidents().find(i => i.id === incidentId);
-      expect(updatedInc?.operational_notes.length).toBe(initialNotesCount + 1);
-      expect(updatedInc?.operational_notes[0].content).toBe(noteText);
-      expect(updatedInc?.operational_notes[0].author).toBe('Lead SRE Operator');
+      await service.acknowledgeAlert('alt-01');
+      expect(service.alerts().find(a => a.id === 'alt-01')?.state).toBe('FIRING');
+      expect(service.lastMutationError()).toBe('PERMISSION_DENIED');
     });
   });
 
-  describe('Signal Correlation and Topology', () => {
-    it('should provide multi-tier signal chain nodes from root symptom to active incident', () => {
-      const correlation = service.correlation();
-      expect(correlation.signal_chain.length).toBe(5);
-      expect(correlation.signal_chain[0].level).toBe('Primary Signal');
-      expect(correlation.signal_chain[2].level).toBe('Active Incident');
+  describe('Absent capabilities — must never fabricate success', () => {
+    let service: AlertsMonitoringService;
+
+    beforeEach(async () => {
+      service = new AlertsMonitoringService(makeFakeIpc());
+      await service.refreshTelemetry();
     });
 
-    it('should contain correlated topology entities with health and deep link info', () => {
-      const entities = service.correlation().related_entities;
-      expect(entities.length).toBeGreaterThan(0);
-      expect(entities.every(e => e.deep_link && e.health)).toBe(true);
-    });
-  });
-
-  describe('Notification Dispatch and Retry Mutators', () => {
-    it('should filter notifications by status', () => {
-      service.notificationStatusFilter.set('RETRYING');
-      const filtered = service.filteredNotifications();
-      expect(filtered.every(n => n.status === 'RETRYING')).toBe(true);
+    it('should not append a fake incident note locally', async () => {
+      const before = service.incidents().find(i => i.id === 'INC-01')?.operational_notes.length ?? 0;
+      await service.addIncidentNote('INC-01', 'attempted note');
+      const after = service.incidents().find(i => i.id === 'INC-01')?.operational_notes.length ?? 0;
+      expect(after).toBe(before);
+      expect(service.lastMutationError()).toContain('not available');
     });
 
-    it('should retry a failed or retrying notification dispatch and transition to DELIVERED', () => {
-      const retryingNotif = service.notifications().find(n => n.status === 'RETRYING');
-      expect(retryingNotif).toBeDefined();
-
-      if (retryingNotif) {
-        service.retryNotification(retryingNotif.id);
-        const updated = service.notifications().find(n => n.id === retryingNotif.id);
-        expect(updated?.status).toBe('DELIVERED');
-        expect(updated?.response_code).toBe(200);
-        expect(updated?.retry_count).toBe(retryingNotif.retry_count + 1);
-      }
-    });
-  });
-
-  describe('Operational Timeline Stream', () => {
-    it('should filter timeline events by category', () => {
-      service.timelineCategoryFilter.set('ALERT_FIRING');
-      const filtered = service.filteredTimeline();
-      expect(filtered.every(t => t.category === 'ALERT_FIRING')).toBe(true);
-    });
-
-    it('should filter timeline events by search keyword', () => {
-      service.timelineSearchQuery.set('Kafka');
-      const filtered = service.filteredTimeline();
-      expect(filtered.length).toBeGreaterThan(0);
-      expect(filtered.every(t => 
-        t.summary.toLowerCase().includes('kafka') || 
-        t.entity_name.toLowerCase().includes('kafka') ||
-        (t.payload_preview && t.payload_preview.toLowerCase().includes('kafka'))
-      )).toBe(true);
+    it('should not fabricate a delivered notification retry', async () => {
+      await service.retryNotification('notif-1');
+      expect(service.notifications().length).toBe(0);
+      expect(service.lastMutationError()).toContain('not available');
     });
   });
 });

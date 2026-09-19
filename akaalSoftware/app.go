@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"os/exec"
 	"runtime"
 	"sync"
 	"time"
@@ -22,10 +23,11 @@ const (
 
 // App struct manages Wails native bridge and decoupled socket client
 type App struct {
-	ctx        context.Context
-	pipeConn   net.Conn
-	mu         sync.Mutex
-	isConnected bool
+	ctx              context.Context
+	pipeConn         net.Conn
+	mu               sync.Mutex
+	isConnected      bool
+	backendBridgeCmd *exec.Cmd
 }
 
 // NewApp creates a new App application struct
@@ -34,15 +36,25 @@ func NewApp() *App {
 }
 
 // startup is called when the Wails desktop window initializes.
-// It establishes a client connection to the independent AKAAL Engine Named Pipe / Domain Socket.
+// It launches the canonical akaalIPC desktop transport bridge as a child
+// process (generic, domain-agnostic -- see backend_bridge.go) so the
+// packaged desktop app does not require a manual backend launch, then
+// establishes a client connection to it over the existing Named Pipe / Domain Socket.
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+	if cmd, err := startBackendBridge(); err != nil {
+		fmt.Printf("[Backend Bridge] Could not auto-start canonical akaalIPC bridge: %v\n", err)
+	} else {
+		a.backendBridgeCmd = cmd
+	}
 	go a.maintainSocketConnection()
 }
 
 // shutdown is called when the Wails desktop UI window closes.
 // CRITICAL: UI lifecycle is strictly decoupled from migration execution lifecycle.
-// Closing the UI disconnects the socket client, but DOES NOT kill running migrations.
+// Closing the UI disconnects the socket client and stops the local transport
+// bridge process, but DOES NOT kill running migrations -- those are owned by
+// the canonical backend authorities, not by this desktop process.
 func (a *App) shutdown(ctx context.Context) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -51,6 +63,8 @@ func (a *App) shutdown(ctx context.Context) {
 		a.pipeConn = nil
 	}
 	a.isConnected = false
+	stopBackendBridge(a.backendBridgeCmd)
+	a.backendBridgeCmd = nil
 }
 
 // maintainSocketConnection handles initial connect and automatic reconnection to the engine daemon
@@ -213,4 +227,3 @@ func (a *App) ResetMigrationHomeDemoState() error {
 	}
 	return store.ResetDemoState()
 }
-

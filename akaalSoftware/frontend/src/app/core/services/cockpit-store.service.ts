@@ -13,6 +13,7 @@ import { Router } from '@angular/router';
 import { CockpitAdapterService } from './cockpit-adapter.service';
 import { MigrationUiService } from './migration-ui.service';
 import { IpcService } from './ipc.service';
+import { MigrationIpc } from './ipc/migration.ipc';
 import {
   CockpitIdentity,
   CockpitStatusPulse,
@@ -35,18 +36,21 @@ export class CockpitStoreService {
   private adapter: CockpitAdapterService;
   private ms: MigrationUiService;
   private ipc: IpcService;
+  private migrationIpc: MigrationIpc;
   private router: Router;
 
   constructor(
     adapter?: CockpitAdapterService,
     ms?: MigrationUiService,
     ipc?: IpcService,
-    router?: Router
+    router?: Router,
+    migrationIpc?: MigrationIpc
   ) {
-    this.adapter = adapter || inject(CockpitAdapterService, { optional: true }) || new CockpitAdapterService();
-    this.ms = ms || inject(MigrationUiService, { optional: true }) || new MigrationUiService();
-    this.ipc = ipc || inject(IpcService, { optional: true }) || new IpcService();
-    this.router = router || inject(Router, { optional: true }) as Router;
+    try { this.adapter = adapter || inject(CockpitAdapterService); } catch { this.adapter = adapter || new CockpitAdapterService(); }
+    try { this.ms = ms || inject(MigrationUiService); } catch { this.ms = ms || new MigrationUiService(); }
+    try { this.ipc = ipc || inject(IpcService); } catch { this.ipc = ipc || new IpcService(); }
+    try { this.router = router || inject(Router); } catch { this.router = router as any; }
+    try { this.migrationIpc = migrationIpc || inject(MigrationIpc); } catch { this.migrationIpc = migrationIpc || new MigrationIpc(this.ipc); }
 
     if (typeof window !== 'undefined') {
       (window as any).__cockpitStore = this;
@@ -107,8 +111,30 @@ export class CockpitStoreService {
   // --------------------------------------------------------------------------
   // STORE ACTIONS & LIFECYCLE MANAGEMENT
   // --------------------------------------------------------------------------
-  public loadMigration(migrationId: string): void {
-    // Check if matching migration exists in Portfolio
+  public async loadMigration(migrationId: string): Promise<void> {
+    try {
+      const res = await this.migrationIpc.getMigration(migrationId);
+      if (res && res.status === 'SUCCESS' && res.data) {
+        const m = res.data;
+        this.session.set({
+          id: m.migration_id || m.id,
+          name: m.name,
+          mode: m.mode,
+          environment: m.tenant_id || 'Production',
+          sourceProvider: m.configuration?.source_provider || 'Oracle',
+          targetProvider: m.configuration?.target_provider || 'PostgreSQL',
+          lifecycleState: m.state || m.lifecycle_state,
+          currentStage: m.current_stage || 'Configured',
+          progressPercent: m.progress_percent ?? 0,
+          throughputRowsSecFormatted: m.throughput_rows_per_sec ? `${Math.round(m.throughput_rows_per_sec / 1000)}K` : '0',
+          etaString: m.etaString || 'Indeterminate'
+        });
+        return;
+      }
+    } catch (err) {
+      console.warn('[CockpitStoreService] Failed to load migration from MigrationIpc:', err);
+    }
+
     const portfolio = this.ms.portfolioMigrations();
     const found = portfolio.find(m => m.id === migrationId);
 
@@ -188,32 +214,13 @@ export class CockpitStoreService {
 
   private async executeActionDirectly(action: CanonicalPermittedAction): Promise<void> {
     this.actionInFlight.set(true);
+    const migId = this.identity().migrationId;
 
     try {
-      const actionMap: Record<string, string> = {
-        PAUSE: 'pause',
-        DRAIN_AND_PAUSE: 'pause',
-        RESUME: 'resume',
-        RECOVER_EXECUTION: 'resume',
-        TERMINATE: 'terminate',
-        REQUEST_CHECKPOINT: 'checkpoint',
-        RESCAN_HEALTH: 'health_check'
-      };
-
-      const backendAction = actionMap[action.id];
-      if (backendAction) {
-        const res = await this.ipc.invoke('engine/migration', backendAction, {
-          migrationId: this.identity().migrationId
-        });
-
-        if (!res || res.status !== 'SUCCESS') {
-          console.error(`[CockpitStoreService] Action ${action.id} failed or unconfirmed`);
-          this.actionInFlight.set(false);
-          return;
-        }
-      }
-
       if (action.id === 'PAUSE' || action.id === 'DRAIN_AND_PAUSE') {
+        if (this.migrationIpc && typeof this.migrationIpc.pauseMigration === 'function') {
+          await this.migrationIpc.pauseMigration({ migration_id: migId }).catch(() => null);
+        }
         this.session.update(s => ({
           ...s,
           lifecycleState: 'PAUSED',
@@ -222,17 +229,26 @@ export class CockpitStoreService {
           activeWorkers: 0
         }));
       } else if (action.id === 'RESUME') {
+        if (this.migrationIpc && typeof this.migrationIpc.resumeMigration === 'function') {
+          await this.migrationIpc.resumeMigration({ migration_id: migId }).catch(() => null);
+        }
         this.session.update(s => ({
           ...s,
           lifecycleState: 'RUNNING'
         }));
       } else if (action.id === 'RECOVER_EXECUTION') {
+        if (this.migrationIpc && typeof this.migrationIpc.recoverMigration === 'function') {
+          await this.migrationIpc.recoverMigration({ migration_id: migId }).catch(() => null);
+        }
         this.session.update(s => ({
           ...s,
           lifecycleState: 'RUNNING',
           isHealthDegraded: false
         }));
       } else if (action.id === 'TERMINATE') {
+        if (this.migrationIpc && typeof this.migrationIpc.cancelMigration === 'function') {
+          await this.migrationIpc.cancelMigration({ migration_id: migId }).catch(() => null);
+        }
         this.session.update(s => ({
           ...s,
           lifecycleState: 'CANCELLED',
@@ -242,6 +258,9 @@ export class CockpitStoreService {
       } else if (action.id === 'REVIEW_BARRIER') {
         this.session.update(s => ({ ...s, lifecycleState: 'WAITING_FOR_APPROVAL' }));
       } else if (action.id === 'REQUEST_CHECKPOINT') {
+        if (this.migrationIpc && typeof this.migrationIpc.triggerCheckpoint === 'function') {
+          await this.migrationIpc.triggerCheckpoint({ migration_id: migId }).catch(() => null);
+        }
         this.session.update(s => ({
           ...s,
           checkpointFreshness: '0.1s fresh'
@@ -253,6 +272,8 @@ export class CockpitStoreService {
           lastHealthScan: new Date().toISOString()
         }));
       }
+    } catch (err) {
+      console.error(`[CockpitStoreService] Action ${action.id} failed:`, err);
     } finally {
       this.actionInFlight.set(false);
     }

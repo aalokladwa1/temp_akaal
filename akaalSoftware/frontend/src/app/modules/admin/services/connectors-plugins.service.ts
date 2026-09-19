@@ -3,7 +3,8 @@
  * Authoritative presentation service backed by canonical provider catalog and extension registry.
  */
 
-import { Injectable, signal, computed } from '@angular/core';
+import { Injectable, signal, computed, Optional, inject } from '@angular/core';
+import { AdministrationIpcService } from '../../../core/services/ipc/administration.ipc';
 import {
   ConnectorDefinition,
   ExternalConnectorRegistration,
@@ -15,6 +16,38 @@ import {
   providedIn: 'root'
 })
 export class ConnectorsPluginsService {
+  private adminIpc?: AdministrationIpcService;
+
+  constructor(@Optional() adminIpc?: AdministrationIpcService) {
+    if (adminIpc) {
+      this.adminIpc = adminIpc;
+    } else {
+      try {
+        this.adminIpc = inject(AdministrationIpcService, { optional: true }) || undefined;
+      } catch {
+        this.adminIpc = undefined;
+      }
+    }
+    this.loadFromBackend();
+  }
+
+  public async loadFromBackend(): Promise<void> {
+    if (!this.adminIpc) return;
+    try {
+      const [connResp, plugResp] = await Promise.all([
+        this.adminIpc.listConnectors(),
+        this.adminIpc.listPlugins(),
+      ]);
+      if (connResp.status === 'SUCCESS' && connResp.data) {
+        // Can merge connectors
+      }
+      if (plugResp.status === 'SUCCESS' && plugResp.data) {
+        // Can merge plugins
+      }
+    } catch {
+      // Offline fallback
+    }
+  }
   // Built-in Connectors (Sample populated from canonical 49-provider catalog)
   public connectors = signal<ConnectorDefinition[]>([
     {
@@ -310,6 +343,13 @@ export class ConnectorsPluginsService {
       status: 'ACTIVE'
     };
     this.externalConnectors.update(list => [newRecord, ...list]);
+    if (this.adminIpc) {
+      this.adminIpc.createConnector({
+        connector_id: newRecord.id,
+        name: newRecord.name,
+        type: newRecord.providerIdentifier || 'EXTERNAL',
+      }).catch(() => {});
+    }
   }
 
   public togglePluginStatus(id: string): void {
@@ -324,5 +364,8 @@ export class ConnectorsPluginsService {
         return p;
       })
     );
+    if (this.adminIpc) {
+      this.adminIpc.installPlugin({ plugin_id: id }).catch(() => {});
+    }
   }
 }

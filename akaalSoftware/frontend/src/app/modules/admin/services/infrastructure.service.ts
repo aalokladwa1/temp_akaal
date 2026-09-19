@@ -3,7 +3,8 @@
  * Authoritative presentation service for Cloud Environments, Compute, Connectivity, Placement, and Automation.
  */
 
-import { Injectable, signal } from '@angular/core';
+import { Injectable, signal, Optional, inject } from '@angular/core';
+import { AdministrationIpcService } from '../../../core/services/ipc/administration.ipc';
 import {
   CloudEnvironment,
   KubernetesClusterConfig,
@@ -22,6 +23,32 @@ import {
   providedIn: 'root'
 })
 export class InfrastructureService {
+  private adminIpc?: AdministrationIpcService;
+
+  constructor(@Optional() adminIpc?: AdministrationIpcService) {
+    if (adminIpc) {
+      this.adminIpc = adminIpc;
+    } else {
+      try {
+        this.adminIpc = inject(AdministrationIpcService, { optional: true }) || undefined;
+      } catch {
+        this.adminIpc = undefined;
+      }
+    }
+    this.loadFromBackend();
+  }
+
+  public async loadFromBackend(): Promise<void> {
+    if (!this.adminIpc) return;
+    try {
+      const resp = await this.adminIpc.listInfraAgents();
+      if (resp.status === 'SUCCESS' && resp.data) {
+        // Enriched infra state
+      }
+    } catch {
+      // Offline fallback
+    }
+  }
   // Cloud Environments
   public cloudEnvironments = signal<CloudEnvironment[]>([
     {

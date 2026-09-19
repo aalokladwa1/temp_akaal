@@ -304,17 +304,17 @@ describe('Step 9 — Review, Schedule & Initialize Master Test Suite', () => {
 
       // Check IPC call sequence
       expect(ipcInvokeSpy).toHaveBeenCalledWith(
-        'engine/migration',
-        'initialize',
+        'pipeline',
+        'migration.initialize',
         expect.objectContaining({
-          timingMode: 'RUN_NOW'
+          timing_mode: 'RUN_NOW'
         })
       );
       expect(ipcInvokeSpy).toHaveBeenCalledWith(
-        'engine/migration',
-        'start',
+        'pipeline',
+        'migration.start',
         expect.objectContaining({
-          migrationId: expect.any(String)
+          migration_id: expect.any(String)
         })
       );
 
@@ -339,15 +339,15 @@ describe('Step 9 — Review, Schedule & Initialize Master Test Suite', () => {
 
       // Check IPC call sequence
       expect(ipcInvokeSpy).toHaveBeenCalledWith(
-        'engine/migration',
-        'initialize',
+        'pipeline',
+        'migration.initialize',
         expect.objectContaining({
-          timingMode: 'SCHEDULE_LATER'
+          timing_mode: 'SCHEDULE_LATER'
         })
       );
       expect(ipcInvokeSpy).toHaveBeenCalledWith(
-        'engine/schedule',
-        'create',
+        'pipeline',
+        'schedule.create',
         expect.objectContaining({
           timezone: expect.any(String)
         })

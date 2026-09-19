@@ -284,44 +284,6 @@ export interface IntegrationSettings {
 }
 
 // ============================================================================
-// PART 3: AI & INTELLIGENCE
-// ============================================================================
-
-export type AssistanceProactivityMode = 'ON_DEMAND' | 'ADVISORY';
-export type RecommendationConfidenceLevel = 'HIGH' | 'STANDARD';
-
-export interface AiIntelligenceSettings {
-  // Assistant Configuration
-  assistantEnabled: boolean;
-  proactivityMode: AssistanceProactivityMode;
-  governedProviderDisplay: string; // 'Platform Governed Service Gateway'
-  strictCredentialSanitization: boolean; // Locked true: Sanitizes secrets and credentials before model inference
-  defaultRequestTokenBudget: number; // 4000 tokens (bounded preference)
-  workspaceMonthlyCostCapDisplay: string; // Read-only governed indicator
-
-  // Planning Assistance
-  planSynthesisAssistance: boolean;
-  partitionStrategyRecommendation: boolean;
-  advisoryPlanConfirmationRequired: boolean; // Locked true: AI suggestions require human approval
-
-  // Optimization
-  workloadAutoTuningSuggestions: boolean;
-  concurrencyRecommendationAdvisory: boolean;
-
-  // RCA / Diagnostics
-  failureRcaEnabled: boolean;
-  redactSensitiveDataInTraces: boolean; // Locked true: Error traces scrubbed before model analysis
-
-  // Recommendation Policies
-  recommendationConfidenceLevel: RecommendationConfidenceLevel;
-  mandatoryHumanReviewEnforced: boolean; // Locked true: Autonomous execution disabled
-
-  // Predictive Operations
-  cdcBufferSaturationPrediction: boolean;
-  throughputAnomalyDetection: boolean;
-}
-
-// ============================================================================
 // PART 4: LOGGING & DIAGNOSTICS
 // ============================================================================
 

@@ -72,18 +72,6 @@ const CATEGORY_MAP: Record<string, CategoryInfo> = {
       'Custom webhook testing payload generator'
     ]
   },
-  'ai-intelligence': {
-    title: 'AI & Intelligence',
-    scope: 'Model Routing & Data Scrubbing Policy',
-    icon: 'bot',
-    description: 'Workstation generative assistance policies, automated migration schema recommendations, and query optimization guidance.',
-    plannedFeatures: [
-      'Local vs Enterprise Gateway model endpoint selection',
-      'Mandatory client-side schema PII anonymization prior to inference',
-      'SQL dialect conversion suggestion confidence threshold',
-      'Offline heuristic fallback mode'
-    ]
-  },
   'logging': {
     title: 'Logging & Diagnostics',
     scope: 'Telemetry Verbosity & Local Log Files',

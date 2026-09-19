@@ -1,5 +1,6 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
 import { IpcService } from './ipc.service';
+import { DashboardIpc } from './ipc/dashboard.ipc';
 import { DashboardSummary, DashboardStatus } from '../models/dashboard.models';
 import { generateGreetingContext, GreetingContext } from '../tokens/phrase.generator';
 
@@ -25,9 +26,11 @@ export function isValidDashboardSummary(data: any): data is DashboardSummary {
 })
 export class DashboardService {
   private ipc: IpcService;
+  private dashboardIpc: DashboardIpc;
 
-  constructor(ipc?: IpcService) {
-    this.ipc = ipc || (inject(IpcService, { optional: true }) as IpcService);
+  constructor(ipc?: IpcService, dashboardIpc?: DashboardIpc) {
+    this.ipc = ipc || new IpcService();
+    this.dashboardIpc = dashboardIpc || new DashboardIpc(this.ipc);
   }
 
   public userName = signal<string>('Aalok');
@@ -59,7 +62,7 @@ export class DashboardService {
         return;
       }
 
-      const res = await this.ipc.invoke<DashboardSummary>('dashboard', 'get_estate_summary');
+      const res = await this.dashboardIpc.getEstateSummary();
       if (res.status === 'SUCCESS' && isValidDashboardSummary(res.data)) {
         const normalized: DashboardSummary = {
           runningCount: res.data.runningCount ?? null,

@@ -1,4 +1,6 @@
-import { Injectable, signal, computed } from '@angular/core';
+import { Injectable, signal, computed, inject } from '@angular/core';
+import { MigrationIpc } from './ipc/migration.ipc';
+import { IpcService } from './ipc.service';
 import {
   MigrationHomeRow,
   ProjectHomeRow,
@@ -15,6 +17,9 @@ export interface RelativeTimeFormatted {
   providedIn: 'root'
 })
 export class MigrationHomeService {
+  private migrationIpc: MigrationIpc;
+  private ipc: IpcService;
+
   // Signals for state storage
   public migrations = signal<MigrationHomeRow[]>([]);
   public projects = signal<ProjectHomeRow[]>([]);
@@ -66,7 +71,9 @@ export class MigrationHomeService {
     return this.calculateDynamicHeadline(migs, acts);
   });
 
-  constructor() {
+  constructor(migrationIpc?: MigrationIpc, ipc?: IpcService) {
+    try { this.ipc = ipc || inject(IpcService); } catch { this.ipc = ipc || new IpcService(); }
+    try { this.migrationIpc = migrationIpc || inject(MigrationIpc); } catch { this.migrationIpc = migrationIpc || new MigrationIpc(this.ipc); }
     this.loadState();
   }
 
@@ -76,34 +83,61 @@ export class MigrationHomeService {
     this.errorMessage.set('');
 
     try {
-      const wailsApp = typeof window !== 'undefined' ? (window as any).go?.main?.App : undefined;
+      // 1. Try canonical MigrationIpc northbound calls
+      const [migRes, projRes, auditRes] = await Promise.all([
+        this.migrationIpc.listMigrations().catch(() => null),
+        this.migrationIpc.listProjects().catch(() => null),
+        this.migrationIpc.getAuditTrail().catch(() => null)
+      ]);
 
-      if (wailsApp && typeof wailsApp.GetMigrationHomeMigrations === 'function') {
-        const [sum, migs, projs, acts] = await Promise.all([
-          wailsApp.GetMigrationHomeSummary(),
-          wailsApp.GetMigrationHomeMigrations(),
-          wailsApp.GetMigrationHomeProjects(),
-          wailsApp.GetMigrationHomeActivities()
-        ]);
-
-        if (Array.isArray(migs) && migs.length > 0) {
-          this.summary.set(sum);
-          this.migrations.set(migs);
-          this.projects.set(Array.isArray(projs) ? projs : []);
-          this.activities.set(Array.isArray(acts) ? acts : []);
-          this.isUnavailable.set(false);
-        } else {
-          this.loadDeterministicPrototypeFallback();
-          this.isUnavailable.set(false);
-        }
+      if (migRes && migRes.status === 'SUCCESS' && migRes.data?.migrations) {
+        const canonicalMigs: MigrationHomeRow[] = migRes.data.migrations.map((m: any) => ({
+          id: m.migration_id || m.id,
+          name: m.name,
+          mode: m.mode,
+          lifecycle_state: m.state || m.lifecycle_state,
+          current_stage: m.current_stage || 'Configured',
+          progress_percent: m.progress_percent || 0,
+          updated_at: m.updated_at || new Date().toISOString()
+        }));
+        this.migrations.set(canonicalMigs);
       } else {
-        this.loadDeterministicPrototypeFallback();
-        this.isUnavailable.set(false);
+        this.migrations.set([]);
       }
-    } catch (err: any) {
-      console.warn('[MigrationHomeService] Wails backend call failed, loading fallback state:', err);
-      this.loadDeterministicPrototypeFallback();
+
+      if (projRes && projRes.status === 'SUCCESS' && projRes.data?.projects) {
+        const canonicalProjs: ProjectHomeRow[] = projRes.data.projects.map((p: any) => ({
+          id: p.project_id || p.id,
+          name: p.name,
+          status: p.status,
+          target_date: p.updated_at
+        }));
+        this.projects.set(canonicalProjs);
+      } else {
+        this.projects.set([]);
+      }
+
+      if (auditRes && auditRes.status === 'SUCCESS' && auditRes.data?.entries) {
+        const canonicalActs: ActivityHomeRow[] = auditRes.data.entries.map((a: any) => ({
+          id: a.audit_id || a.id,
+          timestamp: a.timestamp,
+          actor_name: a.actor_id || 'System',
+          action: a.action,
+          target: a.resource_id
+        }));
+        this.activities.set(canonicalActs);
+      } else {
+        this.activities.set([]);
+      }
+
       this.isUnavailable.set(false);
+    } catch (err: any) {
+      console.warn('[MigrationHomeService] Backend call failed:', err);
+      this.migrations.set([]);
+      this.projects.set([]);
+      this.activities.set([]);
+      this.isUnavailable.set(true);
+      this.errorMessage.set(err?.message || 'Migration operations service unavailable.');
     } finally {
       this.isLoading.set(false);
     }

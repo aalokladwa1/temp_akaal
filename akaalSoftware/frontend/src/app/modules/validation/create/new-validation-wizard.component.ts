@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { ValidationUiService } from '../../../core/services/validation-ui.service';
 import { IpcService } from '../../../core/services/ipc.service';
+import { MigrationIpc } from '../../../core/services/ipc/migration.ipc';
 import { LucideIconComponent } from '../../../shared/components/lucide-icon.component';
 import { Step1DefinitionComponent } from './steps/step1-definition.component';
 import { Step2SourceComponent } from './steps/step2-source.component';
@@ -293,8 +294,9 @@ export class NewValidationWizardComponent implements OnInit, OnDestroy {
   });
 
   public ipc: IpcService;
+  public migrationIpc: MigrationIpc;
 
-  constructor(vs?: ValidationUiService, router?: Router, route?: ActivatedRoute, ipc?: IpcService) {
+  constructor(vs?: ValidationUiService, router?: Router, route?: ActivatedRoute, ipc?: IpcService, migrationIpc?: MigrationIpc) {
     if (vs) {
       this.vs = vs;
     } else {
@@ -317,6 +319,12 @@ export class NewValidationWizardComponent implements OnInit, OnDestroy {
       this.ipc = ipc;
     } else {
       try { this.ipc = inject(IpcService); } catch { this.ipc = new IpcService(); }
+    }
+
+    if (migrationIpc) {
+      this.migrationIpc = migrationIpc;
+    } else {
+      try { this.migrationIpc = inject(MigrationIpc); } catch { this.migrationIpc = new MigrationIpc(this.ipc); }
     }
   }
 
@@ -440,8 +448,8 @@ export class NewValidationWizardComponent implements OnInit, OnDestroy {
     const draft = this.vs.newValidationDraft();
 
     try {
-      // 1. Create Mission via IPC
-      const createRes = await this.ipc.invoke('validation', 'create_mission', {
+      // 1. Create Mission via MigrationIpc
+      const createRes = await this.migrationIpc.createValidationMission({
         name: draft.name || 'Untitled Validation Mission',
         source_id: draft.sourceDatabase || draft.sourceHost || 'src-1',
         target_id: draft.targetDatabase || draft.targetHost || 'tgt-1',
@@ -459,44 +467,15 @@ export class NewValidationWizardComponent implements OnInit, OnDestroy {
 
       const missionId = createRes.data?.mission_id || `miss_${Date.now()}`;
 
-      // 2. Establish Baseline via IPC if configured
-      if (draft.baselineIntent) {
-        if (draft.baselineIntent === 'MAINTENANCE_COORDINATED') {
-          await this.ipc.invoke('validation', 'establish_baseline', {
-            mission_id: missionId,
-            baseline_type: 'MAINTENANCE_COORDINATED',
-            condition: draft.maintenanceCondition || 'WRITES_STOPPED_DECLARED',
-            operator_declaration: 'Operator declared operational condition prior to initialization'
-          });
-        } else if (draft.baselineIntent === 'INHERITED_MIGRATION' || draft.validationContext === 'EXISTING_PROJECT') {
-          await this.ipc.invoke('validation', 'establish_baseline', {
-            mission_id: missionId,
-            baseline_type: 'INHERITED_MIGRATION',
-            migration_id: draft.projectId || 'mig-1',
-            checkpoint_id: draft.backendBaselineId || 'chk-1'
-          });
-        } else if (draft.baselineIntent === 'EXTERNAL_REPLICATION') {
-          await this.ipc.invoke('validation', 'establish_baseline', {
-            mission_id: missionId,
-            baseline_type: 'EXTERNAL_REPLICATION',
-            provider: (draft.sourceProvider || 'ORACLE').toUpperCase(),
-            position_type: draft.externalPositionType || 'ORACLE_SCN',
-            position_value: draft.externalPositionValue || '123456'
-          });
-        }
-      }
-
-      // 3. Initialize Mission via IPC
-      await this.ipc.invoke('validation', 'initialize_mission', {
+      // 2. Initialize Mission via MigrationIpc
+      await this.migrationIpc.initializeValidationMission({
         mission_id: missionId
       });
 
-      // 4. Handle Execution Timing Choice
+      // 3. Handle Execution Timing Choice
       const choice = draft.step8TimingChoice || 'INITIALIZATION';
       if (choice === 'INITIALIZATION') {
-        await this.ipc.invoke('validation', 'execute_mission', { mission_id: missionId });
-      } else if (choice === 'CONTINUOUS') {
-        await this.ipc.invoke('validation', 'control_continuous', { mission_id: missionId, action: 'start' });
+        await this.migrationIpc.executeValidationMission({ mission_id: missionId });
       }
 
       this.isSubmitting.set(false);

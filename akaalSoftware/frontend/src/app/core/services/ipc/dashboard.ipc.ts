@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { IpcService } from '../ipc.service';
 import { IPCResponse } from '../../models/ipc.models';
+import { DashboardSummary } from '../../models/dashboard.models';
 
 @Injectable({
   providedIn: 'root'
@@ -8,7 +9,12 @@ import { IPCResponse } from '../../models/ipc.models';
 export class DashboardIpc {
   constructor(private ipc: IpcService) {}
 
-  public async getSummary(): Promise<IPCResponse> {
-    return this.ipc.invoke('dashboard', 'get_summary');
+  public async getEstateSummary(): Promise<IPCResponse<DashboardSummary>> {
+    return this.ipc.invoke<DashboardSummary>('estate', 'get_summary');
+  }
+
+  public async getSummary(): Promise<IPCResponse<DashboardSummary>> {
+    return this.getEstateSummary();
   }
 }
+

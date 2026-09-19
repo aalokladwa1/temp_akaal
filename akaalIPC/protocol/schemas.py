@@ -197,13 +197,25 @@ def register_core_pipeline_schemas(registry: SchemaRegistry) -> None:
         "migration.create", "migration.configure", "migration.plan", "migration.initialize",
         "migration.approve", "migration.start", "migration.cancel", "migration.recover",
         "migration.pause", "migration.resume", "migration.throttle_cdc",
+        "migration.discover", "migration.checkpoint",
+        "project.create", "project.update", "initiative.create", "initiative.update",
+        "connection.create", "connection.update", "connection.test",
+        "template.create", "template.update", "template.deprecate",
+        "validation.create_mission", "validation.initialize_mission", "validation.execute_mission",
         "fleet.drain_node", "fleet.undrain_node",
         "schedule.create", "schedule.update", "schedule.arm", "schedule.disable",
         "schedule.enable", "schedule.cancel", "schedule.delete", "retention.execute",
         "capacity.sample",
         "alert.rule.create", "alert.evaluate", "alert.acknowledge", "alert.resolve", "alert.suppress",
         "incident.create", "incident.alert.attach", "incident.status.update",
-        "notification.send",
+        "notification.send", "settings.update", "settings.reset",
+        "admin.organization.create", "admin.organization.update",
+        "admin.workspace.create", "admin.workspace.update",
+        "admin.user.create", "admin.user.update", "admin.user.delete",
+        "admin.role.create", "admin.role.update", "admin.role.assign",
+        "admin.governance.request_exception", "admin.governance.approve_exception",
+        "admin.key.rotate", "admin.mfa.enforce",
+        "admin.plugin.install", "admin.connector.create",
     ]
     for ct in cmd_types:
         try:
@@ -234,7 +246,14 @@ def register_core_pipeline_schemas(registry: SchemaRegistry) -> None:
 
     # Queries
     query_types = [
-        "migration.get", "migration.list", "operation.get", "mutability.evaluate",
+        "estate.summary", "settings.get",
+        "migration.get", "migration.list", "migration.get_plan", "migration.readiness",
+        "operation.get", "mutability.evaluate",
+        "project.list", "project.get", "initiative.list", "initiative.get",
+        "connection.list", "connection.get", "connection.list_providers", "connection.describe_provider",
+        "template.list", "template.get",
+        "audit.get_trail", "audit.verify",
+        "validation.get_mission", "validation.list_missions",
         "observability.get", "health.get_explainable", "diagnostics.capture",
         "fleet.status", "metrics.export_prometheus",
         "schedule.get", "schedule.list", "schedule.occurrence.get", "schedule.occurrence.list",
@@ -246,10 +265,25 @@ def register_core_pipeline_schemas(registry: SchemaRegistry) -> None:
         "intelligence.artifact.get", "intelligence.artifact.list",
         "intelligence.mediation.evaluate",
         "intelligence.outcome.list",
+        "report.summary", "report.list", "report.get", "report.export",
+        "certification.list", "certification.get",
+        "evidence.list", "evidence.get", "evidence.verify",
+        "evidence.dossiers.list", "evidence.packages.list", "evidence.certificates.list",
+        "admin.enterprise.hierarchy", "admin.organization.list", "admin.workspace.list",
+        "admin.environment.list", "admin.cost_center.list", "admin.user.list",
+        "admin.team.list", "admin.contractor.list", "admin.service_account.list",
+        "admin.governance.summary", "admin.governance.exceptions", "admin.governance.gates",
+        "admin.role.list", "admin.directory.sync_status", "admin.template.list",
+        "admin.profile.list", "admin.connector.list", "admin.plugin.list",
+        "admin.infra.agents", "admin.infra.endpoints", "admin.compliance.frameworks",
+        "admin.compliance.evidence_retention", "admin.audit.ledger", "admin.audit.sessions",
+        "admin.platform.license", "admin.platform.health", "admin.integration.siem",
+        "admin.integration.webhooks", "admin.integration.keys",
     ]
     for qt in query_types:
         try:
             registry.register(SchemaDescriptor(qt, "1.0", RequestKind.QUERY, _allow_any_mapping))
         except DuplicateSchemaRegistrationError:
             pass
+
 

@@ -24,24 +24,99 @@ export class IpcService {
   public connectionState = signal<ConnectionState>('connected');
   public lastTelemetryTimestamp = signal<string | null>(null);
 
+  // Master Signal Router Registry: signalName -> Set of subscriber handlers
+  private subscribersMap = new Map<string, Set<(payload: any) => void>>();
+  // Active Wails listeners to ensure single underlying listener registration per signal
+  private activeWailsListeners = new Set<string>();
+
   constructor() {
     this.initializeWailsEvents();
   }
 
   private initializeWailsEvents(): void {
-    if (typeof window !== 'undefined' && window.runtime) {
-      window.runtime.EventsOn('akaal:engine:connected', () => {
-        this.connectionState.set('connected');
-      });
+    // Register internal transport signal handlers for connection state & telemetry timestamp
+    this.subscribe<boolean>('akaal:engine:connected', () => {
+      this.connectionState.set('connected');
+    });
 
-      window.runtime.EventsOn('akaal:engine:disconnected', () => {
-        this.connectionState.set('disconnected');
-      });
+    this.subscribe<boolean>('akaal:engine:disconnected', () => {
+      this.connectionState.set('disconnected');
+    });
 
-      window.runtime.EventsOn('akaal:telemetry', (event) => {
-        this.lastTelemetryTimestamp.set(new Date().toISOString());
+    this.subscribe<any>('akaal:telemetry', () => {
+      this.lastTelemetryTimestamp.set(new Date().toISOString());
+    });
+  }
+
+  /**
+   * Single Master Signal Router Subscription API.
+   * Subscribes a handler callback to an inbound desktop/IPC signal.
+   * Returns a disposable cleanup function `() => void`.
+   */
+  public subscribe<T = any>(signalName: string, handler: (payload: T) => void): () => void {
+    if (!this.subscribersMap.has(signalName)) {
+      this.subscribersMap.set(signalName, new Set());
+    }
+    const handlers = this.subscribersMap.get(signalName)!;
+    handlers.add(handler);
+
+    // Attach single underlying Wails transport listener if not already active
+    if (!this.activeWailsListeners.has(signalName)) {
+      this.attachWailsTransportListener(signalName);
+    }
+
+    // Return disposable unsubscribe function
+    return () => {
+      const activeHandlers = this.subscribersMap.get(signalName);
+      if (activeHandlers) {
+        activeHandlers.delete(handler);
+        if (activeHandlers.size === 0) {
+          this.subscribersMap.delete(signalName);
+          this.detachWailsTransportListener(signalName);
+        }
+      }
+    };
+  }
+
+  private attachWailsTransportListener(signalName: string): void {
+    if (typeof window !== 'undefined' && window.runtime?.EventsOn) {
+      window.runtime.EventsOn(signalName, (data: any) => {
+        this.dispatchSignal(signalName, data);
+      });
+      this.activeWailsListeners.add(signalName);
+    }
+  }
+
+  private detachWailsTransportListener(signalName: string): void {
+    if (typeof window !== 'undefined' && window.runtime?.EventsOff) {
+      try {
+        window.runtime.EventsOff(signalName);
+      } catch {
+        // Safe fallback if runtime.EventsOff is unavailable or fails
+      }
+    }
+    this.activeWailsListeners.delete(signalName);
+  }
+
+  /**
+   * Internal fan-out dispatch to all active frontend subscribers for a signal.
+   * Preserves exact payload received from transport.
+   */
+  public dispatchSignal(signalName: string, payload: any): void {
+    const handlers = this.subscribersMap.get(signalName);
+    if (handlers && handlers.size > 0) {
+      handlers.forEach((handler) => {
+        try {
+          handler(payload);
+        } catch (err) {
+          console.error(`[IpcService] Error in signal subscriber handler for ${signalName}:`, err);
+        }
       });
     }
+  }
+
+  public getSubscriberCount(signalName: string): number {
+    return this.subscribersMap.get(signalName)?.size || 0;
   }
 
   public async invoke<T = any>(endpoint: string, action: string, payload: Record<string, any> = {}): Promise<IPCResponse<T>> {
