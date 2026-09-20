@@ -6,6 +6,7 @@ echo   AKAAL Platform - Quick Build ^& Launch
 echo ========================================================
 
 set "NG_CLI_ANALYTICS=false"
+set "NG_BUILD_MAX_WORKERS=1"
 set "NODE_OPTIONS="
 if exist "C:\Program Files\Go\bin" set "PATH=C:\Program Files\Go\bin;!PATH!"
 
