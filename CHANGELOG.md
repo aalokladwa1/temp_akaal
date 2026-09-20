@@ -171,10 +171,7 @@ All notable changes to the Akaal Enterprise Orchestration Platform are documente
 ### Added
 - **Enterprise APIs & Integration (`akaal/api/`)**:
   - Implemented all 8 capabilities of Platform 7 — Enterprise APIs & Integration (REST API, gRPC API, Typer CLI, Python SDK, Config Profiles, YAML Definitions, Transactional Outbox Events, Webhook Engine, Sandboxed Plugin Manager).
-<<<<<<< HEAD
-=======
->>>>>>> 721b546 (feat(platform4): implement enterprise CDC platform)
->>>>>>> 4388da0
+
 
 ## [1.1.0] - Phase 10 Platform 5 Live Schema Evolution (2026-07-21)
 

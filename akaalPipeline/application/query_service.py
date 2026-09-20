@@ -3072,7 +3072,6 @@ class PipelineQueryService:
         self,
         actor: Optional[PipelineActorContext] = None,
         conn: Optional[sqlite3.Connection] = None,
-<<<<<<< HEAD
         **kwargs: Any,
     ) -> Dict[str, Any]:
         running_count = 0
@@ -3140,51 +3139,13 @@ class PipelineQueryService:
                 "detail": "Single Node Local Daemon",
             },
             "security": {
-                "posture": "enforced",
-                "mTLSEnabled": True,
-                "vaultEncryption": True,
+                "posture": "partial",
+                "mTLSEnabled": None,
+                "vaultEncryption": None,
                 "auditLedgerActive": True,
                 "detail": "Enterprise Local Policy Enforced",
             },
             "recentEvents": [],
-        }
-
-
-=======
-    ) -> Dict[str, Any]:
-        running_cnt = 0
-        active_migs = []
-        if conn is not None:
-            try:
-                cur = conn.execute("SELECT COUNT(*) FROM migrations WHERE state IN ('RUNNING', 'ACTIVE')")
-                row = cur.fetchone()
-                if row:
-                    running_cnt = row[0]
-                cur_migs = conn.execute("SELECT name, configuration FROM migrations WHERE state IN ('RUNNING', 'ACTIVE')")
-                for r in cur_migs.fetchall():
-                    cfg = json.loads(r[1]) if isinstance(r[1], str) else (r[1] or {})
-                    active_migs.append({
-                        "name": r[0],
-                        "sourceEngine": cfg.get("source_engine", "Unknown"),
-                        "targetEngine": cfg.get("target_engine", "Unknown"),
-                    })
-            except Exception:
-                pass
-        return {
-            "runningCount": running_cnt,
-            "scheduledCount": 0,
-            "attentionCount": 0,
-            "completedTodayCount": 0,
-            "activeMigrations": active_migs,
-            "subsystems": {"status": "HEALTHY"},
-            "capacityMetrics": {},
-            "fleet": {},
-            "security": {
-                "mTLSEnabled": None,
-                "vaultEncryption": None,
-                "auditLedgerActive": True,
-                "posture": "partial",
-            },
         }
 
     def get_settings(
@@ -3295,4 +3256,3 @@ class PipelineQueryService:
 
     get_readiness = get_migration_readiness
     get_plan = get_migration_plan
->>>>>>> 10b69d06d4d40a6bbc61b437fd49c6fef6be3b77
