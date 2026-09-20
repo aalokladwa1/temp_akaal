@@ -9,7 +9,12 @@ import json
 import sqlite3
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Tuple
-from akaal.core.time_authority import TimeAuthority
+import datetime
+
+class TimeAuthority:
+    @staticmethod
+    def utc_iso_now() -> str:
+        return datetime.datetime.now(datetime.timezone.utc).isoformat()
 from akaalPipeline.contracts.enums import (
     ApprovalStatus,
     GrantResourceType,
@@ -61,6 +66,9 @@ class MigrationRepositoryPort(ABC):
         connection: Optional[sqlite3.Connection] = None,
         workspace_id: Optional[str] = None,
         project_id: Optional[str] = None,
+        status: Optional[str] = None,
+        mode: Optional[str] = None,
+        updated_after: Optional[str] = None,
     ) -> int:
         """Returns the total row count matching optional tenant/workspace/project scope (for pagination totals)."""
 
@@ -233,6 +241,7 @@ class SQLiteMigrationRepository(MigrationRepositoryPort):
         project_id: Optional[str],
         status: Optional[str] = None,
         mode: Optional[str] = None,
+        updated_after: Optional[str] = None,
     ) -> Tuple[str, Tuple[Any, ...]]:
         clauses: List[str] = []
         params: List[Any] = []
@@ -253,6 +262,9 @@ class SQLiteMigrationRepository(MigrationRepositoryPort):
         if mode:
             clauses.append("mode = ?")
             params.append(mode.strip().upper())
+        if updated_after:
+            clauses.append("updated_at >= ?")
+            params.append(updated_after)
         where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
         return where, tuple(params)
 
@@ -266,6 +278,7 @@ class SQLiteMigrationRepository(MigrationRepositoryPort):
         project_id: Optional[str] = None,
         status: Optional[str] = None,
         mode: Optional[str] = None,
+        updated_after: Optional[str] = None,
     ) -> List[MigrationAggregate]:
         owns_conn = False
         conn = connection
@@ -275,7 +288,7 @@ class SQLiteMigrationRepository(MigrationRepositoryPort):
 
         try:
             where, params_t = self._build_filter_clause(
-                tenant_id, workspace_id, project_id, status=status, mode=mode
+                tenant_id, workspace_id, project_id, status=status, mode=mode, updated_after=updated_after
             )
             sql = f"SELECT * FROM migrations{where} ORDER BY migration_id ASC"
             params: Tuple[Any, ...] = params_t
@@ -317,6 +330,7 @@ class SQLiteMigrationRepository(MigrationRepositoryPort):
         project_id: Optional[str] = None,
         status: Optional[str] = None,
         mode: Optional[str] = None,
+        updated_after: Optional[str] = None,
     ) -> int:
         owns_conn = False
         conn = connection
@@ -325,7 +339,7 @@ class SQLiteMigrationRepository(MigrationRepositoryPort):
             owns_conn = True
         try:
             where, params = self._build_filter_clause(
-                tenant_id, workspace_id, project_id, status=status, mode=mode
+                tenant_id, workspace_id, project_id, status=status, mode=mode, updated_after=updated_after
             )
             cur = conn.execute(f"SELECT COUNT(*) AS c FROM migrations{where}", params)
             return cur.fetchone()["c"]
@@ -476,7 +490,15 @@ class SQLitePrincipalRepository:
         res["metadata"] = json.loads(res["metadata"]) if res.get("metadata") else {}
         return res
 
-    def update_principal(self, tenant_id: str, principal_id: str, is_active: Optional[bool] = None, display_name: Optional[str] = None) -> None:
+    def update_principal(
+        self,
+        tenant_id: str,
+        principal_id: str,
+        is_active: Optional[bool] = None,
+        display_name: Optional[str] = None,
+        email: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> None:
         p = self.get_by_id(tenant_id, principal_id) or self.get_by_username(tenant_id, principal_id)
         real_id = p["principal_id"] if p else principal_id
         if is_active is not None:
@@ -488,6 +510,17 @@ class SQLitePrincipalRepository:
             self.conn.execute(
                 "UPDATE enterprise_principals SET display_name = ? WHERE tenant_id = ? AND principal_id = ?",
                 (display_name, tenant_id, real_id),
+            )
+        if email is not None:
+            self.conn.execute(
+                "UPDATE enterprise_principals SET email = ? WHERE tenant_id = ? AND principal_id = ?",
+                (email, tenant_id, real_id),
+            )
+        if metadata is not None:
+            meta_json = json.dumps(metadata)
+            self.conn.execute(
+                "UPDATE enterprise_principals SET metadata = ? WHERE tenant_id = ? AND principal_id = ?",
+                (meta_json, tenant_id, real_id),
             )
 
     def disable(self, tenant_id: str, principal_id: str, updated_at: str = "") -> None:

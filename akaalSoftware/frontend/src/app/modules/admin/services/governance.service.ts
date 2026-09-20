@@ -3,7 +3,7 @@
  */
 
 import { Injectable, signal, Optional, inject } from '@angular/core';
-import { AdministrationIpcService } from './administration.ipc';
+import { AdministrationIpcService } from '../../../core/services/ipc/administration.ipc';
 import {
   GovernancePolicy,
   PolicySimulationResult,

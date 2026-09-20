@@ -24,7 +24,7 @@ import {
   PlatformWorkerDTO
 } from '../models/platform-monitoring.models';
 import { formatSnakeToTitle } from '../models/monitoring.models';
-import { MonitoringIpcService } from './monitoring.ipc';
+import { MonitoringIpcService } from '../../../core/services/ipc/monitoring.ipc';
 
 const EMPTY_PLATFORM_OPERATIONS: PlatformOperationsDTO = {
   summary: {

@@ -2004,6 +2004,26 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
                         )
                 return CallerResult(status=CallerResultStatus.OK, result=dict(res))
 
+            elif request_type in ("account.profile.update", "admin.account.profile.update"):
+                with uow:
+                    res = self.command_handlers.handle_account_profile_update(envelope.payload, pipeline_actor, uow)
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type in ("account.avatar.update", "admin.account.avatar.update"):
+                with uow:
+                    res = self.command_handlers.handle_account_avatar_update(envelope.payload, pipeline_actor, uow)
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type in ("account.avatar.remove", "admin.account.avatar.remove"):
+                with uow:
+                    res = self.command_handlers.handle_account_avatar_remove(envelope.payload, pipeline_actor, uow)
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type in ("account.password.change", "admin.account.password.change"):
+                with uow:
+                    res = self.command_handlers.handle_account_password_change(envelope.payload, pipeline_actor, uow)
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
             elif request_type in ("admin.user.delete", "delete_user"):
                 with uow:
                     res = self.command_handlers.handle_admin_user_delete(envelope.payload, pipeline_actor, uow)
@@ -2094,9 +2114,25 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
                         )
                 return CallerResult(status=CallerResultStatus.OK, result=dict(res))
 
+            elif request_type == "settings.update":
+                with uow:
+                    res = self.command_handlers.handle_update_settings(envelope.payload, pipeline_actor, uow)
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
 
+            elif request_type == "settings.reset":
+                with uow:
+                    res = self.command_handlers.handle_reset_settings(envelope.payload, pipeline_actor, uow)
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
 
+            elif request_type == "migration.discover":
+                with uow:
+                    res = self.command_handlers.handle_discover_migration(envelope.payload, pipeline_actor, uow)
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
 
+            elif request_type == "migration.checkpoint":
+                with uow:
+                    res = self.command_handlers.handle_checkpoint_migration(envelope.payload, pipeline_actor, uow)
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
 
             else:
                 raise PipelineError(
@@ -2406,6 +2442,9 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
                     res = self.query_service.list_admin_cost_centers(actor=pipeline_actor, conn=uow.connection)
                     return CallerResult(status=CallerResultStatus.OK, result=res)
 
+                elif request_type in ("account.current.get", "admin.account.current.get", "get_current_account"):
+                    res = self.query_service.get_current_account(actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=res)
                 elif request_type in ("admin.user.list", "list_admin_users"):
                     res = self.query_service.list_admin_users(actor=pipeline_actor, conn=uow.connection)
                     return CallerResult(status=CallerResultStatus.OK, result=res)
@@ -2504,6 +2543,24 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
                     res = self.query_service.list_admin_integration_keys(actor=pipeline_actor, conn=uow.connection)
                     return CallerResult(status=CallerResultStatus.OK, result=res)
 
+                elif request_type == "estate.summary":
+                    res = self.query_service.get_estate_summary(actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=res)
+
+                elif request_type == "settings.get":
+                    domain = envelope.payload.get("domain", "all")
+                    res = self.query_service.get_settings(domain=domain, actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=res)
+
+                elif request_type == "migration.get_plan":
+                    plan_id = envelope.payload.get("plan_id")
+                    res = self.query_service.get_migration_plan(plan_id=plan_id, actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=res)
+
+                elif request_type == "migration.readiness":
+                    migration_id = envelope.payload.get("migration_id")
+                    res = self.query_service.get_migration_readiness(migration_id=migration_id, actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=res)
                 else:
                     raise PipelineError(
                         PipelineErrorCode.INVALID_REQUEST,

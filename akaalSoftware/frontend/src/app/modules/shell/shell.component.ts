@@ -1,4 +1,4 @@
-import { Component, signal, inject, HostListener, ViewChild, ElementRef, AfterViewChecked } from '@angular/core';
+import { Component, signal, computed, inject, HostListener, ViewChild, ElementRef, AfterViewChecked } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterOutlet, RouterLink, RouterLinkActive, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -386,7 +386,7 @@ interface CommandItem {
               [class.bg-blue-50]="isUserMenuOpen()"
               [class.border-blue-300]="isUserMenuOpen()">
               <div class="w-6 h-6 rounded-md bg-blue-600/10 border border-blue-600/30 text-blue-700 flex items-center justify-center text-xs font-bold">
-                AL
+                {{ userInitials() }}
               </div>
               <span class="text-xs font-semibold text-slate-900 hidden sm:inline">{{ ds.userName() }}</span>
               <app-lucide-icon name="chevron-down" [size]="13" class="text-slate-400"></app-lucide-icon>
@@ -397,15 +397,16 @@ interface CommandItem {
               <div 
                 class="absolute right-0 mt-1.5 w-60 rounded-xl bg-white border border-slate-200 shadow-xl p-1.5 flex flex-col gap-0.5 z-50 animate-in fade-in zoom-in-95 duration-150">
                 <div class="px-3 py-2 border-b border-slate-200 mb-1">
-                  <p class="text-xs font-bold text-slate-900 leading-none">{{ ds.userName() }} Ladwa</p>
+                  <p class="text-xs font-bold text-slate-900 leading-none">{{ ds.userName() }}</p>
+                  <p class="text-[10px] text-slate-500 font-medium mt-0.5">Enterprise Principal</p>
                 </div>
 
                 <div class="flex flex-col gap-0.5">
                   <a 
-                    routerLink="/settings" 
+                    routerLink="/profile" 
                     (click)="isUserMenuOpen.set(false)" 
                     class="px-3 py-2 rounded-lg text-xs font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50 transition-colors flex items-center gap-2.5 cursor-pointer">
-                    <app-lucide-icon name="user-round" [size]="14" class="text-slate-500"></app-lucide-icon>
+                    <app-lucide-icon name="user" [size]="14" class="text-slate-500"></app-lucide-icon>
                     <span>Profile &amp; Account</span>
                   </a>
 
@@ -446,6 +447,15 @@ interface CommandItem {
                   <app-lucide-icon name="settings" [size]="14" class="text-slate-500"></app-lucide-icon>
                   <span>Settings</span>
                 </a>
+
+                <button
+                  type="button"
+                  (click)="signOut($event)"
+                  title="Exit application runtime"
+                  class="w-full text-left px-3 py-2 rounded-lg text-xs font-medium text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2.5 cursor-pointer">
+                  <app-lucide-icon name="log-out" [size]="14" class="text-red-500"></app-lucide-icon>
+                  <span>Exit DevKros</span>
+                </button>
               </div>
             }
           </div>
@@ -835,6 +845,15 @@ export class ShellComponent {
     }
   }
 
+  public userInitials = computed(() => {
+    const name = (this.ds?.userName() || '').trim();
+    if (!name) return 'U';
+    const parts = name.split(/\s+/);
+    return parts.length > 1
+      ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+      : parts[0].substring(0, 2).toUpperCase();
+  });
+
   public isExpanded = signal<boolean>(true);
   
   // Desktop Title Strip Signals & State (Owner Requirement 11)
@@ -1093,6 +1112,13 @@ export class ShellComponent {
 
   public toggleSidebar(): void {
     this.isExpanded.update(v => !v);
+  }
+
+  public signOut(event?: Event): void {
+    if (event) event.stopPropagation();
+    this.isUserMenuOpen.set(false);
+    this.cs.selectOrganization(null);
+    this.router.navigate(['/profile']);
   }
 
   public executeCommand(cmd: CommandItem): void {

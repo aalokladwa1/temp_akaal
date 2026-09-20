@@ -34,6 +34,14 @@ export const routes: Routes = [
   { path: 'dashboard', component: DashboardComponent },
 
   // =========================================================================
+  // MODULE 1: PROFILE & ACCOUNT
+  // =========================================================================
+  {
+    path: 'profile',
+    loadComponent: () => import('./modules/profile/profile-home.component').then(m => m.ProfileHomeComponent)
+  },
+
+  // =========================================================================
   // MODULE 2: MIGRATION OPERATIONS & SUITE
   // =========================================================================
 

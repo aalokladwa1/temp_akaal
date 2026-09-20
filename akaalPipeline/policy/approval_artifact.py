@@ -8,8 +8,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
-from akaal.core.crypto_random import generate_secure_id
-from akaal.core.time_authority import TimeAuthority
+import datetime
+import uuid
+
+def generate_secure_id(prefix: str) -> str:
+    return f"{prefix}-{uuid.uuid4().hex}"
+
+class TimeAuthority:
+    @staticmethod
+    def utc_iso_now() -> str:
+        return datetime.datetime.now(datetime.timezone.utc).isoformat()
 from akaalPipeline.contracts.serialization import (
     AKAAL_CANONICAL_PROFILE_V1,
     canonical_fingerprint,

@@ -13,7 +13,7 @@ import {
   MigrationAggregateDTO,
   BackendMigrationMode,
   BackendMigrationLifecycleState
-} from './monitoring.ipc';
+} from '../../../core/services/ipc/monitoring.ipc';
 
 // ---------------------------------------------------------------------------
 // Backend MigrationAggregate -> frozen-UI MigrationFleetItem projection.

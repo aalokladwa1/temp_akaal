@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { MigrationMonitoringService } from './services/migration-monitoring.service';
 import { CANONICAL_MODES } from './models/migration-monitoring.models';
-import { MonitoringIpcService, MigrationAggregateDTO } from './services/monitoring.ipc';
+import { MonitoringIpcService, MigrationAggregateDTO } from '../../core/services/ipc/monitoring.ipc';
 
 function makeMigration(overrides: Partial<MigrationAggregateDTO> = {}): MigrationAggregateDTO {
   return {

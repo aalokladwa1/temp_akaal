@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ReportsIpcService } from './services/reports.ipc';
+import { ReportsIpcService } from '../../core/services/ipc/reports.ipc';
 import { ReportsService } from './services/reports.service';
 import { IpcService } from '../../core/services/ipc.service';
 

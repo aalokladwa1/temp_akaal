@@ -1,5 +1,16 @@
 import os
 import tempfile
+import sys
+from types import ModuleType
+
+if "typer" not in sys.modules:
+    dummy_typer = ModuleType("typer")
+    dummy_typer.Typer = lambda **kwargs: dummy_typer
+    dummy_typer.command = lambda *args, **kwargs: (lambda f: f)
+    dummy_typer.callback = lambda *args, **kwargs: (lambda f: f)
+    dummy_typer.Option = lambda default=None, *a, **kw: default
+    dummy_typer.Argument = lambda default=None, *a, **kw: default
+    sys.modules["typer"] = dummy_typer
 import pytest
 from akaalIPC.security.context import ActorContext, ActorReference, CorrelationContext
 from akaalIPC.transport.ports import CallerResultStatus

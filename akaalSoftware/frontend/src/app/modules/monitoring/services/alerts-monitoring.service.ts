@@ -36,7 +36,7 @@ import {
   IncidentRecordDTO,
   IncidentStatus as BackendIncidentStatus,
   IncidentSeverity as BackendIncidentSeverity
-} from './monitoring.ipc';
+} from '../../../core/services/ipc/monitoring.ipc';
 
 // ---------------------------------------------------------------------------
 // Backend record -> frozen-UI DTO projections. Pure functions, no I/O.

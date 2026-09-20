@@ -8,8 +8,16 @@ from __future__ import annotations
 import hashlib
 import json
 from typing import Any, Dict, List, Optional, Tuple
-from akaal.core.crypto_random import generate_secure_id
-from akaal.core.time_authority import TimeAuthority
+import datetime
+import uuid
+
+def generate_secure_id(prefix: str) -> str:
+    return f"{prefix}-{uuid.uuid4().hex}"
+
+class TimeAuthority:
+    @staticmethod
+    def utc_iso_now() -> str:
+        return datetime.datetime.now(datetime.timezone.utc).isoformat()
 from akaalPipeline.contracts.enums import AuditDecision
 from akaalPipeline.contracts.serialization import canonical_serialize
 from akaalPipeline.state.repositories import SQLiteSecurityAuditRepository

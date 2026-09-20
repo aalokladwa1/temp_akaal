@@ -4,7 +4,8 @@
  * and persistent local workstation storage.
  */
 
-import { Injectable, signal, computed, effect } from '@angular/core';
+import { Injectable, signal, computed, effect, inject } from '@angular/core';
+import { SettingsIpc } from '../../../core/services/ipc/settings.ipc';
 import {
   AppearanceSettings,
   GeneralSettings,
@@ -30,7 +31,6 @@ import {
   CursorPaginationStrategy,
   NotificationSettings,
   IntegrationSettings,
-  AiIntelligenceSettings,
   LoggingDiagnosticsSettings,
   AdvancedSettings,
   ClientLogLevel,
@@ -190,26 +190,6 @@ export const DEFAULT_INTEGRATION_SETTINGS: IntegrationSettings = {
   suppressedIntegrations: {}
 };
 
-export const DEFAULT_AI_INTELLIGENCE_SETTINGS: AiIntelligenceSettings = {
-  assistantEnabled: true,
-  proactivityMode: 'ADVISORY',
-  governedProviderDisplay: 'Platform Governed Service Gateway (Isolated Engine Endpoint)',
-  strictCredentialSanitization: true,
-  defaultRequestTokenBudget: 4000,
-  workspaceMonthlyCostCapDisplay: '$500.00 / mo (Enforced by Admin Policy)',
-  planSynthesisAssistance: true,
-  partitionStrategyRecommendation: true,
-  advisoryPlanConfirmationRequired: true,
-  workloadAutoTuningSuggestions: true,
-  concurrencyRecommendationAdvisory: true,
-  failureRcaEnabled: true,
-  redactSensitiveDataInTraces: true,
-  recommendationConfidenceLevel: 'HIGH',
-  mandatoryHumanReviewEnforced: true,
-  cdcBufferSaturationPrediction: true,
-  throughputAnomalyDetection: true
-};
-
 export const DEFAULT_LOGGING_DIAGNOSTICS_SETTINGS: LoggingDiagnosticsSettings = {
   clientLogLevel: 'INFO',
   engineLogLevel: 'INFO',
@@ -257,11 +237,14 @@ export class SettingsService {
   // Operational Defaults (Part 3: in-memory workstation defaults)
   public notificationSettings = signal<NotificationSettings>({ ...DEFAULT_NOTIFICATION_SETTINGS });
   public integrationSettings = signal<IntegrationSettings>({ ...DEFAULT_INTEGRATION_SETTINGS });
-  public aiIntelligenceSettings = signal<AiIntelligenceSettings>({ ...DEFAULT_AI_INTELLIGENCE_SETTINGS });
 
   // Operational Defaults (Part 4: in-memory workstation defaults)
   public loggingSettings = signal<LoggingDiagnosticsSettings>({ ...DEFAULT_LOGGING_DIAGNOSTICS_SETTINGS });
   public advancedSettings = signal<AdvancedSettings>({ ...DEFAULT_ADVANCED_SETTINGS });
+
+  // Authoritative Save & Confirmation Status Signals
+  public saveStatus = signal<'IDLE' | 'SAVING' | 'SUCCESS' | 'ERROR'>('IDLE');
+  public lastErrorMessage = signal<string | null>(null);
 
   /**
    * Resolves the active theme considering system OS preference if theme is 'system'
@@ -274,9 +257,89 @@ export class SettingsService {
     return currentTheme;
   });
 
-  constructor() {
+  private settingsIpc: SettingsIpc;
+
+  constructor(settingsIpc?: SettingsIpc) {
+    try {
+      this.settingsIpc = settingsIpc || inject(SettingsIpc);
+    } catch {
+      this.settingsIpc = settingsIpc || new SettingsIpc();
+    }
     this.initSystemThemeListener();
     this.applyAppearanceToDOM();
+    this.hydrateFromBackend();
+  }
+
+  private async dispatchRemoteUpdate<T>(
+    domain: string,
+    changes: Partial<T>,
+    applyLocalState: (val: Partial<T>) => void,
+    previousState: T
+  ): Promise<void> {
+    this.saveStatus.set('SAVING');
+    this.lastErrorMessage.set(null);
+    try {
+      const res = await this.settingsIpc.updateConfig(domain, changes as Record<string, any>);
+      if (res && res.status === 'SUCCESS') {
+        if (res.data && res.data.settings) {
+          applyLocalState(res.data.settings as Partial<T>);
+        }
+        this.saveStatus.set('SUCCESS');
+      } else {
+        applyLocalState(previousState as Partial<T>);
+        const errMsg = res?.error || `Failed to update ${domain} settings on backend.`;
+        this.lastErrorMessage.set(errMsg);
+        this.saveStatus.set('ERROR');
+      }
+    } catch (err: any) {
+      applyLocalState(previousState as Partial<T>);
+      const errMsg = err?.message || `Failed to dispatch ${domain} settings IPC update.`;
+      this.lastErrorMessage.set(errMsg);
+      this.saveStatus.set('ERROR');
+    }
+  }
+
+  private async dispatchRemoteReset<T>(
+    domain: string,
+    applyLocalDefault: () => void,
+    previousState: T
+  ): Promise<void> {
+    this.saveStatus.set('SAVING');
+    this.lastErrorMessage.set(null);
+    try {
+      const res = await this.settingsIpc.resetConfig(domain);
+      if (res && res.status === 'SUCCESS') {
+        applyLocalDefault();
+        this.saveStatus.set('SUCCESS');
+      } else {
+        const errMsg = res?.error || `Failed to reset ${domain} settings on backend.`;
+        this.lastErrorMessage.set(errMsg);
+        this.saveStatus.set('ERROR');
+      }
+    } catch (err: any) {
+      const errMsg = err?.message || `Failed to dispatch ${domain} settings IPC reset.`;
+      this.lastErrorMessage.set(errMsg);
+      this.saveStatus.set('ERROR');
+    }
+  }
+
+
+  public async hydrateFromBackend(): Promise<void> {
+    try {
+      const res = await this.settingsIpc.getConfig('all');
+      if (res && res.status === 'SUCCESS' && res.data) {
+        const data = res.data;
+        if (data['runtime']) this.updateRuntimeMigration(data['runtime'], false);
+        if (data['connectors']) this.updateConnector(data['connectors'], false);
+        if (data['storage']) this.updateStorageRetention(data['storage'], false);
+        if (data['notifications']) this.updateNotification(data['notifications'], false);
+        if (data['integrations']) this.updateIntegration(data['integrations'], false);
+        if (data['logging']) this.updateLogging(data['logging'], false);
+        if (data['advanced']) this.updateAdvanced(data['advanced'], false);
+      }
+    } catch {
+      // Graceful fallback to client defaults when IPC is disconnected or test-mocked
+    }
   }
 
   // =========================================================================
@@ -324,145 +387,192 @@ export class SettingsService {
   // Operational Defaults: Runtime & Migration Defaults
   // =========================================================================
 
-  public updateRuntimeMigration(changes: Partial<RuntimeMigrationSettings>): void {
-    this.runtimeMigrationSettings.update(prev => ({
-      ...prev,
-      ...changes,
-      // Governed safety invariants remain locked
-      fencingEpochRollbackBarrier: true,
-      governedMaxWorkerLimit: DEFAULT_RUNTIME_MIGRATION_SETTINGS.governedMaxWorkerLimit,
-      governedMaxMemoryMb: DEFAULT_RUNTIME_MIGRATION_SETTINGS.governedMaxMemoryMb,
-      governedMaxCpuMillicores: DEFAULT_RUNTIME_MIGRATION_SETTINGS.governedMaxCpuMillicores
-    }));
+  public updateRuntimeMigration(changes: Partial<RuntimeMigrationSettings>, syncRemote: boolean = true): void {
+    const prev = this.runtimeMigrationSettings();
+    const applyState = (vals: Partial<RuntimeMigrationSettings>) => {
+      this.runtimeMigrationSettings.update(old => ({
+        ...old,
+        ...vals,
+        fencingEpochRollbackBarrier: true,
+        governedMaxWorkerLimit: DEFAULT_RUNTIME_MIGRATION_SETTINGS.governedMaxWorkerLimit,
+        governedMaxMemoryMb: DEFAULT_RUNTIME_MIGRATION_SETTINGS.governedMaxMemoryMb,
+        governedMaxCpuMillicores: DEFAULT_RUNTIME_MIGRATION_SETTINGS.governedMaxCpuMillicores
+      }));
+    };
+    applyState(changes);
+    if (syncRemote) {
+      this.dispatchRemoteUpdate('runtime', changes, applyState, prev).catch(() => {});
+    }
   }
 
   public resetRuntimeMigration(): void {
-    this.runtimeMigrationSettings.set({ ...DEFAULT_RUNTIME_MIGRATION_SETTINGS });
+    const prev = this.runtimeMigrationSettings();
+    const applyDefault = () => this.runtimeMigrationSettings.set({ ...DEFAULT_RUNTIME_MIGRATION_SETTINGS });
+    applyDefault();
+    this.dispatchRemoteReset('runtime', applyDefault, prev).catch(() => {});
   }
 
   // =========================================================================
   // Operational Defaults: Connector Defaults
   // =========================================================================
 
-  public updateConnector(changes: Partial<ConnectorSettings>): void {
-    this.connectorSettings.update(prev => ({
-      ...prev,
-      ...changes,
-      // Governed security baseline remains locked
-      allowPermissiveSelfSigned: false,
-      credentialProtocol: 'vault://'
-    }));
+  public updateConnector(changes: Partial<ConnectorSettings>, syncRemote: boolean = true): void {
+    const prev = this.connectorSettings();
+    const applyState = (vals: Partial<ConnectorSettings>) => {
+      this.connectorSettings.update(old => ({
+        ...old,
+        ...vals,
+        allowPermissiveSelfSigned: false,
+        credentialProtocol: 'vault://'
+      }));
+    };
+    applyState(changes);
+    if (syncRemote) {
+      this.dispatchRemoteUpdate('connectors', changes, applyState, prev).catch(() => {});
+    }
   }
 
   public resetConnector(): void {
-    this.connectorSettings.set({ ...DEFAULT_CONNECTOR_SETTINGS });
+    const prev = this.connectorSettings();
+    const applyDefault = () => this.connectorSettings.set({ ...DEFAULT_CONNECTOR_SETTINGS });
+    applyDefault();
+    this.dispatchRemoteReset('connectors', applyDefault, prev).catch(() => {});
   }
 
   // =========================================================================
   // Operational Defaults: Storage & Retention
   // =========================================================================
 
-  public updateStorageRetention(changes: Partial<StorageRetentionSettings>): void {
-    this.storageRetentionSettings.update(prev => ({
-      ...prev,
-      ...changes,
-      // Governed durability and audit compliance invariants remain locked
-      mandatoryDurabilityEnforced: true,
-      sha256CryptographicAttestation: true,
-      enterpriseMinRetentionDays: DEFAULT_STORAGE_RETENTION_SETTINGS.enterpriseMinRetentionDays,
-      activeLegalHoldProtected: true
-    }));
+  public updateStorageRetention(changes: Partial<StorageRetentionSettings>, syncRemote: boolean = true): void {
+    const prev = this.storageRetentionSettings();
+    const applyState = (vals: Partial<StorageRetentionSettings>) => {
+      this.storageRetentionSettings.update(old => ({
+        ...old,
+        ...vals,
+        mandatoryDurabilityEnforced: true,
+        sha256CryptographicAttestation: true,
+        enterpriseMinRetentionDays: DEFAULT_STORAGE_RETENTION_SETTINGS.enterpriseMinRetentionDays,
+        activeLegalHoldProtected: true
+      }));
+    };
+    applyState(changes);
+    if (syncRemote) {
+      this.dispatchRemoteUpdate('storage', changes, applyState, prev).catch(() => {});
+    }
   }
 
   public resetStorageRetention(): void {
-    this.storageRetentionSettings.set({ ...DEFAULT_STORAGE_RETENTION_SETTINGS });
+    const prev = this.storageRetentionSettings();
+    const applyDefault = () => this.storageRetentionSettings.set({ ...DEFAULT_STORAGE_RETENTION_SETTINGS });
+    applyDefault();
+    this.dispatchRemoteReset('storage', applyDefault, prev).catch(() => {});
   }
 
   // =========================================================================
   // Operational Defaults: Notifications
   // =========================================================================
 
-  public updateNotification(changes: Partial<NotificationSettings>): void {
-    this.notificationSettings.update(prev => ({
-      ...prev,
-      ...changes,
-      mandatoryCriticalEscalationLocked: true,
-      criticalBypassQuietHours: true
-    }));
+  public updateNotification(changes: Partial<NotificationSettings>, syncRemote: boolean = true): void {
+    const prev = this.notificationSettings();
+    const applyState = (vals: Partial<NotificationSettings>) => {
+      this.notificationSettings.update(old => ({
+        ...old,
+        ...vals,
+        mandatoryCriticalEscalationLocked: true,
+        criticalBypassQuietHours: true
+      }));
+    };
+    applyState(changes);
+    if (syncRemote) {
+      this.dispatchRemoteUpdate('notifications', changes, applyState, prev).catch(() => {});
+    }
   }
 
   public resetNotifications(): void {
-    this.notificationSettings.set({ ...DEFAULT_NOTIFICATION_SETTINGS });
+    const prev = this.notificationSettings();
+    const applyDefault = () => this.notificationSettings.set({ ...DEFAULT_NOTIFICATION_SETTINGS });
+    applyDefault();
+    this.dispatchRemoteReset('notifications', applyDefault, prev).catch(() => {});
   }
 
   // =========================================================================
   // Operational Defaults: Integrations
   // =========================================================================
 
-  public updateIntegration(changes: Partial<IntegrationSettings>): void {
-    this.integrationSettings.update(prev => ({
-      ...prev,
-      ...changes,
-      catalogEndpointConfigured: false
-    }));
+  public updateIntegration(changes: Partial<IntegrationSettings>, syncRemote: boolean = true): void {
+    const prev = this.integrationSettings();
+    const applyState = (vals: Partial<IntegrationSettings>) => {
+      this.integrationSettings.update(old => ({
+        ...old,
+        ...vals,
+        catalogEndpointConfigured: false
+      }));
+    };
+    applyState(changes);
+    if (syncRemote) {
+      this.dispatchRemoteUpdate('integrations', changes, applyState, prev).catch(() => {});
+    }
   }
 
   public resetIntegrations(): void {
-    this.integrationSettings.set({ ...DEFAULT_INTEGRATION_SETTINGS });
-  }
-
-  // =========================================================================
-  // Operational Defaults: AI & Intelligence
-  // =========================================================================
-
-  public updateAiIntelligence(changes: Partial<AiIntelligenceSettings>): void {
-    this.aiIntelligenceSettings.update(prev => ({
-      ...prev,
-      ...changes,
-      strictCredentialSanitization: true,
-      advisoryPlanConfirmationRequired: true,
-      redactSensitiveDataInTraces: true,
-      mandatoryHumanReviewEnforced: true,
-      governedProviderDisplay: DEFAULT_AI_INTELLIGENCE_SETTINGS.governedProviderDisplay,
-      workspaceMonthlyCostCapDisplay: DEFAULT_AI_INTELLIGENCE_SETTINGS.workspaceMonthlyCostCapDisplay
-    }));
-  }
-
-  public resetAiIntelligence(): void {
-    this.aiIntelligenceSettings.set({ ...DEFAULT_AI_INTELLIGENCE_SETTINGS });
+    const prev = this.integrationSettings();
+    const applyDefault = () => this.integrationSettings.set({ ...DEFAULT_INTEGRATION_SETTINGS });
+    applyDefault();
+    this.dispatchRemoteReset('integrations', applyDefault, prev).catch(() => {});
   }
 
   // =========================================================================
   // Operational Defaults: Logging & Diagnostics
   // =========================================================================
 
-  public updateLogging(changes: Partial<LoggingDiagnosticsSettings>): void {
-    this.loggingSettings.update(prev => ({
-      ...prev,
-      ...changes,
-      bundleScrubSecretsAndPii: true // Enterprise mandatory safety invariant
-    }));
+  public updateLogging(changes: Partial<LoggingDiagnosticsSettings>, syncRemote: boolean = true): void {
+    const prev = this.loggingSettings();
+    const applyState = (vals: Partial<LoggingDiagnosticsSettings>) => {
+      this.loggingSettings.update(old => ({
+        ...old,
+        ...vals,
+        bundleScrubSecretsAndPii: true
+      }));
+    };
+    applyState(changes);
+    if (syncRemote) {
+      this.dispatchRemoteUpdate('logging', changes, applyState, prev).catch(() => {});
+    }
   }
 
   public resetLogging(): void {
-    this.loggingSettings.set({ ...DEFAULT_LOGGING_DIAGNOSTICS_SETTINGS });
+    const prev = this.loggingSettings();
+    const applyDefault = () => this.loggingSettings.set({ ...DEFAULT_LOGGING_DIAGNOSTICS_SETTINGS });
+    applyDefault();
+    this.dispatchRemoteReset('logging', applyDefault, prev).catch(() => {});
   }
 
   // =========================================================================
   // Operational Defaults: Advanced
   // =========================================================================
 
-  public updateAdvanced(changes: Partial<AdvancedSettings>): void {
-    this.advancedSettings.update(prev => ({
-      ...prev,
-      ...changes,
-      failClosedGovernanceEnforced: true // Fail-closed governance law cannot be modified
-    }));
+  public updateAdvanced(changes: Partial<AdvancedSettings>, syncRemote: boolean = true): void {
+    const prev = this.advancedSettings();
+    const applyState = (vals: Partial<AdvancedSettings>) => {
+      this.advancedSettings.update(old => ({
+        ...old,
+        ...vals,
+        failClosedGovernanceEnforced: true
+      }));
+    };
+    applyState(changes);
+    if (syncRemote) {
+      this.dispatchRemoteUpdate('advanced', changes, applyState, prev).catch(() => {});
+    }
   }
 
   public resetAdvanced(): void {
-    this.advancedSettings.set({ ...DEFAULT_ADVANCED_SETTINGS });
+    const prev = this.advancedSettings();
+    const applyDefault = () => this.advancedSettings.set({ ...DEFAULT_ADVANCED_SETTINGS });
+    applyDefault();
+    this.dispatchRemoteReset('advanced', applyDefault, prev).catch(() => {});
   }
+
 
   // =========================================================================
   // DOM Theme & Accessibility Class Synchronization

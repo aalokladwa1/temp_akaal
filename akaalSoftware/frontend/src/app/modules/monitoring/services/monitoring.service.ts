@@ -19,7 +19,7 @@ import {
   IncidentSeverity as BackendIncidentSeverity,
   AlertRecordDTO,
   AlertLifecycleState as BackendAlertLifecycleState
-} from './monitoring.ipc';
+} from '../../../core/services/ipc/monitoring.ipc';
 
 // ---------------------------------------------------------------------------
 // Real backend record -> Overview view-model projections. See

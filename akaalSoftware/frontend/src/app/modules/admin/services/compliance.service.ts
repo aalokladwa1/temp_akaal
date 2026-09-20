@@ -5,7 +5,7 @@
  */
 
 import { Injectable, signal, computed, Optional, inject } from '@angular/core';
-import { AdministrationIpcService } from './administration.ipc';
+import { AdministrationIpcService } from '../../../core/services/ipc/administration.ipc';
 import {
   ControlFramework,
   FrameworkControl,

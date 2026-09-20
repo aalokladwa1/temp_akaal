@@ -8,7 +8,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { AlertsMonitoringService } from './services/alerts-monitoring.service';
-import { MonitoringIpcService, AlertRecordDTO, IncidentRecordDTO } from './services/monitoring.ipc';
+import { MonitoringIpcService, AlertRecordDTO, IncidentRecordDTO } from '../../core/services/ipc/monitoring.ipc';
 
 function makeAlert(overrides: Partial<AlertRecordDTO> = {}): AlertRecordDTO {
   return {

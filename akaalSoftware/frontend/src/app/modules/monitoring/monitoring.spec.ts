@@ -7,7 +7,7 @@ import {
   IncidentRecordDTO,
   AlertRecordDTO,
   FleetNodeSnapshotDTO
-} from './services/monitoring.ipc';
+} from '../../core/services/ipc/monitoring.ipc';
 
 function makeMigration(overrides: Partial<MigrationAggregateDTO> = {}): MigrationAggregateDTO {
   return {

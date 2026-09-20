@@ -64,6 +64,20 @@ import { CommonModule } from '@angular/common';
           <circle cx="12" cy="8" r="5"/>
           <path d="M20 21a8 8 0 0 0-16 0"/>
         }
+        @case ('camera') {
+          <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/>
+          <circle cx="12" cy="13" r="3"/>
+        }
+        @case ('log-out') {
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+          <polyline points="16 17 21 12 16 7"/>
+          <line x1="21" x2="9" y1="12" y2="12"/>
+        }
+        @case ('monitor') {
+          <rect width="20" height="14" x="2" y="3" rx="2"/>
+          <line x1="12" x2="12" y1="17" y2="21"/>
+          <line x1="8" x2="16" y1="21" y2="21"/>
+        }
         @case ('bot') {
           <path d="M12 8V4H8"/>
           <rect width="16" height="12" x="4" y="8" rx="2"/>

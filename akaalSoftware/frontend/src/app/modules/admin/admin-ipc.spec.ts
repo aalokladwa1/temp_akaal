@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { AdministrationIpcService } from './services/administration.ipc';
+import { AdministrationIpcService } from '../../core/services/ipc/administration.ipc';
 import { EnterpriseService } from './services/enterprise.service';
 import { PeopleService } from './services/people.service';
 import { AuditService } from './services/audit.service';

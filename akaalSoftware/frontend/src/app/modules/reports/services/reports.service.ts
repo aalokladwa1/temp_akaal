@@ -39,7 +39,7 @@ import {
   PaginatedResult
 } from '../models/evidence.models';
 import { IpcService } from '../../../core/services/ipc.service';
-import { ReportsIpcService } from './reports.ipc';
+import { ReportsIpcService } from '../../../core/services/ipc/reports.ipc';
 
 export type LibraryViewMode = 'CATALOG' | 'INVENTORY' | 'CATEGORY_VIEW' | 'REPORT_DETAIL';
 export type CertificationViewMode = 'OVERVIEW' | 'MIGRATION' | 'VALIDATION' | 'VERIFICATION';

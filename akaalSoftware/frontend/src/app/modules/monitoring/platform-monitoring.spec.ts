@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { PlatformMonitoringService } from './services/platform-monitoring.service';
-import { MonitoringIpcService, FleetNodeSnapshotDTO } from './services/monitoring.ipc';
+import { MonitoringIpcService, FleetNodeSnapshotDTO } from '../../core/services/ipc/monitoring.ipc';
 
 function makeNode(overrides: Partial<FleetNodeSnapshotDTO> = {}): FleetNodeSnapshotDTO {
   return {

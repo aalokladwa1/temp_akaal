@@ -9,6 +9,7 @@ import { MigrationUiService } from './migration-ui.service';
 import { Step7PlanStoreService } from './step7-plan-store.service';
 import { Step8GovernanceStoreService } from './step8-governance-store.service';
 import { IpcService } from './ipc.service';
+import { MigrationIpc } from './ipc/migration.ipc';
 import { Step9ReviewAdapterService } from './step9-review-adapter.service';
 import {
   MigrationIdentityPresentation,
@@ -30,6 +31,7 @@ export class Step9ReviewStoreService {
   public step7Store: Step7PlanStoreService;
   public step8Store: Step8GovernanceStoreService;
   public ipc: IpcService;
+  public migrationIpc: MigrationIpc;
   public adapter: Step9ReviewAdapterService;
   public router: Router;
 
@@ -39,7 +41,8 @@ export class Step9ReviewStoreService {
     step8Store?: Step8GovernanceStoreService,
     ipc?: IpcService,
     adapter?: Step9ReviewAdapterService,
-    router?: Router
+    router?: Router,
+    migrationIpc?: MigrationIpc
   ) {
     try { this.ms = ms || inject(MigrationUiService); } catch { this.ms = ms || new MigrationUiService(); }
     try { this.step7Store = step7Store || inject(Step7PlanStoreService); } catch { this.step7Store = step7Store || new Step7PlanStoreService(); }
@@ -47,13 +50,14 @@ export class Step9ReviewStoreService {
     try { this.ipc = ipc || inject(IpcService); } catch { this.ipc = ipc || new IpcService(); }
     try { this.adapter = adapter || inject(Step9ReviewAdapterService); } catch { this.adapter = adapter || new Step9ReviewAdapterService(); }
     try { this.router = router || inject(Router); } catch { this.router = router as any; }
+    try { this.migrationIpc = migrationIpc || inject(MigrationIpc); } catch { this.migrationIpc = migrationIpc || new MigrationIpc(this.ipc); }
   }
 
   // --------------------------------------------------------------------------
   // REACTIVE STATE SIGNALS
   // --------------------------------------------------------------------------
   public timingChoice = signal<TimingChoice>('RUN_NOW');
-  
+
   // Default scheduled date to tomorrow
   private tomorrowStr = (() => {
     const d = new Date();
@@ -248,12 +252,12 @@ export class Step9ReviewStoreService {
     let initRes: any;
 
     try {
-      initRes = await this.ipc.invoke('engine/migration', 'initialize', {
-        migrationId: identity.migrationId,
-        planId: identity.planId,
+      initRes = await this.migrationIpc.initializeMigration({
+        migration_id: identity.migrationId,
+        plan_id: identity.planId,
         environment: identity.environment,
         mode: identity.mode,
-        timingMode: timing.choice
+        timing_mode: timing.choice
       });
 
       if (initRes && initRes.status === 'ERROR') {
@@ -285,9 +289,10 @@ export class Step9ReviewStoreService {
       this.submitPhase.set('STARTING');
 
       try {
-        const startRes = await this.ipc.invoke('engine/migration', 'start', {
-          migrationId: identity.migrationId,
-          planId: identity.planId
+        const startRes = await this.migrationIpc.startMigration({
+          migration_id: identity.migrationId,
+          plan_id: identity.planId,
+          mode: identity.mode
         });
 
         if (startRes && startRes.status === 'ERROR') {
@@ -303,7 +308,7 @@ export class Step9ReviewStoreService {
         }
 
         // Register in portfolio and navigate to Mission Control
-        const canonicalId = startRes?.data?.migrationId || initRes?.data?.migrationId || identity.migrationId;
+        const canonicalId = startRes?.data?.migration_id || initRes?.data?.migration_id || identity.migrationId;
         if (!canonicalId) {
           this.submitPhase.set('ERROR');
           this.operationError.set({
@@ -333,13 +338,13 @@ export class Step9ReviewStoreService {
       this.submitPhase.set('SCHEDULING');
 
       try {
-        const schedRes = await this.ipc.invoke('engine/schedule', 'create', {
-          migrationId: identity.migrationId,
-          planId: identity.planId,
-          scheduledTimestamp: `${timing.scheduledDate}T${timing.scheduledTime}:00`,
+        const schedRes = await this.migrationIpc.createSchedule({
+          migration_id: identity.migrationId,
+          plan_id: identity.planId,
+          scheduled_timestamp: `${timing.scheduledDate}T${timing.scheduledTime}:00`,
           timezone: timing.selectedTimezone,
-          isRecurring: timing.isAdvancedRecurring,
-          recurrenceFrequency: timing.isAdvancedRecurring ? timing.recurrenceFrequency : undefined
+          is_recurring: timing.isAdvancedRecurring,
+          recurrence_frequency: timing.isAdvancedRecurring ? timing.recurrenceFrequency : undefined
         });
 
         if (schedRes && schedRes.status === 'ERROR') {
@@ -359,7 +364,7 @@ export class Step9ReviewStoreService {
           scheduleChoice: 'SCHEDULE',
           scheduledTime: `${timing.scheduledDate}T${timing.scheduledTime}:00`
         });
-        const canonicalId = schedRes?.data?.migrationId || initRes?.data?.migrationId || identity.migrationId;
+        const canonicalId = schedRes?.data?.migration_id || initRes?.data?.migration_id || identity.migrationId;
         if (!canonicalId) {
           this.submitPhase.set('ERROR');
           this.operationError.set({

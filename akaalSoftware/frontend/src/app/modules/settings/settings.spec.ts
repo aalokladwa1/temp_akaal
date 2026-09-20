@@ -6,7 +6,6 @@ import {
   DEFAULT_GENERAL_SETTINGS,
   DEFAULT_NOTIFICATION_SETTINGS,
   DEFAULT_INTEGRATION_SETTINGS,
-  DEFAULT_AI_INTELLIGENCE_SETTINGS,
   DEFAULT_LOGGING_DIAGNOSTICS_SETTINGS,
   DEFAULT_ADVANCED_SETTINGS
 } from './services/settings.service';
@@ -535,57 +534,6 @@ describe('AKAAL Settings — Master Test Suite', () => {
     });
   });
 
-  describe('11. AI & Intelligence Defaults (Part 3)', () => {
-    it('should initialize with canonical AI assistant and recommendation policies', () => {
-      const ai = service.aiIntelligenceSettings();
-      expect(ai.assistantEnabled).toBe(true);
-      expect(ai.proactivityMode).toBe('ADVISORY');
-      expect(ai.strictCredentialSanitization).toBe(true);
-      expect(ai.defaultRequestTokenBudget).toBe(4000);
-      expect(ai.planSynthesisAssistance).toBe(true);
-      expect(ai.advisoryPlanConfirmationRequired).toBe(true);
-      expect(ai.workloadAutoTuningSuggestions).toBe(true);
-      expect(ai.failureRcaEnabled).toBe(true);
-      expect(ai.redactSensitiveDataInTraces).toBe(true);
-      expect(ai.recommendationConfidenceLevel).toBe('HIGH');
-      expect(ai.mandatoryHumanReviewEnforced).toBe(true);
-      expect(ai.cdcBufferSaturationPrediction).toBe(true);
-      expect(ai.throughputAnomalyDetection).toBe(true);
-    });
-
-    it('should update configurable AI settings while locking governance and redaction invariants', () => {
-      service.updateAiIntelligence({
-        proactivityMode: 'ON_DEMAND',
-        defaultRequestTokenBudget: 8000,
-        recommendationConfidenceLevel: 'STANDARD',
-        strictCredentialSanitization: false as any,
-        advisoryPlanConfirmationRequired: false as any,
-        mandatoryHumanReviewEnforced: false as any,
-        redactSensitiveDataInTraces: false as any
-      });
-
-      const ai = service.aiIntelligenceSettings();
-      expect(ai.proactivityMode).toBe('ON_DEMAND');
-      expect(ai.defaultRequestTokenBudget).toBe(8000);
-      expect(ai.recommendationConfidenceLevel).toBe('STANDARD');
-
-      // Locked governance & safety invariants remain enforced
-      expect(ai.strictCredentialSanitization).toBe(true);
-      expect(ai.advisoryPlanConfirmationRequired).toBe(true);
-      expect(ai.mandatoryHumanReviewEnforced).toBe(true);
-      expect(ai.redactSensitiveDataInTraces).toBe(true);
-    });
-
-    it('should reset AI intelligence defaults correctly', () => {
-      service.updateAiIntelligence({ proactivityMode: 'ON_DEMAND', defaultRequestTokenBudget: 1000 });
-      expect(service.aiIntelligenceSettings().proactivityMode).toBe('ON_DEMAND');
-
-      service.resetAiIntelligence();
-      expect(service.aiIntelligenceSettings().proactivityMode).toBe('ADVISORY');
-      expect(service.aiIntelligenceSettings().defaultRequestTokenBudget).toBe(4000);
-    });
-  });
-
   describe('12. Zero-Fake Session Persistence Guarantee', () => {
     it('should not persist Part 2, Part 3, or Part 4 operational defaults into browser localStorage', () => {
       service.updateRuntimeMigration({ defaultStartingWorkers: 20 });
@@ -593,7 +541,6 @@ describe('AKAAL Settings — Master Test Suite', () => {
       service.updateStorageRetention({ checkpointIntervalRows: 1500 });
       service.updateNotification({ emailMinSeverity: 'CRITICAL' });
       service.updateIntegration({ telemetryDestination: 'DATADOG_AGENT' });
-      service.updateAiIntelligence({ defaultRequestTokenBudget: 2000 });
       service.updateLogging({ clientLogLevel: 'DEBUG' });
       service.updateAdvanced({ clientMemoryCacheLimitMb: 1024 });
 
@@ -603,7 +550,6 @@ describe('AKAAL Settings — Master Test Suite', () => {
       expect(mockStorage.getItem('akaal_settings_storage')).toBeNull();
       expect(mockStorage.getItem('akaal_settings_notifications')).toBeNull();
       expect(mockStorage.getItem('akaal_settings_integrations')).toBeNull();
-      expect(mockStorage.getItem('akaal_settings_ai_intelligence')).toBeNull();
       expect(mockStorage.getItem('akaal_settings_logging')).toBeNull();
       expect(mockStorage.getItem('akaal_settings_advanced')).toBeNull();
     });

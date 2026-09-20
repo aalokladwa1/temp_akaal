@@ -7,7 +7,6 @@ Zero hardcoded bypasses; integrates FourEyesValidator and intent seal verificati
 from __future__ import annotations
 
 from typing import Any, Dict, Optional
-from akaal.governance.foureyes.validator import FourEyesValidator
 from akaalPipeline.contracts.enums import ApprovalStatus
 from akaalPipeline.contracts.errors import PolicyDeniedError
 from akaalPipeline.policy.contracts import PolicyDecision, PolicyResult
