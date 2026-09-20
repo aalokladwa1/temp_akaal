@@ -1,0 +1,36 @@
+{
+  "status": "SUCCESS",
+  "timestamp": "2026-07-23T13:00:52.159085+00:00",
+  "source": {
+    "engine": "PostgreSQL 16.14 / 15.2",
+    "host": "127.0.0.1:5432",
+    "database": "postgres",
+    "schema": "public",
+    "tables_count": 50,
+    "total_rows": 131115
+  },
+  "target": {
+    "engine": "MySQL 8.0.46",
+    "host": "127.0.0.1:3306",
+    "database": "akaal_medium_tgt",
+    "tables_count": 50,
+    "total_rows": 131115
+  },
+  "performance": {
+    "total_duration_sec": 40.29,
+    "validation_duration_sec": 25.158,
+    "rows_migrated": 131115,
+    "rows_per_sec": 3254.38,
+    "peak_memory_mb": 48.62,
+    "checkpoint_count": 90
+  },
+  "reports": {
+    "pre_migration_id": "rep-ee078594aa6e",
+    "pre_migration_sha256": "2f767b1fa2d8350877dac3998ec9139aa4c038c41d7d739e7bbf2c53a76eb864",
+    "executive_summary_id": "rep-5a19e16388df",
+    "executive_summary_sha256": "43f64483da79c7d34d12b8a212d3de0a3ae4b26510479e845a4b86a302089c25",
+    "audit_package_id": "aud-pkg-7792645238",
+    "audit_package_signature": "x509:eDUwOS1zaWc6Y2VydC1ha2FhbC1jb3JwLTIwMjY6ZGYxMGZmNDAwMWQ5MjQ4OTEzY2U5MzhmZjczZDQ3YWU4ODEyN2YwNTMxOTYyNDk0MDE2YzYxNGM4Zjg1MDZmYg=="
+  },
+  "validation_issues": []
+}

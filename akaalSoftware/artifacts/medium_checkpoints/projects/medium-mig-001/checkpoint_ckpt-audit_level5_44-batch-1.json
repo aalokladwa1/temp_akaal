@@ -1,0 +1,27 @@
+{
+  "checkpoint_id": "ckpt-audit_level5_44-batch-1",
+  "project_id": "medium-mig-001",
+  "migration_id": "mig-med-001",
+  "workflow_state": "PRODUCTION_MIGRATION",
+  "table_name": "audit_level5_44",
+  "batch_number": 1,
+  "worker_id": "default",
+  "last_processed_primary_key": null,
+  "rows_processed": 2000,
+  "rows_failed": 0,
+  "rows_skipped": 0,
+  "retry_count": 0,
+  "adapter_state": {},
+  "metrics": {},
+  "checksum": "25430e1db1b0f8b083cbd076cb699090507c4860a069968f04f6aec449a3e44c",
+  "created_at": "2026-07-23T13:00:12.960198+00:00",
+  "updated_at": "2026-07-23T13:00:12.960453+00:00",
+  "status": "COMPLETED",
+  "payload": {
+    "project_state": {
+      "state": "PRODUCTION_MIGRATION"
+    },
+    "global_state_snapshot": {}
+  },
+  "description": "Workflow checkpoint"
+}

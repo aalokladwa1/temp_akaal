@@ -1,0 +1,55 @@
+{
+  "overall_verdict": "AKAAL CORE CROSS-ENGINE VALIDATION PASSED",
+  "timestamp": "2026-07-23T14:50:22.151783+00:00",
+  "total_rows_migrated": 524460,
+  "total_tables_migrated": 200,
+  "total_duration_sec": 483.87,
+  "average_throughput_rows_sec": 1083.89,
+  "peak_memory_mb": 53.49,
+  "tests": [
+    {
+      "test": "TEST 1: PostgreSQL -> SQL Server",
+      "verdict": "PASS",
+      "rows_migrated": 131115,
+      "tables_count": 50,
+      "checkpoints_count": 666,
+      "total_duration_sec": 125.75,
+      "throughput_rows_sec": 1042.69,
+      "peak_memory_mb": 5.69,
+      "validation_issues": []
+    },
+    {
+      "test": "TEST 2: MySQL -> PostgreSQL",
+      "verdict": "PASS",
+      "rows_migrated": 131115,
+      "tables_count": 50,
+      "checkpoints_count": 90,
+      "total_duration_sec": 128.06,
+      "throughput_rows_sec": 1023.85,
+      "peak_memory_mb": 53.49,
+      "validation_issues": []
+    },
+    {
+      "test": "TEST 3: Oracle -> PostgreSQL",
+      "verdict": "PASS",
+      "rows_migrated": 131115,
+      "tables_count": 50,
+      "checkpoints_count": 90,
+      "total_duration_sec": 108.31,
+      "throughput_rows_sec": 1210.59,
+      "peak_memory_mb": 6.69,
+      "validation_issues": []
+    },
+    {
+      "test": "TEST 4: SQL Server -> PostgreSQL",
+      "verdict": "PASS",
+      "rows_migrated": 131115,
+      "tables_count": 50,
+      "checkpoints_count": 90,
+      "total_duration_sec": 121.75,
+      "throughput_rows_sec": 1076.92,
+      "peak_memory_mb": 6.62,
+      "validation_issues": []
+    }
+  ]
+}

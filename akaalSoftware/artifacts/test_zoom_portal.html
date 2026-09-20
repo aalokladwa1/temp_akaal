@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; font-family: sans-serif; }
+    
+    /* Mock Dashboard beneath splash */
+    #dashboard {
+      position: absolute; inset: 0; background: #0f172a; color: white;
+      display: flex; flex-direction: column;
+    }
+    .topbar { height: 60px; border-bottom: 1px solid #334155; display: flex; align-items: center; padding: 0 24px; gap: 16px; }
+    .content { flex: 1; display: flex; padding: 24px; gap: 24px; }
+    .sidebar { width: 220px; background: #1e293b; border-radius: 8px; }
+    .main-grid { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+    .card { background: #1e293b; border-radius: 8px; height: 160px; padding: 16px; border: 1px solid #334155; }
+    
+    /* Splash Overlay */
+    #splash {
+      position: absolute; inset: 0; z-index: 100;
+      background: white; display: flex; align-items: center; justify-content: center;
+      transition: opacity 0.15s;
+    }
+    
+    /* Lockup container (Optically Centered) */
+    #lockup-container {
+      position: relative; display: flex; align-items: center; justify-content: center;
+    }
+    
+    #mark-box {
+      width: 76px; height: 72px; display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    #mark {
+      width: 100%; height: 100%; object-contain: contain;
+    }
+    
+    #wordmark-wrapper {
+      overflow: hidden; display: flex; align-items: center;
+      flex-shrink: 0;
+      width: 0px;
+      margin-left: 0px;
+    }
+    
+    #wordmark {
+      height: 48px; width: 222px; flex-shrink: 0;
+    }
+    
+    /* SVG Mask for zoom */
+    #zoom-svg {
+      position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; display: none;
+    }
+  </style>
+</head>
+<body>
+  <!-- Real Dashboard Layer -->
+  <div id="dashboard">
+    <div class="topbar">
+      <div style="font-weight: bold; font-size: 18px; color: #38bdf8;">DevKros Platform</div>
+      <div style="color: #94a3b8; font-size: 14px; margin-left: 20px;">Dashboard Overview</div>
+    </div>
+    <div class="content">
+      <div class="sidebar"></div>
+      <div class="main-grid">
+        <div class="card">
+          <div style="color: #94a3b8; font-size: 12px;">Active Migrations</div>
+          <div style="font-size: 28px; font-weight: bold; margin-top: 8px;">2</div>
+        </div>
+        <div class="card">
+          <div style="color: #94a3b8; font-size: 12px;">Data Pipeline</div>
+          <div style="font-size: 28px; font-weight: bold; margin-top: 8px; color: #34d399;">Connected</div>
+        </div>
+        <div class="card">
+          <div style="color: #94a3b8; font-size: 12px;">IPC Bridge</div>
+          <div style="font-size: 28px; font-weight: bold; margin-top: 8px; color: #38bdf8;">Ready</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Splash Layer -->
+  <div id="splash">
+    <div id="lockup-container">
+      <div id="mark-box">
+        <img id="mark" src="devkros-logo.svg" />
+      </div>
+      <div id="wordmark-wrapper">
+        <img id="wordmark" src="devkros-wordmark.svg" />
+      </div>
+    </div>
+
+    <!-- Zoom SVG Mask -->
+    <svg id="zoom-svg" viewBox="0 0 1920 1080" preserveAspectRatio="none">
+      <defs>
+        <mask id="v-mask">
+          <rect width="1920" height="1080" fill="white" />
+          <!-- V notch opening that expands to reveal dashboard -->
+          <g id="v-portal" transform="translate(960, 540) scale(1)">
+            <!-- V notch polygon matching letter 'v' proportions: width 30, height 36 -->
+            <polygon points="-16,-18 16,-18 0,18" fill="black" />
+          </g>
+        </mask>
+      </defs>
+      <rect width="1920" height="1080" fill="white" mask="url(#v-mask)" />
+    </svg>
+  </div>
+
+  <script>
+    const mark = document.getElementById('mark');
+    const markBox = document.getElementById('mark-box');
+    const wordmarkWrapper = document.getElementById('wordmark-wrapper');
+    const lockupContainer = document.getElementById('lockup-container');
+    const zoomSvg = document.getElementById('zoom-svg');
+    const vPortal = document.getElementById('v-portal');
+    const splash = document.getElementById('splash');
+
+    const totalWordmarkWidth = 222;
+    const wordmarkGap = 24;
+    const finalShift = (totalWordmarkWidth + wordmarkGap) / 2; // 123px
+
+    // Render at exact timestamp function for testability
+    window.renderAtTime = function(t_ms) {
+      splash.style.display = 'flex';
+      splash.style.opacity = '1';
+
+      if (t_ms <= 1200) {
+        // Stage 1: Continuous clockwise rotation
+        splash.style.background = 'white';
+        lockupContainer.style.display = 'flex';
+        zoomSvg.style.display = 'none';
+
+        const angle = (t_ms / 1000) * 180; // 180 deg/s
+        mark.style.transform = `rotate(${angle}deg)`;
+        lockupContainer.style.transform = `translateX(0px)`;
+        wordmarkWrapper.style.width = '0px';
+        wordmarkWrapper.style.marginLeft = '0px';
+      } else if (t_ms <= 1500) {
+        // Upright resolution (300ms from 1200 to 1500)
+        splash.style.background = 'white';
+        lockupContainer.style.display = 'flex';
+        zoomSvg.style.display = 'none';
+
+        const p = Math.min(1.0, (t_ms - 1200) / 300);
+        const ease = 1 - Math.pow(1 - p, 3);
+        // From 216deg to 360deg
+        const angle = 216 + (360 - 216) * ease;
+        mark.style.transform = `rotate(${angle}deg)`;
+        lockupContainer.style.transform = `translateX(0px)`;
+        wordmarkWrapper.style.width = '0px';
+        wordmarkWrapper.style.marginLeft = '0px';
+      } else if (t_ms <= 1850) {
+        // Stage 2: Brand Assembly (350ms from 1500 to 1850)
+        splash.style.background = 'white';
+        lockupContainer.style.display = 'flex';
+        zoomSvg.style.display = 'none';
+
+        const p = Math.min(1.0, (t_ms - 1500) / 350);
+        const ease = 1 - Math.pow(1 - p, 3);
+
+        mark.style.transform = `rotate(360deg)`;
+        // Container shifts left by finalShift * ease to maintain optical center
+        lockupContainer.style.transform = `translateX(${-finalShift * ease}px)`;
+        wordmarkWrapper.style.marginLeft = `${wordmarkGap * ease}px`;
+        wordmarkWrapper.style.width = `${totalWordmarkWidth * ease}px`;
+      } else if (t_ms <= 2000) {
+        // Stage 2 Settle / Hold (150ms from 1850 to 2000)
+        splash.style.background = 'white';
+        lockupContainer.style.display = 'flex';
+        zoomSvg.style.display = 'none';
+
+        mark.style.transform = `rotate(360deg)`;
+        lockupContainer.style.transform = `translateX(${-finalShift}px)`;
+        wordmarkWrapper.style.marginLeft = `${wordmarkGap}px`;
+        wordmarkWrapper.style.width = `${totalWordmarkWidth}px`;
+      } else if (t_ms <= 2350) {
+        // Stage 3: Zoom-Through into 'v' (350ms from 2000 to 2350)
+        splash.style.background = 'transparent'; // allow mask cutout to reveal dashboard
+        lockupContainer.style.display = 'none';
+        zoomSvg.style.display = 'block';
+
+        const p = Math.min(1.0, (t_ms - 2000) / 350);
+        // Exponential zoom acceleration
+        const scale = 1 + Math.pow(p, 3.5) * 140;
+        // Position portal at exact optical center of 'v'
+        vPortal.setAttribute('transform', `translate(960, 540) scale(${scale})`);
+      } else {
+        // Completed: Atomic splash removal
+        splash.style.display = 'none';
+      }
+    };
+  </script>
+</body>
+</html>

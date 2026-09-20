@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: monospace; background: #eee; padding: 20px; }
+    canvas { border: 1px solid #ccc; background: white; margin: 10px 0; }
+  </style>
+</head>
+<body>
+  <h2>DevKros Logo Analysis</h2>
+  <canvas id="cMark"></canvas>
+  <canvas id="cLockup"></canvas>
+  <div id="output"></div>
+  <script>
+    async function analyze() {
+      const out = document.getElementById('output');
+      
+      // Load mark image
+      const imgMark = new Image();
+      imgMark.src = './ChatGPT Image Sep 19, 2026, 01_29_22 PM.png';
+      await imgMark.decode();
+      
+      const cMark = document.getElementById('cMark');
+      cMark.width = imgMark.width;
+      cMark.height = imgMark.height;
+      const ctxM = cMark.getContext('2d');
+      ctxM.drawImage(imgMark, 0, 0);
+      
+      const idM = ctxM.getImageData(0, 0, cMark.width, cMark.height);
+      // Find bounding box of black pixels (< 128)
+      let minX = cMark.width, maxX = 0, minY = cMark.height, maxY = 0;
+      for (let y = 0; y < cMark.height; y++) {
+        for (let x = 0; x < cMark.width; x++) {
+          const idx = (y * cMark.width + x) * 4;
+          const r = idM.data[idx], g = idM.data[idx+1], b = idM.data[idx+2];
+          const lum = 0.299*r + 0.587*g + 0.114*b;
+          if (lum < 128) {
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y;
+          }
+        }
+      }
+      
+      // Load lockup image
+      const imgLockup = new Image();
+      imgLockup.src = './ChatGPT Image Sep 19, 2026, 01_54_11 PM.png';
+      await imgLockup.decode();
+      
+      const cLockup = document.getElementById('cLockup');
+      cLockup.width = imgLockup.width;
+      cLockup.height = imgLockup.height;
+      const ctxL = cLockup.getContext('2d');
+      ctxL.drawImage(imgLockup, 0, 0);
+      
+      const idL = ctxL.getImageData(0, 0, cLockup.width, cLockup.height);
+      let lMinX = cLockup.width, lMaxX = 0, lMinY = cLockup.height, lMaxY = 0;
+      for (let y = 0; y < cLockup.height; y++) {
+        for (let x = 0; x < cLockup.width; x++) {
+          const idx = (y * cLockup.width + x) * 4;
+          const lum = 0.299*idL.data[idx] + 0.587*idL.data[idx+1] + 0.114*idL.data[idx+2];
+          if (lum < 128) {
+            if (x < lMinX) lMinX = x;
+            if (x > lMaxX) lMaxX = x;
+            if (y < lMinY) lMinY = y;
+            if (y > lMaxY) lMaxY = y;
+          }
+        }
+      }
+
+      out.innerHTML = `
+        <h3>Mark Analysis:</h3>
+        Width: ${imgMark.width}, Height: ${imgMark.height}<br>
+        BBox: [${minX}, ${minY}, ${maxX}, ${maxY}], BBox Width: ${maxX - minX}, Height: ${maxY - minY}<br>
+        Aspect Ratio: ${(maxX - minX) / (maxY - minY)}<br>
+        <h3>Lockup Analysis:</h3>
+        Width: ${imgLockup.width}, Height: ${imgLockup.height}<br>
+        BBox: [${lMinX}, ${lMinY}, ${lMaxX}, ${lMaxY}], BBox Width: ${lMaxX - lMinX}, Height: ${lMaxY - lMinY}<br>
+      `;
+    }
+    analyze();
+  </script>
+</body>
+</html>

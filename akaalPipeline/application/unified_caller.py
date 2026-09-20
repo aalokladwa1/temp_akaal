@@ -2183,7 +2183,10 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
         try:
             with uow:
                 request_type = envelope.request_type
-                if request_type in ("migration.get", "get_migration"):
+                if request_type in ("dashboard.get_estate_summary", "get_estate_summary"):
+                    res = self.query_service.get_estate_summary(actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+                elif request_type in ("migration.get", "get_migration"):
                     mig_id = envelope.payload.get("migration_id")
                     agg = self.query_service.get_migration(mig_id, actor=pipeline_actor, conn=uow.connection)
                     return CallerResult(status=CallerResultStatus.OK, result=agg.to_dict())

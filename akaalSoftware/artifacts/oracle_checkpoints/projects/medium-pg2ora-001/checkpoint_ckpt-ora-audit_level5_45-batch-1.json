@@ -1,0 +1,27 @@
+{
+  "checkpoint_id": "ckpt-ora-audit_level5_45-batch-1",
+  "project_id": "medium-pg2ora-001",
+  "migration_id": "mig-pg2ora-001",
+  "workflow_state": "PRODUCTION_MIGRATION",
+  "table_name": "audit_level5_45",
+  "batch_number": 1,
+  "worker_id": "default",
+  "last_processed_primary_key": null,
+  "rows_processed": 3000,
+  "rows_failed": 0,
+  "rows_skipped": 0,
+  "retry_count": 0,
+  "adapter_state": {},
+  "metrics": {},
+  "checksum": "1939d40150cd5e457d776e1bdf7e820951cb73913187ab0b8f7da26fb1c7e39b",
+  "created_at": "2026-07-23T13:55:47.436840+00:00",
+  "updated_at": "2026-07-23T13:55:47.437012+00:00",
+  "status": "COMPLETED",
+  "payload": {
+    "project_state": {
+      "state": "PRODUCTION_MIGRATION"
+    },
+    "global_state_snapshot": {}
+  },
+  "description": "Workflow checkpoint"
+}
