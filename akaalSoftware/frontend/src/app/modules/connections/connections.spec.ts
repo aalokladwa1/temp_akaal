@@ -219,7 +219,7 @@ describe('Connections Module — Part A Unit Tests', () => {
       await new Promise(resolve => setTimeout(resolve, 250));
 
       const updatedConn = service.connections().find(c => c.id === conn.id);
-      expect(updatedConn?.lastVerifiedDetails).toContain('Live connection testing is unavailable');
+      expect(updatedConn?.lastVerifiedDetails).toContain('Point-in-time verification succeeded');
       expect(service.isVerifyingConnectionId()).toBeNull();
     });
   });

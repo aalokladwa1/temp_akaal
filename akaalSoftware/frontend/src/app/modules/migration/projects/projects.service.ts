@@ -1,5 +1,7 @@
-import { Injectable, signal, computed, Optional } from '@angular/core';
+import { Injectable, signal, computed, inject, Optional } from '@angular/core';
 import { ContextService } from '../../../core/services/context.service';
+import { IpcService } from '../../../core/services/ipc.service';
+import { MigrationIpc } from '../../../core/services/ipc/migration.ipc';
 import {
   ProjectDiscoveryItem,
   InitiativeDiscoveryItem,
@@ -62,9 +64,17 @@ import {
 })
 export class ProjectsService {
   public cs: ContextService;
+  private ipc: IpcService;
+  private migrationIpc: MigrationIpc;
 
-  constructor(@Optional() contextService?: ContextService) {
+  constructor(
+    @Optional() contextService?: ContextService,
+    migrationIpc?: MigrationIpc,
+    ipc?: IpcService
+  ) {
     this.cs = contextService || new ContextService();
+    try { this.ipc = ipc || inject(IpcService); } catch { this.ipc = ipc || new IpcService(); }
+    try { this.migrationIpc = migrationIpc || inject(MigrationIpc); } catch { this.migrationIpc = migrationIpc || new MigrationIpc(this.ipc); }
   }
 
   // ==========================================================================
@@ -1705,6 +1715,117 @@ export class ProjectsService {
     state: EntityAvailabilityState
   ): void {
     this.projectSettingsAvailability.set(state);
+  }
+
+  // Production IPC State Loader & Mapper
+  public async loadState(): Promise<void> {
+    if (this.ipc.connectionState() === 'disconnected') {
+      this.projectsAvailability.set('NOT_CONNECTED');
+      this.initiativesAvailability.set('NOT_CONNECTED');
+      this.errorMessage.set('Projects IPC service is currently disconnected.');
+      return;
+    }
+
+    this.projectsAvailability.set('LOADING');
+    this.initiativesAvailability.set('LOADING');
+    this.errorMessage.set('');
+
+    try {
+      const [projRes, initRes] = await Promise.all([
+        this.migrationIpc.listProjects().catch(() => null),
+        this.migrationIpc.listInitiatives().catch(() => null)
+      ]);
+
+      if (projRes && projRes.status === 'SUCCESS') {
+        const rawProjs = Array.isArray(projRes.data?.projects)
+          ? projRes.data.projects
+          : (Array.isArray(projRes.data) ? projRes.data : []);
+        const mappedProjs: ProjectDiscoveryItem[] = rawProjs.map((item: any) => this.mapBackendProject(item));
+        this.projects.set(mappedProjs);
+        this.projectsAvailability.set(mappedProjs.length > 0 ? 'READY' : 'EMPTY');
+      } else if (projRes && projRes.status === 'ERROR') {
+        this.projectsAvailability.set('ERROR');
+        this.errorMessage.set(projRes.error || 'Failed to fetch projects');
+      } else {
+        this.projectsAvailability.set('NOT_CONNECTED');
+      }
+
+      if (initRes && initRes.status === 'SUCCESS') {
+        const rawInits = Array.isArray(initRes.data?.initiatives)
+          ? initRes.data.initiatives
+          : (Array.isArray(initRes.data) ? initRes.data : []);
+        const mappedInits: InitiativeDiscoveryItem[] = rawInits.map((item: any) => this.mapBackendInitiative(item));
+        this.initiatives.set(mappedInits);
+        this.initiativesAvailability.set(mappedInits.length > 0 ? 'READY' : 'EMPTY');
+      } else if (initRes && initRes.status === 'ERROR') {
+        this.initiativesAvailability.set('ERROR');
+      } else {
+        this.initiativesAvailability.set('NOT_CONNECTED');
+      }
+
+      this.updateSummary();
+    } catch (err: any) {
+      this.projectsAvailability.set('NOT_CONNECTED');
+      this.initiativesAvailability.set('NOT_CONNECTED');
+      this.errorMessage.set(err?.message || 'Failed to communicate with projects IPC authority');
+    }
+  }
+
+  private updateSummary(): void {
+    const projs = this.projects();
+    const inits = this.initiatives();
+    this.summary.set({
+      totalProjects: projs.length,
+      activeProjects: projs.filter(p => p.status === 'ACTIVE').length,
+      totalInitiatives: inits.length,
+      activeInitiatives: inits.filter(i => i.status === 'ACTIVE').length,
+      attentionCount: this.attentionItems().length
+    });
+  }
+
+  private mapBackendProject(item: any): ProjectDiscoveryItem {
+    return {
+      id: item.id || item.project_id || `proj-${Math.random().toString(36).substring(2, 7)}`,
+      name: item.name || 'Unnamed Project',
+      key: item.key || item.name?.substring(0, 4).toUpperCase() || 'PROJ',
+      description: item.description || '',
+      workspaceId: item.workspace_id || item.workspaceId || 'ws-default',
+      environmentName: item.environment_name || item.environmentName || 'Development',
+      isProduction: item.is_production ?? item.isProduction ?? false,
+      initiativeId: item.initiativeId || item.initiative_id,
+      initiativeName: item.initiativeName || item.initiative_name,
+      status: item.status || 'ACTIVE',
+      migrationCount: item.migrationCount || item.migration_count || 0,
+      validationCount: item.validationCount || item.validation_count || 0,
+      activeWorkloadsCount: item.activeWorkloadsCount || item.active_workloads_count || 0,
+      attentionCount: item.attentionCount || item.attention_count || 0,
+      createdAt: item.createdAt || item.created_at || new Date().toISOString(),
+      updatedAt: item.updatedAt || item.updated_at || new Date().toISOString(),
+      availability: 'READY',
+      accessState: 'GRANTED'
+    };
+  }
+
+  private mapBackendInitiative(item: any): InitiativeDiscoveryItem {
+    return {
+      id: item.id || item.initiative_id || `init-${Math.random().toString(36).substring(2, 7)}`,
+      name: item.name || 'Unnamed Initiative',
+      key: item.key || item.name?.substring(0, 4).toUpperCase() || 'INIT',
+      objective: item.objective || item.description || '',
+      description: item.description || '',
+      status: item.status || 'ACTIVE',
+      associatedProjectIds: Array.isArray(item.associatedProjectIds) ? item.associatedProjectIds : [],
+      associatedProjectCount: item.associatedProjectCount || item.projectCount || 0,
+      associatedProjectsSummary: Array.isArray(item.associatedProjectsSummary) ? item.associatedProjectsSummary : [],
+      createdAt: item.createdAt || item.created_at || new Date().toISOString(),
+      updatedAt: item.updatedAt || item.updated_at || new Date().toISOString(),
+      backendAvailability: 'READY',
+      accessState: 'GRANTED'
+    };
+  }
+
+  public reload(): void {
+    this.loadState();
   }
 
   public loadFixturesForTesting(): void {
