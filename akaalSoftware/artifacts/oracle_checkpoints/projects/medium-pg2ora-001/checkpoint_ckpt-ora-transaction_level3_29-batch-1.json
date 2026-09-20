@@ -1,0 +1,27 @@
+{
+  "checkpoint_id": "ckpt-ora-transaction_level3_29-batch-1",
+  "project_id": "medium-pg2ora-001",
+  "migration_id": "mig-pg2ora-001",
+  "workflow_state": "PRODUCTION_MIGRATION",
+  "table_name": "transaction_level3_29",
+  "batch_number": 1,
+  "worker_id": "default",
+  "last_processed_primary_key": null,
+  "rows_processed": 130115,
+  "rows_failed": 0,
+  "rows_skipped": 0,
+  "retry_count": 0,
+  "adapter_state": {},
+  "metrics": {},
+  "checksum": "b9ea952f19174e3c53285f5d804b922c0244d7c834bd33eb223187d70a87bb5c",
+  "created_at": "2026-07-23T13:55:57.262985+00:00",
+  "updated_at": "2026-07-23T13:55:57.263229+00:00",
+  "status": "COMPLETED",
+  "payload": {
+    "project_state": {
+      "state": "PRODUCTION_MIGRATION"
+    },
+    "global_state_snapshot": {}
+  },
+  "description": "Workflow checkpoint"
+}

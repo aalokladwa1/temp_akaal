@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"syscall"
 )
 
 // startBackendBridge launches the canonical akaalIPC desktop transport bridge
@@ -25,12 +26,19 @@ func startBackendBridge() (*exec.Cmd, error) {
 		return nil, err
 	}
 
-	pythonPath := resolvePythonInterpreter(repoRoot)
+	pythonCmd, pythonArgs := resolvePythonInterpreter(repoRoot)
 
-	cmd := exec.Command(pythonPath, "-m", "akaalPipeline.api.desktop_ipc_bridge")
+	cmd := exec.Command(pythonCmd, append(pythonArgs, "-m", "akaalPipeline.api.desktop_ipc_bridge")...)
 	cmd.Dir = repoRoot
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+
+	if runtime.GOOS == "windows" {
+		cmd.SysProcAttr = &syscall.SysProcAttr{
+			HideWindow:    true,
+			CreationFlags: 0x08000000, // CREATE_NO_WINDOW
+		}
+	}
 
 	if err := cmd.Start(); err != nil {
 		return nil, fmt.Errorf("failed to start canonical akaalIPC desktop bridge: %w", err)
@@ -82,19 +90,33 @@ func isRepoRoot(dir string) bool {
 // resolvePythonInterpreter prefers the repository's own virtual environment
 // (the same interpreter used by tests/pytest.ini) over a bare "python"/"py"
 // PATH lookup, so the bridge runs with its real dependencies (fastapi, etc.)
-// installed.
-func resolvePythonInterpreter(repoRoot string) string {
-	var venvPython string
+// installed. Prefers pythonw.exe on Windows to prevent terminal window popups.
+// Returns the interpreter command plus any leading arguments needed to invoke it.
+// On Windows, bare "python"/"pythonw" on PATH can resolve to the Microsoft Store's
+// App Execution Alias stub (present even with no real Python installed), which exits
+// immediately without running anything -- silently killing the backend bridge.
+// The "py" launcher is a real executable, not an alias stub, and reliably finds the
+// actual installed interpreter, so it is preferred over a bare "pythonw" guess.
+func resolvePythonInterpreter(repoRoot string) (string, []string) {
 	if runtime.GOOS == "windows" {
-		venvPython = filepath.Join(repoRoot, ".venv", "Scripts", "python.exe")
-	} else {
-		venvPython = filepath.Join(repoRoot, ".venv", "bin", "python")
+		venvPythonW := filepath.Join(repoRoot, ".venv", "Scripts", "pythonw.exe")
+		if info, err := os.Stat(venvPythonW); err == nil && !info.IsDir() {
+			return venvPythonW, nil
+		}
+		venvPython := filepath.Join(repoRoot, ".venv", "Scripts", "python.exe")
+		if info, err := os.Stat(venvPython); err == nil && !info.IsDir() {
+			return venvPython, nil
+		}
+		if pyLauncher, err := exec.LookPath("py"); err == nil {
+			return pyLauncher, []string{"-3"}
+		}
+		return "pythonw", nil
 	}
+
+	venvPython := filepath.Join(repoRoot, ".venv", "bin", "python")
 	if info, err := os.Stat(venvPython); err == nil && !info.IsDir() {
-		return venvPython
+		return venvPython, nil
 	}
-	if runtime.GOOS == "windows" {
-		return "python"
-	}
-	return "python3"
+	return "python3", nil
 }
+

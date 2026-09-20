@@ -1,0 +1,27 @@
+{
+  "checkpoint_id": "ckpt-core_master_6-batch-1",
+  "project_id": "medium-mig-001",
+  "migration_id": "mig-med-001",
+  "workflow_state": "PRODUCTION_MIGRATION",
+  "table_name": "core_master_6",
+  "batch_number": 1,
+  "worker_id": "default",
+  "last_processed_primary_key": null,
+  "rows_processed": 10810,
+  "rows_failed": 0,
+  "rows_skipped": 0,
+  "retry_count": 0,
+  "adapter_state": {},
+  "metrics": {},
+  "checksum": "b217ce11d6574b1611cef5c6116b6f031c79e7187df7df9c77d72eb0d42d538f",
+  "created_at": "2026-07-23T13:00:14.049593+00:00",
+  "updated_at": "2026-07-23T13:00:14.049752+00:00",
+  "status": "COMPLETED",
+  "payload": {
+    "project_state": {
+      "state": "PRODUCTION_MIGRATION"
+    },
+    "global_state_snapshot": {}
+  },
+  "description": "Workflow checkpoint"
+}

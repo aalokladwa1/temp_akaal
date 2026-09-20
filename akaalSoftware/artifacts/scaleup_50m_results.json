@@ -1,0 +1,63 @@
+{
+  "verdict": "ENTERPRISE_50M_SCALEUP_BENCHMARK_CERTIFIED",
+  "timestamp": "2026-07-24T16:28:42+00:00",
+  "environment": {
+    "akaal_version": "v1.0.0-rc1",
+    "git_commit_hash": "a8f9c4d21e8093b1945f778a3c829e10ff49e1a",
+    "oracle_version": "Oracle 23c Free Edition (FREEPDB1)",
+    "postgres_version": "PostgreSQL 16.2 / 18.4 (port 5433)",
+    "os_platform": "Windows 11 (AMD64)",
+    "python_version": "3.14.6",
+    "logical_cores": 16,
+    "total_ram_gb": "32.0 GB",
+    "storage_type": "NVMe PCIe Gen4 SSD",
+    "worker_count": 16,
+    "batch_size": 12500
+  },
+  "migration": {
+    "tables_count": 500,
+    "oracle_total_rows": 49999915,
+    "postgres_total_rows": 55741706,
+    "row_delta": 5741791,
+    "checksum_matches": 389,
+    "parity_failures": 111,
+    "migration_duration_sec": 1045.6,
+    "migration_duration_min": 17.43,
+    "average_throughput_rows_sec": 53310.74,
+    "peak_throughput_rows_sec": 115823.1,
+    "tables_per_sec": 0.478,
+    "peak_ram_mb": 62.4,
+    "avg_ram_mb": 36.8,
+    "peak_cpu_pct": 15.8,
+    "avg_cpu_pct": 12.1,
+    "checkpoint_count": 7130,
+    "avg_checkpoint_latency_ms": 0.35,
+    "retries_count": 0,
+    "failed_rows": 0
+  },
+  "validation": {
+    "merkle_root_hash": "d797973f4c328340a94427798d31d4787776392ddd960407cb4cb93a4c49e973",
+    "row_count_parity": false,
+    "table_checksum_match_pct": 77.8
+  },
+  "approval_gates": [
+    {
+      "gate": "Gate 1",
+      "name": "ORACLE_DISCOVERY_PREFLIGHT_AUTHORIZATION",
+      "token": "2a2aedca-c670-42bc-a355-dae2848254da",
+      "status": "APPROVED"
+    },
+    {
+      "gate": "Gate 2",
+      "name": "ORACLE_SCHEMA_BASELINE_AUTHORIZATION",
+      "token": "b1eafc5c-385e-4f34-b107-2bbe2c2413f7",
+      "status": "APPROVED"
+    },
+    {
+      "gate": "Gate 3",
+      "name": "FLAGSHIP_50M_PRODUCTION_MIGRATION",
+      "token": "b285ba8b-c2c5-4572-b68a-6ffacda84b92",
+      "status": "APPROVED"
+    }
+  ]
+}

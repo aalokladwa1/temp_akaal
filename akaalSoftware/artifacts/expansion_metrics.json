@@ -1,0 +1,8 @@
+{
+  "baseline_tables": 303,
+  "baseline_rows": 10000115,
+  "expanded_tables": 500,
+  "expanded_rows": 49999915,
+  "expansion_duration_sec": 224.33,
+  "expansion_duration_min": 3.74
+}

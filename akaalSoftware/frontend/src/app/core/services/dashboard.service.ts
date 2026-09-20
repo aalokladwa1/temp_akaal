@@ -47,6 +47,11 @@ export class DashboardService {
     );
   });
 
+  // Daemon takes a variable amount of time to bind its IPC socket on cold start;
+  // a single ENGINE_DISCONNECTED is expected startup noise, not a real failure.
+  private readonly engineStartupRetries = 5;
+  private readonly engineStartupRetryDelayMs = 1000;
+
   public async refreshDashboard(): Promise<void> {
     this.isLoading.set(true);
     this.lastError.set(null);
@@ -59,7 +64,16 @@ export class DashboardService {
         return;
       }
 
-      const res = await this.ipc.invoke<DashboardSummary>('dashboard', 'get_estate_summary');
+      let res = await this.ipc.invoke<DashboardSummary>('dashboard', 'get_estate_summary');
+      for (
+        let attempt = 0;
+        attempt < this.engineStartupRetries && res.status === 'ERROR' && res.error?.startsWith('ENGINE_DISCONNECTED');
+        attempt++
+      ) {
+        await new Promise(resolve => setTimeout(resolve, this.engineStartupRetryDelayMs));
+        res = await this.ipc.invoke<DashboardSummary>('dashboard', 'get_estate_summary');
+      }
+
       if (res.status === 'SUCCESS' && isValidDashboardSummary(res.data)) {
         const normalized: DashboardSummary = {
           runningCount: res.data.runningCount ?? null,

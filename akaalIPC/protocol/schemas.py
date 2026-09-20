@@ -241,6 +241,7 @@ def register_core_pipeline_schemas(registry: SchemaRegistry) -> None:
 
     # Queries
     query_types = [
+        "dashboard.get_estate_summary",
         "migration.get", "migration.list", "operation.get", "mutability.evaluate",
         "observability.get", "health.get_explainable", "diagnostics.capture",
         "fleet.status", "metrics.export_prometheus",

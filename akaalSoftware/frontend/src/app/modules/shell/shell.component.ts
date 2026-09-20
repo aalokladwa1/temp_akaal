@@ -38,7 +38,7 @@ interface CommandItem {
       <div 
         id="desktop-top-edge-reveal-zone"
         (mouseenter)="onTopEdgeEnter()"
-        class="fixed top-0 left-0 right-0 h-2 z-[99] pointer-events-auto bg-transparent"
+        class="fixed top-0 left-0 right-0 h-2 z-[600] pointer-events-auto bg-transparent"
         aria-hidden="true">
       </div>
 
@@ -53,7 +53,7 @@ interface CommandItem {
         (focusin)="onTitleStripFocusIn()"
         (focusout)="onTitleStripFocusOut($event)"
         (dblclick)="toggleMaximizeWindow()"
-        class="fixed top-0 left-0 right-0 h-8 z-[100] flex items-center justify-between pl-3 pr-0 bg-[#f8fafc] dark:bg-[#08090a] border-b border-slate-200/80 dark:border-white/[0.06] shadow-[0_1px_2px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.5)] select-none transition-all duration-200 ease-out"
+        class="fixed top-0 left-0 right-0 h-8 z-[601] flex items-center justify-between pl-3 pr-0 bg-[#f8fafc] dark:bg-[#08090a] border-b border-slate-200/80 dark:border-white/[0.06] shadow-[0_1px_2px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.5)] select-none transition-all duration-200 ease-out"
         [class.translate-y-0]="isTitleStripVisible()"
         [class.opacity-100]="isTitleStripVisible()"
         [class.pointer-events-auto]="isTitleStripVisible()"

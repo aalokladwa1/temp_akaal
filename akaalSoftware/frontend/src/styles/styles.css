@@ -795,6 +795,33 @@ html[data-theme="dark"] app-devkros-logo img {
   filter: brightness(0) invert(1) !important;
 }
 
+/* ==========================================================================
+   7. DEVKROS LAUNCH SPLASH OVERLAY LAYER AUTHORITY & SEMANTIC TOKENS
+   ========================================================================== */
+:root {
+  --color-launch-bg: #ffffff;
+  --color-launch-fg: #0f172a;
+}
+
+html.dark, :root[data-theme="dark"] {
+  --color-launch-bg: #111214;
+  --color-launch-fg: #f8fafc;
+}
+
+.devkros-launch-splash-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 500;
+  background-color: var(--color-launch-bg);
+  color: var(--color-launch-fg);
+  overflow: hidden;
+  pointer-events: auto;
+}
+
+
 
 
 

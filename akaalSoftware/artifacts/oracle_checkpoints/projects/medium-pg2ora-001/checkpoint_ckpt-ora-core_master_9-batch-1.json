@@ -1,0 +1,27 @@
+{
+  "checkpoint_id": "ckpt-ora-core_master_9-batch-1",
+  "project_id": "medium-pg2ora-001",
+  "migration_id": "mig-pg2ora-001",
+  "workflow_state": "PRODUCTION_MIGRATION",
+  "table_name": "core_master_9",
+  "batch_number": 1,
+  "worker_id": "default",
+  "last_processed_primary_key": null,
+  "rows_processed": 11110,
+  "rows_failed": 0,
+  "rows_skipped": 0,
+  "retry_count": 0,
+  "adapter_state": {},
+  "metrics": {},
+  "checksum": "07e5e4b93e73624cb944c0c7d093e2ec2e3c19411973c1e306eb0b3eae8d9422",
+  "created_at": "2026-07-23T13:55:48.293035+00:00",
+  "updated_at": "2026-07-23T13:55:48.293204+00:00",
+  "status": "COMPLETED",
+  "payload": {
+    "project_state": {
+      "state": "PRODUCTION_MIGRATION"
+    },
+    "global_state_snapshot": {}
+  },
+  "description": "Workflow checkpoint"
+}

@@ -145,7 +145,19 @@ func (a *App) InvokeIPC(req IPCRequest) (IPCResponse, error) {
 
 	fmt.Printf("[Wails Named Pipe IPC] Endpoint: %s, Action: %s\n", req.Endpoint, req.Action)
 
-	conn, err := net.DialTimeout(networkType, socketAddress, 1*time.Second)
+	var conn net.Conn
+	var err error
+	maxRetries := 10
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		conn, err = net.DialTimeout(networkType, socketAddress, 1*time.Second)
+		if err == nil {
+			break
+		}
+		if attempt < maxRetries-1 {
+			time.Sleep(300 * time.Millisecond)
+		}
+	}
+
 	if err != nil {
 		return IPCResponse{
 			Status: "ERROR",
