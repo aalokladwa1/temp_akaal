@@ -6,7 +6,9 @@ echo   AKAAL Platform - Quick Build ^& Launch
 echo ========================================================
 
 set "NG_CLI_ANALYTICS=false"
-set "NODE_OPTIONS="
+set "NG_BUILD_MAX_WORKERS=1"
+set "ESBUILD_WORKERS=1"
+set "NODE_OPTIONS=--max-old-space-size=4096"
 if exist "C:\Program Files\Go\bin" set "PATH=C:\Program Files\Go\bin;!PATH!"
 
 
@@ -19,7 +21,7 @@ echo [2/4] Building Angular frontend...
 cd /d "%~dp0frontend"
 if exist ".angular\cache" rmdir /s /q ".angular\cache" >nul 2>&1
 if exist "dist" rmdir /s /q "dist" >nul 2>&1
-call node --max-old-space-size=4096 ./node_modules/@angular/cli/bin/ng build --configuration production --base-href ./
+call npx ng build --configuration development --base-href ./
 
 if %ERRORLEVEL% neq 0 (
     echo.

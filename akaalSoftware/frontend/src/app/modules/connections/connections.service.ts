@@ -1,5 +1,7 @@
 import { Injectable, signal, computed, inject, Optional } from '@angular/core';
 import { ContextService } from '../../core/services/context.service';
+import { IpcService } from '../../core/services/ipc.service';
+import { MigrationIpc } from '../../core/services/ipc/migration.ipc';
 import {
   ConnectionRecord,
   ConnectionFamily,
@@ -18,9 +20,17 @@ import { FIXTURE_STANDARD_CONNECTIONS } from './connections.fixtures';
 })
 export class ConnectionsService {
   public cs: ContextService;
+  private ipc: IpcService;
+  private migrationIpc: MigrationIpc;
 
-  constructor(@Optional() contextService?: ContextService) {
+  constructor(
+    @Optional() contextService?: ContextService,
+    migrationIpc?: MigrationIpc,
+    ipc?: IpcService
+  ) {
     this.cs = contextService || new ContextService();
+    try { this.ipc = ipc || inject(IpcService); } catch { this.ipc = ipc || new IpcService(); }
+    try { this.migrationIpc = migrationIpc || inject(MigrationIpc); } catch { this.migrationIpc = migrationIpc || new MigrationIpc(this.ipc); }
   }
 
   // Primary Data Store Signals (Neutral truthful production startup: B-2.2-01)
@@ -273,21 +283,120 @@ export class ConnectionsService {
     this.selectedConnection.set(null);
   }
 
-  // Truthful Verification Handling (Fail-closed when live probe is unexposed: B-2.2-06)
+  // Production IPC State Loader & Mapper
+  public async loadState(): Promise<void> {
+    if (this.ipc.connectionState() === 'disconnected') {
+      this.availabilityState.set('NOT_CONNECTED');
+      this.errorMessage.set('Connection service is currently disconnected.');
+      return;
+    }
+
+    this.availabilityState.set('LOADING');
+    this.errorMessage.set(null);
+
+    try {
+      const res = await this.migrationIpc.listConnections();
+      if (res.status === 'SUCCESS' && res.data) {
+        const rawList = Array.isArray(res.data.connections)
+          ? res.data.connections
+          : (Array.isArray(res.data) ? res.data : []);
+        
+        const mapped: ConnectionRecord[] = rawList.map((item: any) => this.mapBackendConnection(item));
+        this.connections.set(mapped);
+        this.availabilityState.set(mapped.length > 0 ? 'READY' : 'EMPTY');
+      } else if (res.status === 'ERROR') {
+        this.availabilityState.set('NOT_CONNECTED');
+        this.errorMessage.set(res.error || 'Failed to fetch connections');
+      } else {
+        this.availabilityState.set('NOT_CONNECTED');
+      }
+    } catch (err: any) {
+      this.availabilityState.set('NOT_CONNECTED');
+      this.errorMessage.set(err?.message || 'Failed to load connections from backend IPC');
+    }
+  }
+
+  private mapBackendConnection(item: any): ConnectionRecord {
+    return {
+      id: item.id || item.connection_id || `conn-${Math.random().toString(36).substring(2, 7)}`,
+      name: item.name || item.connection_name || 'Unnamed Connection',
+      description: item.description,
+      providerId: item.providerId || item.provider_id || 'postgresql',
+      providerName: item.providerName || item.provider_name || item.providerId || 'PostgreSQL',
+      family: item.family || 'RELATIONAL',
+      environment: item.environment || 'Production',
+      workspaceId: item.workspaceId || item.workspace_id || 'default-workspace',
+      workspaceName: item.workspaceName || item.workspace_name,
+      organizationId: item.organizationId || item.organization_id || 'default-tenant',
+      endpointDisplay: item.endpointDisplay || item.endpoint || item.host || '127.0.0.1:5432',
+      safeRouteInfo: item.safeRouteInfo || item.route,
+      tlsMode: item.tlsMode || 'TLS_1_3',
+      authMethodDisplay: item.authMethodDisplay || item.auth_method || 'IAM Token / Secret Vault',
+      roleApplicability: item.roleApplicability || 'SOURCE_AND_TARGET',
+      verificationState: item.verificationState || (item.status === 'ACTIVE' ? 'VERIFIED_RECENT' : 'NEVER_TESTED'),
+      lastVerifiedAt: item.lastVerifiedAt || item.last_verified_at || null,
+      lastVerifiedDetails: item.lastVerifiedDetails || item.last_verified_details,
+      createdAt: item.createdAt || item.created_at || new Date().toISOString(),
+      updatedAt: item.updatedAt || item.updated_at || new Date().toISOString(),
+      usage: item.usage || {
+        referencedProjectCount: 0,
+        activeMigrationCount: 0,
+        activeValidationCount: 0,
+        isUnused: true,
+        usageAvailable: true
+      },
+      tags: item.tags || []
+    };
+  }
+
+  // Truthful Verification Handling (Invokes canonical connection.test IPC)
   public verifyConnection(connId: string): void {
     this.triggerPointInTimeVerification(connId);
   }
 
-  public triggerPointInTimeVerification(connId: string): void {
+  public async triggerPointInTimeVerification(connId: string): Promise<void> {
     this.isVerifyingConnectionId.set(connId);
-    
-    // Truthful handling: Live verification is unexposed before live backend integration
-    setTimeout(() => {
+    try {
+      const res = await this.migrationIpc.testConnection({ connection_id: connId });
+      if (res.status === 'SUCCESS') {
+        this.connections.update(list => list.map(c => {
+          if (c.id === connId) {
+            const updated: ConnectionRecord = {
+              ...c,
+              verificationState: 'VERIFIED_RECENT',
+              lastVerifiedAt: new Date().toISOString(),
+              lastVerifiedDetails: 'Point-in-time verification succeeded through backend IPC.'
+            };
+            if (this.selectedConnection()?.id === connId) {
+              this.selectedConnection.set(updated);
+            }
+            return updated;
+          }
+          return c;
+        }));
+      } else {
+        this.connections.update(list => list.map(c => {
+          if (c.id === connId) {
+            const updated: ConnectionRecord = {
+              ...c,
+              verificationState: 'VERIFICATION_FAILED',
+              lastVerifiedDetails: res.error || 'Connection probe failed.'
+            };
+            if (this.selectedConnection()?.id === connId) {
+              this.selectedConnection.set(updated);
+            }
+            return updated;
+          }
+          return c;
+        }));
+      }
+    } catch (err: any) {
       this.connections.update(list => list.map(c => {
         if (c.id === connId) {
           const updated: ConnectionRecord = {
             ...c,
-            lastVerifiedDetails: 'Live connection testing is unavailable while connection service is disconnected.'
+            verificationState: 'VERIFICATION_FAILED',
+            lastVerifiedDetails: err?.message || 'Connection test failed.'
           };
           if (this.selectedConnection()?.id === connId) {
             this.selectedConnection.set(updated);
@@ -296,8 +405,24 @@ export class ConnectionsService {
         }
         return c;
       }));
+    } finally {
       this.isVerifyingConnectionId.set(null);
-    }, 200);
+    }
+  }
+
+  public async createConnection(payload: any): Promise<boolean> {
+    try {
+      const res = await this.migrationIpc.createConnection(payload);
+      if (res.status === 'SUCCESS') {
+        await this.loadState();
+        return true;
+      }
+      this.errorMessage.set(res.error || 'Failed to create connection');
+      return false;
+    } catch (err: any) {
+      this.errorMessage.set(err?.message || 'Error creating connection');
+      return false;
+    }
   }
 
   public setSorting(field: ConnectionSortField, dir?: SortDirection): void {
@@ -322,11 +447,7 @@ export class ConnectionsService {
   }
 
   public reload(): void {
-    if (this.availabilityState() === 'READY' && this.connections().length > 0) {
-      // Keep loaded
-    } else {
-      this.availabilityState.set('NOT_CONNECTED');
-    }
+    this.loadState();
   }
 
   public setMockAvailability(state: EntityAvailabilityState, msg?: string): void {
@@ -335,11 +456,6 @@ export class ConnectionsService {
   }
 
   public retryConnection(): void {
-    this.availabilityState.set('LOADING');
-    setTimeout(() => {
-      // In production, remain truthfully disconnected if no live daemon
-      this.availabilityState.set('NOT_CONNECTED');
-      this.errorMessage.set('Connection service is currently disconnected.');
-    }, 400);
+    this.loadState();
   }
 }

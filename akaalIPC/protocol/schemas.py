@@ -248,10 +248,7 @@ def register_core_pipeline_schemas(registry: SchemaRegistry) -> None:
 
     # Queries
     query_types = [
-<<<<<<< HEAD
         "dashboard.get_estate_summary",
-        "migration.get", "migration.list", "operation.get", "mutability.evaluate",
-=======
         "estate.summary", "settings.get", "account.current.get", "admin.account.current.get",
         "migration.get", "migration.list", "migration.get_plan", "migration.readiness",
         "operation.get", "mutability.evaluate",
@@ -260,7 +257,6 @@ def register_core_pipeline_schemas(registry: SchemaRegistry) -> None:
         "template.list", "template.get",
         "audit.get_trail", "audit.verify",
         "validation.get_mission", "validation.list_missions",
->>>>>>> 10b69d06d4d40a6bbc61b437fd49c6fef6be3b77
         "observability.get", "health.get_explainable", "diagnostics.capture",
         "fleet.status", "metrics.export_prometheus",
         "schedule.get", "schedule.list", "schedule.occurrence.get", "schedule.occurrence.list",
