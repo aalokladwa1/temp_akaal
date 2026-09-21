@@ -203,28 +203,26 @@ export class DevkrosLaunchSplashComponent implements OnInit, OnDestroy {
 
   public get showLoadingBar(): boolean {
     const state = this.launch ? this.launch.state() : 'STAGE_1_ROTATION';
-    return state === 'STAGE_1_CANVAS' || state === 'STAGE_1_ROTATION';
+    return state === 'STAGE_1_CANVAS' || state === 'STAGE_1_ROTATION' || state === 'RESOLVING_UPRIGHT';
   }
 
   public get loadingBarWidthPercent(): number {
     if (!this.launch) return 15;
-    const ratio = (this.launch as any).getReadinessGateRatio ? (this.launch as any).getReadinessGateRatio() : 0.15;
-    return Math.max(15, Math.round(ratio * 100));
+    const progress = (this.launch as any).loadingProgress !== undefined ? (this.launch as any).loadingProgress : 0.15;
+    return Math.max(15, Math.min(100, Math.round(progress * 100)));
   }
 
   public get portalMaskTransform(): string {
     const state = this.launch ? this.launch.state() : 'STAGE_1_ROTATION';
     if (state === 'STAGE_3_ZOOM_THROUGH') {
-      return 'scale(60)';
+      const p = this.launch ? this.launch.zoomProgress : 0;
+      const scale = p * 80;
+      return `scale(${scale})`;
     }
     return 'scale(0)';
   }
 
   public get portalMaskTransition(): string {
-    const state = this.launch ? this.launch.state() : 'STAGE_1_ROTATION';
-    if (state === 'STAGE_3_ZOOM_THROUGH') {
-      return 'transform 350ms cubic-bezier(0.6, 0, 0.85, 0.1)';
-    }
     return 'none';
   }
 
@@ -247,23 +245,34 @@ export class DevkrosLaunchSplashComponent implements OnInit, OnDestroy {
 
   public get lockupContainerTransform(): string {
     const state = this.launch ? this.launch.state() : 'STAGE_1_ROTATION';
-    if (state === 'STAGE_3_ZOOM_THROUGH') {
-      return 'scale(45)';
+    if (state === 'STAGE_2_BRAND_ASSEMBLY') {
+      const p = this.launch && typeof this.launch.assemblyProgress === 'number' ? this.launch.assemblyProgress : undefined;
+      if (p === undefined) return 'scale(1)';
+      const translateX = -110 * p;
+      return `translateX(${translateX}px) scale(1)`;
     }
-    return 'scale(1)';
+    if (state === 'LOCKUP_SETTLE') {
+      return 'translateX(-110px) scale(1)';
+    }
+    if (state === 'STAGE_3_ZOOM_THROUGH') {
+      const p = this.launch && typeof this.launch.zoomProgress === 'number' ? this.launch.zoomProgress : 1;
+      const scale = 1 + p * 44;
+      return `translateX(-110px) scale(${scale})`;
+    }
+    return 'translateX(0px) scale(1)';
   }
 
   public get lockupContainerTransition(): string {
-    const state = this.launch ? this.launch.state() : 'STAGE_1_ROTATION';
-    if (state === 'STAGE_3_ZOOM_THROUGH') {
-      return 'transform 350ms cubic-bezier(0.6, 0, 0.85, 0.1)';
-    }
-    return 'transform 700ms cubic-bezier(0.16, 1, 0.3, 1)';
+    return 'none';
   }
 
   public get wordmarkMaxWidth(): number {
     const state = this.launch ? this.launch.state() : 'STAGE_1_ROTATION';
-    if (state === 'STAGE_2_BRAND_ASSEMBLY' || state === 'LOCKUP_SETTLE' || state === 'STAGE_3_ZOOM_THROUGH') {
+    if (state === 'STAGE_2_BRAND_ASSEMBLY') {
+      const p = this.launch && typeof this.launch.assemblyProgress === 'number' ? this.launch.assemblyProgress : 1;
+      return Math.round(222 * p);
+    }
+    if (state === 'LOCKUP_SETTLE' || state === 'STAGE_3_ZOOM_THROUGH') {
       return 222;
     }
     return 0;
@@ -271,7 +280,10 @@ export class DevkrosLaunchSplashComponent implements OnInit, OnDestroy {
 
   public get wordmarkOpacity(): number {
     const state = this.launch ? this.launch.state() : 'STAGE_1_ROTATION';
-    if (state === 'STAGE_2_BRAND_ASSEMBLY' || state === 'LOCKUP_SETTLE' || state === 'STAGE_3_ZOOM_THROUGH') {
+    if (state === 'STAGE_2_BRAND_ASSEMBLY') {
+      return this.launch && typeof this.launch.assemblyProgress === 'number' ? this.launch.assemblyProgress : 1;
+    }
+    if (state === 'LOCKUP_SETTLE' || state === 'STAGE_3_ZOOM_THROUGH') {
       return 1;
     }
     return 0;

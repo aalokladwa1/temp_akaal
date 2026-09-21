@@ -347,4 +347,62 @@ describe('LaunchLifecycleService & 50 Cold-Launch Invariants', () => {
     const session = (globalThis as any).__DEVKROS_LAUNCH_SESSION__;
     expect(session.claimedAt).toBeGreaterThan(0);
   });
+
+  it('51. test_long_loading_duration_does_not_freeze_rotation', () => {
+    service.startLaunchLifecycle();
+    service.fontsLoaded = false;
+    (service as any).isReadinessPending = false;
+    vi.spyOn(service, 'isRevealSafe').mockReturnValue(false);
+    const now = (service as any).stage1StartTime || 5000;
+    (service as any).stage1StartTime = now - 10000;
+    (service as any).runMotionLoop();
+    expect(service.state()).toBe('STAGE_1_ROTATION');
+    expect(service.currentAngle).toBeGreaterThanOrEqual(1400);
+  });
+
+  it('52. test_loading_bar_remains_active_during_stage_1', () => {
+    service.startLaunchLifecycle();
+    const now = (service as any).stage1StartTime || 5000;
+    (service as any).stage1StartTime = now - 3000;
+    (service as any).runMotionLoop();
+    expect(service.loadingProgress).toBeGreaterThanOrEqual(0.5);
+  });
+
+  it('53. test_readiness_at_arbitrary_angle_resolves_forward_upright', () => {
+    service.startLaunchLifecycle();
+    const now = (service as any).stage1StartTime || 5000;
+    service.currentAngle = 210;
+    service.isReadinessPending = true;
+    (service as any).stage1StartTime = now - 1000;
+    (service as any).runMotionLoop();
+    expect(service.state()).toBe('RESOLVING_UPRIGHT');
+    expect((service as any).resolveTargetAngle).toBe(360);
+  });
+
+  it('54. test_dropped_raf_frames_force_100pct_stage_2_wordmark_completion', () => {
+    service.transitionToBrandAssembly();
+    expect(service.state()).toBe('STAGE_2_BRAND_ASSEMBLY');
+    const now = (service as any).stage2StartTime || 5000;
+    (service as any).stage2StartTime = now - 1000;
+    (service as any).runMotionLoop();
+    expect(service.assemblyProgress).toBe(1.0);
+    expect(service.state()).toBe('LOCKUP_SETTLE');
+  });
+
+  it('55. test_dropped_raf_frames_force_100pct_zoom_through_coverage', () => {
+    (service as any).beginStage3ZoomThrough(0);
+    expect(service.state()).toBe('STAGE_3_ZOOM_THROUGH');
+    (service as any).zoomStartTime = 0;
+    (service as any).stepStage3ZoomThrough(1000);
+    expect(service.zoomProgress).toBe(1.0);
+    expect(service.state()).toBe('COMPLETED');
+  });
+
+  it('56. test_completed_launch_guarantees_100pct_visual_states', () => {
+    service.completeLaunch();
+    expect(service.state()).toBe('COMPLETED');
+    expect(service.assemblyProgress).toBe(1.0);
+    expect(service.zoomProgress).toBe(1.0);
+    expect(service.loadingProgress).toBe(1.0);
+  });
 });

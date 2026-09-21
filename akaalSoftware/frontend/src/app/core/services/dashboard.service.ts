@@ -67,20 +67,15 @@ export class DashboardService {
         return;
       }
 
-<<<<<<< HEAD
-      let res = await this.ipc.invoke<DashboardSummary>('dashboard', 'get_estate_summary');
+      let res = await this.dashboardIpc.getEstateSummary();
       for (
         let attempt = 0;
         attempt < this.engineStartupRetries && res.status === 'ERROR' && res.error?.startsWith('ENGINE_DISCONNECTED');
         attempt++
       ) {
         await new Promise(resolve => setTimeout(resolve, this.engineStartupRetryDelayMs));
-        res = await this.ipc.invoke<DashboardSummary>('dashboard', 'get_estate_summary');
+        res = await this.dashboardIpc.getEstateSummary();
       }
-
-=======
-      const res = await this.dashboardIpc.getEstateSummary();
->>>>>>> 10b69d06d4d40a6bbc61b437fd49c6fef6be3b77
       if (res.status === 'SUCCESS' && isValidDashboardSummary(res.data)) {
         const normalized: DashboardSummary = {
           runningCount: res.data.runningCount ?? null,
