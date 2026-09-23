@@ -11,10 +11,35 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Tuple
 import datetime
 
+import time
+
 class TimeAuthority:
-    @staticmethod
-    def utc_iso_now() -> str:
-        return datetime.datetime.now(datetime.timezone.utc).isoformat()
+    @classmethod
+    def monotonic_now(cls) -> float:
+        return time.monotonic()
+
+    @classmethod
+    def utc_now(cls) -> datetime.datetime:
+        return datetime.datetime.now(datetime.timezone.utc)
+
+    @classmethod
+    def utc_iso_now(cls) -> str:
+        return cls.utc_now().isoformat()
+
+    @classmethod
+    def parse_iso(cls, ts_str: str) -> datetime.datetime:
+        dt = datetime.datetime.fromisoformat(ts_str)
+        if dt.tzinfo is None:
+            return dt.replace(tzinfo=datetime.timezone.utc)
+        return dt.astimezone(datetime.timezone.utc)
+
+    @classmethod
+    def is_expired(cls, expires_at_iso: Optional[str]) -> bool:
+        if expires_at_iso is None:
+            return False
+        dt = cls.parse_iso(expires_at_iso)
+        return cls.utc_now() >= dt
+
 from akaalPipeline.contracts.enums import (
     ApprovalStatus,
     GrantResourceType,
@@ -366,9 +391,20 @@ class SQLiteTenantRepository:
     create_tenant = create
 
     def get_by_id(self, tenant_id: str) -> Optional[Dict[str, Any]]:
-        cur = self.conn.execute("SELECT * FROM enterprise_tenants WHERE tenant_id = ?", (tenant_id,))
+        cur = self.conn.execute("SELECT tenant_id, name, status, security_revision, created_at, updated_at FROM enterprise_tenants WHERE tenant_id = ?", (tenant_id,))
         row = cur.fetchone()
-        return dict(row) if row else None
+        if not row:
+            return None
+        if isinstance(row, sqlite3.Row):
+            return dict(row)
+        return {
+            "tenant_id": row[0],
+            "name": row[1],
+            "status": row[2],
+            "security_revision": row[3],
+            "created_at": row[4],
+            "updated_at": row[5],
+        }
 
     get_tenant = get_by_id
 
@@ -472,8 +508,25 @@ class SQLitePrincipalRepository:
         row = cur.fetchone()
         if row is None:
             return None
+        if isinstance(row, tuple):
+            meta = json.loads(row[10]) if row[10] else {}
+            return {
+                "principal_id": row[0],
+                "tenant_id": row[1],
+                "principal_type": row[2],
+                "username": row[3],
+                "display_name": row[4],
+                "email": row[5],
+                "is_active": bool(row[6]),
+                "is_locked": bool(row[7]),
+                "failed_login_attempts": row[8],
+                "security_revision": row[9],
+                "metadata": meta,
+                "created_at": row[11],
+                "updated_at": row[12],
+            }
         res = dict(row)
-        res["metadata"] = json.loads(res["metadata"])
+        res["metadata"] = json.loads(res["metadata"]) if isinstance(res.get("metadata"), str) else (res.get("metadata") or {})
         return res
 
     get_principal = get_by_id
@@ -486,8 +539,25 @@ class SQLitePrincipalRepository:
         row = cur.fetchone()
         if row is None:
             return None
+        if isinstance(row, tuple):
+            meta = json.loads(row[10]) if row[10] else {}
+            return {
+                "principal_id": row[0],
+                "tenant_id": row[1],
+                "principal_type": row[2],
+                "username": row[3],
+                "display_name": row[4],
+                "email": row[5],
+                "is_active": bool(row[6]),
+                "is_locked": bool(row[7]),
+                "failed_login_attempts": row[8],
+                "security_revision": row[9],
+                "metadata": meta,
+                "created_at": row[11],
+                "updated_at": row[12],
+            }
         res = dict(row)
-        res["metadata"] = json.loads(res["metadata"]) if res.get("metadata") else {}
+        res["metadata"] = json.loads(res["metadata"]) if isinstance(res.get("metadata"), str) else (res.get("metadata") or {})
         return res
 
     def update_principal(

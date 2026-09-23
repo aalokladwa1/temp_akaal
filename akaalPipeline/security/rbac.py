@@ -6,8 +6,8 @@ Canonical Dynamic RBAC Authority with cycle-safe inheritance and resource scopin
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Set, Tuple
-from akaal.core.crypto_random import generate_secure_id
-from akaal.core.time_authority import TimeAuthority
+from akaalPipeline.contracts.crypto import generate_secure_id
+from akaalPipeline.state.repositories import TimeAuthority
 from akaalPipeline.contracts.enums import GrantResourceType, GrantSubjectType
 from akaalPipeline.security.config import SecurityBaselineConfig
 from akaalPipeline.security.permission_registry import PermissionRegistry

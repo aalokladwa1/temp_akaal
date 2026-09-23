@@ -9,7 +9,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 from typing import Any, Dict, Optional, Tuple
-from akaal.core.crypto_random import generate_salt, generate_salt_hex
+from akaalPipeline.contracts.crypto import generate_salt, generate_salt_hex
 from akaalPipeline.contracts.enums import KDFAlgorithm
 from akaalPipeline.security.config import SecurityBaselineConfig
 

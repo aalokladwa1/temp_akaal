@@ -25,7 +25,7 @@ from sqlite3 import IntegrityError
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
-from akaal.core.time_authority import TimeAuthority
+from akaalPipeline.state.repositories import TimeAuthority
 from akaalPipeline.state.repositories import SQLitePrincipalRepository, SQLiteSCIMMappingRepository
 
 logger = logging.getLogger("akaalPipeline.identity.scim")

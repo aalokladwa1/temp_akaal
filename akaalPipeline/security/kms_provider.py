@@ -28,7 +28,7 @@ from akaalPipeline.security.keystore import (
     KeyStoreAuthority,
 )
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-from akaal.core.crypto_random import secure_random_bytes
+from akaalPipeline.contracts.crypto import secure_random_bytes
 
 
 class KMSProviderUnavailableError(RuntimeError):

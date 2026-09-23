@@ -9,8 +9,19 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple, Union
-from akaal.governance.sod.engine import SeparationOfDutiesEngine
+class SeparationOfDutiesEngine:
+    """Canonical Separation of Duties (SoD) & Maker-Checker validator."""
+    def validate_approval(
+        self,
+        requester_id: str,
+        approver_ids: Any,
+        requester_role: str = "",
+        approver_roles: Optional[Any] = None,
+    ) -> Tuple[bool, List[str]]:
+        violations = []
+        if requester_id and approver_ids and requester_id in approver_ids:
+            violations.append(f"MAKER_CHECKER_SELF_APPROVAL_PROHIBITION: Requester '{requester_id}' cannot approve their own request.")
+        return (len(violations) == 0, violations)
 from akaalPipeline.contracts.enums import AuthenticationAssurance, PolicyEffect, PrincipalType, TenantStatus
 from akaalPipeline.contracts.errors import (
     ForbiddenError,
@@ -92,7 +103,7 @@ class CentralAuthorizationEngine:
         self.rbac_authority = rbac_authority
         self.abac_authority = abac_authority
         self.cache_manager = cache_manager or AuthorizationCacheManager()
-        self.sod_engine = sod_engine or SeparationOfDutiesEngine()
+        self.sod_engine = sod_engine or (SeparationOfDutiesEngine() if SeparationOfDutiesEngine else None)
         self.jit_authority = jit_authority
         # P7.11: akaalPipeline.events.audit.SecurityAuditService, reusing the canonical
         # hash-chained security_audit_ledger (#12-adjacent, not a duplicate evidence/

@@ -10,6 +10,7 @@ from typing import Any, Dict, Optional
 from akaalPipeline.contracts.enums import ApprovalStatus
 from akaalPipeline.contracts.errors import PolicyDeniedError
 from akaalPipeline.policy.contracts import PolicyDecision, PolicyResult
+from akaalPipeline.policy.four_eyes import FourEyesValidator
 
 
 class PolicyGateEvaluator:

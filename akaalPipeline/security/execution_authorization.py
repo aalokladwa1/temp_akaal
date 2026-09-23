@@ -7,8 +7,8 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
-from akaal.core.crypto_random import generate_nonce, generate_secure_id
-from akaal.core.time_authority import TimeAuthority
+from akaalPipeline.contracts.crypto import generate_nonce, generate_secure_id
+from akaalPipeline.state.repositories import TimeAuthority
 from akaalPipeline.contracts.enums import KeyPurpose
 from akaalPipeline.contracts.serialization import (
     AKAAL_CANONICAL_PROFILE_V1,

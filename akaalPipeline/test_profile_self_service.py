@@ -74,15 +74,15 @@ def test_self_service_avatar_update_and_removal():
         uow.principals.create("tenant-test", "usr-aalok-01", "HUMAN", "aalok", display_name="Aalok Avatar Test")
 
     # Upload avatar Data URL
-    fake_avatar = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+    sample_avatar = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
     with uow:
-        res = cmd_handlers.handle_account_avatar_update({"avatar": fake_avatar}, actor, uow)
-        assert res["avatar"] == fake_avatar
+        res = cmd_handlers.handle_account_avatar_update({"avatar": sample_avatar}, actor, uow)
+        assert res["avatar"] == sample_avatar
 
     # Verify query returns persisted avatar
     with uow:
         acc = query_svc.get_current_account(actor=actor, conn=uow.connection)
-        assert acc["avatar"] == fake_avatar
+        assert acc["avatar"] == sample_avatar
 
     # Remove avatar
     with uow:

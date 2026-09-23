@@ -7,8 +7,8 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
-from akaal.core.crypto_random import generate_secure_id
-from akaal.core.time_authority import TimeAuthority
+from akaalPipeline.contracts.crypto import generate_secure_id
+from akaalPipeline.state.repositories import TimeAuthority
 from akaalPipeline.contracts.enums import PrincipalType
 from akaalPipeline.identity.passwords import PasswordAuthenticationEngine
 from akaalPipeline.security.config import SecurityBaselineConfig

@@ -29,8 +29,8 @@ from dataclasses import dataclass
 from sqlite3 import IntegrityError
 from typing import Any, Dict, Optional
 
-from akaal.core.crypto_random import generate_secure_id
-from akaal.core.time_authority import TimeAuthority
+from akaalPipeline.contracts.crypto import generate_secure_id
+from akaalPipeline.state.repositories import TimeAuthority
 from akaalPipeline.contracts.enums import PrincipalType, TenantStatus
 from akaalPipeline.contracts.errors import ConflictError, ForbiddenError, UnauthorizedError
 from akaalPipeline.security.context import PipelineActorContext

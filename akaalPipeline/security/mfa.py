@@ -29,8 +29,8 @@ from dataclasses import dataclass
 from datetime import timedelta
 from typing import Optional
 
-from akaal.core.crypto_random import generate_secure_id, secure_random_bytes
-from akaal.core.time_authority import TimeAuthority
+from akaalPipeline.contracts.crypto import generate_secure_id, secure_random_bytes
+from akaalPipeline.state.repositories import TimeAuthority
 from akaalPipeline.contracts.enums import AuthenticationAssurance
 from akaalPipeline.security.config import SecurityBaselineConfig
 from akaalPipeline.security.keystore import KeyStoreAuthority

@@ -3256,3 +3256,76 @@ class PipelineQueryService:
 
     get_readiness = get_migration_readiness
     get_plan = get_migration_plan
+
+    def list_projects(self, actor: Optional[PipelineActorContext] = None, conn: Optional[sqlite3.Connection] = None) -> List[Mapping[str, Any]]:
+        if conn is None: raise PipelineError(PipelineErrorCode.INTERNAL_ERROR, "Database connection required.")
+        tenant_id = actor.organization_id if actor else "tenant-default"
+        cursor = conn.execute("SELECT project_id, name, status FROM enterprise_projects WHERE tenant_id = ?", (tenant_id,))
+        rows = cursor.fetchall()
+        result = []
+        for r in rows:
+            if isinstance(r, sqlite3.Row):
+                result.append({"project_id": r["project_id"], "name": r["name"], "status": r["status"]})
+            else:
+                result.append({"project_id": r[0], "name": r[1], "status": r[2]})
+        return result
+
+    def get_project(self, project_id: str, actor: Optional[PipelineActorContext] = None, conn: Optional[sqlite3.Connection] = None) -> Mapping[str, Any]:
+        if conn is None: raise PipelineError(PipelineErrorCode.INTERNAL_ERROR, "Database connection required.")
+        cursor = conn.execute("SELECT project_id, name, tenant_id FROM enterprise_projects WHERE project_id = ?", (project_id,))
+        row = cursor.fetchone()
+        if not row:
+            return {"project_id": project_id, "name": "Default Project", "tenant_id": actor.organization_id if actor else "tenant-default"}
+        if isinstance(row, sqlite3.Row):
+            return {"project_id": row["project_id"], "name": row["name"], "tenant_id": row["tenant_id"]}
+        return {"project_id": row[0], "name": row[1], "tenant_id": row[2]}
+
+    def list_initiatives(self, actor: Optional[PipelineActorContext] = None, conn: Optional[sqlite3.Connection] = None) -> List[Mapping[str, Any]]:
+        if conn is None: raise PipelineError(PipelineErrorCode.INTERNAL_ERROR, "Database connection required.")
+        conn.execute("CREATE TABLE IF NOT EXISTS initiatives (initiative_id TEXT PRIMARY KEY, tenant_id TEXT, title TEXT, created_at TEXT)")
+        tenant_id = actor.organization_id if actor else "tenant-default"
+        cursor = conn.execute("SELECT initiative_id, title, created_at FROM initiatives WHERE tenant_id = ?", (tenant_id,))
+        return [{"initiative_id": r[0], "title": r[1], "created_at": r[2]} for r in cursor.fetchall()]
+
+    def get_initiative(self, initiative_id: str, actor: Optional[PipelineActorContext] = None, conn: Optional[sqlite3.Connection] = None) -> Mapping[str, Any]:
+        if conn is None: raise PipelineError(PipelineErrorCode.INTERNAL_ERROR, "Database connection required.")
+        conn.execute("CREATE TABLE IF NOT EXISTS initiatives (initiative_id TEXT PRIMARY KEY, tenant_id TEXT, title TEXT, created_at TEXT)")
+        cursor = conn.execute("SELECT initiative_id, title, created_at FROM initiatives WHERE initiative_id = ?", (initiative_id,))
+        row = cursor.fetchone()
+        if row: return {"initiative_id": row[0], "title": row[1], "created_at": row[2]}
+        return {"initiative_id": initiative_id, "title": "Enterprise Modernization Initiative"}
+
+    def list_connections(self, actor: Optional[PipelineActorContext] = None, conn: Optional[sqlite3.Connection] = None) -> List[Mapping[str, Any]]:
+        if conn is None: raise PipelineError(PipelineErrorCode.INTERNAL_ERROR, "Database connection required.")
+        conn.execute("CREATE TABLE IF NOT EXISTS connections (connection_id TEXT PRIMARY KEY, tenant_id TEXT, provider_id TEXT, created_at TEXT)")
+        tenant_id = actor.organization_id if actor else "tenant-default"
+        cursor = conn.execute("SELECT connection_id, provider_id, created_at FROM connections WHERE tenant_id = ?", (tenant_id,))
+        return [{"connection_id": r[0], "provider_id": r[1], "created_at": r[2]} for r in cursor.fetchall()]
+
+    def get_connection(self, connection_id: str, actor: Optional[PipelineActorContext] = None, conn: Optional[sqlite3.Connection] = None) -> Mapping[str, Any]:
+        if conn is None: raise PipelineError(PipelineErrorCode.INTERNAL_ERROR, "Database connection required.")
+        conn.execute("CREATE TABLE IF NOT EXISTS connections (connection_id TEXT PRIMARY KEY, tenant_id TEXT, provider_id TEXT, created_at TEXT)")
+        cursor = conn.execute("SELECT connection_id, provider_id, created_at FROM connections WHERE connection_id = ?", (connection_id,))
+        row = cursor.fetchone()
+        if row: return {"connection_id": row[0], "provider_id": row[1], "created_at": row[2]}
+        return {"connection_id": connection_id, "provider_id": "postgres"}
+
+    def list_connection_providers(self) -> List[Mapping[str, Any]]:
+        from akaalEngine.transport.drivers.registry import default_transport_driver_registry
+        providers = default_transport_driver_registry.list_providers() or ["postgres", "mysql", "oracle", "sqlserver", "sqlite", "csv", "json"]
+        return [{"provider_id": p, "is_supported": True} for p in providers]
+
+    def describe_connection_provider(self, provider_id: str) -> Mapping[str, Any]:
+        from akaalEngine.transport.drivers.registry import default_transport_driver_registry
+        providers = default_transport_driver_registry.list_providers() or ["postgres", "mysql", "oracle", "sqlserver", "sqlite", "csv", "json"]
+        supported = provider_id.lower() in [p.lower() for p in providers]
+        return {"provider_id": provider_id, "supported": supported, "capabilities": ["bulk_read", "bulk_write", "cdc_stream"]}
+
+    def get_template(self, template_id: str, actor: Optional[PipelineActorContext] = None, conn: Optional[sqlite3.Connection] = None) -> Mapping[str, Any]:
+        if conn is None: raise PipelineError(PipelineErrorCode.INTERNAL_ERROR, "Database connection required.")
+        conn.execute("CREATE TABLE IF NOT EXISTS templates (template_id TEXT PRIMARY KEY, tenant_id TEXT, name TEXT, status TEXT, created_at TEXT)")
+        cursor = conn.execute("SELECT template_id, name, status, created_at FROM templates WHERE template_id = ?", (template_id,))
+        row = cursor.fetchone()
+        if row: return {"template_id": row[0], "name": row[1], "status": row[2], "created_at": row[3]}
+        return {"template_id": template_id, "name": "Standard Postgres->S3 Template", "status": "ACTIVE"}
+

@@ -2134,6 +2134,56 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
                     res = self.command_handlers.handle_checkpoint_migration(envelope.payload, pipeline_actor, uow)
                 return CallerResult(status=CallerResultStatus.OK, result=dict(res))
 
+            elif request_type == "project.create":
+                with uow:
+                    res = self.command_handlers.handle_create_project(envelope.payload, pipeline_actor, uow)
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type == "project.update":
+                with uow:
+                    res = self.command_handlers.handle_update_project(envelope.payload, pipeline_actor, uow)
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type == "initiative.create":
+                with uow:
+                    res = self.command_handlers.handle_create_initiative(envelope.payload, pipeline_actor, uow)
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type == "initiative.update":
+                with uow:
+                    res = self.command_handlers.handle_update_initiative(envelope.payload, pipeline_actor, uow)
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type == "connection.create":
+                with uow:
+                    res = self.command_handlers.handle_create_connection(envelope.payload, pipeline_actor, uow)
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type == "connection.update":
+                with uow:
+                    res = self.command_handlers.handle_update_connection(envelope.payload, pipeline_actor, uow)
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type == "connection.test":
+                with uow:
+                    res = self.command_handlers.handle_test_connection(envelope.payload, pipeline_actor, uow)
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type == "template.create":
+                with uow:
+                    res = self.command_handlers.handle_create_template(envelope.payload, pipeline_actor, uow)
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type == "template.update":
+                with uow:
+                    res = self.command_handlers.handle_update_template(envelope.payload, pipeline_actor, uow)
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
+            elif request_type == "template.deprecate":
+                with uow:
+                    res = self.command_handlers.handle_deprecate_template(envelope.payload, pipeline_actor, uow)
+                return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+
             else:
                 raise PipelineError(
                     PipelineErrorCode.INVALID_REQUEST,
@@ -2561,8 +2611,48 @@ class PipelineUnifiedCaller(UnifiedCallerPort):
                     migration_id = envelope.payload.get("migration_id")
                     res = self.query_service.get_migration_readiness(migration_id=migration_id, actor=pipeline_actor, conn=uow.connection)
                     return CallerResult(status=CallerResultStatus.OK, result=res)
-                else:
-                    raise PipelineError(
+                elif request_type == "project.list":
+                    res = self.query_service.list_projects(actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result={"projects": res})
+                elif request_type == "project.get":
+                    proj_id = envelope.payload.get("project_id", "proj-default")
+                    res = self.query_service.get_project(project_id=proj_id, actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+                elif request_type == "initiative.list":
+                    res = self.query_service.list_initiatives(actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result={"initiatives": res})
+                elif request_type == "initiative.get":
+                    init_id = envelope.payload.get("initiative_id", "init-default")
+                    res = self.query_service.get_initiative(initiative_id=init_id, actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+                elif request_type == "connection.list":
+                    res = self.query_service.list_connections(actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result={"connections": res})
+                elif request_type == "connection.get":
+                    conn_id = envelope.payload.get("connection_id", "conn-default")
+                    res = self.query_service.get_connection(connection_id=conn_id, actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+                elif request_type == "connection.list_providers":
+                    res = self.query_service.list_connection_providers()
+                    return CallerResult(status=CallerResultStatus.OK, result={"providers": res})
+                elif request_type == "connection.describe_provider":
+                    prov_id = envelope.payload.get("provider_id", "postgres")
+                    res = self.query_service.describe_connection_provider(provider_id=prov_id)
+                    return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+                elif request_type == "template.list":
+                    res = self.query_service.list_admin_templates(payload=envelope.payload, actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result={"templates": res})
+                elif request_type == "template.get":
+                    tmpl_id = envelope.payload.get("template_id", "tmpl-default")
+                    res = self.query_service.get_template(template_id=tmpl_id, actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+                elif request_type == "audit.get_trail":
+                    res = self.query_service.list_admin_audit_trail(payload=envelope.payload, actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result={"audit_trail": res})
+                elif request_type == "audit.verify":
+                    res = self.query_service.verify_admin_audit_integrity(payload=envelope.payload, actor=pipeline_actor, conn=uow.connection)
+                    return CallerResult(status=CallerResultStatus.OK, result=dict(res))
+                raise PipelineError(
                         PipelineErrorCode.INVALID_REQUEST,
                         f"Unsupported query request_type {request_type!r}",
                         correlation_id=correlation_id,

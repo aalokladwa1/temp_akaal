@@ -7,8 +7,8 @@ from __future__ import annotations
 
 import hashlib
 from typing import Any, Dict, List, Optional, Tuple, Union
-from akaal.core.crypto_random import generate_secure_id, generate_secure_token
-from akaal.core.time_authority import TimeAuthority
+from akaalPipeline.contracts.crypto import generate_secure_id, generate_secure_token
+from akaalPipeline.state.repositories import TimeAuthority
 from akaalPipeline.contracts.errors import UnauthorizedError
 from akaalPipeline.security.config import SecurityBaselineConfig
 from akaalPipeline.state.repositories import (

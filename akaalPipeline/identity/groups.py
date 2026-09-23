@@ -8,8 +8,8 @@ Nested groups are prohibited and fail closed.
 from __future__ import annotations
 
 from typing import List, Optional
-from akaal.core.crypto_random import generate_secure_id
-from akaal.core.time_authority import TimeAuthority
+from akaalPipeline.contracts.crypto import generate_secure_id
+from akaalPipeline.state.repositories import TimeAuthority
 from akaalPipeline.state.repositories import (
     SQLiteGroupRepository,
     SQLitePrincipalRepository,
