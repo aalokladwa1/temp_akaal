@@ -24,6 +24,10 @@ export class IpcService {
   public connectionState = signal<ConnectionState>('connected');
   public lastTelemetryTimestamp = signal<string | null>(null);
 
+  public connected(): boolean {
+    return this.connectionState() === 'connected';
+  }
+
   // Master Signal Router Registry: signalName -> Set of subscriber handlers
   private subscribersMap = new Map<string, Set<(payload: any) => void>>();
   // Active Wails listeners to ensure single underlying listener registration per signal

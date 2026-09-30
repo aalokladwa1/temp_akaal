@@ -1061,6 +1061,98 @@ describe('Projects & Initiatives (Foundation + Part A Portfolio)', () => {
         expect(service.projectMigrationsAvailability()).toBe('LOADING');
       });
     });
+
+    describe('4. Delete Project & Initiative Fail-Closed Semantics', () => {
+      it('should delete project and update signals on backend success', async () => {
+        const migrationIpcMock = {
+          deleteProject: vi.fn().mockResolvedValue({ status: 'SUCCESS' })
+        };
+        const projService = new ProjectsService(contextService, migrationIpcMock as any);
+        projService.loadFixturesForTesting();
+        const initialCount = projService.projects().length;
+
+        const result = await projService.deleteProject('proj-core-banking');
+        expect(result).toBe(true);
+        expect(projService.projects().length).toBe(initialCount - 1);
+        expect(projService.projects().find(p => p.id === 'proj-core-banking')).toBeUndefined();
+      });
+
+      it('should fail closed and not remove project when backend rejects deletion', async () => {
+        const migrationIpcMock = {
+          deleteProject: vi.fn().mockResolvedValue({
+            status: 'ERROR',
+            error: { code: 'CONFLICT', message: 'Project has active workloads' }
+          })
+        };
+        const projService = new ProjectsService(contextService, migrationIpcMock as any);
+        projService.loadFixturesForTesting();
+        const initialCount = projService.projects().length;
+
+        const result = await projService.deleteProject('proj-core-banking');
+        expect(result).toBe(false);
+        expect(projService.projects().length).toBe(initialCount);
+        expect(projService.errorMessage()).toBe('Project has active workloads');
+      });
+
+      it('should fail closed and not remove project when IPC is disconnected', async () => {
+        const ipcMock = {
+          connectionState: vi.fn().mockReturnValue('disconnected')
+        };
+        const projService = new ProjectsService(contextService, undefined, ipcMock as any);
+        projService.loadFixturesForTesting();
+        const initialCount = projService.projects().length;
+
+        const result = await projService.deleteProject('proj-core-banking');
+        expect(result).toBe(false);
+        expect(projService.projects().length).toBe(initialCount);
+        expect(projService.errorMessage()).toBe('Cannot delete project: IPC disconnected');
+      });
+
+      it('should delete initiative and update signals on backend success', async () => {
+        const migrationIpcMock = {
+          deleteInitiative: vi.fn().mockResolvedValue({ status: 'SUCCESS' })
+        };
+        const projService = new ProjectsService(contextService, migrationIpcMock as any);
+        projService.loadFixturesForTesting();
+        const initialCount = projService.initiatives().length;
+
+        const result = await projService.deleteInitiative('init-dc-exit-2027');
+        expect(result).toBe(true);
+        expect(projService.initiatives().length).toBe(initialCount - 1);
+        expect(projService.initiatives().find(i => i.id === 'init-dc-exit-2027')).toBeUndefined();
+      });
+
+      it('should fail closed and not remove initiative when backend rejects deletion', async () => {
+        const migrationIpcMock = {
+          deleteInitiative: vi.fn().mockResolvedValue({
+            status: 'ERROR',
+            error: { code: 'CONFLICT', message: 'Initiative cannot be deleted' }
+          })
+        };
+        const projService = new ProjectsService(contextService, migrationIpcMock as any);
+        projService.loadFixturesForTesting();
+        const initialCount = projService.initiatives().length;
+
+        const result = await projService.deleteInitiative('init-dc-exit-2027');
+        expect(result).toBe(false);
+        expect(projService.initiatives().length).toBe(initialCount);
+        expect(projService.errorMessage()).toBe('Initiative cannot be deleted');
+      });
+
+      it('should fail closed and not remove initiative when IPC is disconnected', async () => {
+        const ipcMock = {
+          connectionState: vi.fn().mockReturnValue('disconnected')
+        };
+        const projService = new ProjectsService(contextService, undefined, ipcMock as any);
+        projService.loadFixturesForTesting();
+        const initialCount = projService.initiatives().length;
+
+        const result = await projService.deleteInitiative('init-dc-exit-2027');
+        expect(result).toBe(false);
+        expect(projService.initiatives().length).toBe(initialCount);
+        expect(projService.errorMessage()).toBe('Cannot delete initiative: IPC disconnected');
+      });
+    });
   });
 });
 

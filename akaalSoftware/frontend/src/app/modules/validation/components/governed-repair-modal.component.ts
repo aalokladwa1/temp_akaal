@@ -65,7 +65,7 @@ import { LucideIconComponent } from '../../../shared/components/lucide-icon.comp
             <button type="button" (click)="vs.closeRepairModal()" class="px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs font-semibold">
               Cancel
             </button>
-            <button type="button" (click)="vs.closeRepairModal()" class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs">
+            <button type="button" (click)="vs.dispatchGovernedRepair()" class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs">
               Authorize &amp; Dispatch Repair
             </button>
           </div>

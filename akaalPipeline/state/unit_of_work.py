@@ -70,7 +70,7 @@ class SQLiteUnitOfWork(UnitOfWorkPort):
         if self._shared_conn:
             return self._shared_conn
         if self._conn is None:
-            self._conn = sqlite3.connect(self.db_path)
+            self._conn = sqlite3.connect(self.db_path, check_same_thread=False)
             self._conn.row_factory = sqlite3.Row
             self._conn.execute("PRAGMA journal_mode=WAL;")
             self._conn.execute("PRAGMA foreign_keys=ON;")
@@ -186,11 +186,30 @@ class SQLiteUnitOfWork(UnitOfWorkPort):
                 tenant_id TEXT NOT NULL,
                 workspace_id TEXT NOT NULL,
                 name TEXT NOT NULL,
-                status TEXT NOT NULL CHECK(status IN ('ACTIVE', 'SUSPENDED')),
+                key TEXT,
+                description TEXT,
+                initiative_id TEXT,
+                status TEXT NOT NULL CHECK(status IN ('ACTIVE', 'SUSPENDED', 'PLANNING', 'ARCHIVED')),
+                is_production INTEGER NOT NULL DEFAULT 0,
+                environment_name TEXT DEFAULT 'Production',
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
                 PRIMARY KEY (tenant_id, workspace_id, project_id),
                 FOREIGN KEY (tenant_id, workspace_id) REFERENCES enterprise_workspaces(tenant_id, workspace_id) ON DELETE RESTRICT
+            );
+
+            CREATE TABLE IF NOT EXISTS enterprise_initiatives (
+                initiative_id TEXT PRIMARY KEY,
+                tenant_id TEXT NOT NULL DEFAULT 'default-tenant',
+                workspace_id TEXT NOT NULL DEFAULT 'default-workspace',
+                name TEXT NOT NULL,
+                key TEXT,
+                objective TEXT,
+                description TEXT,
+                status TEXT NOT NULL DEFAULT 'ACTIVE',
+                associated_project_ids TEXT NOT NULL DEFAULT '[]',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
             );
 
             -- =========================================================
@@ -919,12 +938,83 @@ class SQLiteUnitOfWork(UnitOfWorkPort):
                 proposal_data TEXT NOT NULL,
                 created_at TEXT NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS validation_discrepancies (
+                discrepancy_id TEXT PRIMARY KEY,
+                mission_id TEXT NOT NULL,
+                run_id TEXT NOT NULL,
+                tenant_id TEXT NOT NULL DEFAULT 'default-tenant',
+                workspace_id TEXT NOT NULL DEFAULT 'default-workspace',
+                project_id TEXT,
+                table_name TEXT NOT NULL,
+                record_key TEXT NOT NULL,
+                reason TEXT NOT NULL,
+                source_value TEXT,
+                target_value TEXT,
+                expected_value TEXT,
+                status TEXT NOT NULL DEFAULT 'UNRESOLVED',
+                created_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS enterprise_connections (
+                connection_id TEXT PRIMARY KEY,
+                tenant_id TEXT NOT NULL DEFAULT 'default-tenant',
+                workspace_id TEXT NOT NULL DEFAULT 'default-workspace',
+                project_id TEXT,
+                name TEXT NOT NULL,
+                description TEXT,
+                provider_id TEXT NOT NULL,
+                provider_name TEXT,
+                family TEXT,
+                environment TEXT NOT NULL DEFAULT 'Production',
+                endpoint_display TEXT NOT NULL,
+                safe_route_info TEXT,
+                tls_mode TEXT,
+                auth_method_display TEXT,
+                role_applicability TEXT,
+                verification_state TEXT NOT NULL DEFAULT 'NEVER_TESTED',
+                last_verified_at TEXT,
+                last_verified_details TEXT,
+                configuration TEXT,
+                lifecycle_state TEXT NOT NULL DEFAULT 'ACTIVE',
+                tags TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS enterprise_cloud_environments (
+                environment_id TEXT PRIMARY KEY,
+                tenant_id TEXT NOT NULL DEFAULT 'default-tenant',
+                name TEXT NOT NULL,
+                tier TEXT NOT NULL DEFAULT 'PRODUCTION',
+                cloud_provider TEXT NOT NULL,
+                region TEXT NOT NULL,
+                credential_ref TEXT,
+                nodes_count INTEGER NOT NULL DEFAULT 1,
+                status TEXT NOT NULL DEFAULT 'ONLINE',
+                compliance_level TEXT NOT NULL DEFAULT 'STANDARD',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_env_tenant ON enterprise_cloud_environments(tenant_id);
+            CREATE INDEX IF NOT EXISTS idx_conn_tenant ON enterprise_connections(tenant_id);
+            CREATE INDEX IF NOT EXISTS idx_conn_workspace ON enterprise_connections(workspace_id);
+            CREATE INDEX IF NOT EXISTS idx_proj_initiative ON enterprise_projects(initiative_id);
+            CREATE INDEX IF NOT EXISTS idx_proj_id ON enterprise_projects(project_id);
+            CREATE INDEX IF NOT EXISTS idx_init_id ON enterprise_initiatives(initiative_id);
         """)
 
         # Migration columns if missing
         cols = [r[1] for r in conn.execute("PRAGMA table_info(migrations);").fetchall()]
         if "active_fence_epoch" not in cols:
             conn.execute("ALTER TABLE migrations ADD COLUMN active_fence_epoch INTEGER NOT NULL DEFAULT 1;")
+
+        # Connection columns if missing
+        conn_cols = [r[1] for r in conn.execute("PRAGMA table_info(enterprise_connections);").fetchall()]
+        if "lifecycle_state" not in conn_cols:
+            conn.execute("ALTER TABLE enterprise_connections ADD COLUMN lifecycle_state TEXT NOT NULL DEFAULT 'ACTIVE';")
+        if "tags" not in conn_cols:
+            conn.execute("ALTER TABLE enterprise_connections ADD COLUMN tags TEXT;")
 
         # Session assurance columns if missing (verified-authentication-assurance bridge)
         sess_cols = [r[1] for r in conn.execute("PRAGMA table_info(enterprise_sessions);").fetchall()]
@@ -965,6 +1055,19 @@ class SQLiteUnitOfWork(UnitOfWorkPort):
             conn.execute("ALTER TABLE schedules ADD COLUMN last_occurrence_time TEXT;")
         if "next_occurrence_time" not in sched_cols:
             conn.execute("ALTER TABLE schedules ADD COLUMN next_occurrence_time TEXT;")
+
+        # Project columns if missing
+        proj_cols = [r[1] for r in conn.execute("PRAGMA table_info(enterprise_projects);").fetchall()]
+        if "key" not in proj_cols:
+            conn.execute("ALTER TABLE enterprise_projects ADD COLUMN key TEXT;")
+        if "description" not in proj_cols:
+            conn.execute("ALTER TABLE enterprise_projects ADD COLUMN description TEXT;")
+        if "initiative_id" not in proj_cols:
+            conn.execute("ALTER TABLE enterprise_projects ADD COLUMN initiative_id TEXT;")
+        if "is_production" not in proj_cols:
+            conn.execute("ALTER TABLE enterprise_projects ADD COLUMN is_production INTEGER NOT NULL DEFAULT 0;")
+        if "environment_name" not in proj_cols:
+            conn.execute("ALTER TABLE enterprise_projects ADD COLUMN environment_name TEXT DEFAULT 'Production';")
 
         if not self._shared_conn:
             conn.commit()

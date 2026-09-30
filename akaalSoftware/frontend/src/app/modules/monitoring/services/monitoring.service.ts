@@ -172,6 +172,8 @@ export class MonitoringService {
     return alerts.filter(a => a.severity === sev);
   });
 
+  private telemetryUnsub?: () => void;
+
   constructor(monitoringIpc?: MonitoringIpcService) {
     if (monitoringIpc) {
       this.ipc = monitoringIpc;
@@ -182,7 +184,28 @@ export class MonitoringService {
         this.ipc = new MonitoringIpcService();
       }
     }
+    if (this.ipc && typeof this.ipc.subscribeTelemetry === 'function') {
+      this.telemetryUnsub = this.ipc.subscribeTelemetry((event: any) => {
+        this.handleTelemetryEvent(event);
+      });
+    }
     void this.initializeState();
+  }
+
+  public ngOnDestroy(): void {
+    if (this.telemetryUnsub) {
+      this.telemetryUnsub();
+      this.telemetryUnsub = undefined;
+    }
+  }
+
+  private handleTelemetryEvent(event: any): void {
+    const timestamp = new Date().toISOString();
+    this.lastObservedAt.set(timestamp);
+    this.telemetryConfidence.set('CURRENT');
+    if (event && (event.type === 'MIGRATION_PROGRESS' || event.type === 'ALERT_TRIGGERED' || event.type === 'INCIDENT_CREATED')) {
+      void this.refresh();
+    }
   }
 
   public async initializeState(): Promise<void> {
@@ -241,9 +264,9 @@ export class MonitoringService {
       this.ipc.getFleetStatus()
     ]);
 
-    if (migrationsRes.status !== 'SUCCESS' || !migrationsRes.data) {
+    if (!migrationsRes || migrationsRes.status !== 'SUCCESS' || !migrationsRes.data) {
       this.isUnavailable.set(true);
-      this.errorMessage.set(migrationsRes.error || 'Monitoring backend unavailable.');
+      this.errorMessage.set(migrationsRes?.error || 'Monitoring backend unavailable.');
       this.telemetryConfidence.set('NO_DATA');
       return;
     }
@@ -252,19 +275,19 @@ export class MonitoringService {
       .map(mapMigrationToOverviewItem)
       .filter((x): x is ActiveMigrationOperationalItem => x !== null);
 
-    const needsAttention = incidentsRes.status === 'SUCCESS' && incidentsRes.data
+    const needsAttention = incidentsRes && incidentsRes.status === 'SUCCESS' && incidentsRes.data
       ? incidentsRes.data.incidents.filter(i => i.status !== 'RESOLVED' && i.status !== 'CLOSED').map(mapIncidentToNeedsAttention)
       : [];
 
-    const activeAlerts = alertsRes.status === 'SUCCESS' && alertsRes.data
+    const activeAlerts = alertsRes && alertsRes.status === 'SUCCESS' && alertsRes.data
       ? alertsRes.data.alerts.map(mapAlertToMonitoringAlertItem)
       : [];
 
-    const nodes = fleetRes.status === 'SUCCESS' && fleetRes.data ? fleetRes.data.nodes : [];
+    const nodes = fleetRes && fleetRes.status === 'SUCCESS' && fleetRes.data ? fleetRes.data.nodes : [];
     const anyDead = nodes.some(n => n.liveness === 'DEAD');
     const anyDegraded = nodes.some(n => n.liveness === 'DEGRADED' || n.liveness === 'UNKNOWN');
     const overallHealth = anyDead ? 'UNHEALTHY' : anyDegraded ? 'DEGRADED' : nodes.length > 0 ? 'HEALTHY' : 'UNKNOWN';
-    const engineConnectionState = fleetRes.status === 'SUCCESS' ? 'CONNECTED' : 'DISCONNECTED';
+    const engineConnectionState = fleetRes && fleetRes.status === 'SUCCESS' ? 'CONNECTED' : 'DISCONNECTED';
 
     const observedAt = new Date().toISOString();
     const summary: OperationalSummaryDTO = {

@@ -1,7 +1,8 @@
-import { Component, Input } from '@angular/core';
+import { Component, Input, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CreateConnectionDraft } from '../../create-connection.models';
+import { CreateConnectionService } from '../../create-connection.service';
 import { CustomSelectComponent, CustomSelectOption } from '../../../../../shared/components/custom-select.component';
 
 @Component({
@@ -56,6 +57,7 @@ import { CustomSelectComponent, CustomSelectOption } from '../../../../../shared
             <input
               type="text"
               [(ngModel)]="draft.oracleHost"
+              (ngModelChange)="onFieldChange()"
               placeholder="oracle-scan.corp.internal"
               class="w-full h-9 px-3 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-600" />
           </div>
@@ -67,6 +69,7 @@ import { CustomSelectComponent, CustomSelectOption } from '../../../../../shared
             <input
               type="number"
               [(ngModel)]="draft.oraclePort"
+              (ngModelChange)="onFieldChange()"
               placeholder="1521"
               class="w-full h-9 px-3 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-600" />
           </div>
@@ -78,6 +81,7 @@ import { CustomSelectComponent, CustomSelectOption } from '../../../../../shared
             <input
               type="text"
               [(ngModel)]="draft.oracleServiceName"
+              (ngModelChange)="onFieldChange()"
               placeholder="PDB1.WORLD or ORCLPDB"
               class="w-full h-9 px-3 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-600" />
           </div>
@@ -94,6 +98,7 @@ import { CustomSelectComponent, CustomSelectOption } from '../../../../../shared
             <input
               type="text"
               [(ngModel)]="draft.oracleHost"
+              (ngModelChange)="onFieldChange()"
               placeholder="oracle-db.internal"
               class="w-full h-9 px-3 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-600" />
           </div>
@@ -105,6 +110,7 @@ import { CustomSelectComponent, CustomSelectOption } from '../../../../../shared
             <input
               type="number"
               [(ngModel)]="draft.oraclePort"
+              (ngModelChange)="onFieldChange()"
               placeholder="1521"
               class="w-full h-9 px-3 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-600" />
           </div>
@@ -116,6 +122,7 @@ import { CustomSelectComponent, CustomSelectOption } from '../../../../../shared
             <input
               type="text"
               [(ngModel)]="draft.oracleSid"
+              (ngModelChange)="onFieldChange()"
               placeholder="ORCL"
               class="w-full h-9 px-3 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-600" />
           </div>
@@ -132,6 +139,7 @@ import { CustomSelectComponent, CustomSelectOption } from '../../../../../shared
             <input
               type="text"
               [(ngModel)]="draft.oracleTnsName"
+              (ngModelChange)="onFieldChange()"
               placeholder="FINPROD_HIGH"
               class="w-full h-9 px-3 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-600" />
           </div>
@@ -143,7 +151,8 @@ import { CustomSelectComponent, CustomSelectOption } from '../../../../../shared
             <input
               type="text"
               [(ngModel)]="draft.oracleTnsAdminPath"
-              placeholder="/opt/oracle/network/admin or C:\oracle\tns"
+              (ngModelChange)="onFieldChange()"
+              placeholder="/opt/oracle/network/admin or C:\\oracle\\tns"
               class="w-full h-9 px-3 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-600" />
           </div>
         </div>
@@ -159,7 +168,8 @@ import { CustomSelectComponent, CustomSelectOption } from '../../../../../shared
             <input
               type="text"
               [(ngModel)]="draft.oracleWalletPath"
-              placeholder="/etc/oracle/wallets/finance_db_wallet or C:\oracle\wallet"
+              (ngModelChange)="onFieldChange()"
+              placeholder="/etc/oracle/wallets/finance_db_wallet or C:\\oracle\\wallet"
               class="w-full h-9 px-3 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-600" />
           </div>
           <div class="flex flex-col gap-1.5">
@@ -169,6 +179,7 @@ import { CustomSelectComponent, CustomSelectOption } from '../../../../../shared
             <input
               type="text"
               [(ngModel)]="draft.oracleTnsName"
+              (ngModelChange)="onFieldChange()"
               placeholder="finance_high or db2026_low"
               class="w-full h-9 px-3 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-600" />
           </div>
@@ -184,7 +195,8 @@ import { CustomSelectComponent, CustomSelectOption } from '../../../../../shared
           <input
             type="text"
             [(ngModel)]="draft.oracleClientLibPath"
-            placeholder="/opt/oracle/instantclient_19_8 or C:\oracle\instantclient_19_8"
+            (ngModelChange)="onFieldChange()"
+            placeholder="/opt/oracle/instantclient_19_8 or C:\\oracle\\instantclient_19_8"
             class="w-full h-9 px-3 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-600" />
           <span class="text-[11px] text-amber-800">
             Required for Advanced Features (XA, OCI, and thick client connection pooling).
@@ -211,6 +223,7 @@ import { CustomSelectComponent, CustomSelectOption } from '../../../../../shared
   `
 })
 export class OracleExtensionComponent {
+  private cs = inject(CreateConnectionService);
   @Input() draft!: CreateConnectionDraft;
 
   public addressingOptions: CustomSelectOption[] = [
@@ -231,15 +244,23 @@ export class OracleExtensionComponent {
     { label: 'SYSOPER (Operator)', value: 'SYSOPER' }
   ];
 
+  public onFieldChange(): void {
+    this.cs.markConfigurationMutated();
+  }
+
   public onAddressingChange(val: string): void {
     this.draft.oracleAddressingMode = val as any;
+    this.cs.markConfigurationMutated();
   }
 
   public onDriverModeChange(val: string): void {
     this.draft.oracleDriverMode = val as any;
+    this.cs.markConfigurationMutated();
   }
 
   public onPrivilegeChange(val: string): void {
     this.draft.oraclePrivilegeMode = val as any;
+    this.cs.markConfigurationMutated();
   }
 }
+

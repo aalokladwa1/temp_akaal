@@ -10,7 +10,7 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple, Union
-from akaal.governance.sod.engine import SeparationOfDutiesEngine
+from akaalPipeline.security.sod import SeparationOfDutiesEngine, SoDRule
 from akaalPipeline.contracts.enums import AuthenticationAssurance, PolicyEffect, PrincipalType, TenantStatus
 from akaalPipeline.contracts.errors import (
     ForbiddenError,

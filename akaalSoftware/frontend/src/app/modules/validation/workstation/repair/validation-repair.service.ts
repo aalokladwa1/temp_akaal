@@ -50,6 +50,16 @@ export class ValidationRepairService {
   }
 
   /**
+   * Set view status directly
+   */
+  setViewStatus(status: RepairViewStatus): void {
+    this._state.update(s => ({
+      ...s,
+      viewStatus: status
+    }));
+  }
+
+  /**
    * Toggle Technical Details slide-over drawer
    */
   toggleTechnicalDrawer(open?: boolean): void {

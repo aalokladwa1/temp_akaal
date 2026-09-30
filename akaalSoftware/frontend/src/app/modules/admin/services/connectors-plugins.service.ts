@@ -38,11 +38,11 @@ export class ConnectorsPluginsService {
         this.adminIpc.listConnectors(),
         this.adminIpc.listPlugins(),
       ]);
-      if (connResp.status === 'SUCCESS' && connResp.data) {
-        // Can merge connectors
+      if (connResp.status === 'SUCCESS' && Array.isArray(connResp.data) && connResp.data.length > 0) {
+        this.connectors.set(connResp.data as unknown as ConnectorDefinition[]);
       }
-      if (plugResp.status === 'SUCCESS' && plugResp.data) {
-        // Can merge plugins
+      if (plugResp.status === 'SUCCESS' && Array.isArray(plugResp.data) && plugResp.data.length > 0) {
+        this.plugins.set(plugResp.data as unknown as PluginDefinition[]);
       }
     } catch {
       // Offline fallback

@@ -3,7 +3,7 @@
  */
 
 import '@angular/compiler';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ComplianceService } from './services/compliance.service';
 import { AuditService } from './services/audit.service';
 import { PlatformAdminService } from './services/platform-admin.service';
@@ -115,6 +115,43 @@ describe('5.8 Compliance Service & Governance Workflows', () => {
 
     expect(component.isSubmitting()).toBe(false);
     expect(component.submissionError()).toBe('Compliance exception submission requires active governance engine connectivity.');
+  });
+
+  it('should successfully submit exception via AdministrationIpc and register in ComplianceService', async () => {
+    const mockAdminIpc = {
+      requestGovernanceException: vi.fn().mockResolvedValue({
+        status: 'SUCCESS',
+        data: { approval_id: 'appr-999', status: 'PENDING' }
+      })
+    } as any;
+    const mockRouter = {
+      navigate: vi.fn()
+    } as any;
+
+    const initialExceptions = complianceService.exceptions().length;
+    const component = new ExceptionRequestComponent(complianceService, mockAdminIpc, mockRouter);
+    component.title = 'Production Hotfix Bypass';
+    component.controlCode = 'PCI-Req-6.4';
+    component.scope = 'mig-core-banking-01';
+    component.reason = 'Emergency hotfix';
+    component.justification = 'Database deadlocks in billing table';
+
+    component.onSubmit();
+    expect(component.isSubmitting()).toBe(true);
+
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    expect(component.isSubmitting()).toBe(false);
+    expect(mockAdminIpc.requestGovernanceException).toHaveBeenCalledWith({
+      title: 'Production Hotfix Bypass',
+      control_code: 'PCI-Req-6.4',
+      valid_until: '2026-12-31',
+      scope: 'mig-core-banking-01',
+      reason: 'Emergency hotfix',
+      justification: 'Database deadlocks in billing table'
+    });
+    expect(complianceService.exceptions().length).toBe(initialExceptions + 1);
+    expect(mockRouter.navigate).toHaveBeenCalledWith(['/administration/compliance/controls/exceptions']);
   });
 
   it('should track verifiable compliance evidence records with cryptographic SHA-256 digests', () => {

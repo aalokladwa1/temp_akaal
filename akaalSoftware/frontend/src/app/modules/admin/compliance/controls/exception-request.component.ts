@@ -8,6 +8,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { ComplianceService } from '../../services/compliance.service';
+import { AdministrationIpc } from '../../../../core/services/ipc/administration.ipc';
 import { LucideIconComponent } from '../../../../shared/components/lucide-icon.component';
 
 @Component({
@@ -139,10 +140,12 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
 })
 export class ExceptionRequestComponent {
   private complianceService?: ComplianceService;
+  private adminIpc?: AdministrationIpc;
   private router?: Router;
 
   constructor(
     @Optional() complianceService?: ComplianceService,
+    @Optional() adminIpc?: AdministrationIpc,
     @Optional() router?: Router
   ) {
     if (complianceService) {
@@ -152,6 +155,16 @@ export class ExceptionRequestComponent {
         this.complianceService = inject(ComplianceService, { optional: true }) || undefined;
       } catch {
         this.complianceService = undefined;
+      }
+    }
+
+    if (adminIpc) {
+      this.adminIpc = adminIpc;
+    } else {
+      try {
+        this.adminIpc = inject(AdministrationIpc, { optional: true }) || undefined;
+      } catch {
+        this.adminIpc = undefined;
       }
     }
 
@@ -189,6 +202,43 @@ export class ExceptionRequestComponent {
     if (!this.isValid()) return;
     this.isSubmitting.set(true);
     this.submissionError.set(null);
+
+    if (this.adminIpc && typeof this.adminIpc.requestGovernanceException === 'function') {
+      this.adminIpc.requestGovernanceException({
+        title: this.title,
+        control_code: this.controlCode,
+        valid_until: this.validUntil,
+        scope: this.scope,
+        reason: this.reason,
+        justification: this.justification
+      }).then(res => {
+        this.isSubmitting.set(false);
+        if (res && res.status === 'SUCCESS') {
+          if (this.complianceService && typeof this.complianceService.createException === 'function') {
+            this.complianceService.createException({
+              code: (res as any)?.exception_code || `EXC-${this.controlCode}`,
+              title: this.title || `Exception for ${this.controlCode}`,
+              frameworkId: 'GOVERNANCE',
+              controlCode: this.controlCode,
+              scope: this.scope,
+              reason: this.reason,
+              justification: this.justification,
+              approvedBy: 'Governance Engine',
+              validUntil: this.validUntil
+            });
+          }
+          if (this.router) {
+            this.router.navigate(['/administration/compliance/controls/exceptions']);
+          }
+        } else {
+          this.submissionError.set('Compliance exception submission requires active governance engine connectivity.');
+        }
+      }).catch(() => {
+        this.isSubmitting.set(false);
+        this.submissionError.set('Compliance exception submission requires active governance engine connectivity.');
+      });
+      return;
+    }
 
     setTimeout(() => {
       this.isSubmitting.set(false);

@@ -18,7 +18,7 @@ from typing import Any, Dict, Mapping, Optional
 class GatewayRequestContext:
     """Canonical execution context for any request entering EngineGateway."""
     migration_id: str
-    run_id: str
+    run_id: str = field(default_factory=lambda: f"run-{uuid.uuid4().hex[:12]}")
     job_id: Optional[str] = None
     tenant_id: Optional[str] = None
     workspace_id: Optional[str] = None

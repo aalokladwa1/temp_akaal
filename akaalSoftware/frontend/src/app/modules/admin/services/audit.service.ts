@@ -38,31 +38,37 @@ export class AuditService {
   public async loadFromBackend(): Promise<void> {
     if (!this.adminIpc) return;
     try {
-      const resp = await this.adminIpc.getAuditLedger();
-      if (resp.status === 'SUCCESS' && resp.data) {
-        const events = Array.isArray(resp.data) ? resp.data : (resp.data.ledger || []);
-        if (events.length > 0) {
-          const current = this.auditTrail();
-          for (const ev of events) {
-            const evId = ev.audit_id || ev.id;
-            const existing = current.find(x => x.id === evId);
-            if (!existing) {
-              current.unshift({
-                id: evId,
-                timestamp: ev.created_at || new Date().toISOString(),
-                actor: ev.actor_id || 'system.operator@akaal.internal',
-                actorRole: 'ORGANIZATION_OWNER',
-                action: ev.event_type || 'ADMIN_MUTATION',
-                resourceType: ev.resource_type || 'SYSTEM_PLATFORM',
-                resourceId: ev.resource_id || 'system-root',
-                outcome: 'SUCCESS',
-                ipAddress: '127.0.0.1',
-                correlationId: ev.correlation_id || 'corr-admin-01',
-                details: 'Canonical audit ledger record verified.'
-              });
-            }
-          }
-          this.auditTrail.set([...current]);
+      const respTrail = await this.adminIpc.listAuditTrail();
+      if (respTrail.status === 'SUCCESS' && Array.isArray(respTrail.data)) {
+        this.auditTrail.set(respTrail.data);
+      } else {
+        const resp = await this.adminIpc.getAuditLedger();
+        if (resp.status === 'SUCCESS' && resp.data) {
+          const events = Array.isArray(resp.data) ? resp.data : (resp.data.ledger || resp.data.entries || []);
+          const mapped = events.map((ev: any) => ({
+            id: ev.audit_id || ev.id,
+            timestamp: ev.created_at || ev.timestamp || new Date().toISOString(),
+            actor: ev.actor_id || 'system',
+            actorRole: 'ORGANIZATION_OWNER',
+            action: ev.event_type || ev.action || 'ADMIN_MUTATION',
+            resourceType: ev.resource_type || 'SYSTEM_PLATFORM',
+            resourceId: ev.resource_id || 'system-root',
+            outcome: ev.decision === 'DENY' ? 'DENIED' : 'SUCCESS',
+            ipAddress: '127.0.0.1',
+            correlationId: ev.correlation_id || ev.audit_id || 'corr-admin-01',
+            details: typeof ev.details === 'string' ? ev.details : JSON.stringify(ev.details || {}),
+          }));
+          this.auditTrail.set(mapped);
+        }
+      }
+
+      const respPol = await this.adminIpc.listAuditPolicies();
+      if (respPol.status === 'SUCCESS' && respPol.data) {
+        if (Array.isArray(respPol.data.policies)) {
+          this.auditPolicies.set(respPol.data.policies);
+        }
+        if (Array.isArray(respPol.data.destinations)) {
+          this.destinations.set(respPol.data.destinations);
         }
       }
     } catch {
@@ -107,85 +113,10 @@ export class AuditService {
   ]);
 
   // Administrative Audit Trail (Real canonical structured events)
-  public auditTrail = signal<AdministrativeAuditEvent[]>([
-    {
-      id: 'evt-aud-1001',
-      timestamp: '2026-02-19 15:42:10 UTC',
-      actor: 'aalok.admin@akaaltech.com',
-      actorRole: 'ORGANIZATION_OWNER',
-      action: 'AUTHENTICATION_POLICY_UPDATED',
-      resourceType: 'AuthPolicy',
-      resourceId: 'pol-critical-gov',
-      outcome: 'SUCCESS',
-      ipAddress: '192.168.1.104',
-      correlationId: 'corr-tx-88192a01',
-      details: 'Updated min password length to 24 characters and enforced FIDO2 WebAuthn strictly.'
-    },
-    {
-      id: 'evt-aud-1002',
-      timestamp: '2026-02-19 14:18:22 UTC',
-      actor: 'ciso.officer@akaaltech.com',
-      actorRole: 'SECURITY_ADMINISTRATOR',
-      action: 'SECRET_ROTATION_TRIGGERED',
-      resourceType: 'RotationRule',
-      resourceId: 'rot-01',
-      outcome: 'SUCCESS',
-      ipAddress: '10.200.4.12',
-      correlationId: 'corr-tx-88192a02',
-      details: 'Automated rotation triggered for Database Migration Ingestion Service Account Key.'
-    },
-    {
-      id: 'evt-aud-1003',
-      timestamp: '2026-02-19 11:05:44 UTC',
-      actor: 'secops.analyst@akaaltech.com',
-      actorRole: 'AUDITOR',
-      action: 'BREAK_GLASS_REQUEST_REJECTED',
-      resourceType: 'BreakGlassSession',
-      resourceId: 'bg-req-99',
-      outcome: 'DENIED',
-      ipAddress: '172.16.8.90',
-      correlationId: 'corr-tx-88192a03',
-      details: 'Rejected emergency elevation request due to missing incident ticket reference.'
-    },
-    {
-      id: 'evt-aud-1004',
-      timestamp: '2026-02-18 16:30:19 UTC',
-      actor: 'system.daemon@akaal.internal',
-      actorRole: 'SYSTEM_INTERNAL',
-      action: 'MERKLE_TREE_DIGEST_SEALED',
-      resourceType: 'AuditLogBatch',
-      resourceId: 'batch-2026-02-18',
-      outcome: 'SUCCESS',
-      ipAddress: '127.0.0.1',
-      correlationId: 'corr-tx-88192a04',
-      details: 'Computed SHA-256 Merkle root digest over 14,820 audit events.'
-    }
-  ]);
+  public auditTrail = signal<AdministrativeAuditEvent[]>([]);
 
   // Audit Destinations
-  public destinations = signal<AuditDestination[]>([
-    {
-      id: 'adest-syslog-01',
-      name: 'Primary Enterprise RFC-5424 Syslog Collector',
-      destinationType: 'SYSLOG',
-      endpointUrl: 'syslog-tls.corp.internal:6514',
-      format: 'CEF',
-      tlsEnforced: true,
-      status: 'CONFIGURED',
-      createdAt: '2025-08-15'
-    },
-    {
-      id: 'adest-splunk-01',
-      name: 'Splunk HEC Enterprise Security Ingestion',
-      destinationType: 'SIEM_COLLECTOR',
-      endpointUrl: 'https://splunk-hec.corp.internal:8088/services/collector',
-      format: 'JSON_STRUCTURED',
-      credentialRef: 'vault://secret/siem/splunk-hec-token',
-      tlsEnforced: true,
-      status: 'CONFIGURED',
-      createdAt: '2025-09-20'
-    }
-  ]);
+  public destinations = signal<AuditDestination[]>([]);
 
   // Evidence Retention Policies
   public retentionPolicies = signal<EvidenceRetentionPolicy[]>([
@@ -197,59 +128,17 @@ export class AuditService {
       dispositionAction: 'ARCHIVE_COLD',
       legalHoldExempt: false,
       status: 'ENFORCED'
-    },
-    {
-      id: 'ret-02',
-      name: 'Transient Validation Sampling Data',
-      evidenceClass: 'TEMPORARY_VALIDATION_SAMPLE',
-      retentionYears: 1,
-      dispositionAction: 'PURGE_CONFIRMED',
-      legalHoldExempt: true,
-      status: 'ENFORCED'
     }
   ]);
 
   // Legal Holds
-  public legalHolds = signal<LegalHold[]>([
-    {
-      id: 'hold-01',
-      caseId: 'CIV-2026-0819',
-      matterName: 'Global Fintech Transaction Audit Investigation',
-      custodian: 'Legal & Regulatory Affairs',
-      scopeDescription: 'All execution logs, cryptographic hash attestations, and user actions relating to Payment Gateway Workspaces.',
-      holdCreatedDate: '2026-01-15',
-      heldItemsCount: 1420,
-      status: 'ACTIVE'
-    }
-  ]);
+  public legalHolds = signal<LegalHold[]>([]);
 
   // Audit Integrity Verifications
-  public verifications = signal<AuditIntegrityVerification[]>([
-    {
-      id: 'vrf-01',
-      verificationTimestamp: '2026-02-18 23:59:59 UTC',
-      targetPeriod: '2026-02-18 (00:00 - 23:59 UTC)',
-      totalEntriesEvaluated: 14820,
-      sha256MerkleRootDigest: 'd5b51a5c6893693e5066c06a3501f2f87c10b9f560e29bca5b4512e987c2b3e8',
-      verificationResult: 'DIGEST_VERIFIED',
-      auditedBy: 'Automated Integrity Daemon (ECDSA Verification)',
-      signatureAlgorithm: 'SHA-256 + ECDSA P-384'
-    }
-  ]);
+  public verifications = signal<AuditIntegrityVerification[]>([]);
 
   // Export Requests
-  public exportRequests = signal<AuditExportRequest[]>([
-    {
-      id: 'exp-01',
-      requestedAt: '2026-02-19 12:00:00 UTC',
-      requestedBy: 'compliance.lead@akaaltech.com',
-      format: 'JSON',
-      dateRange: '2026-02-01 to 2026-02-18',
-      status: 'COMPLETED',
-      downloadSize: '42.8 MB',
-      recordCount: 42190
-    }
-  ]);
+  public exportRequests = signal<AuditExportRequest[]>([]);
 
   public getPolicyById(id: string): AuditPolicy | undefined {
     return this.auditPolicies().find(p => p.id === id);

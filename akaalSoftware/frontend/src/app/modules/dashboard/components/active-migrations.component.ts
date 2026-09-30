@@ -27,7 +27,15 @@ import { LucideIconComponent } from '../../../shared/components/lucide-icon.comp
       </div>
 
       <!-- Migrations Table / Empty State -->
-      @if (migrations.length === 0) {
+      @if (migrations === null) {
+        <div class="py-10 flex flex-col items-center justify-center text-center gap-2.5 my-auto">
+          <div class="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 dark:text-slate-500">
+            <app-lucide-icon name="database" [size]="20"></app-lucide-icon>
+          </div>
+          <span class="text-xs font-bold text-slate-800">Migrations unavailable</span>
+          <p class="text-[11px] text-slate-500 font-medium max-w-sm">Migration telemetry could not be retrieved from the engine.</p>
+        </div>
+      } @else if (migrations.length === 0) {
         <div class="py-10 flex flex-col items-center justify-center text-center gap-2.5 my-auto">
           <div class="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 dark:text-slate-500">
             <app-lucide-icon name="database" [size]="20"></app-lucide-icon>
@@ -60,7 +68,7 @@ import { LucideIconComponent } from '../../../shared/components/lucide-icon.comp
                   <td class="px-4 py-3 truncate">
                     <div class="flex flex-col gap-0.5">
                       <span class="font-bold text-slate-900 hover:text-blue-600 cursor-pointer truncate" (click)="goToCockpit(m.id)">{{ m.name }}</span>
-                      <span class="text-[11px] text-slate-500">{{ m.sourceEngine }} &rarr; {{ m.targetEngine }}</span>
+                      <span class="text-[11px] text-slate-500">{{ m.sourceEngine || 'Not configured' }} &rarr; {{ m.targetEngine || 'Not configured' }}</span>
                     </div>
                   </td>
                   <td class="px-3 py-3">
@@ -126,7 +134,7 @@ import { LucideIconComponent } from '../../../shared/components/lucide-icon.comp
 })
 export class ActiveMigrationsComponent {
   @HostBinding('class') public hostClass = 'flex flex-col h-full flex-1';
-  @Input() public migrations: ActiveMigration[] = [];
+  @Input() public migrations: ActiveMigration[] | null = [];
 
   constructor(private router: Router) {}
 

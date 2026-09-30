@@ -38,9 +38,29 @@ from akaalEngine.extensions.spi.authority_contract import AuthorityContractDefin
 logger = logging.getLogger("akaalEngine.discovery.authority")
 
 
+def canonicalize_for_fingerprint(value: Any) -> Any:
+    """
+    Recursively canonicalizes data structures for deterministic, secret-free hashing.
+    Replaces non-primitive objects with deterministic type descriptors instead of memory addresses.
+    """
+    if value is None or isinstance(value, (int, float, bool, str)):
+        return value
+    if isinstance(value, Mapping):
+        return {str(k): canonicalize_for_fingerprint(v) for k, v in sorted(value.items(), key=lambda item: str(item[0]))}
+    if isinstance(value, (list, tuple, set)):
+        return [canonicalize_for_fingerprint(elem) for elem in value]
+    if hasattr(value, "sanitized_dict") and callable(value.sanitized_dict):
+        return canonicalize_for_fingerprint(value.sanitized_dict())
+    if hasattr(value, "to_dict") and callable(value.to_dict):
+        return canonicalize_for_fingerprint(value.to_dict())
+    # Canonicalize non-serializable objects by deterministic type identity
+    return f"type:{type(value).__name__}"
+
+
 def compute_endpoint_fingerprint(spec: EndpointSpec) -> str:
-    """Computes deterministic hash from sanitized endpoint specification."""
-    raw_json = json.dumps(spec.sanitized_dict(), sort_keys=True)
+    """Computes deterministic hash from sanitized canonical endpoint specification."""
+    canonical_data = canonicalize_for_fingerprint(spec.sanitized_dict())
+    raw_json = json.dumps(canonical_data, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(raw_json.encode("utf-8")).hexdigest()
 
 

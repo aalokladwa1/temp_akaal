@@ -123,7 +123,7 @@ export class DiscrepanciesStatesComponent {
   retry(): void {
     this.store.setViewStatus('LOADING');
     setTimeout(() => {
-      this.store.setFixture('NORMAL_19_FINDINGS');
-    }, 1000);
+      this.store.setViewStatus('UNAVAILABLE', 'Discrepancy results stream unavailable. Live validation engine connection required.');
+    }, 500);
   }
 }

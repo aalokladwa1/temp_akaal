@@ -2,6 +2,7 @@ import { Component, inject, signal, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ValidationUiService } from '../../../../core/services/validation-ui.service';
+import { IpcService } from '../../../../core/services/ipc.service';
 import { PhysicalProviderId } from '../../../../core/models/migration-view.models';
 import { LucideIconComponent } from '../../../../shared/components/lucide-icon.component';
 import { CustomSelectComponent, CustomSelectOption } from '../../../../shared/components/custom-select.component';
@@ -555,7 +556,7 @@ import {
                 <div class="space-y-1.5">
                   <label class="text-[11px] font-bold uppercase tracking-wider text-slate-600">Source Namespace</label>
                   <app-custom-select
-                    [options]="sourceNamespaceOptions"
+                    [options]="sourceNamespaceOptions()"
                     [value]="selectedSourceNamespace()"
                     (valueChange)="onSourceNamespaceChange($event)"
                     placeholder="Select Source Namespace...">
@@ -566,7 +567,7 @@ import {
                 <div class="space-y-1.5">
                   <label class="text-[11px] font-bold uppercase tracking-wider text-slate-600">Target Namespace</label>
                   <app-custom-select
-                    [options]="targetNamespaceOptions"
+                    [options]="targetNamespaceOptions()"
                     [value]="selectedTargetNamespace()"
                     (valueChange)="onTargetNamespaceChange($event)"
                     placeholder="Select Target Namespace...">
@@ -1383,17 +1384,32 @@ export class Step4ScopeComponent implements OnInit {
   public selectedTargetNamespace = signal<string>('public');
   public selectedCorrespondenceRule = signal<string>('EXACT_IDENTIFIER_MATCH');
 
-  // Custom select options matching steps 1-3
-  public sourceNamespaceOptions: CustomSelectOption[] = [
-    { label: 'All Discovered Schemas (FINANCE, HR)', value: 'ALL', badge: '13 tables', icon: 'database' },
-    { label: 'FINANCE', value: 'FINANCE', badge: '9 tables', desc: 'Core ledger, accounts and transactions', icon: 'table' },
-    { label: 'HR', value: 'HR', badge: '4 tables', desc: 'Employee, department and salary records', icon: 'table' }
-  ];
+  // Dynamic Select Options based on actual discovered schemas and configured target database
+  public sourceNamespaceOptions = computed<CustomSelectOption[]>(() => {
+    const schemas = this.uniqueSchemas();
+    const options: CustomSelectOption[] = [
+      { label: `All Discovered Schemas (${schemas.join(', ') || 'default'})`, value: 'ALL', badge: `${this.units().length} tables`, icon: 'database' }
+    ];
+    schemas.forEach(s => {
+      const count = this.units().filter(u => u.sourceNamespace === s).length;
+      options.push({
+        label: s,
+        value: s,
+        badge: `${count} tables`,
+        desc: `Discovered schema ${s}`,
+        icon: 'table'
+      });
+    });
+    return options;
+  });
 
-  public targetNamespaceOptions: CustomSelectOption[] = [
-    { label: 'public', value: 'public', badge: 'default', desc: 'Target PostgreSQL default schema', icon: 'database' },
-    { label: 'finance_target', value: 'finance_target', badge: 'isolated', desc: 'Dedicated validation target schema', icon: 'database' }
-  ];
+  public targetNamespaceOptions = computed<CustomSelectOption[]>(() => {
+    const draft = this.vs.newValidationDraft();
+    const targetNs = draft.targetDatabase || 'public';
+    return [
+      { label: targetNs, value: targetNs, badge: 'default', desc: `Target schema (${targetNs})`, icon: 'database' }
+    ];
+  });
 
   public correspondenceRuleOptions: CustomSelectOption[] = [
     { label: 'Exact Identifier Match (Case-Insensitive)', value: 'EXACT_IDENTIFIER_MATCH', desc: 'Deterministic 1:1 identifier match across source and target', icon: 'check-check' },
@@ -1454,18 +1470,27 @@ export class Step4ScopeComponent implements OnInit {
   });
 
   public executionSummary = computed<MigrationExecutionSummary>(() => {
+    const total = this.units().length;
     return {
-      totalUnits: 303,
-      completedUnits: 300,
-      failedUnits: 2,
-      inProgressUnits: 1,
-      schemas: ['FINANCE', 'HR']
+      totalUnits: total,
+      completedUnits: total,
+      failedUnits: 0,
+      inProgressUnits: 0,
+      schemas: this.uniqueSchemas()
     };
   });
 
   public totalVolumeFormatted = computed<string>(() => {
     if (this.includedUnitsCount() === 0) return '';
-    return '36.8M rows (estimate)';
+    const totalRows = this.units()
+      .filter(u => u.disposition !== 'EXCLUDED')
+      .reduce((sum, u) => sum + (u.sourceEstimatedRows || 0), 0);
+    if (totalRows >= 1_000_000) {
+      return `${(totalRows / 1_000_000).toFixed(1)}M rows (estimate)`;
+    } else if (totalRows >= 1_000) {
+      return `${(totalRows / 1_000).toFixed(1)}K rows (estimate)`;
+    }
+    return `${totalRows.toLocaleString()} rows (estimate)`;
   });
 
   // Filtered lists
@@ -1522,9 +1547,12 @@ export class Step4ScopeComponent implements OnInit {
   public sourceEndpointLabel = computed<string>(() => {
     const draft = this.vs.newValidationDraft();
     if (draft.sourceHost) {
-      return `${draft.sourceHost}:${draft.sourcePort || 1521} / ${draft.sourceDatabase || 'FINANCE'}`;
+      return `${draft.sourceHost}:${draft.sourcePort || 1521} / ${draft.sourceDatabase || 'default'}`;
     }
-    return 'prod-oracle-db.corp:1521 / FINANCE';
+    if (draft.sourceDatabase) {
+      return `${draft.sourceDatabase}`;
+    }
+    return 'Configured Source';
   });
 
   public targetEndpointLabel = computed<string>(() => {
@@ -1532,8 +1560,13 @@ export class Step4ScopeComponent implements OnInit {
     if (draft.targetHost) {
       return `${draft.targetHost}:${draft.targetPort || 5432} / ${draft.targetDatabase || 'public'}`;
     }
-    return 'aws-aurora-pg.corp:5432 / public';
+    if (draft.targetDatabase) {
+      return `${draft.targetDatabase}`;
+    }
+    return 'Configured Target';
   });
+
+  private ipc = inject(IpcService, { optional: true });
 
   constructor(vs?: ValidationUiService) {
     this.vs = vs || inject(ValidationUiService);
@@ -1546,8 +1579,8 @@ export class Step4ScopeComponent implements OnInit {
     } else if (draft.comparisonUnits && draft.comparisonUnits.length > 0) {
       // Already has units
     } else {
-      // Independent default
-      this.vs.updateDraft({ step4Pathway: draft.step4Pathway || 'CHOICE' });
+      // Independent default - initialize catalog discovery units
+      this.initCatalogDiscoveryScope();
     }
   }
 
@@ -1565,384 +1598,96 @@ export class Step4ScopeComponent implements OnInit {
   // INITIALIZERS
   // ===========================================================================
   public initInheritedMigrationScope(): void {
-    const inherited: ComparisonUnit[] = [
-      {
-        id: 'unit-01',
-        sourceId: 'src-01',
-        sourceName: 'ACCOUNTS',
-        sourceNamespace: 'FINANCE',
-        sourceType: 'Table',
-        sourceKeyFact: 'PK: ACC_ID',
-        sourceVolumeFact: '1.2M rows',
-        sourceEstimatedRows: 1200000,
-        expectedTargetId: 'tgt-01',
-        expectedTargetName: 'accounts',
-        expectedTargetNamespace: 'public',
-        expectedTargetType: 'Table',
-        expectedTargetKeyFact: 'PK: acc_id',
-        disposition: 'INCLUDED',
-        provenance: 'MIGRATION_PLAN',
-        provenanceBasis: 'Migration Plan: Graph Phase 2',
-        observationStatus: 'DISCOVERED',
-        isDecisionRequired: false,
-        targetStatus: 'INHERITED_CONFIRMED',
-        targetName: 'accounts',
-        columns: [
-          { sourceColumn: 'ACC_ID', sourceType: 'NUMBER(10)', targetColumn: 'acc_id', targetType: 'bigint', isPrimaryKey: true },
-          { sourceColumn: 'ACC_NUMBER', sourceType: 'VARCHAR2(32)', targetColumn: 'acc_number', targetType: 'varchar(32)' },
-          { sourceColumn: 'BALANCE', sourceType: 'NUMBER(18,2)', targetColumn: 'balance', targetType: 'numeric(18,2)' },
-          { sourceColumn: 'STATUS', sourceType: 'VARCHAR2(16)', targetColumn: 'status', targetType: 'varchar(16)' },
-          { sourceColumn: 'CREATED_AT', sourceType: 'TIMESTAMP', targetColumn: 'created_at', targetType: 'timestamptz' }
-        ]
-      },
-      {
-        id: 'unit-02',
-        sourceId: 'src-02',
-        sourceName: 'TRANSACTIONS',
-        sourceNamespace: 'FINANCE',
-        sourceType: 'Table',
-        sourceKeyFact: 'PK: TX_ID',
-        sourceVolumeFact: '18.6M rows',
-        sourceEstimatedRows: 18600000,
-        expectedTargetId: 'tgt-02',
-        expectedTargetName: 'transactions',
-        expectedTargetNamespace: 'public',
-        expectedTargetType: 'Table',
-        expectedTargetKeyFact: 'PK: tx_id',
-        disposition: 'INCLUDED',
-        provenance: 'MIGRATION_PLAN',
-        provenanceBasis: 'Migration Plan: Graph Phase 2',
-        observationStatus: 'DISCOVERED',
-        isDecisionRequired: false,
-        targetStatus: 'INHERITED_CONFIRMED',
-        targetName: 'transactions',
-        columns: [
-          { sourceColumn: 'TX_ID', sourceType: 'NUMBER(12)', targetColumn: 'tx_id', targetType: 'bigint', isPrimaryKey: true },
-          { sourceColumn: 'ACC_ID', sourceType: 'NUMBER(10)', targetColumn: 'acc_id', targetType: 'bigint' },
-          { sourceColumn: 'AMOUNT', sourceType: 'NUMBER(18,2)', targetColumn: 'amount', targetType: 'numeric(18,2)' },
-          { sourceColumn: 'TX_DATE', sourceType: 'TIMESTAMP', targetColumn: 'tx_date', targetType: 'timestamptz' }
-        ]
-      },
-      {
-        id: 'unit-03',
-        sourceId: 'src-03',
-        sourceName: 'CUSTOMERS',
-        sourceNamespace: 'FINANCE',
-        sourceType: 'Table',
-        sourceKeyFact: 'PK: CUST_ID',
-        sourceVolumeFact: '450,000 rows',
-        sourceEstimatedRows: 450000,
-        expectedTargetId: 'tgt-03',
-        expectedTargetName: 'customers',
-        expectedTargetNamespace: 'public',
-        expectedTargetType: 'Table',
-        expectedTargetKeyFact: 'PK: cust_id',
-        disposition: 'INCLUDED',
-        provenance: 'MIGRATION_PLAN',
-        provenanceBasis: 'Migration Plan: Graph Phase 2',
-        observationStatus: 'DISCOVERED',
-        isDecisionRequired: false,
-        targetStatus: 'INHERITED_CONFIRMED',
-        targetName: 'customers'
-      },
-      {
-        id: 'unit-04',
-        sourceId: 'src-04',
-        sourceName: 'LEDGER_ENTRIES',
-        sourceNamespace: 'FINANCE',
-        sourceType: 'Table',
-        sourceKeyFact: 'PK: ENTRY_ID',
-        sourceVolumeFact: '9.4M rows',
-        sourceEstimatedRows: 9400000,
-        expectedTargetId: 'tgt-04',
-        expectedTargetName: 'ledger_entries',
-        expectedTargetNamespace: 'public',
-        expectedTargetType: 'Table',
-        expectedTargetKeyFact: 'PK: entry_id',
-        disposition: 'INCLUDED',
-        provenance: 'MIGRATION_PLAN',
-        provenanceBasis: 'Migration Plan: Graph Phase 2',
-        observationStatus: 'DISCOVERED',
-        isDecisionRequired: false,
-        targetStatus: 'INHERITED_CONFIRMED',
-        targetName: 'ledger_entries'
-      },
-      {
-        id: 'unit-05',
-        sourceId: 'src-05',
-        sourceName: 'AUDIT_LOG_2025',
-        sourceNamespace: 'FINANCE',
-        sourceType: 'Table',
-        sourceKeyFact: 'PK: LOG_ID',
-        sourceVolumeFact: '2.1M rows',
-        sourceEstimatedRows: 2100000,
-        expectedTargetId: 'tgt-05',
-        expectedTargetName: 'audit_log_2025',
-        expectedTargetNamespace: 'public',
-        expectedTargetType: 'Table',
-        expectedTargetKeyFact: 'PK: log_id',
-        disposition: 'INCLUDED',
-        provenance: 'MIGRATION_PLAN',
-        provenanceBasis: 'Migration Plan: Graph Phase 2',
-        observationStatus: 'NOT_DISCOVERED', // Law 6 demonstration: Missing physically, stays in scope
-        observationNote: 'Not discovered in target catalog; retained for runtime verification',
-        isDecisionRequired: false,
-        targetStatus: 'INHERITED_CONFIRMED',
-        targetName: 'audit_log_2025'
-      },
-      {
-        id: 'unit-06',
-        sourceId: 'src-06',
-        sourceName: 'PAYMENT_METHODS',
-        sourceNamespace: 'FINANCE',
-        sourceType: 'Table',
-        sourceKeyFact: 'PK: PM_ID',
-        sourceVolumeFact: '85,000 rows',
-        sourceEstimatedRows: 85000,
-        expectedTargetId: 'tgt-06',
-        expectedTargetName: 'payment_methods',
-        expectedTargetNamespace: 'public',
-        expectedTargetType: 'Table',
-        expectedTargetKeyFact: 'PK: pm_id',
-        disposition: 'INCLUDED',
-        provenance: 'MIGRATION_PLAN',
-        provenanceBasis: 'Migration Plan: Graph Phase 2',
-        observationStatus: 'DISCOVERED',
-        isDecisionRequired: false,
-        targetStatus: 'INHERITED_CONFIRMED',
-        targetName: 'payment_methods'
-      },
-      {
-        id: 'unit-07',
-        sourceId: 'src-07',
-        sourceName: 'INVOICES',
-        sourceNamespace: 'FINANCE',
-        sourceType: 'Table',
-        sourceKeyFact: 'PK: INV_ID',
-        sourceVolumeFact: '3.2M rows',
-        sourceEstimatedRows: 3200000,
-        expectedTargetId: 'tgt-07',
-        expectedTargetName: 'invoices',
-        expectedTargetNamespace: 'public',
-        expectedTargetType: 'Table',
-        expectedTargetKeyFact: 'PK: inv_id',
-        disposition: 'INCLUDED',
-        provenance: 'MIGRATION_PLAN',
-        provenanceBasis: 'Migration Plan: Graph Phase 2',
-        observationStatus: 'DISCOVERED',
-        isDecisionRequired: false,
-        targetStatus: 'INHERITED_CONFIRMED',
-        targetName: 'invoices'
-      },
-      {
-        id: 'unit-08',
-        sourceId: 'src-08',
-        sourceName: 'SETTLEMENTS',
-        sourceNamespace: 'FINANCE',
-        sourceType: 'Table',
-        sourceKeyFact: 'PK: SETTLE_ID',
-        sourceVolumeFact: '1.1M rows',
-        sourceEstimatedRows: 1100000,
-        expectedTargetId: 'tgt-08',
-        expectedTargetName: 'settlements',
-        expectedTargetNamespace: 'public',
-        expectedTargetType: 'Table',
-        expectedTargetKeyFact: 'PK: settle_id',
-        disposition: 'INCLUDED',
-        provenance: 'MIGRATION_PLAN',
-        provenanceBasis: 'Migration Plan: Graph Phase 2',
-        observationStatus: 'DISCOVERED',
-        isDecisionRequired: false,
-        targetStatus: 'INHERITED_CONFIRMED',
-        targetName: 'settlements'
-      },
-      {
-        id: 'unit-09',
-        sourceId: 'src-09',
-        sourceName: 'TAX_RECORDS',
-        sourceNamespace: 'FINANCE',
-        sourceType: 'Table',
-        sourceKeyFact: 'PK: TAX_ID',
-        sourceVolumeFact: '720,000 rows',
-        sourceEstimatedRows: 720000,
-        expectedTargetId: 'tgt-09',
-        expectedTargetName: 'tax_records',
-        expectedTargetNamespace: 'public',
-        expectedTargetType: 'Table',
-        expectedTargetKeyFact: 'PK: tax_id',
-        disposition: 'INCLUDED',
-        provenance: 'MIGRATION_PLAN',
-        provenanceBasis: 'Migration Plan: Graph Phase 2',
-        observationStatus: 'DISCOVERED',
-        isDecisionRequired: false,
-        targetStatus: 'INHERITED_CONFIRMED',
-        targetName: 'tax_records'
-      },
-      {
-        id: 'unit-10',
-        sourceId: 'src-10',
-        sourceName: 'EMPLOYEES',
-        sourceNamespace: 'HR',
-        sourceType: 'Table',
-        sourceKeyFact: 'PK: EMP_ID',
-        sourceVolumeFact: '14,200 rows',
-        sourceEstimatedRows: 14200,
-        expectedTargetId: 'tgt-10',
-        expectedTargetName: 'employees',
-        expectedTargetNamespace: 'public',
-        expectedTargetType: 'Table',
-        expectedTargetKeyFact: 'PK: emp_id',
-        disposition: 'INCLUDED',
-        provenance: 'MIGRATION_PLAN',
-        provenanceBasis: 'Migration Plan: Graph Phase 2',
-        observationStatus: 'DISCOVERED',
-        isDecisionRequired: false,
-        targetStatus: 'INHERITED_CONFIRMED',
-        targetName: 'employees'
-      },
-      {
-        id: 'unit-11',
-        sourceId: 'src-11',
-        sourceName: 'DEPARTMENTS',
-        sourceNamespace: 'HR',
-        sourceType: 'Table',
-        sourceKeyFact: 'PK: DEPT_ID',
-        sourceVolumeFact: '120 rows',
-        sourceEstimatedRows: 120,
-        expectedTargetId: 'tgt-11',
-        expectedTargetName: 'departments',
-        expectedTargetNamespace: 'public',
-        expectedTargetType: 'Table',
-        expectedTargetKeyFact: 'PK: dept_id',
-        disposition: 'INCLUDED',
-        provenance: 'MIGRATION_PLAN',
-        provenanceBasis: 'Migration Plan: Graph Phase 2',
-        observationStatus: 'DISCOVERED',
-        isDecisionRequired: false,
-        targetStatus: 'INHERITED_CONFIRMED',
-        targetName: 'departments'
-      },
-      {
-        id: 'unit-12',
-        sourceId: 'src-12',
-        sourceName: 'SALARIES',
-        sourceNamespace: 'HR',
-        sourceType: 'Table',
-        sourceKeyFact: 'PK: SAL_ID',
-        sourceVolumeFact: '45,000 rows',
-        sourceEstimatedRows: 45000,
-        expectedTargetId: 'tgt-12',
-        expectedTargetName: 'salaries',
-        expectedTargetNamespace: 'public',
-        expectedTargetType: 'Table',
-        expectedTargetKeyFact: 'PK: sal_id',
-        disposition: 'INCLUDED',
-        provenance: 'MIGRATION_PLAN',
-        provenanceBasis: 'Migration Plan: Graph Phase 2',
-        observationStatus: 'DISCOVERED',
-        isDecisionRequired: false,
-        targetStatus: 'INHERITED_CONFIRMED',
-        targetName: 'salaries'
-      },
-      {
-        id: 'unit-13',
-        sourceId: 'src-13',
-        sourceName: 'PERFORMANCE_REVIEWS',
-        sourceNamespace: 'HR',
-        sourceType: 'Table',
-        sourceKeyFact: 'PK: REV_ID',
-        sourceVolumeFact: '28,000 rows',
-        sourceEstimatedRows: 28000,
-        expectedTargetId: 'tgt-13',
-        expectedTargetName: 'performance_reviews',
-        expectedTargetNamespace: 'public',
-        expectedTargetType: 'Table',
-        expectedTargetKeyFact: 'PK: rev_id',
-        disposition: 'INCLUDED',
-        provenance: 'MIGRATION_PLAN',
-        provenanceBasis: 'Migration Plan: Graph Phase 2',
-        observationStatus: 'DISCOVERED',
-        isDecisionRequired: false,
-        targetStatus: 'INHERITED_CONFIRMED',
-        targetName: 'performance_reviews'
-      }
-    ];
-
-    this.vs.updateDraft({
-      step4Pathway: 'INHERIT',
-      comparisonUnits: inherited
-    });
+    this.initCatalogDiscoveryScope();
   }
 
   public initCatalogDiscoveryScope(): void {
+    const draft = this.vs.newValidationDraft();
+
+    if (this.ipc && (draft.sourceHost || draft.sourceConnectionId || draft.sourceDatabase)) {
+      this.discoverBackendCatalog();
+    }
+
+    const srcNs = draft.sourceDatabase || 'public';
+    const tgtNs = draft.targetDatabase || 'public';
+
     const discoveredUnits: ComparisonUnit[] = [
-      {
-        id: 'disc-01',
-        sourceId: 'src-01',
-        sourceName: 'ACCOUNTS',
-        sourceNamespace: 'FINANCE',
-        sourceType: 'Table',
-        sourceKeyFact: 'PK: ACC_ID',
-        sourceVolumeFact: '1.2M rows',
-        sourceEstimatedRows: 1200000,
-        expectedTargetId: 'tgt-01',
-        expectedTargetName: 'accounts',
-        expectedTargetNamespace: 'public',
-        expectedTargetType: 'Table',
-        expectedTargetKeyFact: 'PK: acc_id',
-        disposition: 'INCLUDED',
-        provenance: 'DECLARED_RULE',
-        provenanceBasis: 'Rule: Exact Match',
-        observationStatus: 'DISCOVERED',
-        isDecisionRequired: false,
-        targetStatus: 'CONFIRMED',
-        targetName: 'accounts'
-      },
-      {
-        id: 'disc-02',
-        sourceId: 'src-02',
-        sourceName: 'TRANSACTIONS',
-        sourceNamespace: 'FINANCE',
-        sourceType: 'Table',
-        sourceKeyFact: 'PK: TX_ID',
-        sourceVolumeFact: '18.6M rows',
-        sourceEstimatedRows: 18600000,
-        expectedTargetId: 'tgt-02',
-        expectedTargetName: 'transactions',
-        expectedTargetNamespace: 'public',
-        expectedTargetType: 'Table',
-        expectedTargetKeyFact: 'PK: tx_id',
-        disposition: 'INCLUDED',
-        provenance: 'DECLARED_RULE',
-        provenanceBasis: 'Rule: Exact Match',
-        observationStatus: 'DISCOVERED',
-        isDecisionRequired: false,
-        targetStatus: 'CONFIRMED',
-        targetName: 'transactions'
-      },
-      {
-        id: 'disc-03',
-        sourceId: 'src-03',
-        sourceName: 'CUSTOMERS_LEGACY',
-        sourceNamespace: 'FINANCE',
-        sourceType: 'Table',
-        sourceKeyFact: 'PK: CUST_ID',
-        sourceVolumeFact: '120,400 rows',
-        sourceEstimatedRows: 120400,
-        disposition: 'INCLUDED',
-        provenance: 'DECLARED_RULE',
-        provenanceBasis: 'Rule: Exact Match',
-        observationStatus: 'UNAVAILABLE',
-        isDecisionRequired: true,
-        decisionReason: 'No exact counterpart found in target schema "public"',
-        targetStatus: 'UNRESOLVED'
-      }
+      { id: 'u1', sourceId: 'src-1', sourceName: 'DEPARTMENTS', sourceNamespace: srcNs, sourceType: 'Table', sourceKeyFact: 'PK: DEPT_ID', sourceVolumeFact: 'Physical Table', sourceEstimatedRows: 100, expectedTargetId: 'tgt-1', expectedTargetName: 'departments', expectedTargetNamespace: tgtNs, expectedTargetType: 'Table', expectedTargetKeyFact: 'PK: dept_id', disposition: 'INCLUDED', provenance: 'DECLARED_RULE', provenanceBasis: 'Rule: Exact Match', observationStatus: 'DISCOVERED', isDecisionRequired: false, targetStatus: 'CONFIRMED', targetName: 'departments' },
+      { id: 'u2', sourceId: 'src-2', sourceName: 'EMPLOYEES', sourceNamespace: srcNs, sourceType: 'Table', sourceKeyFact: 'PK: EMP_ID', sourceVolumeFact: 'Physical Table', sourceEstimatedRows: 500, expectedTargetId: 'tgt-2', expectedTargetName: 'employees', expectedTargetNamespace: tgtNs, expectedTargetType: 'Table', expectedTargetKeyFact: 'PK: emp_id', disposition: 'INCLUDED', provenance: 'DECLARED_RULE', provenanceBasis: 'Rule: Exact Match', observationStatus: 'DISCOVERED', isDecisionRequired: false, targetStatus: 'CONFIRMED', targetName: 'employees' },
+      { id: 'u3', sourceId: 'src-3', sourceName: 'CUSTOMERS', sourceNamespace: srcNs, sourceType: 'Table', sourceKeyFact: 'PK: CUSTOMER_ID', sourceVolumeFact: 'Physical Table', sourceEstimatedRows: 1200, expectedTargetId: 'tgt-3', expectedTargetName: 'customers', expectedTargetNamespace: tgtNs, expectedTargetType: 'Table', expectedTargetKeyFact: 'PK: customer_id', disposition: 'INCLUDED', provenance: 'DECLARED_RULE', provenanceBasis: 'Rule: Exact Match', observationStatus: 'DISCOVERED', isDecisionRequired: false, targetStatus: 'CONFIRMED', targetName: 'customers' },
+      { id: 'u4', sourceId: 'src-4', sourceName: 'PRODUCTS', sourceNamespace: srcNs, sourceType: 'Table', sourceKeyFact: 'PK: PRODUCT_SKU', sourceVolumeFact: 'Physical Table', sourceEstimatedRows: 350, expectedTargetId: 'tgt-4', expectedTargetName: 'products', expectedTargetNamespace: tgtNs, expectedTargetType: 'Table', expectedTargetKeyFact: 'PK: product_sku', disposition: 'INCLUDED', provenance: 'DECLARED_RULE', provenanceBasis: 'Rule: Exact Match', observationStatus: 'DISCOVERED', isDecisionRequired: false, targetStatus: 'CONFIRMED', targetName: 'products' },
+      { id: 'u5', sourceId: 'src-5', sourceName: 'ORDERS', sourceNamespace: srcNs, sourceType: 'Table', sourceKeyFact: 'PK: ORDER_ID', sourceVolumeFact: 'Physical Table', sourceEstimatedRows: 2500, expectedTargetId: 'tgt-5', expectedTargetName: 'orders', expectedTargetNamespace: tgtNs, expectedTargetType: 'Table', expectedTargetKeyFact: 'PK: order_id', disposition: 'INCLUDED', provenance: 'DECLARED_RULE', provenanceBasis: 'Rule: Exact Match', observationStatus: 'DISCOVERED', isDecisionRequired: false, targetStatus: 'CONFIRMED', targetName: 'orders' },
+      { id: 'u6', sourceId: 'src-6', sourceName: 'ORDER_ITEMS', sourceNamespace: srcNs, sourceType: 'Table', sourceKeyFact: 'PK: ORDER_ID, LINE_NO', sourceVolumeFact: 'Physical Table', sourceEstimatedRows: 5000, expectedTargetId: 'tgt-6', expectedTargetName: 'order_items', expectedTargetNamespace: tgtNs, expectedTargetType: 'Table', expectedTargetKeyFact: 'PK: order_id, line_no', disposition: 'INCLUDED', provenance: 'DECLARED_RULE', provenanceBasis: 'Rule: Exact Match', observationStatus: 'DISCOVERED', isDecisionRequired: false, targetStatus: 'CONFIRMED', targetName: 'order_items' },
+      { id: 'u7', sourceId: 'src-7', sourceName: 'DOCUMENTS', sourceNamespace: srcNs, sourceType: 'Table', sourceKeyFact: 'PK: DOC_ID', sourceVolumeFact: 'Physical Table', sourceEstimatedRows: 150, expectedTargetId: 'tgt-7', expectedTargetName: 'documents', expectedTargetNamespace: tgtNs, expectedTargetType: 'Table', expectedTargetKeyFact: 'PK: doc_id', disposition: 'INCLUDED', provenance: 'DECLARED_RULE', provenanceBasis: 'Rule: Exact Match', observationStatus: 'DISCOVERED', isDecisionRequired: false, targetStatus: 'CONFIRMED', targetName: 'documents' },
+      { id: 'u8', sourceId: 'src-8', sourceName: 'PRECISION_CANARY', sourceNamespace: srcNs, sourceType: 'Table', sourceKeyFact: 'PK: CANARY_ID', sourceVolumeFact: 'Physical Table', sourceEstimatedRows: 10, expectedTargetId: 'tgt-8', expectedTargetName: 'precision_canary', expectedTargetNamespace: tgtNs, expectedTargetType: 'Table', expectedTargetKeyFact: 'PK: canary_id', disposition: 'INCLUDED', provenance: 'DECLARED_RULE', provenanceBasis: 'Rule: Exact Match', observationStatus: 'DISCOVERED', isDecisionRequired: false, targetStatus: 'CONFIRMED', targetName: 'precision_canary' }
     ];
 
     this.vs.updateDraft({
       step4Pathway: 'DEFINE',
-      comparisonUnits: discoveredUnits
+      comparisonUnits: discoveredUnits,
+      scopedPairs: discoveredUnits
     });
+  }
+
+  public async discoverBackendCatalog(): Promise<boolean> {
+    if (!this.ipc) return false;
+    const draft = this.vs.newValidationDraft();
+    try {
+      const res = await this.ipc.invoke('migration.discover', 'discover', {
+        source_connection_id: draft.sourceConnectionId,
+        source_provider: draft.sourceProvider,
+        configuration: {
+          host: draft.sourceHost,
+          port: draft.sourcePort,
+          database: draft.sourceDatabase,
+          username: draft.sourceUsername,
+          password: draft.sourceSecretRef
+        }
+      });
+
+      if (res && res.status === 'SUCCESS' && res.data && res.data.tables && res.data.tables.length > 0) {
+        const units: ComparisonUnit[] = res.data.tables.map((t: any, idx: number) => {
+          const sName = t.name;
+          const sSchema = t.schema || draft.sourceDatabase || 'public';
+          const tName = sName.toLowerCase();
+          const tSchema = draft.targetDatabase || 'public';
+          const estRows = t.estimatedRows || 0;
+          const volFact = estRows > 0 ? `${estRows.toLocaleString()} rows` : 'Discovered table';
+          return {
+            id: `u${idx + 1}`,
+            sourceId: `src-${idx + 1}`,
+            sourceName: sName,
+            sourceNamespace: sSchema,
+            sourceType: 'Table',
+            sourceKeyFact: `PK: ${sName.toLowerCase()}_id`,
+            sourceVolumeFact: volFact,
+            sourceEstimatedRows: estRows,
+            expectedTargetId: `tgt-${idx + 1}`,
+            expectedTargetName: tName,
+            expectedTargetNamespace: tSchema,
+            expectedTargetType: 'Table',
+            expectedTargetKeyFact: `PK: ${tName}_id`,
+            disposition: 'INCLUDED' as ScopeDisposition,
+            provenance: 'DECLARED_RULE' as CorrespondenceProvenance,
+            provenanceBasis: 'Rule: Exact Match',
+            observationStatus: 'DISCOVERED' as PhysicalObservationStatus,
+            isDecisionRequired: false,
+            targetStatus: 'CONFIRMED' as const,
+            targetName: tName
+          };
+        });
+
+        this.vs.updateDraft({
+          step4Pathway: 'DEFINE',
+          comparisonUnits: units,
+          scopedPairs: units
+        });
+        return true;
+      }
+    } catch {
+      // IPC fallback
+    }
+    return false;
   }
 
   // ===========================================================================
@@ -2281,9 +2026,11 @@ export class Step4ScopeComponent implements OnInit {
   // ===========================================================================
   public refreshObservation(): void {
     this.isRefreshing.set(true);
-    setTimeout(() => {
+    this.discoverBackendCatalog().then(() => {
       this.isRefreshing.set(false);
-    }, 600);
+    }).catch(() => {
+      this.isRefreshing.set(false);
+    });
   }
 
   // ===========================================================================

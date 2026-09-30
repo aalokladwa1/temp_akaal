@@ -49,7 +49,7 @@ import { TableProgressItem, WorkerTelemetryItem, ExecutionSiteItem, SchemaObject
               <div class="flex items-center gap-4">
                 <span>Aggregate Rate: <strong class="font-mono text-slate-900 font-bold">{{ dm.overallRowsSec | number }} rows/s</strong></span>
                 <span class="text-slate-300">&middot;</span>
-                <span>Throughput: <strong class="font-mono text-slate-900 font-bold">1.42 GB/s</strong></span>
+                <span>Throughput: <strong class="font-mono text-slate-900 font-bold">{{ formatThroughputBytes(dm.overallBytesSec) }}</strong></span>
               </div>
             </div>
 
@@ -396,5 +396,19 @@ export class CockpitWorkbenchComponent {
       case 'SKIPPED': return 'bg-slate-100 text-slate-400 border-slate-200';
       default: return 'bg-slate-100 text-slate-600 border-slate-200';
     }
+  }
+
+  public formatThroughputBytes(bytesSec: number | undefined): string {
+    if (!bytesSec || bytesSec <= 0) return '0 B/s';
+    if (bytesSec >= 1024 * 1024 * 1024) {
+      return `${(bytesSec / (1024 * 1024 * 1024)).toFixed(2)} GB/s`;
+    }
+    if (bytesSec >= 1024 * 1024) {
+      return `${(bytesSec / (1024 * 1024)).toFixed(1)} MB/s`;
+    }
+    if (bytesSec >= 1024) {
+      return `${(bytesSec / 1024).toFixed(0)} KB/s`;
+    }
+    return `${bytesSec} B/s`;
   }
 }

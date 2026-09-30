@@ -107,6 +107,7 @@ function mapMigrationAggregateToFleetItem(rec: MigrationAggregateDTO): Migration
 })
 export class MigrationMonitoringService {
   private ipc: MonitoringIpcService;
+  private telemetryUnsub?: () => void;
 
   constructor(monitoringIpc?: MonitoringIpcService) {
     if (monitoringIpc) {
@@ -118,7 +119,39 @@ export class MigrationMonitoringService {
         this.ipc = new MonitoringIpcService();
       }
     }
+    if (this.ipc && typeof this.ipc.subscribeTelemetry === 'function') {
+      this.telemetryUnsub = this.ipc.subscribeTelemetry((event: any) => {
+        this.handleTelemetryEvent(event);
+      });
+    }
     void this.initializeState();
+  }
+
+  public ngOnDestroy(): void {
+    if (this.telemetryUnsub) {
+      this.telemetryUnsub();
+      this.telemetryUnsub = undefined;
+    }
+  }
+
+  private handleTelemetryEvent(event: any): void {
+    this.lastObservedAt.set(new Date());
+    this.telemetryConfidence.set('CURRENT');
+    if (event && event.migration_id) {
+      // Live per-migration telemetry update
+      this.fleetList.update(list => list.map(item => {
+        if (item.id === event.migration_id) {
+          return {
+            ...item,
+            throughput_label: event.throughput ? `${event.throughput} rows/s` : item.throughput_label,
+            lag_label: event.cdc_lag_ms !== undefined ? `${event.cdc_lag_ms} ms` : item.lag_label,
+            progress_percent: event.progress_percent !== undefined ? event.progress_percent : item.progress_percent,
+            operational_state: event.state ? mapOperationalState(event.state) : item.operational_state
+          };
+        }
+        return item;
+      }));
+    }
   }
 
   // Primary Store Signals
@@ -192,9 +225,9 @@ export class MigrationMonitoringService {
     this.errorMessage.set(null);
     try {
       const res = await this.ipc.listMigrations({ limit: 200 });
-      if (res.status !== 'SUCCESS' || !res.data || !Array.isArray(res.data.migrations)) {
+      if (!res || res.status !== 'SUCCESS' || !res.data || !Array.isArray(res.data.migrations)) {
         this.isUnavailable.set(true);
-        this.errorMessage.set(res.error || 'Migration fleet backend unavailable.');
+        this.errorMessage.set(res?.error || 'Migration fleet backend unavailable.');
         this.telemetryConfidence.set('NO_DATA');
         return;
       }

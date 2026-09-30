@@ -1,4 +1,4 @@
-import { Injectable, signal, computed } from '@angular/core';
+import { Injectable, signal, computed, inject, Optional } from '@angular/core';
 import {
   TemplateItem,
   TemplateFilterState,
@@ -9,11 +9,17 @@ import {
 } from './templates.models';
 import { TEMPLATE_FIXTURES } from './templates.fixtures';
 import { CustomSelectOption } from '../../../shared/components/custom-select.component';
+import { MigrationIpc } from '../../../core/services/ipc/migration.ipc';
+import { IpcService } from '../../../core/services/ipc.service';
 
 @Injectable({
   providedIn: 'root'
 })
 export class TemplatesService {
+  private migrationIpc?: MigrationIpc;
+  private ipc?: IpcService;
+  private unsubs: Array<() => void> = [];
+
   public templates = signal<TemplateItem[]>(TEMPLATE_FIXTURES);
   
   public filters = signal<TemplateFilterState>({
@@ -25,6 +31,27 @@ export class TemplatesService {
 
   public availabilityState = signal<TemplateAvailabilityState>('READY');
   public errorMessage = signal<string>('');
+
+  constructor(
+    @Optional() migrationIpc?: MigrationIpc,
+    @Optional() ipc?: IpcService
+  ) {
+    if (ipc) {
+      this.ipc = ipc;
+    } else {
+      try { this.ipc = inject(IpcService, { optional: true }) || undefined; } catch { this.ipc = undefined; }
+    }
+    if (migrationIpc) {
+      this.migrationIpc = migrationIpc;
+    } else {
+      try { this.migrationIpc = inject(MigrationIpc, { optional: true }) || (this.ipc ? new MigrationIpc(this.ipc) : undefined); } catch { this.migrationIpc = undefined; }
+    }
+
+    this.setupSubscriptions();
+    if (this.ipc && this.ipc.connectionState() === 'connected') {
+      this.loadState();
+    }
+  }
 
   /**
    * Computed active filter indicator
@@ -164,14 +191,104 @@ export class TemplatesService {
     });
   }
 
+  private setupSubscriptions(): void {
+    if (!this.ipc) return;
+
+    const unsubConn = this.ipc.subscribe('akaal:engine:connected', () => {
+      this.loadState();
+    });
+    this.unsubs.push(unsubConn);
+  }
+
+  public async loadState(): Promise<void> {
+    if (!this.migrationIpc) {
+      this.availabilityState.set('READY');
+      return;
+    }
+
+    this.availabilityState.set('LOADING');
+    this.errorMessage.set('');
+
+    try {
+      const res = await this.migrationIpc.listTemplates().catch(() => null);
+      if (res && res.status === 'SUCCESS' && Array.isArray(res.data?.templates)) {
+        const canonical = res.data.templates;
+        if (canonical.length === 0) {
+          this.templates.set([]);
+          this.availabilityState.set('EMPTY');
+          return;
+        }
+
+        const mapped: TemplateItem[] = canonical.map((t: any, idx: number) => {
+          const cfg = t.configuration || {};
+          const src = t.source_provider || cfg.definition?.sourceProvider || 'Oracle';
+          const tgt = t.target_provider || cfg.definition?.targetProvider || 'PostgreSQL';
+          return {
+            id: t.id || t.template_id || `tmpl-canon-${idx + 1}`,
+            name: t.name || 'Enterprise Migration Template',
+            description: t.description || 'Configured template specification',
+            mode: (t.mode || 'M1_BULK') as TemplateMigrationMode,
+            applicability: {
+              sourceProviderName: src,
+              targetProviderName: tgt,
+              description: `${src} to ${tgt}`
+            },
+            versionLabel: t.version || t.versionLabel || 'v1.0.0',
+            updatedAt: t.updated_at || t.updatedAt || new Date().toISOString(),
+            usage: {
+              isUsageKnown: true,
+              migrationCount: t.migration_count || 0,
+              referencedProjectCount: t.project_count || 0
+            }
+          };
+        });
+
+        this.templates.set(mapped);
+        this.availabilityState.set('READY');
+      } else {
+        this.availabilityState.set('READY');
+        this.templates.set(TEMPLATE_FIXTURES);
+      }
+    } catch (err: any) {
+      this.availabilityState.set('ERROR');
+      this.errorMessage.set(err?.message || 'Failed to load templates');
+    }
+  }
+
   public reload(): void {
     this.availabilityState.set('READY');
     this.errorMessage.set('');
     this.templates.set(TEMPLATE_FIXTURES);
+    if (this.ipc && this.ipc.connectionState() === 'connected') {
+      this.loadState();
+    }
   }
 
   public addTemplate(item: TemplateItem): void {
     this.templates.update(list => [item, ...list]);
+  }
+
+  public async deleteTemplate(id: string): Promise<boolean> {
+    if (this.migrationIpc) {
+      try {
+        const res = await this.migrationIpc.deleteTemplate(id);
+        if (res && res.status === 'SUCCESS') {
+          this.templates.update(list => list.filter(t => t.id !== id));
+          return true;
+        }
+      } catch (err: any) {
+        this.errorMessage.set(err?.message || 'Failed to delete template');
+        return false;
+      }
+    }
+    this.templates.update(list => list.filter(t => t.id !== id));
+    return true;
+  }
+
+  public loadFixturesForTesting(): void {
+    this.availabilityState.set('READY');
+    this.templates.set(TEMPLATE_FIXTURES);
+    this.errorMessage.set('');
   }
 
   public setAvailabilityState(state: TemplateAvailabilityState, errorMsg?: string): void {

@@ -1093,6 +1093,103 @@ function buildReportEnvelope(report: ReportItemDTO): ReportDetailEnvelopeDTO {
   };
 }
 
+const INITIAL_EVIDENCE_ENVELOPES: Record<string, EvidenceDetailEnvelopeDTO> = {
+  'EV-2026-MIG-01': {
+    id: 'EV-2026-MIG-01',
+    title: 'Partition Bulk Transfer Manifest',
+    artifact_type: 'MANIFEST_SNAPSHOT',
+    subject_name: 'Core Banking Ledger Migration',
+    subject_id: 'mig-core-banking-01',
+    created_at: new Date(Date.now() - 1000 * 60 * 50).toISOString(),
+    producer_authority: 'MigrationAssuranceEngine v2.4',
+    summary: 'Canonical partition-level extraction manifest recording row-count acknowledgment across 32 partition chunks representing 14.2M records.',
+    scope: {
+      tenant: 'Production Enterprise',
+      workspace: 'Core Banking Modernization',
+      project_name: 'Core Banking Modernization',
+      migration_name: 'Core Banking Ledger Migration',
+      run_id: 'RUN-20260911-001',
+      plan_version: 'v4.2-final',
+      time_window_start: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
+      time_window_end: new Date(Date.now() - 1000 * 60 * 50).toISOString(),
+      target_object_scope: '142 tables across 32 partition blocks'
+    },
+    provenance: {
+      producer_authority: 'MigrationAssuranceEngine v2.4',
+      created_at: new Date(Date.now() - 1000 * 60 * 50).toISOString(),
+      subject_context: 'Core Banking Ledger Migration Stage 3 Partition Extract',
+      run_or_plan_binding: 'RUN-20260911-001 / PLAN-v4.2',
+      canonical_reference: 'akaal://manifests/mig-core-banking-01/partition_manifest_v1.json'
+    },
+    integrity: {
+      fingerprint: '4a8f9b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a',
+      fingerprint_algorithm: 'SHA-256',
+      verification_status: 'VERIFIED',
+      verification_method: 'SHA-256 Digest Match',
+      verified_at: new Date(Date.now() - 1000 * 60 * 40).toISOString()
+    },
+    raw_content_preview: JSON.stringify({
+      manifest_version: '1.0',
+      total_partitions: 32,
+      total_rows: 14200000,
+      acknowledgment_status: 'ALL_PARTITIONS_COMMITTED',
+      digest: '4a8f9b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a'
+    }, null, 2),
+    related_dossier_ids: ['DOS-2026-001'],
+    related_certificate_ids: ['CERT-MIG-2026-001'],
+    related_report_ids: ['REP-2026-0101'],
+    download_supported: true,
+    download_file_name: 'EV-2026-MIG-01-partition-manifest.json'
+  },
+  'EV-2026-VAL-01': {
+    id: 'EV-2026-VAL-01',
+    title: 'Dual-Engine Validation Merkle Root Digest',
+    artifact_type: 'MERKLE_TREE_DIGEST',
+    subject_name: 'Core Banking Ledger Migration',
+    subject_id: 'mig-core-banking-01',
+    created_at: new Date(Date.now() - 1000 * 60 * 48).toISOString(),
+    producer_authority: 'ValidationAssuranceEngine v3.1',
+    summary: 'Merkle tree root digest generated from dual-engine row-level checksum tree comparing Oracle 19c and target PostgreSQL 16.',
+    scope: {
+      tenant: 'Production Enterprise',
+      workspace: 'Core Banking Modernization',
+      project_name: 'Core Banking Modernization',
+      validation_name: 'Dual-Engine Parity Validation',
+      run_id: 'RUN-20260911-001',
+      time_window_start: new Date(Date.now() - 1000 * 60 * 60).toISOString(),
+      target_object_scope: '142 tables, 14.2M rows'
+    },
+    provenance: {
+      producer_authority: 'ValidationAssuranceEngine v3.1',
+      created_at: new Date(Date.now() - 1000 * 60 * 48).toISOString(),
+      subject_context: 'Dual-Engine Merkle Tree Computation',
+      run_or_plan_binding: 'RUN-20260911-001',
+      canonical_reference: 'akaal://validation/val-core-banking-01/merkle_root.digest'
+    },
+    integrity: {
+      fingerprint: '9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1f0e9d8c7b6a5f4e3d2c1b0a9f8e',
+      fingerprint_algorithm: 'SHA-256',
+      verification_status: 'VERIFIED',
+      verification_method: 'Merkle Root Match',
+      verified_at: new Date(Date.now() - 1000 * 60 * 35).toISOString(),
+      merkle_root: '9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1f0e9d8c7b6a5f4e3d2c1b0a9f8e'
+    },
+    raw_content_preview: JSON.stringify({
+      merkle_root: '9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1f0e9d8c7b6a5f4e3d2c1b0a9f8e',
+      leaf_nodes_count: 142000,
+      hash_algorithm: 'SHA-256',
+      discrepancy_count: 0
+    }, null, 2),
+    related_dossier_ids: ['DOS-2026-001'],
+    related_certificate_ids: ['CERT-VAL-2026-002'],
+    related_report_ids: ['REP-2026-0101'],
+    download_supported: true,
+    download_file_name: 'EV-2026-VAL-01-merkle-digest.json'
+  }
+};
+
+const isProductionBridge = typeof window !== 'undefined' && !!(window as any).go?.main?.App?.InvokeIPC;
+
 @Injectable({
   providedIn: 'root'
 })
@@ -1112,24 +1209,83 @@ export class ReportsService {
         this.reportsIpc = new ReportsIpcService(this.ipc);
       }
     }
+
+    if (!this.ipc) {
+      try {
+        this.ipc = inject(IpcService, { optional: true }) || undefined;
+      } catch {
+        this.ipc = undefined;
+      }
+    }
+
+    this.initSubscriptions();
+    if (isProductionBridge || (this.ipc && typeof this.ipc.connected === 'function' && this.ipc.connected())) {
+      this.initializeState();
+    }
+  }
+
+  private telemetryDebounceTimer: any = null;
+
+  private triggerDebouncedRefresh(): void {
+    if (this.telemetryDebounceTimer) {
+      clearTimeout(this.telemetryDebounceTimer);
+    }
+    this.telemetryDebounceTimer = setTimeout(() => {
+      this.telemetryDebounceTimer = null;
+      this.refresh();
+    }, 250);
+  }
+
+  private initSubscriptions(): void {
+    if (typeof this.ipc?.subscribe === 'function') {
+      this.ipc.subscribe('akaal:engine:connected', () => {
+        this.refresh();
+      });
+      this.ipc.subscribe('akaal:engine:disconnected', () => {
+        this.summaryState.set('UNAVAILABLE');
+        this.reportsState.set('UNAVAILABLE');
+        this.certificationState.set('UNAVAILABLE');
+        this.evidenceState.set('UNAVAILABLE');
+        this.libraryState.set('UNAVAILABLE');
+      });
+
+      const reactiveEvents = [
+        'akaal:migration:event',
+        'akaal:migration:progress',
+        'akaal:validation:mission:completed',
+        'akaal:validation:mission:created',
+        'akaal:governance:event'
+      ];
+
+      for (const ev of reactiveEvents) {
+        this.ipc.subscribe(ev, () => {
+          this.triggerDebouncedRefresh();
+        });
+      }
+    }
   }
 
   // Section Loading States
-  public summaryState = signal<SectionLoadingState>('AVAILABLE_WITH_DATA');
-  public reportsState = signal<SectionLoadingState>('AVAILABLE_WITH_DATA');
-  public certificationState = signal<SectionLoadingState>('AVAILABLE_WITH_DATA');
-  public evidenceState = signal<SectionLoadingState>('AVAILABLE_WITH_DATA');
-  public libraryState = signal<SectionLoadingState>('AVAILABLE_WITH_DATA');
+  public summaryState = signal<SectionLoadingState>(isProductionBridge ? 'AVAILABLE_EMPTY' : 'AVAILABLE_WITH_DATA');
+  public reportsState = signal<SectionLoadingState>(isProductionBridge ? 'AVAILABLE_EMPTY' : 'AVAILABLE_WITH_DATA');
+  public certificationState = signal<SectionLoadingState>(isProductionBridge ? 'AVAILABLE_EMPTY' : 'AVAILABLE_WITH_DATA');
+  public evidenceState = signal<SectionLoadingState>(isProductionBridge ? 'AVAILABLE_EMPTY' : 'AVAILABLE_WITH_DATA');
+  public libraryState = signal<SectionLoadingState>(isProductionBridge ? 'AVAILABLE_EMPTY' : 'AVAILABLE_WITH_DATA');
 
   // Master Data Signals
-  private _summary = signal<ReportsSummaryMetricsDTO>({
+  private _summary = signal<ReportsSummaryMetricsDTO>(isProductionBridge ? {
+    total_reports_count: 0,
+    certification_attention_count: 0,
+    evidence_manifests_count: 0,
+    observed_at: new Date().toISOString()
+  } : {
     total_reports_count: INITIAL_LIBRARY_REPORTS.length,
     certification_attention_count: 2,
     evidence_manifests_count: 5,
     observed_at: new Date().toISOString()
   });
-  private _allReports = signal<ReportItemDTO[]>(INITIAL_LIBRARY_REPORTS);
-  private _certificationAttention = signal<CertificationAttentionItemDTO[]>([
+  private _allReports = signal<ReportItemDTO[]>(isProductionBridge ? [] : INITIAL_LIBRARY_REPORTS);
+  private _certificationAttention = signal<CertificationAttentionItemDTO[]>(isProductionBridge ? [] : [
     {
       id: 'ATT-CERT-01',
       subject_name: 'Core Banking Ledger Migration',
@@ -1157,7 +1313,7 @@ export class ReportsService {
       deep_link: '/reports/certification'
     }
   ]);
-  private _evidenceActivity = signal<EvidenceActivityItemDTO[]>([
+  private _evidenceActivity = signal<EvidenceActivityItemDTO[]>(isProductionBridge ? [] : [
     {
       id: 'EV-ACT-01',
       activity_type: 'MANIFEST_GENERATED',
@@ -1341,6 +1497,12 @@ export class ReportsService {
         this.activeLibraryView.set('REPORT_DETAIL');
       }
     }
+    this.reportsIpc.getReport(reportId).then(res => {
+      if (res.status === 'SUCCESS' && res.data) {
+        this.selectedReport.set(res.data);
+        this.activeLibraryView.set('REPORT_DETAIL');
+      }
+    }).catch(() => {});
   }
 
   public closeReport(): void {
@@ -1392,17 +1554,101 @@ export class ReportsService {
 
   public refresh(): void {
     this.isRefreshing.set(true);
+
     this.reportsIpc.getReportsSummary().then(summaryRes => {
       if (summaryRes.status === 'SUCCESS' && summaryRes.data) {
         this._summary.set(summaryRes.data);
+        this.summaryState.set('AVAILABLE_WITH_DATA');
+      } else {
+        this.summaryState.set('ERROR');
       }
-    }).catch(() => {});
+    }).catch(() => {
+      this.summaryState.set('UNAVAILABLE');
+    });
 
     this.reportsIpc.listReports().then(reportsRes => {
       if (reportsRes.status === 'SUCCESS' && reportsRes.data?.reports) {
         this._allReports.set(reportsRes.data.reports);
+        const state = reportsRes.data.reports.length > 0 ? 'AVAILABLE_WITH_DATA' : 'AVAILABLE_EMPTY';
+        this.reportsState.set(state);
+        this.libraryState.set(state);
+      } else {
+        this.reportsState.set('ERROR');
+        this.libraryState.set('ERROR');
+      }
+    }).catch(() => {
+      this.reportsState.set('UNAVAILABLE');
+      this.libraryState.set('UNAVAILABLE');
+    });
+
+    this.reportsIpc.listEvidence().then(res => {
+      if (res.status === 'SUCCESS' && res.data?.evidence) {
+        this.evidenceItems.set(res.data.evidence);
+        this.evidenceState.set(res.data.evidence.length > 0 ? 'AVAILABLE_WITH_DATA' : 'AVAILABLE_EMPTY');
+      } else {
+        this.evidenceState.set('ERROR');
+      }
+    }).catch(() => {
+      this.evidenceState.set('UNAVAILABLE');
+    });
+
+    this.reportsIpc.listEvidenceDossiers().then(res => {
+      if (res.status === 'SUCCESS' && res.data?.dossiers) {
+        this.dossiers.set(res.data.dossiers);
       }
     }).catch(() => {});
+
+    this.reportsIpc.listEvidencePackages().then(res => {
+      if (res.status === 'SUCCESS' && res.data?.packages) {
+        this.evidencePackages.set(res.data.packages);
+      }
+    }).catch(() => {});
+
+    this.reportsIpc.listCertificateArtifacts().then((res: any) => {
+      if (res.status === 'SUCCESS' && res.data?.certificates) {
+        this.certificateArtifacts.set(res.data.certificates);
+      }
+    }).catch(() => {});
+
+    this.reportsIpc.listCertifications().then(res => {
+      if (res.status === 'SUCCESS' && res.data?.certifications) {
+        const currentEnvelopes = { ...this._certEnvelopes() };
+        for (const cert of res.data.certifications) {
+          if (!currentEnvelopes[cert.id]) {
+            currentEnvelopes[cert.id] = {
+              id: cert.id,
+              domain: cert.domain,
+              title: cert.title,
+              subject_name: cert.subject_name,
+              subject_id: cert.subject_id,
+              issued_at: cert.issued_at,
+              producer_authority: (cert as any).producer_authority || 'MigrationAssuranceEngine',
+              decision: cert.decision,
+              lifecycle: cert.lifecycle,
+              summary: cert.summary,
+              scope_summary: (cert as any).scope_summary || '',
+              criteria: (cert as any).criteria || [],
+              evidence: (cert as any).evidence || [],
+              exceptions: (cert as any).exceptions || [],
+              integrity: (cert as any).integrity || {
+                digest_algorithm: 'SHA-256',
+                canonical_hash: '',
+                signature_status: 'NOT_SIGNED',
+                ledger_sequence: 0,
+                tamper_evident: true
+              },
+              related_report_ids: (cert as any).related_report_ids || []
+            };
+          }
+        }
+        this._certEnvelopes.set(currentEnvelopes);
+        this.certificationState.set(res.data.certifications.length > 0 ? 'AVAILABLE_WITH_DATA' : 'AVAILABLE_EMPTY');
+      } else {
+        this.certificationState.set('ERROR');
+      }
+    }).catch(() => {
+      this.certificationState.set('UNAVAILABLE');
+    });
 
     setTimeout(() => {
       this.isRefreshing.set(false);
@@ -1411,24 +1657,22 @@ export class ReportsService {
 
   public initializeState(customData?: Partial<ReportsHomeDataDTO>): void {
     if (customData) {
-      if (customData.summary) this._summary.set(customData.summary);
-      if (customData.recent_reports) this._allReports.set(customData.recent_reports);
+      if (customData.summary) {
+        this._summary.set(customData.summary);
+        this.summaryState.set('AVAILABLE_WITH_DATA');
+      }
+      if (customData.recent_reports) {
+        this._allReports.set(customData.recent_reports);
+        const state = customData.recent_reports.length > 0 ? 'AVAILABLE_WITH_DATA' : 'AVAILABLE_EMPTY';
+        this.reportsState.set(state);
+        this.libraryState.set(state);
+      }
       if (customData.certification_attention) this._certificationAttention.set(customData.certification_attention);
       if (customData.evidence_activity) this._evidenceActivity.set(customData.evidence_activity);
       return;
     }
 
-    this.reportsIpc.getReportsSummary().then(summaryRes => {
-      if (summaryRes.status === 'SUCCESS' && summaryRes.data) {
-        this._summary.set(summaryRes.data);
-      }
-    }).catch(() => {});
-
-    this.reportsIpc.listReports().then(reportsRes => {
-      if (reportsRes.status === 'SUCCESS' && reportsRes.data?.reports) {
-        this._allReports.set(reportsRes.data.reports);
-      }
-    }).catch(() => {});
+    this.refresh();
   }
 
   public setSectionState(
@@ -1461,7 +1705,7 @@ export class ReportsService {
   public activeCertTab = signal<CertificationViewMode>('OVERVIEW');
   public selectedCertId = signal<string | null>(null);
 
-  private _certEnvelopes = signal<Record<string, CertificationDetailEnvelopeDTO>>(INITIAL_CERTIFICATION_ENVELOPES);
+  private _certEnvelopes = signal<Record<string, CertificationDetailEnvelopeDTO>>(isProductionBridge ? {} : INITIAL_CERTIFICATION_ENVELOPES);
   
   public allCertifications = computed<CertificationSummaryDTO[]>(() => {
     return Object.values(this._certEnvelopes()).map(env => ({
@@ -1485,7 +1729,7 @@ export class ReportsService {
 
   public recentCertifications = computed(() => this.allCertifications());
 
-  public certAttentionItems = signal<CertificationExceptionDTO[]>([
+  public certAttentionItems = signal<CertificationExceptionDTO[]>(isProductionBridge ? [] : [
     {
       id: 'CERT-VAL-2026-004',
       condition: 'Foreign Key Drift in Billing Subscriptions Table',
@@ -1511,13 +1755,21 @@ export class ReportsService {
 
   public openCertificationById(certId: string): void {
     this.selectedCertId.set(certId);
+    this.reportsIpc.getCertification(certId).then(res => {
+      if (res.status === 'SUCCESS' && res.data) {
+        this._certEnvelopes.update(envs => ({
+          ...envs,
+          [certId]: res.data as CertificationDetailEnvelopeDTO
+        }));
+      }
+    }).catch(() => {});
   }
 
   public clearSelectedCertification(): void {
     this.selectedCertId.set(null);
   }
 
-  public verificationHistory = signal<VerificationResultDTO[]>([
+  public verificationHistory = signal<VerificationResultDTO[]>(isProductionBridge ? [] : [
     {
       target_identifier: 'CERT-MIG-2026-001',
       target_type: 'CERTIFICATION',
@@ -1571,7 +1823,7 @@ export class ReportsService {
   public selectedCertArtifactId = signal<string | null>(null);
   public selectedPackageId = signal<string | null>(null);
 
-  public evidenceItems = signal<EvidenceItemDTO[]>([
+  public evidenceItems = signal<EvidenceItemDTO[]>(isProductionBridge ? [] : [
     {
       id: 'EV-2026-MIG-01',
       title: 'Partition Bulk Transfer Manifest',
@@ -1707,7 +1959,7 @@ export class ReportsService {
     }
   ]);
 
-  public dossiers = signal<DossierDTO[]>([
+  public dossiers = signal<DossierDTO[]>(isProductionBridge ? [] : [
     {
       id: 'DOS-2026-001',
       title: 'Core Banking Ledger Migration Execution Dossier',
@@ -1734,7 +1986,7 @@ export class ReportsService {
     }
   ]);
 
-  public certificateArtifacts = signal<CertificateArtifactDTO[]>([
+  public certificateArtifacts = signal<CertificateArtifactDTO[]>(isProductionBridge ? [] : [
     {
       id: 'CERT-MIG-2026-001',
       title: 'Core Banking Ledger Migration Execution Certification',
@@ -1779,7 +2031,7 @@ export class ReportsService {
     }
   ]);
 
-  public evidencePackages = signal<EvidencePackageDTO[]>([
+  public evidencePackages = signal<EvidencePackageDTO[]>(isProductionBridge ? [] : [
     {
       id: 'PKG-2026-001',
       title: 'Core Banking Migration Complete Audit & Verification Package',
@@ -1848,100 +2100,7 @@ export class ReportsService {
     }
   ]);
 
-  private _evidenceEnvelopes = signal<Record<string, EvidenceDetailEnvelopeDTO>>({
-    'EV-2026-MIG-01': {
-      id: 'EV-2026-MIG-01',
-      title: 'Partition Bulk Transfer Manifest',
-      artifact_type: 'MANIFEST_SNAPSHOT',
-      subject_name: 'Core Banking Ledger Migration',
-      subject_id: 'mig-core-banking-01',
-      created_at: new Date(Date.now() - 1000 * 60 * 50).toISOString(),
-      producer_authority: 'MigrationAssuranceEngine v2.4',
-      summary: 'Canonical partition-level extraction manifest recording row-count acknowledgment across 32 partition chunks representing 14.2M records.',
-      scope: {
-        tenant: 'Production Enterprise',
-        workspace: 'Core Banking Modernization',
-        project_name: 'Core Banking Modernization',
-        migration_name: 'Core Banking Ledger Migration',
-        run_id: 'RUN-20260911-001',
-        plan_version: 'v4.2-final',
-        time_window_start: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
-        time_window_end: new Date(Date.now() - 1000 * 60 * 50).toISOString(),
-        target_object_scope: '142 tables across 32 partition blocks'
-      },
-      provenance: {
-        producer_authority: 'MigrationAssuranceEngine v2.4',
-        created_at: new Date(Date.now() - 1000 * 60 * 50).toISOString(),
-        subject_context: 'Core Banking Ledger Migration Stage 3 Partition Extract',
-        run_or_plan_binding: 'RUN-20260911-001 / PLAN-v4.2',
-        canonical_reference: 'akaal://manifests/mig-core-banking-01/partition_manifest_v1.json'
-      },
-      integrity: {
-        fingerprint: '4a8f9b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a',
-        fingerprint_algorithm: 'SHA-256',
-        verification_status: 'VERIFIED',
-        verification_method: 'SHA-256 Digest Match',
-        verified_at: new Date(Date.now() - 1000 * 60 * 40).toISOString()
-      },
-      raw_content_preview: JSON.stringify({
-        manifest_version: '1.0',
-        total_partitions: 32,
-        total_rows: 14200000,
-        acknowledgment_status: 'ALL_PARTITIONS_COMMITTED',
-        digest: '4a8f9b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a'
-      }, null, 2),
-      related_dossier_ids: ['DOS-2026-001'],
-      related_certificate_ids: ['CERT-MIG-2026-001'],
-      related_report_ids: ['REP-2026-0101'],
-      download_supported: true,
-      download_file_name: 'EV-2026-MIG-01-partition-manifest.json'
-    },
-    'EV-2026-VAL-01': {
-      id: 'EV-2026-VAL-01',
-      title: 'Dual-Engine Validation Merkle Root Digest',
-      artifact_type: 'MERKLE_TREE_DIGEST',
-      subject_name: 'Core Banking Ledger Migration',
-      subject_id: 'mig-core-banking-01',
-      created_at: new Date(Date.now() - 1000 * 60 * 48).toISOString(),
-      producer_authority: 'ValidationAssuranceEngine v3.1',
-      summary: 'Merkle tree root digest generated from dual-engine row-level checksum tree comparing Oracle 19c and target PostgreSQL 16.',
-      scope: {
-        tenant: 'Production Enterprise',
-        workspace: 'Core Banking Modernization',
-        project_name: 'Core Banking Modernization',
-        validation_name: 'Dual-Engine Parity Validation',
-        run_id: 'RUN-20260911-001',
-        time_window_start: new Date(Date.now() - 1000 * 60 * 60).toISOString(),
-        target_object_scope: '142 tables, 14.2M rows'
-      },
-      provenance: {
-        producer_authority: 'ValidationAssuranceEngine v3.1',
-        created_at: new Date(Date.now() - 1000 * 60 * 48).toISOString(),
-        subject_context: 'Dual-Engine Merkle Tree Computation',
-        run_or_plan_binding: 'RUN-20260911-001',
-        canonical_reference: 'akaal://validation/val-core-banking-01/merkle_root.digest'
-      },
-      integrity: {
-        fingerprint: '9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1f0e9d8c7b6a5f4e3d2c1b0a9f8e',
-        fingerprint_algorithm: 'SHA-256',
-        verification_status: 'VERIFIED',
-        verification_method: 'Merkle Root Match',
-        verified_at: new Date(Date.now() - 1000 * 60 * 35).toISOString(),
-        merkle_root: '9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1f0e9d8c7b6a5f4e3d2c1b0a9f8e'
-      },
-      raw_content_preview: JSON.stringify({
-        merkle_root: '9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1f0e9d8c7b6a5f4e3d2c1b0a9f8e',
-        leaf_nodes_count: 142000,
-        hash_algorithm: 'SHA-256',
-        discrepancy_count: 0
-      }, null, 2),
-      related_dossier_ids: ['DOS-2026-001'],
-      related_certificate_ids: ['CERT-VAL-2026-002'],
-      related_report_ids: ['REP-2026-0101'],
-      download_supported: true,
-      download_file_name: 'EV-2026-VAL-01-merkle-digest.json'
-    }
-  });
+  private _evidenceEnvelopes = signal<Record<string, EvidenceDetailEnvelopeDTO>>(isProductionBridge ? {} : INITIAL_EVIDENCE_ENVELOPES);
 
   public selectedEvidenceEnvelope = computed<EvidenceDetailEnvelopeDTO | null>(() => {
     const id = this.selectedEvidenceId();
@@ -2076,6 +2235,14 @@ export class ReportsService {
 
   public openEvidenceDetail(id: string): void {
     this.selectedEvidenceId.set(id);
+    this.reportsIpc.getEvidence(id).then(res => {
+      if (res.status === 'SUCCESS' && res.data) {
+        this._evidenceEnvelopes.update(envs => ({
+          ...envs,
+          [id]: res.data as EvidenceDetailEnvelopeDTO
+        }));
+      }
+    }).catch(() => {});
   }
 
   public clearSelectedEvidence(): void {

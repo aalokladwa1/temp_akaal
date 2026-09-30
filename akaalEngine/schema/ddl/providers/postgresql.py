@@ -56,7 +56,7 @@ class PostgreSQLDDLEmitter(BaseTargetDDLEmitter):
         parts.append(f"    INCREMENT BY {sequence.increment_by}")
         if sequence.min_value is not None:
             parts.append(f"    MINVALUE {sequence.min_value}")
-        if sequence.max_value is not None:
+        if sequence.max_value is not None and sequence.max_value <= 9223372036854775807:
             parts.append(f"    MAXVALUE {sequence.max_value}")
         if sequence.is_cycling:
             parts.append("    CYCLE")
@@ -122,7 +122,30 @@ class PostgreSQLDDLEmitter(BaseTargetDDLEmitter):
             col_sql += " NOT NULL"
 
         if col.default_expression and not col.is_identity:
-            col_sql += f" DEFAULT {col.default_expression}"
+            import re
+            d_expr = str(col.default_expression).strip()
+            # Strip T-SQL brackets e.g. [date] -> date
+            d_expr = re.sub(r'\[(\w+)\]', r'\1', d_expr)
+            while d_expr.startswith("(") and d_expr.endswith(")") and len(d_expr) > 2:
+                inner = d_expr[1:-1].strip()
+                if "(" not in inner or inner.count("(") == inner.count(")"):
+                    d_expr = inner
+                else:
+                    break
+            d_expr = re.sub(r'\bCONVERT\s*\(\s*date\s*,\s*(?:getdate|getutcdate|sysutcdatetime|CURRENT_TIMESTAMP)\s*\(\s*\)\s*\)', 'CURRENT_DATE', d_expr, flags=re.IGNORECASE)
+            d_expr = re.sub(r'\bCONVERT\s*\(\s*date\s*,\s*[\'\"]?\w+[\'\"]?\s*\)', 'CURRENT_DATE', d_expr, flags=re.IGNORECASE)
+            d_expr = re.sub(r'\bsysutcdatetime\s*\(\s*\)', 'CURRENT_TIMESTAMP', d_expr, flags=re.IGNORECASE)
+            d_expr = re.sub(r'\bgetdate\s*\(\s*\)', 'CURRENT_TIMESTAMP', d_expr, flags=re.IGNORECASE)
+            d_expr = re.sub(r'\bgetutcdate\s*\(\s*\)', 'CURRENT_TIMESTAMP', d_expr, flags=re.IGNORECASE)
+            d_expr = re.sub(r'\bnewid\s*\(\s*\)', 'gen_random_uuid()', d_expr, flags=re.IGNORECASE)
+            
+            if emission.target_native_type.upper() in ("BOOLEAN", "BOOL"):
+                if d_expr in ("1", "(1)", "true", "TRUE", "'1'"):
+                    d_expr = "TRUE"
+                elif d_expr in ("0", "(0)", "false", "FALSE", "'0'"):
+                    d_expr = "FALSE"
+
+            col_sql += f" DEFAULT {d_expr}"
 
         return col_sql, emission.safety, warnings
 
@@ -182,7 +205,11 @@ class PostgreSQLDDLEmitter(BaseTargetDDLEmitter):
             if idx.columns or idx.expression:
                 q_idx = self.quote(idx.name)
                 unique_str = "UNIQUE " if idx.is_unique else ""
-                method_str = f"USING {idx.access_method.value.lower()} " if idx.access_method else ""
+                am_val = idx.access_method.value.lower() if hasattr(idx.access_method, "value") else str(idx.access_method).lower()
+                if am_val in ("clustered", "non_clustered", "non-clustered", "unknown", "btree"):
+                    method_str = "USING btree "
+                else:
+                    method_str = f"USING {am_val} "
                 
                 if idx.expression:
                     cols_str = f"({idx.expression})"
@@ -222,7 +249,14 @@ class PostgreSQLDDLEmitter(BaseTargetDDLEmitter):
                 if fk.is_initially_deferred:
                     defer_str += " INITIALLY DEFERRED"
 
-                fk_sql = f"ALTER TABLE {qual_tbl} ADD CONSTRAINT {q_fk} FOREIGN KEY ({cols}) REFERENCES {ref_tbl} ({ref_cols}){actions}{defer_str};"
+                fk_clean = IdentifierSanitizer.sanitize_identifier(fk_name, "POSTGRESQL")
+                fk_sql = (
+                    f"DO $$\nBEGIN\n"
+                    f"    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = '{fk_clean}') THEN\n"
+                    f"        ALTER TABLE {qual_tbl} ADD CONSTRAINT {q_fk} FOREIGN KEY ({cols}) REFERENCES {ref_tbl} ({ref_cols}){actions}{defer_str};\n"
+                    f"    END IF;\n"
+                    f"END $$;"
+                )
                 ref_dep = f"{fk.referenced_schema}.{fk.referenced_table}"
 
                 artifacts.append(
@@ -243,12 +277,24 @@ class PostgreSQLDDLEmitter(BaseTargetDDLEmitter):
     def emit_view_artifacts(self, view: CanonicalView, source_engine: str = "GENERIC") -> List[StructuredDDLArtifact]:
         qual = self.format_qualified_name(view.schema_name, view.view_name)
         mat_str = "MATERIALIZED " if view.is_materialized else ""
-        sql = f"CREATE OR REPLACE {mat_str}VIEW {qual} AS\n{view.definition_sql};"
+        v_def = view.definition_sql or view.view_definition or ""
+        import re
+        match = re.search(r'\bCREATE\s+(?:OR\s+REPLACE\s+)?(?:MATERIALIZED\s+)?VIEW\s+[\w\.\"\`\[\]]+\s+AS\s+(.*)', v_def, re.IGNORECASE | re.DOTALL)
+        if match:
+            v_def = match.group(1).strip()
+        v_def = v_def.rstrip('; \t\r\n')
+        v_def = re.sub(r'\b(?:dbo|public)\.', '', v_def, flags=re.IGNORECASE)
+        v_def = re.sub(r'\bISNULL\s*\(', 'COALESCE(', v_def, flags=re.IGNORECASE)
+        v_def = re.sub(r'\+\s*(?:N\s*)?(\'[^\']*\')\s*\+', r'|| \1 ||', v_def, flags=re.IGNORECASE)
+        v_def = re.sub(r'(\b\w+(?:\.\w+)?)\s*=\s*1\b', r'\1 = true', v_def)
+        v_def = re.sub(r'(\b\w+(?:\.\w+)?)\s*=\s*0\b', r'\1 = false', v_def)
+
+        sql = f"CREATE OR REPLACE {mat_str}VIEW {qual} AS\n{v_def};"
         return [
             StructuredDDLArtifact(
                 object_type="VIEW" if not view.is_materialized else "MATERIALIZED_VIEW",
                 object_name=view.view_name,
-                schema_name=view.schema_name,
+                schema_name=view.schema_name or "public",
                 sql=sql,
                 target_engine="POSTGRESQL",
                 stage=DDLStage.VIEWS,

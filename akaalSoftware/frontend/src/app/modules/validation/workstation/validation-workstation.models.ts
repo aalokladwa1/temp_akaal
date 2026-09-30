@@ -49,7 +49,8 @@ export interface ProofTierItem {
 export type DonutSemanticMode =
   | 'NOT_CONNECTED'
   | 'INDEPENDENT_VALIDATION'
-  | 'MIGRATION_SYNC';
+  | 'MIGRATION_SYNC'
+  | 'AUTHORITATIVE_VERDICT';
 
 export type CanonicalComparisonMode =
   | 'SYNC'

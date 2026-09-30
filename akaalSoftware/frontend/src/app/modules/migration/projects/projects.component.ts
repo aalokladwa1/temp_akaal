@@ -64,6 +64,7 @@ export class ProjectsComponent implements OnInit, OnDestroy {
   private sub?: Subscription;
 
   public ngOnInit(): void {
+    this.ps.loadState();
     // Synchronize route and query parameters with active tab
     this.sub = this.route.url.subscribe(() => {
       const url = this.router.url;

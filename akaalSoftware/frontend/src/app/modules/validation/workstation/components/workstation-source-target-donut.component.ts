@@ -273,6 +273,7 @@ export class WorkstationSourceTargetDonutComponent {
       case 'NOT_CONNECTED': return 'Standby (Not Connected)';
       case 'INDEPENDENT_VALIDATION': return 'Independent Validation Coverage';
       case 'MIGRATION_SYNC': return 'Migration Sync Parity';
+      default: return 'Standby (Not Connected)';
     }
   }
 
@@ -288,6 +289,7 @@ export class WorkstationSourceTargetDonutComponent {
       case 'NOT_CONNECTED': return 'bg-slate-100 text-slate-600 border-slate-200';
       case 'INDEPENDENT_VALIDATION': return 'bg-blue-50 text-blue-700 border-blue-200';
       case 'MIGRATION_SYNC': return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+      default: return 'bg-slate-100 text-slate-600 border-slate-200';
     }
   }
 

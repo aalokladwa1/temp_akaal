@@ -14,15 +14,15 @@ from typing import Any, Mapping, Optional, Protocol, Sequence, runtime_checkable
 class EngineInvocationRequest:
     contract_version: str
     binding_id: str
-    correlation_id: str
-    operation_id: str
-    attempt_id: str
-    invocation_id: str
-    lease_id: str
-    fence_epoch: int
-    graph_node_id: str
-    initialization_fingerprint: str
-    payload: Mapping[str, Any]
+    correlation_id: str = ""
+    operation_id: str = ""
+    attempt_id: str = ""
+    invocation_id: str = ""
+    lease_id: str = ""
+    fence_epoch: int = 1
+    graph_node_id: str = ""
+    initialization_fingerprint: str = ""
+    payload: Mapping[str, Any] = field(default_factory=dict)
     checkpoint_id: Optional[str] = None
     timeout_seconds: int = 300
     fencing_token_envelope: Optional[Mapping[str, Any]] = None

@@ -1051,6 +1051,30 @@ $$;`,
             { id: 'm7_e5', source: 'm7_n5', target: 'm7_n6', canInsertBarrier: true }
           ]
         };
+
+      case 'M8_VALIDATION_ONLY':
+      default:
+        return {
+          planId: 'plan-default',
+          migrationId: 'mig-default',
+          version: 1,
+          fingerprint: 'Pending canonical compilation',
+          mode: mode,
+          isStale: false,
+          estimatedDurationMin: 10,
+          totalWorkItems: 4,
+          risks: [],
+          warnings: [],
+          nodes: [
+            { id: 'm_n1', label: '1. Runtime Initialization', type: 'DISCOVERY', state: 'COMPLETED', progressPercent: 100 },
+            { id: 'm_n2', label: '2. Verification Execution', type: 'VALIDATION', state: 'RUNNING', progressPercent: 50 },
+            { id: 'm_n3', label: '3. Complete', type: 'STAGE', state: 'QUEUED', progressPercent: 0 }
+          ],
+          edges: [
+            { id: 'm_e1', source: 'm_n1', target: 'm_n2', canInsertBarrier: true },
+            { id: 'm_e2', source: 'm_n2', target: 'm_n3', canInsertBarrier: true }
+          ]
+        };
     }
   }
 

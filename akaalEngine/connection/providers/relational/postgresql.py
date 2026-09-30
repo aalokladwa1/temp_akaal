@@ -113,7 +113,9 @@ class PostgreSQLProviderStrategy(BaseProviderStrategy):
 
         # Determine sslmode
         sslmode = "prefer"
-        if spec.tls_binding.mode == TLSMode.DISABLED:
+        if host in ("localhost", "127.0.0.1", "::1") and not spec.tls_binding.ca_cert_path:
+            sslmode = "prefer"
+        elif spec.tls_binding.mode == TLSMode.DISABLED:
             sslmode = "disable"
         elif spec.tls_binding.mode == TLSMode.REQUIRED:
             sslmode = "require"

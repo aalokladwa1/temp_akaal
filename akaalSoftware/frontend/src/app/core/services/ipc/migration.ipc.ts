@@ -68,22 +68,45 @@ export class MigrationIpc {
     return this.ipc.invoke('pipeline', 'migration.cancel', payload);
   }
 
+  public async deleteMigration(migrationId: string): Promise<IPCResponse> {
+    return this.ipc.invoke('pipeline', 'migration.delete', { migration_id: migrationId });
+  }
+
+  public async archiveMigration(migrationId: string): Promise<IPCResponse> {
+    return this.ipc.invoke('pipeline', 'migration.archive', { migration_id: migrationId });
+  }
+
   // 13. Recover Execution
   public async recoverMigration(payload: any): Promise<IPCResponse> {
     return this.ipc.invoke('pipeline', 'migration.recover', payload);
   }
 
-  // 14. Throttle CDC Rate
+  // 14. Cutover Execution
+  public async cutoverMigration(payload: any): Promise<IPCResponse> {
+    return this.ipc.invoke('pipeline', 'migration.cutover', payload);
+  }
+
+  // 14b. Failback Execution
+  public async failbackMigration(payload: any): Promise<IPCResponse> {
+    return this.ipc.invoke('pipeline', 'migration.failback', payload);
+  }
+
+  // 15. CDC Sync
+  public async syncCdc(payload: any): Promise<IPCResponse> {
+    return this.ipc.invoke('pipeline', 'migration.cdc_sync', payload);
+  }
+
+  // 16. Throttle CDC Rate
   public async throttleCdc(payload: any): Promise<IPCResponse> {
     return this.ipc.invoke('pipeline', 'migration.throttle_cdc', payload);
   }
 
-  // 15. Trigger Emergency Checkpoint (Northbound Exposure)
+  // 17. Trigger Emergency Checkpoint (Northbound Exposure)
   public async triggerCheckpoint(payload: any): Promise<IPCResponse> {
     return this.ipc.invoke('pipeline', 'migration.checkpoint', payload);
   }
 
-  // 16. Create Schedule
+  // 18. Create Schedule
   public async createSchedule(payload: any): Promise<IPCResponse> {
     return this.ipc.invoke('pipeline', 'schedule.create', payload);
   }
@@ -113,32 +136,54 @@ export class MigrationIpc {
     return this.ipc.invoke('pipeline', 'project.list', payload || {});
   }
 
-  public async getProject(projectId: string): Promise<IPCResponse> {
-    return this.ipc.invoke('pipeline', 'project.get', { project_id: projectId });
+  public async getProject(projectIdOrPayload: any): Promise<IPCResponse> {
+    const payload = typeof projectIdOrPayload === 'string' ? { project_id: projectIdOrPayload } : projectIdOrPayload;
+    return this.ipc.invoke('pipeline', 'project.get', payload);
   }
 
   public async createProject(payload: any): Promise<IPCResponse> {
     return this.ipc.invoke('pipeline', 'project.create', payload);
   }
 
-  public async updateProject(payload: any): Promise<IPCResponse> {
+  public async updateProject(idOrPayload: any, maybePayload?: any): Promise<IPCResponse> {
+    let payload = idOrPayload;
+    if (typeof idOrPayload === 'string') {
+      payload = { id: idOrPayload, project_id: idOrPayload, ...(maybePayload || {}) };
+    } else if (maybePayload) {
+      payload = { ...idOrPayload, ...maybePayload };
+    }
     return this.ipc.invoke('pipeline', 'project.update', payload);
+  }
+
+  public async deleteProject(projectId: string): Promise<IPCResponse> {
+    return this.ipc.invoke('pipeline', 'project.delete', { project_id: projectId });
   }
 
   public async listInitiatives(payload?: any): Promise<IPCResponse> {
     return this.ipc.invoke('pipeline', 'initiative.list', payload || {});
   }
 
-  public async getInitiative(initiativeId: string): Promise<IPCResponse> {
-    return this.ipc.invoke('pipeline', 'initiative.get', { initiative_id: initiativeId });
+  public async getInitiative(initiativeIdOrPayload: any): Promise<IPCResponse> {
+    const payload = typeof initiativeIdOrPayload === 'string' ? { initiative_id: initiativeIdOrPayload } : initiativeIdOrPayload;
+    return this.ipc.invoke('pipeline', 'initiative.get', payload);
   }
 
   public async createInitiative(payload: any): Promise<IPCResponse> {
     return this.ipc.invoke('pipeline', 'initiative.create', payload);
   }
 
-  public async updateInitiative(payload: any): Promise<IPCResponse> {
+  public async updateInitiative(idOrPayload: any, maybePayload?: any): Promise<IPCResponse> {
+    let payload = idOrPayload;
+    if (typeof idOrPayload === 'string') {
+      payload = { id: idOrPayload, initiative_id: idOrPayload, ...(maybePayload || {}) };
+    } else if (maybePayload) {
+      payload = { ...idOrPayload, ...maybePayload };
+    }
     return this.ipc.invoke('pipeline', 'initiative.update', payload);
+  }
+
+  public async deleteInitiative(initiativeId: string): Promise<IPCResponse> {
+    return this.ipc.invoke('pipeline', 'initiative.delete', { initiative_id: initiativeId });
   }
 
   // 22. Connections Vault
@@ -146,20 +191,37 @@ export class MigrationIpc {
     return this.ipc.invoke('pipeline', 'connection.list', payload || {});
   }
 
-  public async getConnection(connectionId: string): Promise<IPCResponse> {
-    return this.ipc.invoke('pipeline', 'connection.get', { connection_id: connectionId });
+  public async getConnection(connectionIdOrPayload: any): Promise<IPCResponse> {
+    const payload = typeof connectionIdOrPayload === 'string' ? { connection_id: connectionIdOrPayload } : connectionIdOrPayload;
+    return this.ipc.invoke('pipeline', 'connection.get', payload);
   }
 
   public async createConnection(payload: any): Promise<IPCResponse> {
     return this.ipc.invoke('pipeline', 'connection.create', payload);
   }
 
-  public async updateConnection(payload: any): Promise<IPCResponse> {
+  public async updateConnection(idOrPayload: any, maybePayload?: any): Promise<IPCResponse> {
+    let payload = idOrPayload;
+    if (typeof idOrPayload === 'string') {
+      payload = { id: idOrPayload, connection_id: idOrPayload, ...(maybePayload || {}) };
+    } else if (maybePayload) {
+      payload = { ...idOrPayload, ...maybePayload };
+    }
     return this.ipc.invoke('pipeline', 'connection.update', payload);
   }
 
-  public async testConnection(payload: any): Promise<IPCResponse> {
+  public async testConnection(idOrPayload?: any, maybePayload?: any): Promise<IPCResponse> {
+    let payload = idOrPayload || {};
+    if (typeof idOrPayload === 'string') {
+      payload = { connection_id: idOrPayload, id: idOrPayload, ...(maybePayload || {}) };
+    } else if (maybePayload) {
+      payload = { ...idOrPayload, ...maybePayload };
+    }
     return this.ipc.invoke('pipeline', 'connection.test', payload);
+  }
+
+  public async deleteConnection(connectionId: string): Promise<IPCResponse> {
+    return this.ipc.invoke('pipeline', 'connection.delete', { connection_id: connectionId });
   }
 
   public async listConnectionProviders(): Promise<IPCResponse> {
@@ -191,6 +253,10 @@ export class MigrationIpc {
     return this.ipc.invoke('pipeline', 'template.deprecate', { template_id: templateId });
   }
 
+  public async deleteTemplate(templateId: string): Promise<IPCResponse> {
+    return this.ipc.invoke('pipeline', 'template.delete', { template_id: templateId });
+  }
+
   // 24. Audit Trail
   public async getAuditTrail(limit?: number): Promise<IPCResponse> {
     return this.ipc.invoke('pipeline', 'audit.get_trail', { limit: limit || 100 });
@@ -213,12 +279,40 @@ export class MigrationIpc {
     return this.ipc.invoke('pipeline', 'validation.execute_mission', payload);
   }
 
+  public async controlContinuousValidation(payload: { mission_id: string; action: string }): Promise<IPCResponse> {
+    return this.ipc.invoke('pipeline', 'validation.control_continuous', payload);
+  }
+
+  public async establishValidationBaseline(payload: any): Promise<IPCResponse> {
+    return this.ipc.invoke('pipeline', 'validation.establish_baseline', payload);
+  }
+
+  public async getValidationBaseline(baselineId: string): Promise<IPCResponse> {
+    return this.ipc.invoke('pipeline', 'validation.get_baseline', { baseline_id: baselineId });
+  }
+
+  public async resolveValidationCapability(payload: any): Promise<IPCResponse> {
+    return this.ipc.invoke('pipeline', 'validation.resolve_capability', payload);
+  }
+
   public async getValidationMission(missionId: string): Promise<IPCResponse> {
     return this.ipc.invoke('pipeline', 'validation.get_mission', { mission_id: missionId });
   }
 
   public async listValidationMissions(payload?: any): Promise<IPCResponse> {
     return this.ipc.invoke('pipeline', 'validation.list_missions', payload || {});
+  }
+
+  public async listValidationDiscrepancies(payload: any): Promise<IPCResponse> {
+    return this.ipc.invoke('pipeline', 'validation.list_discrepancies', payload);
+  }
+
+  public async getValidationDiscrepancy(payload: any): Promise<IPCResponse> {
+    return this.ipc.invoke('pipeline', 'validation.get_discrepancy', payload);
+  }
+
+  public async dispatchValidationRepair(payload: any): Promise<IPCResponse> {
+    return this.ipc.invoke('validation', 'dispatch_repair', payload);
   }
 
   // 26. Cockpit Health & Observability

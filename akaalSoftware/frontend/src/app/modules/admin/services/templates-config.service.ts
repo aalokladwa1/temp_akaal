@@ -35,7 +35,38 @@ export class TemplatesConfigService {
     try {
       const resp = await this.adminIpc.listTemplates();
       if (resp.status === 'SUCCESS' && resp.data) {
-        // Can enrich templates from backend
+        const list = Array.isArray(resp.data) ? resp.data : (resp.data.assets || resp.data.templates || []);
+        if (list.length > 0) {
+          const mapped: TemplateAsset[] = list.map((t: any) => ({
+            id: t.id || t.artifact_id,
+            name: t.name || t.id,
+            code: t.code || (t.name || t.id).toUpperCase().replace(/[^A-Z0-9_]/g, '_'),
+            family: t.family || 'MIGRATION_TEMPLATE',
+            category: t.category || 'Database Migration',
+            description: t.description || 'Enterprise immutable template artifact',
+            currentVersion: t.version || '1.0.0',
+            authorName: t.author || 'Platform Architecture',
+            authorEmail: 'admin@enterprise.corp',
+            environmentTier: t.tier || 'ENTERPRISE',
+            status: (t.status || 'PUBLISHED') as any,
+            isSystemProvided: true,
+            tags: [t.family || 'Template', 'Enterprise'],
+            specPayload: typeof t.content === 'string' ? t.content : JSON.stringify(t.content || {}),
+            versions: [{
+              version: t.version || '1.0.0',
+              changelog: 'Initial approved artifact',
+              publishedAt: t.createdAt || new Date().toISOString(),
+              publishedBy: 'Enterprise Architecture',
+              checksum: t.fingerprint || 'sha256-verified'
+            }],
+            complianceFrameworks: ['SOC-2', 'ISO-27001'],
+            usageCount: t.usageCount || 1,
+            lastUsedDate: t.createdAt || new Date().toISOString(),
+            createdAt: t.createdAt || new Date().toISOString(),
+            updatedAt: t.createdAt || new Date().toISOString()
+          }));
+          this.assets.set(mapped);
+        }
       }
     } catch {
       // Offline fallback

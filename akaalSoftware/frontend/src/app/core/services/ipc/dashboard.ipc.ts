@@ -16,5 +16,13 @@ export class DashboardIpc {
   public async getSummary(): Promise<IPCResponse<DashboardSummary>> {
     return this.getEstateSummary();
   }
+
+  public subscribeTelemetry(handler: (payload: any) => void): () => void {
+    return this.ipc.subscribe('akaal:telemetry', handler);
+  }
 }
+
+// Backward compatibility alias for DashboardIpcService
+export type DashboardIpcService = DashboardIpc;
+export const DashboardIpcService = DashboardIpc;
 

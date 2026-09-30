@@ -4,6 +4,7 @@
 
 import { Injectable, signal, Optional, inject } from '@angular/core';
 import { AdministrationIpcService } from '../../../core/services/ipc/administration.ipc';
+import { IpcService } from '../../../core/services/ipc.service';
 import {
   GovernancePolicy,
   PolicySimulationResult,
@@ -22,8 +23,12 @@ import {
 })
 export class GovernanceService {
   private adminIpc?: AdministrationIpcService;
+  private ipc?: IpcService;
 
-  constructor(@Optional() adminIpc?: AdministrationIpcService) {
+  constructor(
+    @Optional() adminIpc?: AdministrationIpcService,
+    @Optional() ipcService?: IpcService
+  ) {
     if (adminIpc) {
       this.adminIpc = adminIpc;
     } else {
@@ -33,6 +38,26 @@ export class GovernanceService {
         this.adminIpc = undefined;
       }
     }
+
+    if (ipcService) {
+      this.ipc = ipcService;
+    } else {
+      try {
+        this.ipc = inject(IpcService, { optional: true }) || undefined;
+      } catch {
+        this.ipc = undefined;
+      }
+    }
+
+    if (this.ipc && typeof this.ipc.subscribe === 'function') {
+      this.ipc.subscribe('akaal:engine:connected', () => {
+        this.loadFromBackend();
+      });
+      this.ipc.subscribe('akaal:governance:event', () => {
+        this.loadFromBackend();
+      });
+    }
+
     this.loadFromBackend();
   }
 
@@ -450,7 +475,13 @@ export class GovernanceService {
         reason: newWaiver.justification,
         justification: newWaiver.justification,
         action: newWaiver.targetPolicy,
-      }).catch(() => {});
+      }).then(res => {
+        if (res && res.status !== 'SUCCESS') {
+          this.waivers.update(list => list.filter(w => w.id !== newWaiver.id));
+        }
+      }).catch(() => {
+        this.waivers.update(list => list.filter(w => w.id !== newWaiver.id));
+      });
     }
     return newWaiver;
   }

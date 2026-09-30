@@ -201,6 +201,7 @@ export class InitiativeWorkspaceComponent implements OnInit, OnDestroy {
       
       if (id) {
         this.ps.setActiveInitiativeId(id);
+        this.ps.loadInitiative(id);
       }
       if (tab && ['overview', 'projects', 'activity', 'settings'].includes(tab)) {
         this.ps.setActiveTab(tab);

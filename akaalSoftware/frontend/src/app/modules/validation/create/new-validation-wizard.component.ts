@@ -197,16 +197,29 @@ export interface StepRailItem {
             <button
               type="button"
               (click)="initializeValidation()"
-              [disabled]="!isCurrentStepValid()"
+              [disabled]="!isCurrentStepValid() || isSubmitting()"
               class="h-8 px-4 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-md disabled:opacity-40 disabled:pointer-events-none flex items-center gap-1.5 cursor-pointer transition-colors"
               title="Initialize Validation">
-              <span>Initialize Validation</span>
-              <app-lucide-icon name="arrow-right" [size]="13"></app-lucide-icon>
+              <app-lucide-icon [name]="isSubmitting() ? 'loader-2' : 'arrow-right'" [size]="13" [class.animate-spin]="isSubmitting()"></app-lucide-icon>
+              <span>{{ isSubmitting() ? 'Initializing...' : 'Initialize Validation' }}</span>
             </button>
           }
         </div>
 
       </footer>
+
+      @if (submitError()) {
+        <div class="px-6 lg:px-8 py-2.5 bg-rose-50 border-t border-rose-200 text-rose-900 text-xs flex items-center justify-between shrink-0">
+          <div class="flex items-center gap-2">
+            <app-lucide-icon name="alert-circle" [size]="14" class="text-rose-600 shrink-0"></app-lucide-icon>
+            <span class="font-bold">Initialization Error:</span>
+            <span>{{ submitError() }}</span>
+          </div>
+          <button type="button" (click)="submitError.set(null)" class="text-rose-600 hover:text-rose-800 font-bold cursor-pointer">
+            <app-lucide-icon name="x" [size]="14"></app-lucide-icon>
+          </button>
+        </div>
+      }
 
       <!-- ========================================================================= -->
       <!-- OVERLAYS (Exit Confirmation Dialog)                                       -->
@@ -448,6 +461,26 @@ export class NewValidationWizardComponent implements OnInit, OnDestroy {
     const draft = this.vs.newValidationDraft();
 
     try {
+      // Serialize Step 4 Scope & Step 6 Strategy Exception rules into canonical contracts
+      const scopeUnits = (draft.comparisonUnits && draft.comparisonUnits.length > 0) ? draft.comparisonUnits : (draft.scopedPairs || []);
+      const primaryTable = scopeUnits.length > 0 ? (scopeUnits[0].sourceName || scopeUnits[0].expectedTargetName) : undefined;
+
+      const scopeConfig = {
+        table_name: primaryTable,
+        comparison_units: scopeUnits,
+        selected_correspondence_rule: draft.selectedCorrespondenceRule || 'EXACT_IDENTIFIER_MATCH',
+        step4_pathway: draft.step4Pathway || 'CHOICE',
+        selected_namespaces: draft.selectedScopeNamespaces || []
+      };
+
+      const executionPolicy = {
+        mode: draft.assuranceLevel || 'PARTITION_FINGERPRINT',
+        temporal_cadence: draft.temporalCadence || 'CONSISTENT_STATE',
+        coverage_policy: draft.coveragePolicy || 'EXHAUSTIVE',
+        assurance_exceptions: draft.assuranceExceptions || [],
+        advanced_coverage: draft.advancedCoverage || null
+      };
+
       // 1. Create Mission via MigrationIpc
       const createRes = await this.migrationIpc.createValidationMission({
         name: draft.name || 'Untitled Validation Mission',
@@ -458,7 +491,9 @@ export class NewValidationWizardComponent implements OnInit, OnDestroy {
         temporal_strategy: draft.temporalCadence || (draft.step8TimingChoice === 'CONTINUOUS' ? 'CONTINUOUS' : (draft.step8TimingChoice === 'RECURRING' ? 'RECURRING' : (draft.step8TimingChoice === 'SCHEDULE_LATER' ? 'SCHEDULE_LATER' : 'EXECUTE_ON_INIT'))),
         assurance_level: draft.assuranceLevel || 'PARTITION_FINGERPRINT',
         environment: draft.environment || 'Production',
-        project_id: draft.projectId
+        project_id: draft.projectId,
+        scope_config: scopeConfig,
+        execution_policy: executionPolicy
       });
 
       if (createRes.status !== 'SUCCESS') {

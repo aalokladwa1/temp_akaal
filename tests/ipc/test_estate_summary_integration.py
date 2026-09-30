@@ -97,7 +97,7 @@ def test_estate_summary_execution_returns_authoritative_projection():
         # Zero-fake rule assertion: mTLSEnabled and vaultEncryption are None (unconfigured)
         assert data["security"]["mTLSEnabled"] is None
         assert data["security"]["vaultEncryption"] is None
-        assert data["security"]["auditLedgerActive"] is True
-        assert data["security"]["posture"] == "partial"
+        assert data["security"]["auditLedgerActive"] is None
+        assert data["security"]["posture"] == "unconfigured"
 
         caller.close()

@@ -1,10 +1,11 @@
-import { Component, signal, computed, inject, OnInit } from '@angular/core';
+import { Component, signal, computed, inject, OnInit, OnDestroy, Optional } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { DashboardService } from '../../core/services/dashboard.service';
 import { ContextService } from '../../core/services/context.service';
 import { AdministrationIpc } from '../../core/services/ipc/administration.ipc';
+import { IpcService } from '../../core/services/ipc.service';
 import { LucideIconComponent } from '../../shared/components/lucide-icon.component';
 
 export type ProfileTab = 'overview' | 'security' | 'sessions';
@@ -577,21 +578,25 @@ function tryInject<T>(token: any): T | null {
     </div>
   `
 })
-export class ProfileHomeComponent implements OnInit {
+export class ProfileHomeComponent implements OnInit, OnDestroy {
   public ds: DashboardService;
   public cs: ContextService;
-  private adminIpc: AdministrationIpc;
+  private adminIpc?: AdministrationIpc;
+  private ipc?: IpcService;
+  private unsubscribeEngine?: () => void;
 
   constructor(
-    ds?: DashboardService,
-    cs?: ContextService,
-    adminIpc?: AdministrationIpc,
-    private router?: Router
+    @Optional() ds?: DashboardService,
+    @Optional() cs?: ContextService,
+    @Optional() adminIpc?: AdministrationIpc,
+    @Optional() private router?: Router,
+    @Optional() ipcService?: IpcService
   ) {
-    this.ds = ds || (tryInject(DashboardService) as DashboardService);
-    this.cs = cs || (tryInject(ContextService) as ContextService);
-    this.adminIpc = adminIpc || (tryInject(AdministrationIpc) as AdministrationIpc);
-    this.router = router || (tryInject(Router) as Router);
+    this.ds = ds || (tryInject(DashboardService) as DashboardService) || new DashboardService();
+    this.cs = cs || (tryInject(ContextService) as ContextService) || new ContextService();
+    this.adminIpc = adminIpc || (tryInject(AdministrationIpc) as AdministrationIpc) || undefined;
+    this.router = router || (tryInject(Router) as Router) || undefined;
+    this.ipc = ipcService || (tryInject(IpcService) as IpcService) || undefined;
   }
 
   public activeTab = signal<ProfileTab>('overview');
@@ -637,6 +642,18 @@ export class ProfileHomeComponent implements OnInit {
 
   public ngOnInit(): void {
     this.loadUserIdentity();
+    if (this.ipc && typeof this.ipc.subscribe === 'function') {
+      this.unsubscribeEngine = this.ipc.subscribe('akaal:engine:connected', () => {
+        this.loadUserIdentity();
+      });
+    }
+  }
+
+  public ngOnDestroy(): void {
+    if (this.unsubscribeEngine) {
+      this.unsubscribeEngine();
+      this.unsubscribeEngine = undefined;
+    }
   }
 
   private async loadUserIdentity(): Promise<void> {
@@ -706,6 +723,9 @@ export class ProfileHomeComponent implements OnInit {
           this.nameError.set(res.error || 'Failed to update display name');
           return;
         }
+      } else {
+        this.nameError.set('Display name update requires active backend connectivity.');
+        return;
       }
       this.ds.userName.set(val);
       this.isEditingName.set(false);
@@ -744,6 +764,9 @@ export class ProfileHomeComponent implements OnInit {
           this.emailError.set(res.error || 'Failed to update email address');
           return;
         }
+      } else {
+        this.emailError.set('Email update requires active backend connectivity.');
+        return;
       }
       this.userEmail.set(val);
       this.isEditingEmail.set(false);
@@ -783,6 +806,9 @@ export class ProfileHomeComponent implements OnInit {
               this.avatarError.set(res.error || 'Failed to save avatar image');
               return;
             }
+          } else {
+            this.avatarError.set('Avatar update requires active backend connectivity.');
+            return;
           }
           this.userAvatar.set(dataUrl);
         } catch (err: any) {
@@ -802,6 +828,9 @@ export class ProfileHomeComponent implements OnInit {
           this.avatarError.set(res.error || 'Failed to remove avatar photo');
           return;
         }
+      } else {
+        this.avatarError.set('Avatar removal requires active backend connectivity.');
+        return;
       }
       this.userAvatar.set(null);
     } catch (err: any) {
@@ -839,6 +868,9 @@ export class ProfileHomeComponent implements OnInit {
           this.passwordError.set(res.error || 'Failed to update password');
           return;
         }
+      } else {
+        this.passwordError.set('Password update requires active backend authentication connectivity.');
+        return;
       }
       this.passwordSuccess.set('Password updated successfully');
       this.currentPasswordInput.set('');

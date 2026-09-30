@@ -1,12 +1,15 @@
-"""
-akaalEngine.cdc.buffering.retention
-===================================
-Source Log Retention Monitor evaluating WAL, binlog, and archive log retention pressure.
-"""
-
+from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
 from akaalEngine.cdc.models.capabilities import RetentionState
+
+
+@dataclass
+class RetentionAssessment:
+    state: RetentionState = RetentionState.HEALTHY
+    remaining_seconds: Optional[float] = 86400.0
+    free_percent: float = 100.0
+    details: Optional[Dict[str, Any]] = None
 
 
 class SourceRetentionMonitor:
@@ -34,3 +37,22 @@ class SourceRetentionMonitor:
         elif free_percent <= self.warning_threshold_percent:
             return RetentionState.WARNING
         return RetentionState.HEALTHY
+
+    def assess_retention(self, adapter: Any) -> RetentionAssessment:
+        if adapter is None:
+            return RetentionAssessment(state=RetentionState.HEALTHY, remaining_seconds=86400.0)
+        if hasattr(adapter, "get_retention_assessment"):
+            try:
+                res = adapter.get_retention_assessment()
+                if isinstance(res, RetentionAssessment):
+                    return res
+                if isinstance(res, dict):
+                    return RetentionAssessment(
+                        state=RetentionState(res.get("state", "HEALTHY")),
+                        remaining_seconds=res.get("remaining_seconds", 86400.0),
+                        free_percent=res.get("free_percent", 100.0),
+                        details=res.get("details"),
+                    )
+            except Exception:
+                pass
+        return RetentionAssessment(state=RetentionState.HEALTHY, remaining_seconds=86400.0, free_percent=100.0)

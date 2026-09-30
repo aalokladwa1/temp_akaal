@@ -52,13 +52,45 @@ class MSSQLCDCSourceAdapter(ICDCSourceAdapter):
         )
 
     def validate_prerequisites(self, source_config: Dict[str, Any]) -> Dict[str, Any]:
+        conn = self.params.get("connection") or self.params.get("raw_connection") or self.params.get("db_connection")
+        if conn and hasattr(conn, "cursor"):
+            try:
+                with conn.cursor() as cur:
+                    cur.execute("SELECT is_cdc_enabled FROM sys.databases WHERE database_id = DB_ID()")
+                    row = cur.fetchone()
+                    if row:
+                        if not bool(row[0]):
+                            raise CDCPermissionError("SQL Server prerequisite check failed: Database is not CDC-enabled. Execute sys.sp_cdc_enable_db.")
+                        return {"cdc_enabled": True, "status": "VALIDATED"}
+            except CDCPermissionError:
+                raise
+            except Exception as exc:
+                logger.debug(f"[MSSQLCDCSourceAdapter] Live is_cdc_enabled query: {exc}")
         cdc_enabled = source_config.get("cdc_enabled", True)
         if not cdc_enabled:
             raise CDCPermissionError("SQL Server prerequisite check failed: sys.sp_cdc_enable_db must be enabled")
         return {"cdc_enabled": True, "status": "VALIDATED"}
 
     def start_capture(self, start_position: Optional[CDCSourcePosition] = None) -> None:
-        conn = self.params.get("connection") or self.params.get("raw_connection") or self.params.get("stream_handle")
+        conn = self.params.get("connection") or self.params.get("raw_connection") or self.params.get("stream_handle") or self.params.get("db_connection")
+        if not conn and (self.params.get("host") or self.params.get("server") or self.params.get("user") or self.params.get("username")):
+            try:
+                host = self.params.get("host") or self.params.get("server") or "localhost"
+                port = int(self.params.get("port") or 1433)
+                user = self.params.get("user") or self.params.get("username", "sa")
+                password = self.params.get("password", "")
+                database = self.params.get("database") or self.params.get("database_name") or "master"
+                try:
+                    import pyodbc
+                    conn_str = f"DRIVER={{ODBC Driver 18 for SQL Server}};SERVER={host},{port};DATABASE={database};UID={user};PWD={password};TrustServerCertificate=yes;"
+                    conn = pyodbc.connect(conn_str)
+                except Exception:
+                    import pymssql
+                    conn = pymssql.connect(server=host, port=port, user=user, password=password, database=database)
+                self.params["connection"] = conn
+            except Exception as conn_err:
+                logger.warning(f"[MSSQLCDCSourceAdapter] Failed to auto-connect physical SQL Server stream: {conn_err}")
+
         if not conn and not self.params.get("event_stream"):
             from akaalEngine.cdc.models.errors import CDCCapabilityError
             raise CDCCapabilityError("SQL Server CDC physical stream cannot start: No physical database connection handle or stream reader provided in connection_params.")
@@ -87,6 +119,18 @@ class MSSQLCDCSourceAdapter(ICDCSourceAdapter):
         return []
 
     def get_current_position(self) -> CDCSourcePosition:
+        conn = getattr(self, "stream_handle", None) or self.params.get("connection") or self.params.get("raw_connection") or self.params.get("db_connection")
+        if conn and hasattr(conn, "cursor"):
+            try:
+                with conn.cursor() as cur:
+                    cur.execute("SELECT sys.fn_cdc_get_max_lsn()")
+                    row = cur.fetchone()
+                    if row and row[0]:
+                        val = row[0]
+                        lsn_hex = val.hex().upper() if isinstance(val, bytes) else str(val).upper()
+                        return MSSQLChangePosition(lsn_hex)
+            except Exception as exc:
+                logger.debug(f"[MSSQLCDCSourceAdapter] get_current_position live query fallback: {exc}")
         return MSSQLChangePosition(self.lsn_hex)
 
     def close(self) -> None:

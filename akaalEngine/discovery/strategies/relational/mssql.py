@@ -19,7 +19,7 @@ from akaalEngine.discovery.models.cdc import CDCMechanism, CDCPrerequisiteSnapsh
 from akaalEngine.discovery.models.context import DiscoveryContext
 from akaalEngine.discovery.models.environment import CharsetFacts, CollationFacts, ConfigurationFacts, LimitsFacts, TimezoneFacts
 from akaalEngine.discovery.models.identity import DiscoveredEndpointIdentity, EngineEdition, ServerVersion
-from akaalEngine.discovery.models.inventory import NamespaceInventory, ObjectClassification, ObjectInventoryPage, ObjectType, TableFacts
+from akaalEngine.discovery.models.inventory import NamespaceInventory, ObjectClassification, ObjectInventoryPage, ObjectType, TableFacts, ViewFacts
 from akaalEngine.discovery.models.partitioning import PartitionFacts, PartitionStrategy
 from akaalEngine.discovery.models.permissions import PermissionAssessment, PrivilegeFact, ThreeStatePermission
 from akaalEngine.discovery.models.programmables import ProgrammableInventory, RoutineFacts, RoutineType
@@ -160,8 +160,8 @@ class MSSQLDiscoveryStrategy(RelationalDiscoveryStrategy):
                                     definition_sql=str(vdef) if vdef else None,
                                 )
                             )
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        logger.warning(f"MSSQL discover views error: {exc}")
 
                 # Tables with server-side OFFSET / FETCH NEXT pagination
                 cur.execute("""
@@ -397,6 +397,7 @@ class MSSQLDiscoveryStrategy(RelationalDiscoveryStrategy):
 
             pk_by_tbl: dict[str, Optional[PrimaryKeyFacts]] = {}
             indexes_by_tbl: dict[str, list[IndexFacts]] = {name: [] for name in object_names}
+            uniques_by_tbl: dict[str, list[UniqueConstraintFacts]] = {name: [] for name in object_names}
 
             for tname, t_idx in idx_map.items():
                 for iname, info in t_idx.items():
@@ -413,6 +414,69 @@ class MSSQLDiscoveryStrategy(RelationalDiscoveryStrategy):
                                 access_method=IndexAccessMethod.CLUSTERED if "CLUSTERED" in str(info["type"]) else IndexAccessMethod.NON_CLUSTERED,
                             )
                         )
+                        if info["unique"]:
+                            uniques_by_tbl.setdefault(tname, []).append(
+                                UniqueConstraintFacts(
+                                    name=iname,
+                                    table_name=tname,
+                                    columns=tuple(info["cols"]),
+                                    schema_name=schema_name,
+                                )
+                            )
+
+            # 3. Bulk Foreign Keys
+            fks_by_tbl: dict[str, list[ForeignKeyFacts]] = {name: [] for name in object_names}
+            try:
+                cur.execute(f"""
+                    SELECT t.name AS parent_table, fk.name AS fk_name, c.name AS col_name,
+                           rs.name AS ref_schema, rt.name AS ref_table, rc.name AS ref_col,
+                           fk.update_referential_action_desc, fk.delete_referential_action_desc, fk.is_not_trusted
+                    FROM sys.foreign_keys fk
+                    JOIN sys.foreign_key_columns fkc ON fkc.constraint_object_id = fk.object_id
+                    JOIN sys.tables t ON t.object_id = fk.parent_object_id
+                    JOIN sys.schemas s ON s.schema_id = t.schema_id
+                    JOIN sys.columns c ON c.object_id = t.object_id AND c.column_id = fkc.parent_column_id
+                    JOIN sys.tables rt ON rt.object_id = fk.referenced_object_id
+                    JOIN sys.schemas rs ON rs.schema_id = rt.schema_id
+                    JOIN sys.columns rc ON rc.object_id = rt.object_id AND rc.column_id = fkc.referenced_column_id
+                    WHERE s.name = ? AND t.name IN ({param_placeholders})
+                    ORDER BY t.name, fk.name, fkc.constraint_column_id
+                """, [schema_name] + names_list)
+                fk_collector: dict[str, dict[str, dict[str, Any]]] = {name: {} for name in object_names}
+                for r in cur.fetchall():
+                    tname, fkname, col, ref_sch, ref_tbl, ref_col, upd, dela, untrusted = r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7], r[8]
+                    tbl_fks = fk_collector.setdefault(tname, {})
+                    if fkname not in tbl_fks:
+                        upd_str = "CASCADE" if "CASCADE" in str(upd) else ("SET NULL" if "SET_NULL" in str(upd) else "NO ACTION")
+                        del_str = "CASCADE" if "CASCADE" in str(dela) else ("SET NULL" if "SET_NULL" in str(dela) else "NO ACTION")
+                        tbl_fks[fkname] = {
+                            "cols": [],
+                            "ref_sch": ref_sch or schema_name,
+                            "ref_tbl": ref_tbl,
+                            "ref_cols": [],
+                            "on_update": upd_str,
+                            "on_delete": del_str,
+                        }
+                    tbl_fks[fkname]["cols"].append(col)
+                    tbl_fks[fkname]["ref_cols"].append(ref_col)
+
+                for tname, tbl_fks in fk_collector.items():
+                    for fkname, finfo in tbl_fks.items():
+                        fks_by_tbl.setdefault(tname, []).append(
+                            ForeignKeyFacts(
+                                name=fkname,
+                                table_name=tname,
+                                columns=tuple(finfo["cols"]),
+                                referenced_schema=finfo["ref_sch"],
+                                referenced_table=finfo["ref_tbl"],
+                                referenced_columns=tuple(finfo["ref_cols"]),
+                                schema_name=schema_name,
+                                on_update=finfo["on_update"],
+                                on_delete=finfo["on_delete"],
+                            )
+                        )
+            except Exception as fk_exc:
+                logger.warning(f"Error querying mssql foreign keys in {schema_name}: {fk_exc}")
 
             cur.close()
             for name in object_names:
@@ -421,6 +485,8 @@ class MSSQLDiscoveryStrategy(RelationalDiscoveryStrategy):
                     schema_name=schema_name,
                     columns=tuple(cols_by_tbl.get(name, [])),
                     primary_key=pk_by_tbl.get(name),
+                    foreign_keys=tuple(fks_by_tbl.get(name, [])),
+                    unique_constraints=tuple(uniques_by_tbl.get(name, [])),
                     indexes=tuple(indexes_by_tbl.get(name, [])),
                 )
         except Exception as exc:
@@ -477,6 +543,7 @@ class MSSQLDiscoveryStrategy(RelationalDiscoveryStrategy):
         context: DiscoveryContext,
     ) -> ProgrammableInventory:
         routines = []
+        triggers = []
         if connection is not None and hasattr(connection, "cursor"):
             try:
                 cur = connection.cursor()
@@ -495,11 +562,33 @@ class MSSQLDiscoveryStrategy(RelationalDiscoveryStrategy):
                             definition_sql=rdef,
                         )
                     )
+
+                cur.execute("""
+                    SELECT tr.name, t.name, m.definition
+                    FROM sys.triggers tr
+                    JOIN sys.tables t ON t.object_id = tr.parent_id
+                    JOIN sys.schemas s ON s.schema_id = t.schema_id
+                    LEFT JOIN sys.sql_modules m ON m.object_id = tr.object_id
+                    WHERE s.name = ?
+                """, (schema_name,))
+                for r in cur.fetchall():
+                    trname, tblname, mdef = r[0], r[1], r[2]
+                    triggers.append(
+                        TriggerFacts(
+                            name=trname,
+                            table_name=tblname,
+                            schema_name=schema_name,
+                            timing="AFTER",
+                            events=("INSERT",),
+                            definition_sql=str(mdef) if mdef else None,
+                        )
+                    )
+
                 cur.close()
             except Exception as exc:
-                logger.warning(f"Error discovering mssql routines: {exc}")
+                logger.warning(f"Error discovering mssql programmables: {exc}")
 
-        return ProgrammableInventory(routines=tuple(routines))
+        return ProgrammableInventory(routines=tuple(routines), triggers=tuple(triggers))
 
     def discover_partitioning(
         self,

@@ -38,6 +38,7 @@ class DDLGenerator:
         "POSTGRESQL": PostgreSQLDDLEmitter,
         "POSTGRES": PostgreSQLDDLEmitter,
         "ORACLE": OracleDDLEmitter,
+        "ORACLE DATABASE": OracleDDLEmitter,
         "MYSQL": MySQLDDLEmitter,
         "MARIADB": MySQLDDLEmitter,
         "MSSQL": MSSQLDDLEmitter,
@@ -53,12 +54,14 @@ class DDLGenerator:
         "IBM_DB2": Db2DDLEmitter,
         "DATABRICKS": DatabricksDDLEmitter,
         "SPARK": DatabricksDDLEmitter,
+        "COCKROACHDB": PostgreSQLDDLEmitter,
+        "YUGABYTEDB": PostgreSQLDDLEmitter,
     }
 
     @classmethod
     def get_emitter(cls, target_engine: str, target_version: Optional[str] = None) -> BaseTargetDDLEmitter:
         """Resolves target DDL emitter for the specified database engine."""
-        eng = target_engine.strip().upper()
+        eng = target_engine.strip().upper().replace(" DATABASE", "")
         if eng in cls._EMITTER_MAP:
             emitter_cls = cls._EMITTER_MAP[eng]
             if eng == "ORACLE" and target_version:

@@ -21,6 +21,10 @@ class SynchronizationBarrierEngine:
         self.strategy = strategy
         self.barrier_reached = False
 
+    def reach_barrier(self, name: str = "") -> None:
+        """Explicitly records that the synchronization barrier has been reached."""
+        self.barrier_reached = True
+
     def execute_barrier(
         self,
         source_position: CDCSourcePosition,
@@ -31,3 +35,4 @@ class SynchronizationBarrierEngine:
             self.barrier_reached = True
             return True
         return False
+

@@ -16,6 +16,8 @@ import {
 } from './create-template.models';
 import { TemplatesService } from '../templates.service';
 import { TemplateItem, TEMPLATE_MODE_DESCRIPTORS } from '../templates.models';
+import { MigrationIpc } from '../../../../core/services/ipc/migration.ipc';
+import { IpcService } from '../../../../core/services/ipc.service';
 
 @Injectable({
   providedIn: 'root'
@@ -23,10 +25,14 @@ import { TemplateItem, TEMPLATE_MODE_DESCRIPTORS } from '../templates.models';
 export class CreateTemplateService {
   private router: Router;
   private templatesService: TemplatesService;
+  private migrationIpc?: MigrationIpc;
+  private ipc?: IpcService;
 
   constructor(
     @Optional() router?: Router,
-    @Optional() templatesService?: TemplatesService
+    @Optional() templatesService?: TemplatesService,
+    @Optional() migrationIpc?: MigrationIpc,
+    @Optional() ipc?: IpcService
   ) {
     if (router) {
       this.router = router;
@@ -46,6 +52,18 @@ export class CreateTemplateService {
       } catch {
         this.templatesService = new TemplatesService();
       }
+    }
+
+    if (ipc) {
+      this.ipc = ipc;
+    } else {
+      try { this.ipc = inject(IpcService, { optional: true }) || undefined; } catch { this.ipc = undefined; }
+    }
+
+    if (migrationIpc) {
+      this.migrationIpc = migrationIpc;
+    } else {
+      try { this.migrationIpc = inject(MigrationIpc, { optional: true }) || (this.ipc ? new MigrationIpc(this.ipc) : undefined); } catch { this.migrationIpc = undefined; }
     }
   }
 
@@ -200,11 +218,13 @@ export class CreateTemplateService {
     }));
   }
 
+  private draftItemSeq = 1;
+
   // Step 3 Sub-helpers
   public addScopeRule(rule: Omit<ObjectScopeRule, 'id'>): void {
     const newRule: ObjectScopeRule = {
       ...rule,
-      id: 'rule-' + Math.random().toString(36).substring(2, 9)
+      id: `rule-${Date.now().toString(36)}-${this.draftItemSeq++}`
     };
     this.draft.update(d => ({
       ...d,
@@ -228,7 +248,7 @@ export class CreateTemplateService {
   public addSchemaMapping(sourceSchema: string, targetSchema: string): void {
     if (!sourceSchema.trim() || !targetSchema.trim()) return;
     const newMapping: SchemaMappingRule = {
-      id: 'sm-' + Math.random().toString(36).substring(2, 9),
+      id: `sm-${Date.now().toString(36)}-${this.draftItemSeq++}`,
       sourceSchema: sourceSchema.trim(),
       targetSchema: targetSchema.trim()
     };
@@ -254,7 +274,7 @@ export class CreateTemplateService {
   public addColumnTypeOverride(sourceType: string, targetType: string): void {
     if (!sourceType.trim() || !targetType.trim()) return;
     const newOverride: ColumnTypeOverride = {
-      id: 'co-' + Math.random().toString(36).substring(2, 9),
+      id: `co-${Date.now().toString(36)}-${this.draftItemSeq++}`,
       sourceType: sourceType.trim(),
       targetType: targetType.trim()
     };
@@ -280,7 +300,7 @@ export class CreateTemplateService {
   public addMaskingRule(targetPattern: string, maskingType: MaskingRule['maskingType'], note?: string): void {
     if (!targetPattern.trim()) return;
     const newRule: MaskingRule = {
-      id: 'mr-' + Math.random().toString(36).substring(2, 9),
+      id: `mr-${Date.now().toString(36)}-${this.draftItemSeq++}`,
       targetPattern: targetPattern.trim(),
       maskingType,
       note: note?.trim()
@@ -310,8 +330,66 @@ export class CreateTemplateService {
 
   public persistenceError = signal<string | null>(null);
 
-  public createTemplate(): void {
-    // Fail closed: Template persistence requires backend connectivity in CHECK1
-    this.persistenceError.set('Template persistence is not connected. Saving this template requires backend connectivity.');
+  public async createTemplate(): Promise<boolean> {
+    this.persistenceError.set(null);
+    const d = this.draft();
+    const payload = {
+      name: d.definition.name,
+      description: d.definition.description,
+      mode: d.definition.mode,
+      source_provider: d.definition.sourceProvider,
+      target_provider: d.definition.targetProvider,
+      version: 'v1.0.0',
+      configuration: d
+    };
+
+    if (this.migrationIpc && this.ipc && this.ipc.connectionState() === 'connected') {
+      try {
+        const res = await this.migrationIpc.createTemplate(payload);
+        if (res && res.status === 'SUCCESS') {
+          const canonicalId = res.data?.template_id || res.data?.id;
+          if (!canonicalId) {
+            this.persistenceError.set('Backend response omitted template identifier.');
+            return false;
+          }
+          const newTemplateItem: TemplateItem = {
+            id: canonicalId,
+            name: d.definition.name,
+            description: d.definition.description,
+            mode: d.definition.mode,
+            applicability: {
+              sourceProviderName: d.definition.sourceProvider,
+              targetProviderName: d.definition.targetProvider
+            },
+            scope: d.definition.scope || 'PROJECT',
+            versionLabel: 'v1.0.0',
+            lifecycle: 'PUBLISHED',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            usage: {
+              referencedProjectCount: 0,
+              migrationCount: 0,
+              lastUsedAt: null,
+              isUsageKnown: true,
+              isUnused: true
+            }
+          };
+          this.templatesService.addTemplate(newTemplateItem);
+          this.resetDraft();
+          this.router.navigate(['/migration/templates']);
+          return true;
+        } else {
+          this.persistenceError.set(res?.error || 'Failed to persist template to backend.');
+          return false;
+        }
+      } catch (err: any) {
+        this.persistenceError.set(err?.message || 'Error communicating with template persistence.');
+        return false;
+      }
+    } else {
+      // Fail closed: Template persistence requires backend connectivity
+      this.persistenceError.set('Template persistence is not connected. Saving this template requires backend connectivity.');
+      return false;
+    }
   }
 }

@@ -236,4 +236,33 @@ describe('CreateConnectionService & Wizard Flow (Part B)', () => {
     expect(capturedConn.workspaceId).toBe('ws-enterprise-default');
     expect(capturedConn.environment).toBe('Development');
   });
+
+  it('should fail closed when IPC service reports disconnected', () => {
+    const ipcMock = { connectionState: vi.fn().mockReturnValue('disconnected') };
+    const disconnectedService = new CreateConnectionService(routerMock as any, connService, undefined, ipcMock as any);
+    disconnectedService.selectProvider('sqlite');
+    disconnectedService.draft().name = 'Offline DB';
+
+    disconnectedService.createConnection();
+    expect(disconnectedService.creationNotice()).toBe('Connection saving is unavailable while connection service is disconnected.');
+  });
+
+  it('should roll back speculative record when backend createConnection fails', async () => {
+    vi.spyOn(connService, 'availabilityState').mockReturnValue('READY');
+    vi.spyOn(connService, 'createConnection').mockResolvedValue(false);
+    connService.errorMessage.set('Backend SQLite insertion failed');
+
+    const initialCount = connService.connections().length;
+    service.selectProvider('sqlite');
+    service.draft().name = 'Rollback DB';
+    service.draft().parameters = { database_path: '/tmp/db.sqlite' };
+
+    service.createConnection();
+
+    // Allow promise resolution
+    await new Promise(resolve => setTimeout(resolve, 10));
+
+    expect(connService.connections().length).toBe(initialCount);
+    expect(service.creationNotice()).toBe('Backend SQLite insertion failed');
+  });
 });

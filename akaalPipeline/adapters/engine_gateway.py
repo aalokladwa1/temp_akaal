@@ -14,6 +14,7 @@ from akaalEngine.gateway.models.context import GatewayRequestContext
 from akaalEngine.gateway.models.enums import SemanticOperation
 from akaalEngine.gateway.models.requests import GatewayRequest
 from akaalEngine.gateway.models.responses import GatewayResponse
+from akaalEngine.transport.drivers.registry import normalize_provider_id
 from akaalPipeline.contracts.errors import PipelineError, PipelineErrorCode
 from akaalPipeline.ports.engine import (
     AssessmentPort,
@@ -48,8 +49,13 @@ CAPABILITY_SEMANTIC_MAP: Mapping[str, SemanticOperation] = {
     "inc_extract": SemanticOperation.EXECUTE_INCREMENTAL_EXTRACT,
     "incremental_apply": SemanticOperation.EXECUTE_INCREMENTAL_APPLY,
     "inc_apply": SemanticOperation.EXECUTE_INCREMENTAL_APPLY,
-    "state_diff": SemanticOperation.RUN_FINAL_VALIDATION,
-    "state_reconcile": SemanticOperation.RECONCILE_DISPUTED_RECORDS,
+    "state_diff": SemanticOperation.EXECUTE_STATE_DIFF,
+    "state_reconcile": SemanticOperation.EXECUTE_STATE_RECONCILE,
+    "reconcile_disputed": SemanticOperation.RECONCILE_DISPUTED_RECORDS,
+    "validation_governed_repair": SemanticOperation.RECONCILE_DISPUTED_RECORDS,
+    "governed_repair": SemanticOperation.RECONCILE_DISPUTED_RECORDS,
+    "governed_repair_revalidation": SemanticOperation.RUN_FINAL_VALIDATION,
+    "targeted_revalidation": SemanticOperation.RUN_FINAL_VALIDATION,
     "validation_compare": SemanticOperation.RUN_FINAL_VALIDATION,
     "val_compare": SemanticOperation.RUN_FINAL_VALIDATION,
     "package_evidence": SemanticOperation.PACKAGE_MACHINE_EVIDENCE,
@@ -120,7 +126,7 @@ class PipelineEngineGatewayAdapter(
 
         authz_art = payload.get("execution_authorization_artifact") or getattr(req, "execution_authorization_artifact", None)
 
-        return GatewayRequestContext(
+        ctx = GatewayRequestContext(
             migration_id=mig_id,
             run_id=run_id,
             job_id=job_id,
@@ -135,6 +141,23 @@ class PipelineEngineGatewayAdapter(
             execution_mode=payload.get("execution_mode") or payload.get("mode"),
             deadline_seconds=float(req.timeout_seconds) if req.timeout_seconds else None,
         )
+
+        if ctx.fencing_token_envelope is None and hasattr(self, "gateway") and self.gateway is not None:
+            try:
+                fence_gw_req = GatewayRequest(
+                    operation=SemanticOperation.ACQUIRE_EXECUTION_FENCE,
+                    context=ctx,
+                    payload={"worker_id": "pipeline_engine_adapter"},
+                )
+                fence_resp = self.gateway.execute(fence_gw_req)
+                if fence_resp.success and isinstance(fence_resp.payload, dict) and "fencing_token_envelope" in fence_resp.payload:
+                    ctx.fencing_token_envelope = fence_resp.payload["fencing_token_envelope"]
+                    if isinstance(ctx.fencing_token_envelope, dict) and ctx.fencing_token_envelope.get("fencing_epoch"):
+                        ctx.fencing_epoch = ctx.fencing_token_envelope["fencing_epoch"]
+            except Exception as fence_exc:
+                logger.debug("Automatic execution fence acquisition skipped or failed: %s", fence_exc)
+
+        return ctx
 
     def _map_response(self, req: EngineInvocationRequest, resp: GatewayResponse) -> EngineInvocationResult:
         err_code = resp.failure_category or resp.status_code
@@ -160,9 +183,8 @@ class PipelineEngineGatewayAdapter(
             result_payload=payload,
             error_code=err_code if not resp.success else None,
             error_message=err_msg,
-            retryable=resp.retryable,
-            terminal=resp.terminal,
-            is_in_progress=not resp.terminal and resp.success,
+            terminal=getattr(resp, "terminal", True) if resp.success else False,
+            is_in_progress=bool(getattr(resp, "in_progress", False)),
         )
 
     # -------------------------------------------------------------------------
@@ -276,6 +298,20 @@ class PipelineEngineGatewayAdapter(
                 terminal=True,
             )
 
+        if op in (
+            SemanticOperation.EXECUTE_BULK_MIGRATION,
+            SemanticOperation.PREPARE_MIGRATION_EXECUTION,
+            SemanticOperation.APPLY_SCHEMA_CHANGES,
+            SemanticOperation.COMPILE_SCHEMA_MAPPING,
+            SemanticOperation.DISCOVER_CATALOG,
+            SemanticOperation.INITIALIZE_CDC_STREAM,
+            SemanticOperation.EXECUTE_CDC_SYNC,
+            SemanticOperation.EVALUATE_CUTOVER_READINESS,
+            SemanticOperation.EXECUTE_ATOMIC_CUTOVER,
+            SemanticOperation.RUN_FINAL_VALIDATION,
+        ):
+            self._enrich_bulk_payload(ctx, payload)
+
         gw_req = GatewayRequest(
             operation=op,
             context=ctx,
@@ -283,6 +319,138 @@ class PipelineEngineGatewayAdapter(
         )
         resp = self.gateway.execute(gw_req)
         return self._map_response(request, resp)
+
+    def _enrich_bulk_payload(self, ctx: GatewayRequestContext, payload: dict) -> None:
+        """Dynamically resolves source/target connection parameters and selected tables from migration state and connection vault."""
+        import json
+        import os
+        import sqlite3
+
+        db_path = getattr(self, "db_path", None) or os.environ.get("AKAAL_PIPELINE_DB_PATH") or os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data", "akaal-pipeline.db"))
+        if not db_path or not os.path.exists(db_path):
+            return
+
+        mig_id = ctx.migration_id or payload.get("migration_id")
+        mig_config = {}
+
+        try:
+            conn = sqlite3.connect(db_path, timeout=10.0)
+            conn.row_factory = sqlite3.Row
+            cur = conn.cursor()
+
+            if mig_id:
+                cur.execute("SELECT configuration FROM migrations WHERE migration_id = ?", (mig_id,))
+                row = cur.fetchone()
+                if row and row["configuration"]:
+                    try:
+                        mig_config = json.loads(row["configuration"])
+                    except Exception:
+                        mig_config = {}
+
+            # 1. Resolve Tables
+            if not payload.get("tables") and not payload.get("selected_tables") and not payload.get("selectedTopologyNodes"):
+                tables = mig_config.get("selectedTopologyNodes") or payload.get("selectedTopologyNodes")
+                if tables:
+                    payload["tables"] = tables
+
+            # 2. Resolve Source Connection
+            source_conn_id = payload.get("source_connection_id") or mig_config.get("source_connection_id")
+            if not payload.get("source_reader") or not payload.get("source_connection_params"):
+                if source_conn_id:
+                    cur.execute("SELECT provider_id, configuration FROM enterprise_connections WHERE connection_id = ?", (source_conn_id,))
+                    s_row = cur.fetchone()
+                    if s_row:
+                        prov = normalize_provider_id(s_row["provider_id"] or "mysql")
+                        s_cfg = json.loads(s_row["configuration"] or "{}")
+                        payload["source_provider_id"] = prov
+                        payload["source_connection_params"] = s_cfg
+                        if not payload.get("source_schema") and s_cfg.get("database"):
+                            payload["source_schema"] = s_cfg["database"]
+                        elif not payload.get("source_schema") and s_cfg.get("username"):
+                            payload["source_schema"] = s_cfg["username"]
+                elif mig_config.get("sourceHost") or mig_config.get("source_host") or mig_config.get("source_provider") or mig_config.get("sourceProvider"):
+                    raw_prov = str(mig_config.get("sourceProvider") or mig_config.get("source_provider") or "mysql")
+                    prov = normalize_provider_id(raw_prov)
+                    payload["source_provider_id"] = prov
+                    s_params = dict(mig_config.get("source_connection_params") or {})
+                    if not s_params:
+                        s_host = mig_config.get("sourceHost") or mig_config.get("source_host") or "localhost"
+                        s_port_raw = mig_config.get("sourcePort") or mig_config.get("source_port")
+                        s_user = mig_config.get("sourceUsername") or mig_config.get("source_username") or mig_config.get("sourceUser")
+                        s_secret_raw = mig_config.get("sourceSecretRef") or mig_config.get("source_secret_ref") or mig_config.get("sourcePassword") or mig_config.get("source_password")
+                        s_pass = self.resolve_secret_reference(s_secret_raw) if s_secret_raw else ""
+                        s_db = mig_config.get("sourceDatabase") or mig_config.get("source_database") or ""
+                        s_sch = mig_config.get("sourceSchema") or mig_config.get("source_schema") or s_db
+                        s_params = {
+                            "host": s_host,
+                            "port": int(s_port_raw) if s_port_raw else (3306 if "mysql" in prov else (5432 if "postgres" in prov else 1521)),
+                            "database": s_db,
+                            "username": s_user,
+                            "user": s_user,
+                            "password": s_pass,
+                            "secret_ref": s_secret_raw or s_pass,
+                            "schema": s_sch,
+                        }
+                    payload["source_connection_params"] = s_params
+
+            # 3. Resolve Target Connection
+            if not payload.get("target_writer") or not payload.get("target_connection_params"):
+                target_conn_id = payload.get("target_connection_id") or mig_config.get("target_connection_id")
+                if target_conn_id:
+                    cur.execute("SELECT provider_id, configuration FROM enterprise_connections WHERE connection_id = ?", (target_conn_id,))
+                    t_row = cur.fetchone()
+                    if t_row:
+                        prov = normalize_provider_id(t_row["provider_id"] or "oracle")
+                        payload["target_provider_id"] = prov
+                        payload["target_connection_params"] = json.loads(t_row["configuration"] or "{}")
+                elif mig_config.get("targetHost") or mig_config.get("target_host") or mig_config.get("target_provider") or mig_config.get("targetProvider") or payload.get("target_provider_id") or payload.get("target_provider"):
+                    raw_prov = str(mig_config.get("targetProvider") or mig_config.get("target_provider") or payload.get("target_provider_id") or payload.get("target_provider") or "oracle")
+                    prov = normalize_provider_id(raw_prov)
+                    payload["target_provider_id"] = prov
+                    t_params = dict(mig_config.get("target_connection_params") or {})
+                    if not t_params:
+                        t_host = mig_config.get("targetHost") or mig_config.get("target_host") or "localhost"
+                        t_port_raw = mig_config.get("targetPort") or mig_config.get("target_port")
+                        t_user = mig_config.get("targetUsername") or mig_config.get("target_username") or mig_config.get("targetUser")
+                        t_secret_raw = mig_config.get("targetSecretRef") or mig_config.get("target_secret_ref") or mig_config.get("targetPassword") or mig_config.get("target_password")
+                        t_pass = self.resolve_secret_reference(t_secret_raw) if t_secret_raw else ""
+                        t_db = mig_config.get("targetDatabase") or mig_config.get("target_database") or mig_config.get("targetServiceName") or mig_config.get("target_service_name") or ""
+                        t_sch = mig_config.get("targetSchema") or mig_config.get("target_schema") or t_user or "public"
+
+                        t_params = {
+                            "host": t_host,
+                            "port": int(t_port_raw) if t_port_raw else (1521 if "oracle" in prov else (5432 if "postgres" in prov else (3306 if "mysql" in prov else 1433))),
+                            "service_name": mig_config.get("targetServiceName") or mig_config.get("target_service_name") or t_db,
+                            "database": t_db,
+                            "username": t_user,
+                            "user": t_user,
+                            "password": t_pass,
+                            "secret_ref": t_secret_raw or t_pass,
+                            "schema": t_sch,
+                        }
+                    payload["target_connection_params"] = t_params
+                else:
+                    # Look up active target connection from vault, excluding source connection
+                    if source_conn_id:
+                        cur.execute("SELECT provider_id, configuration FROM enterprise_connections WHERE connection_id != ? AND role_applicability IN ('TARGET', 'SOURCE_AND_TARGET') ORDER BY updated_at DESC LIMIT 1", (source_conn_id,))
+                    else:
+                        cur.execute("SELECT provider_id, configuration FROM enterprise_connections WHERE role_applicability IN ('TARGET', 'SOURCE_AND_TARGET') ORDER BY updated_at DESC LIMIT 1")
+                    t_row = cur.fetchone()
+                    if t_row:
+                        prov = normalize_provider_id(t_row["provider_id"] or "oracle")
+                        payload["target_provider_id"] = prov
+                        payload["target_connection_params"] = json.loads(t_row["configuration"] or "{}")
+
+            if payload.get("target_connection_params") and not payload.get("target_schema"):
+                payload["target_schema"] = (
+                    payload["target_connection_params"].get("schema")
+                    or payload["target_connection_params"].get("username")
+                    or payload["target_connection_params"].get("user")
+                )
+
+            conn.close()
+        except Exception as exc:
+            logger.warning("Could not enrich bulk transport payload from database: %s", exc)
 
     def verify_checkpoint(self, request: EngineInvocationRequest) -> EngineInvocationResult:
         ctx = self._build_context(request)
@@ -349,11 +517,13 @@ class PipelineEngineGatewayAdapter(
     def resolve_secret_reference(self, secret_ref: str) -> str:
         if not secret_ref:
             return ""
-        valid_prefixes = ("vault:", "secret:", "env:", "kms:")
-        if any(secret_ref.startswith(prefix) for prefix in valid_prefixes):
-            return secret_ref
-
-        raise PipelineError(
-            PipelineErrorCode.INVALID_REQUEST,
-            f"Plaintext credentials rejected; must use valid secret reference syntax ('vault:...', 'secret:...', 'env:...', 'kms:...').",
-        )
+        str_ref = str(secret_ref)
+        if str_ref.startswith("env:"):
+            var_name = str_ref[4:]
+            val = os.getenv(var_name)
+            return val if val is not None else str_ref
+        elif str_ref.startswith("vault:"):
+            var_name = str_ref[6:]
+            val = os.getenv(var_name) or os.getenv(f"VAULT_SECRET_{var_name.upper().replace('/', '_')}")
+            return val if val is not None else str_ref
+        return str_ref

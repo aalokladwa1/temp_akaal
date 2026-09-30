@@ -19,6 +19,7 @@ import { Step8GovernanceStoreService } from '../../../core/services/step8-govern
 import { Step9ReviewComponent } from './steps/step9-review.component';
 import { Step9ReviewStoreService } from '../../../core/services/step9-review-store.service';
 import { MigrationPortfolioItem, MigrationTemplateItem } from '../../../core/models/migration-view.models';
+import { MigrationIpc } from '../../../core/services/ipc/migration.ipc';
 
 export interface StepRailItem {
   index: number;
@@ -568,6 +569,7 @@ export class CreateMigrationWizardComponent implements OnInit, OnDestroy {
   public step9Store = inject(Step9ReviewStoreService);
   private router = inject(Router);
   private route = inject(ActivatedRoute, { optional: true });
+  private migrationIpc = inject(MigrationIpc, { optional: true });
 
   // Canonical Draft State
   public currentStep = computed(() => this.ms.wizardDraft().currentStep);
@@ -771,9 +773,75 @@ export class CreateMigrationWizardComponent implements OnInit, OnDestroy {
     }
   }
 
-  public continueToNextStep(): void {
+  public async continueToNextStep(): Promise<void> {
+    if (this.currentStep() === 1 && !this.ms.wizardDraft().migrationId) {
+      const draft = this.ms.wizardDraft();
+      if (this.migrationIpc) {
+        try {
+          const res = await this.migrationIpc.createMigration({
+            name: draft.name || 'Untitled Migration',
+            mode: draft.mode || 'M1_BULK',
+            environment: draft.environment || 'Production',
+            project_id: draft.projectId,
+          });
+          const cid = res?.data?.migration_id || res?.data?.id;
+          if (cid) {
+            this.ms.updateDraft({ migrationId: cid });
+          }
+        } catch {
+          // Allow progression even if IPC transport is offline in dev
+        }
+      }
+    }
     if (this.currentStep() === 4 && !this.ms.wizardDraft().isScopeLocked && this.ms.canLockScope()) {
       this.ms.lockScope();
+    }
+    if (this.currentStep() === 6 && this.ms.wizardDraft().migrationId && this.migrationIpc) {
+      const draft = this.ms.wizardDraft();
+      try {
+        await this.migrationIpc.configureMigration({
+          migration_id: draft.migrationId,
+          configuration: {
+            derivedMaxWorkers: draft.basicView?.derivedMaxWorkers,
+            derivedBatchMb: draft.basicView?.derivedBatchMb,
+            performancePreset: draft.basicView?.performancePreset,
+            durabilityLevel: draft.basicView?.durabilityLevel,
+            spillHeadroomGb: draft.basicView?.spillHeadroomGb,
+            cdcLagObjectiveMs: draft.basicView?.cdcLagObjectiveMs,
+            watermarkFreshnessSec: draft.basicView?.watermarkFreshnessSec,
+            selectedTopologyNodes: draft.selectedTopologyNodes,
+            source_connection_id: draft.sourceConnectionId,
+            source_provider: draft.sourceProvider,
+            source_host: draft.sourceHost,
+            source_port: draft.sourcePort,
+            source_database: draft.sourceDatabase,
+            source_username: draft.sourceUsername,
+            source_secret_ref: draft.sourceSecretRef,
+            source_schema: draft.sourceDatabase,
+            target_connection_id: draft.targetConnectionId,
+            target_provider: draft.targetProvider,
+            target_host: draft.targetHost,
+            target_port: draft.targetPort,
+            target_database: draft.targetDatabase,
+            target_service_name: draft.targetDatabase,
+            target_username: draft.targetUsername,
+            target_secret_ref: draft.targetSecretRef,
+            target_schema: draft.targetSchema || draft.targetUsername,
+            target_params: draft.targetParams,
+          },
+        });
+        const planRes = await this.migrationIpc.compilePlan({
+          migration_id: draft.migrationId,
+        });
+        if (planRes?.data?.plan_id) {
+          this.ms.updateDraft({
+            planId: planRes.data.plan_id,
+            planFingerprint: planRes.data.plan_fingerprint,
+          });
+        }
+      } catch {
+        // Fallback for offline dev
+      }
     }
     if (this.isCurrentStepValid() && this.currentStep() < 9) {
       this.ms.updateDraft({ currentStep: this.currentStep() + 1 });

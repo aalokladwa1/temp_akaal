@@ -78,10 +78,8 @@ export class ConnectionsHomeComponent implements OnInit {
     if (typeof window !== 'undefined') {
       (window as any).__CONNECTIONS_SERVICE__ = this.cs;
     }
-    if (this.cs.availabilityState() === 'LOADING') {
-      setTimeout(() => {
-        this.cs.availabilityState.set('READY');
-      }, 100);
+    if (this.cs.availabilityState() !== 'LOADING') {
+      this.cs.loadState();
     }
   }
 

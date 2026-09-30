@@ -101,5 +101,15 @@ class ValidationResult:
             "started_at": self.started_at,
             "completed_at": self.completed_at,
             "duration_sec": self.duration_sec,
+            "disputed_records": [
+                {
+                    "key_values": d.key_values,
+                    "reason": d.reason,
+                    "source_value": d.source_value,
+                    "target_value": d.target_value,
+                    "expected_value": d.expected_value,
+                }
+                for d in self.disputed_records
+            ] if self.disputed_records else [],
             "errors": list(self.errors),
         }

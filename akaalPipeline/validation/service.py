@@ -216,6 +216,19 @@ class ValidationPipelineService:
             mission.updated_at = datetime.now(timezone.utc).isoformat()
             self.save_mission(mission, conn)
 
+            # Persist individual Engine DisputedRecords to durable SQLite database
+            if val_res.disputed_records:
+                self.save_discrepancies(
+                    mission_id=mission.mission_id,
+                    run_id=val_res.validation_run_id,
+                    tenant_id=mission.tenant_id,
+                    workspace_id=mission.workspace_id,
+                    project_id=mission.project_id,
+                    table_name=val_res.table_name,
+                    disputed_records=val_res.disputed_records,
+                    conn=conn,
+                )
+
             return {
                 "mission_id": mission.mission_id,
                 "status": mission.last_result_status,
@@ -532,4 +545,136 @@ class ValidationPipelineService:
         conn: sqlite3.Connection,
     ) -> ValidationCapabilityInfo:
         return self.resolve_validation_capabilities(source_id, target_id)
+
+    def save_discrepancies(
+        self,
+        mission_id: str,
+        run_id: str,
+        tenant_id: str,
+        workspace_id: str,
+        project_id: Optional[str],
+        table_name: str,
+        disputed_records: List[Any],
+        conn: sqlite3.Connection,
+    ) -> None:
+        """Durable persistence for Level-5 ExactRowReconciler DisputedRecords."""
+        now = datetime.now(timezone.utc).isoformat()
+        for disp in disputed_records:
+            disc_id = f"disc-{uuid.uuid4().hex[:12]}"
+            key_vals = getattr(disp, "key_values", {}) or {}
+            reason = getattr(disp, "reason", "VALUE_MISMATCH") or "VALUE_MISMATCH"
+            source_val = getattr(disp, "source_value", None)
+            target_val = getattr(disp, "target_value", None)
+            expected_val = getattr(disp, "expected_value", None)
+
+            record_key = json.dumps(key_vals) if isinstance(key_vals, dict) else str(key_vals)
+            src_json = json.dumps(source_val) if source_val is not None else None
+            tgt_json = json.dumps(target_val) if target_val is not None else None
+            exp_json = json.dumps(expected_val) if expected_val is not None else None
+
+            conn.execute(
+                """
+                INSERT INTO validation_discrepancies (
+                    discrepancy_id, mission_id, run_id, tenant_id, workspace_id, project_id,
+                    table_name, record_key, reason, source_value, target_value, expected_value,
+                    status, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'UNRESOLVED', ?)
+                """,
+                (
+                    disc_id, mission_id, run_id, tenant_id, workspace_id, project_id,
+                    table_name, record_key, reason, src_json, tgt_json, exp_json,
+                    now,
+                ),
+            )
+
+    def list_discrepancies(
+        self,
+        mission_id: str,
+        actor: PipelineActorContext,
+        conn: sqlite3.Connection,
+        limit: int = 50,
+        offset: int = 0,
+        table_name: Optional[str] = None,
+        status: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """Query projection listing durable discrepancies for a validation mission."""
+        mission = self.get_mission_by_id(mission_id, conn)
+        if mission is None:
+            raise PipelineError(PipelineErrorCode.NOT_FOUND, f"Validation mission {mission_id!r} not found.")
+        actor.enforce_resource_scope(
+            resource_tenant_id=mission.tenant_id,
+            resource_workspace_id=mission.workspace_id,
+            resource_project_id=mission.project_id,
+            resource_kind="ValidationMission",
+            resource_id=mission_id,
+        )
+
+        query = "SELECT * FROM validation_discrepancies WHERE mission_id = ?"
+        params: List[Any] = [mission_id]
+
+        if table_name:
+            query += " AND table_name = ?"
+            params.append(table_name)
+        if status and status != "ALL":
+            query += " AND status = ?"
+            params.append(status)
+
+        query += " ORDER BY created_at DESC LIMIT ? OFFSET ?"
+        params.extend([min(max(1, limit), 500), max(0, offset)])
+
+        cur = conn.execute(query, tuple(params))
+        rows = cur.fetchall()
+        result = []
+        for r in rows:
+            d = dict(r)
+            if d.get("record_key"):
+                try: d["record_key"] = json.loads(d["record_key"])
+                except Exception: pass
+            if d.get("source_value"):
+                try: d["source_value"] = json.loads(d["source_value"])
+                except Exception: pass
+            if d.get("target_value"):
+                try: d["target_value"] = json.loads(d["target_value"])
+                except Exception: pass
+            if d.get("expected_value"):
+                try: d["expected_value"] = json.loads(d["expected_value"])
+                except Exception: pass
+            result.append(d)
+
+        return result
+
+    def get_discrepancy_detail(
+        self,
+        discrepancy_id: str,
+        actor: PipelineActorContext,
+        conn: sqlite3.Connection,
+    ) -> Dict[str, Any]:
+        """Query projection retrieving full attribute diff details for a single discrepancy."""
+        cur = conn.execute("SELECT * FROM validation_discrepancies WHERE discrepancy_id = ?", (discrepancy_id,))
+        row = cur.fetchone()
+        if not row:
+            raise PipelineError(PipelineErrorCode.NOT_FOUND, f"Discrepancy {discrepancy_id!r} not found.")
+        d = dict(row)
+        actor.enforce_resource_scope(
+            resource_tenant_id=d.get("tenant_id", "default-tenant"),
+            resource_workspace_id=d.get("workspace_id", "default-workspace"),
+            resource_project_id=d.get("project_id"),
+            resource_kind="ValidationDiscrepancy",
+            resource_id=discrepancy_id,
+        )
+        if d.get("record_key"):
+            try: d["record_key"] = json.loads(d["record_key"])
+            except Exception: pass
+        if d.get("source_value"):
+            try: d["source_value"] = json.loads(d["source_value"])
+            except Exception: pass
+        if d.get("target_value"):
+            try: d["target_value"] = json.loads(d["target_value"])
+            except Exception: pass
+        if d.get("expected_value"):
+            try: d["expected_value"] = json.loads(d["expected_value"])
+            except Exception: pass
+        return d
+
 

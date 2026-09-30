@@ -16,9 +16,14 @@ from akaalEngine.cdc.capture.base import ICDCSourceAdapter
 from akaalEngine.cdc.capture.mongodb import MongoDBCDCSourceAdapter
 from akaalEngine.cdc.capture.mysql import MySQLCDCSourceAdapter
 from akaalEngine.cdc.capture.oracle import OracleCDCSourceAdapter
-from akaalEngine.cdc.capture.polling import IncrementalPollingCDCAdapter
 from akaalEngine.cdc.capture.postgres import PostgreSQLCDCSourceAdapter
 from akaalEngine.cdc.capture.sqlserver import MSSQLCDCSourceAdapter, MSSQLChangeTrackingAdapter
+from akaalEngine.cdc.capture.polling import IncrementalPollingCDCAdapter
+from akaalEngine.cdc.capture.registry import (
+    CDCSourceAdapterRegistry,
+    default_cdc_source_adapter_registry,
+    register_cdc_adapter,
+)
 from akaalEngine.cdc.cutover.barrier import SynchronizationBarrierEngine
 from akaalEngine.cdc.cutover.coordinator import CutoverCoordinator
 from akaalEngine.cdc.cutover.readiness import TechnicalCutoverReadinessGate
@@ -67,6 +72,9 @@ __all__ = [
     "CDCAuthority",
     "CDCSnapshot",
     "ICDCSourceAdapter",
+    "CDCSourceAdapterRegistry",
+    "default_cdc_source_adapter_registry",
+    "register_cdc_adapter",
     "PostgreSQLCDCSourceAdapter",
     "OracleCDCSourceAdapter",
     "MySQLCDCSourceAdapter",

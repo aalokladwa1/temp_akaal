@@ -1,4 +1,4 @@
-import { Component, inject, HostListener, ElementRef, OnInit, OnDestroy, Renderer2 } from '@angular/core';
+import { Component, inject, HostListener, ElementRef, OnInit, OnDestroy, Renderer2, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LaunchLifecycleService } from '../../core/services/launch-lifecycle.service';
 import { DashboardService } from '../../core/services/dashboard.service';
@@ -125,13 +125,15 @@ import { DevkrosWordmarkComponent } from './devkros-wordmark.component';
 export class DevkrosLaunchSplashComponent implements OnInit, OnDestroy {
   public launch!: LaunchLifecycleService;
   public ds!: DashboardService;
+  private cdr?: ChangeDetectorRef;
   private renderer?: Renderer2;
-
   public viewportWidth = 1920;
   public viewportHeight = 1080;
   private unbindResize: (() => void) | null = null;
+  private widthValue = 15;
+  private widthScheduled = false;
 
-  constructor(launch?: LaunchLifecycleService, ds?: DashboardService) {
+  constructor(launch?: LaunchLifecycleService, ds?: DashboardService, cdr?: ChangeDetectorRef) {
     if (launch) {
       this.launch = launch;
     } else {
@@ -147,6 +149,16 @@ export class DevkrosLaunchSplashComponent implements OnInit, OnDestroy {
     } else {
       try {
         this.ds = inject(DashboardService, { optional: true }) as DashboardService;
+      } catch {
+        // Fallback for direct unit test instantiation
+      }
+    }
+
+    if (cdr) {
+      this.cdr = cdr;
+    } else {
+      try {
+        this.cdr = inject(ChangeDetectorRef, { optional: true }) as ChangeDetectorRef;
       } catch {
         // Fallback for direct unit test instantiation
       }
@@ -209,7 +221,16 @@ export class DevkrosLaunchSplashComponent implements OnInit, OnDestroy {
   public get loadingBarWidthPercent(): number {
     if (!this.launch) return 15;
     const ratio = (this.launch as any).getReadinessGateRatio ? (this.launch as any).getReadinessGateRatio() : 0.15;
-    return Math.max(15, Math.round(ratio * 100));
+    const target = Math.max(15, Math.round(ratio * 100));
+    if (target !== this.widthValue && !this.widthScheduled) {
+      this.widthScheduled = true;
+      Promise.resolve().then(() => {
+        this.widthValue = target;
+        this.widthScheduled = false;
+        try { this.cdr?.markForCheck(); } catch {}
+      });
+    }
+    return this.widthValue;
   }
 
   public get portalMaskTransform(): string {

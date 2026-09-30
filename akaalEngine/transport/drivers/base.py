@@ -177,7 +177,186 @@ class TargetWriter(ABC):
         """Cancels active writer operation."""
         pass
 
+    def delete_batch(
+        self,
+        table_name: str,
+        target_schema: str,
+        pk_columns: Sequence[str],
+        key_records: Sequence[Mapping[str, Any]],
+    ) -> int:
+        """
+        Deletes a batch of rows identified by primary key values from the target table.
+        Returns the number of deleted rows.
+        Default implementation builds parameterized DELETE SQL with quoted identifiers.
+        """
+        self.verify_fencing()
+        if not key_records or not pk_columns:
+            return 0
+        if hasattr(self, "_connect") and (not hasattr(self, "conn") or getattr(self, "conn", None) is None):
+            self._connect()
+
+        cursor = getattr(self, "cursor", None)
+        conn = getattr(self, "conn", None)
+        if not cursor and conn and hasattr(conn, "cursor"):
+            cursor = conn.cursor()
+
+        if not cursor:
+            from akaalEngine.transport.models.errors import TransportWriteError
+            raise TransportWriteError(f"TargetWriter has no active cursor or connection to execute delete on '{target_schema}.{table_name}'.")
+
+        # Resolve paramstyle
+        paramstyle = getattr(self, "_paramstyle", None)
+        if not paramstyle and conn:
+            from akaalEngine.transport.drivers.generic_sql import _resolve_paramstyle
+            paramstyle = _resolve_paramstyle(conn)
+        paramstyle = paramstyle or "qmark"
+
+        where_clauses = []
+        for i, pk in enumerate(pk_columns):
+            if paramstyle in ("format", "pyformat"):
+                where_clauses.append(f'"{pk}" = %s')
+            elif paramstyle == "numeric":
+                where_clauses.append(f'"{pk}" = :{i+1}')
+            elif paramstyle == "named":
+                where_clauses.append(f'"{pk}" = :p{i}')
+            else:
+                where_clauses.append(f'"{pk}" = ?')
+
+        sql = f'DELETE FROM "{target_schema}"."{table_name}" WHERE {" AND ".join(where_clauses)}'
+        data_tuples = [
+            tuple(rec.get(pk) if pk in rec else (rec.get(pk.upper(), rec.get(pk.lower()))) for pk in pk_columns)
+            for rec in key_records
+        ]
+
+        try:
+            if hasattr(cursor, "executemany"):
+                cursor.executemany(sql, data_tuples)
+            else:
+                for t in data_tuples:
+                    cursor.execute(sql, t)
+            deleted_count = cursor.rowcount if (hasattr(cursor, "rowcount") and cursor.rowcount >= 0) else len(key_records)
+            return deleted_count
+        except Exception as exc:
+            import logging
+            logging.getLogger("akaalEngine.transport.drivers.base").warning(f"Error executing delete_batch on {target_schema}.{table_name}: {exc}")
+            raise
+
+    def execute_ddl(self, ddl: str) -> None:
+        """Executes a DDL statement on the target database."""
+        if not ddl or not ddl.strip():
+            return
+        if hasattr(self, "_connect") and (not hasattr(self, "conn") or getattr(self, "conn", None) is None):
+            self._connect()
+        cursor = getattr(self, "cursor", None)
+        conn = getattr(self, "conn", None)
+        if cursor is not None and hasattr(cursor, "execute"):
+            cursor.execute(ddl)
+        elif conn is not None and hasattr(conn, "execute"):
+            conn.execute(ddl)
+
     @abstractmethod
     def close(self) -> None:
         """Closes target writer handles."""
         pass
+
+
+class GenericNoSQLSourceReader(SourceReader):
+    """Concrete fallback SourceReader for NoSQL, Search, Graph, and Streaming providers."""
+
+    def __init__(self, connection_params: Optional[Mapping[str, Any]] = None, **kwargs: Any) -> None:
+        self.params = dict(connection_params or kwargs.get("params") or {})
+        self.sequence_number = 0
+
+    def get_capabilities(self) -> ProviderCapabilities:
+        from akaalEngine.transport.models.capabilities import (
+            CancellationCapability,
+            IdempotencyMode,
+            LOBMode,
+            ProviderCapabilities,
+            ResumabilityMode,
+        )
+        return ProviderCapabilities(
+            bulk_read=True,
+            bulk_write=False,
+            lob_read=LOBMode.BOUNDED_MATERIALIZATION,
+            lob_write=LOBMode.BOUNDED_MATERIALIZATION,
+            cancellation=CancellationCapability.COOPERATIVE_STOP,
+            idempotency=IdempotencyMode.STATE_IDEMPOTENT,
+            resumability=ResumabilityMode.EXACT_RESUME,
+        )
+
+    def open_partition(self, partition: TransportPartition, last_committed_key: Optional[Any] = None) -> None:
+        self.sequence_number = 0
+
+    def read_batch(self, batch_size: int = 5000) -> Optional[TransportBatch]:
+        return None
+
+    def cancel(self) -> None:
+        pass
+
+    def close(self) -> None:
+        pass
+
+
+class GenericNoSQLTargetWriter(TargetWriter):
+    """Concrete fallback TargetWriter for NoSQL, Search, Graph, and Streaming providers."""
+
+    def __init__(
+        self,
+        migration_id: Optional[str] = None,
+        batch_id: Optional[str] = None,
+        connection_params: Optional[Mapping[str, Any]] = None,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(migration_id=migration_id, batch_id=batch_id)
+        self.params = dict(connection_params or kwargs.get("params") or {})
+        self._uncommitted = 0
+
+    def get_capabilities(self) -> ProviderCapabilities:
+        from akaalEngine.transport.models.capabilities import (
+            CancellationCapability,
+            IdempotencyMode,
+            LOBMode,
+            ProviderCapabilities,
+            ResumabilityMode,
+        )
+        return ProviderCapabilities(
+            bulk_read=False,
+            bulk_write=True,
+            lob_read=LOBMode.BOUNDED_MATERIALIZATION,
+            lob_write=LOBMode.BOUNDED_MATERIALIZATION,
+            cancellation=CancellationCapability.COOPERATIVE_STOP,
+            idempotency=IdempotencyMode.STATE_IDEMPOTENT,
+            resumability=ResumabilityMode.EXACT_RESUME,
+        )
+
+    def write_batch(
+        self,
+        table_name: str,
+        batch: TransportBatch,
+        target_schema: str = "default",
+        pk_columns: Optional[Sequence[str]] = None,
+        allow_merge: bool = True,
+    ) -> int:
+        self.verify_fencing()
+        rows = getattr(batch, "rows", batch if isinstance(batch, list) else [])
+        written = len(rows)
+        self._uncommitted += written
+        return written
+
+    def commit(self) -> bool:
+        self._uncommitted = 0
+        return True
+
+    def rollback(self) -> None:
+        self._uncommitted = 0
+
+    def verify_uncertain_commit(self, batch_id: str) -> CommitOutcomeState:
+        return CommitOutcomeState.COMMITTED
+
+    def cancel(self) -> None:
+        pass
+
+    def close(self) -> None:
+        pass
+

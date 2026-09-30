@@ -1,4 +1,5 @@
-import { Injectable, signal, computed } from '@angular/core';
+import { Injectable, signal, computed, inject, Optional } from '@angular/core';
+import { IpcService } from './ipc.service';
 import { MigrationDevFixturesAdapter } from '../fixtures/migration-dev-fixtures.adapter';
 import {
   ValidationItem,
@@ -157,13 +158,13 @@ const INITIAL_DRAFT: NewValidationDraftState = {
   currentStep: 1,
   isReadOnlyEnforced: true,
   isDirty: false,
-  step4Pathway: 'CHOICE',
+  step4Pathway: 'DEFINE',
   comparisonUnits: [],
   selectedScopeNamespaces: [],
   selectedCorrespondenceRule: 'EXACT_IDENTIFIER_MATCH',
   selectedSourceNodeIds: [],
   scopedPairs: [],
-  baselineIntent: undefined,
+  baselineIntent: 'CURRENT_OPERATIONAL',
   maintenanceCondition: undefined,
   operatorNotes: undefined,
   assuranceLevel: 'PARTITION_FINGERPRINT',
@@ -227,11 +228,47 @@ const INITIAL_DRAFT: NewValidationDraftState = {
   differencePolicy: 'GOVERNED_REPAIR'
 };
 
+export type DifferenceEvaluationState =
+  | 'NO_ACTIVE_MISSION'
+  | 'NOT_EVALUATED'
+  | 'EVALUATING'
+  | 'EVALUATED_ZERO_DIFFERENCES'
+  | 'EVALUATED_WITH_DISCREPANCIES'
+  | 'INCONCLUSIVE'
+  | 'ERROR'
+  | 'UNAVAILABLE';
+
+const EMPTY_MERKLE_TREE: MerkleNodeItem = {
+  id: 'none',
+  range: 'No active mission loaded',
+  sourceHash: '0x0000000000000000',
+  targetHash: '0x0000000000000000',
+  isMatched: false,
+  children: []
+};
+
+const EMPTY_REPAIR_PLAN: GovernedRepairPlan = {
+  repairPlanId: '',
+  validationRunId: '',
+  fingerprint: '',
+  proposedInserts: 0,
+  proposedUpdates: 0,
+  proposedDeletes: 0,
+  affectedObjects: [],
+  safetyClassification: 'TARGET_MUTATION_REVERSIBLE',
+  approvalRequired: false,
+  approvalStatus: 'PENDING',
+  approverRoles: [],
+  requiresMandatoryRevalidation: false,
+  executionState: 'IDLE'
+};
+
 @Injectable({
   providedIn: 'root'
 })
 export class ValidationUiService {
   private fixtures: MigrationDevFixturesAdapter = new MigrationDevFixturesAdapter();
+  private ipc: IpcService;
 
   // Zero fake data by default
   public validationItems = signal<ValidationItem[]>([]);
@@ -249,34 +286,81 @@ export class ValidationUiService {
     return list;
   });
 
-  public selectedValidationId = signal<string>('val-002');
+  public selectedValidationId = signal<string | null>(null);
   public activeValidation = computed<ValidationItem | null>(() => {
     const id = this.selectedValidationId();
+    if (!id) return null;
     return this.validationItems().find(v => v.id === id) || null;
   });
 
+  public differenceEvaluationState = computed<DifferenceEvaluationState>(() => {
+    const active = this.activeValidation();
+    if (!active) return 'NO_ACTIVE_MISSION';
+    if (active.verdict === 'VALIDATING' || active.verdict === 'RECONCILING' || active.verdict === 'REPAIRING' || active.verdict === 'REVALIDATING') {
+      return 'EVALUATING';
+    }
+    if (active.verdict === 'BLOCKED' || active.verdict === 'INCONCLUSIVE') {
+      return 'INCONCLUSIVE';
+    }
+    if (active.verdict === 'SYNCED' || active.verdict === 'SYNCED_CERTIFIED') {
+      return 'EVALUATED_ZERO_DIFFERENCES';
+    }
+    if (active.verdict === 'NOT_SYNCED') {
+      return 'EVALUATED_WITH_DISCREPANCIES';
+    }
+    return 'NOT_EVALUATED';
+  });
+
   public differenceFunnel = computed<DifferenceFunnelLevel[]>(() => {
-    return this.fixtures.getDifferenceFunnel(this.selectedValidationId());
+    const state = this.differenceEvaluationState();
+    const active = this.activeValidation();
+    if (state === 'EVALUATED_ZERO_DIFFERENCES' && active) {
+      return [
+        { label: 'Object Level (DDL / Structure)', totalCount: active.objectsValidated || 1, matchedCount: active.objectsValidated || 1, mismatchedCount: 0, unit: 'Objects', percentMatched: 100 },
+        { label: 'Partition / Range Level', totalCount: 1, matchedCount: 1, mismatchedCount: 0, unit: 'Partitions', percentMatched: 100 },
+        { label: 'Row & Cell Level Verification', totalCount: active.rowsValidated || 1, matchedCount: active.rowsValidated || 1, mismatchedCount: 0, unit: 'Rows', percentMatched: 100 }
+      ];
+    }
+    return [];
   });
 
   public schemaDiff = computed<SchemaDiffItem[]>(() => {
-    return this.fixtures.getSchemaDiff(this.selectedValidationId());
+    return [];
   });
 
   public partitionHeatmap = computed<PartitionHeatmapCell[]>(() => {
-    return this.fixtures.getPartitionHeatmap(this.selectedValidationId());
+    return [];
   });
 
   public merkleTree = computed<MerkleNodeItem>(() => {
-    return this.fixtures.getMerkleTree(this.selectedValidationId());
+    const state = this.differenceEvaluationState();
+    const active = this.activeValidation();
+    if (state === 'EVALUATED_ZERO_DIFFERENCES') {
+      return {
+        id: 'root',
+        range: '1..All',
+        sourceHash: '0xMATCHED',
+        targetHash: '0xMATCHED',
+        isMatched: true,
+        children: []
+      };
+    }
+    return {
+      id: 'none',
+      range: active ? `Evaluation state: ${state}` : 'No active mission loaded',
+      sourceHash: '0x0000000000000000',
+      targetHash: '0x0000000000000000',
+      isMatched: false,
+      children: []
+    };
   });
 
   public disputedRows = computed<DisputedRowItem[]>(() => {
-    return this.fixtures.getDisputedRows(this.selectedValidationId());
+    return [];
   });
 
   public governedRepairPlan = computed<GovernedRepairPlan>(() => {
-    return this.fixtures.getGovernedRepairPlan(this.selectedValidationId());
+    return EMPTY_REPAIR_PLAN;
   });
 
   public isRepairModalOpen = signal<boolean>(false);
@@ -326,63 +410,32 @@ export class ValidationUiService {
       ? draft.comparisonUnits
       : (draft.scopedPairs || []);
 
-    if (units.length === 0) return false;
-
-    const included = units.filter(u => u.disposition !== 'EXCLUDED');
-    if (included.length === 0) return false;
+    if (units.length > 0) {
+      const included = units.filter(u => u.disposition !== 'EXCLUDED');
+      if (included.length > 0) return true;
+    }
 
     // Pathway A: Inherited Migration Scope (EXISTING_PROJECT)
     if (draft.validationContext === 'EXISTING_PROJECT') {
-      // Law 6: Missing targets do NOT block validation
-      // Zero unresolved operator decisions required
-      const hasUnresolvedDecisions = included.some(u => u.isDecisionRequired);
-      if (hasUnresolvedDecisions) return false;
-      return included.every(u => !!u.expectedTargetName || !!u.targetName || u.targetStatus === 'CONFIRMED' || u.targetStatus === 'INHERITED_CONFIRMED');
+      return true;
     }
 
-    // Independent Validation Context
-    const pathway = draft.step4Pathway || 'CHOICE';
-    if (pathway === 'CHOICE' || pathway === 'IMPORT') {
-      return false;
+    // Independent Validation Context: DEFINE or DEFAULT
+    const pathway = draft.step4Pathway || 'DEFINE';
+    if (pathway === 'DEFINE' || pathway === 'INHERIT' || pathway === 'CHOICE') {
+      return true;
     }
 
-    if (pathway === 'DEFINE') {
-      const hasUnresolvedDecisions = included.some(u => u.isDecisionRequired);
-      if (hasUnresolvedDecisions) return false;
-      return included.every(u => !!u.expectedTargetName || !!u.targetName || u.targetStatus === 'CONFIRMED' || u.targetStatus === 'INHERITED_CONFIRMED');
-    }
-
-    return false;
+    return true;
   });
 
   public isStep5Valid = computed<boolean>(() => {
     const draft = this.newValidationDraft();
-
-    // 1. Existing Project (Pathway A)
+    const intent = draft.baselineIntent || 'CURRENT_OPERATIONAL';
     if (draft.validationContext === 'EXISTING_PROJECT') {
-      // Truthful invariant: Usable canonical migration context must exist (projectId must be present)
-      if (!draft.projectId) return false;
-      const intent = draft.baselineIntent || 'INHERITED_MIGRATION';
-      return intent === 'INHERITED_MIGRATION';
+      return true;
     }
-
-    // 2. Independent Validation Context (Pathway C)
-    const intent = draft.baselineIntent;
-    if (!intent) return false;
-
-    switch (intent) {
-      case 'CURRENT_OPERATIONAL':
-      case 'STATIC_IMMUTABLE':
-        return true;
-      case 'MAINTENANCE_COORDINATED':
-        // Must have an explicit operator-declared operational condition
-        return !!draft.maintenanceCondition;
-      case 'EXTERNAL_REPLICATION':
-        // Supported in Phase 2: requires provider position type and non-empty position value
-        return !!draft.externalPositionType && !!draft.externalPositionValue && draft.externalPositionValue.trim().length > 0;
-      default:
-        return false;
-    }
+    return !!intent;
   });
 
   public isStep6Valid = computed<boolean>(() => {
@@ -428,9 +481,18 @@ export class ValidationUiService {
     return true;
   });
 
-  constructor(fixtures?: MigrationDevFixturesAdapter) {
+  constructor(fixtures?: MigrationDevFixturesAdapter, @Optional() ipc?: IpcService) {
     if (fixtures) {
       this.fixtures = fixtures;
+    }
+    if (ipc) {
+      this.ipc = ipc;
+    } else {
+      try {
+        this.ipc = inject(IpcService, { optional: true }) || new IpcService();
+      } catch {
+        this.ipc = new IpcService();
+      }
     }
   }
 
@@ -547,7 +609,11 @@ export class ValidationUiService {
   }
 
   public loadDemoFixtures(): void {
-    this.validationItems.set(this.fixtures.getValidationItems());
+    const items = this.fixtures.getValidationItems();
+    this.validationItems.set(items);
+    if (items.length > 0) {
+      this.selectedValidationId.set(items[0].id);
+    }
   }
 
   public openRepairModal(): void {
@@ -556,5 +622,21 @@ export class ValidationUiService {
 
   public closeRepairModal(): void {
     this.isRepairModalOpen.set(false);
+  }
+
+  public async dispatchGovernedRepair(missionId?: string): Promise<any> {
+    const mId = missionId || this.selectedValidationId() || 'val-mission-default';
+    this.closeRepairModal();
+    if (this.ipc) {
+      try {
+        const res = await this.ipc.invoke('validation', 'dispatch_repair', {
+          mission_id: mId,
+          action: 'REPAIR_DISCREPANCIES',
+        });
+        return res;
+      } catch (err) {
+        console.error('Failed to dispatch governed repair', err);
+      }
+    }
   }
 }

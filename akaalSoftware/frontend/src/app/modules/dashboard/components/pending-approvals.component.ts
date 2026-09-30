@@ -17,11 +17,19 @@ import { LucideIconComponent } from '../../../shared/components/lucide-icon.comp
           <app-lucide-icon name="shield-check" [size]="20" class="text-slate-700 dark:text-slate-300"></app-lucide-icon>
           <h2 class="text-base font-bold text-slate-900 font-heading">Pending Approvals</h2>
         </div>
-        <span class="text-xs text-slate-500 font-medium">{{ approvals.length }} waiting</span>
+        <span class="text-xs text-slate-500 font-medium">{{ approvals ? approvals.length + ' waiting' : 'Unavailable' }}</span>
       </div>
 
       <!-- Approvals List / Empty State -->
-      @if (approvals.length === 0) {
+      @if (approvals === null) {
+        <div class="py-8 flex flex-col items-center justify-center text-center gap-2 my-auto">
+          <div class="w-9 h-9 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500 flex items-center justify-center">
+            <app-lucide-icon name="shield-alert" [size]="18"></app-lucide-icon>
+          </div>
+          <span class="text-xs font-bold text-slate-800">Approvals unavailable</span>
+          <p class="text-[11px] text-slate-500 font-medium max-w-xs">Governance approval state could not be retrieved.</p>
+        </div>
+      } @else if (approvals.length === 0) {
         <div class="py-8 flex flex-col items-center justify-center text-center gap-2 my-auto">
           <div class="w-9 h-9 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500 flex items-center justify-center">
             <app-lucide-icon name="circle-check" [size]="18"></app-lucide-icon>
@@ -38,7 +46,7 @@ import { LucideIconComponent } from '../../../shared/components/lucide-icon.comp
                   <span class="text-xs font-bold text-slate-900">{{ app.migrationName }}</span>
                   <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] bg-amber-50 text-amber-700 border border-amber-200 font-bold select-none">
                     <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-                    <span>Quorum {{ app.quorum }}</span>
+                    <span>{{ app.quorum ? (app.quorum.startsWith('Quorum') ? app.quorum : 'Quorum ' + app.quorum) : 'Approval Required' }}</span>
                   </span>
                 </div>
                 <span class="text-[11px] text-slate-500 font-medium">{{ app.operation }} &bull; By {{ app.requester }} ({{ app.requestedAt }})</span>
@@ -60,7 +68,7 @@ import { LucideIconComponent } from '../../../shared/components/lucide-icon.comp
 })
 export class PendingApprovalsComponent {
   @HostBinding('class') public hostClass = 'flex flex-col h-full flex-1';
-  @Input() public approvals: PendingApproval[] = [];
+  @Input() public approvals: PendingApproval[] | null = [];
 
   constructor(private router: Router) {}
 

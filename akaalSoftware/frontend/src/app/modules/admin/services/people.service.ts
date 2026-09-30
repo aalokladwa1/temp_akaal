@@ -4,6 +4,7 @@
 
 import { Injectable, signal, computed, Optional, inject } from '@angular/core';
 import { AdministrationIpcService } from '../../../core/services/ipc/administration.ipc';
+import { IpcService } from '../../../core/services/ipc.service';
 import {
   AdminUser,
   AdminTeam,
@@ -22,8 +23,12 @@ import {
 })
 export class PeopleService {
   private adminIpc?: AdministrationIpcService;
+  private ipc?: IpcService;
 
-  constructor(@Optional() adminIpc?: AdministrationIpcService) {
+  constructor(
+    @Optional() adminIpc?: AdministrationIpcService,
+    @Optional() ipcService?: IpcService
+  ) {
     if (adminIpc) {
       this.adminIpc = adminIpc;
     } else {
@@ -33,6 +38,26 @@ export class PeopleService {
         this.adminIpc = undefined;
       }
     }
+
+    if (ipcService) {
+      this.ipc = ipcService;
+    } else {
+      try {
+        this.ipc = inject(IpcService, { optional: true }) || undefined;
+      } catch {
+        this.ipc = undefined;
+      }
+    }
+
+    if (this.ipc && typeof this.ipc.subscribe === 'function') {
+      this.ipc.subscribe('akaal:engine:connected', () => {
+        this.loadFromBackend();
+      });
+      this.ipc.subscribe('akaal:governance:event', () => {
+        this.loadFromBackend();
+      });
+    }
+
     this.loadFromBackend();
   }
 
@@ -42,332 +67,158 @@ export class PeopleService {
       const resp = await this.adminIpc.listUsers();
       if (resp.status === 'SUCCESS' && resp.data) {
         const users = Array.isArray(resp.data) ? resp.data : (resp.data.users || []);
-        if (users.length > 0) {
-          const current = this.users();
-          for (const u of users) {
-            const uId = u.principal_id || u.id;
-            const existing = current.find(x => x.id === uId);
-            if (!existing) {
-              current.push({
-                id: uId,
-                name: u.display_name || u.name || uId,
-                email: u.email || `${uId}@akaaltech.internal`,
-                title: 'Team Member',
-                department: 'Engineering',
-                type: 'EMPLOYEE',
-                status: (u.is_active === 0 ? 'DEACTIVATED' : 'ACTIVE') as any,
-                primaryOrgId: u.tenant_id || 'org-global-corp',
-                primaryOrgName: 'Akaal Corporate Global',
-                assignedRolesCount: 1,
-                teamsCount: 1,
-                lastActive: 'Just now',
-                mfaEnforced: true,
-                createdAt: u.created_at || new Date().toISOString()
-              });
-            }
-          }
-          this.users.set([...current]);
-        }
+        const loadedUsers: AdminUser[] = users.map((u: any) => {
+          const uId = u.principal_id || u.id;
+          return {
+            id: uId,
+            name: u.display_name || u.name || uId,
+            email: u.email || `${uId}@akaaltech.corp`,
+            title: u.title || 'Staff Engineer',
+            department: u.department || 'Platform Engineering',
+            type: u.type || 'EMPLOYEE',
+            status: (u.is_active === 0 || u.status === 'SUSPENDED' ? 'DEACTIVATED' : 'ACTIVE') as any,
+            primaryOrgId: u.tenant_id || u.primaryOrgId || 'org-primary',
+            primaryOrgName: u.primaryOrgName || 'Primary Organization',
+            assignedRolesCount: u.assignedRolesCount || 1,
+            teamsCount: u.teamsCount || 1,
+            lastActive: u.lastActive || 'Active now',
+            mfaEnforced: u.mfaEnforced ?? true,
+            createdAt: u.created_at || u.createdAt || new Date().toISOString()
+          };
+        });
+        this.users.set(loadedUsers);
+      }
+
+      const roleResp = await this.adminIpc.listRoles();
+      if (roleResp.status === 'SUCCESS' && roleResp.data) {
+        const roles = Array.isArray(roleResp.data) ? roleResp.data : (roleResp.data.roles || []);
+        const loadedRoles: AdminRole[] = roles.map((r: any) => {
+          const rId = r.id || r.role_id;
+          return {
+            id: rId,
+            name: r.name || r.role_name || rId,
+            code: r.code || (rId ? rId.toUpperCase() : 'ROLE-CUSTOM'),
+            description: r.description || '',
+            domainScope: r.domainScope || 'WORKSPACE',
+            isSystemRole: !!r.isBuiltIn,
+            assignedPrincipalsCount: r.assignedCount || 0,
+            permissionsCount: r.permissions?.length || 0,
+            permissions: r.permissions || [],
+            createdAt: r.createdAt || r.created_at || new Date().toISOString()
+          };
+        });
+        this.roles.set(loadedRoles);
+      }
+
+      const teamResp = await this.adminIpc.listTeams();
+      if (teamResp.status === 'SUCCESS' && teamResp.data) {
+        const teams = Array.isArray(teamResp.data) ? teamResp.data : (teamResp.data.teams || []);
+        const loadedTeams: AdminTeam[] = teams.map((t: any) => {
+          const tId = t.id || t.team_id;
+          return {
+            id: tId,
+            name: t.name || tId,
+            code: t.code || 'TEAM-CUSTOM',
+            description: t.description || '',
+            leadOwnerName: t.leadOwnerName || t.owner || '',
+            leadOwnerEmail: t.leadOwnerEmail || '',
+            orgId: t.orgId || 'org-primary',
+            orgName: t.orgName || 'Primary Organization',
+            membersCount: t.membersCount || 1,
+            assignedRolesCount: 1,
+            status: 'ACTIVE',
+            createdAt: t.createdAt || new Date().toISOString()
+          };
+        });
+        this.teams.set(loadedTeams);
+      }
+
+      const saResp = await this.adminIpc.listServiceAccounts();
+      if (saResp.status === 'SUCCESS' && saResp.data) {
+        const saList = Array.isArray(saResp.data) ? saResp.data : (saResp.data.service_accounts || []);
+        const loadedSa: AdminServiceAccount[] = saList.map((s: any) => ({
+          id: s.id || s.token_id,
+          name: s.name || 'Service Account',
+          clientId: s.clientId || `akaal-sa-${s.token_prefix || 'token'}`,
+          description: s.targetScope || 'API Service Account',
+          targetScope: s.targetScope || 'Global Scope',
+          ownerEmail: s.ownerEmail || 'ops@akaaltech.corp',
+          assignedRolesCount: s.rolesCount || 1,
+          status: s.status || 'ACTIVE',
+          tokenExpiryDays: s.tokenExpiryDays || 90,
+          createdAt: s.createdAt || new Date().toISOString(),
+        }));
+        this.serviceAccounts.set(loadedSa);
+      }
+
+      const jitResp = await this.adminIpc.listJitRequests();
+      if (jitResp.status === 'SUCCESS' && jitResp.data) {
+        const jitList = Array.isArray(jitResp.data) ? jitResp.data : (jitResp.data.requests || []);
+        const loadedJit: JitRequest[] = jitList.map((j: any) => ({
+          id: j.id,
+          requesterName: j.requesterName || 'Akaal User',
+          requesterEmail: j.requesterEmail || 'user@akaaltech.corp',
+          targetRoleName: j.targetRoleName || 'Enterprise Platform Administrator',
+          targetScopeName: j.targetScopeName || 'Global Corporate Root',
+          durationHours: j.durationHours || 2,
+          justification: j.justification || '',
+          status: j.status || 'PENDING_APPROVAL',
+          requestedAt: j.requestedAt || new Date().toISOString(),
+          expiresAt: j.expiresAt,
+        }));
+        this.jitRequests.set(loadedJit);
+      }
+
+      const sessResp = await this.adminIpc.listAuditSessions();
+      if (sessResp.status === 'SUCCESS' && sessResp.data) {
+        const sessList = Array.isArray(sessResp.data) ? sessResp.data : (sessResp.data.sessions || []);
+        const loadedSess: AdminSessionRecord[] = sessList.map((s: any) => ({
+          id: s.id || s.session_id,
+          principalName: s.principalName || s.principal_id || 'Active Principal',
+          principalEmail: `${s.principalName || 'user'}@akaaltech.corp`,
+          ipAddress: s.ipAddress || '127.0.0.1',
+          deviceInfo: s.userAgent || 'Akaal Desktop Client',
+          location: s.location || 'Local Session',
+          startedAt: s.startedAt || s.issued_at || new Date().toISOString(),
+          lastActivityAt: s.lastActive || s.last_activity_at || 'Just now',
+          status: s.status || 'ACTIVE',
+        }));
+        this.sessions.set(loadedSess);
       }
     } catch {
-      // Offline fallback
+      // Offline or fallback
     }
   }
+
   // 1. Users / Principals
-  public users = signal<AdminUser[]>([
-    {
-      id: 'usr-aalok-01',
-      name: 'Aalok Ladwa',
-      email: 'aalok.ladwa@akaaltech.internal',
-      title: 'Principal Lead Architect',
-      department: 'Platform Architecture & Core Infrastructure',
-      type: 'EMPLOYEE',
-      status: 'ACTIVE',
-      primaryOrgId: 'org-global-corp',
-      primaryOrgName: 'Akaal Corporate Global',
-      assignedRolesCount: 3,
-      teamsCount: 2,
-      lastActive: 'Active now',
-      mfaEnforced: true,
-      createdAt: '2026-01-01T00:00:00Z'
-    },
-    {
-      id: 'usr-sarah-02',
-      name: 'Sarah Jenkins',
-      email: 's.jenkins@akaaltech.corp',
-      title: 'Staff Security Engineer',
-      department: 'Information Security & Compliance',
-      type: 'EMPLOYEE',
-      status: 'ACTIVE',
-      primaryOrgId: 'org-global-corp',
-      primaryOrgName: 'Akaal Corporate Global',
-      assignedRolesCount: 2,
-      teamsCount: 1,
-      lastActive: '12m ago',
-      mfaEnforced: true,
-      createdAt: '2026-01-15T00:00:00Z'
-    },
-    {
-      id: 'usr-devon-03',
-      name: 'Devon Vance',
-      email: 'd.vance@akaaltech.corp',
-      title: 'Senior Database Migration Specialist',
-      department: 'Data Engineering & Replications',
-      type: 'CONTRACTOR',
-      status: 'ACTIVE',
-      primaryOrgId: 'org-global-corp',
-      primaryOrgName: 'Akaal Corporate Global',
-      assignedRolesCount: 1,
-      teamsCount: 1,
-      lastActive: '1h ago',
-      mfaEnforced: true,
-      createdAt: '2026-02-01T00:00:00Z'
-    }
-  ]);
+  public users = signal<AdminUser[]>([]);
 
   // 2. Teams / Groups
-  public teams = signal<AdminTeam[]>([
-    {
-      id: 'team-infra-core',
-      name: 'Infrastructure Platform Engineering',
-      code: 'TEAM-INFRA-CORE',
-      description: 'Engineers responsible for global replication clusters, network isolation perimeters, and HSM vault operations.',
-      leadOwnerName: 'Aalok Ladwa',
-      leadOwnerEmail: 'aalok.ladwa@akaaltech.internal',
-      orgId: 'org-global-corp',
-      orgName: 'Akaal Corporate Global',
-      membersCount: 8,
-      assignedRolesCount: 2,
-      status: 'ACTIVE',
-      createdAt: '2026-01-05T00:00:00Z'
-    },
-    {
-      id: 'team-secops',
-      name: 'Security Operations & Governance',
-      code: 'TEAM-SECOPS-GOV',
-      description: 'Custodian team overseeing SOC2 baseline enforcement, cryptographic key governance, and break-glass escrow.',
-      leadOwnerName: 'Sarah Jenkins',
-      leadOwnerEmail: 's.jenkins@akaaltech.corp',
-      orgId: 'org-global-corp',
-      orgName: 'Akaal Corporate Global',
-      membersCount: 5,
-      assignedRolesCount: 3,
-      status: 'ACTIVE',
-      createdAt: '2026-01-10T00:00:00Z'
-    }
-  ]);
+  public teams = signal<AdminTeam[]>([]);
 
   // 3. Service Accounts
-  public serviceAccounts = signal<AdminServiceAccount[]>([
-    {
-      id: 'sa-pipeline-engine',
-      name: 'Migration Pipeline Execution Agent',
-      clientId: 'akaal-sa-pipe-core-889',
-      description: 'Automated machine identity used by Wails IPC backend daemon to coordinate streaming CDC synchronization.',
-      targetScope: 'All Workspaces (Global)',
-      ownerEmail: 'aalok.ladwa@akaaltech.internal',
-      assignedRolesCount: 2,
-      status: 'ACTIVE',
-      tokenExpiryDays: 90,
-      createdAt: '2026-01-01T00:00:00Z'
-    },
-    {
-      id: 'sa-audit-harvester',
-      name: 'Compliance Evidence Harvester',
-      clientId: 'akaal-sa-audit-harvester-102',
-      description: 'Read-only administrative crawler generating immutability attestations and cryptographic receipts.',
-      targetScope: 'Enterprise Root',
-      ownerEmail: 's.jenkins@akaaltech.corp',
-      assignedRolesCount: 1,
-      status: 'ACTIVE',
-      tokenExpiryDays: 180,
-      createdAt: '2026-02-10T00:00:00Z'
-    }
-  ]);
+  public serviceAccounts = signal<AdminServiceAccount[]>([]);
 
   // 4. Roles & Permissions
-  public roles = signal<AdminRole[]>([
-    {
-      id: 'role-super-admin',
-      name: 'Enterprise Platform Administrator',
-      code: 'ROLE-PLATFORM-ADMIN',
-      description: 'Full administrative authority across tenancy hierarchy, security baseline, and privileged operations.',
-      domainScope: 'GLOBAL',
-      isSystemRole: true,
-      assignedPrincipalsCount: 2,
-      permissionsCount: 28,
-      permissions: ['TENANT_MANAGE', 'ORGS_MANAGE', 'WORKSPACES_MANAGE', 'RBAC_WRITE', 'GOVERNANCE_EXECUTE', 'BREAK_GLASS_ESCROW'],
-      createdAt: '2026-01-01T00:00:00Z'
-    },
-    {
-      id: 'role-migration-architect',
-      name: 'Migration Initiative Architect',
-      code: 'ROLE-MIGRATION-ARCHITECT',
-      description: 'Authority to create migration initiatives, define schema transforms, and orchestrate validation cutover.',
-      domainScope: 'WORKSPACE',
-      isSystemRole: false,
-      assignedPrincipalsCount: 4,
-      permissionsCount: 16,
-      permissions: ['INITIATIVE_CREATE', 'PIPELINE_EXECUTE', 'VALIDATION_VERIFY', 'SCHEMA_MAP_WRITE'],
-      createdAt: '2026-01-12T00:00:00Z'
-    },
-    {
-      id: 'role-compliance-auditor',
-      name: 'Compliance & Assurance Auditor',
-      code: 'ROLE-COMPLIANCE-AUDITOR',
-      description: 'Read-only access to audit logs, cryptographic receipts, report library, and historical evidence packages.',
-      domainScope: 'GLOBAL',
-      isSystemRole: true,
-      assignedPrincipalsCount: 3,
-      permissionsCount: 8,
-      permissions: ['AUDIT_READ', 'REPORTS_EXPORT', 'RECEIPTS_VERIFY', 'SOD_READ'],
-      createdAt: '2026-01-15T00:00:00Z'
-    }
-  ]);
+  public roles = signal<AdminRole[]>([]);
 
   // 5. Access Assignments / RBAC
-  public assignments = signal<AccessAssignment[]>([
-    {
-      id: 'asg-01',
-      principalId: 'usr-aalok-01',
-      principalName: 'Aalok Ladwa',
-      principalType: 'USER',
-      roleId: 'role-super-admin',
-      roleName: 'Enterprise Platform Administrator',
-      scopeType: 'GLOBAL',
-      scopeName: 'Global Corporate Root',
-      assignedBy: 'system.bootstrap@akaaltech.internal',
-      assignedAt: '2026-01-01T00:00:00Z',
-      status: 'ACTIVE'
-    },
-    {
-      id: 'asg-02',
-      principalId: 'team-infra-core',
-      principalName: 'Infrastructure Platform Engineering',
-      principalType: 'TEAM',
-      roleId: 'role-migration-architect',
-      roleName: 'Migration Initiative Architect',
-      scopeType: 'WORKSPACE',
-      scopeName: 'Core Banking Modernization',
-      assignedBy: 'aalok.ladwa@akaaltech.internal',
-      assignedAt: '2026-01-10T00:00:00Z',
-      status: 'ACTIVE'
-    }
-  ]);
+  public assignments = signal<AccessAssignment[]>([]);
 
   // 6. Conditional Access / ABAC
-  public conditionalRules = signal<ConditionalAccessRule[]>([
-    {
-      id: 'ca-prod-mfa',
-      name: 'Production Environment Step-Up Authentication',
-      description: 'Requires hardware-bound FIDO2 step-up verification and corporate IP allowlist for production cluster deployments.',
-      targetRole: 'ROLE-PLATFORM-ADMIN',
-      enforcementMode: 'STRICT_ENFORCED',
-      ipAllowlistRequired: true,
-      mfaStepUpRequired: true,
-      timeWindowRestriction: '24/7 Monitored',
-      boundPrincipalsCount: 2,
-      createdAt: '2026-01-05T00:00:00Z'
-    },
-    {
-      id: 'ca-hsm-time-window',
-      name: 'HSM Cryptographic Key Rotation Window',
-      description: 'Limits KMS master key operations strictly to declared Sunday maintenance window.',
-      targetRole: 'ROLE-PLATFORM-ADMIN',
-      enforcementMode: 'STRICT_ENFORCED',
-      ipAllowlistRequired: true,
-      mfaStepUpRequired: true,
-      timeWindowRestriction: 'Sundays 02:00 - 06:00 UTC',
-      boundPrincipalsCount: 1,
-      createdAt: '2026-01-20T00:00:00Z'
-    }
-  ]);
+  public conditionalRules = signal<ConditionalAccessRule[]>([]);
 
   // 7. JIT Access
-  public jitRequests = signal<JitRequest[]>([
-    {
-      id: 'jit-req-101',
-      requesterName: 'Devon Vance',
-      requesterEmail: 'd.vance@akaaltech.corp',
-      targetRoleName: 'Enterprise Platform Administrator',
-      targetScopeName: 'Core Banking Modernization',
-      durationHours: 4,
-      justification: 'Emergency index optimization and vacuum triage on high-throughput shard cluster 04.',
-      status: 'PENDING_APPROVAL',
-      requestedAt: '2026-03-10T14:30:00Z'
-    },
-    {
-      id: 'jit-req-100',
-      requesterName: 'Sarah Jenkins',
-      requesterEmail: 's.jenkins@akaaltech.corp',
-      targetRoleName: 'Enterprise Platform Administrator',
-      targetScopeName: 'Global Corporate Root',
-      durationHours: 2,
-      justification: 'Quarterly SOC2 cryptographic escrow verification drill.',
-      status: 'EXPIRED',
-      requestedAt: '2026-02-15T09:00:00Z',
-      expiresAt: '2026-02-15T11:00:00Z'
-    }
-  ]);
+  public jitRequests = signal<JitRequest[]>([]);
 
   // 8. Access Conflicts / SoD Impact
-  public accessConflicts = signal<AccessConflictRecord[]>([
-    {
-      id: 'conf-01',
-      ruleCode: 'SOD-DEV-PROD-SEPARATION',
-      ruleDescription: 'Principals holding Migration Execution permissions in Production cannot hold direct Schema Mapping write access.',
-      principalName: 'Devon Vance',
-      principalEmail: 'd.vance@akaaltech.corp',
-      conflictingRoleA: 'Migration Initiative Architect',
-      conflictingRoleB: 'Core Production Operator',
-      scopeName: 'Core Banking Modernization',
-      detectedAt: '2026-03-01T11:20:00Z',
-      resolutionStatus: 'UNRESOLVED'
-    }
-  ]);
+  public accessConflicts = signal<AccessConflictRecord[]>([]);
 
   // 9. Sessions & Token Revocation
-  public sessions = signal<AdminSessionRecord[]>([
-    {
-      id: 'sess-8891',
-      principalName: 'Aalok Ladwa',
-      principalEmail: 'aalok.ladwa@akaaltech.internal',
-      ipAddress: '10.240.12.84 (Corporate VPN)',
-      deviceInfo: 'Windows 11 Workstation (Hardware TPM 2.0)',
-      location: 'London, United Kingdom',
-      startedAt: '2026-03-11T18:00:00Z',
-      lastActivityAt: 'Just now',
-      status: 'ACTIVE'
-    },
-    {
-      id: 'sess-8840',
-      principalName: 'Sarah Jenkins',
-      principalEmail: 's.jenkins@akaaltech.corp',
-      ipAddress: '10.240.14.19 (Corporate VPN)',
-      deviceInfo: 'macOS Sonoma Enterprise Profile',
-      location: 'New York, United States',
-      startedAt: '2026-03-11T17:15:00Z',
-      lastActivityAt: '12m ago',
-      status: 'ACTIVE'
-    }
-  ]);
+  public sessions = signal<AdminSessionRecord[]>([]);
 
   // 10. Access Reviews
-  public accessReviews = signal<AccessReviewCampaign[]>([
-    {
-      id: 'rev-q1-2026',
-      name: 'Q1 2026 Privilege Recertification',
-      scopeType: 'ROLE_TIER',
-      scopeName: 'All Elevated Administrative Roles',
-      reviewerName: 'Aalok Ladwa',
-      reviewerEmail: 'aalok.ladwa@akaaltech.internal',
-      totalEntitlements: 14,
-      reviewedEntitlements: 12,
-      status: 'IN_PROGRESS',
-      deadline: '2026-03-31T23:59:59Z',
-      createdAt: '2026-03-01T00:00:00Z'
-    }
-  ]);
+  public accessReviews = signal<AccessReviewCampaign[]>([]);
 
   // ==========================================================================
   // MUTATION METHODS
@@ -410,6 +261,20 @@ export class PeopleService {
         name: updates.name,
         status: updates.status,
       }).catch(() => {});
+    }
+  }
+
+  public deleteUser(id: string): void {
+    const prev = this.users();
+    this.users.update(list => list.filter(u => u.id !== id));
+    if (this.adminIpc) {
+      this.adminIpc.deleteUser({ user_id: id }).then(res => {
+        if (res && res.status !== 'SUCCESS') {
+          this.users.set(prev);
+        }
+      }).catch(() => {
+        this.users.set(prev);
+      });
     }
   }
 
@@ -539,8 +404,8 @@ export class PeopleService {
   public requestJit(data: Partial<JitRequest>): JitRequest {
     const newReq: JitRequest = {
       id: 'jit-req-' + Date.now().toString().slice(-4),
-      requesterName: data.requesterName || 'Aalok Ladwa',
-      requesterEmail: data.requesterEmail || 'aalok.ladwa@akaaltech.internal',
+      requesterName: data.requesterName || 'Akaal User',
+      requesterEmail: data.requesterEmail || 'user@akaaltech.corp',
       targetRoleName: data.targetRoleName || 'Enterprise Platform Administrator',
       targetScopeName: data.targetScopeName || 'Global Corporate Root',
       durationHours: data.durationHours || 2,
@@ -549,7 +414,34 @@ export class PeopleService {
       requestedAt: new Date().toISOString()
     };
     this.jitRequests.update(list => [newReq, ...list]);
+    if (this.adminIpc) {
+      this.adminIpc.requestJitElevation({
+        requester_id: data.requesterEmail || 'user-admin',
+        target_role_id: data.targetRoleName,
+        target_scope: data.targetScopeName,
+        duration_hours: data.durationHours || 2,
+        justification: data.justification || '',
+      }).then(res => {
+        if (res && res.status === 'SUCCESS' && res.data?.approval_id) {
+          this.jitRequests.update(list =>
+            list.map(j => j.id === newReq.id ? { ...j, id: res.data.approval_id } : j)
+          );
+        }
+      }).catch(() => {});
+    }
     return newReq;
+  }
+
+  public approveJit(requestId: string, decision: 'APPROVED' | 'REJECTED' = 'APPROVED'): void {
+    this.jitRequests.update(list =>
+      list.map(j => j.id === requestId ? { ...j, status: decision === 'APPROVED' ? 'ACTIVE_ELEVATED' : 'REJECTED' } : j)
+    );
+    if (this.adminIpc) {
+      this.adminIpc.approveJitElevation({
+        request_id: requestId,
+        decision: decision,
+      }).catch(() => {});
+    }
   }
 
   public terminateSession(sessionId: string): void {

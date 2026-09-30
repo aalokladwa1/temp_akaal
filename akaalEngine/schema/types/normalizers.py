@@ -279,12 +279,12 @@ class ProviderTypeNormalizers:
             bits = 32 if clean == "REAL" or (p and p <= 24) else 64
             return CanonicalType(category=CanonicalTypeCategory.APPROX_NUMERIC, raw_vendor_type=raw, bits=bits)
         elif clean in ("VARCHAR", "NVARCHAR", "CHAR", "NCHAR"):
-            is_max = "MAX" in raw
+            is_max = "MAX" in raw or (l is not None and l < 0)
             return CanonicalType(category=CanonicalTypeCategory.CHARACTER, raw_vendor_type=raw, length=None if is_max else l, extra={"is_max": is_max, "is_unicode": "N" in clean})
         elif clean in ("TEXT", "NTEXT"):
             return CanonicalType(category=CanonicalTypeCategory.CHARACTER, raw_vendor_type=raw, length=None)
         elif clean in ("VARBINARY", "BINARY", "IMAGE"):
-            is_max = "MAX" in raw or clean == "IMAGE"
+            is_max = "MAX" in raw or clean == "IMAGE" or (l is not None and l < 0)
             return CanonicalType(category=CanonicalTypeCategory.BINARY, raw_vendor_type=raw, length=None if is_max else l, extra={"is_max": is_max})
         elif clean in ("DATETIME", "DATETIME2", "SMALLDATETIME"):
             return CanonicalType(category=CanonicalTypeCategory.DATETIME, raw_vendor_type=raw, is_timezone_aware=False, precision=p or (3 if clean == "DATETIME" else 7))

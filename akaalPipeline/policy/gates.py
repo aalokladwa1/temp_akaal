@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Any, Dict, Optional
 from akaalPipeline.contracts.enums import ApprovalStatus
 from akaalPipeline.contracts.errors import PolicyDeniedError
+from akaalPipeline.governance.foureyes import FourEyesValidator
 from akaalPipeline.policy.contracts import PolicyDecision, PolicyResult
 
 

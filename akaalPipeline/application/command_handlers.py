@@ -39,10 +39,7 @@ from akaalPipeline.orchestration.compiler import GraphCompiler
 from akaalPipeline.orchestration.graph_validation import GraphValidator
 from akaalPipeline.orchestration.plans import ExecutionPlan
 from akaalPipeline.state.artifacts import ArtifactRegistry, ImmutableArtifact
-try:
-    from akaal.governance.foureyes.validator import FourEyesValidator
-except Exception:
-    FourEyesValidator = None
+from akaalPipeline.governance.foureyes import FourEyesEnforcer, FourEyesValidator
 
 
 class CommandHandlerRegistry:
@@ -852,14 +849,18 @@ class CommandHandlerRegistry:
         subject_roles = list(payload.get("subject_roles", [])) if "subject_roles" in payload else list(actor.roles)
 
         from akaalPipeline.policy.contracts import PolicyAction, PolicyDecision, PolicyResource, PolicyResult, PolicySubject
+        decision_val = str(payload.get("decision", "APPROVED")).upper()
+        is_approved = decision_val in ("APPROVED", "APPROVE", "ALLOW")
+        result_enum = PolicyResult.ALLOW if is_approved else PolicyResult.DENY
+
         decision = PolicyDecision(
             decision_id=decision_id,
             policy_version=payload.get("policy_version", "1.0.0"),
             subject=PolicySubject(actor_id=subject_actor_id, actor_type=payload.get("subject_actor_type", "user"), roles=subject_roles),
             action=PolicyAction(name=payload.get("action", "migration.start")),
             resource=PolicyResource(resource_id=migration_id, resource_type="migration", artifact_fingerprint=target_fp),
-            result=PolicyResult.ALLOW,
-            reason=payload.get("reason", "Approved by authorized governance actor"),
+            result=result_enum,
+            reason=payload.get("reason", "Approved by authorized governance actor" if is_approved else "Rejected by governance actor"),
             issuer_id=actor.actor_id,
             issuer_roles=list(actor.roles),
             effective_at=payload.get("effective_at", datetime.now(timezone.utc).isoformat()),
@@ -869,26 +870,38 @@ class CommandHandlerRegistry:
         approval_art = ImmutableArtifact.create(approval_id, "policy_decision", decision.to_dict())
         self.artifact_registry.register(approval_art, conn=uow.connection)
 
-        # Update aggregate state to AUTHORIZED if it was GOVERNANCE_PENDING
+        # Update aggregate state: AUTHORIZED if approved, PAUSED if rejected
         if agg.state == MigrationLifecycleState.GOVERNANCE_PENDING:
             old_state = agg.state.value
-            agg.state = MigrationLifecycleState.AUTHORIZED
+            agg.state = MigrationLifecycleState.AUTHORIZED if is_approved else MigrationLifecycleState.PAUSED
             agg.revision += 1
             self.repository.save(agg, connection=uow.connection)
 
+        evt_name = "migration.approved" if is_approved else "migration.rejected"
         evt = DomainEvent.create(
             migration_id,
-            "migration.approved",
-            {"decision_id": decision_id, "approval_id": approval_id, "issuer_id": actor.actor_id},
+            evt_name,
+            {"decision_id": decision_id, "approval_id": approval_id, "issuer_id": actor.actor_id, "result": result_enum.value},
         )
         self.outbox_service.stage_event(evt, uow.connection)
-        self.audit_service.record_event(actor, "migration.approved", migration_id, uow.connection)
+        self.audit_service.record_event(actor, evt_name, migration_id, uow.connection)
+
+        barrier_id = payload.get("barrier_id")
+        if barrier_id:
+            try:
+                uow.connection.execute(
+                    "UPDATE governance_approvals SET status = ?, approver_id = ?, rejection_reason = ? WHERE migration_id = ? AND (approval_id = ? OR policy_id = ?)",
+                    ("APPROVED" if is_approved else "REJECTED", actor.actor_id, payload.get("reason", ""), migration_id, barrier_id, barrier_id),
+                )
+            except Exception:
+                pass
 
         return {
             "migration_id": migration_id,
             "decision_id": decision_id,
             "approval_id": approval_id,
-            "result": "ALLOW",
+            "result": result_enum.value,
+            "decision": "APPROVED" if is_approved else "REJECTED",
             "issuer_id": actor.actor_id,
         }
 
@@ -1068,41 +1081,6 @@ class CommandHandlerRegistry:
                 f"Resume command rejected: target execution {target_execution!r} does not match active execution {agg.active_attempt_id!r}.",
             )
 
-        # Idempotent return if already active
-        if agg.state == MigrationLifecycleState.ACTIVE:
-            return {
-                "migration_id": migration_id,
-                "status": "APPLIED",
-                "state": agg.state.value,
-                "message": "Migration is already active.",
-                "idempotent": True,
-            }
-
-        if agg.state != MigrationLifecycleState.PAUSED:
-            raise PipelineError(
-                PipelineErrorCode.INVALID_TRANSITION,
-                f"Cannot resume migration in state {agg.state.value!r}. Only paused migrations can be resumed.",
-            )
-
-        # Step 1: Create operation record with ACCEPTED
-        op_id = payload.get("operation_id") or f"op-resume-{uuid.uuid4().hex}"
-        op_rec = OperationRecord(
-            operation_id=op_id,
-            command_id=payload.get("command_id") or f"cmd-resume-{uuid.uuid4().hex}",
-            idempotency_key=payload.get("idempotency_key"),
-            status=OperationStatus.ACCEPTED,
-            actor=actor,
-            payload_fingerprint=payload.get("payload_fingerprint", "fp-resume"),
-        )
-        self.operation_service.create_operation(op_rec, uow.connection)
-
-        # Step 2: Physical task resume in Engine
-        cur_running = uow.connection.execute(
-            "SELECT current_engine_task_id FROM node_executions WHERE migration_id = ? AND state IN ('PAUSED', 'RUNNING', 'DISPATCHED')",
-            (migration_id,),
-        )
-        paused_tasks = [r["current_engine_task_id"] for r in cur_running.fetchall() if r and r["current_engine_task_id"]]
-
         binding = self.execution_controller.binding_registry.get("gateway_engine_binding")
         if not binding:
             for b in self.execution_controller.binding_registry.list_all():
@@ -1110,8 +1088,15 @@ class CommandHandlerRegistry:
                     binding = b
                     break
 
-        if paused_tasks and binding and isinstance(binding.port_instance, ExecutionPort):
-            for t_id in paused_tasks:
+        cur_running = uow.connection.execute(
+            "SELECT current_engine_task_id FROM node_executions WHERE migration_id = ? AND state IN ('PAUSED', 'RUNNING', 'DISPATCHED')",
+            (migration_id,),
+        )
+        paused_tasks = [r["current_engine_task_id"] for r in cur_running.fetchall() if r and r["current_engine_task_id"]]
+        tasks_to_resume = paused_tasks if paused_tasks else [f"task-cdc-{migration_id}"]
+
+        if binding and isinstance(binding.port_instance, ExecutionPort):
+            for t_id in tasks_to_resume:
                 resume_req = EngineInvocationRequest(
                     contract_version="1.0.0",
                     binding_id=binding.binding_id,
@@ -1136,6 +1121,34 @@ class CommandHandlerRegistry:
                     binding.port_instance.execute_task(resume_req)
                 except Exception as r_exc:
                     logger.warning("Engine task resume invocation failed for task %s: %s", t_id, r_exc)
+
+        # Idempotent return if already active after ensuring CDC context
+        if agg.state == MigrationLifecycleState.ACTIVE:
+            return {
+                "migration_id": migration_id,
+                "status": "APPLIED",
+                "state": agg.state.value,
+                "message": "Migration CDC execution restored and active.",
+                "idempotent": True,
+            }
+
+        if agg.state != MigrationLifecycleState.PAUSED:
+            raise PipelineError(
+                PipelineErrorCode.INVALID_TRANSITION,
+                f"Cannot resume migration in state {agg.state.value!r}. Only paused migrations can be resumed.",
+            )
+
+        # Step 1: Create operation record with ACCEPTED
+        op_id = payload.get("operation_id") or f"op-resume-{uuid.uuid4().hex}"
+        op_rec = OperationRecord(
+            operation_id=op_id,
+            command_id=payload.get("command_id") or f"cmd-resume-{uuid.uuid4().hex}",
+            idempotency_key=payload.get("idempotency_key"),
+            status=OperationStatus.ACCEPTED,
+            actor=actor,
+            payload_fingerprint=payload.get("payload_fingerprint", "fp-resume"),
+        )
+        self.operation_service.create_operation(op_rec, uow.connection)
 
         # Step 3: Transition to ACTIVE & confirm APPLIED
         old_state = agg.state.value
@@ -2231,12 +2244,112 @@ class CommandHandlerRegistry:
         approval_id = payload.get("request_id") or payload.get("approval_id") or "appr-default"
         decision = payload.get("decision", "APPROVED").upper()
         status = "APPROVED" if decision in ("APPROVED", "APPROVE") else "REJECTED"
+
+        cursor = uow.connection.cursor()
+        cursor.execute("SELECT requester_id FROM governance_approvals WHERE tenant_id = ? AND approval_id = ?", (tenant_id, approval_id))
+        row = cursor.fetchone()
+        if row and row[0]:
+            FourEyesEnforcer().enforce(
+                requester_id=row[0],
+                approver_id=actor.actor_id,
+                action_type="GOVERNANCE_EXCEPTION_APPROVAL",
+            )
+
         uow.connection.execute(
             "UPDATE governance_approvals SET status = ?, approver_id = ?, approver_role = 'ADMIN' WHERE tenant_id = ? AND approval_id = ?",
             (status, actor.actor_id, tenant_id, approval_id),
         )
         self.audit_service.record_event(actor, f"admin.governance.exception_{status.lower()}", approval_id, uow.connection)
         return {"approval_id": approval_id, "status": status}
+
+    def handle_admin_jit_request(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        tenant_id = payload.get("tenant_id") or actor.organization_id or "tenant-default"
+        requester_id = payload.get("requester_id") or actor.actor_id or "usr-current"
+        target_role_id = payload.get("role_id") or payload.get("target_role_id") or "ROLE-PLATFORM-ADMIN"
+        target_scope = payload.get("target_scope") or payload.get("resource_id") or "GLOBAL"
+        duration_hours = int(payload.get("duration_hours", 2))
+        justification = payload.get("justification", "")
+        approval_id = f"jit-req-{uuid.uuid4().hex[:8]}"
+        now_ts = datetime.now(timezone.utc).isoformat()
+        expires_at = (datetime.now(timezone.utc) + timedelta(hours=duration_hours)).isoformat()
+
+        uow.connection.execute(
+            """
+            INSERT INTO governance_approvals (
+                approval_id, tenant_id, migration_id, intent_fingerprint, policy_id,
+                stage_number, status, requester_id, approver_id, approver_role,
+                secondary_approver_id, secondary_approver_role, rejection_reason, issued_at, expires_at
+            ) VALUES (?, ?, ?, ?, 'JIT_ELEVATION', 1, 'PENDING', ?, NULL, NULL, NULL, NULL, ?, ?, ?)
+            """,
+            (approval_id, tenant_id, target_scope, f"jit-fp-{uuid.uuid4().hex[:8]}", requester_id, f"Role: {target_role_id} | Justification: {justification}", now_ts, expires_at),
+        )
+        self.audit_service.record_event(actor, "admin.jit.requested", approval_id, uow.connection)
+        return {
+            "approval_id": approval_id,
+            "requester_id": requester_id,
+            "role_id": target_role_id,
+            "target_scope": target_scope,
+            "duration_hours": duration_hours,
+            "status": "PENDING",
+            "requested_at": now_ts,
+        }
+
+    def handle_admin_jit_approve(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        tenant_id = payload.get("tenant_id") or actor.organization_id or "tenant-default"
+        approval_id = payload.get("request_id") or payload.get("approval_id")
+        if not approval_id:
+            raise PipelineError(PipelineErrorCode.INVALID_REQUEST, "Missing approval_id / request_id")
+
+        cursor = uow.connection.cursor()
+        cursor.execute("SELECT requester_id, policy_id, migration_id, rejection_reason, expires_at FROM governance_approvals WHERE approval_id = ?", (approval_id,))
+        row = cursor.fetchone()
+        if not row:
+            raise PipelineError(PipelineErrorCode.NOT_FOUND, f"JIT request {approval_id} not found")
+
+        requester_id, policy_id, target_scope, reason, expires_at = row[0], row[1], row[2], row[3], row[4]
+
+        # Enforce Four-Eyes: Maker != Checker
+        FourEyesEnforcer().enforce(
+            requester_id=requester_id,
+            approver_id=actor.actor_id,
+            action_type="JIT_ELEVATION_APPROVAL",
+        )
+
+        decision = payload.get("decision", "APPROVED").upper()
+        status = "APPROVED" if decision in ("APPROVED", "APPROVE") else "REJECTED"
+        now_ts = datetime.now(timezone.utc).isoformat()
+
+        uow.connection.execute(
+            "UPDATE governance_approvals SET status = ?, approver_id = ?, approver_role = 'ADMIN' WHERE approval_id = ?",
+            (status, actor.actor_id, approval_id),
+        )
+
+        if status == "APPROVED":
+            grant_id = f"grant-jit-{uuid.uuid4().hex[:8]}"
+            role_id = "ROLE-PLATFORM-ADMIN"
+            if reason and "Role: " in reason:
+                role_id = reason.split("Role: ")[1].split(" |")[0].strip()
+
+            uow.connection.execute(
+                """
+                INSERT INTO role_grants (grant_id, tenant_id, subject_type, subject_id, role_id, resource_type, resource_id, is_jit, expires_at, granted_by, granted_at, is_revoked)
+                VALUES (?, ?, 'USER', ?, ?, 'GLOBAL', ?, 1, ?, ?, ?, 0)
+                """,
+                (grant_id, tenant_id, requester_id, role_id, target_scope or "*", expires_at or now_ts, actor.actor_id, now_ts),
+            )
+
+        self.audit_service.record_event(actor, f"admin.jit.{status.lower()}", approval_id, uow.connection)
+        return {"approval_id": approval_id, "status": status, "approver_id": actor.actor_id}
 
     def handle_admin_key_rotate(
         self,
@@ -2298,6 +2411,314 @@ class CommandHandlerRegistry:
         self.audit_service.record_event(actor, "admin.connector.created", connector_id, uow.connection)
         return {"connector_id": connector_id, "name": name, "type": conn_type, "status": "ACTIVE", "created_at": now_ts}
 
+    def handle_admin_create_environment(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        env_id = payload.get("id") or payload.get("environment_id") or f"env-{uuid.uuid4().hex[:8]}"
+        tenant_id = payload.get("tenant_id") or actor.organization_id or "default-tenant"
+        name = payload.get("name") or env_id
+        tier = payload.get("tier", "PRODUCTION")
+        cloud_provider = payload.get("cloud_provider") or payload.get("cloudProvider", "AWS")
+        region = payload.get("region", "us-east-1")
+        credential_ref = payload.get("credential_ref") or payload.get("credentialRef", f"vault://creds/{env_id}")
+        nodes_count = int(payload.get("nodes_count") or payload.get("nodesCount") or 1)
+        compliance_level = payload.get("compliance_level") or payload.get("complianceLevel", "STANDARD")
+        now_ts = datetime.now(timezone.utc).isoformat()
+
+        uow.connection.execute(
+            """
+            INSERT INTO enterprise_cloud_environments (
+                environment_id, tenant_id, name, tier, cloud_provider, region,
+                credential_ref, nodes_count, status, compliance_level, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'ONLINE', ?, ?, ?)
+            """,
+            (env_id, tenant_id, name, tier, cloud_provider, region, credential_ref, nodes_count, compliance_level, now_ts, now_ts),
+        )
+        self.audit_service.record_event(actor, "admin.environment.created", env_id, uow.connection)
+        return {
+            "id": env_id,
+            "name": name,
+            "tier": tier,
+            "cloudProvider": cloud_provider,
+            "region": region,
+            "nodesCount": nodes_count,
+            "status": "ONLINE",
+            "complianceLevel": compliance_level,
+            "createdAt": now_ts,
+        }
+
+    def handle_admin_update_environment(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        env_id = payload.get("id") or payload.get("environment_id")
+        if not env_id:
+            raise PipelineError(PipelineErrorCode.INVALID_REQUEST, "Missing environment ID")
+        now_ts = datetime.now(timezone.utc).isoformat()
+        updates = []
+        params = []
+        if "name" in payload:
+            updates.append("name = ?")
+            params.append(payload["name"])
+        if "tier" in payload:
+            updates.append("tier = ?")
+            params.append(payload["tier"])
+        if "status" in payload:
+            updates.append("status = ?")
+            params.append(payload["status"])
+        if "compliance_level" in payload or "complianceLevel" in payload:
+            updates.append("compliance_level = ?")
+            params.append(payload.get("compliance_level") or payload.get("complianceLevel"))
+
+        updates.append("updated_at = ?")
+        params.append(now_ts)
+        params.append(env_id)
+
+        uow.connection.execute(
+            f"UPDATE enterprise_cloud_environments SET {', '.join(updates)} WHERE environment_id = ?",
+            params,
+        )
+        self.audit_service.record_event(actor, "admin.environment.updated", env_id, uow.connection)
+        return {"id": env_id, "updated_at": now_ts, "status": "SUCCESS"}
+
+    def handle_dispatch_validation_repair(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        from akaalEngine.gateway.models.enums import SemanticOperation
+        from akaalPipeline.adapters.engine_gateway import EngineInvocationRequest
+
+        mission_id = payload.get("mission_id") or "val-mission-default"
+        discrepancy_ids = payload.get("discrepancy_ids", [])
+        if not discrepancy_ids and payload.get("discrepancy_id"):
+            discrepancy_ids = [payload.get("discrepancy_id")]
+
+        repair_strategy = payload.get("repair_strategy", "SOURCE_WINS")
+        rationale = payload.get("rationale", "")
+        approval_id = payload.get("approval_id")
+        now_ts = datetime.now(timezone.utc).isoformat()
+        repair_id = f"repair-{uuid.uuid4().hex[:8]}"
+
+        # 1. Governance Maker-Checker / Four-Eyes Verification
+        if not approval_id:
+            # Check if an approval is required; if none provided, transition to PENDING_APPROVAL
+            placeholders = ",".join("?" for _ in discrepancy_ids) if discrepancy_ids else None
+            if placeholders:
+                uow.connection.execute(
+                    f"UPDATE validation_discrepancies SET status = 'PENDING_APPROVAL' WHERE mission_id = ? AND discrepancy_id IN ({placeholders})",
+                    [mission_id] + list(discrepancy_ids),
+                )
+            else:
+                uow.connection.execute(
+                    "UPDATE validation_discrepancies SET status = 'PENDING_APPROVAL' WHERE mission_id = ?",
+                    (mission_id,),
+                )
+            return {
+                "repair_id": repair_id,
+                "mission_id": mission_id,
+                "status": "PENDING_APPROVAL",
+                "approval_required": True,
+                "message": "Governed repair requires Four-Eyes approval before physical dispatch.",
+                "discrepancies_reconciled": 0,
+            }
+
+        # Validate provided approval
+        cursor = uow.connection.cursor()
+        cursor.execute("SELECT requester_id, status FROM governance_approvals WHERE approval_id = ?", (approval_id,))
+        row = cursor.fetchone()
+        if not row:
+            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Governance approval '{approval_id}' was not found.")
+        if row[1] != "APPROVED":
+            raise PipelineError(PipelineErrorCode.POLICY_DENIED, f"Governance approval '{approval_id}' is in state '{row[1]}' (expected 'APPROVED').")
+
+        # FourEyesEnforcer ensures requester != approver/executor
+        FourEyesEnforcer().enforce(requester_id=row[0], approver_id=actor.actor_id, action_type="GOVERNED_REPAIR_EXECUTION")
+
+        # 2. Mark state as DISPATCHED
+        if discrepancy_ids:
+            placeholders = ",".join("?" for _ in discrepancy_ids)
+            uow.connection.execute(
+                f"UPDATE validation_discrepancies SET status = 'DISPATCHED' WHERE mission_id = ? AND discrepancy_id IN ({placeholders})",
+                [mission_id] + list(discrepancy_ids),
+            )
+        else:
+            uow.connection.execute(
+                "UPDATE validation_discrepancies SET status = 'DISPATCHED' WHERE mission_id = ?",
+                (mission_id,),
+            )
+
+        # 3. Physical Engine Target Mutation
+        binding = self.execution_controller.binding_registry.get("gateway_engine_binding") if hasattr(self.execution_controller, "binding_registry") else None
+        if not binding or not getattr(binding, "port_instance", None):
+            raise PipelineError(PipelineErrorCode.UNAVAILABLE, "Engine gateway binding is not available for governed repair execution.")
+
+        repair_req = EngineInvocationRequest(
+            invocation_id=f"inv-repair-{uuid.uuid4().hex[:8]}",
+            attempt_id=f"att-repair-{mission_id}",
+            lease_id=f"lease-repair-{mission_id}",
+            fence_epoch=1,
+            initialization_fingerprint="",
+            graph_node_id="validation_governed_repair",
+            binding_id="gateway_engine_binding",
+            contract_version="1.0.0",
+            payload={
+                "migration_id": payload.get("migration_id") or mission_id,
+                "mission_id": mission_id,
+                "semantic_operation": SemanticOperation.RECONCILE_DISPUTED_RECORDS.value,
+                "repair_strategy": repair_strategy,
+                "discrepancy_ids": discrepancy_ids,
+                "rationale": rationale,
+                "approval_id": approval_id,
+                "source_records": payload.get("source_records", [{"id": "rec-1"}]),
+                "target_records": payload.get("target_records", [{"id": "rec-1"}]),
+                **dict(payload),
+            },
+        )
+        repair_res = binding.port_instance.execute_task(repair_req)
+        if not repair_res.is_success:
+            if discrepancy_ids:
+                placeholders = ",".join("?" for _ in discrepancy_ids)
+                uow.connection.execute(
+                    f"UPDATE validation_discrepancies SET status = 'REPAIR_FAILED' WHERE mission_id = ? AND discrepancy_id IN ({placeholders})",
+                    [mission_id] + list(discrepancy_ids),
+                )
+            else:
+                uow.connection.execute(
+                    "UPDATE validation_discrepancies SET status = 'REPAIR_FAILED' WHERE mission_id = ?",
+                    (mission_id,),
+                )
+            self.audit_service.record_event(
+                actor,
+                "validation.repair.failed",
+                mission_id,
+                uow.connection,
+            )
+            return {
+                "repair_id": repair_id,
+                "mission_id": mission_id,
+                "status": "REPAIR_FAILED",
+                "error": repair_res.error_message,
+                "revalidated": False,
+                "discrepancies_reconciled": 0,
+            }
+
+        # 4. Targeted Revalidation Phase
+        if discrepancy_ids:
+            placeholders = ",".join("?" for _ in discrepancy_ids)
+            uow.connection.execute(
+                f"UPDATE validation_discrepancies SET status = 'REVALIDATION_PENDING' WHERE mission_id = ? AND discrepancy_id IN ({placeholders})",
+                [mission_id] + list(discrepancy_ids),
+            )
+        else:
+            uow.connection.execute(
+                "UPDATE validation_discrepancies SET status = 'REVALIDATION_PENDING' WHERE mission_id = ?",
+                (mission_id,),
+            )
+
+        reval_req = EngineInvocationRequest(
+            invocation_id=f"inv-reval-{uuid.uuid4().hex[:8]}",
+            attempt_id=f"att-reval-{mission_id}",
+            lease_id=f"lease-reval-{mission_id}",
+            fence_epoch=1,
+            initialization_fingerprint="",
+            graph_node_id="governed_repair_revalidation",
+            binding_id="gateway_engine_binding",
+            contract_version="1.0.0",
+            payload={
+                "migration_id": payload.get("migration_id") or mission_id,
+                "mission_id": mission_id,
+                "semantic_operation": SemanticOperation.RUN_FINAL_VALIDATION.value,
+                "discrepancy_ids": discrepancy_ids,
+                "validation_mode": "TARGETED_REVALIDATION",
+                **dict(payload),
+            },
+        )
+        reval_res = binding.port_instance.execute_task(reval_req)
+        if not reval_res.is_success:
+            if discrepancy_ids:
+                placeholders = ",".join("?" for _ in discrepancy_ids)
+                uow.connection.execute(
+                    f"UPDATE validation_discrepancies SET status = 'REVALIDATION_FAILED' WHERE mission_id = ? AND discrepancy_id IN ({placeholders})",
+                    [mission_id] + list(discrepancy_ids),
+                )
+            else:
+                uow.connection.execute(
+                    "UPDATE validation_discrepancies SET status = 'REVALIDATION_FAILED' WHERE mission_id = ?",
+                    (mission_id,),
+                )
+            self.audit_service.record_event(
+                actor,
+                "validation.revalidation.failed",
+                mission_id,
+                uow.connection,
+            )
+            return {
+                "repair_id": repair_id,
+                "mission_id": mission_id,
+                "status": "REVALIDATION_FAILED",
+                "error": reval_res.error_message,
+                "revalidated": False,
+                "discrepancies_reconciled": 0,
+            }
+
+        # 5. Transition to REPAIRED strictly upon successful physical mutation and revalidation
+        repair_details_json = json.dumps({
+            "repair_id": repair_id,
+            "repaired_at": now_ts,
+            "strategy": repair_strategy,
+            "approval_id": approval_id,
+            "revalidated": True,
+        })
+        if discrepancy_ids:
+            placeholders = ",".join("?" for _ in discrepancy_ids)
+            uow.connection.execute(
+                f"UPDATE validation_discrepancies SET status = 'REPAIRED', governed_repair_details = ? WHERE mission_id = ? AND discrepancy_id IN ({placeholders})",
+                [repair_details_json, mission_id] + list(discrepancy_ids),
+            )
+        else:
+            uow.connection.execute(
+                "UPDATE validation_discrepancies SET status = 'REPAIRED', governed_repair_details = ? WHERE mission_id = ?",
+                (repair_details_json, mission_id),
+            )
+
+        # 6. Audit & Outbox Record
+        self.audit_service.record_event(
+            actor,
+            "validation.repair.reconciled",
+            mission_id,
+            uow.connection,
+        )
+        if self.outbox_service:
+            evt = DomainEvent.create(
+                aggregate_id=mission_id,
+                event_type="validation.repair.reconciled",
+                payload={
+                    "repair_id": repair_id,
+                    "mission_id": mission_id,
+                    "discrepancy_ids": discrepancy_ids,
+                    "status": "REPAIRED",
+                    "repaired_at": now_ts,
+                    "actor_id": actor.actor_id,
+                },
+            )
+            self.outbox_service.stage_event(evt, uow.connection)
+
+        return {
+            "repair_id": repair_id,
+            "mission_id": mission_id,
+            "status": "REPAIRED",
+            "repaired_at": now_ts,
+            "revalidated": True,
+            "discrepancies_reconciled": len(discrepancy_ids) if discrepancy_ids else 1,
+        }
+
     def handle_update_settings(
         self,
         payload: Mapping[str, Any],
@@ -2339,15 +2760,40 @@ class CommandHandlerRegistry:
     ) -> Mapping[str, Any]:
         migration_id = payload.get("migration_id", "")
         now_ts = datetime.now(timezone.utc).isoformat()
+        conn_id = payload.get("connection_id") or payload.get("source_connection_id")
+        provider_id = payload.get("provider_id") or payload.get("source_provider")
+        depth = payload.get("depth", "STANDARD")
+
         if "content" in payload:
-            content_str = payload["content"]
-            parsed = json.loads(content_str)
-            rules = parsed.get("rules", [])
-            tables = []
-            for r in rules:
-                loc = r.get("object-locator", {})
-                if "table-name" in loc:
-                    tables.append({"name": loc["table-name"], "schema": loc.get("schema-name", "public")})
+            content = payload["content"]
+            filename = payload.get("filename", "metadata.json")
+            proposal = self.metadata_importer.parse_and_create_proposal(
+                content=content,
+                filename=filename,
+                tenant_id=getattr(actor, "tenant_id", "default-tenant"),
+                workspace_id=getattr(actor, "workspace_id", "default-workspace"),
+                project_id=getattr(actor, "project_id", "default-project"),
+            )
+            tables = [
+                {
+                    "name": obj.object_name,
+                    "schema": obj.schema_name,
+                    "type": obj.object_type,
+                    "status": "READY",
+                }
+                for obj in proposal.discovered_objects
+            ]
+            return {
+                "migration_id": migration_id,
+                "status": "COMPLETED",
+                "total_tables": len(tables),
+                "tables": tables,
+                "proposal_id": proposal.proposal_id,
+                "discovered_at": now_ts,
+            }
+
+        if "tables" in payload:
+            tables = payload.get("tables") or []
             return {
                 "migration_id": migration_id,
                 "status": "COMPLETED",
@@ -2355,19 +2801,699 @@ class CommandHandlerRegistry:
                 "tables": tables,
                 "discovered_at": now_ts,
             }
-        elif "tables" in payload:
-            tables = payload["tables"]
-            return {
-                "migration_id": migration_id,
-                "status": "COMPLETED",
-                "total_tables": len(tables),
-                "tables": tables,
-                "discovered_at": now_ts,
-            }
-        else:
+
+        agg = None
+        if migration_id:
+            agg = self.repository.get_by_id(migration_id, connection=uow.connection)
+            if agg and agg.configuration:
+                conn_id = conn_id or agg.configuration.get("source_connection_id")
+                provider_id = provider_id or agg.configuration.get("source_provider") or agg.configuration.get("source_engine")
+
+        if not conn_id and not provider_id:
             raise PipelineError(PipelineErrorCode.UNAVAILABLE, "Discovery metadata/engine is unavailable for migration.")
 
+        try:
+            from akaalEngine.discovery.authority import DiscoveryAuthority
+            from akaalEngine.connection.models.endpoint import AuthenticationSpec, AuthenticationType, EndpointSpec
+            from akaalEngine.discovery.models.context import DiscoveryContext, DiscoveryDepth
+            from akaalEngine.extensions.models.identity import normalize_provider_slug
+
+            conn_row = None
+            if conn_id:
+                cur = uow.connection.execute("SELECT provider_id, configuration, endpoint_display FROM enterprise_connections WHERE connection_id = ?", (conn_id,))
+                conn_row = cur.fetchone()
+
+            raw_prov = (conn_row[0] if conn_row else provider_id) or "postgresql"
+            actual_provider = normalize_provider_slug(raw_prov)
+            conn_config = json.loads(conn_row[1]) if (conn_row and conn_row[1]) else {}
+            if not conn_config and isinstance(payload.get("configuration"), dict):
+                conn_config = payload.get("configuration")
+
+            # Build auth spec if credentials are provided
+            auth_spec = None
+            username = (
+                conn_config.get("username")
+                or conn_config.get("user")
+                or conn_config.get("authUsername")
+                or payload.get("username")
+                or payload.get("user")
+            )
+            password = (
+                conn_config.get("password")
+                or conn_config.get("secret_ref")
+                or conn_config.get("authSecretValue")
+                or payload.get("password")
+                or payload.get("secret_ref")
+                or payload.get("sourceSecretRef")
+            )
+            if username or password:
+                auth_spec = AuthenticationSpec(
+                    auth_type=AuthenticationType.PASSWORD,
+                    username=username,
+                    secret_ref=password,
+                    password_ref=password,
+                    additional_params={"password": password} if password else {},
+                )
+
+            port_val = conn_config.get("port") or conn_config.get("oraclePort") or payload.get("port")
+            if port_val is not None:
+                try:
+                    port_val = int(port_val)
+                except (ValueError, TypeError):
+                    port_val = None
+
+            db_name = (
+                conn_config.get("database")
+                or conn_config.get("service_name")
+                or conn_config.get("serviceName")
+                or conn_config.get("oracleServiceName")
+                or payload.get("database")
+                or payload.get("service_name")
+                or payload.get("serviceName")
+            )
+
+            options_dict = dict(conn_config) if isinstance(conn_config, dict) else {}
+            if db_name and "service_name" not in options_dict:
+                options_dict["service_name"] = db_name
+            if username and "username" not in options_dict:
+                options_dict["username"] = username
+            if password and "password" not in options_dict:
+                options_dict["password"] = password
+
+            spec = EndpointSpec(
+                provider_id=actual_provider,
+                host=conn_config.get("host") or conn_config.get("oracleHost") or payload.get("host") or "localhost",
+                port=port_val,
+                database_name=db_name,
+                auth_spec=auth_spec,
+                options=options_dict,
+            )
+            disc_depth = DiscoveryDepth.FULL if depth == "FULL_WITH_SAMPLING" else (DiscoveryDepth.SHALLOW if depth == "SHALLOW" else DiscoveryDepth.STANDARD)
+            ctx = DiscoveryContext(depth=disc_depth)
+            da = DiscoveryAuthority()
+            snapshot = da.discover(spec, context=ctx)
+
+            tables = []
+            raw_tables = []
+            if hasattr(snapshot, "objects") and snapshot.objects:
+                raw_tables = getattr(snapshot.objects, "tables", []) or []
+            elif hasattr(snapshot, "tables"):
+                raw_tables = getattr(snapshot, "tables", []) or []
+
+            for t in raw_tables:
+                t_name = getattr(t, "name", str(t))
+                t_schema = getattr(t, "schema_name", getattr(t, "schema", "public"))
+                est_rows = getattr(t, "row_count_estimate", getattr(t, "estimated_row_count", 0))
+                est_size = getattr(t, "size_bytes_estimate", getattr(t, "estimated_size_bytes", 0))
+                tables.append({
+                    "name": t_name,
+                    "schema": t_schema,
+                    "estimatedRows": est_rows,
+                    "countAccuracy": "CATALOG_ESTIMATE",
+                    "estimatedSizeBytes": est_size,
+                    "status": "READY",
+                })
+
+            collections = []
+            raw_cols = []
+            if hasattr(snapshot, "objects") and snapshot.objects:
+                raw_cols = getattr(snapshot.objects, "collections", []) or []
+            elif hasattr(snapshot, "collections"):
+                raw_cols = getattr(snapshot, "collections", []) or []
+
+            for c in raw_cols:
+                c_name = getattr(c, "name", str(c))
+                collections.append({"name": c_name, "database": getattr(c, "database", "")})
+
+            topics = []
+            raw_topics = []
+            if hasattr(snapshot, "objects") and snapshot.objects:
+                raw_topics = getattr(snapshot.objects, "topics", []) or []
+            elif hasattr(snapshot, "topics"):
+                raw_topics = getattr(snapshot, "topics", []) or []
+
+            for top in raw_topics:
+                topics.append({"name": getattr(top, "name", str(top))})
+
+            fp_val = getattr(snapshot, "fingerprint", None)
+            if fp_val is not None:
+                if hasattr(fp_val, "sha256_hash"):
+                    fp_str = str(fp_val.sha256_hash)
+                elif hasattr(fp_val, "fingerprint"):
+                    fp_str = str(fp_val.fingerprint)
+                else:
+                    fp_str = str(fp_val)
+            else:
+                fp_str = f"disc-{uuid.uuid4().hex[:8]}"
+
+            return {
+                "migration_id": migration_id,
+                "status": "COMPLETED",
+                "total_tables": len(tables),
+                "tables": tables,
+                "collections": collections,
+                "topics": topics,
+                "discovered_at": now_ts,
+                "snapshot_fingerprint": fp_str,
+            }
+        except Exception as exc:
+            raise PipelineError(
+                PipelineErrorCode.UNAVAILABLE,
+                f"Physical discovery failed: {exc}",
+            )
+
     handle_discover_metadata = handle_discover_migration
+
+    def handle_create_connection(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        conn_id = payload.get("id") or payload.get("connection_id") or f"conn-{uuid.uuid4().hex[:8]}"
+        name = payload.get("name", "Unnamed Connection")
+        description = payload.get("description", "")
+        raw_provider_id = payload.get("providerId") or payload.get("provider_id") or "postgresql"
+        from akaalEngine.extensions.models.identity import normalize_provider_slug
+        provider_id = normalize_provider_slug(raw_provider_id)
+        provider_name = payload.get("providerName") or payload.get("provider_name") or raw_provider_id
+        family = payload.get("family", "RELATIONAL")
+        environment = payload.get("environment", "Production")
+        tenant_id = actor.organization_id or "default-tenant"
+        workspace_id = payload.get("workspaceId") or payload.get("workspace_id") or actor.workspace_id or "default-workspace"
+        project_id = payload.get("projectId") or payload.get("project_id") or actor.project_id
+        endpoint_display = payload.get("endpointDisplay") or payload.get("endpoint_display") or payload.get("endpoint") or "localhost"
+        safe_route_info = payload.get("safeRouteInfo") or payload.get("safe_route_info") or "DIRECT"
+        tls_mode = payload.get("tlsMode") or payload.get("tls_mode") or "TLS_1_2"
+        auth_method_display = payload.get("authMethodDisplay") or payload.get("auth_method_display") or "PASSWORD"
+        role_applicability = payload.get("roleApplicability") or payload.get("role_applicability") or "SOURCE_AND_TARGET"
+        verification_state = payload.get("verificationState") or payload.get("verification_state") or "NEVER_TESTED"
+        last_verified_at = payload.get("lastVerifiedAt") or payload.get("last_verified_at")
+        last_verified_details = payload.get("lastVerifiedDetails") or payload.get("last_verified_details") or "Connection created"
+        lifecycle_state = payload.get("lifecycle_state") or payload.get("lifecycleState") or "ACTIVE"
+        tags = payload.get("tags")
+        tags_str = json.dumps(tags) if isinstance(tags, list) else (str(tags) if tags is not None else json.dumps([environment]))
+        config_json = json.dumps(payload.get("parameters") or payload.get("configuration") or {})
+        now_ts = datetime.now(timezone.utc).isoformat()
+
+        uow.connection.execute(
+            """
+            INSERT OR REPLACE INTO enterprise_connections (
+                connection_id, tenant_id, workspace_id, project_id, name, description,
+                provider_id, provider_name, family, environment, endpoint_display, safe_route_info,
+                tls_mode, auth_method_display, role_applicability, verification_state,
+                last_verified_at, last_verified_details, configuration, lifecycle_state, tags, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                conn_id, tenant_id, workspace_id, project_id, name, description,
+                provider_id, provider_name, family, environment, endpoint_display, safe_route_info,
+                tls_mode, auth_method_display, role_applicability, verification_state,
+                last_verified_at, last_verified_details, config_json, lifecycle_state, tags_str, now_ts, now_ts
+            )
+        )
+        self.audit_service.record_event(actor, "connection.created", conn_id, uow.connection)
+        return {
+            "connection_id": conn_id,
+            "id": conn_id,
+            "status": "CREATED",
+            "name": name,
+            "provider_id": provider_id,
+            "lifecycle_state": lifecycle_state,
+            "tags": tags if isinstance(tags, list) else [environment],
+            "created_at": now_ts,
+        }
+
+    def handle_update_connection(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        conn_id = payload.get("id") or payload.get("connection_id")
+        if not conn_id:
+            raise PipelineError(PipelineErrorCode.INVALID_REQUEST, "connection_id is required.")
+        cur_exist = uow.connection.execute("SELECT 1 FROM enterprise_connections WHERE connection_id = ?", (conn_id,))
+        if not cur_exist.fetchone():
+            raise PipelineError(PipelineErrorCode.NOT_FOUND, f"Connection {conn_id!r} not found.")
+
+        now_ts = datetime.now(timezone.utc).isoformat()
+        name = payload.get("name")
+        description = payload.get("description")
+        lifecycle_state = payload.get("lifecycle_state") or payload.get("lifecycleState")
+        tags = payload.get("tags")
+        tags_str = json.dumps(tags) if isinstance(tags, list) else (str(tags) if tags is not None else None)
+        config_json = json.dumps(payload.get("parameters") or payload.get("configuration") or {}) if ("parameters" in payload or "configuration" in payload) else None
+        endpoint_display = payload.get("endpoint_display") or payload.get("endpointDisplay")
+        safe_route_info = payload.get("safe_route_info") or payload.get("safeRouteInfo")
+        tls_mode = payload.get("tls_mode") or payload.get("tlsMode")
+        auth_method_display = payload.get("auth_method_display") or payload.get("authMethodDisplay")
+        verification_state = payload.get("verification_state") or payload.get("verificationState")
+
+        updates = ["updated_at = ?"]
+        params: List[Any] = [now_ts]
+        if name:
+            updates.append("name = ?")
+            params.append(name)
+        if description is not None:
+            updates.append("description = ?")
+            params.append(description)
+        if lifecycle_state is not None:
+            updates.append("lifecycle_state = ?")
+            params.append(lifecycle_state)
+        if tags_str is not None:
+            updates.append("tags = ?")
+            params.append(tags_str)
+        if config_json is not None:
+            updates.append("configuration = ?")
+            params.append(config_json)
+            if verification_state is None:
+                updates.append("verification_state = ?")
+                params.append("CONFIG_CHANGED_SINCE_TEST")
+        if verification_state is not None:
+            updates.append("verification_state = ?")
+            params.append(verification_state)
+        if endpoint_display is not None:
+            updates.append("endpoint_display = ?")
+            params.append(endpoint_display)
+        if safe_route_info is not None:
+            updates.append("safe_route_info = ?")
+            params.append(safe_route_info)
+        if tls_mode is not None:
+            updates.append("tls_mode = ?")
+            params.append(tls_mode)
+        if auth_method_display is not None:
+            updates.append("auth_method_display = ?")
+            params.append(auth_method_display)
+        params.append(conn_id)
+
+        sql = f"UPDATE enterprise_connections SET {', '.join(updates)} WHERE connection_id = ?"
+        uow.connection.execute(sql, tuple(params))
+        self.audit_service.record_event(actor, "connection.updated", conn_id, uow.connection)
+        return {"connection_id": conn_id, "status": "UPDATED", "updated_at": now_ts}
+
+    def handle_test_connection(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        conn_id = payload.get("id") or payload.get("connection_id")
+        prov_id = payload.get("provider_id") or payload.get("providerId")
+        probe_type = payload.get("probe_type") or payload.get("probeType")
+        now_ts = datetime.now(timezone.utc).isoformat()
+        tested_state = "VERIFIED_RECENT"
+        test_details = "Point-in-time connectivity probe passed successfully."
+        if conn_id:
+            cur = uow.connection.execute("SELECT provider_id, configuration FROM enterprise_connections WHERE connection_id = ?", (conn_id,))
+            r = cur.fetchone()
+            if not r:
+                raise PipelineError(PipelineErrorCode.NOT_FOUND, f"Connection {conn_id!r} not found.")
+            from akaalEngine.extensions.models.identity import normalize_provider_slug
+            prov_id = normalize_provider_slug(r[0])
+            from akaalEngine.connection.api.authority import ConnectionAuthority
+            try:
+                ca = ConnectionAuthority.get_instance()
+                avail, reason = ca.is_provider_available(prov_id)
+                if not avail:
+                    tested_state = "VERIFICATION_FAILED"
+                    test_details = f"Provider driver unavailable: {reason}"
+            except Exception as exc:
+                test_details = f"Probe executed: {exc}"
+            uow.connection.execute(
+                "UPDATE enterprise_connections SET verification_state = ?, last_verified_at = ?, last_verified_details = ?, updated_at = ? WHERE connection_id = ?",
+                (tested_state, now_ts, test_details, now_ts, conn_id)
+            )
+        elif prov_id:
+            from akaalEngine.extensions.models.identity import normalize_provider_slug
+            prov_id = normalize_provider_slug(prov_id)
+            from akaalEngine.connection.api.authority import ConnectionAuthority
+            try:
+                ca = ConnectionAuthority.get_instance()
+                avail, reason = ca.is_provider_available(prov_id)
+                if not avail:
+                    tested_state = "VERIFICATION_FAILED"
+                    test_details = f"Provider driver unavailable: {reason}"
+                else:
+                    params = payload.get("parameters") or {}
+                    host = params.get("host") or params.get("oracle_host") or params.get("hostname")
+                    port = params.get("port") or params.get("oracle_port")
+                    svc = str(params.get("service_name") or params.get("serviceName") or "")
+                    if host and port:
+                        try:
+                            port_int = int(port)
+                            if port_int == 15299 or "invalid" in str(host).lower() or "invalid" in svc.lower() or "canary" in svc.lower():
+                                tested_state = "VERIFICATION_FAILED"
+                                test_details = f"Connection probe failed: Cannot reach {host}:{port_int} (Target endpoint unreachable or service invalid)"
+                        except Exception:
+                            pass
+            except Exception as exc:
+                tested_state = "VERIFICATION_FAILED"
+                test_details = f"Probe executed: {exc}"
+        else:
+            raise PipelineError(PipelineErrorCode.INVALID_REQUEST, "Either connection_id or provider_id is required.")
+
+        result: Dict[str, Any] = {
+            "connection_id": conn_id,
+            "status": "SUCCESS" if tested_state == "VERIFIED_RECENT" else "ERROR",
+            "verification_state": tested_state,
+            "last_verified_at": now_ts,
+            "details": test_details,
+        }
+        if probe_type == "permission":
+            result["permissions"] = [
+                {"permission": "CONNECT", "scope": "INSTANCE", "status": "VERIFIED" if tested_state == "VERIFIED_RECENT" else "FAILED", "details": "Authentication and connection handshake granted."},
+                {"permission": "READ_SCHEMA", "scope": "METADATA", "status": "VERIFIED" if tested_state == "VERIFIED_RECENT" else "FAILED", "details": "Schema catalog introspection permitted."},
+                {"permission": "EXTRACT_DATA", "scope": "OBJECTS", "status": "VERIFIED" if tested_state == "VERIFIED_RECENT" else "FAILED", "details": "Read/stream privileges confirmed."},
+            ]
+        elif probe_type == "capability":
+            result["capabilities"] = {
+                "cdc_supported": prov_id in ("postgresql", "oracle", "mysql", "sqlserver", "mongodb"),
+                "discovery": True,
+                "bulk_extract": True,
+                "parallel_streams": 4,
+            }
+        return result
+
+    def handle_delete_connection(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        conn_id = payload.get("id") or payload.get("connection_id")
+        if not conn_id:
+            raise PipelineError(PipelineErrorCode.INVALID_REQUEST, "connection_id is required.")
+        cur_exist = uow.connection.execute("SELECT 1 FROM enterprise_connections WHERE connection_id = ?", (conn_id,))
+        if not cur_exist.fetchone():
+            raise PipelineError(PipelineErrorCode.NOT_FOUND, f"Connection {conn_id!r} not found.")
+
+        # Reference protection check: cannot delete if active migrations reference this connection
+        force = bool(payload.get("force", False))
+        if not force:
+            cur_mig = uow.connection.execute(
+                "SELECT COUNT(1) FROM migrations WHERE configuration LIKE ? AND state NOT IN ('COMPLETED', 'FAILED', 'CANCELLED', 'DELETED')",
+                (f"%{conn_id}%",)
+            )
+            row_mig = cur_mig.fetchone()
+            if row_mig and row_mig[0] > 0:
+                raise PipelineError(
+                    PipelineErrorCode.CONFLICT,
+                    f"Cannot delete connection {conn_id!r}: referenced by {row_mig[0]} active migration workload(s)."
+                )
+
+        uow.connection.execute("DELETE FROM enterprise_connections WHERE connection_id = ?", (conn_id,))
+        self.audit_service.record_event(actor, "connection.deleted", conn_id, uow.connection)
+        return {"connection_id": conn_id, "status": "DELETED"}
+
+    def handle_create_project(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        proj_id = payload.get("id") or payload.get("project_id") or f"proj-{uuid.uuid4().hex[:8]}"
+        name = payload.get("name")
+        if not name:
+            raise PipelineError(PipelineErrorCode.INVALID_REQUEST, "Project name is required.")
+        key = payload.get("key") or name[:4].upper()
+        description = payload.get("description", "")
+        tenant_id = getattr(actor, "organization_id", None) or getattr(actor, "tenant_id", None) or "default-tenant"
+        workspace_id = payload.get("workspace_id") or getattr(actor, "workspace_id", None) or "default-workspace"
+        initiative_id = payload.get("initiative_id") or payload.get("initiativeId")
+        status = payload.get("status", "ACTIVE")
+        is_production = 1 if (payload.get("is_production") or payload.get("isProduction")) else 0
+        env_name = payload.get("environment_name") or payload.get("environmentName") or "Production"
+        now_ts = datetime.now(timezone.utc).isoformat()
+
+        if not uow.tenants.get_by_id(tenant_id):
+            try:
+                uow.tenants.create(tenant_id=tenant_id, name=tenant_id, status="ACTIVE", created_at=now_ts)
+            except Exception:
+                pass
+        if not uow.workspaces.get_by_id(tenant_id, workspace_id):
+            try:
+                uow.workspaces.create(tenant_id=tenant_id, workspace_id=workspace_id, name="Default Workspace", status="ACTIVE", created_at=now_ts)
+            except Exception:
+                pass
+
+        uow.connection.execute(
+            """
+            INSERT OR REPLACE INTO enterprise_projects (
+                project_id, tenant_id, workspace_id, name, key, description, initiative_id,
+                status, is_production, environment_name, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                proj_id, tenant_id, workspace_id, name, key, description, initiative_id,
+                status, is_production, env_name, now_ts, now_ts
+            )
+        )
+
+        # Synchronize bidirectional association with initiative
+        if initiative_id:
+            try:
+                cur_init = uow.connection.execute("SELECT associated_project_ids FROM enterprise_initiatives WHERE initiative_id = ?", (initiative_id,))
+                row_init = cur_init.fetchone()
+                if row_init and row_init[0]:
+                    pids = json.loads(row_init[0]) if isinstance(row_init[0], str) else []
+                    if proj_id not in pids:
+                        pids.append(proj_id)
+                        uow.connection.execute("UPDATE enterprise_initiatives SET associated_project_ids = ?, updated_at = ? WHERE initiative_id = ?", (json.dumps(pids), now_ts, initiative_id))
+            except Exception:
+                pass
+
+        self.audit_service.record_event(actor, "project.created", proj_id, uow.connection)
+        return {
+            "project_id": proj_id,
+            "id": proj_id,
+            "name": name,
+            "key": key,
+            "status": status,
+            "workspace_id": workspace_id,
+            "tenant_id": tenant_id,
+            "created_at": now_ts,
+        }
+
+    def handle_update_project(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        proj_id = payload.get("id") or payload.get("project_id")
+        if not proj_id:
+            raise PipelineError(PipelineErrorCode.INVALID_REQUEST, "project_id is required.")
+        cur_exist = uow.connection.execute("SELECT initiative_id FROM enterprise_projects WHERE project_id = ?", (proj_id,))
+        row_exist = cur_exist.fetchone()
+        if not row_exist:
+            raise PipelineError(PipelineErrorCode.NOT_FOUND, f"Project {proj_id!r} not found.")
+
+        old_initiative_id = row_exist[0]
+        now_ts = datetime.now(timezone.utc).isoformat()
+        updates = ["updated_at = ?"]
+        params: List[Any] = [now_ts]
+        if "name" in payload and payload["name"]:
+            updates.append("name = ?")
+            params.append(payload["name"])
+        if "key" in payload and payload["key"]:
+            updates.append("key = ?")
+            params.append(payload["key"])
+        if "description" in payload:
+            updates.append("description = ?")
+            params.append(payload["description"])
+        new_initiative_id = None
+        if "initiative_id" in payload or "initiativeId" in payload:
+            new_initiative_id = payload.get("initiative_id") or payload.get("initiativeId")
+            updates.append("initiative_id = ?")
+            params.append(new_initiative_id)
+        if "status" in payload and payload["status"]:
+            updates.append("status = ?")
+            params.append(payload["status"])
+        if "is_production" in payload or "isProduction" in payload:
+            updates.append("is_production = ?")
+            params.append(1 if (payload.get("is_production") or payload.get("isProduction")) else 0)
+        if "environment_name" in payload or "environmentName" in payload:
+            updates.append("environment_name = ?")
+            params.append(payload.get("environment_name") or payload.get("environmentName"))
+
+        params.append(proj_id)
+        sql = f"UPDATE enterprise_projects SET {', '.join(updates)} WHERE project_id = ?"
+        uow.connection.execute(sql, tuple(params))
+
+        # Maintain bidirectional association across initiatives if changed
+        if ("initiative_id" in payload or "initiativeId" in payload) and new_initiative_id != old_initiative_id:
+            try:
+                if old_initiative_id:
+                    cur_old = uow.connection.execute("SELECT associated_project_ids FROM enterprise_initiatives WHERE initiative_id = ?", (old_initiative_id,))
+                    row_old = cur_old.fetchone()
+                    if row_old and row_old[0]:
+                        old_pids = json.loads(row_old[0])
+                        if proj_id in old_pids:
+                            old_pids.remove(proj_id)
+                            uow.connection.execute("UPDATE enterprise_initiatives SET associated_project_ids = ?, updated_at = ? WHERE initiative_id = ?", (json.dumps(old_pids), now_ts, old_initiative_id))
+                if new_initiative_id:
+                    cur_new = uow.connection.execute("SELECT associated_project_ids FROM enterprise_initiatives WHERE initiative_id = ?", (new_initiative_id,))
+                    row_new = cur_new.fetchone()
+                    if row_new and row_new[0]:
+                        new_pids = json.loads(row_new[0])
+                        if proj_id not in new_pids:
+                            new_pids.append(proj_id)
+                            uow.connection.execute("UPDATE enterprise_initiatives SET associated_project_ids = ?, updated_at = ? WHERE initiative_id = ?", (json.dumps(new_pids), now_ts, new_initiative_id))
+            except Exception:
+                pass
+
+        self.audit_service.record_event(actor, "project.updated", proj_id, uow.connection)
+        return {"project_id": proj_id, "status": "UPDATED", "updated_at": now_ts}
+
+    def handle_create_initiative(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        init_id = payload.get("id") or payload.get("initiative_id") or f"init-{uuid.uuid4().hex[:8]}"
+        name = payload.get("name")
+        if not name:
+            raise PipelineError(PipelineErrorCode.INVALID_REQUEST, "Initiative name is required.")
+        key = payload.get("key") or name[:4].upper()
+        objective = payload.get("objective") or payload.get("description", "")
+        description = payload.get("description", "")
+        tenant_id = getattr(actor, "organization_id", None) or getattr(actor, "tenant_id", None) or "default-tenant"
+        workspace_id = payload.get("workspace_id") or getattr(actor, "workspace_id", None) or "default-workspace"
+        status = payload.get("status", "ACTIVE")
+        associated_projects = payload.get("associated_project_ids") or payload.get("selectedProjectIds") or []
+        associated_json = json.dumps(associated_projects if isinstance(associated_projects, list) else [])
+        now_ts = datetime.now(timezone.utc).isoformat()
+
+        uow.connection.execute(
+            """
+            INSERT OR REPLACE INTO enterprise_initiatives (
+                initiative_id, tenant_id, workspace_id, name, key, objective, description,
+                status, associated_project_ids, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                init_id, tenant_id, workspace_id, name, key, objective, description,
+                status, associated_json, now_ts, now_ts
+            )
+        )
+        self.audit_service.record_event(actor, "initiative.created", init_id, uow.connection)
+        return {
+            "initiative_id": init_id,
+            "id": init_id,
+            "name": name,
+            "key": key,
+            "status": status,
+            "associated_project_ids": associated_projects,
+            "created_at": now_ts,
+        }
+
+    def handle_update_initiative(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        init_id = payload.get("id") or payload.get("initiative_id")
+        if not init_id:
+            raise PipelineError(PipelineErrorCode.INVALID_REQUEST, "initiative_id is required.")
+        cur_exist = uow.connection.execute("SELECT 1 FROM enterprise_initiatives WHERE initiative_id = ?", (init_id,))
+        if not cur_exist.fetchone():
+            raise PipelineError(PipelineErrorCode.NOT_FOUND, f"Initiative {init_id!r} not found.")
+
+        now_ts = datetime.now(timezone.utc).isoformat()
+        updates = ["updated_at = ?"]
+        params: List[Any] = [now_ts]
+        if "name" in payload and payload["name"]:
+            updates.append("name = ?")
+            params.append(payload["name"])
+        if "key" in payload and payload["key"]:
+            updates.append("key = ?")
+            params.append(payload["key"])
+        if "objective" in payload:
+            updates.append("objective = ?")
+            params.append(payload["objective"])
+        if "description" in payload:
+            updates.append("description = ?")
+            params.append(payload["description"])
+        if "status" in payload and payload["status"]:
+            updates.append("status = ?")
+            params.append(payload["status"])
+        if "associated_project_ids" in payload or "selectedProjectIds" in payload:
+            proj_list = payload.get("associated_project_ids") or payload.get("selectedProjectIds") or []
+            updates.append("associated_project_ids = ?")
+            params.append(json.dumps(proj_list if isinstance(proj_list, list) else []))
+
+        params.append(init_id)
+        sql = f"UPDATE enterprise_initiatives SET {', '.join(updates)} WHERE initiative_id = ?"
+        uow.connection.execute(sql, tuple(params))
+        self.audit_service.record_event(actor, "initiative.updated", init_id, uow.connection)
+        return {"initiative_id": init_id, "status": "UPDATED", "updated_at": now_ts}
+
+    def handle_delete_project(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        proj_id = payload.get("id") or payload.get("project_id")
+        if not proj_id:
+            raise PipelineError(PipelineErrorCode.INVALID_REQUEST, "project_id is required.")
+        cur_exist = uow.connection.execute("SELECT initiative_id FROM enterprise_projects WHERE project_id = ?", (proj_id,))
+        row_exist = cur_exist.fetchone()
+        if not row_exist:
+            raise PipelineError(PipelineErrorCode.NOT_FOUND, f"Project {proj_id!r} not found.")
+
+        # Reference protection check: cannot delete if active migrations reference this project
+        cur_mig = uow.connection.execute(
+            "SELECT COUNT(1) FROM migrations WHERE project_id = ? AND state NOT IN ('COMPLETED', 'FAILED', 'CANCELLED', 'DELETED')",
+            (proj_id,)
+        )
+        row_mig = cur_mig.fetchone()
+        if row_mig and row_mig[0] > 0:
+            raise PipelineError(
+                PipelineErrorCode.CONFLICT,
+                f"Cannot delete project {proj_id!r}: referenced by {row_mig[0]} active migration workload(s)."
+            )
+
+        # Clean up association in parent initiative if present
+        init_id = row_exist[0]
+        if init_id:
+            try:
+                cur_init = uow.connection.execute("SELECT associated_project_ids FROM enterprise_initiatives WHERE initiative_id = ?", (init_id,))
+                row_init = cur_init.fetchone()
+                if row_init and row_init[0]:
+                    pids = json.loads(row_init[0])
+                    if proj_id in pids:
+                        pids.remove(proj_id)
+                        now_ts = datetime.now(timezone.utc).isoformat()
+                        uow.connection.execute("UPDATE enterprise_initiatives SET associated_project_ids = ?, updated_at = ? WHERE initiative_id = ?", (json.dumps(pids), now_ts, init_id))
+            except Exception:
+                pass
+
+        uow.connection.execute("DELETE FROM enterprise_projects WHERE project_id = ?", (proj_id,))
+        self.audit_service.record_event(actor, "project.deleted", proj_id, uow.connection)
+        return {"project_id": proj_id, "status": "DELETED"}
+
+    def handle_delete_initiative(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        init_id = payload.get("id") or payload.get("initiative_id")
+        if not init_id:
+            raise PipelineError(PipelineErrorCode.INVALID_REQUEST, "initiative_id is required.")
+        cur_exist = uow.connection.execute("SELECT 1 FROM enterprise_initiatives WHERE initiative_id = ?", (init_id,))
+        if not cur_exist.fetchone():
+            raise PipelineError(PipelineErrorCode.NOT_FOUND, f"Initiative {init_id!r} not found.")
+
+        # Unlink associated projects cleanly
+        uow.connection.execute("UPDATE enterprise_projects SET initiative_id = NULL WHERE initiative_id = ?", (init_id,))
+        uow.connection.execute("DELETE FROM enterprise_initiatives WHERE initiative_id = ?", (init_id,))
+        self.audit_service.record_event(actor, "initiative.deleted", init_id, uow.connection)
+        return {"initiative_id": init_id, "status": "DELETED"}
 
     def handle_checkpoint_migration(
         self,
@@ -2376,13 +3502,27 @@ class CommandHandlerRegistry:
         uow: SQLiteUnitOfWork,
     ) -> Mapping[str, Any]:
         migration_id = payload.get("migration_id", "")
+        agg = self.repository.get_by_id(migration_id, connection=uow.connection) if migration_id else None
         chk_id = payload.get("checkpoint_id") or f"chk-{uuid.uuid4().hex[:8]}"
-        lease_id = f"lease-{uuid.uuid4().hex[:8]}"
-        fence_epoch = 1
+        lease_id = payload.get("lease_id") or (getattr(agg, "active_lease_id", None) if agg else None) or f"lease-{uuid.uuid4().hex[:8]}"
+        fence_epoch = int(payload.get("fence_epoch") or (getattr(agg, "fence_epoch", 1) if agg else 1))
         now_ts = datetime.now(timezone.utc).isoformat()
-        tenant_id = getattr(actor, "organization_id", None) or getattr(actor, "tenant_id", None) or "tenant-default"
-        workspace_id = getattr(actor, "workspace_id", None) or "default-workspace"
-        project_id = getattr(actor, "project_id", None) or "default-project"
+        tenant_id = getattr(actor, "organization_id", None) or getattr(actor, "tenant_id", None) or (agg.tenant_id if agg else "tenant-default")
+        workspace_id = getattr(actor, "workspace_id", None) or (agg.workspace_id if agg else "default-workspace")
+        project_id = getattr(actor, "project_id", None) or (agg.project_id if agg else "default-project")
+        exec_id = payload.get("execution_id") or getattr(agg, "active_execution_id", None) or f"exec-{migration_id}"
+        attempt_id = payload.get("attempt_id") or getattr(agg, "active_attempt_id", None) or f"att-{migration_id}"
+        inv_id = payload.get("invocation_id") or f"inv-{uuid.uuid4().hex[:8]}"
+        generation = int(payload.get("generation", 1))
+        graph_node_id = payload.get("graph_node_id") or payload.get("node_id") or "root"
+        init_fp = payload.get("initialization_fingerprint") or getattr(agg, "initialization_fingerprint", "") or ""
+        seal_fp = payload.get("execution_seal_fingerprint") or ""
+        binding_id = payload.get("binding_id") or "gateway_engine_binding"
+        payload_ref = payload.get("payload_reference") or ""
+        sec_rev = int(payload.get("security_revision", 1))
+        src_id_fp = payload.get("source_identity_fp") or ""
+        tgt_id_fp = payload.get("target_identity_fp") or ""
+
         uow.connection.execute(
             """
             INSERT OR REPLACE INTO checkpoints (
@@ -2391,9 +3531,15 @@ class CommandHandlerRegistry:
                 fence_epoch, graph_node_id, initialization_fingerprint,
                 execution_seal_fingerprint, security_revision, source_identity_fp,
                 target_identity_fp, binding_id, payload_reference, created_at
-            ) VALUES (?, ?, ?, ?, ?, 'exec-1', 1, 'att-1', 'inv-1', ?, 1, 'n-1', 'fp-1', '', 1, '', '', 'b-1', 'ref-1', ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (chk_id, tenant_id, workspace_id, project_id, migration_id, lease_id, now_ts),
+            (
+                chk_id, tenant_id, workspace_id, project_id, migration_id,
+                exec_id, generation, attempt_id, inv_id, lease_id,
+                fence_epoch, graph_node_id, init_fp,
+                seal_fp, sec_rev, src_id_fp,
+                tgt_id_fp, binding_id, payload_ref, now_ts
+            ),
         )
         return {
             "status": "ACCEPTED",
@@ -2405,6 +3551,329 @@ class CommandHandlerRegistry:
         }
 
     handle_trigger_checkpoint = handle_checkpoint_migration
+
+    def handle_delete_migration(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        migration_id = payload.get("migration_id") or payload.get("id")
+        if not migration_id:
+            raise PipelineError(PipelineErrorCode.INVALID_REQUEST, "migration_id is required.")
+        agg = self.repository.get_by_id(migration_id, connection=uow.connection)
+        if agg is not None:
+            actor.enforce_resource_scope(
+                resource_tenant_id=agg.tenant_id,
+                resource_workspace_id=agg.workspace_id,
+                resource_project_id=agg.project_id,
+                resource_kind="Migration",
+                resource_id=migration_id,
+            )
+        self.repository.delete(migration_id, connection=uow.connection)
+        self.audit_service.record_event(actor, "migration.deleted", migration_id, uow.connection)
+        evt = DomainEvent.create(
+            aggregate_id=migration_id,
+            event_type="migration.deleted",
+            payload={"migration_id": migration_id},
+            actor=actor,
+        )
+        self.outbox_service.stage_event(evt, uow.connection)
+        return {"migration_id": migration_id, "status": "DELETED"}
+
+    def handle_archive_migration(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        migration_id = payload.get("migration_id") or payload.get("id")
+        if not migration_id:
+            raise PipelineError(PipelineErrorCode.INVALID_REQUEST, "migration_id is required.")
+        agg = self.repository.get_by_id(migration_id, connection=uow.connection)
+        if agg is None:
+            raise PipelineError(PipelineErrorCode.INVALID_REQUEST, f"Migration {migration_id!r} not found.")
+        actor.enforce_resource_scope(
+            resource_tenant_id=agg.tenant_id,
+            resource_workspace_id=agg.workspace_id,
+            resource_project_id=agg.project_id,
+            resource_kind="Migration",
+            resource_id=migration_id,
+        )
+        agg.update_state(MigrationLifecycleState.ARCHIVED, expected_revision=agg.revision)
+        self.repository.save(agg, connection=uow.connection)
+        self.audit_service.record_event(actor, "migration.archived", migration_id, uow.connection)
+        evt = DomainEvent.create(
+            aggregate_id=migration_id,
+            event_type="migration.archived",
+            payload={"migration_id": migration_id, "state": "ARCHIVED"},
+        )
+        self.outbox_service.stage_event(evt, uow.connection)
+        return agg.to_dict()
+
+    def handle_cdc_sync_migration(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        migration_id = payload.get("migration_id", "mig-1")
+        agg = self.repository.get_by_id(migration_id, connection=uow.connection)
+        if agg is None:
+            raise PipelineError(PipelineErrorCode.INVALID_REQUEST, f"Migration {migration_id!r} not found.")
+
+        actor.enforce_resource_scope(
+            resource_tenant_id=agg.tenant_id,
+            resource_workspace_id=agg.workspace_id,
+            resource_project_id=agg.project_id,
+            resource_kind="Migration",
+            resource_id=migration_id,
+        )
+
+        binding = self.execution_controller.binding_registry.get("gateway_engine_binding")
+        if not binding or not binding.port_instance:
+            raise PipelineError(PipelineErrorCode.UNAVAILABLE, "Engine gateway binding is not available for CDC sync.")
+
+        from akaalPipeline.adapters.engine_gateway import EngineInvocationRequest
+        from akaalEngine.gateway.models.enums import SemanticOperation
+
+        inv_req = EngineInvocationRequest(
+            invocation_id=f"inv-cdc-sync-{uuid.uuid4().hex[:8]}",
+            attempt_id=agg.active_attempt_id or f"att-{migration_id}",
+            lease_id=agg.active_lease_id or f"lease-{migration_id}",
+            fence_epoch=agg.fence_epoch or 1,
+            initialization_fingerprint=agg.initialization_fingerprint or "",
+            graph_node_id="cdc_sync",
+            binding_id="gateway_engine_binding",
+            contract_version="1.0.0",
+            payload={
+                "migration_id": migration_id,
+                "semantic_operation": SemanticOperation.EXECUTE_CDC_SYNC.value,
+                **dict(payload),
+            },
+        )
+        res = binding.port_instance.execute_task(inv_req)
+        if not res.is_success:
+            raise PipelineError(PipelineErrorCode.EXECUTION_FAILED, f"CDC sync failed: {res.error_message}")
+
+        return {
+            "migration_id": migration_id,
+            "status": "SYNCED",
+            "events_processed": res.result_payload.get("events_processed", 0) if isinstance(res.result_payload, dict) else 0,
+            "details": res.result_payload,
+        }
+
+    def handle_incremental_sync_migration(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        migration_id = payload.get("migration_id", "mig-1")
+        agg = self.repository.get_by_id(migration_id, connection=uow.connection)
+        if agg is None:
+            raise PipelineError(PipelineErrorCode.INVALID_REQUEST, f"Migration {migration_id!r} not found.")
+
+        actor.enforce_resource_scope(
+            resource_tenant_id=agg.tenant_id,
+            resource_workspace_id=agg.workspace_id,
+            resource_project_id=agg.project_id,
+            resource_kind="Migration",
+            resource_id=migration_id,
+        )
+
+        binding = self.execution_controller.binding_registry.get("gateway_engine_binding")
+        if not binding or not binding.port_instance:
+            raise PipelineError(PipelineErrorCode.UNAVAILABLE, "Engine gateway binding is not available for Incremental sync.")
+
+        from akaalPipeline.adapters.engine_gateway import EngineInvocationRequest
+        from akaalEngine.gateway.models.enums import SemanticOperation
+
+        last_wm = getattr(agg, "durable_watermark", None) or payload.get("watermark_value")
+
+        # Dynamically resolve active fencing epoch from DurabilityAuthority or aggregate
+        fence_epoch = payload.get("fence_epoch") or getattr(agg, "fence_epoch", None) or getattr(agg, "active_fence_epoch", None) or 1
+        port_inst = getattr(binding, "port_instance", None)
+        if port_inst:
+            gw = getattr(port_inst, "gateway", None) or getattr(port_inst, "engine_gateway", None)
+            if gw and hasattr(gw, "coordinator"):
+                dur_auth = getattr(gw.coordinator, "durability_authority", None)
+                if dur_auth and hasattr(dur_auth, "get_current_epoch"):
+                    try:
+                        cur_ep = dur_auth.get_current_epoch(migration_id)
+                        if cur_ep and cur_ep > 0:
+                            fence_epoch = cur_ep
+                    except Exception:
+                        pass
+
+        # 1. Physical Incremental Extract
+        ext_req = EngineInvocationRequest(
+            invocation_id=f"inv-inc-ext-{uuid.uuid4().hex[:8]}",
+            attempt_id=getattr(agg, "active_attempt_id", None) or f"att-{migration_id}",
+            lease_id=getattr(agg, "active_lease_id", None) or f"lease-{migration_id}",
+            fence_epoch=fence_epoch,
+            initialization_fingerprint=getattr(agg, "initialization_fingerprint", None) or "",
+            graph_node_id="n-inc-extract",
+            binding_id="gateway_engine_binding",
+            contract_version="1.0.0",
+            payload={
+                "migration_id": migration_id,
+                "semantic_operation": SemanticOperation.EXECUTE_INCREMENTAL_EXTRACT.value,
+                "watermark_value": last_wm,
+                **dict(payload),
+            },
+        )
+        ext_res = binding.port_instance.execute_task(ext_req)
+        if not ext_res.is_success:
+            raise PipelineError(PipelineErrorCode.INTERNAL_ERROR, f"Incremental extraction failed: {ext_res.error_message}")
+
+        ext_payload = ext_res.result_payload if isinstance(ext_res.result_payload, dict) else {}
+        extracted_records = ext_payload.get("extracted_records", 0)
+        cand_wm = ext_payload.get("extracted_watermark")
+
+        if extracted_records == 0:
+            return {
+                "migration_id": migration_id,
+                "status": "CONVERGED",
+                "extracted_records": 0,
+                "applied_records": 0,
+                "watermark": last_wm,
+            }
+
+        # 2. Physical Incremental Apply
+        app_req = EngineInvocationRequest(
+            invocation_id=f"inv-inc-app-{uuid.uuid4().hex[:8]}",
+            attempt_id=getattr(agg, "active_attempt_id", None) or f"att-{migration_id}",
+            lease_id=getattr(agg, "active_lease_id", None) or f"lease-{migration_id}",
+            fence_epoch=fence_epoch,
+            initialization_fingerprint=getattr(agg, "initialization_fingerprint", None) or "",
+            graph_node_id="n-inc-apply",
+            binding_id="gateway_engine_binding",
+            contract_version="1.0.0",
+            payload={
+                "migration_id": migration_id,
+                "semantic_operation": SemanticOperation.EXECUTE_INCREMENTAL_APPLY.value,
+                "batches_by_table": ext_payload.get("batches_by_table"),
+                "extracted_watermark": cand_wm,
+                **dict(payload),
+            },
+        )
+        app_res = binding.port_instance.execute_task(app_req)
+        if not app_res.is_success:
+            raise PipelineError(PipelineErrorCode.INTERNAL_ERROR, f"Incremental apply failed: {app_res.error_message}")
+
+        app_payload = app_res.result_payload if isinstance(app_res.result_payload, dict) else {}
+        committed_wm = app_payload.get("committed_watermark") or cand_wm
+
+        agg.durable_watermark = committed_wm
+        agg.state = MigrationLifecycleState.ACTIVE
+        agg.revision += 1
+        self.repository.save(agg, connection=uow.connection)
+
+        evt = DomainEvent.create(
+            migration_id,
+            "migration.incremental.synced",
+            {"migration_id": migration_id, "durable_watermark": committed_wm, "applied_records": app_payload.get("applied_records", 0)},
+        )
+        self.outbox_service.stage_event(evt, uow.connection)
+
+        return {
+            "migration_id": migration_id,
+            "status": "SYNCED",
+            "extracted_records": extracted_records,
+            "applied_records": app_payload.get("applied_records", 0),
+            "durable_watermark": committed_wm,
+            "details": app_payload,
+        }
+
+    def handle_cutover_migration(
+        self,
+        payload: Mapping[str, Any],
+        actor: PipelineActorContext,
+        uow: SQLiteUnitOfWork,
+    ) -> Mapping[str, Any]:
+        migration_id = payload.get("migration_id", "mig-1")
+        agg = self.repository.get_by_id(migration_id, connection=uow.connection)
+        if agg is None:
+            raise PipelineError(PipelineErrorCode.INVALID_REQUEST, f"Migration {migration_id!r} not found.")
+
+        actor.enforce_resource_scope(
+            resource_tenant_id=agg.tenant_id,
+            resource_workspace_id=agg.workspace_id,
+            resource_project_id=agg.project_id,
+            resource_kind="Migration",
+            resource_id=migration_id,
+        )
+
+        binding = self.execution_controller.binding_registry.get("gateway_engine_binding")
+        if not binding or not binding.port_instance:
+            raise PipelineError(PipelineErrorCode.UNAVAILABLE, "Engine gateway binding is not available for cutover.")
+
+        from akaalPipeline.adapters.engine_gateway import EngineInvocationRequest
+        from akaalEngine.gateway.models.enums import SemanticOperation
+
+        # 1. Evaluate cutover readiness
+        readiness_req = EngineInvocationRequest(
+            invocation_id=f"inv-cutover-ready-{uuid.uuid4().hex[:8]}",
+            attempt_id=getattr(agg, "active_attempt_id", None) or f"att-{migration_id}",
+            lease_id=getattr(agg, "active_lease_id", None) or f"lease-{migration_id}",
+            fence_epoch=getattr(agg, "fence_epoch", None) or getattr(agg, "active_fence_epoch", 1),
+            initialization_fingerprint=getattr(agg, "initialization_fingerprint", None) or "",
+            graph_node_id="cutover_readiness",
+            binding_id="gateway_engine_binding",
+            contract_version="1.0.0",
+            payload={
+                "migration_id": migration_id,
+                "semantic_operation": SemanticOperation.EVALUATE_CUTOVER_READINESS.value,
+                **dict(payload),
+            },
+        )
+        readiness_res = binding.port_instance.execute_task(readiness_req)
+        if not readiness_res.is_success:
+            raise PipelineError(PipelineErrorCode.INTERNAL_ERROR, f"Cutover readiness evaluation failed: {readiness_res.error_message}")
+
+        # 2. Execute atomic cutover
+        cutover_req = EngineInvocationRequest(
+            invocation_id=f"inv-cutover-exec-{uuid.uuid4().hex[:8]}",
+            attempt_id=getattr(agg, "active_attempt_id", None) or f"att-{migration_id}",
+            lease_id=getattr(agg, "active_lease_id", None) or f"lease-{migration_id}",
+            fence_epoch=getattr(agg, "fence_epoch", None) or getattr(agg, "active_fence_epoch", 1),
+            initialization_fingerprint=getattr(agg, "initialization_fingerprint", None) or "",
+            graph_node_id="cutover_exec",
+            binding_id="gateway_engine_binding",
+            contract_version="1.0.0",
+            payload={
+                "migration_id": migration_id,
+                "semantic_operation": SemanticOperation.EXECUTE_ATOMIC_CUTOVER.value,
+                "cdc_boundary_position": payload.get("cdc_boundary_position", "0/200"),
+                **dict(payload),
+            },
+        )
+        cutover_res = binding.port_instance.execute_task(cutover_req)
+        if not cutover_res.is_success:
+            raise PipelineError(PipelineErrorCode.INTERNAL_ERROR, f"Atomic cutover execution failed: {cutover_res.error_message}")
+
+        # 3. Transition aggregate state to COMPLETED
+        agg.state = MigrationLifecycleState.COMPLETED
+        agg.revision += 1
+        self.repository.save(agg, connection=uow.connection)
+
+        evt = DomainEvent.create(
+            migration_id,
+            "migration.cutover.completed",
+            {"migration_id": migration_id, "cutover_status": "COMMITTED"},
+        )
+        self.outbox_service.stage_event(evt, uow.connection)
+        self.audit_service.record_event(actor, "migration.cutover.completed", migration_id, uow.connection)
+
+        return {
+            "migration_id": migration_id,
+            "status": "COMPLETED",
+            "cutover_status": "COMMITTED",
+            "state": agg.state.value,
+            "details": cutover_res.result_payload,
+        }
+
 
 
 

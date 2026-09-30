@@ -87,6 +87,11 @@ export class AdministrationIpc {
     return this.ipc.invoke<any>('admin', 'role.list', params);
   }
 
+  // 13b. JIT Requests
+  public async listJitRequests(params: Record<string, unknown> = {}): Promise<IPCResponse<any>> {
+    return this.ipc.invoke<any>('admin', 'jit.list', params);
+  }
+
   // 14. Directory Sync Status
   public async getDirectorySyncStatus(params: Record<string, unknown> = {}): Promise<IPCResponse<any>> {
     return this.ipc.invoke<any>('admin', 'directory.sync_status', params);
@@ -127,6 +132,16 @@ export class AdministrationIpc {
     return this.ipc.invoke<any>('admin', 'compliance.frameworks', params);
   }
 
+  // 21b. Compliance Exceptions
+  public async listComplianceExceptions(params: Record<string, unknown> = {}): Promise<IPCResponse<any>> {
+    return this.ipc.invoke<any>('admin', 'compliance.exceptions', params);
+  }
+
+  // 21c. Compliance Evidence
+  public async listComplianceEvidence(params: Record<string, unknown> = {}): Promise<IPCResponse<any>> {
+    return this.ipc.invoke<any>('admin', 'compliance.evidence', params);
+  }
+
   // 22. Compliance Evidence Retention
   public async getComplianceEvidenceRetention(params: Record<string, unknown> = {}): Promise<IPCResponse<any>> {
     return this.ipc.invoke<any>('admin', 'compliance.evidence_retention', params);
@@ -135,6 +150,26 @@ export class AdministrationIpc {
   // 23. Audit Ledger
   public async getAuditLedger(params: { limit?: number; offset?: number } = { limit: 50, offset: 0 }): Promise<IPCResponse<any>> {
     return this.ipc.invoke<any>('admin', 'audit.ledger', params);
+  }
+
+  // 23b. Audit Policies
+  public async listAuditPolicies(params: Record<string, unknown> = {}): Promise<IPCResponse<any>> {
+    return this.ipc.invoke<any>('admin', 'audit.policies', params);
+  }
+
+  // 23c. Audit Trail
+  public async listAuditTrail(params: Record<string, unknown> = {}): Promise<IPCResponse<any>> {
+    return this.ipc.invoke<any>('admin', 'audit.trail', params);
+  }
+
+  // 23d. Audit Integrity Verification
+  public async verifyAuditIntegrity(params: Record<string, unknown> = {}): Promise<IPCResponse<any>> {
+    return this.ipc.invoke<any>('admin', 'audit.verify_integrity', params);
+  }
+
+  // 23e. Audit Export
+  public async exportAudit(params: { format?: string; scope?: string } = {}): Promise<IPCResponse<any>> {
+    return this.ipc.invoke<any>('admin', 'audit.export', params);
   }
 
   // 24. Audit Sessions
@@ -231,6 +266,26 @@ export class AdministrationIpc {
     return this.ipc.invoke<any>('admin', 'governance.approve_exception', payload);
   }
 
+  // 41b. Request JIT Elevation
+  public async requestJitElevation(payload: Record<string, any>): Promise<IPCResponse<any>> {
+    return this.ipc.invoke<any>('admin', 'jit.request', payload);
+  }
+
+  // 41c. Approve JIT Elevation
+  public async approveJitElevation(payload: Record<string, any>): Promise<IPCResponse<any>> {
+    return this.ipc.invoke<any>('admin', 'jit.approve', payload);
+  }
+
+  // 41d. Create Environment
+  public async createEnvironment(payload: Record<string, any>): Promise<IPCResponse<any>> {
+    return this.ipc.invoke<any>('admin', 'environment.create', payload);
+  }
+
+  // 41e. Update Environment
+  public async updateEnvironment(payload: Record<string, any>): Promise<IPCResponse<any>> {
+    return this.ipc.invoke<any>('admin', 'environment.update', payload);
+  }
+
   // 42. Rotate Key
   public async rotateKey(payload: Record<string, any>): Promise<IPCResponse<any>> {
     return this.ipc.invoke<any>('admin', 'key.rotate', payload);
@@ -249,6 +304,16 @@ export class AdministrationIpc {
   // 45. Create Connector
   public async createConnector(payload: Record<string, any>): Promise<IPCResponse<any>> {
     return this.ipc.invoke<any>('admin', 'connector.create', payload);
+  }
+
+  // 46. MFA Factors
+  public async listMfaFactors(params: Record<string, unknown> = {}): Promise<IPCResponse<any>> {
+    return this.ipc.invoke<any>('admin', 'identity.mfa_factors', params);
+  }
+
+  // 47. Identity Keyring
+  public async listIdentityKeyring(params: Record<string, unknown> = {}): Promise<IPCResponse<any>> {
+    return this.ipc.invoke<any>('admin', 'identity.keyring', params);
   }
 
   // =========================================================================

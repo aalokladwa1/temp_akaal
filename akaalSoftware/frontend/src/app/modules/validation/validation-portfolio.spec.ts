@@ -109,4 +109,91 @@ describe('ValidationPortfolioComponent (Validation Home 6 Visible Bands)', () =>
     expect(component.activeActionMenuId()).toBeNull();
     expect(mockRouter.navigate).toHaveBeenCalledWith(['/migration/validation', 'val-001']);
   });
+
+  describe('ValidationHomeService Canonical Backend Integration', () => {
+    it('should map missions from listValidationMissions into portfolio tables and summaries', async () => {
+      const mockMigrationIpc: any = {
+        listValidationMissions: vi.fn().mockResolvedValue({
+          status: 'SUCCESS',
+          data: {
+            missions: [
+              {
+                mission_id: 'miss-101',
+                name: 'Core Ledger Sync',
+                source_provider: 'Oracle',
+                target_provider: 'PostgreSQL',
+                temporal_strategy: 'CONTINUOUS',
+                state: 'RUNNING',
+                last_result_status: 'SUCCESS',
+                evaluation_count: 5,
+                fail_count: 0,
+                updated_at: '2026-09-23T12:00:00Z',
+                last_evaluated_at: '2026-09-23T12:00:00Z'
+              },
+              {
+                mission_id: 'miss-102',
+                name: 'Customers Table Mismatch',
+                source_provider: 'MySQL',
+                target_provider: 'ClickHouse',
+                temporal_strategy: 'EXECUTE_ON_INIT',
+                state: 'FAILED',
+                last_result_status: 'MISMATCH',
+                evaluation_count: 1,
+                fail_count: 3,
+                updated_at: '2026-09-23T12:05:00Z',
+                last_evaluated_at: '2026-09-23T12:05:00Z'
+              }
+            ]
+          }
+        })
+      };
+
+      const homeSvc = new ValidationHomeService(mockMigrationIpc);
+      await homeSvc.loadState();
+
+      expect(homeSvc.validations().length).toBe(2);
+      expect(homeSvc.validations()[0].name).toBe('Core Ledger Sync');
+      expect(homeSvc.validations()[0].outcome).toBe('Validated');
+      expect(homeSvc.validations()[0].strategy).toBe('Continuous CDC');
+
+      expect(homeSvc.validations()[1].name).toBe('Customers Table Mismatch');
+      expect(homeSvc.validations()[1].outcome).toBe('Discrepancies Found');
+      expect(homeSvc.validations()[1].discrepancy_count).toBe(3);
+
+      // Attention items
+      expect(homeSvc.attentionItems().length).toBe(1);
+      expect(homeSvc.attentionItems()[0].validation_id).toBe('miss-102');
+      expect(homeSvc.attentionItems()[0].title).toBe('Discrepancies Detected');
+
+      // Recent results
+      expect(homeSvc.recentResults().length).toBe(2);
+
+      // Summary
+      expect(homeSvc.summary()).toEqual({
+        active_count: 1,
+        attention_count: 1,
+        scheduled_count: 0,
+        completed_count: 2,
+        total_count: 2
+      });
+      expect(homeSvc.isUnavailable()).toBe(false);
+    });
+
+    it('should fail closed with empty arrays when backend returns error', async () => {
+      const mockMigrationIpc: any = {
+        listValidationMissions: vi.fn().mockResolvedValue({
+          status: 'ERROR',
+          error: 'DAEMON_UNREACHABLE'
+        })
+      };
+
+      const homeSvc = new ValidationHomeService(mockMigrationIpc);
+      await homeSvc.loadState();
+
+      expect(homeSvc.validations().length).toBe(0);
+      expect(homeSvc.attentionItems().length).toBe(0);
+      expect(homeSvc.summary()).toBeNull();
+      expect(homeSvc.isUnavailable()).toBe(false);
+    });
+  });
 });

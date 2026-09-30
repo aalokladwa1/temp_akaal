@@ -171,6 +171,7 @@ const EMPTY_ALERTS_OPERATIONS: AlertsOperationsDTO = {
 })
 export class AlertsMonitoringService {
   private ipc: MonitoringIpcService;
+  private telemetryUnsub?: () => void;
 
   constructor(monitoringIpc?: MonitoringIpcService) {
     if (monitoringIpc) {
@@ -182,7 +183,28 @@ export class AlertsMonitoringService {
         this.ipc = new MonitoringIpcService();
       }
     }
+    if (this.ipc && typeof this.ipc.subscribeTelemetry === 'function') {
+      this.telemetryUnsub = this.ipc.subscribeTelemetry((event: any) => {
+        this.handleTelemetryEvent(event);
+      });
+    }
     void this.refreshTelemetry();
+  }
+
+  public ngOnDestroy(): void {
+    if (this.telemetryUnsub) {
+      this.telemetryUnsub();
+      this.telemetryUnsub = undefined;
+    }
+  }
+
+  private handleTelemetryEvent(event: any): void {
+    const timestamp = new Date().toISOString();
+    this.lastObservedAt.set(timestamp);
+    this.telemetryConfidence.set('CURRENT');
+    if (event && (event.type === 'ALERT_TRIGGERED' || event.type === 'ALERT_RESOLVED' || event.type === 'INCIDENT_UPDATED')) {
+      void this.refreshTelemetry();
+    }
   }
 
   // Master Signal State

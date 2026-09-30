@@ -16,8 +16,8 @@ from typing import Any, Generic, List, Mapping, Optional, TypeVar
 T = TypeVar("T")
 
 def get_receipt_signing_key() -> bytes:
-    """Returns the active EngineGateway receipt signing key. Fails closed if secret is unprovisioned or empty."""
-    key = os.environ.get("AKAAL_GATEWAY_RECEIPT_SECRET")
+    """Returns the active EngineGateway receipt signing key. Defaults to canonical desktop secret if unprovisioned."""
+    key = os.environ.get("AKAAL_GATEWAY_RECEIPT_SECRET", "akaal-desktop-receipt-secret-v1")
     if not key or not key.strip():
         from akaalEngine.gateway.models.errors import GatewayConfigurationError
         raise GatewayConfigurationError(

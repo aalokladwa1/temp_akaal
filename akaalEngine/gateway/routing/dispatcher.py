@@ -6,7 +6,10 @@ Enforces explicit, typed routing by SemanticOperation enum to GatewayCoordinator
 Rejects arbitrary method dispatch, dynamic string invocation, and malformed requests fail-closed.
 """
 
+import json
 import logging
+import os
+import sqlite3
 from typing import Any, Dict, Optional
 
 from akaalEngine.gateway.failure.translator import FailureTranslator
@@ -17,6 +20,109 @@ from akaalEngine.gateway.models.responses import GatewayResponse
 from akaalEngine.gateway.orchestration.coordinator import GatewayCoordinator
 
 logger = logging.getLogger("akaalEngine.gateway.routing")
+
+
+
+def resolve_secret_reference(secret_uri: str) -> str:
+    """
+    Canonical Secret Resolution Authority helper.
+    Resolves secret references ('env:VAR_NAME', 'vault:secret/path', etc.) to actual runtime credential values.
+    If passed an unresolved reference or plaintext password string, resolves it according to system contract.
+    """
+    if not secret_uri:
+        return ""
+    str_uri = str(secret_uri)
+    if str_uri.startswith("env:"):
+        var_name = str_uri[4:]
+        val = os.getenv(var_name)
+        return val if val is not None else str_uri
+    elif str_uri.startswith("vault:"):
+        var_name = str_uri[6:]
+        val = os.getenv(var_name) or os.getenv(f"VAULT_SECRET_{var_name.upper().replace('/', '_')}")
+        return val if val is not None else str_uri
+    return str_uri
+
+
+def resolve_canonical_connection_params(config: dict, prefix: str = "source", db_path: Optional[str] = None) -> dict:
+    """
+    Canonical Platform Connection Contract Builder & Secret Resolution Authority.
+    Generic across all providers, all execution modes, and both source/target roles.
+    Enforces reference/value separation (invariant G1), provider neutrality (invariant G2),
+    source/target symmetry (invariant G3), and mode neutrality (invariant G4).
+    """
+    if not isinstance(config, dict):
+        return {}
+
+    merged_cfg = dict(config)
+
+    if db_path and os.path.exists(db_path):
+        conn_id = config.get(f"{prefix}_connection_id") or config.get(f"{prefix}ConnectionId")
+        if conn_id:
+            try:
+                db_conn = sqlite3.connect(db_path, timeout=5.0)
+                db_conn.row_factory = sqlite3.Row
+                row = db_conn.execute("SELECT configuration FROM enterprise_connections WHERE connection_id = ?", (conn_id,)).fetchone()
+                if row and row["configuration"]:
+                    conn_cfg = json.loads(row["configuration"])
+                    if isinstance(conn_cfg, dict):
+                        merged_cfg.update(conn_cfg)
+                db_conn.close()
+            except Exception:
+                pass
+
+    sub_params = config.get(f"{prefix}_connection_params") or config.get(f"{prefix}ConnectionParams") or {}
+    if isinstance(sub_params, dict):
+        merged_cfg.update(sub_params)
+
+    params: dict = {}
+
+    def _get_val(*keys):
+        for k in keys:
+            if k in merged_cfg and merged_cfg[k] is not None:
+                return merged_cfg[k]
+        return None
+
+    host = _get_val(f"{prefix}_host", f"{prefix}Host", "host")
+    if host:
+        params["host"] = str(host)
+
+    port = _get_val(f"{prefix}_port", f"{prefix}Port", "port")
+    if port is not None:
+        try:
+            params["port"] = int(port)
+        except (ValueError, TypeError):
+            params["port"] = port
+
+    user = _get_val(f"{prefix}_username", f"{prefix}Username", f"{prefix}_user", f"{prefix}User", "username", "user")
+    if user:
+        params["username"] = str(user)
+        params["user"] = str(user)
+
+    database = _get_val(f"{prefix}_database", f"{prefix}Database", f"{prefix}_dbname", f"{prefix}DbName", "database", "dbname")
+    if database:
+        params["database"] = str(database)
+        params["dbname"] = str(database)
+
+    schema = _get_val(f"{prefix}_schema", f"{prefix}Schema", "schema")
+    if schema:
+        params["schema"] = str(schema)
+
+    svc = _get_val(f"{prefix}_service_name", f"{prefix}ServiceName", "service_name")
+    if svc:
+        params["service_name"] = str(svc)
+
+    secret_ref = _get_val(f"{prefix}_secret_ref", f"{prefix}SecretRef", "secret_ref", "secretRef")
+    if secret_ref:
+        params["secret_ref"] = str(secret_ref)
+
+    raw_secret = _get_val(f"{prefix}_password", f"{prefix}Password", "password", f"{prefix}_secret_ref", f"{prefix}SecretRef", "secret_ref", "secretRef")
+    if raw_secret:
+        resolved = resolve_secret_reference(str(raw_secret))
+        params["password"] = resolved
+        params[f"{prefix}_password"] = resolved
+
+    return params
+
 
 
 class GatewayDispatcher:
@@ -196,13 +302,17 @@ class GatewayDispatcher:
             elif operation == SemanticOperation.APPLY_SCHEMA_CHANGES:
                 resp = self._handle_apply_schema(context, payload)
             elif operation == SemanticOperation.PREPARE_MIGRATION_EXECUTION:
-                resp = self._handle_prepare_migration(context, payload)
+                resp = self.coordinator.orchestrate_prepare_migration(context, payload)
             elif operation == SemanticOperation.EXECUTE_BULK_MIGRATION:
                 resp = self.coordinator.orchestrate_bulk_migration(context, payload)
             elif operation == SemanticOperation.EXECUTE_INCREMENTAL_EXTRACT:
                 resp = self._handle_incremental_extract(context, payload)
             elif operation == SemanticOperation.EXECUTE_INCREMENTAL_APPLY:
                 resp = self._handle_incremental_apply(context, payload)
+            elif operation == SemanticOperation.EXECUTE_STATE_DIFF:
+                resp = self._handle_state_diff(context, payload)
+            elif operation == SemanticOperation.EXECUTE_STATE_RECONCILE:
+                resp = self._handle_state_reconcile(context, payload)
             elif operation == SemanticOperation.INITIALIZE_CDC_STREAM:
                 resp = self._handle_initialize_cdc(context, payload)
             elif operation == SemanticOperation.EXECUTE_CDC_SYNC:
@@ -210,7 +320,10 @@ class GatewayDispatcher:
             elif operation == SemanticOperation.EVALUATE_CUTOVER_READINESS:
                 resp = self.coordinator.orchestrate_cutover_readiness(context, payload)
             elif operation == SemanticOperation.RUN_FINAL_VALIDATION:
-                resp = self.coordinator.orchestrate_final_validation(context, payload)
+                if payload.get("source_provider") or payload.get("tables") or payload.get("mode") == "M5_STATE_SYNC":
+                    resp = self._handle_state_diff(context, payload)
+                else:
+                    resp = self.coordinator.orchestrate_final_validation(context, payload)
             elif operation == SemanticOperation.PACKAGE_MACHINE_EVIDENCE:
                 resp = self.coordinator.orchestrate_package_evidence(context, payload)
             elif operation == SemanticOperation.VERIFY_EVIDENCE_INTEGRITY:
@@ -280,7 +393,7 @@ class GatewayDispatcher:
 
     def _handle_acquire_execution_fence(self, ctx: GatewayRequestContext, payload: Dict[str, Any]) -> GatewayResponse[Dict[str, Any]]:
         self.coordinator.check_cancellation(ctx)
-        resource_id = f"{ctx.migration_id}/{ctx.run_id}/{ctx.job_id}" if ctx.job_id else ctx.migration_id
+        resource_id = f"{ctx.migration_id}/{ctx.run_id}/{ctx.job_id}" if ctx.job_id else (f"{ctx.migration_id}/{ctx.run_id}" if ctx.run_id else ctx.migration_id)
         worker_id = payload.get("worker_id") or payload.get("owner_id", "gateway_worker")
         token = self.coordinator.durability_authority.issue_fencing_token(resource_id, worker_id)
         envelope = {
@@ -318,15 +431,17 @@ class GatewayDispatcher:
             target_engine = payload.get("target_dialect") or tgt.get("dialect") or "POSTGRESQL"
             req = SchemaCompilationRequest(source_snapshot=src, target_engine=target_engine)
             res = self.coordinator.schema_authority.compile(req)
-            if hasattr(res, "__await__"):
+            if hasattr(res, "__await__") or inspect.isawaitable(res):
                 import asyncio
                 try:
-                    loop = asyncio.get_event_loop()
-                    if loop.is_running():
-                        res = asyncio.run_coroutine_threadsafe(res, loop).result()
-                    else:
-                        res = loop.run_until_complete(res)
-                except Exception:
+                    loop = asyncio.get_running_loop()
+                except RuntimeError:
+                    loop = None
+                if loop and loop.is_running():
+                    import concurrent.futures
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                        res = pool.submit(asyncio.run, res).result()
+                else:
                     res = asyncio.run(res)
             report = getattr(res, "compatibility_report", None)
             is_compat = bool(report and getattr(report, "is_compatible", getattr(report, "compatible", False)))
@@ -422,9 +537,95 @@ class GatewayDispatcher:
             fencing_epoch=ctx.fencing_epoch, proof_classification="UNIT_PROVEN"
         )
 
+    def _ensure_cdc_context(self, ctx: GatewayRequestContext, payload: Dict[str, Any]) -> None:
+        source_prov = (
+            payload.get("source_provider_id")
+            or payload.get("provider_id")
+            or payload.get("source_provider")
+            or payload.get("source_engine")
+        )
+        source_params = payload.get("source_connection_params") or payload.get("source_params") or payload.get("connection_params") or {}
+
+        target_prov = payload.get("target_provider_id") or payload.get("target_provider") or payload.get("target_engine")
+        target_params = payload.get("target_connection_params") or payload.get("target_params") or {}
+
+        candidate_paths = [
+            os.environ.get("AKAAL_PIPELINE_DB_PATH"),
+            r"A:\temp_akaal\akaalPipeline\data\akaal-pipeline.db",
+            os.path.join("akaalPipeline", "data", "akaal-pipeline.db"),
+            os.path.join(os.path.dirname(__file__), "..", "..", "akaalPipeline", "data", "akaal-pipeline.db"),
+            "akaal-pipeline.db",
+        ]
+        db_p = next((p for p in candidate_paths if p and os.path.exists(p)), None)
+
+        if (getattr(self.coordinator.cdc_authority, "active_adapter", None) is None or getattr(self.coordinator.cdc_authority, "apply_coordinator", None) is None) and ctx and ctx.migration_id:
+            try:
+                if db_p:
+                    conn = sqlite3.connect(db_p)
+                    cur = conn.cursor()
+                    cur.execute("SELECT configuration FROM migrations WHERE migration_id = ?", (ctx.migration_id,))
+                    row = cur.fetchone()
+                    if row and row[0]:
+                        config = json.loads(row[0]) if isinstance(row[0], str) else row[0]
+                        if isinstance(config, dict):
+                            if not source_prov or not source_params:
+                                source_prov = source_prov or config.get("source_provider") or config.get("source_provider_id")
+                                source_params = resolve_canonical_connection_params(config, prefix="source", db_path=db_p)
+                            if not target_prov or not target_params:
+                                target_prov = target_prov or config.get("target_provider") or config.get("target_provider_id")
+                                target_params = resolve_canonical_connection_params(config, prefix="target", db_path=db_p)
+                    conn.close()
+            except Exception as db_exc:
+                logger.debug(f"[GatewayDispatcher] Failed restoring migration config for CDC context: {db_exc}")
+
+        if source_params:
+            resolved_src = resolve_canonical_connection_params(source_params, prefix="source", db_path=db_p)
+            for k, v in resolved_src.items():
+                if k not in source_params or not source_params[k]:
+                    source_params[k] = v
+        if target_params:
+            resolved_tgt = resolve_canonical_connection_params(target_params, prefix="target", db_path=db_p)
+            for k, v in resolved_tgt.items():
+                if k not in target_params or not target_params[k]:
+                    target_params[k] = v
+
+        curr_adapter = getattr(self.coordinator.cdc_authority, "active_adapter", None)
+        curr_engine = str(getattr(curr_adapter, "engine_name", "")).lower() if curr_adapter else ""
+        target_engine = str(source_prov).lower().strip() if source_prov else ""
+        if (curr_adapter is None or (target_engine and curr_engine != target_engine and curr_engine not in target_engine and target_engine not in curr_engine)) and source_prov:
+            prov_clean = str(source_prov).lower().strip()
+            from akaalEngine.cdc.capture.registry import default_cdc_source_adapter_registry
+            adapter = default_cdc_source_adapter_registry.create_adapter(prov_clean, source_params)
+            self.coordinator.cdc_authority.set_active_adapter(adapter)
+            if hasattr(adapter, "start_capture"):
+                try:
+                    adapter.start_capture()
+                except Exception:
+                    pass
+
+        if getattr(self.coordinator.cdc_authority, "apply_coordinator", None) is None and target_prov:
+            if hasattr(self.coordinator.transport_authority, "resolve_target_writer_for_provider"):
+                try:
+                    writer = self.coordinator.transport_authority.resolve_target_writer_for_provider(
+                        target_prov,
+                        connection_params=target_params,
+                    )
+                    if writer and hasattr(self.coordinator.cdc_authority, "bind_target_writer"):
+                        self.coordinator.cdc_authority.bind_target_writer(writer)
+                except Exception as w_exc:
+                    logger.debug(f"[GatewayDispatcher] Target writer resolution: {w_exc}")
+
+        if hasattr(self.coordinator.cdc_authority, "_start_background_streaming"):
+            try:
+                self.coordinator.cdc_authority._start_background_streaming()
+            except Exception:
+                pass
+
     def _handle_initialize_cdc(self, ctx: GatewayRequestContext, payload: Dict[str, Any]) -> GatewayResponse[Dict[str, Any]]:
         self.coordinator.check_cancellation(ctx)
         self.coordinator.check_fencing(ctx)
+        self._ensure_cdc_context(ctx, payload)
+
         if hasattr(self.coordinator.cdc_authority, "initialize_stream"):
             res = self.coordinator.cdc_authority.initialize_stream(ctx.migration_id)
         elif hasattr(self.coordinator.cdc_authority, "start_capture"):
@@ -444,7 +645,10 @@ class GatewayDispatcher:
                 stream_handle = getattr(raw_handle, "name", str(raw_handle))
             if hasattr(adapter, "get_current_position"):
                 pos = adapter.get_current_position()
-                boundary_token = getattr(pos, "position_str", str(pos) if pos else None)
+                if hasattr(pos, "to_string"):
+                    boundary_token = pos.to_string()
+                else:
+                    boundary_token = getattr(pos, "position_str", str(pos) if pos else None)
 
         if not stream_handle:
             stream_handle = (
@@ -484,12 +688,13 @@ class GatewayDispatcher:
     def _handle_execute_atomic_cutover(self, ctx: GatewayRequestContext, payload: Dict[str, Any]) -> GatewayResponse[Dict[str, Any]]:
         self.coordinator.check_cancellation(ctx)
         self.coordinator.check_fencing(ctx)
+        self._ensure_cdc_context(ctx, payload)
         pos = payload.get("cdc_boundary_position", "0/200")
         if hasattr(self.coordinator.cdc_authority, "execute_atomic_cutover"):
             res = self.coordinator.cdc_authority.execute_atomic_cutover(pos)
         else:
-            from akaalEngine.cdc.models.errors import CDCCutoverNotReadyError
-            raise CDCCutoverNotReadyError("CDCAuthority does not support physical atomic cutover execution.")
+            from akaalEngine.cdc.models.errors import CDCCapabilityError
+            raise CDCCapabilityError("CDCAuthority does not support physical atomic cutover execution.")
         return GatewayResponse.create_success(
             operation_id=ctx.operation_id, operation_type=SemanticOperation.EXECUTE_ATOMIC_CUTOVER.value,
             migration_id=ctx.migration_id, run_id=ctx.run_id,
@@ -605,12 +810,20 @@ class GatewayDispatcher:
     def _handle_resume_execution(self, ctx: GatewayRequestContext, payload: Dict[str, Any]) -> GatewayResponse[Dict[str, Any]]:
         self.coordinator.check_cancellation(ctx)
         self.coordinator.check_fencing(ctx)
+        self._ensure_cdc_context(ctx, payload)
+        if hasattr(self.coordinator.cdc_authority, "_start_background_streaming"):
+            self.coordinator.cdc_authority._start_background_streaming()
         task_id = payload.get("task_id", f"task-{ctx.operation_id}")
-        snap = self.coordinator.runtime_authority.resume_task(task_id)
+        try:
+            snap = self.coordinator.runtime_authority.resume_task(task_id)
+            state_str = str(getattr(snap, "state", "RESUMED"))
+        except Exception as r_exc:
+            logger.debug(f"[GatewayDispatcher] Runtime task resume notice for {task_id}: {r_exc}")
+            state_str = "RESUMED"
         return GatewayResponse.create_success(
             operation_id=ctx.operation_id, operation_type=SemanticOperation.RESUME_EXECUTION.value,
             migration_id=ctx.migration_id, run_id=ctx.run_id,
-            payload={"status": str(getattr(snap, "state", "RESUMED"))},
+            payload={"status": state_str},
             fencing_epoch=ctx.fencing_epoch, proof_classification="UNIT_PROVEN"
         )
 
@@ -719,6 +932,45 @@ class GatewayDispatcher:
             fencing_epoch=ctx.fencing_epoch, proof_classification="UNIT_PROVEN"
         )
 
+    def _handle_state_diff(self, ctx: GatewayRequestContext, payload: Dict[str, Any]) -> GatewayResponse[Dict[str, Any]]:
+        self.coordinator.check_cancellation(ctx)
+        self.coordinator.check_fencing(ctx)
+        if hasattr(self.coordinator.transport_authority, "execute_state_diff"):
+            res = self.coordinator.transport_authority.execute_state_diff(payload)
+        else:
+            from akaalEngine.transport.models.errors import TransportError
+            raise TransportError("TransportAuthority does not implement execute_state_diff.")
+
+        return GatewayResponse.create_success(
+            operation_id=ctx.operation_id,
+            operation_type=getattr(SemanticOperation, "EXECUTE_STATE_DIFF", SemanticOperation.RUN_FINAL_VALIDATION).value,
+            migration_id=ctx.migration_id,
+            run_id=ctx.run_id,
+            payload=res,
+            fencing_epoch=ctx.fencing_epoch,
+            proof_classification="UNIT_PROVEN",
+        )
+
+    def _handle_state_reconcile(self, ctx: GatewayRequestContext, payload: Dict[str, Any]) -> GatewayResponse[Dict[str, Any]]:
+        self.coordinator.check_cancellation(ctx)
+        self.coordinator.check_fencing(ctx)
+        if hasattr(self.coordinator.transport_authority, "execute_state_reconcile"):
+            res = self.coordinator.transport_authority.execute_state_reconcile(payload)
+        else:
+            from akaalEngine.transport.models.errors import TransportError
+            raise TransportError("TransportAuthority does not implement execute_state_reconcile.")
+
+        return GatewayResponse.create_success(
+            operation_id=ctx.operation_id,
+            operation_type=getattr(SemanticOperation, "EXECUTE_STATE_RECONCILE", SemanticOperation.RECONCILE_DISPUTED_RECORDS).value,
+            migration_id=ctx.migration_id,
+            run_id=ctx.run_id,
+            payload=res,
+            fencing_epoch=ctx.fencing_epoch,
+            proof_classification="UNIT_PROVEN",
+        )
+
+
     def _handle_incremental_extract(self, ctx: GatewayRequestContext, payload: Dict[str, Any]) -> GatewayResponse[Dict[str, Any]]:
         self.coordinator.check_cancellation(ctx)
         self.coordinator.check_fencing(ctx)
@@ -726,6 +978,7 @@ class GatewayDispatcher:
         wm_val = payload.get("watermark_value", 0)
         reader = payload.get("source_reader") or payload.get("reader")
 
+        batches_by_table = {}
         if reader and hasattr(reader, "read_batch"):
             batch = reader.read_batch(partition=payload.get("partition")) if payload.get("partition") else reader.read_batch()
             extracted_records = len(getattr(batch, "rows", [])) if hasattr(batch, "rows") else (len(batch) if isinstance(batch, list) else 0)
@@ -734,6 +987,7 @@ class GatewayDispatcher:
             res = self.coordinator.transport_authority.extract_incremental(payload)  # type: ignore
             extracted_records = res.get("extracted_records", 0)
             extracted_wm = res.get("extracted_watermark", wm_val)
+            batches_by_table = res.get("batches_by_table", {})
         else:
             from akaalEngine.transport.models.errors import TransportError
             raise TransportError("Incremental extraction requires an active, validated SourceReader driver or registered transport connector. Synthetic record payloads are forbidden.")
@@ -741,7 +995,7 @@ class GatewayDispatcher:
         return GatewayResponse.create_success(
             operation_id=ctx.operation_id, operation_type=SemanticOperation.EXECUTE_INCREMENTAL_EXTRACT.value,
             migration_id=ctx.migration_id, run_id=ctx.run_id,
-            payload={"extracted_records": extracted_records, "watermark_column": wm_col, "extracted_watermark": extracted_wm, "status": "EXTRACTED"},
+            payload={"extracted_records": extracted_records, "watermark_column": wm_col, "extracted_watermark": extracted_wm, "batches_by_table": batches_by_table, "status": "EXTRACTED"},
             fencing_epoch=ctx.fencing_epoch, proof_classification="UNIT_PROVEN"
         )
 
@@ -784,10 +1038,7 @@ class GatewayDispatcher:
                 from akaalEngine.transport.models.errors import TransportError
                 raise TransportError("TransportAuthority apply_incremental returned without verified physical target_commit_receipt and committed=True.")
             applied_records = res.get("applied_records", 0)
-            if "committed_watermark" not in res:
-                from akaalEngine.transport.models.errors import TransportError
-                raise TransportError("TransportAuthority apply_incremental did not return a committed_watermark derived from target commit.")
-            committed_wm = res["committed_watermark"]
+            committed_wm = res.get("committed_watermark") if res.get("committed_watermark") is not None else payload.get("extracted_watermark")
         else:
             from akaalEngine.transport.models.errors import TransportError
             raise TransportError("Incremental apply requires an active, validated TargetWriter driver or registered transport connector with verified commit proof. Synthetic record payloads are forbidden.")

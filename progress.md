@@ -129,6 +129,7 @@ M8 must preserve non-mutating validation semantics.
 | P7C Group 1 (Campaign A + Campaign B, P7C.1–P7C.12) | **OWNER ACCEPTED & FROZEN — 10/10 for locally proven scope** (owner-authorized, 2026-09-07). | **See §42 — final record; §44 — whole-phase authoritative** |
 | P7C Group 2 (Campaign C + Campaign D, P7C.13–P7C.24) | **OWNER ACCEPTED & FROZEN — 10/10 for locally proven scope** (owner-authorized, 2026-09-07) — 26/26 final acceptance blockers closed. | **See §43 — final record; §44 — whole-phase authoritative** |
 | **P7C (whole phase, P7C.1–P7C.24)** | **COMPLETED — OWNER ACCEPTED & FROZEN** (owner-authorized, 2026-09-07). Regression-protected baseline. Must not be reopened, redesigned, or weakened without new explicit owner authorization and a concrete demonstrated defect. | **See §44 — authoritative final record** |
+| **DevKros P8 (M1–M8)** | **COMPLETED — LIVE_PROVEN** (2026-09-28) — M1 Bulk, M2 Bulk+CDC, M3 CDC, M4 Incremental, M5 State Sync, M6 Schema Only, M7 Data Only, and M8 Validation Only physically qualified across 52 transport provider strategies, golden runs passed, packaged LIVE proof completed. | **LIVE_PROVEN** |
 | P7D | Future. **NOT STARTED. No agent may begin any of this without separate explicit owner authorization** — P7C being frozen does not imply P7D has begun. | Do not conflate with any campaign above |
 
 ---

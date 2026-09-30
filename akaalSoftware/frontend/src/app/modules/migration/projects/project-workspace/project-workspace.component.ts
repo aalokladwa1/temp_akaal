@@ -213,6 +213,7 @@ export class ProjectWorkspaceComponent implements OnInit, OnDestroy {
       
       if (id) {
         this.ps.setActiveProjectId(id);
+        this.ps.loadProject(id);
       }
       if (tab && ['overview', 'migrations', 'validations', 'resources', 'activity', 'access', 'governance', 'settings'].includes(tab)) {
         this.ps.setActiveProjectTab(tab);

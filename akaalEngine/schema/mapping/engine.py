@@ -24,10 +24,18 @@ from akaalEngine.schema.models.mapping import (
     CompiledSchemaMapping,
     TableMapping,
 )
+from akaalEngine.schema.models.programmables import (
+    CanonicalPackage,
+    CanonicalRoutine,
+    CanonicalSequence,
+    CanonicalTrigger,
+    CanonicalUDT,
+)
 from akaalEngine.schema.models.schema import (
     CanonicalCatalog,
     CanonicalSchema,
     CanonicalSchemaModel,
+    CanonicalSynonym,
     CanonicalView,
 )
 from akaalEngine.schema.models.table import CanonicalColumn, CanonicalTable
@@ -422,15 +430,17 @@ class MappingEngine:
                 schema_name=mapping.resolve_target_schema(r.schema_name),
                 routine_type=r.routine_type,
                 language=r.language,
-                definition_sql=r.definition_sql,
                 parameters=r.parameters,
                 return_type=r.return_type,
-                is_deterministic=r.is_deterministic,
-                data_access=r.data_access,
+                return_canonical_type=r.return_canonical_type,
+                definition_sql=r.definition_sql,
+                package_name=r.package_name,
                 security_type=r.security_type,
-                is_autonomous=r.is_autonomous,
+                is_deterministic=r.is_deterministic,
+                volatility=r.volatility,
+                parallel_safety=r.parallel_safety,
                 dependencies=r.dependencies,
-                comment=r.comment,
+                properties=r.properties,
                 extra=r.extra,
             )
             for r in source_model.routines
@@ -442,8 +452,11 @@ class MappingEngine:
                 schema_name=mapping.resolve_target_schema(p.schema_name),
                 spec_sql=p.spec_sql,
                 body_sql=p.body_sql,
-                routines=p.routines,
-                comment=p.comment,
+                public_routines=p.public_routines,
+                private_routines=p.private_routines,
+                state_variables=p.state_variables,
+                dependencies=p.dependencies,
+                properties=p.properties,
                 extra=p.extra,
             )
             for p in source_model.packages
@@ -457,13 +470,13 @@ class MappingEngine:
                     name=tr.name,
                     table_name=tgt_tr_t,
                     schema_name=tgt_tr_s,
-                    trigger_event=tr.trigger_event,
-                    trigger_timing=tr.trigger_timing,
-                    is_row_level=tr.is_row_level,
+                    timing=tr.timing,
+                    events=tr.events,
                     definition_sql=tr.definition_sql,
+                    is_enabled=tr.is_enabled,
+                    action_orientation=tr.action_orientation,
                     when_clause=tr.when_clause,
-                    is_disabled=tr.is_disabled,
-                    comment=tr.comment,
+                    order_weight=tr.order_weight,
                     extra=tr.extra,
                 )
             )
@@ -479,7 +492,6 @@ class MappingEngine:
                 is_cycling=seq.is_cycling,
                 current_value=seq.current_value,
                 cache_size=seq.cache_size,
-                comment=seq.comment,
                 extra=seq.extra,
             )
             for seq in source_model.sequences
@@ -490,10 +502,10 @@ class MappingEngine:
                 name=u.name,
                 schema_name=mapping.resolve_target_schema(u.schema_name),
                 udt_type=u.udt_type,
-                underlying_type=u.underlying_type,
                 enum_values=u.enum_values,
                 attributes=u.attributes,
-                comment=u.comment,
+                underlying_type=u.underlying_type,
+                base_check_clause=u.base_check_clause,
                 extra=u.extra,
             )
             for u in source_model.udts
@@ -513,7 +525,7 @@ class MappingEngine:
                     target_object_name=tgt_syn_target_o,
                     target_schema_name=tgt_syn_target_s,
                     target_catalog_name=syn.target_catalog_name,
-                    comment=syn.comment,
+                    is_public=syn.is_public,
                     extra=syn.extra,
                 )
             )

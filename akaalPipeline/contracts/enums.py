@@ -206,6 +206,19 @@ class MigrationMode(str, Enum):
     M7_DATA_ONLY = "M7"
     M8_VALIDATION_ONLY = "M8"
 
+    @property
+    def is_continuous_cdc(self) -> bool:
+        """True if migration mode requires continuous CDC stream processing (M2_BULK_CDC, M3_CDC)."""
+        return self in (MigrationMode.M2_BULK_CDC, MigrationMode.M3_CDC)
+
+    @classmethod
+    def is_continuous_mode(cls, mode_val: Any) -> bool:
+        """Canonical mode classification helper for continuous stream recovery eligibility."""
+        if isinstance(mode_val, cls):
+            return mode_val.is_continuous_cdc
+        val_str = str(getattr(mode_val, "value", mode_val)).upper().strip()
+        return val_str in ("M2", "M3", "M2_BULK_CDC", "M3_CDC", "CDC")
+
 
 class SideEffectClassification(str, Enum):
     READ_ONLY = "READ_ONLY"

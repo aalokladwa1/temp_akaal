@@ -83,6 +83,66 @@ class PostgreSQLTargetWriter(TargetWriter):
         self.conn = psycopg2.connect(**pg_params)
         self.cursor = self.conn.cursor()
 
+    def _ensure_table_exists(
+        self,
+        table_name: str,
+        target_schema: str,
+        cols: Sequence[str],
+        sample_row: Dict[str, Any],
+        pk_columns: Optional[Sequence[str]] = None,
+    ) -> None:
+        if not self.conn or (hasattr(self.conn, "closed") and self.conn.closed):
+            self._connect()
+        elif not self.cursor or (hasattr(self.cursor, "closed") and self.cursor.closed):
+            try:
+                self.cursor = self.conn.cursor()
+            except Exception:
+                self._connect()
+        try:
+            self.cursor.execute(
+                "SELECT 1 FROM information_schema.tables WHERE table_schema = %s AND table_name = %s",
+                (target_schema, table_name.lower()),
+            )
+            if self.cursor.fetchone():
+                return
+            self.cursor.execute(
+                "SELECT 1 FROM information_schema.tables WHERE table_schema = %s AND table_name = %s",
+                (target_schema, table_name),
+            )
+            if self.cursor.fetchone():
+                return
+
+            col_defs = []
+            for col in cols:
+                val = sample_row.get(col)
+                if isinstance(val, bool):
+                    col_type = "BOOLEAN"
+                elif isinstance(val, int):
+                    col_type = "BIGINT"
+                elif isinstance(val, float):
+                    col_type = "NUMERIC"
+                elif hasattr(val, "isoformat") or (hasattr(val, "year") and hasattr(val, "month")):
+                    col_type = "TIMESTAMP"
+                elif isinstance(val, bytes):
+                    col_type = "BYTEA"
+                else:
+                    col_type = "TEXT"
+                col_defs.append(f'"{col}" {col_type}')
+
+            if pk_columns:
+                pk_str = ", ".join([f'"{p}"' for p in pk_columns])
+                col_defs.append(f"PRIMARY KEY ({pk_str})")
+
+            create_sql = f'CREATE TABLE IF NOT EXISTS "{target_schema}"."{table_name}" (\n  ' + ",\n  ".join(col_defs) + "\n)"
+            self.cursor.execute(create_sql)
+            self.conn.commit()
+        except Exception as exc:
+            logger.warning(f"[PostgreSQLTargetWriter] _ensure_table_exists for {target_schema}.{table_name}: {exc}")
+            try:
+                self.conn.rollback()
+            except Exception:
+                pass
+
     def write_batch(
         self,
         table_name: str,
@@ -94,19 +154,53 @@ class PostgreSQLTargetWriter(TargetWriter):
         if not batch.rows:
             return 0
 
-        if not self.conn:
+        if not self.conn or (hasattr(self.conn, "closed") and self.conn.closed):
             self._connect()
+        elif not self.cursor or (hasattr(self.cursor, "closed") and self.cursor.closed):
+            try:
+                self.cursor = self.conn.cursor()
+            except Exception:
+                self._connect()
 
         cols = batch.column_names
-        col_str = ", ".join([f'"{c}"' for c in cols])
+        from akaalEngine.schema.ddl.identifiers import IdentifierSanitizer
+        t_clean = IdentifierSanitizer.sanitize_identifier(table_name, "POSTGRESQL")
+        s_clean = IdentifierSanitizer.sanitize_identifier(target_schema, "POSTGRESQL")
+        cols_clean = [IdentifierSanitizer.sanitize_identifier(c, "POSTGRESQL") for c in cols]
+        col_str = ", ".join([f'"{c}"' for c in cols_clean])
+
+        self._ensure_table_exists(t_clean, s_clean, cols_clean, batch.rows[0] if batch.rows else {}, pk_columns)
 
         on_conflict_clause = ""
-        if allow_merge and pk_columns:
-            pk_str = ", ".join([f'"{p}"' for p in pk_columns])
-            on_conflict_clause = f" ON CONFLICT ({pk_str}) DO NOTHING"
+        if allow_merge:
+            pk_resolved = list(pk_columns) if pk_columns else []
+            if not pk_resolved:
+                try:
+                    self.cursor.execute("""
+                        SELECT kcu.column_name
+                        FROM information_schema.table_constraints tc
+                        JOIN information_schema.key_column_usage kcu
+                          ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema
+                        WHERE tc.constraint_type = 'PRIMARY KEY' AND tc.table_name = %s AND tc.table_schema = %s
+                        ORDER BY kcu.ordinal_position
+                    """, (t_clean, s_clean))
+                    rows_pk = self.cursor.fetchall()
+                    if rows_pk:
+                        pk_resolved = [r[0] for r in rows_pk if r[0] in cols]
+                except Exception:
+                    pass
+            if pk_resolved:
+                pk_clean = [IdentifierSanitizer.sanitize_identifier(p, "POSTGRESQL") for p in pk_resolved]
+                pk_str = ", ".join([f'"{p}"' for p in pk_clean])
+                non_pk_clean = [IdentifierSanitizer.sanitize_identifier(c, "POSTGRESQL") for c in cols if c not in pk_resolved]
+                if non_pk_clean:
+                    set_clause = ", ".join([f'"{c}" = EXCLUDED."{c}"' for c in non_pk_clean])
+                    on_conflict_clause = f" ON CONFLICT ({pk_str}) DO UPDATE SET {set_clause}"
+                else:
+                    on_conflict_clause = f" ON CONFLICT ({pk_str}) DO NOTHING"
 
-        sql = f'INSERT INTO "{target_schema}"."{table_name}" ({col_str}) VALUES %s{on_conflict_clause}'
-        data_tuples = [tuple(r.get(c) for c in cols) for r in batch.rows]
+        sql = f'INSERT INTO "{s_clean}"."{t_clean}" ({col_str}) VALUES %s{on_conflict_clause}'
+        data_tuples = [tuple(r.get(c) if c in r else r.get(c.upper(), r.get(c.lower())) for c in cols) for r in batch.rows]
 
         self._in_transaction = True
         try:
@@ -116,13 +210,15 @@ class PostgreSQLTargetWriter(TargetWriter):
             return written
         except Exception as exc:
             logger.warning(f"[PostgreSQLTargetWriter] Vectorized execute_values failed: {exc}. Retrying row-by-row...")
+            import traceback
+            logger.debug(f"[PostgreSQLTargetWriter] Vectorized traceback:\n{traceback.format_exc()}")
             try:
                 self.conn.rollback()
             except Exception:
                 pass
             self._active_tx_uncommitted_rows = 0
             written = 0
-            single_sql = f'INSERT INTO "{target_schema}"."{table_name}" ({col_str}) VALUES ({", ".join(["%s"] * len(cols))}){on_conflict_clause}'
+            single_sql = f'INSERT INTO "{s_clean}"."{t_clean}" ({col_str}) VALUES ({", ".join(["%s"] * len(cols))}){on_conflict_clause}'
             for tup in data_tuples:
                 try:
                     self.cursor.execute("SAVEPOINT sp_row;")
@@ -130,7 +226,8 @@ class PostgreSQLTargetWriter(TargetWriter):
                     inserted = self.cursor.rowcount if (hasattr(self.cursor, "rowcount") and self.cursor.rowcount >= 0) else 0
                     self.cursor.execute("RELEASE SAVEPOINT sp_row;")
                     written += inserted
-                except Exception:
+                except Exception as row_exc:
+                    logger.warning(f"[PostgreSQLTargetWriter] Single row insert failed: {row_exc} | Row: {tup}")
                     try:
                         self.cursor.execute("ROLLBACK TO SAVEPOINT sp_row;")
                     except Exception:
@@ -143,18 +240,102 @@ class PostgreSQLTargetWriter(TargetWriter):
                 self._active_tx_uncommitted_rows += written
             return written
 
-    def verify_uncertain_commit(
+    def delete_batch(
         self,
         table_name: str,
         target_schema: str,
         pk_columns: Sequence[str],
+        key_records: Sequence[Mapping[str, Any]],
+    ) -> int:
+        self.verify_fencing()
+        if not key_records or not pk_columns:
+            return 0
+        if not self.conn:
+            self._connect()
+
+        from akaalEngine.schema.ddl.identifiers import IdentifierSanitizer
+        t_clean = IdentifierSanitizer.sanitize_identifier(table_name, "POSTGRESQL")
+        s_clean = IdentifierSanitizer.sanitize_identifier(target_schema, "POSTGRESQL")
+        pk_clean = [IdentifierSanitizer.sanitize_identifier(pk, "POSTGRESQL") for pk in pk_columns]
+
+        where_clause = " AND ".join([f'"{pk}" = %s' for pk in pk_clean])
+        sql = f'DELETE FROM "{s_clean}"."{t_clean}" WHERE {where_clause}'
+
+        data_tuples = [
+            tuple(rec.get(pk) if pk in rec else (rec.get(pk.upper(), rec.get(pk.lower()))) for pk in pk_columns)
+            for rec in key_records
+        ]
+
+        self._in_transaction = True
+        try:
+            self.cursor.executemany(sql, data_tuples)
+            deleted_count = self.cursor.rowcount if (hasattr(self.cursor, "rowcount") and self.cursor.rowcount >= 0) else len(key_records)
+            self._active_tx_uncommitted_rows += deleted_count
+            return deleted_count
+        except Exception:
+            self._in_transaction = True
+            raise
+
+    def verify_uncertain_commit(
+        self,
+        table_name: str,
+        target_schema: str,
+        pk_columns: Optional[Sequence[str]],
         batch: TransportBatch,
     ) -> CommitOutcomeState:
         """
-        Verifies whether an un-acknowledged batch fully committed, failed, or is ambiguous.
-        FAIL CLOSED -> UNKNOWN_COMMIT_OUTCOME unless authoritative proof exists.
+        Physical PK/row requery to determine exact commit outcome after failure or timeout.
         """
-        return CommitOutcomeState.UNKNOWN_COMMIT_OUTCOME
+        if not batch or not batch.rows:
+            return CommitOutcomeState.COMMITTED
+        if not self.conn:
+            try:
+                self._connect()
+            except Exception:
+                return CommitOutcomeState.UNKNOWN_COMMIT_OUTCOME
+        try:
+            from akaalEngine.schema.ddl.identifiers import IdentifierSanitizer
+            t_clean = IdentifierSanitizer.sanitize_identifier(table_name, "POSTGRESQL")
+            s_clean = IdentifierSanitizer.sanitize_identifier(target_schema, "POSTGRESQL")
+            pk_col = pk_columns[0] if pk_columns else (batch.column_names[0] if batch.column_names else None)
+            if not pk_col:
+                return CommitOutcomeState.UNKNOWN_COMMIT_OUTCOME
+            pk_clean = IdentifierSanitizer.sanitize_identifier(pk_col, "POSTGRESQL")
+            pk_vals = [r.get(pk_col) if pk_col in r else r.get(pk_col.upper(), r.get(pk_col.lower())) for r in batch.rows if (r.get(pk_col) is not None or r.get(pk_col.upper()) is not None or r.get(pk_col.lower()) is not None)]
+            if not pk_vals:
+                return CommitOutcomeState.UNKNOWN_COMMIT_OUTCOME
+            with self.conn.cursor() as cur:
+                cur.execute(
+                    f'SELECT COUNT(*) FROM "{s_clean}"."{t_clean}" WHERE "{pk_clean}" = ANY(%s)',
+                    (pk_vals,)
+                )
+                found = cur.fetchone()[0]
+                if found == len(batch.rows):
+                    return CommitOutcomeState.COMMITTED
+                elif found == 0:
+                    return CommitOutcomeState.NOT_COMMITTED
+                else:
+                    return CommitOutcomeState.UNKNOWN_COMMIT_OUTCOME
+        except Exception as exc:
+            logger.warning(f"[PostgreSQLTargetWriter] verify_uncertain_commit check failed: {exc}")
+            return CommitOutcomeState.UNKNOWN_COMMIT_OUTCOME
+
+    def execute_ddl(self, ddl: str) -> None:
+        """Executes a DDL statement on PostgreSQL target database."""
+        if not ddl or not ddl.strip():
+            return
+        if not self.conn:
+            self._connect()
+        try:
+            self.cursor.execute(ddl)
+            self.conn.commit()
+        except Exception as exc:
+            logger.warning(f"[PostgreSQLTargetWriter] execute_ddl failed: {exc} | DDL: {ddl[:100]}...")
+            try:
+                self.conn.rollback()
+            except Exception:
+                pass
+            raise
 
     def commit(self) -> None:
         if self.conn:
@@ -182,8 +363,10 @@ class PostgreSQLTargetWriter(TargetWriter):
                 self.cursor.close()
             except Exception:
                 pass
+            self.cursor = None
         if self.conn:
             try:
                 self.conn.close()
             except Exception:
                 pass
+            self.conn = None

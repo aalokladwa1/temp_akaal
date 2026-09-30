@@ -59,6 +59,7 @@ describe('AKAAL Migration History & Evidence Home — Master Test Suite', () => 
 
     beforeEach(() => {
       service = new HistoryHomeService();
+      service.loadFixturesForTesting();
     });
 
     it('should initialize with canonical fixtures and default filter state', () => {
@@ -208,6 +209,91 @@ describe('AKAAL Migration History & Evidence Home — Master Test Suite', () => 
       expect(tableComp.getValidationLabel(INITIAL_MIGRATION_HISTORY_FIXTURES[2])).toBe('Reconciled');
       expect(tableComp.getValidationLabel(INITIAL_MIGRATION_HISTORY_FIXTURES[8])).toBe('Failed');
       expect(tableComp.getValidationLabel(INITIAL_MIGRATION_HISTORY_FIXTURES[9])).toBe('Mismatch');
+    });
+  });
+
+  describe('4. Canonical IPC Loading & Telemetry Reactivity', () => {
+    it('should map canonical migrations into history items on loadState', async () => {
+      const mockIpc: any = {
+        connectionState: () => 'connected',
+        subscribe: () => () => {},
+        invoke: async () => ({
+          status: 'SUCCESS',
+          data: {
+            migrations: [
+              {
+                id: 'mig-audit-001',
+                name: 'Financial Ledger Migration',
+                source_provider: 'Oracle Database 19c',
+                target_provider: 'PostgreSQL 16',
+                mode: 'M2_BULK_CDC',
+                state: 'COMPLETED',
+                progress_percent: 100,
+                difference_count: 0,
+                throughput_rows_per_sec: 64000
+              }
+            ]
+          }
+        })
+      };
+
+      const mockMigrationIpc: any = {
+        listMigrations: async () => mockIpc.invoke(),
+        getAuditTrail: async () => ({ status: 'SUCCESS', data: { entries: [] } })
+      };
+
+      const liveService = new HistoryHomeService(mockMigrationIpc, mockIpc);
+      await liveService.loadState();
+
+      expect(liveService.historyItems().length).toBe(1);
+      const item = liveService.historyItems()[0];
+      expect(item.id).toBe('mig-audit-001');
+      expect(item.mode).toBe('M2_BULK_CDC');
+      expect(item.outcome).toBe('SUCCEEDED');
+      expect(item.validationState).toBe('PASSED');
+      expect(liveService.availabilityState()).toBe('READY');
+    });
+
+    it('should update history item when telemetry and status events occur', () => {
+      let telemetryCb: ((event: any) => void) | undefined;
+      let statusCb: ((event: any) => void) | undefined;
+
+      const mockIpc: any = {
+        connectionState: () => 'connected',
+        subscribe: (topic: string, cb: any) => {
+          if (topic === 'akaal:telemetry') telemetryCb = cb;
+          if (topic === 'akaal:migration:status') statusCb = cb;
+          return () => {};
+        },
+        invoke: async () => ({ status: 'SUCCESS', data: {} })
+      };
+
+      const mockMigrationIpc: any = {
+        listMigrations: async () => ({ status: 'SUCCESS', data: { migrations: [] } }),
+        getAuditTrail: async () => ({ status: 'SUCCESS', data: { entries: [] } })
+      };
+
+      const liveService = new HistoryHomeService(mockMigrationIpc, mockIpc);
+      const initialItem = liveService.historyItems()[0];
+
+      // Telemetry update
+      telemetryCb?.({
+        migration_id: initialItem.migrationId,
+        state: 'RUNNING',
+        throughput_rows_per_sec: 85000
+      });
+
+      let found = liveService.historyItems().find(i => i.migrationId === initialItem.migrationId);
+      expect(found?.throughputFormatted).toBe('85k rows/s');
+
+      // Status update
+      statusCb?.({
+        migration_id: initialItem.migrationId,
+        state: 'FAILED'
+      });
+
+      found = liveService.historyItems().find(i => i.migrationId === initialItem.migrationId);
+      expect(found?.outcome).toBe('FAILED');
     });
   });
 

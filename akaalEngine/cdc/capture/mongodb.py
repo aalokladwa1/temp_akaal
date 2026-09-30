@@ -59,8 +59,9 @@ class MongoDBCDCSourceAdapter(ICDCSourceAdapter):
         if not conn and not self.params.get("event_stream"):
             from akaalEngine.cdc.models.errors import CDCCapabilityError
             raise CDCCapabilityError("MongoDB Change Stream physical oplog reader cannot start: No physical database connection handle or stream reader provided in connection_params.")
-        if isinstance(start_position, MongoResumeTokenPosition):
-            self.resume_token = start_position.resume_token
+        if isinstance(start_position, MongoDBOpLogPosition):
+            self.timestamp_sec = start_position.timestamp_sec
+            self.inc = start_position.inc
         self.stream_handle = conn
         self.is_active = True
 

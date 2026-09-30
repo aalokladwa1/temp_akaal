@@ -289,8 +289,8 @@ export class LaunchLifecycleService {
           this.quarterIndex += completedQuarters;
           this.quarterStartTime += completedQuarters * this.quarterTurnMs;
 
-          // If readiness arrived mid-turn, finish current quarter boundary and begin upright resolution
-          if (this.isReadinessPending) {
+          // If readiness arrived mid-turn, finish current quarter boundary and begin upright resolution (min 2 quarters)
+          if (this.isReadinessPending && this.quarterIndex >= 2) {
             this.beginUprightResolution(now);
             return;
           }

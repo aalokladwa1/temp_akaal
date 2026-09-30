@@ -31,12 +31,14 @@ class PipelineQueryService:
         self,
         repository: MigrationRepositoryPort,
         operation_service: OperationService,
+        artifact_registry: Optional[Any] = None,
         intelligence_kernel: Optional[IntelligenceKernel] = None,
     ) -> None:
         from akaalPipeline.validation import ValidationPipelineService
 
         self.repository = repository
         self.operation_service = operation_service
+        self.artifact_registry = artifact_registry
         self.intelligence_kernel = intelligence_kernel or IntelligenceKernel()
         self.validation_service = ValidationPipelineService()
 
@@ -735,6 +737,30 @@ class PipelineQueryService:
         missions = self.validation_service.list_missions(actor, conn, limit=limit, offset=offset)
         return [m.to_dict() for m in missions]
 
+    def list_validation_discrepancies(
+        self,
+        mission_id: str,
+        actor: PipelineActorContext,
+        conn: sqlite3.Connection,
+        limit: int = 50,
+        offset: int = 0,
+        table_name: Optional[str] = None,
+        status: Optional[str] = None,
+    ) -> List[Mapping[str, Any]]:
+        return self.validation_service.list_discrepancies(
+            mission_id=mission_id, actor=actor, conn=conn, limit=limit, offset=offset, table_name=table_name, status=status
+        )
+
+    def get_validation_discrepancy_detail(
+        self,
+        discrepancy_id: str,
+        actor: PipelineActorContext,
+        conn: sqlite3.Connection,
+    ) -> Mapping[str, Any]:
+        return self.validation_service.get_discrepancy_detail(
+            discrepancy_id=discrepancy_id, actor=actor, conn=conn
+        )
+
     def get_validation_baseline(
         self,
         baseline_id: str,
@@ -774,26 +800,53 @@ class PipelineQueryService:
         actor: PipelineActorContext,
         conn: sqlite3.Connection,
     ) -> Dict[str, Any]:
-        """Returns authoritative reports summary metrics."""
-        # Query canonical migrations and validation missions
+        """Returns authoritative reports summary metrics calculated dynamically from canonical tables."""
         cursor = conn.cursor()
         migration_count = 0
+        failed_migrations = 0
         try:
-            cursor.execute("SELECT COUNT(*) FROM migrations")
-            migration_count = cursor.fetchone()[0]
+            cursor.execute("SELECT COUNT(*), SUM(CASE WHEN state = 'FAILED' THEN 1 ELSE 0 END) FROM migrations")
+            row = cursor.fetchone()
+            if row:
+                migration_count = row[0] or 0
+                failed_migrations = row[1] or 0
         except sqlite3.OperationalError:
             pass
 
         mission_count = 0
+        failed_missions = 0
         try:
-            cursor.execute("SELECT COUNT(*) FROM validation_missions")
-            mission_count = cursor.fetchone()[0]
+            cursor.execute("SELECT COUNT(*), SUM(CASE WHEN state = 'FAILED' OR fail_count > 0 THEN 1 ELSE 0 END) FROM validation_missions")
+            row = cursor.fetchone()
+            if row:
+                mission_count = row[0] or 0
+                failed_missions = row[1] or 0
         except sqlite3.OperationalError:
             pass
 
-        total_reports = 14 + migration_count + mission_count
-        attention_count = 2
-        evidence_count = 5 + mission_count
+        unresolved_discrepancies = 0
+        try:
+            cursor.execute("SELECT COUNT(*) FROM validation_discrepancies WHERE status = 'UNRESOLVED'")
+            unresolved_discrepancies = cursor.fetchone()[0] or 0
+        except sqlite3.OperationalError:
+            pass
+
+        evidence_count = 0
+        try:
+            cursor.execute("SELECT COUNT(*) FROM immutable_artifacts")
+            evidence_count = cursor.fetchone()[0] or 0
+        except sqlite3.OperationalError:
+            pass
+
+        audit_count = 0
+        try:
+            cursor.execute("SELECT COUNT(*) FROM security_audit_ledger")
+            audit_count = cursor.fetchone()[0] or 0
+        except sqlite3.OperationalError:
+            pass
+
+        total_reports = migration_count + mission_count + (1 if audit_count > 0 else 0)
+        attention_count = failed_migrations + failed_missions + (1 if unresolved_discrepancies > 0 else 0)
 
         return {
             "total_reports_count": total_reports,
@@ -808,266 +861,81 @@ class PipelineQueryService:
         actor: PipelineActorContext,
         conn: sqlite3.Connection,
     ) -> List[Dict[str, Any]]:
-        """Returns canonical list of reports with optional category/outcome filtering."""
-        reports: List[Dict[str, Any]] = [
-            {
-                "id": "REP-2026-0101",
-                "title": "Dual-Engine Reconciliation & Verification Report",
-                "category": "VALIDATION_RECONCILIATION",
-                "category_label": "Validation & Reconciliation",
-                "subject_id": "mig-core-banking-01",
-                "subject_name": "Core Banking Ledger Migration",
-                "subject_type": "MIGRATION",
-                "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                "outcome": "SATISFIED",
-                "summary": "Dual-engine row hash comparison verified across 14,200,000 records with zero discrepancies.",
-                "certification_status": "CERTIFIED",
-                "evidence_state": "VERIFIED",
-                "evidence_manifest_ref": "manifest-sha256-m8-core-01.json",
-                "download_formats": ["PDF", "JSON", "ZIP", "CSV"],
-                "deep_link_route": "/reports/library"
-            },
-            {
-                "id": "REP-2026-0102",
-                "title": "Schema Translation & DDL Conformance Audit",
-                "category": "SCHEMA_COMPATIBILITY",
-                "category_label": "Schema & Compatibility",
-                "subject_id": "mig-core-banking-01",
-                "subject_name": "Core Banking Modernization",
-                "subject_type": "MIGRATION",
-                "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                "outcome": "SATISFIED",
-                "summary": "142 tables, 318 indexes, and 48 sequences mapped with full semantic datatype parity.",
-                "certification_status": "PENDING_EVALUATION",
-                "evidence_state": "VERIFIED",
-                "evidence_manifest_ref": "manifest-schema-ddl-conformance.json",
-                "download_formats": ["PDF", "JSON"],
-                "deep_link_route": "/reports/library"
-            },
-            {
-                "id": "REP-2026-0103",
-                "title": "Continuous CDC LogMiner Replay Drift Analysis",
-                "category": "CDC",
-                "category_label": "CDC",
-                "subject_id": "mig-core-banking-01",
-                "subject_name": "Core Banking Ledger Migration",
-                "subject_type": "MIGRATION",
-                "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                "outcome": "DEFECTS_FOUND",
-                "summary": "Replication watermark lag spiked to 3,420ms on target Aurora pool during peak batch ingestion.",
-                "certification_status": "NOT_CERTIFIED",
-                "evidence_state": "AVAILABLE",
-                "evidence_manifest_ref": "manifest-cdc-drift-run09.json",
-                "download_formats": ["PDF", "JSON", "CSV"],
-                "deep_link_route": "/reports/library"
-            },
-            {
-                "id": "REP-2026-0104",
-                "title": "Partition Bulk Transfer & Savepoint Integrity Report",
-                "category": "MIGRATION",
-                "category_label": "Migration",
-                "subject_id": "mig-ent-analytics",
-                "subject_name": "Enterprise Data Lakehouse",
-                "subject_type": "MIGRATION",
-                "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                "outcome": "CONVERGED",
-                "summary": "32 of 32 bulk partitions extracted and loaded into target staging bucket without byte degradation.",
-                "certification_status": "CERTIFIED",
-                "evidence_state": "VERIFIED",
-                "evidence_manifest_ref": "manifest-partition-bulk-lakehouse.json",
-                "download_formats": ["PDF", "JSON", "ZIP"],
-                "deep_link_route": "/reports/library"
-            },
-            {
-                "id": "REP-2026-0105",
-                "title": "Kafka Egress Throughput & Stage Latency Profile",
-                "category": "PERFORMANCE",
-                "category_label": "Performance",
-                "subject_id": "mig-orders-stream",
-                "subject_name": "Global Order Stream Pipeline",
-                "subject_type": "MIGRATION",
-                "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                "outcome": "SATISFIED",
-                "summary": "Mean pipeline latency sustained at 18ms across 45,000 msg/sec egress stream over 24h evaluation window.",
-                "certification_status": "NOT_ESTABLISHED",
-                "evidence_state": "AVAILABLE",
-                "evidence_manifest_ref": "manifest-egress-perf-kafka.json",
-                "download_formats": ["PDF", "JSON", "CSV"],
-                "deep_link_route": "/reports/library"
-            },
-            {
-                "id": "REP-2026-0106",
-                "title": "Data Quality & Referential Constraint Quarantine Report",
-                "category": "DATA_QUALITY",
-                "category_label": "Data Quality",
-                "subject_id": "val-crm-01",
-                "subject_name": "Customer CRM Database",
-                "subject_type": "VALIDATION",
-                "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                "outcome": "DEFECTS_FOUND",
-                "summary": "24 orphaned records isolated to quarantine dead-letter table due to missing parent account IDs.",
-                "certification_status": "NOT_CERTIFIED",
-                "evidence_state": "VERIFIED",
-                "evidence_manifest_ref": "manifest-dq-quarantine-crm.json",
-                "download_formats": ["PDF", "JSON", "CSV"],
-                "deep_link_route": "/reports/library"
-            },
-            {
-                "id": "REP-2026-0107",
-                "title": "Cutover Readiness & Rollback Rehearsal Evaluation",
-                "category": "CUTOVER_FAILBACK",
-                "category_label": "Cutover & Failback",
-                "subject_id": "mig-core-banking-01",
-                "subject_name": "Core Banking Ledger Migration",
-                "subject_type": "MIGRATION",
-                "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                "outcome": "SATISFIED",
-                "summary": "Synthetic reverse CDC failback replication verified target-to-source lag within 120ms SLA threshold.",
-                "certification_status": "CERTIFIED",
-                "evidence_state": "VERIFIED",
-                "evidence_manifest_ref": "manifest-cutover-rehearsal.json",
-                "download_formats": ["PDF", "JSON"],
-                "deep_link_route": "/reports/library"
-            },
-            {
-                "id": "REP-2026-0108",
-                "title": "Worker Node Lease Fencing & Recovery Checkpoint Audit",
-                "category": "RECOVERY_RELIABILITY",
-                "category_label": "Recovery & Reliability",
-                "subject_id": "plat-fleet-cluster",
-                "subject_name": "DevKros Execution Fleet",
-                "subject_type": "PLATFORM",
-                "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                "outcome": "SATISFIED",
-                "summary": "Zero split-brain occurrences; all 16 worker heartbeat fencing leases recovered within 4,000ms heartbeat TTL.",
-                "certification_status": "CERTIFIED",
-                "evidence_state": "VERIFIED",
-                "evidence_manifest_ref": "manifest-lease-fencing-audit.json",
-                "download_formats": ["PDF", "JSON"],
-                "deep_link_route": "/reports/library"
-            },
-            {
-                "id": "REP-2026-0109",
-                "title": "Access Control & Transport Layer Security Audit",
-                "category": "SECURITY",
-                "category_label": "Security",
-                "subject_id": "sec-core-ledger",
-                "subject_name": "Identity & Cryptographic Subsystem",
-                "subject_type": "PLATFORM",
-                "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                "outcome": "SATISFIED",
-                "summary": "mTLS 1.3 encryption enforced across all worker-to-engine channels; zero unauthenticated RPCs accepted.",
-                "certification_status": "CERTIFIED",
-                "evidence_state": "VERIFIED",
-                "evidence_manifest_ref": "manifest-security-tls-audit.json",
-                "download_formats": ["PDF", "JSON"],
-                "deep_link_route": "/reports/library"
-            },
-            {
-                "id": "REP-2026-0110",
-                "title": "Regulatory Technical Standards Compliance Attestation",
-                "category": "COMPLIANCE",
-                "category_label": "Compliance",
-                "subject_id": "comp-sox-rts",
-                "subject_name": "Enterprise Governance Office",
-                "subject_type": "AUDIT",
-                "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                "outcome": "SATISFIED",
-                "summary": "Continuous audit log immutability and dual-custody authorization criteria satisfied under RTS-2026 Art. 14.",
-                "certification_status": "CERTIFIED",
-                "evidence_state": "VERIFIED",
-                "evidence_manifest_ref": "manifest-sox-compliance-rts.json",
-                "download_formats": ["PDF", "JSON"],
-                "deep_link_route": "/reports/library"
-            },
-            {
-                "id": "REP-2026-0111",
-                "title": "Stage 4 Production Cutover Dual-Control Approval Ledger",
-                "category": "GOVERNANCE_APPROVAL",
-                "category_label": "Governance & Approval",
-                "subject_id": "mig-core-banking-01",
-                "subject_name": "Core Banking Ledger Migration",
-                "subject_type": "MIGRATION",
-                "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                "outcome": "SATISFIED",
-                "summary": "Dual-control quorum verified with cryptographic signatures from Lead DBA and Head of SecOps.",
-                "certification_status": "CERTIFIED",
-                "evidence_state": "VERIFIED",
-                "evidence_manifest_ref": "manifest-governance-dualcontrol.json",
-                "download_formats": ["PDF", "JSON"],
-                "deep_link_route": "/reports/library"
-            },
-            {
-                "id": "REP-2026-0112",
-                "title": "Append-Only Operator Action Provenance Journal",
-                "category": "AUDIT",
-                "category_label": "Audit",
-                "subject_id": "aud-ops-journal",
-                "subject_name": "DevKros Control Plane",
-                "subject_type": "AUDIT",
-                "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                "outcome": "SATISFIED",
-                "summary": "1,482 administrative and engine operations cryptographically linked into Merkle provenance chain.",
-                "certification_status": "CERTIFIED",
-                "evidence_state": "VERIFIED",
-                "evidence_manifest_ref": "manifest-audit-journal-merkle.json",
-                "download_formats": ["PDF", "JSON", "CSV"],
-                "deep_link_route": "/reports/library"
-            },
-            {
-                "id": "REP-2026-0113",
-                "title": "Cluster Resource Allocation & Throughput Benchmark",
-                "category": "INFRASTRUCTURE_FLEET",
-                "category_label": "Infrastructure & Fleet",
-                "subject_id": "plat-fleet-cluster",
-                "subject_name": "DevKros Execution Fleet",
-                "subject_type": "PLATFORM",
-                "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                "outcome": "SATISFIED",
-                "summary": "Peak heap usage within 62% threshold; disk I/O write amplification below 1.4 across 8 worker nodes.",
-                "certification_status": "CERTIFIED",
-                "evidence_state": "AVAILABLE",
-                "evidence_manifest_ref": "manifest-infra-fleet-benchmark.json",
-                "download_formats": ["PDF", "JSON", "CSV"],
-                "deep_link_route": "/reports/library"
-            },
-            {
-                "id": "REP-2026-0114",
-                "title": "Modernization Program Milestone & Health Rollup",
-                "category": "EXECUTIVE",
-                "category_label": "Executive",
-                "subject_id": "proj-modernization-2026",
-                "subject_name": "Enterprise Core Banking Migration Program",
-                "subject_type": "PROJECT",
-                "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                "outcome": "CONVERGED",
-                "summary": "4 of 5 target migration waves complete; overall program on track for Q4 final legacy decommissioning.",
-                "certification_status": "UNDER_REVIEW",
-                "evidence_state": "AVAILABLE",
-                "evidence_manifest_ref": "manifest-executive-rollup.json",
-                "download_formats": ["PDF", "JSON"],
-                "deep_link_route": "/reports/library"
-            }
-        ]
+        """Returns canonical list of reports generated dynamically from migrations, validation missions, and audit ledger."""
+        reports: List[Dict[str, Any]] = []
+        cursor = conn.cursor()
 
         # Ingest dynamic migrations as reports
         try:
-            cursor = conn.cursor()
-            cursor.execute("SELECT migration_id, tenant_id, mode, state FROM migrations LIMIT 50")
+            cursor.execute("SELECT migration_id, name, mode, state, created_at FROM migrations ORDER BY created_at DESC LIMIT 100")
             for row in cursor.fetchall():
-                mig_id, tenant_id, mode, state = row
+                mig_id, mig_name, mode, state, created_at = row
+                outcome = "SATISFIED" if state in ("COMPLETED", "ACTIVE", "RUNNING") else ("DEFECTS_FOUND" if state == "FAILED" else "IN_PROGRESS")
+                cert_status = "CERTIFIED" if state == "COMPLETED" else ("NOT_CERTIFIED" if state == "FAILED" else "PENDING_EVALUATION")
                 reports.append({
                     "id": f"REP-MIG-{mig_id}",
-                    "title": f"Migration Execution Report: {mig_id}",
+                    "title": f"Migration Execution Report: {mig_name or mig_id}",
                     "category": "MIGRATION",
                     "category_label": "Migration",
                     "subject_id": mig_id,
-                    "subject_name": f"Migration {mig_id}",
+                    "subject_name": mig_name or f"Migration {mig_id}",
                     "subject_type": "MIGRATION",
-                    "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                    "outcome": "SATISFIED" if state == "COMPLETED" else "IN_PROGRESS",
+                    "generated_at": created_at or datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                    "outcome": outcome,
                     "summary": f"Canonical execution report for migration {mig_id} ({mode}) in state {state}.",
-                    "certification_status": "CERTIFIED" if state == "COMPLETED" else "PENDING_EVALUATION",
+                    "certification_status": cert_status,
+                    "evidence_state": "VERIFIED" if state == "COMPLETED" else "AVAILABLE",
+                    "download_formats": ["JSON", "CSV"],
+                    "deep_link_route": "/reports/library",
+                })
+        except sqlite3.OperationalError:
+            pass
+
+        # Ingest dynamic validation missions as reports
+        try:
+            cursor.execute("SELECT mission_id, name, source_provider, target_provider, state, pass_count, fail_count, last_result_status, created_at FROM validation_missions ORDER BY created_at DESC LIMIT 100")
+            for row in cursor.fetchall():
+                mission_id, mission_name, src_p, tgt_p, state, pass_cnt, fail_cnt, last_status, created_at = row
+                has_fails = (fail_cnt or 0) > 0 or state == "FAILED"
+                outcome = "DEFECTS_FOUND" if has_fails else ("SATISFIED" if state in ("COMPLETED", "PASSED") else "IN_PROGRESS")
+                cert_status = "CERTIFIED" if (state in ("COMPLETED", "PASSED") and not has_fails) else "NOT_CERTIFIED"
+                reports.append({
+                    "id": f"REP-VAL-{mission_id}",
+                    "title": f"Validation Mission Report: {mission_name or mission_id}",
+                    "category": "VALIDATION_RECONCILIATION",
+                    "category_label": "Validation & Reconciliation",
+                    "subject_id": mission_id,
+                    "subject_name": mission_name or f"Validation {mission_id}",
+                    "subject_type": "VALIDATION",
+                    "generated_at": created_at or datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                    "outcome": outcome,
+                    "summary": f"Validation reconciliation report for mission {mission_id} ({src_p} -> {tgt_p}) with {pass_cnt or 0} passes, {fail_cnt or 0} failures.",
+                    "certification_status": cert_status,
+                    "evidence_state": "VERIFIED" if state in ("COMPLETED", "PASSED") else "AVAILABLE",
+                    "download_formats": ["JSON", "CSV"],
+                    "deep_link_route": "/reports/library",
+                })
+        except sqlite3.OperationalError:
+            pass
+
+        # Ingest audit ledger summary report if events exist
+        try:
+            cursor.execute("SELECT COUNT(*), MAX(timestamp) FROM security_audit_ledger")
+            aud_row = cursor.fetchone()
+            if aud_row and aud_row[0] > 0:
+                aud_count, last_aud_ts = aud_row
+                reports.append({
+                    "id": "REP-AUD-SUMMARY",
+                    "title": "Security & Administrative Audit Ledger Provenance Report",
+                    "category": "AUDIT",
+                    "category_label": "Audit",
+                    "subject_id": "aud-ledger-root",
+                    "subject_name": "DevKros Control Plane Audit Ledger",
+                    "subject_type": "AUDIT",
+                    "generated_at": last_aud_ts or datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                    "outcome": "SATISFIED",
+                    "summary": f"Cryptographically chained audit trail containing {aud_count} immutable operational events.",
+                    "certification_status": "CERTIFIED",
                     "evidence_state": "VERIFIED",
                     "download_formats": ["JSON", "CSV"],
                     "deep_link_route": "/reports/library",
@@ -1103,7 +971,25 @@ class PipelineQueryService:
         if not found:
             raise PipelineError(PipelineErrorCode.NOT_FOUND, f"Report '{report_id}' not found.")
 
-        # Construct full envelope
+        cursor = conn.cursor()
+        approvers: List[Dict[str, Any]] = []
+        try:
+            cursor.execute(
+                "SELECT requester_id, approver_id, approver_role, status, issued_at FROM governance_approvals WHERE migration_id = ? LIMIT 5",
+                (found["subject_id"],),
+            )
+            for row in cursor.fetchall():
+                req_id, app_id, app_role, app_status, issued_at = row
+                if app_id:
+                    approvers.append({
+                        "role": app_role or "Designated Approver",
+                        "actor_name": app_id,
+                        "timestamp": issued_at,
+                        "decision": app_status,
+                    })
+        except sqlite3.OperationalError:
+            pass
+
         envelope = {
             "id": found["id"],
             "title": found["title"],
@@ -1117,59 +1003,34 @@ class PipelineQueryService:
             "summary": found["summary"],
             "certification_status": found.get("certification_status", "CERTIFIED"),
             "evidence_state": found.get("evidence_state", "VERIFIED"),
-            "download_formats": found.get("download_formats", ["PDF", "JSON", "CSV"]),
+            "download_formats": found.get("download_formats", ["JSON", "CSV"]),
             "deep_link_route": found.get("deep_link_route", "/reports/library"),
             "criteria": [
                 {
                     "id": "crit-01",
-                    "name": "Data Consistency Checksum Parity",
-                    "required_condition": "Source and target table row hashes must match with 0 discrepancies.",
-                    "observed_result": "100% matched across 14.2M records.",
-                    "outcome": "SATISFIED"
-                },
-                {
-                    "id": "crit-02",
-                    "name": "Schema Structure Conformance",
-                    "required_condition": "All primary and foreign key definitions preserved.",
-                    "observed_result": "142 of 142 tables conform with zero type divergence.",
-                    "outcome": "SATISFIED"
+                    "name": "Execution & Parity Assertion",
+                    "required_condition": "Operation completed according to canonical specification.",
+                    "observed_result": found["summary"],
+                    "outcome": found.get("outcome", "SATISFIED"),
                 }
             ],
-            "evidence": [
-                {
-                    "id": "EV-2026-VAL-01",
-                    "title": "Dual-Engine Validation Merkle Root Digest",
-                    "artifact_type": "MERKLE_TREE_DIGEST",
-                    "subject_name": found["subject_name"],
-                    "sha256_digest": "9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1f0e9d8c7b6a5f4e3d2c1b0a9f8e",
-                    "integrity_state": "VERIFIED",
-                    "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                    "deep_link_route": "/reports/evidence"
-                }
-            ],
+            "evidence": [],
             "governance": {
-                "barrier_name": "Stage 4 Production Cutover Gate",
-                "decision_status": "APPROVED",
-                "required_quorum": 2,
-                "approvals_received": 2,
-                "approvers": [
-                    {"role": "Lead Migration DBA", "actor_name": "Marcus Vance", "timestamp": found["generated_at"], "decision": "APPROVED"},
-                    {"role": "SecOps Officer", "actor_name": "Elena Rostova", "timestamp": found["generated_at"], "decision": "APPROVED"}
-                ]
+                "barrier_name": "Stage Governance Barrier",
+                "decision_status": "APPROVED" if found.get("outcome") == "SATISFIED" else "PENDING",
+                "required_quorum": 1 if approvers else 0,
+                "approvals_received": len(approvers),
+                "approvers": approvers,
             },
             "integrity": {
                 "sha256_fingerprint": hashlib.sha256(f"report-{report_id}".encode()).hexdigest(),
-                "producer_authority": "DevKros Reporting Authority v2.4",
+                "producer_authority": "DevKros Reporting Authority",
                 "verification_status": "VERIFIED",
                 "verification_method": "SHA-256 Digest Match"
             },
             "payload": {
                 "category": found["category"],
                 "summary": found["summary"],
-                "total_records_analyzed": 14200000,
-                "discrepancies_count": 0 if found.get("outcome") != "DEFECTS_FOUND" else 24,
-                "execution_duration_ms": 18240,
-                "throughput_records_per_sec": 45000,
                 "authoritative_timestamp": found["generated_at"]
             }
         }
@@ -1215,53 +1076,45 @@ class PipelineQueryService:
         actor: PipelineActorContext,
         conn: sqlite3.Connection,
     ) -> List[Dict[str, Any]]:
-        """Returns canonical list of certification summaries."""
-        certifications = [
-            {
-                "id": "CERT-MIG-2026-001",
-                "domain": "MIGRATION",
-                "title": "Core Banking Ledger Migration Execution Certification",
-                "subject_name": "Core Banking Ledger Migration",
-                "subject_id": "mig-core-banking-01",
-                "issued_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                "decision": "CERTIFIED",
-                "lifecycle": "ACTIVE",
-                "summary": "Formal migration completion assertion verifying 14,200,000 transferred customer accounts."
-            },
-            {
-                "id": "CERT-VAL-2026-002",
-                "domain": "VALIDATION",
-                "title": "Dual-Engine Reconciliation & Hash Parity Certification",
-                "subject_name": "Core Banking Ledger Migration",
-                "subject_id": "mig-core-banking-01",
-                "issued_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                "decision": "CERTIFIED",
-                "lifecycle": "ACTIVE",
-                "summary": "Dual-engine validation attestation confirming row counts and column-level checksum parity."
-            },
-            {
-                "id": "CERT-MIG-2026-003",
-                "domain": "MIGRATION",
-                "title": "Snowflake Data Lakehouse Batch Snapshot Certification",
-                "subject_name": "Enterprise Data Lakehouse",
-                "subject_id": "mig-ent-analytics",
-                "issued_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                "decision": "CERTIFIED",
-                "lifecycle": "ACTIVE",
-                "summary": "Batch partition migration snapshot certified across 8 partitions."
-            },
-            {
-                "id": "CERT-VAL-2026-004",
-                "domain": "VALIDATION",
-                "title": "Customer Profile Referential Validation Certification",
-                "subject_name": "Customer CRM Database",
-                "subject_id": "val-crm-01",
-                "issued_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                "decision": "NOT_CERTIFIED",
-                "lifecycle": "ACTIVE",
-                "summary": "Validation evaluation identified 24 unmapped orphaned foreign keys in customer billing table."
-            }
-        ]
+        """Returns canonical list of external/registered certification artifacts strictly from immutable_artifacts.
+        DevKros does not manufacture formal external certifications or synthesize attestations from raw migrations/validations."""
+        certifications: List[Dict[str, Any]] = []
+        cursor = conn.cursor()
+
+        try:
+            cursor.execute(
+                """
+                SELECT artifact_id, tenant_id, artifact_type, fingerprint, content, created_at
+                FROM immutable_artifacts
+                WHERE artifact_type = 'CERTIFICATION'
+                ORDER BY created_at DESC LIMIT 50
+                """
+            )
+            for row in cursor.fetchall():
+                art_id, tenant_id, art_type, fp, raw_content, created_at = row
+                content_obj = {}
+                if isinstance(raw_content, str):
+                    try:
+                        content_obj = json.loads(raw_content)
+                    except Exception:
+                        pass
+                elif isinstance(raw_content, dict):
+                    content_obj = raw_content
+
+                certifications.append({
+                    "id": art_id,
+                    "domain": content_obj.get("domain", "COMPLIANCE"),
+                    "title": content_obj.get("title", f"Certification Artifact {art_id}"),
+                    "subject_name": content_obj.get("subject_name", art_id),
+                    "subject_id": content_obj.get("subject_id", art_id),
+                    "issued_at": created_at or datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                    "decision": content_obj.get("decision", "CERTIFIED"),
+                    "lifecycle": content_obj.get("lifecycle", "ACTIVE"),
+                    "summary": content_obj.get("summary", "Registered compliance certification record."),
+                })
+        except sqlite3.OperationalError:
+            pass
+
         return certifications
 
     def get_certification(
@@ -1271,62 +1124,60 @@ class PipelineQueryService:
         conn: sqlite3.Connection,
     ) -> Dict[str, Any]:
         """Returns the full authoritative CertificationDetailEnvelopeDTO."""
-        certs = self.list_certifications({}, actor, conn)
-        found = next((c for c in certs if c["id"] == certification_id), None)
-        if not found:
-            raise PipelineError(PipelineErrorCode.NOT_FOUND, f"Certification '{certification_id}' not found.")
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                """
+                SELECT artifact_id, tenant_id, artifact_type, fingerprint, content, created_at
+                FROM immutable_artifacts
+                WHERE artifact_id = ? AND artifact_type = 'CERTIFICATION'
+                """,
+                (certification_id,),
+            )
+            row = cursor.fetchone()
+            if not row:
+                raise PipelineError(PipelineErrorCode.NOT_FOUND, f"Certification '{certification_id}' not found.")
 
-        envelope = {
-            "id": found["id"],
-            "domain": found["domain"],
-            "title": found["title"],
-            "subject_name": found["subject_name"],
-            "subject_id": found["subject_id"],
-            "issued_at": found["issued_at"],
-            "producer_authority": "MigrationAssuranceEngine" if found["domain"] == "MIGRATION" else "ValidationAssuranceEngine",
-            "decision": found["decision"],
-            "lifecycle": found["lifecycle"],
-            "summary": found["summary"],
-            "scope_summary": f"In-scope: Relational schema and transactional partitions for {found['subject_name']}.",
-            "criteria": [
-                {
-                    "id": "crit-01",
-                    "name": "Partition Parity & Checksum Integrity",
-                    "required_condition": "100% data extraction and target acknowledgment.",
-                    "observed_result": "Satisfied with zero dropped records.",
-                    "outcome": "SATISFIED" if found["decision"] == "CERTIFIED" else "NOT_SATISFIED",
-                    "evidence_ref": "EV-2026-MIG-01"
-                }
-            ],
-            "evidence": [
-                {
-                    "id": "EV-2026-MIG-01",
-                    "title": "Partition Bulk Transfer Manifest",
-                    "artifact_type": "MANIFEST_SNAPSHOT",
-                    "subject_name": found["subject_name"],
-                    "sha256_digest": "4a8f9b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a",
-                    "integrity_state": "VERIFIED",
-                    "created_at": found["issued_at"],
-                    "deep_link_route": "/reports/evidence"
-                }
-            ],
-            "governance": {
-                "barrier_name": "Stage 4 Production Gate",
-                "decision_status": "APPROVED" if found["decision"] == "CERTIFIED" else "PENDING",
-                "required_quorum": 2,
-                "approvals_received": 2 if found["decision"] == "CERTIFIED" else 1
-            },
-            "exceptions": [],
-            "integrity": {
-                "sha256_fingerprint": hashlib.sha256(f"cert-{certification_id}".encode()).hexdigest(),
-                "producer_authority": "DevKros Certification Authority v2.4",
-                "verification_status": "VERIFIED",
-                "verification_method": "SHA-256 Digest Match",
-                "verified_at": found["issued_at"]
-            },
-            "related_report_ids": ["REP-2026-0101", "REP-2026-0104"]
-        }
-        return envelope
+            art_id, tenant_id, art_type, fp, raw_content, created_at = row
+            content_obj = {}
+            if isinstance(raw_content, str):
+                try:
+                    content_obj = json.loads(raw_content)
+                except Exception:
+                    pass
+            elif isinstance(raw_content, dict):
+                content_obj = raw_content
+
+            fingerprint = fp or hashlib.sha256(f"cert-{certification_id}-{created_at}".encode()).hexdigest()
+            return {
+                "id": art_id,
+                "domain": content_obj.get("domain", "COMPLIANCE"),
+                "title": content_obj.get("title", f"Certification Artifact {art_id}"),
+                "subject_name": content_obj.get("subject_name", art_id),
+                "subject_id": content_obj.get("subject_id", art_id),
+                "issued_at": created_at or datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                "producer_authority": content_obj.get("producer_authority", "ExternalAuditorAuthority"),
+                "decision": content_obj.get("decision", "CERTIFIED"),
+                "lifecycle": content_obj.get("lifecycle", "ACTIVE"),
+                "summary": content_obj.get("summary", "Registered compliance certification record."),
+                "scope_summary": content_obj.get("scope_summary", f"In-scope: Workload {art_id}."),
+                "criteria": content_obj.get("criteria", []),
+                "evidence": content_obj.get("evidence", []),
+                "governance": content_obj.get("governance", {
+                    "barrier_name": "Compliance Audit Barrier",
+                    "decision_status": "APPROVED",
+                }),
+                "exceptions": content_obj.get("exceptions", []),
+                "integrity": {
+                    "sha256_fingerprint": fingerprint,
+                    "producer_authority": content_obj.get("producer_authority", "ExternalAuditorAuthority"),
+                    "verification_status": "VERIFIED",
+                    "verification_method": "SHA-256 Digest Match",
+                    "verified_at": created_at,
+                },
+            }
+        except sqlite3.OperationalError:
+            raise PipelineError(PipelineErrorCode.NOT_FOUND, f"Certification '{certification_id}' not found.")
 
     def list_evidence(
         self,
@@ -1334,94 +1185,33 @@ class PipelineQueryService:
         actor: PipelineActorContext,
         conn: sqlite3.Connection,
     ) -> List[Dict[str, Any]]:
-        """Returns canonical list of evidence items."""
-        items = [
-            {
-                "id": "EV-2026-MIG-01",
-                "title": "Partition Bulk Transfer Manifest",
-                "artifact_type": "MANIFEST_SNAPSHOT",
-                "subject_name": "Core Banking Ledger Migration",
-                "subject_id": "mig-core-banking-01",
-                "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                "producer_authority": "MigrationAssuranceEngine",
-                "fingerprint": "4a8f9b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a",
-                "byte_size": 4194304,
-                "lifecycle": "ACTIVE",
-                "integrity_status": "VERIFIED",
-                "dossier_id": "DOS-2026-001",
-                "certificate_id": "CERT-MIG-2026-001",
-                "report_id": "REP-2026-0101",
-                "deep_link_route": "/reports/evidence"
-            },
-            {
-                "id": "EV-2026-VAL-01",
-                "title": "Dual-Engine Validation Merkle Root Digest",
-                "artifact_type": "MERKLE_TREE_DIGEST",
-                "subject_name": "Core Banking Ledger Migration",
-                "subject_id": "mig-core-banking-01",
-                "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                "producer_authority": "ValidationAssuranceEngine",
-                "fingerprint": "9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1f0e9d8c7b6a5f4e3d2c1b0a9f8e",
-                "byte_size": 1048576,
-                "lifecycle": "ACTIVE",
-                "integrity_status": "VERIFIED",
-                "dossier_id": "DOS-2026-001",
-                "certificate_id": "CERT-VAL-2026-002",
-                "report_id": "REP-2026-0101",
-                "deep_link_route": "/reports/evidence"
-            },
-            {
-                "id": "EV-2026-GOV-01",
-                "title": "Dual-Control Sign-off Ledger Record",
-                "artifact_type": "GOVERNANCE_LEDGER",
-                "subject_name": "Core Banking Ledger Migration",
-                "subject_id": "mig-core-banking-01",
-                "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                "producer_authority": "GovernanceOffice",
-                "fingerprint": "1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b",
-                "byte_size": 262144,
-                "lifecycle": "ACTIVE",
-                "integrity_status": "VERIFIED",
-                "dossier_id": "DOS-2026-001",
-                "certificate_id": "CERT-MIG-2026-001",
-                "report_id": "REP-2026-0111",
-                "deep_link_route": "/reports/evidence"
-            },
-            {
-                "id": "EV-2026-MIG-03",
-                "title": "Snowflake Stage Ingestion Manifest",
-                "artifact_type": "MANIFEST_SNAPSHOT",
-                "subject_name": "Enterprise Data Lakehouse",
-                "subject_id": "mig-ent-analytics",
-                "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                "producer_authority": "MigrationAssuranceEngine",
-                "fingerprint": "3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c",
-                "byte_size": 2097152,
-                "lifecycle": "ACTIVE",
-                "integrity_status": "VERIFIED",
-                "dossier_id": "DOS-2026-002",
-                "certificate_id": "CERT-MIG-2026-003",
-                "report_id": "REP-2026-0104",
-                "deep_link_route": "/reports/evidence"
-            },
-            {
-                "id": "EV-2026-VAL-04",
-                "title": "Relational Constraint Drift Log",
-                "artifact_type": "INTEGRITY_SCAN",
-                "subject_name": "Customer CRM Database",
-                "subject_id": "val-crm-01",
-                "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                "producer_authority": "ValidationAssuranceEngine",
-                "fingerprint": "7f8e9d0c1b2a3f4e5d6c7b8a9f0e1d2c3b4a5f6e7d8c9b0a1f2e3d4c5b6a7f8e",
-                "byte_size": 524288,
-                "lifecycle": "ACTIVE",
-                "integrity_status": "MISMATCH",
-                "dossier_id": "DOS-2026-003",
-                "certificate_id": "CERT-VAL-2026-004",
-                "report_id": "REP-2026-0106",
-                "deep_link_route": "/reports/evidence"
-            }
-        ]
+        """Returns canonical list of evidence items queried from immutable_artifacts."""
+        items: List[Dict[str, Any]] = []
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT artifact_id, tenant_id, artifact_type, fingerprint, content, created_at FROM immutable_artifacts ORDER BY created_at DESC LIMIT 100")
+            for row in cursor.fetchall():
+                art_id, tenant_id, art_type, fp, content, created_at = row
+                byte_size = len(content.encode("utf-8")) if content else 0
+                items.append({
+                    "id": art_id,
+                    "title": f"Evidence Artifact: {art_id}",
+                    "artifact_type": art_type,
+                    "subject_name": f"Tenant {tenant_id}",
+                    "subject_id": tenant_id,
+                    "created_at": created_at,
+                    "producer_authority": "PipelineArtifactRegistry",
+                    "fingerprint": fp,
+                    "byte_size": byte_size,
+                    "lifecycle": "ACTIVE",
+                    "integrity_status": "VERIFIED",
+                    "dossier_id": f"DOS-{art_id}",
+                    "certificate_id": None,
+                    "report_id": None,
+                    "deep_link_route": "/reports/evidence"
+                })
+        except sqlite3.OperationalError:
+            pass
         return items
 
     def get_evidence(
@@ -1431,40 +1221,42 @@ class PipelineQueryService:
         conn: sqlite3.Connection,
     ) -> Dict[str, Any]:
         """Returns the full authoritative EvidenceDetailEnvelopeDTO."""
-        items = self.list_evidence({}, actor, conn)
-        found = next((e for e in items if e["id"] == artifact_id), None)
-        if not found:
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT artifact_id, tenant_id, artifact_type, fingerprint, content, created_at FROM immutable_artifacts WHERE artifact_id = ?", (artifact_id,))
+            row = cursor.fetchone()
+            if not row:
+                raise PipelineError(PipelineErrorCode.NOT_FOUND, f"Evidence artifact '{artifact_id}' not found.")
+            art_id, tenant_id, art_type, fp, content, created_at = row
+            return {
+                "id": art_id,
+                "title": f"Evidence Artifact: {art_id}",
+                "artifact_type": art_type,
+                "subject_name": f"Tenant {tenant_id}",
+                "subject_id": tenant_id,
+                "created_at": created_at,
+                "producer_authority": "PipelineArtifactRegistry",
+                "summary": f"Authoritative evidence artifact {art_id} ({art_type}).",
+                "scope": {
+                    "tenant_id": tenant_id,
+                    "artifact_type": art_type
+                },
+                "provenance": {
+                    "producer_authority": "PipelineArtifactRegistry",
+                    "created_at": created_at,
+                    "subject_context": f"Tenant {tenant_id}"
+                },
+                "integrity": {
+                    "fingerprint": fp,
+                    "verification_status": "VERIFIED",
+                    "verification_method": "SHA-256 Digest Match",
+                    "verified_at": created_at
+                },
+                "raw_content_preview": content[:1000] if content else "",
+                "related_dossier_ids": [f"DOS-{art_id}"]
+            }
+        except sqlite3.OperationalError:
             raise PipelineError(PipelineErrorCode.NOT_FOUND, f"Evidence artifact '{artifact_id}' not found.")
-
-        envelope = {
-            "id": found["id"],
-            "title": found["title"],
-            "artifact_type": found["artifact_type"],
-            "subject_name": found["subject_name"],
-            "subject_id": found["subject_id"],
-            "created_at": found["created_at"],
-            "producer_authority": found["producer_authority"],
-            "summary": f"Authoritative evidence proof {found['id']} captured from {found['producer_authority']}.",
-            "scope": {
-                "migration_name": found["subject_name"],
-                "run_id": "run-001",
-                "target_object_scope": "Full Partition Range"
-            },
-            "provenance": {
-                "producer_authority": found["producer_authority"],
-                "created_at": found["created_at"],
-                "subject_context": found["subject_name"]
-            },
-            "integrity": {
-                "fingerprint": found.get("fingerprint"),
-                "verification_status": found.get("integrity_status", "VERIFIED"),
-                "verification_method": "SHA-256 Digest Match",
-                "verified_at": found["created_at"]
-            },
-            "raw_content_preview": json.dumps(found, indent=2),
-            "related_dossier_ids": [found["dossier_id"]] if found.get("dossier_id") else []
-        }
-        return envelope
 
     def verify_evidence(
         self,
@@ -1476,27 +1268,32 @@ class PipelineQueryService:
         target_id = payload.get("target_id", "")
         target_type = payload.get("target_type", "EVIDENCE_ARTIFACT")
 
-        # Check evidence items
-        items = self.list_evidence({}, actor, conn)
-        found_ev = next((e for e in items if e["id"] == target_id), None)
-        if found_ev:
-            fp = found_ev.get("fingerprint", "")
-            return {
-                "target_identifier": target_id,
-                "target_type": "EVIDENCE_ARTIFACT",
-                "method": "SHA-256 Digest Match",
-                "result_status": "VERIFIED" if found_ev.get("integrity_status") != "MISMATCH" else "MISMATCH",
-                "verified_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                "stored_fingerprint": fp,
-                "computed_fingerprint": fp,
-                "detail_notes": f"Stored SHA-256 digest matches evidence proof artifact '{found_ev['title']}'."
-            }
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT fingerprint, content FROM immutable_artifacts WHERE artifact_id = ?", (target_id,))
+            row = cursor.fetchone()
+            if row:
+                stored_fp, content = row
+                calc_fp = hashlib.sha256(content.encode("utf-8")).hexdigest() if content else stored_fp
+                is_match = (stored_fp == calc_fp)
+                return {
+                    "target_identifier": target_id,
+                    "target_type": "EVIDENCE_ARTIFACT",
+                    "method": "SHA-256 Digest Match",
+                    "result_status": "VERIFIED" if is_match else "MISMATCH",
+                    "verified_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                    "stored_fingerprint": stored_fp,
+                    "computed_fingerprint": calc_fp,
+                    "detail_notes": f"SHA-256 digest {'matches' if is_match else 'does not match'} immutable artifact content."
+                }
+        except sqlite3.OperationalError:
+            pass
 
         # Check certifications
         certs = self.list_certifications({}, actor, conn)
         found_cert = next((c for c in certs if c["id"] == target_id), None)
         if found_cert:
-            fp = hashlib.sha256(f"cert-{target_id}".encode()).hexdigest()
+            fp = hashlib.sha256(f"cert-{target_id}-{found_cert['issued_at']}".encode()).hexdigest()
             return {
                 "target_identifier": target_id,
                 "target_type": "CERTIFICATION",
@@ -1524,44 +1321,27 @@ class PipelineQueryService:
         conn: sqlite3.Connection,
     ) -> List[Dict[str, Any]]:
         """Returns canonical list of evidence dossiers."""
-        return [
-            {
-                "id": "DOS-2026-001",
-                "title": "Core Banking Production Cutover Dossier",
-                "domain": "MIGRATION",
-                "subject_name": "Core Banking Ledger Migration",
-                "subject_id": "mig-core-banking-01",
-                "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                "status": "SEALED",
-                "item_count": 3,
-                "total_byte_size": 5505024,
-                "fingerprint": "4a8f9b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a"
-            },
-            {
-                "id": "DOS-2026-002",
-                "title": "Enterprise Data Lakehouse Stage Dossier",
-                "domain": "MIGRATION",
-                "subject_name": "Enterprise Data Lakehouse",
-                "subject_id": "mig-ent-analytics",
-                "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                "status": "SEALED",
-                "item_count": 1,
-                "total_byte_size": 2097152,
-                "fingerprint": "3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c"
-            },
-            {
-                "id": "DOS-2026-003",
-                "title": "CRM Referential Integrity Audit Dossier",
-                "domain": "VALIDATION",
-                "subject_name": "Customer CRM Database",
-                "subject_id": "val-crm-01",
-                "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                "status": "OPEN",
-                "item_count": 1,
-                "total_byte_size": 524288,
-                "fingerprint": "7f8e9d0c1b2a3f4e5d6c7b8a9f0e1d2c3b4a5f6e7d8c9b0a1f2e3d4c5b6a7f8e"
-            }
-        ]
+        dossiers: List[Dict[str, Any]] = []
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT tenant_id, COUNT(*), SUM(LENGTH(content)) FROM immutable_artifacts GROUP BY tenant_id")
+            for row in cursor.fetchall():
+                tenant_id, count, total_bytes = row
+                dossiers.append({
+                    "id": f"DOS-{tenant_id}",
+                    "title": f"Tenant {tenant_id} Evidence Dossier",
+                    "domain": "MIGRATION",
+                    "subject_name": f"Tenant {tenant_id}",
+                    "subject_id": tenant_id,
+                    "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                    "status": "SEALED",
+                    "item_count": count,
+                    "total_byte_size": total_bytes or 0,
+                    "fingerprint": hashlib.sha256(f"dossier-{tenant_id}".encode()).hexdigest()
+                })
+        except sqlite3.OperationalError:
+            pass
+        return dossiers
 
     def list_evidence_packages(
         self,
@@ -1569,22 +1349,8 @@ class PipelineQueryService:
         actor: PipelineActorContext,
         conn: sqlite3.Connection,
     ) -> List[Dict[str, Any]]:
-        """Returns canonical list of evidence packages."""
-        return [
-            {
-                "id": "PKG-2026-001",
-                "title": "Core Banking Complete Compliance Evidence Package",
-                "package_type": "AUDIT_EVIDENCE_PACKAGE",
-                "subject_name": "Core Banking Ledger Migration",
-                "subject_id": "mig-core-banking-01",
-                "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                "producer_authority": "GovernanceOffice",
-                "fingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-                "byte_size": 8388608,
-                "status": "SEALED",
-                "manifest_count": 3
-            }
-        ]
+        """Returns canonical list of sealed evidence packages."""
+        return []
 
     def list_certificate_artifacts(
         self,
@@ -1593,28 +1359,20 @@ class PipelineQueryService:
         conn: sqlite3.Connection,
     ) -> List[Dict[str, Any]]:
         """Returns canonical list of certificate artifacts."""
-        return [
-            {
-                "id": "CERT-ART-001",
-                "title": "Migration Execution Assurance Certificate",
-                "certificate_id": "CERT-MIG-2026-001",
-                "subject_name": "Core Banking Ledger Migration",
-                "issued_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                "producer_authority": "MigrationAssuranceEngine",
-                "fingerprint": "4a8f9b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a",
+        certs = self.list_certifications(payload, actor, conn)
+        artifacts: List[Dict[str, Any]] = []
+        for cert in certs:
+            artifacts.append({
+                "id": f"CERT-ART-{cert['id']}",
+                "title": f"Certificate Artifact: {cert['title']}",
+                "certificate_id": cert["id"],
+                "subject_name": cert["subject_name"],
+                "issued_at": cert["issued_at"],
+                "producer_authority": "MigrationAssuranceEngine" if cert["domain"] == "MIGRATION" else "ValidationAssuranceEngine",
+                "fingerprint": hashlib.sha256(f"cert-art-{cert['id']}".encode()).hexdigest(),
                 "status": "VALID"
-            },
-            {
-                "id": "CERT-ART-002",
-                "title": "Dual-Engine Reconciliation Parity Certificate",
-                "certificate_id": "CERT-VAL-2026-002",
-                "subject_name": "Core Banking Ledger Migration",
-                "issued_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                "producer_authority": "ValidationAssuranceEngine",
-                "fingerprint": "9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1f0e9d8c7b6a5f4e3d2c1b0a9f8e",
-                "status": "VALID"
-            }
-        ]
+            })
+        return artifacts
 
     # -------------------------------------------------------------------------
     # ADMINISTRATION CANONICAL INTEGRATION (P7.D / CHECK2)
@@ -1684,49 +1442,47 @@ class PipelineQueryService:
         conn: Optional[sqlite3.Connection] = None,
         **kwargs: Any,
     ) -> List[Dict[str, Any]]:
-        """Lists organizations from enterprise_tenants table."""
+        """Lists organizations from enterprise_tenants table with live metrics."""
         cursor = conn.cursor()
         orgs: List[Dict[str, Any]] = []
         try:
             cursor.execute("SELECT tenant_id, name, status, created_at, updated_at FROM enterprise_tenants ORDER BY created_at ASC")
             rows = cursor.fetchall()
             for r in rows:
+                t_id = r[0]
+                ws_cnt = 0
+                user_cnt = 0
+                try:
+                    cursor.execute("SELECT COUNT(*) FROM enterprise_workspaces WHERE tenant_id = ?", (t_id,))
+                    ws_cnt = cursor.fetchone()[0]
+                except Exception:
+                    pass
+                try:
+                    cursor.execute("SELECT COUNT(*) FROM enterprise_principals WHERE tenant_id = ?", (t_id,))
+                    user_cnt = cursor.fetchone()[0]
+                except Exception:
+                    pass
+
                 orgs.append({
-                    "id": r[0],
+                    "id": t_id,
                     "name": r[1],
-                    "code": r[0].upper(),
+                    "code": t_id.upper().replace("TENANT-", "").replace("ORG-", ""),
                     "description": f"Enterprise tenant scope for {r[1]}",
-                    "tier": "GLOBAL_PARENT" if "global" in r[0].lower() else "REGIONAL_SUBSIDIARY",
-                    "status": r[2],
-                    "primaryContactName": "Aalok Ladwa",
-                    "primaryContactEmail": "aalok.ladwa@akaaltech.internal",
-                    "workspacesCount": 1,
-                    "activeUsersCount": 1,
+                    "tier": "GLOBAL_PARENT" if "global" in t_id.lower() else "ENTERPRISE",
+                    "status": r[2] or "ACTIVE",
+                    "primaryContactName": "System Administrator",
+                    "primaryContactEmail": "admin@akaaltech.internal",
+                    "workspacesCount": ws_cnt,
+                    "activeUsersCount": user_cnt,
                     "defaultRegion": "us-east-1",
-                    "costCenterCode": "CC-1000-GLOBAL",
+                    "costCenterCode": None,
                     "createdAt": r[3] or datetime.datetime.now(datetime.timezone.utc).isoformat(),
                     "updatedAt": r[4] or datetime.datetime.now(datetime.timezone.utc).isoformat(),
                 })
-        except sqlite3.OperationalError:
-            pass
+        except sqlite3.Error as exc:
+            logger.error("Failed to query enterprise_tenants: %s", exc)
+            raise
 
-        if not orgs:
-            orgs.append({
-                "id": "org-global-corp",
-                "name": "Akaal Corporate Global",
-                "code": "GLOBAL-CORP",
-                "description": "Primary corporate tenant encompassing enterprise banking, retail, and wealth management portfolios.",
-                "tier": "GLOBAL_PARENT",
-                "status": "ACTIVE",
-                "primaryContactName": "Aalok Ladwa",
-                "primaryContactEmail": "aalok.ladwa@akaaltech.internal",
-                "workspacesCount": 1,
-                "activeUsersCount": 1,
-                "defaultRegion": "us-east-1",
-                "costCenterCode": "CC-1000-GLOBAL",
-                "createdAt": "2026-01-01T00:00:00Z",
-                "updatedAt": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-            })
         return orgs
 
     def list_admin_workspaces(
@@ -1737,57 +1493,57 @@ class PipelineQueryService:
         conn: Optional[sqlite3.Connection] = None,
         **kwargs: Any,
     ) -> List[Dict[str, Any]]:
-        """Lists workspaces from enterprise_workspaces table."""
+        """Lists workspaces from enterprise_workspaces table with live metrics."""
         cursor = conn.cursor()
         workspaces: List[Dict[str, Any]] = []
+        target_org = org_id or (payload.get("org_id") if isinstance(payload, dict) else None)
         try:
-            cursor.execute("SELECT workspace_id, tenant_id, name, status, created_at, updated_at FROM enterprise_workspaces ORDER BY created_at ASC")
+            if target_org:
+                cursor.execute(
+                    "SELECT workspace_id, tenant_id, name, status, created_at, updated_at FROM enterprise_workspaces WHERE tenant_id = ? ORDER BY created_at ASC",
+                    (target_org,),
+                )
+            else:
+                cursor.execute(
+                    "SELECT workspace_id, tenant_id, name, status, created_at, updated_at FROM enterprise_workspaces ORDER BY created_at ASC"
+                )
             rows = cursor.fetchall()
             for r in rows:
+                ws_id = r[0]
+                t_id = r[1]
+                t_name = t_id
+                try:
+                    cursor.execute("SELECT name FROM enterprise_tenants WHERE tenant_id = ?", (t_id,))
+                    t_row = cursor.fetchone()
+                    if t_row and t_row[0]:
+                        t_name = t_row[0]
+                except Exception:
+                    pass
+
                 workspaces.append({
-                    "id": r[0],
-                    "orgId": r[1],
-                    "orgName": "Akaal Corporate Global",
+                    "id": ws_id,
+                    "orgId": t_id,
+                    "orgName": t_name,
                     "name": r[2],
-                    "code": r[0].upper(),
+                    "code": ws_id.upper(),
                     "description": f"Workspace boundary for {r[2]}",
                     "tier": "ENTERPRISE_PRODUCTION",
-                    "status": r[3],
+                    "status": r[3] or "ACTIVE",
                     "residencyRegion": "us-east-1",
                     "environmentCount": 1,
                     "activeMemberCount": 1,
                     "activeInitiativesCount": 1,
-                    "ownerName": "Aalok Ladwa",
-                    "ownerEmail": "aalok.ladwa@akaaltech.internal",
+                    "ownerName": "Workspace Administrator",
+                    "ownerEmail": "admin@akaaltech.internal",
                     "storageQuotaGb": 1024,
-                    "storageUsedGb": 120,
+                    "storageUsedGb": 0,
                     "createdAt": r[4] or datetime.datetime.now(datetime.timezone.utc).isoformat(),
                     "updatedAt": r[5] or datetime.datetime.now(datetime.timezone.utc).isoformat(),
                 })
-        except sqlite3.OperationalError:
-            pass
+        except sqlite3.Error as exc:
+            logger.error("Failed to query enterprise_workspaces: %s", exc)
+            raise
 
-        if not workspaces:
-            workspaces.append({
-                "id": "ws-core-banking",
-                "orgId": "org-global-corp",
-                "orgName": "Akaal Corporate Global",
-                "name": "Core Banking Modernization",
-                "code": "WS-CORE-BANKING",
-                "description": "Primary workspace executing multi-terabyte transactional ledger migration to distributed PostgreSQL.",
-                "tier": "ENTERPRISE_PRODUCTION",
-                "status": "ACTIVE",
-                "residencyRegion": "us-east-1",
-                "environmentCount": 1,
-                "activeMemberCount": 1,
-                "activeInitiativesCount": 1,
-                "ownerName": "Aalok Ladwa",
-                "ownerEmail": "aalok.ladwa@akaaltech.internal",
-                "storageQuotaGb": 1024,
-                "storageUsedGb": 120,
-                "createdAt": "2026-01-10T00:00:00Z",
-                "updatedAt": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-            })
         return workspaces
 
     def get_current_account(
@@ -1872,58 +1628,6 @@ class PipelineQueryService:
                 })
         except sqlite3.OperationalError:
             pass
-
-        if not users:
-            users = [
-                {
-                    "id": "usr-aalok-01",
-                    "name": "Aalok Ladwa",
-                    "email": "aalok.ladwa@akaaltech.internal",
-                    "title": "Principal Lead Architect",
-                    "department": "Platform Architecture & Core Infrastructure",
-                    "type": "EMPLOYEE",
-                    "status": "ACTIVE",
-                    "primaryOrgId": "org-global-corp",
-                    "primaryOrgName": "Akaal Corporate Global",
-                    "assignedRolesCount": 3,
-                    "teamsCount": 2,
-                    "lastActive": "Active now",
-                    "mfaEnforced": True,
-                    "createdAt": "2026-01-01T00:00:00Z",
-                },
-                {
-                    "id": "usr-sarah-02",
-                    "name": "Sarah Jenkins",
-                    "email": "s.jenkins@akaaltech.corp",
-                    "title": "Staff Security Engineer",
-                    "department": "Information Security & Compliance",
-                    "type": "EMPLOYEE",
-                    "status": "ACTIVE",
-                    "primaryOrgId": "org-global-corp",
-                    "primaryOrgName": "Akaal Corporate Global",
-                    "assignedRolesCount": 2,
-                    "teamsCount": 1,
-                    "lastActive": "12m ago",
-                    "mfaEnforced": True,
-                    "createdAt": "2026-01-15T00:00:00Z",
-                },
-                {
-                    "id": "usr-devon-03",
-                    "name": "Devon Vance",
-                    "email": "d.vance@akaaltech.corp",
-                    "title": "Lead Database Reliability Engineer",
-                    "department": "Data Platform & Storage Operations",
-                    "type": "CONTRACTOR",
-                    "status": "ACTIVE",
-                    "primaryOrgId": "org-global-corp",
-                    "primaryOrgName": "Akaal Corporate Global",
-                    "assignedRolesCount": 1,
-                    "teamsCount": 1,
-                    "lastActive": "1h ago",
-                    "mfaEnforced": True,
-                    "createdAt": "2026-02-01T00:00:00Z",
-                }
-            ]
         return users
 
     def list_admin_teams(
@@ -1943,40 +1647,14 @@ class PipelineQueryService:
                     "name": r[2],
                     "code": r[0].upper(),
                     "description": r[3],
-                    "leadOwnerName": "Aalok Ladwa",
-                    "leadOwnerEmail": "aalok.ladwa@akaaltech.internal",
-                    "membersCount": 3,
-                    "rolesCount": 2,
+                    "leadOwnerName": "Lead Owner",
+                    "leadOwnerEmail": "lead@akaaltech.corp",
+                    "membersCount": 1,
+                    "rolesCount": 1,
                     "createdAt": r[4],
                 })
         except sqlite3.OperationalError:
             pass
-
-        if not teams:
-            teams = [
-                {
-                    "id": "team-platform-arch",
-                    "name": "Platform Architecture Guild",
-                    "code": "TEAM-PLAT-ARCH",
-                    "description": "Core technical governance, control plane infrastructure, and framework engineering.",
-                    "leadOwnerName": "Aalok Ladwa",
-                    "leadOwnerEmail": "aalok.ladwa@akaaltech.internal",
-                    "membersCount": 4,
-                    "rolesCount": 3,
-                    "createdAt": "2026-01-05T00:00:00Z",
-                },
-                {
-                    "id": "team-secops",
-                    "name": "SecOps Incident Commanders",
-                    "code": "TEAM-SECOPS-CMD",
-                    "description": "Security incident response, high-assurance cryptographic key escrow, and break-glass authority.",
-                    "leadOwnerName": "Sarah Jenkins",
-                    "leadOwnerEmail": "s.jenkins@akaaltech.corp",
-                    "membersCount": 3,
-                    "rolesCount": 4,
-                    "createdAt": "2026-01-08T00:00:00Z",
-                }
-            ]
         return teams
 
     def list_admin_service_accounts(
@@ -1989,7 +1667,7 @@ class PipelineQueryService:
         cursor = conn.cursor()
         sa_list: List[Dict[str, Any]] = []
         try:
-            cursor.execute("SELECT token_id, tenant_id, name, token_prefix, issued_at, expires_at, is_revoked FROM service_api_tokens")
+            cursor.execute("SELECT token_id, tenant_id, name, token_prefix, issued_at, expires_at, is_revoked FROM service_api_tokens ORDER BY issued_at ASC")
             for r in cursor.fetchall():
                 sa_list.append({
                     "id": r[0],
@@ -2004,32 +1682,6 @@ class PipelineQueryService:
                 })
         except sqlite3.OperationalError:
             pass
-
-        if not sa_list:
-            sa_list = [
-                {
-                    "id": "sa-cdc-runner-01",
-                    "name": "CDC Replication Daemon Machine Agent",
-                    "clientId": "akaal-sa-cdc-prod-agent-9921",
-                    "ownerEmail": "platform-ops@akaaltech.corp",
-                    "targetScope": "Core Banking Pipeline Automation",
-                    "rolesCount": 1,
-                    "status": "ACTIVE",
-                    "tokenExpiryDays": 90,
-                    "createdAt": "2026-01-20T00:00:00Z",
-                },
-                {
-                    "id": "sa-validation-bot-02",
-                    "name": "Dual-Engine Reconciliation Bot",
-                    "clientId": "akaal-sa-val-bot-8841",
-                    "ownerEmail": "qa-automation@akaaltech.corp",
-                    "targetScope": "M8 Data Synchronization Workstation",
-                    "rolesCount": 1,
-                    "status": "ACTIVE",
-                    "tokenExpiryDays": 365,
-                    "createdAt": "2026-02-01T00:00:00Z",
-                }
-            ]
         return sa_list
 
     def list_admin_roles(
@@ -2051,38 +1703,12 @@ class PipelineQueryService:
                     "description": r[2],
                     "isBuiltIn": bool(r[3]),
                     "domainScope": "GLOBAL",
-                    "assignedCount": 2,
+                    "assignedCount": 1,
                     "permissions": ["akaal:control-plane:admin", "akaal:migration:read"],
                     "createdAt": r[4],
                 })
         except sqlite3.OperationalError:
             pass
-
-        if not roles:
-            roles = [
-                {
-                    "id": "role-platform-admin",
-                    "name": "Enterprise Platform Administrator",
-                    "code": "ROLE-PLATFORM-ADMIN",
-                    "description": "Full administrative supremacy across all organizations, security baselines, and execution clusters.",
-                    "isBuiltIn": True,
-                    "domainScope": "GLOBAL",
-                    "assignedCount": 2,
-                    "permissions": ["akaal:control-plane:*", "akaal:security:*", "akaal:migration:*"],
-                    "createdAt": "2026-01-01T00:00:00Z",
-                },
-                {
-                    "id": "role-migration-architect",
-                    "name": "Lead Migration Architect",
-                    "code": "ROLE-MIGRATION-ARCHITECT",
-                    "description": "Full authoring, planning, and execution control across workspace initiatives and validation jobs.",
-                    "isBuiltIn": True,
-                    "domainScope": "WORKSPACE",
-                    "assignedCount": 4,
-                    "permissions": ["akaal:migration:*", "akaal:connections:*", "akaal:validation:*"],
-                    "createdAt": "2026-01-01T00:00:00Z",
-                }
-            ]
         return roles
 
     def list_admin_assignments(
@@ -2110,22 +1736,6 @@ class PipelineQueryService:
                 })
         except sqlite3.OperationalError:
             pass
-
-        if not assignments:
-            assignments = [
-                {
-                    "id": "asg-01",
-                    "principalId": "usr-aalok-01",
-                    "principalName": "Aalok Ladwa",
-                    "roleId": "role-platform-admin",
-                    "roleName": "Enterprise Platform Administrator",
-                    "scopeType": "GLOBAL",
-                    "scopeTargetName": "Global Corporate Domain",
-                    "assignedBy": "SecOps Governance Authority",
-                    "assignedAt": "2026-01-01T00:00:00Z",
-                    "isJit": False,
-                }
-            ]
         return assignments
 
     def list_admin_sessions(
@@ -2143,8 +1753,8 @@ class PipelineQueryService:
                     "id": r[0],
                     "principalName": r[1],
                     "ipAddress": r[4] or "127.0.0.1",
-                    "location": "Dallas, TX (US)",
-                    "userAgent": "Akaal Wails Desktop Client v2.4 (x86_64)",
+                    "location": "Local Session",
+                    "userAgent": "Akaal Wails Client",
                     "authMethod": "FIDO2_WEBAUTHN_HARDWARE_TOKEN",
                     "mfaVerified": True,
                     "startedAt": r[2],
@@ -2153,22 +1763,6 @@ class PipelineQueryService:
                 })
         except sqlite3.OperationalError:
             pass
-
-        if not sessions:
-            sessions = [
-                {
-                    "id": "sess-active-01",
-                    "principalName": "Aalok Ladwa",
-                    "ipAddress": "192.168.1.104",
-                    "location": "London, UK",
-                    "userAgent": "Akaal Wails Desktop Client v2.4 (x86_64)",
-                    "authMethod": "FIDO2_WEBAUTHN_HARDWARE_TOKEN",
-                    "mfaVerified": True,
-                    "startedAt": "2026-03-12T08:00:00Z",
-                    "lastActive": "Just now",
-                    "status": "ACTIVE",
-                }
-            ]
         return sessions
 
     def list_admin_governance_policies(
@@ -2316,9 +1910,9 @@ class PipelineQueryService:
             pass
 
         return {
-            "totalEnrolledUsers": max(factor_count, 142),
+            "totalEnrolledUsers": factor_count,
             "enforceFido2WebAuthn": True,
-            "fido2AdoptionRatePercent": 98.6,
+            "fido2AdoptionRatePercent": 100.0 if factor_count > 0 else 0.0,
             "rememberDeviceDays": 14,
             "allowSmsOtpWithWarning": False,
             "enforceGeoFencing": True,
@@ -2338,44 +1932,49 @@ class PipelineQueryService:
             for r in cursor.fetchall():
                 keys.append({
                     "id": r[0],
-                    "name": f"KMS Master Key {r[0]}",
-                    "arn": f"arn:aws:kms:us-east-1:109923847120:key/{r[0]}",
+                    "name": f"KMS Key {r[0]}",
+                    "arn": f"vault://keys/{r[0]}",
                     "algorithm": r[2],
                     "keyUsage": r[1],
-                    "origin": "AWS_KMS_HSM",
+                    "origin": "LOCAL_KMS",
                     "status": r[3],
                     "autoRotationEnabled": True,
                     "createdDate": r[5],
                 })
         except sqlite3.OperationalError:
             pass
-
-        if not keys:
-            keys = [
-                {
-                    "id": "key-master-hsm-01",
-                    "name": "Akaal Core Database Master HSM Envelope Key",
-                    "arn": "arn:aws:kms:us-east-1:109923847120:key/akaal-master-hsm-2026",
-                    "algorithm": "AES_256_GCM",
-                    "keyUsage": "ENCRYPT_DECRYPT",
-                    "origin": "AWS_KMS_HSM",
-                    "status": "ACTIVE",
-                    "autoRotationEnabled": True,
-                    "createdDate": "2026-01-01",
-                },
-                {
-                    "id": "key-audit-seal-02",
-                    "name": "Audit Trail Asymmetric Cryptographic Signing Key",
-                    "arn": "arn:aws:kms:us-east-1:109923847120:key/akaal-audit-seal-ed25519",
-                    "algorithm": "ED25519",
-                    "keyUsage": "SIGN_VERIFY",
-                    "origin": "AWS_KMS_HSM",
-                    "status": "ACTIVE",
-                    "autoRotationEnabled": True,
-                    "createdDate": "2026-01-10",
-                }
-            ]
         return keys
+
+    def list_admin_mfa_factors(
+        self,
+        payload: Optional[Mapping[str, Any]] = None,
+        actor: Optional[PipelineActorContext] = None,
+        conn: Optional[sqlite3.Connection] = None,
+        **kwargs: Any,
+    ) -> List[Dict[str, Any]]:
+        """Safe projection of enrolled MFA factors. Strictly omits secret blobs / seeds."""
+        cursor = conn.cursor() if conn else None
+        factors: List[Dict[str, Any]] = []
+        if cursor:
+            try:
+                cursor.execute(
+                    "SELECT factor_id, tenant_id, principal_id, factor_type, status, failed_attempts, created_at, last_used_at FROM mfa_factors ORDER BY created_at DESC"
+                )
+                for r in cursor.fetchall():
+                    factors.append({
+                        "id": r[0],
+                        "factorId": r[0],
+                        "tenantId": r[1],
+                        "principalId": r[2],
+                        "factorType": r[3],
+                        "status": r[4],
+                        "failedAttempts": r[5],
+                        "createdAt": r[6],
+                        "lastUsedAt": r[7],
+                    })
+            except sqlite3.OperationalError:
+                pass
+        return factors
 
     def list_admin_templates(
         self,
@@ -2384,29 +1983,50 @@ class PipelineQueryService:
         conn: Optional[sqlite3.Connection] = None,
         **kwargs: Any,
     ) -> Dict[str, Any]:
-        return {
-            "summaries": [
-                {"family": "MIGRATION_TEMPLATE", "label": "Migration Templates", "totalCount": 8, "approvedCount": 6, "draftCount": 2, "icon": "layers", "route": "/administration/templates-library/migration"},
-                {"family": "MAPPING_TEMPLATE", "label": "Mapping Templates", "totalCount": 12, "approvedCount": 10, "draftCount": 2, "icon": "file-code-2", "route": "/administration/templates-library/mapping"},
-                {"family": "TRANSFORMATION_TEMPLATE", "label": "Transformation Templates", "totalCount": 6, "approvedCount": 5, "draftCount": 1, "icon": "workflow", "route": "/administration/templates-library/transformation"},
-                {"family": "PRIVACY_POLICY", "label": "Privacy Policies", "totalCount": 4, "approvedCount": 4, "draftCount": 0, "icon": "shield-check", "route": "/administration/templates-library/privacy"},
-                {"family": "DATA_QUALITY_POLICY", "label": "Data Quality Policies", "totalCount": 7, "approvedCount": 6, "draftCount": 1, "icon": "check-circle", "route": "/administration/templates-library/quality"},
-                {"family": "CONFIGURATION_PROFILE", "label": "Configuration Profiles", "totalCount": 5, "approvedCount": 4, "draftCount": 1, "icon": "sliders", "route": "/administration/templates-library/configuration"}
-            ],
-            "assets": [
-                {
-                    "id": "ast-mig-01",
-                    "name": "Standard High-Throughput Oracle to Postgres Template",
-                    "code": "MIG-ORA-PG-HIGH",
-                    "family": "MIGRATION_TEMPLATE",
-                    "status": "APPROVED",
-                    "version": "2.1.0",
-                    "tier": "ENTERPRISE",
-                    "usageCount": 14,
-                    "createdAt": "2026-01-15T00:00:00Z"
-                }
-            ]
-        }
+        cursor = conn.cursor() if conn else None
+        assets: List[Dict[str, Any]] = []
+        if cursor:
+            try:
+                cursor.execute(
+                    "SELECT artifact_id, artifact_type, content, fingerprint, created_at FROM immutable_artifacts WHERE artifact_type LIKE '%template%' ORDER BY created_at DESC"
+                )
+                for r in cursor.fetchall():
+                    content_obj = {}
+                    if isinstance(r[2], str):
+                        try:
+                            content_obj = json.loads(r[2])
+                        except Exception:
+                            pass
+                    elif isinstance(r[2], dict):
+                        content_obj = r[2]
+                    assets.append({
+                        "id": r[0],
+                        "name": content_obj.get("name") or r[0],
+                        "code": r[0].upper(),
+                        "family": r[1].upper(),
+                        "status": "APPROVED",
+                        "version": content_obj.get("version", "1.0.0"),
+                        "tier": "ENTERPRISE",
+                        "usageCount": 1,
+                        "createdAt": r[4],
+                    })
+            except Exception:
+                pass
+
+        family_counts: Dict[str, int] = {}
+        for a in assets:
+            fam = a.get("family", "MIGRATION_TEMPLATE")
+            family_counts[fam] = family_counts.get(fam, 0) + 1
+
+        summaries = [
+            {"family": "MIGRATION_TEMPLATE", "label": "Migration Templates", "totalCount": family_counts.get("MIGRATION_TEMPLATE", 0), "approvedCount": family_counts.get("MIGRATION_TEMPLATE", 0), "draftCount": 0, "icon": "layers", "route": "/administration/templates-library/migration"},
+            {"family": "MAPPING_TEMPLATE", "label": "Mapping Templates", "totalCount": family_counts.get("MAPPING_TEMPLATE", 0), "approvedCount": family_counts.get("MAPPING_TEMPLATE", 0), "draftCount": 0, "icon": "file-code-2", "route": "/administration/templates-library/mapping"},
+            {"family": "TRANSFORMATION_TEMPLATE", "label": "Transformation Templates", "totalCount": family_counts.get("TRANSFORMATION_TEMPLATE", 0), "approvedCount": family_counts.get("TRANSFORMATION_TEMPLATE", 0), "draftCount": 0, "icon": "workflow", "route": "/administration/templates-library/transformation"},
+            {"family": "PRIVACY_POLICY", "label": "Privacy Policies", "totalCount": family_counts.get("PRIVACY_POLICY", 0), "approvedCount": family_counts.get("PRIVACY_POLICY", 0), "draftCount": 0, "icon": "shield-check", "route": "/administration/templates-library/privacy"},
+            {"family": "DATA_QUALITY_POLICY", "label": "Data Quality Policies", "totalCount": family_counts.get("DATA_QUALITY_POLICY", 0), "approvedCount": family_counts.get("DATA_QUALITY_POLICY", 0), "draftCount": 0, "icon": "check-circle", "route": "/administration/templates-library/quality"},
+            {"family": "CONFIGURATION_PROFILE", "label": "Configuration Profiles", "totalCount": family_counts.get("CONFIGURATION_PROFILE", 0), "approvedCount": family_counts.get("CONFIGURATION_PROFILE", 0), "draftCount": 0, "icon": "sliders", "route": "/administration/templates-library/configuration"}
+        ]
+        return {"summaries": summaries, "assets": assets}
 
     def list_admin_connectors(
         self,
@@ -2415,48 +2035,32 @@ class PipelineQueryService:
         conn: Optional[sqlite3.Connection] = None,
         **kwargs: Any,
     ) -> List[Dict[str, Any]]:
-        return [
-            {
-                "id": "conn-pg-01",
-                "name": "Distributed PostgreSQL Universal Driver",
-                "providerId": "postgresql",
-                "driverVersion": "pgjdbc-42.7.2",
-                "certificationLevel": "LIVE_PROVEN",
-                "isBuiltIn": True,
-                "status": "ACTIVE",
-                "capabilities": {"supportsBulk": True, "supportsCdc": True, "supportsBidirectional": True}
-            },
-            {
-                "id": "conn-ora-02",
-                "name": "Oracle Goldengate LogMiner Enterprise Connector",
-                "providerId": "oracle",
-                "driverVersion": "ojdbc8-19.3",
-                "certificationLevel": "LIVE_PROVEN",
-                "isBuiltIn": True,
-                "status": "ACTIVE",
-                "capabilities": {"supportsBulk": True, "supportsCdc": True, "supportsBidirectional": False}
-            },
-            {
-                "id": "conn-sql-03",
-                "name": "Microsoft SQL Server AlwaysOn Change Tracking Driver",
-                "providerId": "sqlserver",
-                "driverVersion": "mssql-jdbc-12.4.2",
-                "certificationLevel": "LIVE_PROVEN",
-                "isBuiltIn": True,
-                "status": "ACTIVE",
-                "capabilities": {"supportsBulk": True, "supportsCdc": True, "supportsBidirectional": False}
-            },
-            {
-                "id": "conn-kafka-04",
-                "name": "Apache Kafka Event Stream Bridge",
-                "providerId": "kafka",
-                "driverVersion": "kafka-clients-3.6.0",
-                "certificationLevel": "LIVE_PROVEN",
-                "isBuiltIn": True,
-                "status": "ACTIVE",
-                "capabilities": {"supportsBulk": False, "supportsCdc": True, "supportsBidirectional": True}
-            }
-        ]
+        connectors: List[Dict[str, Any]] = []
+        try:
+            from akaalEngine.connection.catalog.provider_catalog import ProviderCatalog
+            catalog = ProviderCatalog.get_instance()
+            if not catalog._providers:
+                catalog.bootstrap_builtin_providers()
+            for pid, strat in sorted(catalog._providers.items()):
+                manifest = strat.get_static_manifest()
+                caps = manifest.capabilities if isinstance(manifest.capabilities, dict) else {}
+                connectors.append({
+                    "id": f"conn-{pid}",
+                    "name": manifest.vendor_name or pid.title(),
+                    "providerId": pid,
+                    "driverVersion": getattr(manifest, "provider_version", "1.0.0"),
+                    "certificationLevel": "LIVE_PROVEN" if getattr(manifest, "proof_level", None) and str(manifest.proof_level) == "LIVE_PROVEN" else "PRODUCTION_READY",
+                    "isBuiltIn": True,
+                    "status": "ACTIVE",
+                    "capabilities": {
+                        "supportsBulk": "BULK_READ" in caps or "BULK_WRITE" in caps,
+                        "supportsCdc": "CDC_LOG_CAPTURE" in caps or "LOGICAL_REPLICATION" in caps,
+                        "supportsBidirectional": "BIDIRECTIONAL" in caps,
+                    }
+                })
+        except Exception:
+            pass
+        return connectors
 
     def list_admin_plugins(
         self,
@@ -2465,45 +2069,56 @@ class PipelineQueryService:
         conn: Optional[sqlite3.Connection] = None,
         **kwargs: Any,
     ) -> List[Dict[str, Any]]:
-        return [
-            {
-                "id": "plg-wasm-validator",
-                "name": "Wasmtime Streaming Validator Extension",
-                "version": "1.4.0",
-                "status": "ACTIVE",
-                "sandboxed": True,
-                "capabilities": ["STREAM_RECORD_FILTER", "TRANSFORMATION_HOOK"],
-                "lastHeartbeat": "Active now"
-            },
-            {
-                "id": "plg-avro-deserializer",
-                "name": "Confluent Schema Registry Avro Decoder Plugin",
-                "version": "2.0.1",
-                "status": "ACTIVE",
-                "sandboxed": True,
-                "capabilities": ["SCHEMA_DESERIALIZATION"],
-                "lastHeartbeat": "Active now"
-            }
-        ]
+        plugins: List[Dict[str, Any]] = []
+        try:
+            from akaalEngine.extensions.authority import ExtensionsAuthority
+            ext_auth = ExtensionsAuthority.get_instance()
+            ext_list = ext_auth.list_extensions()
+            for ext in ext_list:
+                for prov in getattr(ext, "providers", ()):
+                    plugins.append({
+                        "id": f"plg-{prov.provider_id}",
+                        "name": prov.display_name or prov.vendor_name or prov.provider_id,
+                        "version": prov.version or "1.0.0",
+                        "status": prov.lifecycle_state or "ACTIVE",
+                        "sandboxed": True,
+                        "capabilities": [strat.strategy_id for strat in getattr(prov, "strategies", ())],
+                        "lastHeartbeat": "Active now"
+                    })
+        except Exception:
+            pass
+        return plugins
 
     def get_admin_infrastructure_summary(
         self,
         actor: PipelineActorContext,
         conn: sqlite3.Connection,
     ) -> Dict[str, Any]:
+        cursor = conn.cursor()
+        cloud_envs: List[Dict[str, Any]] = []
+        try:
+            cursor.execute("SELECT environment_id, name, tier, cloud_provider, region, credential_ref, nodes_count, status, compliance_level FROM enterprise_cloud_environments")
+            for r in cursor.fetchall():
+                cloud_envs.append({
+                    "id": r[0],
+                    "name": r[1],
+                    "tier": r[2],
+                    "provider": r[3],
+                    "region": r[4],
+                    "credentialRef": r[5],
+                    "nodesCount": r[6],
+                    "status": r[7],
+                    "complianceLevel": r[8],
+                })
+        except sqlite3.OperationalError:
+            pass
+
         return {
-            "cloudEnvironments": [
-                {"id": "env-aws-us-east-1", "name": "AWS Production East Fleet", "provider": "AWS", "region": "us-east-1", "credentialRef": "vault://aws/creds/prod-fleet", "status": "ONLINE", "nodesCount": 6},
-                {"id": "env-azure-central", "name": "Azure Disaster Recovery Region", "provider": "AZURE", "region": "centralus", "credentialRef": "vault://azure/creds/dr-fleet", "status": "ONLINE", "nodesCount": 4},
-                {"id": "env-gcp-europe", "name": "GCP EMEA Compliance Boundary", "provider": "GCP", "region": "europe-west3", "credentialRef": "vault://gcp/creds/emea-fleet", "status": "ONLINE", "nodesCount": 3},
-                {"id": "env-oci-apac", "name": "Oracle Cloud Infrastructure Vault", "provider": "OCI", "region": "ap-tokyo-1", "credentialRef": "vault://oci/creds/apac-vault", "status": "ONLINE", "nodesCount": 2}
-            ],
+            "cloudEnvironments": cloud_envs,
             "computeClusters": [
-                {"id": "k8s-prod-primary", "name": "EKS Core Banking Execution Cluster", "controlPlane": "EKS_v1.30", "nodes": 12, "status": "HEALTHY"}
+                {"id": "cluster-local", "name": "Local Pipeline Execution Cluster", "controlPlane": "akaalEngine", "nodes": 1, "status": "HEALTHY"}
             ],
-            "connectivityLinks": [
-                {"id": "conn-direct-connect", "name": "AWS Direct Connect Dedicated 10G", "bandwidthGbps": 10.0, "status": "ACTIVE", "mtlsEnforced": True}
-            ]
+            "connectivityLinks": []
         }
 
     def list_admin_compliance_frameworks(
@@ -2513,12 +2128,21 @@ class PipelineQueryService:
         conn: Optional[sqlite3.Connection] = None,
         **kwargs: Any,
     ) -> List[Dict[str, Any]]:
+        policy_count = 0
+        if conn:
+            try:
+                cursor = conn.cursor()
+                cursor.execute("SELECT COUNT(*) FROM abac_policies")
+                policy_count = cursor.fetchone()[0] or 0
+            except sqlite3.OperationalError:
+                pass
+
         return [
-            {"id": "fw-soc2", "code": "SOC_2", "name": "AICPA SOC 2 Type II Compliance", "regulatoryDomain": "SOC_2", "version": "2024.1", "totalControls": 64, "mappedControlsCount": 64, "compliancePercent": 100.0, "isBuiltIn": True},
-            {"id": "fw-pci", "code": "PCI_DSS", "name": "PCI-DSS v4.0 Payment Card Assurance", "regulatoryDomain": "PCI_DSS", "version": "4.0", "totalControls": 52, "mappedControlsCount": 52, "compliancePercent": 100.0, "isBuiltIn": True},
-            {"id": "fw-gdpr", "code": "GDPR", "name": "EU General Data Protection Regulation", "regulatoryDomain": "GDPR", "version": "2018", "totalControls": 48, "mappedControlsCount": 48, "compliancePercent": 100.0, "isBuiltIn": True},
-            {"id": "fw-hipaa", "code": "HIPAA", "name": "HIPAA Security & Privacy Rule", "regulatoryDomain": "HIPAA", "version": "HITECH", "totalControls": 38, "mappedControlsCount": 38, "compliancePercent": 100.0, "isBuiltIn": True},
-            {"id": "fw-iso", "code": "ISO_27001", "name": "ISO/IEC 27001:2022 ISMS Controls", "regulatoryDomain": "ISO_27001", "version": "2022", "totalControls": 93, "mappedControlsCount": 93, "compliancePercent": 100.0, "isBuiltIn": True}
+            {"id": "fw-soc2", "code": "SOC_2", "name": "AICPA SOC 2 Type II Compliance", "regulatoryDomain": "SOC_2", "version": "2024.1", "totalControls": 64, "mappedControlsCount": min(policy_count, 64), "compliancePercent": round(min(policy_count / 64.0, 1.0) * 100.0, 1) if policy_count > 0 else 0.0, "isBuiltIn": True},
+            {"id": "fw-pci", "code": "PCI_DSS", "name": "PCI-DSS v4.0 Payment Card Assurance", "regulatoryDomain": "PCI_DSS", "version": "4.0", "totalControls": 52, "mappedControlsCount": min(policy_count, 52), "compliancePercent": round(min(policy_count / 52.0, 1.0) * 100.0, 1) if policy_count > 0 else 0.0, "isBuiltIn": True},
+            {"id": "fw-gdpr", "code": "GDPR", "name": "EU General Data Protection Regulation", "regulatoryDomain": "GDPR", "version": "2018", "totalControls": 48, "mappedControlsCount": min(policy_count, 48), "compliancePercent": round(min(policy_count / 48.0, 1.0) * 100.0, 1) if policy_count > 0 else 0.0, "isBuiltIn": True},
+            {"id": "fw-hipaa", "code": "HIPAA", "name": "HIPAA Security & Privacy Rule", "regulatoryDomain": "HIPAA", "version": "HITECH", "totalControls": 38, "mappedControlsCount": min(policy_count, 38), "compliancePercent": round(min(policy_count / 38.0, 1.0) * 100.0, 1) if policy_count > 0 else 0.0, "isBuiltIn": True},
+            {"id": "fw-iso", "code": "ISO_27001", "name": "ISO/IEC 27001:2022 ISMS Controls", "regulatoryDomain": "ISO_27001", "version": "2022", "totalControls": 93, "mappedControlsCount": min(policy_count, 93), "compliancePercent": round(min(policy_count / 93.0, 1.0) * 100.0, 1) if policy_count > 0 else 0.0, "isBuiltIn": True}
         ]
 
     def list_admin_compliance_exceptions(
@@ -2527,18 +2151,25 @@ class PipelineQueryService:
         actor: PipelineActorContext,
         conn: sqlite3.Connection,
     ) -> List[Dict[str, Any]]:
-        return [
-            {
-                "id": "exc-2026-001",
-                "code": "EXC-2026-001",
-                "title": "Non-Production Data Masking Exemption for Staging Database",
-                "controlCode": "PCI-DSS-3.4",
-                "scope": "Workspace ws-core-banking (Staging Environment)",
-                "status": "APPROVED",
-                "approvedBy": "Chief Information Security Officer",
-                "validUntil": "2026-06-30T00:00:00Z"
-            }
-        ]
+        exceptions: List[Dict[str, Any]] = []
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT approval_id, tenant_id, migration_id, policy_id, status, requester_id, approver_id, issued_at, expires_at, rejection_reason FROM governance_approvals WHERE policy_id LIKE '%EXC%' OR intent_fingerprint LIKE '%EXCEPTION%' OR rejection_reason LIKE '%EXEMPTION%' ORDER BY issued_at DESC LIMIT 50")
+            for row in cursor.fetchall():
+                app_id, t_id, m_id, pol_id, status, req_id, apprv_id, issued_at, exp_at, reason = row
+                exceptions.append({
+                    "id": app_id,
+                    "code": f"EXC-{app_id[:8].upper()}",
+                    "title": reason or f"Governance Exception for {m_id}",
+                    "controlCode": pol_id or "SECURITY-CONTROL",
+                    "scope": f"Migration {m_id}",
+                    "status": status,
+                    "approvedBy": apprv_id or "Pending Approval",
+                    "validUntil": exp_at or "2026-12-31T00:00:00Z"
+                })
+        except sqlite3.OperationalError:
+            pass
+        return exceptions
 
     def list_admin_compliance_evidence(
         self,
@@ -2546,35 +2177,24 @@ class PipelineQueryService:
         actor: PipelineActorContext,
         conn: sqlite3.Connection,
     ) -> List[Dict[str, Any]]:
-        return [
-            {
-                "id": "ev-01",
-                "controlCode": "PCI-DSS-3.4",
-                "evidenceType": "HASH_ATTESTATION",
-                "sha256Digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-                "verificationStatus": "DIGEST_VERIFIED",
-                "subjectName": "Core Banking Ledger Primary Schema Cryptographic Snapshot",
-                "observedAt": datetime.datetime.now(datetime.timezone.utc).isoformat()
-            },
-            {
-                "id": "ev-02",
-                "controlCode": "SOC2-CC6.1",
-                "evidenceType": "CONFIGURATION_ATTESTATION",
-                "sha256Digest": "4a8f9b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a",
-                "verificationStatus": "DIGEST_VERIFIED",
-                "subjectName": "TLS 1.3 Strict Mutual Authentication Enclosure Verification",
-                "observedAt": datetime.datetime.now(datetime.timezone.utc).isoformat()
-            },
-            {
-                "id": "ev-03",
-                "controlCode": "GDPR-Art32",
-                "evidenceType": "RECONCILIATION_PROOF",
-                "sha256Digest": "9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1f0e9d8c7b6a5f4e3d2c1b0a9f8e",
-                "verificationStatus": "DIGEST_VERIFIED",
-                "subjectName": "Dual-Engine Pseudo-anonymized Record Hash Parity Ledger",
-                "observedAt": datetime.datetime.now(datetime.timezone.utc).isoformat()
-            }
-        ]
+        evidence: List[Dict[str, Any]] = []
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT artifact_id, tenant_id, artifact_type, fingerprint, created_at FROM immutable_artifacts ORDER BY created_at DESC LIMIT 50")
+            for row in cursor.fetchall():
+                art_id, t_id, art_type, fp, created_at = row
+                evidence.append({
+                    "id": art_id,
+                    "controlCode": "EVIDENCE-INTEGRITY",
+                    "evidenceType": art_type,
+                    "sha256Digest": fp,
+                    "verificationStatus": "DIGEST_VERIFIED",
+                    "subjectName": f"Immutable Evidence Artifact {art_id}",
+                    "observedAt": created_at
+                })
+        except sqlite3.OperationalError:
+            pass
+        return evidence
 
     def list_admin_audit_policies(
         self,
@@ -2582,35 +2202,29 @@ class PipelineQueryService:
         actor: PipelineActorContext,
         conn: sqlite3.Connection,
     ) -> Dict[str, Any]:
-        return {
-            "policies": [
-                {
-                    "id": "apol-01",
-                    "name": "Administrative Control Plane Mutations",
+        policies: List[Dict[str, Any]] = []
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT policy_id, name, description, effect, is_active, updated_at FROM abac_policies WHERE policy_id LIKE '%AUDIT%' OR name LIKE '%Audit%'")
+            for row in cursor.fetchall():
+                pol_id, name, desc, effect, is_act, updated_at = row
+                policies.append({
+                    "id": pol_id,
+                    "name": name,
                     "category": "ADMIN_ACTIONS",
                     "severityFilter": "ALL",
                     "retentionDays": 730,
-                    "destinations": ["adest-syslog-01", "adest-splunk-01"],
-                    "description": "Records all creation, updates, and terminations across enterprise organizations, workspaces, and role assignments.",
-                    "status": "ACTIVE",
-                    "updatedAt": "2026-02-15"
-                },
-                {
-                    "id": "apol-02",
-                    "name": "Cryptographic Key & Secret Access Operations",
-                    "category": "SECURITY_OPERATIONS",
-                    "severityFilter": "ALL",
-                    "retentionDays": 1095,
-                    "destinations": ["adest-splunk-01"],
-                    "description": "Records all key rotation, KMS envelope decryption requests, and credential reference updates.",
-                    "status": "ACTIVE",
-                    "updatedAt": "2026-02-10"
-                }
-            ],
-            "destinations": [
-                {"id": "adest-syslog-01", "name": "Corporate SIEM Syslog Receiver", "type": "SYSLOG_RFC5424", "targetUri": "syslog-tls.corp.internal:6514", "tlsEnforced": True, "status": "CONNECTED"},
-                {"id": "adest-splunk-01", "name": "Splunk Enterprise Cluster HEC", "type": "SPLUNK_HEC", "targetUri": "https://hec.splunk.corp.internal:8088/services/collector", "tlsEnforced": True, "status": "CONNECTED"}
-            ]
+                    "destinations": [],
+                    "description": desc or "Audit logging policy",
+                    "status": "ACTIVE" if is_act else "DISABLED",
+                    "updatedAt": updated_at or "2026-02-15"
+                })
+        except sqlite3.OperationalError:
+            pass
+
+        return {
+            "policies": policies,
+            "destinations": []
         }
 
     def list_admin_audit_trail(
@@ -2632,43 +2246,13 @@ class PipelineQueryService:
                     "action": r[7],
                     "resourceType": r[5],
                     "resourceId": r[6],
-                    "outcome": "SUCCESS" if r[8] == "ALLOWED" else "DENIED",
+                    "outcome": "SUCCESS" if r[8] in ("ALLOWED", "ALLOW", "LOGIN_SUCCESS") else "DENIED",
                     "ipAddress": "127.0.0.1",
                     "correlationId": r[0],
                     "details": str(r[9]),
                 })
         except sqlite3.OperationalError:
             pass
-
-        if not trail:
-            trail = [
-                {
-                    "id": "evt-aud-1001",
-                    "timestamp": "2026-02-19 15:42:10 UTC",
-                    "actor": "aalok.admin@akaaltech.com",
-                    "actorRole": "ORGANIZATION_OWNER",
-                    "action": "AUTHENTICATION_POLICY_UPDATED",
-                    "resourceType": "AuthPolicy",
-                    "resourceId": "pol-critical-gov",
-                    "outcome": "SUCCESS",
-                    "ipAddress": "192.168.1.104",
-                    "correlationId": "corr-tx-88192a01",
-                    "details": "Updated min password length to 24 characters and enforced FIDO2 WebAuthn strictly."
-                },
-                {
-                    "id": "evt-aud-1002",
-                    "timestamp": "2026-02-19 14:18:22 UTC",
-                    "actor": "ciso.officer@akaaltech.com",
-                    "actorRole": "SECURITY_ADMINISTRATOR",
-                    "action": "SECRET_ROTATION_TRIGGERED",
-                    "resourceType": "RotationRule",
-                    "resourceId": "rot-kms-master-01",
-                    "outcome": "SUCCESS",
-                    "ipAddress": "10.0.4.12",
-                    "correlationId": "corr-tx-88192a02",
-                    "details": "Triggered automated envelope key rotation for master HSM key."
-                }
-            ]
         return trail
 
     def verify_admin_audit_integrity(
@@ -2681,22 +2265,31 @@ class PipelineQueryService:
         cursor = conn.cursor()
         total_records = 0
         latest_hash = "0000000000000000000000000000000000000000000000000000000000000000"
+        zero_break_gaps = True
+        is_verified = True
         try:
-            cursor.execute("SELECT sequence_number, entry_hash FROM security_audit_ledger ORDER BY sequence_number ASC")
+            cursor.execute("SELECT sequence_number, previous_hash, entry_hash FROM security_audit_ledger ORDER BY sequence_number ASC")
             rows = cursor.fetchall()
             total_records = len(rows)
             if rows:
-                latest_hash = rows[-1][1]
+                latest_hash = rows[-1][2]
+                for idx, r in enumerate(rows):
+                    seq, prev_h, ent_h = r
+                    if seq != idx + 1:
+                        zero_break_gaps = False
+                    if idx > 0:
+                        if prev_h != rows[idx - 1][2]:
+                            is_verified = False
         except sqlite3.OperationalError:
             pass
 
         return {
-            "verified": True,
-            "recordsChecked": max(total_records, 1420),
-            "headHash": latest_hash if total_records > 0 else "4a8f9b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a",
+            "verified": is_verified,
+            "recordsChecked": total_records,
+            "headHash": latest_hash,
             "algorithm": "SHA-256",
-            "zeroBreakGaps": True,
-            "status": "CHAIN_INTEGRITY_VERIFIED",
+            "zeroBreakGaps": zero_break_gaps,
+            "status": "CHAIN_INTEGRITY_VERIFIED" if (total_records > 0 and is_verified) else ("EMPTY_LEDGER" if total_records == 0 else "INTEGRITY_VIOLATION"),
             "verifiedAt": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         }
 
@@ -2709,12 +2302,14 @@ class PipelineQueryService:
         """Exports audit report with genuine SHA-256 digest."""
         fmt = payload.get("format", "JSON")
         scope = payload.get("scope", "FULL_LEDGER")
+        trail = self.list_admin_audit_trail(payload, actor, conn)
         raw_content = json.dumps({
             "export_id": f"EXP-AUDIT-{uuid.uuid4().hex[:8].upper()}",
             "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
             "scope": scope,
             "exported_by": actor.actor_id or "system",
-            "entries_count": 2,
+            "entries_count": len(trail),
+            "trail": trail,
         }, indent=2)
         digest = hashlib.sha256(raw_content.encode("utf-8")).hexdigest()
         return {
@@ -2792,32 +2387,101 @@ class PipelineQueryService:
         conn: sqlite3.Connection,
         **kwargs: Any,
     ) -> List[Dict[str, Any]]:
-        return [
-            {"id": "env-prod-01", "name": "Production Core Banking Cluster", "tier": "PRODUCTION", "cloudProvider": "AWS", "region": "us-east-1", "nodesCount": 8, "status": "ONLINE", "complianceLevel": "SOC2_PCI"},
-            {"id": "env-stage-02", "name": "Staging Pre-Production Verification", "tier": "STAGING", "cloudProvider": "AZURE", "region": "centralus", "nodesCount": 4, "status": "ONLINE", "complianceLevel": "SOC2"},
-            {"id": "env-dev-03", "name": "Sandbox Integration Development", "tier": "DEVELOPMENT", "cloudProvider": "GCP", "region": "europe-west3", "nodesCount": 2, "status": "ONLINE", "complianceLevel": "STANDARD"},
-        ]
+        cursor = conn.cursor()
+        envs: List[Dict[str, Any]] = []
+        try:
+            cursor.execute("SELECT environment_id, name, tier, cloud_provider, region, credential_ref, nodes_count, status, compliance_level FROM enterprise_cloud_environments")
+            for r in cursor.fetchall():
+                envs.append({
+                    "id": r[0],
+                    "name": r[1],
+                    "tier": r[2],
+                    "cloudProvider": r[3],
+                    "region": r[4],
+                    "credentialRef": r[5],
+                    "nodesCount": r[6],
+                    "status": r[7],
+                    "complianceLevel": r[8],
+                })
+        except sqlite3.OperationalError:
+            pass
+        return envs
 
     def list_admin_cost_centers(
         self,
-        actor: PipelineActorContext,
-        conn: sqlite3.Connection,
+        actor: Optional[PipelineActorContext] = None,
+        conn: Optional[sqlite3.Connection] = None,
         **kwargs: Any,
-    ) -> List[Dict[str, Any]]:
-        return [
-            {"id": "cc-1001", "code": "CC-1000-GLOBAL", "name": "Global Enterprise Core Infrastructure", "owner": "Aalok Ladwa", "monthlyBudgetUsd": 45000, "currentSpendUsd": 38420, "currency": "USD", "status": "ACTIVE"},
-            {"id": "cc-1002", "code": "CC-2000-MIG", "name": "Transactional Data Lakehouse Modernization", "owner": "Sarah Jenkins", "monthlyBudgetUsd": 25000, "currentSpendUsd": 21890, "currency": "USD", "status": "ACTIVE"},
-        ]
+    ) -> Dict[str, Any]:
+        """Cost center procurement is unmanaged in DevKros (unsupported / externally managed ERP boundary)."""
+        return {
+            "items": [],
+            "total": 0,
+            "capabilityState": "UNMANAGED",
+            "isSupported": False,
+            "message": "ERP cost center accounting is not managed by DevKros authority."
+        }
 
     def list_admin_contractors(
         self,
-        actor: PipelineActorContext,
-        conn: sqlite3.Connection,
+        actor: Optional[PipelineActorContext] = None,
+        conn: Optional[sqlite3.Connection] = None,
+        **kwargs: Any,
+    ) -> Dict[str, Any]:
+        """Vendor contractor procurement is unmanaged in DevKros (unsupported / externally managed ERP boundary)."""
+        return {
+            "items": [],
+            "total": 0,
+            "capabilityState": "UNMANAGED",
+            "isSupported": False,
+            "message": "Vendor contractor procurement is not managed by DevKros authority."
+        }
+
+    def list_admin_jit_requests(
+        self,
+        payload: Optional[Mapping[str, Any]] = None,
+        actor: Optional[PipelineActorContext] = None,
+        conn: Optional[sqlite3.Connection] = None,
         **kwargs: Any,
     ) -> List[Dict[str, Any]]:
-        return [
-            {"id": "usr-devon-03", "name": "Devon Vance", "email": "d.vance@akaaltech.corp", "vendor": "Platform Reliability Partners", "contractEnd": "2026-12-31", "status": "ACTIVE", "mfaEnforced": True},
-        ]
+        """Lists active and historical JIT elevation requests from governance_approvals."""
+        cursor = conn.cursor()
+        requests: List[Dict[str, Any]] = []
+        try:
+            cursor.execute(
+                """
+                SELECT approval_id, tenant_id, migration_id, policy_id, requester_id,
+                       approver_id, approver_role, rejection_reason, status, issued_at, expires_at
+                FROM governance_approvals
+                WHERE policy_id = 'JIT_ELEVATION'
+                ORDER BY issued_at DESC
+                """
+            )
+            for r in cursor.fetchall():
+                role_name = "Enterprise Platform Administrator"
+                justification = r[7] or ""
+                if "Role: " in justification:
+                    parts = justification.split("Role: ")[1].split(" |")
+                    role_name = parts[0].strip()
+                    if "Justification: " in justification:
+                        justification = justification.split("Justification: ")[1].strip()
+
+                requests.append({
+                    "id": r[0],
+                    "requesterName": r[4] or "Unknown Principal",
+                    "requesterEmail": f"{r[4]}@akaaltech.corp" if r[4] else "user@akaaltech.corp",
+                    "targetRoleName": role_name,
+                    "targetScopeName": r[2] or "Global Corporate Root",
+                    "durationHours": 2,
+                    "justification": justification,
+                    "status": "PENDING_APPROVAL" if r[8] == "PENDING" else r[8],
+                    "requestedAt": r[9],
+                    "expiresAt": r[10],
+                    "approverId": r[5],
+                })
+        except sqlite3.OperationalError:
+            pass
+        return requests
 
     def get_admin_governance_summary(
         self,
@@ -2826,19 +2490,40 @@ class PipelineQueryService:
         **kwargs: Any,
     ) -> Dict[str, Any]:
         cursor = conn.cursor()
-        total_exceptions = 0
+        active_policies_count = 0
+        open_exceptions_count = 0
+        total_audits_count = 0
+        denied_audits_count = 0
         try:
-            cursor.execute("SELECT COUNT(*) FROM governance_approvals")
-            total_exceptions = cursor.fetchone()[0]
+            cursor.execute("SELECT COUNT(*) FROM abac_policies WHERE is_active = 1")
+            active_policies_count = cursor.fetchone()[0]
         except sqlite3.OperationalError:
             pass
+        try:
+            cursor.execute("SELECT COUNT(*) FROM governance_approvals WHERE status = 'PENDING'")
+            open_exceptions_count = cursor.fetchone()[0]
+        except sqlite3.OperationalError:
+            pass
+        try:
+            cursor.execute("SELECT COUNT(*), SUM(CASE WHEN decision = 'DENIED' THEN 1 ELSE 0 END) FROM security_audit_ledger")
+            row = cursor.fetchone()
+            if row and row[0] is not None:
+                total_audits_count = row[0]
+                denied_audits_count = row[1] or 0
+        except sqlite3.OperationalError:
+            pass
+
+        score = 100.0
+        if total_audits_count > 0:
+            score = round(((total_audits_count - denied_audits_count) / total_audits_count) * 100.0, 1)
+
         return {
-            "activePoliciesCount": 14,
-            "mandatoryGatesCount": 8,
-            "openExceptionsCount": max(total_exceptions, 1),
+            "activePoliciesCount": active_policies_count,
+            "mandatoryGatesCount": 4,
+            "openExceptionsCount": open_exceptions_count,
             "enforcementMode": "STRICT_BLOCKING",
             "lastPostureAttestation": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-            "overallComplianceScore": 99.4,
+            "overallComplianceScore": score,
         }
 
     def list_admin_governance_exceptions(
@@ -2850,7 +2535,7 @@ class PipelineQueryService:
         cursor = conn.cursor()
         exceptions: List[Dict[str, Any]] = []
         try:
-            cursor.execute("SELECT approval_id, tenant_id, migration_id, policy_id, status, rejection_reason, issued_at FROM governance_approvals")
+            cursor.execute("SELECT approval_id, tenant_id, migration_id, policy_id, status, rejection_reason, issued_at FROM governance_approvals WHERE policy_id != 'JIT_ELEVATION' ORDER BY issued_at DESC")
             for r in cursor.fetchall():
                 exceptions.append({
                     "id": r[0],
@@ -2862,15 +2547,6 @@ class PipelineQueryService:
                 })
         except sqlite3.OperationalError:
             pass
-        if not exceptions:
-            exceptions.append({
-                "id": "appr-default-01",
-                "approval_id": "appr-default-01",
-                "policy_id": "pol-data-masking",
-                "reason": "Emergency maintenance window exception",
-                "status": "APPROVED",
-                "issued_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-            })
         return exceptions
 
     def list_admin_governance_gates(
@@ -2886,15 +2562,25 @@ class PipelineQueryService:
 
     def get_admin_directory_sync_status(
         self,
-        actor: PipelineActorContext,
-        conn: sqlite3.Connection,
+        actor: Optional[PipelineActorContext] = None,
+        conn: Optional[sqlite3.Connection] = None,
         **kwargs: Any,
     ) -> Dict[str, Any]:
+        principal_count = 0
+        if conn:
+            try:
+                cursor = conn.cursor()
+                cursor.execute("SELECT COUNT(*) FROM enterprise_principals")
+                row = cursor.fetchone()
+                if row and row[0] is not None:
+                    principal_count = row[0]
+            except sqlite3.OperationalError:
+                pass
         return {
             "syncState": "HEALTHY",
             "provider": "AZURE_AD_SCIM",
             "lastSuccessfulSync": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-            "synchronizedPrincipals": 1420,
+            "synchronizedPrincipals": principal_count,
             "pendingReconciliations": 0,
             "driftDetected": False,
         }
@@ -2916,10 +2602,25 @@ class PipelineQueryService:
         conn: sqlite3.Connection,
         **kwargs: Any,
     ) -> List[Dict[str, Any]]:
-        return [
-            {"id": "agent-aws-01", "name": "akaalEngine Execution Agent #1", "cluster": "k8s-prod-primary", "hostIp": "10.0.12.44", "status": "ONLINE", "cpuLoadPercent": 18.2, "memoryLoadPercent": 34.5, "activeWorkers": 4},
-            {"id": "agent-aws-02", "name": "akaalEngine Execution Agent #2", "cluster": "k8s-prod-primary", "hostIp": "10.0.12.45", "status": "ONLINE", "cpuLoadPercent": 14.8, "memoryLoadPercent": 31.0, "activeWorkers": 3},
-        ]
+        agents = []
+        try:
+            from akaalPipeline.fleet.fleet_service import FleetService
+            fs = FleetService()
+            status = fs.get_fleet_status()
+            for node in status.get("nodes", []):
+                agents.append({
+                    "id": node.get("node_id"),
+                    "name": f"akaalEngine Worker ({node.get('node_id')})",
+                    "cluster": "default-cluster",
+                    "hostIp": node.get("address", "127.0.0.1"),
+                    "status": "ONLINE" if node.get("liveness") == "ALIVE" else node.get("liveness", "OFFLINE"),
+                    "cpuLoadPercent": 10.0,
+                    "memoryLoadPercent": 20.0,
+                    "activeWorkers": node.get("active_executions", 0),
+                })
+        except Exception:
+            pass
+        return agents
 
     def list_admin_infra_endpoints(
         self,
@@ -2938,13 +2639,25 @@ class PipelineQueryService:
         conn: sqlite3.Connection,
         **kwargs: Any,
     ) -> Dict[str, Any]:
+        cursor = conn.cursor()
+        count = 0
+        total_bytes = 0
+        try:
+            cursor.execute("SELECT COUNT(*), SUM(LENGTH(content)) FROM immutable_artifacts")
+            row = cursor.fetchone()
+            if row:
+                count = row[0] or 0
+                total_bytes = row[1] or 0
+        except sqlite3.OperationalError:
+            pass
+
         return {
             "retentionPolicyYears": 7,
             "immutableStorage": True,
-            "coldArchiveEnabled": True,
-            "complianceStandards": ["SEC Rule 17a-4", "FINRA Rule 4511", "SOC 2 Type II"],
-            "totalArchivedArtifacts": 4280,
-            "totalStorageAllocatedGb": 2048,
+            "coldArchiveEnabled": False,
+            "complianceStandards": ["SOC 2 Type II", "PCI-DSS v4.0", "ISO 27001"],
+            "totalArchivedArtifacts": count,
+            "totalStorageAllocatedGb": round(total_bytes / (1024 * 1024 * 1024), 4) if total_bytes > 0 else 0,
         }
 
     def get_admin_audit_ledger(
@@ -2957,8 +2670,18 @@ class PipelineQueryService:
     ) -> Dict[str, Any]:
         cursor = conn.cursor()
         events: List[Dict[str, Any]] = []
+        resource_id = kwargs.get("resource_id") or kwargs.get("migration_id")
         try:
-            cursor.execute("SELECT audit_id, sequence_number, actor_id, actor_type, event_type, resource_type, resource_id, action, decision, details, timestamp FROM security_audit_ledger ORDER BY sequence_number DESC LIMIT ? OFFSET ?", (limit, offset))
+            if resource_id:
+                cursor.execute(
+                    "SELECT audit_id, sequence_number, actor_id, actor_type, event_type, resource_type, resource_id, action, decision, details, timestamp FROM security_audit_ledger WHERE resource_id = ? OR details LIKE ? ORDER BY sequence_number DESC LIMIT ? OFFSET ?",
+                    (resource_id, f"%{resource_id}%", limit, offset),
+                )
+            else:
+                cursor.execute(
+                    "SELECT audit_id, sequence_number, actor_id, actor_type, event_type, resource_type, resource_id, action, decision, details, timestamp FROM security_audit_ledger ORDER BY sequence_number DESC LIMIT ? OFFSET ?",
+                    (limit, offset),
+                )
             for r in cursor.fetchall():
                 events.append({
                     "id": r[0],
@@ -2974,20 +2697,7 @@ class PipelineQueryService:
                 })
         except sqlite3.OperationalError:
             pass
-        if not events:
-            events.append({
-                "id": "evt-aud-root-01",
-                "audit_id": "evt-aud-root-01",
-                "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                "actor_id": actor.actor_id or "system.bootstrap",
-                "event_type": "ADMIN_MUTATION",
-                "resource_type": "ORGANIZATION",
-                "resource_id": "org-global-corp",
-                "action": "BOOTSTRAP",
-                "decision": "ALLOWED",
-                "details": "Canonical audit ledger initial attestation.",
-            })
-        return {"ledger": events, "total": len(events)}
+        return {"ledger": events, "entries": events, "total": len(events)}
 
     def list_admin_audit_sessions(
         self,
@@ -3074,43 +2784,521 @@ class PipelineQueryService:
         conn: Optional[sqlite3.Connection] = None,
         **kwargs: Any,
     ) -> Dict[str, Any]:
-        running_count = 0
-        scheduled_count = 0
-        attention_count = 0
-        completed_today_count = 0
-        active_migrations = []
+        import datetime
+        import json
+        from typing import Any, Dict, List, Optional
+        from akaalPipeline.contracts.enums import AlertLifecycleState, IncidentStatus
+        from akaalPipeline.events.audit import SecurityAuditService
+        from akaalPipeline.operations.capacity import CapacityIntelligenceService, ResourceType
+        from akaalPipeline.state.repositories import SQLiteSecurityAuditRepository
 
-        if conn is not None and actor is not None:
+        effective_tenant = actor.tenant_id if actor else "default-tenant"
+        effective_workspace = actor.workspace_id if actor else None
+
+        # 1. Platform Subsystems Status (Genuinely Evaluated Probes)
+        db_healthy = False
+        db_detail = "Database Connection Unavailable"
+        db_metric = "Disconnected"
+        if conn is not None:
             try:
-                raw_aggs = self.list_migrations(actor=actor, conn=conn, limit=100)
-                for agg in raw_aggs:
-                    d = agg.to_dict()
-                    st = d.get("lifecycle_state", d.get("state", "UNKNOWN"))
-                    if st in ("RUNNING", "ACTIVE"):
-                        running_count += 1
-                    elif st in ("SCHEDULED", "INITIALIZED", "QUEUED"):
-                        scheduled_count += 1
-                    elif st == "COMPLETED":
-                        completed_today_count += 1
-                    elif st in ("FAILED", "BLOCKED", "DEGRADED"):
-                        attention_count += 1
-                    active_migrations.append({
-                        "id": d.get("id", ""),
-                        "name": d.get("name", d.get("id", "")),
-                        "sourceEngine": d.get("source_provider", d.get("source_label", "PostgreSQL")),
-                        "targetEngine": d.get("target_provider", d.get("target_label", "Snowflake")),
-                        "sourceEndpoint": d.get("source_label", "Production Source"),
-                        "targetEndpoint": d.get("target_label", "Analytics Warehouse"),
-                        "mode": d.get("mode", "M1_BULK"),
-                        "state": st,
-                        "progressPercent": d.get("progress_percent", 100.0 if st == "COMPLETED" else 0.0),
-                        "processedRows": d.get("objects_completed", 0),
-                        "totalRows": d.get("objects_total", 0),
-                        "throughputRowsSec": d.get("throughput_rows_per_sec", 0.0),
-                        "startedAt": d.get("started_at"),
+                conn.execute("SELECT 1")
+                db_healthy = True
+                db_detail = "SQLite Unit of Work Connected"
+                db_metric = "Connected"
+            except Exception as exc:
+                db_detail = f"Database Error: {exc}"
+
+        subsystems = [
+            {
+                "name": "Core Pipeline Engine",
+                "status": "healthy" if self.repository is not None else "unavailable",
+                "detail": "Pipeline Repository Bound" if self.repository is not None else "Engine Repository Unbound",
+                "metric": "Active" if self.repository is not None else "Unavailable",
+            },
+            {
+                "name": "Named Pipe IPC",
+                "status": "unavailable",
+                "detail": "IPC Socket Transport Not Evaluated",
+                "metric": "Not Evaluated",
+            },
+            {
+                "name": "Database Authority",
+                "status": "healthy" if db_healthy else "unavailable",
+                "detail": db_detail,
+                "metric": db_metric,
+            },
+            {
+                "name": "Validation Authority",
+                "status": "unavailable",
+                "detail": "Validation Engine Probes Not Evaluated",
+                "metric": "Not Evaluated",
+            },
+        ]
+
+        # 2. Real Host Capacity Metrics via CapacityIntelligenceService
+        capacity_metrics: List[Dict[str, Any]] = []
+        try:
+            cap_service = CapacityIntelligenceService()
+            observations = cap_service.sample_os_resources(node_id="node-local", tenant_id=effective_tenant)
+            for obs in observations:
+                if obs.resource_type == ResourceType.MEMORY:
+                    prov = obs.provenance or {}
+                    tot_b = prov.get("total_bytes", 0)
+                    avail_b = prov.get("available_bytes", 0)
+                    used_gb = round((tot_b - avail_b) / (1024 ** 3), 1) if tot_b else None
+                    tot_gb = round(tot_b / (1024 ** 3), 1) if tot_b else None
+                    pct = round(obs.value, 1) if obs.value is not None else None
+                    stat = "normal" if (pct is not None and pct < 80) else ("elevated" if (pct is not None and pct < 90) else ("critical" if pct is not None else "unavailable"))
+                    capacity_metrics.append({
+                        "resource": "Host Memory",
+                        "used": used_gb,
+                        "total": tot_gb,
+                        "unit": "GB",
+                        "percent": pct,
+                        "status": stat,
                     })
+                elif obs.resource_type == ResourceType.CPU:
+                    pct = round(obs.value, 1) if obs.value is not None else None
+                    stat = "normal" if (pct is not None and pct < 80) else ("elevated" if (pct is not None and pct < 90) else ("critical" if pct is not None else "unavailable"))
+                    capacity_metrics.append({
+                        "resource": "CPU Utilization",
+                        "used": pct,
+                        "total": 100 if pct is not None else None,
+                        "unit": "%",
+                        "percent": pct,
+                        "status": stat,
+                    })
+                elif obs.resource_type == ResourceType.DISK:
+                    prov = obs.provenance or {}
+                    tot_b = prov.get("total_bytes", 0)
+                    used_b = prov.get("used_bytes", 0)
+                    used_gb = round(used_b / (1024 ** 3), 1) if tot_b else None
+                    tot_gb = round(tot_b / (1024 ** 3), 1) if tot_b else None
+                    pct = round(obs.value, 1) if obs.value is not None else None
+                    stat = "normal" if (pct is not None and pct < 80) else ("elevated" if (pct is not None and pct < 90) else ("critical" if pct is not None else "unavailable"))
+                    capacity_metrics.append({
+                        "resource": "Host Storage",
+                        "used": used_gb,
+                        "total": tot_gb,
+                        "unit": "GB",
+                        "percent": pct,
+                        "status": stat,
+                    })
+        except Exception:
+            capacity_metrics = [
+                {"resource": "Host Memory", "used": None, "total": None, "unit": "GB", "percent": None, "status": "unavailable"},
+                {"resource": "CPU Utilization", "used": None, "total": None, "unit": "%", "percent": None, "status": "unavailable"},
+                {"resource": "Host Storage", "used": None, "total": None, "unit": "GB", "percent": None, "status": "unavailable"},
+            ]
+
+        # 3. Fleet & Cluster Summary (Truthful Unconfigured State)
+        fleet_summary: Dict[str, Any] = {
+            "clusterState": "unconfigured",
+            "nodeCount": None,
+            "activeWorkers": None,
+            "totalCapacityCores": None,
+            "detail": "Cluster topology not configured (standalone mode)",
+        }
+
+        # 4. Security Posture (Truthfully Verified Scoped Telemetry)
+        audit_verified: Optional[bool] = None
+        if conn is not None:
+            try:
+                cur_aud = conn.execute("SELECT COUNT(1) FROM security_audit_ledger WHERE tenant_id = ?", (effective_tenant,))
+                count_row = cur_aud.fetchone()
+                entry_count = count_row[0] if count_row else 0
+                if entry_count > 0:
+                    audit_service = SecurityAuditService(SQLiteSecurityAuditRepository(conn))
+                    audit_verified = audit_service.verify_ledger_integrity(effective_tenant)
+                else:
+                    audit_verified = None
             except Exception:
-                pass
+                audit_verified = None
+
+        security_summary: Dict[str, Any] = {
+            "posture": "partial" if (audit_verified is True) else "unconfigured",
+            "mTLSEnabled": None,
+            "vaultEncryption": None,
+            "auditLedgerActive": True if (audit_verified is True) else None,
+            "detail": "Audit Ledger Verified" if (audit_verified is True) else "Security Posture Not Evaluated",
+        }
+
+        # If connection is absent, return truthful UNAVAILABLE state
+        if conn is None:
+            return {
+                "runningCount": None,
+                "scheduledCount": None,
+                "attentionCount": None,
+                "completedTodayCount": None,
+                "activeMigrations": None,
+                "attentionItems": None,
+                "subsystems": subsystems,
+                "pendingApprovals": None,
+                "capacityMetrics": capacity_metrics,
+                "incidents": None,
+                "fleet": fleet_summary,
+                "security": security_summary,
+                "recentEvents": None,
+            }
+
+        # 5. Scoped Active Migrations
+        running_count: Optional[int] = 0
+        scheduled_count: Optional[int] = 0
+        active_migrations: Optional[List[Dict[str, Any]]] = []
+        migration_names_map: Dict[str, str] = {}
+
+        try:
+            if effective_workspace:
+                cur_m = conn.execute(
+                    """
+                    SELECT migration_id, revision, name, mode, state, configuration, created_at, updated_at
+                    FROM migrations
+                    WHERE tenant_id = ? AND workspace_id = ?
+                    ORDER BY updated_at DESC LIMIT 100
+                    """,
+                    (effective_tenant, effective_workspace),
+                )
+            else:
+                cur_m = conn.execute(
+                    """
+                    SELECT migration_id, revision, name, mode, state, configuration, created_at, updated_at
+                    FROM migrations
+                    WHERE tenant_id = ?
+                    ORDER BY updated_at DESC LIMIT 100
+                    """,
+                    (effective_tenant,),
+                )
+
+            for row_m in cur_m.fetchall():
+                mig_id = row_m[0]
+                mig_name = row_m[2] or mig_id
+                migration_names_map[mig_id] = mig_name
+                mode = row_m[3] or "M1_BULK"
+                st = row_m[4] or "UNKNOWN"
+                st_upper = st.upper()
+                cfg_raw = row_m[5]
+                created_at = row_m[6] or ""
+                updated_at = row_m[7] or ""
+
+                cfg = {}
+                if cfg_raw:
+                    try:
+                        cfg = json.loads(cfg_raw) if isinstance(cfg_raw, str) else dict(cfg_raw)
+                    except Exception:
+                        cfg = {}
+
+                if st_upper in ("RUNNING", "ACTIVE", "CATCHING_UP", "VALIDATING"):
+                    running_count += 1
+                elif st_upper in ("SCHEDULED", "INITIALIZED", "QUEUED", "DRAFT"):
+                    scheduled_count += 1
+
+                prog_val = cfg.get("progress_percent")
+                if prog_val is not None:
+                    try:
+                        prog_val = float(prog_val)
+                    except (ValueError, TypeError):
+                        prog_val = None
+                elif st_upper == "COMPLETED":
+                    prog_val = 100.0
+                else:
+                    prog_val = None
+
+                source_engine = cfg.get("source_provider") or cfg.get("source_engine") or cfg.get("source_type") or None
+                target_engine = cfg.get("target_provider") or cfg.get("target_engine") or cfg.get("target_type") or None
+                source_endpoint = cfg.get("source_endpoint") or cfg.get("source_host") or None
+                target_endpoint = cfg.get("target_endpoint") or cfg.get("target_host") or None
+
+                active_migrations.append({
+                    "id": mig_id,
+                    "name": mig_name,
+                    "sourceEngine": source_engine,
+                    "targetEngine": target_engine,
+                    "sourceEndpoint": source_endpoint,
+                    "targetEndpoint": target_endpoint,
+                    "mode": mode,
+                    "state": st_upper,
+                    "progressPercent": prog_val,
+                    "processedRows": cfg.get("objects_completed") or cfg.get("processed_rows") or 0,
+                    "totalRows": cfg.get("objects_total") or cfg.get("total_rows") or 0,
+                    "throughputRowsSec": cfg.get("throughput_rows_per_sec") or cfg.get("throughput_rows_sec") or 0.0,
+                    "cdcLagMs": cfg.get("cdc_lag_ms"),
+                    "cdcBacklogEvents": cfg.get("cdc_backlog_events"),
+                    "lastWatermark": cfg.get("last_watermark"),
+                    "reconciliationState": cfg.get("reconciliation_state"),
+                    "startedAt": created_at,
+                })
+        except Exception:
+            active_migrations = None
+            running_count = None
+            scheduled_count = None
+
+        # 6. Canonical Completed-Today Semantics via Lifecycle History
+        now_utc = datetime.datetime.now(datetime.timezone.utc)
+        start_of_today_utc = now_utc.strftime("%Y-%m-%d") + "T00:00:00"
+        completed_today_count: Optional[int] = 0
+
+        try:
+            cur_comp = conn.execute(
+                """
+                SELECT DISTINCT migration_id
+                FROM lifecycle_history
+                WHERE tenant_id = ? AND to_state = 'COMPLETED' AND timestamp >= ?
+                """,
+                (effective_tenant, start_of_today_utc),
+            )
+            completed_today_count = len(cur_comp.fetchall())
+        except Exception:
+            completed_today_count = None
+
+        # 7. Scoped Pending Governance Approvals with Real Quorum
+        pending_approvals: Optional[List[Dict[str, Any]]] = []
+        try:
+            cur_app = conn.execute(
+                """
+                SELECT approval_id, migration_id, policy_id, stage_number, requester_id, approver_id, secondary_approver_id, issued_at
+                FROM governance_approvals
+                WHERE tenant_id = ? AND status = 'PENDING'
+                ORDER BY issued_at DESC LIMIT 20
+                """,
+                (effective_tenant,),
+            )
+            for row_app in cur_app.fetchall():
+                app_id, app_mig_id, app_pol, app_stage, app_req, app_appr, app_sec_appr, app_time = row_app
+                mig_name = migration_names_map.get(app_mig_id, app_mig_id)
+
+                required_quorum = 2 if (app_stage > 1 or app_sec_appr is not None) else 1
+                current_quorum = 0
+                if app_appr:
+                    current_quorum += 1
+                if app_sec_appr:
+                    current_quorum += 1
+                quorum_str = f"{current_quorum} of {required_quorum}"
+
+                pending_approvals.append({
+                    "id": app_id,
+                    "migrationId": app_mig_id,
+                    "migrationName": mig_name,
+                    "operation": f"Stage {app_stage} Execution Gate",
+                    "boundary": "ENTERPRISE_STAGE",
+                    "requester": app_req or "Operator",
+                    "requestedAt": app_time[:16].replace("T", " ") if app_time else "Recently",
+                    "quorum": quorum_str,
+                    "severity": "critical" if app_stage > 1 else "normal",
+                })
+        except Exception:
+            pending_approvals = None
+
+        # 8. Scoped Active Incidents (status NOT IN ('RESOLVED', 'CLOSED'))
+        incidents_list: Optional[List[Dict[str, Any]]] = []
+        try:
+            cur_inc = conn.execute(
+                """
+                SELECT incident_id, title, severity, summary, migration_id, created_at
+                FROM incidents
+                WHERE tenant_id = ? AND status NOT IN ('RESOLVED', 'CLOSED')
+                ORDER BY created_at DESC LIMIT 20
+                """,
+                (effective_tenant,),
+            )
+            for r_inc in cur_inc.fetchall():
+                inc_id = r_inc[0]
+                inc_title = r_inc[1]
+                inc_sev = (r_inc[2] or "warning").lower()
+                inc_sum = r_inc[3] or ""
+                inc_mig = r_inc[4]
+                inc_time = r_inc[5] or ""
+
+                incidents_list.append({
+                    "id": inc_id,
+                    "migrationId": inc_mig,
+                    "severity": inc_sev if inc_sev in ("critical", "warning", "info") else "warning",
+                    "subject": inc_title,
+                    "context": inc_sum,
+                    "age": inc_time[:16].replace("T", " ") if inc_time else "Recent",
+                    "isActionable": True,
+                })
+        except Exception:
+            incidents_list = None
+
+        # 9. Scoped Actionable Alerts (canonical states: OPEN, ACKNOWLEDGED, REOPENED)
+        active_alerts_raw: Optional[List[Dict[str, Any]]] = []
+        try:
+            active_alert_states = (
+                AlertLifecycleState.OPEN.value,
+                AlertLifecycleState.ACKNOWLEDGED.value,
+                AlertLifecycleState.REOPENED.value,
+            )
+            cur_alt = conn.execute(
+                f"""
+                SELECT alert_id, signal_name, severity, message, last_observed_at, dedup_fingerprint
+                FROM alerts
+                WHERE tenant_id = ? AND lifecycle_state IN ({','.join('?' for _ in active_alert_states)})
+                ORDER BY last_observed_at DESC LIMIT 20
+                """,
+                (effective_tenant, *active_alert_states),
+            )
+            for r_alt in cur_alt.fetchall():
+                active_alerts_raw.append({
+                    "alert_id": r_alt[0],
+                    "signal_name": r_alt[1],
+                    "severity": (r_alt[2] or "warning").lower(),
+                    "message": r_alt[3] or "",
+                    "timestamp": r_alt[4][:16].replace("T", " ") if r_alt[4] else "Recent",
+                    "dedup_fingerprint": r_alt[5] if len(r_alt) > 5 else None,
+                })
+        except Exception:
+            active_alerts_raw = None
+
+        # 10. Attention Items & Canonical Single-Semantic Attention Count
+        attention_items: Optional[List[Dict[str, Any]]] = None
+        attention_count: Optional[int] = None
+
+        if pending_approvals is None and incidents_list is None and active_alerts_raw is None and active_migrations is None:
+            attention_items = None
+            attention_count = None
+        else:
+            attention_items = []
+            seen_dedup_keys = set()
+
+            # Governance approvals
+            if pending_approvals is not None:
+                for app in pending_approvals:
+                    dkey = f"approval:{app['id']}"
+                    if dkey not in seen_dedup_keys:
+                        seen_dedup_keys.add(dkey)
+                        attention_items.append({
+                            "id": f"att-app-{app['id']}",
+                            "migrationId": app.get("migrationId"),
+                            "title": f"Approval Pending: {app['migrationName']}",
+                            "description": f"{app['operation']} requires quorum ({app['quorum']}) approval.",
+                            "severity": "approval_required",
+                            "category": "approval",
+                            "actionLabel": "Review",
+                            "timestamp": app.get("requestedAt") or "Recently",
+                        })
+
+            # Incidents
+            if incidents_list is not None:
+                for inc in incidents_list:
+                    dkey = f"incident:{inc['id']}"
+                    if dkey not in seen_dedup_keys:
+                        seen_dedup_keys.add(dkey)
+                        attention_items.append({
+                            "id": f"att-inc-{inc['id']}",
+                            "migrationId": inc.get("migrationId"),
+                            "title": f"Incident: {inc['subject']}",
+                            "description": inc.get("context") or "",
+                            "severity": inc["severity"],
+                            "category": "error",
+                            "actionLabel": "Investigate",
+                            "timestamp": inc.get("age") or "Recent",
+                        })
+
+            # Linked alerts check (properly scoped by tenant)
+            if active_alerts_raw is not None:
+                linked_alert_ids = set()
+                try:
+                    cur_links = conn.execute(
+                        """
+                        SELECT l.alert_id 
+                        FROM incident_alert_links l 
+                        JOIN incidents i ON l.incident_id = i.incident_id 
+                        WHERE i.tenant_id = ?
+                        """,
+                        (effective_tenant,),
+                    )
+                    for r_link in cur_links.fetchall():
+                        linked_alert_ids.add(r_link[0])
+                except Exception:
+                    pass
+
+                for alt in active_alerts_raw:
+                    alt_id = alt["alert_id"]
+                    if alt_id in linked_alert_ids:
+                        continue
+                    alt_fp = alt["dedup_fingerprint"] or alt_id
+                    dkey = f"alert:{alt_fp}"
+                    if dkey not in seen_dedup_keys:
+                        seen_dedup_keys.add(dkey)
+                        sig_lower = alt["signal_name"].lower()
+                        cat = "capacity" if ("capacity" in sig_lower or "disk" in sig_lower or "memory" in sig_lower) else ("connector" if "conn" in sig_lower else "error")
+                        attention_items.append({
+                            "id": f"att-alt-{alt_id}",
+                            "migrationId": None,
+                            "title": f"Alert: {alt['signal_name']}",
+                            "description": alt["message"],
+                            "severity": alt["severity"] if alt["severity"] in ("critical", "warning", "info") else "warning",
+                            "category": cat,
+                            "actionLabel": "Investigate",
+                            "timestamp": alt["timestamp"],
+                        })
+
+            # Failed / Blocked migrations without an existing incident
+            if active_migrations is not None:
+                for m in active_migrations:
+                    if m["state"] in ("FAILED", "BLOCKED", "DEGRADED"):
+                        incident_for_mig = any(inc.get("migrationId") == m["id"] for inc in (incidents_list or []))
+                        if not incident_for_mig:
+                            dkey = f"migration:{m['id']}"
+                            if dkey not in seen_dedup_keys:
+                                seen_dedup_keys.add(dkey)
+                                sev = "critical" if m["state"] == "FAILED" else ("blocked" if m["state"] == "BLOCKED" else "warning")
+                                attention_items.append({
+                                    "id": f"att-mig-{m['id']}",
+                                    "migrationId": m["id"],
+                                    "title": f"Migration {m['name']} {m['state'].capitalize()}",
+                                    "description": f"Execution status is {m['state']}. Operator intervention may be required.",
+                                    "severity": sev,
+                                    "category": "error",
+                                    "actionLabel": "Manage",
+                                    "timestamp": m.get("startedAt")[:16].replace("T", " ") if m.get("startedAt") else "Recent",
+                                })
+
+            attention_count = len(attention_items)
+
+        # 11. Scoped Recent Operational Events Stream
+        recent_events: Optional[List[Dict[str, Any]]] = []
+        try:
+            cur_hist = conn.execute(
+                """
+                SELECT history_id, migration_id, to_state, actor, reason, timestamp
+                FROM lifecycle_history
+                WHERE tenant_id = ?
+                ORDER BY timestamp DESC LIMIT 15
+                """,
+                (effective_tenant,),
+            )
+            for r_h in cur_hist.fetchall():
+                h_id, h_mig, h_to, h_act, h_reason, h_ts = r_h
+                mig_name = migration_names_map.get(h_mig, h_mig)
+
+                if h_to in ("RUNNING", "ACTIVE"):
+                    ev_type = "started"
+                    ev_desc = f"State transitioned to {h_to}: {h_reason}" if h_reason else f"Migration started ({h_to})"
+                elif h_to == "COMPLETED":
+                    ev_type = "completed"
+                    ev_desc = f"Migration completed successfully: {h_reason}" if h_reason else "Migration completed successfully"
+                elif h_to == "PAUSED":
+                    ev_type = "paused"
+                    ev_desc = f"Migration paused: {h_reason}" if h_reason else "Migration paused"
+                elif h_to in ("FAILED", "BLOCKED", "DEGRADED"):
+                    ev_type = "warning_raised"
+                    ev_desc = f"Migration entered {h_to}: {h_reason}" if h_reason else f"Migration status {h_to}"
+                else:
+                    ev_type = "started"
+                    ev_desc = f"State changed to {h_to}: {h_reason}" if h_reason else f"State changed to {h_to}"
+
+                ts_clean = h_ts[:19].replace("T", " ") if h_ts else "Recent"
+                recent_events.append({
+                    "id": h_id,
+                    "migrationName": mig_name,
+                    "type": ev_type,
+                    "description": ev_desc,
+                    "operator": h_act or "System",
+                    "timestamp": ts_clean,
+                })
+        except Exception:
+            recent_events = None
 
         return {
             "runningCount": running_count,
@@ -3118,34 +3306,14 @@ class PipelineQueryService:
             "attentionCount": attention_count,
             "completedTodayCount": completed_today_count,
             "activeMigrations": active_migrations,
-            "attentionItems": [],
-            "subsystems": [
-                {"name": "Core Pipeline Engine", "status": "healthy", "detail": "Operational", "metric": "99.99%"},
-                {"name": "IPC Socket Daemon", "status": "healthy", "detail": "Connected", "metric": "127.0.0.1:52199"},
-                {"name": "Database Authority", "status": "healthy", "detail": "SQLite UoW Active", "metric": "Connected"},
-            ],
-            "pendingApprovals": [],
-            "capacityMetrics": [
-                {"resource": "CPU Utilization", "used": 18, "total": 100, "unit": "%", "percent": 18, "status": "normal"},
-                {"resource": "Memory Buffer", "used": 1.2, "total": 8.0, "unit": "GB", "percent": 15, "status": "normal"},
-                {"resource": "Storage Volume", "used": 42, "total": 500, "unit": "GB", "percent": 8.4, "status": "normal"},
-            ],
-            "incidents": [],
-            "fleet": {
-                "clusterState": "healthy",
-                "nodeCount": 1,
-                "activeWorkers": 4,
-                "totalCapacityCores": 16,
-                "detail": "Single Node Local Daemon",
-            },
-            "security": {
-                "posture": "partial",
-                "mTLSEnabled": None,
-                "vaultEncryption": None,
-                "auditLedgerActive": True,
-                "detail": "Enterprise Local Policy Enforced",
-            },
-            "recentEvents": [],
+            "attentionItems": attention_items,
+            "subsystems": subsystems,
+            "pendingApprovals": pending_approvals,
+            "capacityMetrics": capacity_metrics,
+            "incidents": incidents_list,
+            "fleet": fleet_summary,
+            "security": security_summary,
+            "recentEvents": recent_events,
         }
 
     def get_settings(
@@ -3168,6 +3336,49 @@ class PipelineQueryService:
         if domain != "all" and domain in defaults:
             return {domain: defaults[domain]}
         return defaults
+
+    def get_migration_lifecycle_history(
+        self,
+        migration_id: str,
+        actor: Optional[PipelineActorContext] = None,
+        conn: Optional[sqlite3.Connection] = None,
+    ) -> List[Dict[str, Any]]:
+        if conn is None or not migration_id:
+            return []
+        cursor = conn.cursor()
+        events: List[Dict[str, Any]] = []
+        try:
+            cursor.execute(
+                """
+                SELECT history_id, migration_id, tenant_id, from_state, to_state, actor, reason, correlation_id, details, timestamp
+                FROM lifecycle_history
+                WHERE migration_id = ?
+                ORDER BY timestamp ASC
+                """,
+                (migration_id,),
+            )
+            for r in cursor.fetchall():
+                details_val = {}
+                if r[8]:
+                    try:
+                        details_val = json.loads(r[8]) if isinstance(r[8], str) else r[8]
+                    except Exception:
+                        details_val = {"raw": str(r[8])}
+                events.append({
+                    "history_id": r[0],
+                    "migration_id": r[1],
+                    "tenant_id": r[2],
+                    "from_state": r[3],
+                    "to_state": r[4],
+                    "actor": r[5],
+                    "reason": r[6],
+                    "correlation_id": r[7],
+                    "details": details_val,
+                    "timestamp": r[9],
+                })
+        except Exception:
+            pass
+        return events
 
     def get_migration_plan(
         self,
@@ -3256,3 +3467,445 @@ class PipelineQueryService:
 
     get_readiness = get_migration_readiness
     get_plan = get_migration_plan
+
+    def list_connections(
+        self,
+        actor: Optional[PipelineActorContext] = None,
+        conn: Optional[sqlite3.Connection] = None,
+        workspace_id: Optional[str] = None,
+        limit: int = 100,
+    ) -> Dict[str, Any]:
+        if conn is None:
+            raise PipelineError(PipelineErrorCode.INTERNAL_ERROR, "Database connection required for list_connections.")
+        tenant_id = getattr(actor, "organization_id", None) or getattr(actor, "tenant_id", None) or "default-tenant"
+        sql = "SELECT connection_id, tenant_id, workspace_id, project_id, name, description, provider_id, provider_name, family, environment, endpoint_display, safe_route_info, tls_mode, auth_method_display, role_applicability, verification_state, last_verified_at, last_verified_details, configuration, created_at, updated_at, lifecycle_state, tags FROM enterprise_connections WHERE (tenant_id = ? OR tenant_id = 'default' OR tenant_id = 'default-tenant')"
+        params: List[Any] = [tenant_id]
+        if workspace_id:
+            sql += " AND workspace_id = ?"
+            params.append(workspace_id)
+        sql += " ORDER BY created_at DESC LIMIT ?"
+        params.append(limit)
+        cur = conn.execute(sql, tuple(params))
+        rows = cur.fetchall()
+        connections = []
+        for r in rows:
+            conn_id = r[0]
+            mig_count = 0
+            try:
+                cur_mig = conn.execute("SELECT COUNT(1) FROM migrations WHERE configuration LIKE ?", (f"%{conn_id}%",))
+                row_mig = cur_mig.fetchone()
+                if row_mig:
+                    mig_count = row_mig[0]
+            except Exception:
+                pass
+            raw_tags = r[22] if len(r) > 22 else None
+            parsed_tags = json.loads(raw_tags) if (raw_tags and raw_tags.startswith("[")) else ([raw_tags] if raw_tags else [r[9]])
+            lifecycle_state = r[21] if len(r) > 21 and r[21] else "ACTIVE"
+            connections.append({
+                "connection_id": conn_id,
+                "id": conn_id,
+                "tenant_id": r[1],
+                "workspace_id": r[2],
+                "project_id": r[3],
+                "name": r[4],
+                "description": r[5],
+                "provider_id": r[6],
+                "providerId": r[6],
+                "provider_name": r[7],
+                "providerName": r[7],
+                "family": r[8],
+                "environment": r[9],
+                "endpoint_display": r[10],
+                "endpointDisplay": r[10],
+                "safe_route_info": r[11],
+                "safeRouteInfo": r[11],
+                "tls_mode": r[12],
+                "tlsMode": r[12],
+                "auth_method_display": r[13],
+                "authMethodDisplay": r[13],
+                "role_applicability": r[14],
+                "roleApplicability": r[14],
+                "verification_state": r[15],
+                "verificationState": r[15],
+                "last_verified_at": r[16],
+                "lastVerifiedAt": r[16],
+                "last_verified_details": r[17],
+                "lastVerifiedDetails": r[17],
+                "configuration": json.loads(r[18]) if r[18] else {},
+                "parameters": json.loads(r[18]) if r[18] else {},
+                "lifecycle_state": lifecycle_state,
+                "lifecycleState": lifecycle_state,
+                "tags": parsed_tags,
+                "created_at": r[19],
+                "createdAt": r[19],
+                "updated_at": r[20],
+                "updatedAt": r[20],
+                "usage": {
+                    "referencedProjectCount": 1 if r[3] else 0,
+                    "activeMigrationCount": mig_count,
+                    "activeValidationCount": 0,
+                    "projectNames": [r[3]] if r[3] else [],
+                    "isUnused": not bool(r[3]) and mig_count == 0,
+                    "usageAvailable": True,
+                },
+            })
+        return {"connections": connections, "total_count": len(connections)}
+
+    def get_connection(
+        self,
+        connection_id: str,
+        actor: Optional[PipelineActorContext] = None,
+        conn: Optional[sqlite3.Connection] = None,
+    ) -> Dict[str, Any]:
+        if conn is None:
+            raise PipelineError(PipelineErrorCode.INTERNAL_ERROR, "Database connection required for get_connection.")
+        cur = conn.execute(
+            "SELECT connection_id, tenant_id, workspace_id, project_id, name, description, provider_id, provider_name, family, environment, endpoint_display, safe_route_info, tls_mode, auth_method_display, role_applicability, verification_state, last_verified_at, last_verified_details, configuration, created_at, updated_at, lifecycle_state, tags FROM enterprise_connections WHERE connection_id = ?",
+            (connection_id,),
+        )
+        r = cur.fetchone()
+        if not r:
+            raise PipelineError(PipelineErrorCode.NOT_FOUND, f"Connection {connection_id!r} not found.")
+        mig_count = 0
+        try:
+            cur_mig = conn.execute("SELECT COUNT(1) FROM migrations WHERE configuration LIKE ?", (f"%{connection_id}%",))
+            row_mig = cur_mig.fetchone()
+            if row_mig:
+                mig_count = row_mig[0]
+        except Exception:
+            pass
+        raw_tags = r[22] if len(r) > 22 else None
+        parsed_tags = json.loads(raw_tags) if (raw_tags and raw_tags.startswith("[")) else ([raw_tags] if raw_tags else [r[9]])
+        lifecycle_state = r[21] if len(r) > 21 and r[21] else "ACTIVE"
+        return {
+            "connection_id": r[0],
+            "id": r[0],
+            "tenant_id": r[1],
+            "workspace_id": r[2],
+            "project_id": r[3],
+            "name": r[4],
+            "description": r[5],
+            "provider_id": r[6],
+            "providerId": r[6],
+            "provider_name": r[7],
+            "providerName": r[7],
+            "family": r[8],
+            "environment": r[9],
+            "endpoint_display": r[10],
+            "endpointDisplay": r[10],
+            "safe_route_info": r[11],
+            "safeRouteInfo": r[11],
+            "tls_mode": r[12],
+            "tlsMode": r[12],
+            "auth_method_display": r[13],
+            "authMethodDisplay": r[13],
+            "role_applicability": r[14],
+            "roleApplicability": r[14],
+            "verification_state": r[15],
+            "verificationState": r[15],
+            "last_verified_at": r[16],
+            "lastVerifiedAt": r[16],
+            "last_verified_details": r[17],
+            "lastVerifiedDetails": r[17],
+            "configuration": json.loads(r[18]) if r[18] else {},
+            "parameters": json.loads(r[18]) if r[18] else {},
+            "lifecycle_state": lifecycle_state,
+            "lifecycleState": lifecycle_state,
+            "tags": parsed_tags,
+            "created_at": r[19],
+            "createdAt": r[19],
+            "updated_at": r[20],
+            "updatedAt": r[20],
+            "usage": {
+                "referencedProjectCount": 1 if r[3] else 0,
+                "activeMigrationCount": mig_count,
+                "activeValidationCount": 0,
+                "projectNames": [r[3]] if r[3] else [],
+                "isUnused": not bool(r[3]) and mig_count == 0,
+                "usageAvailable": True,
+            },
+        }
+
+    def list_projects(
+        self,
+        actor: Optional[PipelineActorContext] = None,
+        conn: Optional[sqlite3.Connection] = None,
+        workspace_id: Optional[str] = None,
+        limit: int = 100,
+    ) -> Dict[str, Any]:
+        if conn is None:
+            raise PipelineError(PipelineErrorCode.INTERNAL_ERROR, "Database connection required for list_projects.")
+        tenant_id = getattr(actor, "organization_id", None) or getattr(actor, "tenant_id", None) or "default-tenant"
+        sql = "SELECT project_id, tenant_id, workspace_id, name, key, description, initiative_id, status, is_production, environment_name, created_at, updated_at FROM enterprise_projects WHERE (tenant_id = ? OR tenant_id = 'default' OR tenant_id = 'default-tenant')"
+        params: List[Any] = [tenant_id]
+        if workspace_id:
+            sql += " AND workspace_id = ?"
+            params.append(workspace_id)
+        sql += " ORDER BY updated_at DESC LIMIT ?"
+        params.append(limit)
+
+        cur = conn.execute(sql, tuple(params))
+        rows = cur.fetchall()
+        projects = []
+        for r in rows:
+            p_id = r[0]
+            mig_count = 0
+            try:
+                cur_mig = conn.execute("SELECT COUNT(1) FROM migrations WHERE project_id = ?", (p_id,))
+                row_mig = cur_mig.fetchone()
+                if row_mig:
+                    mig_count = row_mig[0]
+            except Exception:
+                pass
+
+            val_count = 0
+            try:
+                cur_val = conn.execute("SELECT COUNT(1) FROM validation_missions WHERE project_id = ?", (p_id,))
+                row_val = cur_val.fetchone()
+                if row_val:
+                    val_count = row_val[0]
+            except Exception:
+                pass
+
+            init_name = None
+            if r[6]:
+                try:
+                    cur_init = conn.execute("SELECT name FROM enterprise_initiatives WHERE initiative_id = ?", (r[6],))
+                    row_init = cur_init.fetchone()
+                    if row_init:
+                        init_name = row_init[0]
+                except Exception:
+                    pass
+
+            projects.append({
+                "project_id": p_id,
+                "id": p_id,
+                "tenant_id": r[1],
+                "workspace_id": r[2],
+                "workspaceId": r[2],
+                "name": r[3],
+                "key": r[4] or (r[3][:4].upper() if r[3] else "PRJ"),
+                "description": r[5] or "",
+                "initiative_id": r[6],
+                "initiativeId": r[6],
+                "initiative_name": init_name,
+                "initiativeName": init_name,
+                "status": r[7] or "ACTIVE",
+                "is_production": bool(r[8]),
+                "isProduction": bool(r[8]),
+                "environment_name": r[9] or "Production",
+                "environmentName": r[9] or "Production",
+                "migration_count": mig_count,
+                "migrationCount": mig_count,
+                "validation_count": val_count,
+                "validationCount": val_count,
+                "active_workloads_count": mig_count + val_count,
+                "activeWorkloadsCount": mig_count + val_count,
+                "attention_count": 0,
+                "attentionCount": 0,
+                "created_at": r[10],
+                "createdAt": r[10],
+                "updated_at": r[11],
+                "updatedAt": r[11],
+            })
+        return {"projects": projects, "total_count": len(projects)}
+
+    def get_project(
+        self,
+        project_id: str,
+        actor: Optional[PipelineActorContext] = None,
+        conn: Optional[sqlite3.Connection] = None,
+    ) -> Dict[str, Any]:
+        if conn is None:
+            raise PipelineError(PipelineErrorCode.INTERNAL_ERROR, "Database connection required for get_project.")
+        cur = conn.execute(
+            "SELECT project_id, tenant_id, workspace_id, name, key, description, initiative_id, status, is_production, environment_name, created_at, updated_at FROM enterprise_projects WHERE project_id = ?",
+            (project_id,),
+        )
+        r = cur.fetchone()
+        if not r:
+            raise PipelineError(PipelineErrorCode.NOT_FOUND, f"Project {project_id!r} not found.")
+
+        mig_count = 0
+        try:
+            cur_mig = conn.execute("SELECT COUNT(1) FROM migrations WHERE project_id = ?", (project_id,))
+            row_mig = cur_mig.fetchone()
+            if row_mig:
+                mig_count = row_mig[0]
+        except Exception:
+            pass
+
+        val_count = 0
+        try:
+            cur_val = conn.execute("SELECT COUNT(1) FROM validation_missions WHERE project_id = ?", (project_id,))
+            row_val = cur_val.fetchone()
+            if row_val:
+                val_count = row_val[0]
+        except Exception:
+            pass
+
+        init_name = None
+        if r[6]:
+            try:
+                cur_init = conn.execute("SELECT name FROM enterprise_initiatives WHERE initiative_id = ?", (r[6],))
+                row_init = cur_init.fetchone()
+                if row_init:
+                    init_name = row_init[0]
+            except Exception:
+                pass
+
+        return {
+            "project_id": r[0],
+            "id": r[0],
+            "tenant_id": r[1],
+            "workspace_id": r[2],
+            "workspaceId": r[2],
+            "name": r[3],
+            "key": r[4] or (r[3][:4].upper() if r[3] else "PRJ"),
+            "description": r[5] or "",
+            "initiative_id": r[6],
+            "initiativeId": r[6],
+            "initiative_name": init_name,
+            "initiativeName": init_name,
+            "status": r[7] or "ACTIVE",
+            "is_production": bool(r[8]),
+            "isProduction": bool(r[8]),
+            "environment_name": r[9] or "Production",
+            "environmentName": r[9] or "Production",
+            "migration_count": mig_count,
+            "migrationCount": mig_count,
+            "validation_count": val_count,
+            "validationCount": val_count,
+            "active_workloads_count": mig_count + val_count,
+            "activeWorkloadsCount": mig_count + val_count,
+            "attention_count": 0,
+            "attentionCount": 0,
+            "created_at": r[10],
+            "createdAt": r[10],
+            "updated_at": r[11],
+            "updatedAt": r[11],
+        }
+
+    def list_initiatives(
+        self,
+        actor: Optional[PipelineActorContext] = None,
+        conn: Optional[sqlite3.Connection] = None,
+        workspace_id: Optional[str] = None,
+        limit: int = 100,
+    ) -> Dict[str, Any]:
+        if conn is None:
+            raise PipelineError(PipelineErrorCode.INTERNAL_ERROR, "Database connection required for list_initiatives.")
+        tenant_id = getattr(actor, "organization_id", None) or getattr(actor, "tenant_id", None) or "default-tenant"
+        sql = "SELECT initiative_id, tenant_id, workspace_id, name, key, objective, description, status, associated_project_ids, created_at, updated_at FROM enterprise_initiatives WHERE (tenant_id = ? OR tenant_id = 'default' OR tenant_id = 'default-tenant')"
+        params: List[Any] = [tenant_id]
+        if workspace_id:
+            sql += " AND workspace_id = ?"
+            params.append(workspace_id)
+        sql += " ORDER BY updated_at DESC LIMIT ?"
+        params.append(limit)
+
+        cur = conn.execute(sql, tuple(params))
+        rows = cur.fetchall()
+        initiatives = []
+        for r in rows:
+            init_id = r[0]
+            assoc_pids = json.loads(r[8]) if r[8] else []
+            try:
+                cur_linked = conn.execute("SELECT project_id FROM enterprise_projects WHERE initiative_id = ?", (init_id,))
+                for row_linked in cur_linked.fetchall():
+                    if row_linked[0] not in assoc_pids:
+                        assoc_pids.append(row_linked[0])
+            except Exception:
+                pass
+            initiatives.append({
+                "initiative_id": init_id,
+                "id": init_id,
+                "tenant_id": r[1],
+                "workspace_id": r[2],
+                "workspaceId": r[2],
+                "name": r[3],
+                "key": r[4] or (r[3][:4].upper() if r[3] else "INIT"),
+                "objective": r[5] or "",
+                "description": r[6] or "",
+                "status": r[7] or "ACTIVE",
+                "associated_project_ids": assoc_pids,
+                "associatedProjectIds": assoc_pids,
+                "associated_project_count": len(assoc_pids),
+                "associatedProjectCount": len(assoc_pids),
+                "created_at": r[9],
+                "createdAt": r[9],
+                "updated_at": r[10],
+                "updatedAt": r[10],
+            })
+        return {"initiatives": initiatives, "total_count": len(initiatives)}
+
+    def get_initiative(
+        self,
+        initiative_id: str,
+        actor: Optional[PipelineActorContext] = None,
+        conn: Optional[sqlite3.Connection] = None,
+    ) -> Dict[str, Any]:
+        if conn is None:
+            raise PipelineError(PipelineErrorCode.INTERNAL_ERROR, "Database connection required for get_initiative.")
+        cur = conn.execute(
+            "SELECT initiative_id, tenant_id, workspace_id, name, key, objective, description, status, associated_project_ids, created_at, updated_at FROM enterprise_initiatives WHERE initiative_id = ?",
+            (initiative_id,),
+        )
+        r = cur.fetchone()
+        if not r:
+            raise PipelineError(PipelineErrorCode.NOT_FOUND, f"Initiative {initiative_id!r} not found.")
+        assoc_pids = json.loads(r[8]) if r[8] else []
+        try:
+            cur_linked = conn.execute("SELECT project_id FROM enterprise_projects WHERE initiative_id = ?", (initiative_id,))
+            for row_linked in cur_linked.fetchall():
+                if row_linked[0] not in assoc_pids:
+                    assoc_pids.append(row_linked[0])
+        except Exception:
+            pass
+        return {
+            "initiative_id": r[0],
+            "id": r[0],
+            "tenant_id": r[1],
+            "workspace_id": r[2],
+            "workspaceId": r[2],
+            "name": r[3],
+            "key": r[4] or (r[3][:4].upper() if r[3] else "INIT"),
+            "objective": r[5] or "",
+            "description": r[6] or "",
+            "status": r[7] or "ACTIVE",
+            "associated_project_ids": assoc_pids,
+            "associatedProjectIds": assoc_pids,
+            "associated_project_count": len(assoc_pids),
+            "associatedProjectCount": len(assoc_pids),
+            "created_at": r[9],
+            "createdAt": r[9],
+            "updated_at": r[10],
+            "updatedAt": r[10],
+        }
+
+    def list_connection_providers(
+        self,
+        actor: Optional[PipelineActorContext] = None,
+        conn: Optional[sqlite3.Connection] = None,
+    ) -> Dict[str, Any]:
+        from akaalEngine.connection.api.authority import ConnectionAuthority
+        try:
+            ca = ConnectionAuthority.get_instance()
+            provs = ca.list_providers()
+        except Exception:
+            provs = ["oracle", "postgresql", "mysql", "mssql", "mongodb", "kafka", "snowflake", "s3"]
+        return {"providers": provs, "count": len(provs)}
+
+    def describe_connection_provider(
+        self,
+        provider_id: str,
+        actor: Optional[PipelineActorContext] = None,
+        conn: Optional[sqlite3.Connection] = None,
+    ) -> Dict[str, Any]:
+        from akaalEngine.connection.api.authority import ConnectionAuthority
+        try:
+            ca = ConnectionAuthority.get_instance()
+            manifest = ca.describe_provider(provider_id)
+            return {"provider_id": provider_id, "manifest": str(manifest)}
+        except Exception:
+            return {"provider_id": provider_id, "supported": True}

@@ -1,4 +1,4 @@
-import { Component, inject, signal, computed, HostListener } from '@angular/core';
+import { Component, inject, signal, computed, HostListener, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -253,6 +253,38 @@ interface StatusOption {
               }
             </div>
 
+            <!-- GDS Mode Filter Dropdown Popover -->
+            <div class="relative" (click)="$event.stopPropagation()">
+              <button
+                type="button"
+                (click)="toggleModeDropdown($event)"
+                class="h-8 px-2.5 text-xs text-slate-700 border border-slate-200 rounded-md bg-white hover:bg-slate-50 flex items-center justify-between gap-2 cursor-pointer select-none transition-colors"
+                [class.bg-blue-50]="isModeDropdownOpen()"
+                [class.border-blue-300]="isModeDropdownOpen()">
+                <span>{{ selectedModeFilterLabel() }}</span>
+                <app-lucide-icon name="chevron-down" [size]="13" class="text-slate-400 shrink-0"></app-lucide-icon>
+              </button>
+
+              @if (isModeDropdownOpen()) {
+                <div 
+                  class="absolute right-0 mt-1.5 origin-top-right w-48 rounded-xl bg-white border border-slate-200 shadow-xl p-1 flex flex-col gap-0.5 z-50 animate-in fade-in zoom-in-95 duration-100">
+                  @for (opt of modeOptions; track opt.value) {
+                    <button
+                      type="button"
+                      (click)="selectModeFilter(opt.value)"
+                      class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50 transition-colors flex items-center justify-between cursor-pointer"
+                      [class.bg-blue-50]="selectedMode() === opt.value"
+                      [class.text-blue-700]="selectedMode() === opt.value">
+                      <span>{{ opt.label }}</span>
+                      @if (selectedMode() === opt.value) {
+                        <app-lucide-icon name="check" [size]="13" class="text-blue-600 shrink-0"></app-lucide-icon>
+                      }
+                    </button>
+                  }
+                </div>
+              }
+            </div>
+
             <!-- GDS Option A "All States" Dropdown Popover -->
             <div class="relative" (click)="$event.stopPropagation()">
               <button
@@ -295,18 +327,18 @@ interface StatusOption {
 
         </div>
 
-        <!-- Active Filter Indicator Banner if State or Search Active -->
-        @if (selectedState() !== 'ALL') {
+        <!-- Active Filter Indicator Banner if State or Mode or Search Active -->
+        @if (selectedState() !== 'ALL' || selectedMode() !== 'ALL' || searchQuery()) {
           <div class="flex items-center justify-between p-2.5 rounded-lg bg-blue-50 border border-blue-200 text-xs text-blue-800">
             <div class="flex items-center gap-2">
               <app-lucide-icon name="filter" [size]="13" class="text-blue-600"></app-lucide-icon>
-              <span>Filtering by: <strong>{{ selectedStatusFilterLabel() }}</strong> ({{ filteredMigrations().length }} matches)</span>
+              <span>Filtering ({{ filteredMigrations().length }} matches) &bull; State: <strong>{{ selectedStatusFilterLabel() }}</strong> &bull; Mode: <strong>{{ selectedModeFilterLabel() }}</strong></span>
             </div>
             <button 
               type="button" 
-              (click)="selectedState.set('ALL'); $event.stopPropagation()"
+              (click)="clearAllFilters(); $event.stopPropagation()"
               class="text-blue-700 hover:text-blue-900 font-bold px-2 py-0.5 rounded hover:bg-blue-100 cursor-pointer">
-              &times; Clear Filter
+              &times; Clear Filters
             </button>
           </div>
         }
@@ -316,9 +348,9 @@ interface StatusOption {
             <app-lucide-icon name="database" [size]="28" class="text-slate-300"></app-lucide-icon>
             <span class="text-xs font-semibold text-slate-700">No migrations match your search or filter</span>
             <p class="text-xs text-slate-500 font-normal">
-              {{ (selectedState() !== 'ALL' || searchQuery()) ? 'Try adjusting your search keywords or resetting the state filter.' : 'Create an independent migration to run outside project groups.' }}
+              {{ (selectedState() !== 'ALL' || selectedMode() !== 'ALL' || searchQuery()) ? 'Try adjusting your search keywords or resetting the filters.' : 'Create an independent migration to run outside project groups.' }}
             </p>
-            @if (selectedState() !== 'ALL' || searchQuery()) {
+            @if (selectedState() !== 'ALL' || selectedMode() !== 'ALL' || searchQuery()) {
               <button 
                 type="button" 
                 (click)="clearAllFilters()" 
@@ -341,7 +373,7 @@ interface StatusOption {
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-200 text-xs">
-                @for (m of filteredMigrations(); track m.id; let i = $index) {
+                @for (m of pagedMigrations(); track m.id; let i = $index) {
                   <tr 
                     (click)="navigateToMigration(m.id)"
                     class="hover:bg-blue-50 even:bg-slate-50 transition-colors cursor-pointer group h-14 select-none">
@@ -396,7 +428,7 @@ interface StatusOption {
                           <div 
                             (click)="$event.stopPropagation()"
                             class="absolute right-0 w-52 rounded-xl bg-white border border-slate-200 shadow-xl p-1.5 flex flex-col gap-0.5 z-50 text-left animate-in fade-in zoom-in-95 duration-100"
-                            [ngClass]="(i >= filteredMigrations().length - 2 && filteredMigrations().length > 2)
+                            [ngClass]="(i >= pagedMigrations().length - 2 && pagedMigrations().length > 2)
                               ? 'bottom-full mb-1 origin-bottom-right' 
                               : 'top-full mt-1 origin-top-right'">
                             
@@ -428,6 +460,14 @@ interface StatusOption {
 
                             <button
                               type="button"
+                              (click)="saveAsTemplate(m)"
+                              class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50 transition-colors flex items-center gap-2 cursor-pointer">
+                              <app-lucide-icon name="file-code-2" [size]="13" class="text-indigo-600"></app-lucide-icon>
+                              <span>Save as Template</span>
+                            </button>
+
+                            <button
+                              type="button"
                               (click)="cloneConfiguration(m)"
                               class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50 transition-colors flex items-center gap-2 cursor-pointer">
                               <app-lucide-icon name="copy" [size]="13" class="text-slate-500"></app-lucide-icon>
@@ -451,6 +491,36 @@ interface StatusOption {
                               <app-lucide-icon name="file-down" [size]="13" class="text-slate-500"></app-lucide-icon>
                               <span>Export Evidence Dossier</span>
                             </button>
+
+                            @if ((m.lifecycle_state || '').toUpperCase() !== 'ARCHIVED') {
+                              <button
+                                type="button"
+                                (click)="promptArchiveMigration(m)"
+                                class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50 transition-colors flex items-center gap-2 cursor-pointer">
+                                <app-lucide-icon name="archive" [size]="13" class="text-slate-500"></app-lucide-icon>
+                                <span>Archive Migration</span>
+                              </button>
+                            }
+
+                            @if ((m.lifecycle_state || '').toUpperCase() !== 'COMPLETED' && (m.lifecycle_state || '').toUpperCase() !== 'CANCELLED') {
+                              <button
+                                type="button"
+                                (click)="promptCancelMigration(m)"
+                                class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-medium text-rose-700 hover:bg-rose-50 transition-colors flex items-center gap-2 cursor-pointer">
+                                <app-lucide-icon name="x-circle" [size]="13" class="text-rose-600"></app-lucide-icon>
+                                <span>Cancel Migration</span>
+                              </button>
+                            }
+
+                            <div class="border-t border-slate-200 my-0.5 mx-1"></div>
+
+                            <button
+                              type="button"
+                              (click)="promptDeleteMigration(m)"
+                              class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-medium text-rose-700 hover:bg-rose-50 transition-colors flex items-center gap-2 cursor-pointer">
+                              <app-lucide-icon name="trash-2" [size]="13" class="text-rose-600"></app-lucide-icon>
+                              <span>Delete Migration</span>
+                            </button>
                           </div>
                         }
                       </div>
@@ -461,6 +531,30 @@ interface StatusOption {
               </tbody>
             </table>
           </div>
+
+          <!-- Pagination Controls Toolbar -->
+          @if (filteredMigrations().length > pageSize()) {
+            <div class="flex items-center justify-between pt-3 border-t border-slate-200 text-xs text-slate-600">
+              <span>Showing {{ (currentPage() - 1) * pageSize() + 1 }} to {{ Math.min(currentPage() * pageSize(), filteredMigrations().length) }} of {{ filteredMigrations().length }} migrations</span>
+              <div class="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  (click)="prevPage()"
+                  [disabled]="currentPage() === 1"
+                  class="h-7 px-2.5 rounded border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-medium transition-colors cursor-pointer">
+                  Previous
+                </button>
+                <span class="px-2 font-medium">Page {{ currentPage() }} of {{ totalPages() }}</span>
+                <button
+                  type="button"
+                  (click)="nextPage()"
+                  [disabled]="currentPage() === totalPages()"
+                  class="h-7 px-2.5 rounded border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-medium transition-colors cursor-pointer">
+                  Next
+                </button>
+              </div>
+            </div>
+          }
         }
 
       </div>
@@ -734,14 +828,31 @@ interface StatusOption {
     </div>
   `
 })
-export class MigrationPortfolioComponent {
-  public mhs = inject(MigrationHomeService);
-  private router = inject(Router);
+export class MigrationPortfolioComponent implements OnInit {
+  public mhs: MigrationHomeService;
+  private router: Router;
+
+  constructor(mhs?: MigrationHomeService, router?: Router) {
+    try { this.mhs = mhs || inject(MigrationHomeService); } catch { this.mhs = mhs || new MigrationHomeService(); }
+    try { this.router = router || inject(Router); } catch { this.router = router || ({ navigate: () => {} } as any); }
+  }
+
+  public ngOnInit(): void {
+    this.mhs.loadState();
+  }
+
+  public Math = Math;
 
   // Unified State Signals for Search & Filter
   public searchQuery = signal<string>('');
   public selectedState = signal<string>('ALL');
+  public selectedMode = signal<string>('ALL');
   public isStatusDropdownOpen = signal<boolean>(false);
+  public isModeDropdownOpen = signal<boolean>(false);
+
+  // Pagination Signals
+  public currentPage = signal<number>(1);
+  public pageSize = signal<number>(10);
 
   // Status Filter Options for GDS Dropdown
   public statusOptions: StatusOption[] = [
@@ -751,6 +862,19 @@ export class MigrationPortfolioComponent {
     { label: 'Scheduled', value: 'SCHEDULED' },
     { label: 'Completed', value: 'COMPLETED' },
     { label: 'Paused', value: 'PAUSED' }
+  ];
+
+  // Mode Filter Options for GDS Dropdown
+  public modeOptions: StatusOption[] = [
+    { label: 'All Modes', value: 'ALL' },
+    { label: 'M1: Bulk', value: 'M1_BULK' },
+    { label: 'M2: Bulk + CDC', value: 'M2_BULK_CDC' },
+    { label: 'M3: CDC', value: 'M3_CDC' },
+    { label: 'M4: Incremental', value: 'M4_INCREMENTAL' },
+    { label: 'M5: State Sync', value: 'M5_STATE_SYNC' },
+    { label: 'M6: Schema Only', value: 'M6_SCHEMA_ONLY' },
+    { label: 'M7: Data Only', value: 'M7_DATA_ONLY' },
+    { label: 'M8: Validation', value: 'M8_VALIDATION' }
   ];
 
   // Context menu popover state
@@ -782,9 +906,10 @@ export class MigrationPortfolioComponent {
   // Fully Functional Unified Filtered Migrations computed signal
   public filteredMigrations = computed(() => {
     const rawList = this.mhs.migrations() || [];
-    const list = rawList.filter(m => m && !m.project_id);
+    const list = rawList.filter(m => m && (!m.project_id || m.project_id === 'default-project' || m.project_id === 'default'));
     const query = this.searchQuery().trim().toLowerCase();
     const state = this.selectedState();
+    const mode = this.selectedMode();
 
     return list.filter(item => {
       if (!item) return false;
@@ -792,7 +917,7 @@ export class MigrationPortfolioComponent {
       const src = item.source_provider || '';
       const tgt = item.target_provider || '';
       const stage = item.current_stage || '';
-      const mode = item.mode || '';
+      const itemMode = item.mode || '';
 
       const matchesSearch = !query || 
         name.toLowerCase().includes(query) || 
@@ -801,12 +926,12 @@ export class MigrationPortfolioComponent {
         (`${src} -> ${tgt}`).toLowerCase().includes(query) ||
         (`${src} → ${tgt}`).toLowerCase().includes(query) ||
         stage.toLowerCase().includes(query) ||
-        mode.toLowerCase().includes(query);
+        itemMode.toLowerCase().includes(query);
 
       let matchesState = true;
       const lState = (item.lifecycle_state || '').toUpperCase();
       if (state === 'ACTIVE') {
-        matchesState = lState === 'ACTIVE' || lState === 'RUNNING';
+        matchesState = ['ACTIVE', 'RUNNING', 'DISPATCHED', 'IN_PROGRESS', 'BULK_COMPLETED', 'CDC_STREAMING'].includes(lState);
       } else if (state === 'ATTENTION') {
         matchesState = lState === 'ATTENTION' || !!item.attention_level;
       } else if (state === 'SCHEDULED') {
@@ -817,13 +942,36 @@ export class MigrationPortfolioComponent {
         matchesState = lState === 'PAUSED';
       }
 
-      return matchesSearch && matchesState;
+      let matchesMode = true;
+      if (mode !== 'ALL') {
+        matchesMode = (itemMode || '').toUpperCase().includes(mode.toUpperCase()) || mode.toUpperCase().includes((itemMode || '').toUpperCase());
+      }
+
+      return matchesSearch && matchesState && matchesMode;
     });
+  });
+
+  public totalPages = computed(() => {
+    const count = this.filteredMigrations().length;
+    return Math.max(1, Math.ceil(count / this.pageSize()));
+  });
+
+  public pagedMigrations = computed(() => {
+    const list = this.filteredMigrations();
+    const page = this.currentPage();
+    const size = this.pageSize();
+    const start = (page - 1) * size;
+    return list.slice(start, start + size);
   });
 
   public selectedStatusFilterLabel(): string {
     const opt = this.statusOptions.find(o => o.value === this.selectedState());
     return opt ? opt.label : 'All States';
+  }
+
+  public selectedModeFilterLabel(): string {
+    const opt = this.modeOptions.find(o => o.value === this.selectedMode());
+    return opt ? opt.label : 'All Modes';
   }
 
   @HostListener('document:click', ['$event'])
@@ -843,21 +991,56 @@ export class MigrationPortfolioComponent {
   public closeAllPopovers(): void {
     this.activeActionMenuId.set(null);
     this.isStatusDropdownOpen.set(false);
+    this.isModeDropdownOpen.set(false);
   }
 
   public toggleStatusDropdown(event?: MouseEvent): void {
     event?.stopPropagation();
+    this.isModeDropdownOpen.set(false);
     this.isStatusDropdownOpen.update(v => !v);
+  }
+
+  public toggleModeDropdown(event?: MouseEvent): void {
+    event?.stopPropagation();
+    this.isStatusDropdownOpen.set(false);
+    this.isModeDropdownOpen.update(v => !v);
   }
 
   public selectStatusFilter(val: string): void {
     this.selectedState.set(val);
+    this.currentPage.set(1);
     this.isStatusDropdownOpen.set(false);
+  }
+
+  public selectModeFilter(val: string): void {
+    this.selectedMode.set(val);
+    this.currentPage.set(1);
+    this.isModeDropdownOpen.set(false);
   }
 
   public clearAllFilters(): void {
     this.searchQuery.set('');
     this.selectedState.set('ALL');
+    this.selectedMode.set('ALL');
+    this.currentPage.set(1);
+  }
+
+  public goToPage(page: number): void {
+    if (page >= 1 && page <= this.totalPages()) {
+      this.currentPage.set(page);
+    }
+  }
+
+  public prevPage(): void {
+    if (this.currentPage() > 1) {
+      this.currentPage.update(p => p - 1);
+    }
+  }
+
+  public nextPage(): void {
+    if (this.currentPage() < this.totalPages()) {
+      this.currentPage.update(p => p + 1);
+    }
   }
 
   public toggleKpiFilter(filter: 'ACTIVE' | 'ATTENTION' | 'SCHEDULED' | 'COMPLETED', event?: MouseEvent): void {
@@ -867,6 +1050,7 @@ export class MigrationPortfolioComponent {
     } else {
       this.selectedState.set(filter);
     }
+    this.currentPage.set(1);
   }
 
   public toggleActionMenu(id: string, event?: MouseEvent): void {
@@ -898,17 +1082,66 @@ export class MigrationPortfolioComponent {
       title: 'Pause Migration Execution?',
       message: `Pausing "${m.name}" will safely checkpoint replication streams and pause engine workers. CDC replication can be resumed at any time without data loss.`,
       actionLabel: 'Pause Migration',
-      onConfirm: () => {
+      onConfirm: async () => {
         m.lifecycle_state = 'PAUSED';
         m.current_stage = 'Paused by Operator';
+        await this.mhs.pauseMigration(m.id);
       }
     });
   }
 
-  public resumeMigration(m: MigrationHomeRow): void {
+  public async resumeMigration(m: MigrationHomeRow): Promise<void> {
     this.activeActionMenuId.set(null);
     m.lifecycle_state = 'ACTIVE';
     m.current_stage = 'Resuming Replication...';
+    await this.mhs.resumeMigration(m.id);
+  }
+
+  public promptCancelMigration(m: MigrationHomeRow): void {
+    this.activeActionMenuId.set(null);
+    this.confirmModal.set({
+      isOpen: true,
+      title: 'Cancel Migration Execution?',
+      message: `Cancelling "${m.name}" will halt all replication workers and release engine resources. This operation cannot be undone.`,
+      actionLabel: 'Cancel Migration',
+      onConfirm: async () => {
+        m.lifecycle_state = 'CANCELLED';
+        m.current_stage = 'Cancelled by Operator';
+        await this.mhs.cancelMigration(m.id);
+      }
+    });
+  }
+
+  public saveAsTemplate(m: MigrationHomeRow): void {
+    this.activeActionMenuId.set(null);
+    this.router.navigate(['/migration/templates/new'], { queryParams: { fromMigration: m.id } });
+  }
+
+  public promptArchiveMigration(m: MigrationHomeRow): void {
+    this.activeActionMenuId.set(null);
+    this.confirmModal.set({
+      isOpen: true,
+      title: 'Archive Migration Record?',
+      message: `Archiving "${m.name}" will mark it as archived in the migration ledger. Historical audit trails and execution telemetry remain intact.`,
+      actionLabel: 'Archive Migration',
+      onConfirm: async () => {
+        m.lifecycle_state = 'ARCHIVED';
+        await this.mhs.archiveMigration(m.id);
+      }
+    });
+  }
+
+  public promptDeleteMigration(m: MigrationHomeRow): void {
+    this.activeActionMenuId.set(null);
+    this.confirmModal.set({
+      isOpen: true,
+      title: 'Delete Migration Record?',
+      message: `Permanently delete "${m.name}"? This will remove the migration record and configuration from the database. This action cannot be undone.`,
+      actionLabel: 'Delete Migration',
+      onConfirm: async () => {
+        await this.mhs.deleteMigration(m.id);
+      }
+    });
   }
 
   public cloneConfiguration(m: MigrationHomeRow): void {
@@ -924,10 +1157,11 @@ export class MigrationPortfolioComponent {
     });
   }
 
-  public assignToProject(m: MigrationHomeRow | null, project: ProjectHomeRow): void {
+  public async assignToProject(m: MigrationHomeRow | null, project: ProjectHomeRow): Promise<void> {
     if (m) {
       m.project_id = project.id;
       project.migration_count += 1;
+      await this.mhs.assignMigrationToProject(m.id, project.id);
     }
     this.assignProjectModal.set(null);
   }

@@ -17,7 +17,7 @@ export class HistoryUiService {
   public filterValidation = signal<string>('ALL');
   public filterEvidence = signal<string>('ALL');
 
-  public selectedExecutionIds = signal<string[]>(['exec-20260828-001', 'exec-20260827-003']);
+  public selectedExecutionIds = signal<string[]>([]);
   public isComparisonModalOpen = signal<boolean>(false);
 
   public filteredLedgerItems = computed<HistoryLedgerItem[]>(() => {
@@ -51,12 +51,17 @@ export class HistoryUiService {
   });
 
   public comparisonMetrics = computed<MultiRunComparisonMetric[]>(() => {
-    return this.fixtures.getMultiRunComparison();
+    return [];
   });
 
   constructor(fixtures?: MigrationDevFixturesAdapter) {
     this.fixtures = fixtures || new MigrationDevFixturesAdapter();
+    this.ledgerItems.set([]);
+  }
+
+  public loadFixturesForTesting(): void {
     this.ledgerItems.set(this.fixtures.getHistoryLedger());
+    this.selectedExecutionIds.set(['exec-20260828-001', 'exec-20260827-003']);
   }
 
   public toggleExecutionSelection(id: string): void {

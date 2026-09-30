@@ -54,7 +54,7 @@ export class Step7PlanAdapterService {
     // 7. Generate safe technical details
     const technicalDetails = this.generateTechnicalDetails(draft, mode, finalNodes, allBarriers);
 
-    const fingerprint = technicalDetails.canonicalFingerprint;
+    const fingerprint = draft.planFingerprint || technicalDetails.canonicalFingerprint;
 
     return {
       mode,
@@ -75,7 +75,7 @@ export class Step7PlanAdapterService {
   private generateBaseStagesForMode(mode: CanonicalPlanMode, draft: WizardDraftState): PlanDagNode[] {
     const workers = draft.basicView?.derivedMaxWorkers || 16;
     const batchMb = draft.basicView?.derivedBatchMb || 16;
-    const sampleWorkObjects = this.getSampleWorkObjects();
+    const sampleWorkObjects = this.getSampleWorkObjects(draft);
 
     const stageResolvedConfig: StageResolvedConfig = {
       workerAllocation: workers,
@@ -114,11 +114,11 @@ export class Step7PlanAdapterService {
             id: 'stage-m1-ddl',
             order: 2,
             label: 'Schema DDL Provisioning',
-            subtitle: '303 tables · 4 transpiled procedures',
+            subtitle: `${sampleWorkObjects.length} object${sampleWorkObjects.length === 1 ? '' : 's'} staged for schema provisioning`,
             stageType: 'SCHEMA_DDL',
             nodeType: 'EXECUTION_STAGE',
             category: 'TRANSFORMATION',
-            description: 'Applies target table structures, sequences, type conversions, and transpiled PL/SQL routines.',
+            description: 'Applies target table structures, sequences, type conversions, and transpiled routines.',
             purpose: 'Establishes clean target relational schema with zero constraints or foreign keys for bulk ingest.',
             isContinuous: false,
             estimatedDuration: '4m 15s',
@@ -134,11 +134,11 @@ export class Step7PlanAdapterService {
             id: 'stage-m1-bulk',
             order: 3,
             label: 'Bulk Parallel Transfer',
-            subtitle: '303 objects · 1,248 partitions · 84.2 GB',
+            subtitle: `${sampleWorkObjects.filter(o => o.type === 'TABLE').length} table${sampleWorkObjects.filter(o => o.type === 'TABLE').length === 1 ? '' : 's'} staged for bulk transport`,
             stageType: 'BULK_LOAD',
             nodeType: 'EXECUTION_STAGE',
             category: 'INGESTION',
-            description: 'Executes parallel chunked row extraction from source Oracle instances and streaming binary copy to target PostgreSQL.',
+            description: 'Executes parallel chunked row extraction from source instances and streaming binary copy to target.',
             purpose: 'High-throughput data transport utilizing parallel worker threads and adaptive chunk buffering.',
             isContinuous: false,
             estimatedDuration: '48m 20s',
@@ -174,11 +174,11 @@ export class Step7PlanAdapterService {
             id: 'stage-m1-val',
             order: 5,
             label: 'Checksum Validation Scan',
-            subtitle: 'Full row-hash parity scan (100% sample rate)',
+            subtitle: 'Row-hash parity verification',
             stageType: 'POST_VALIDATION',
             nodeType: 'EXECUTION_STAGE',
             category: 'VALIDATION',
-            description: 'Runs cryptographically salted row hash comparison across all 303 tables to verify bit-exact data fidelity.',
+            description: 'Runs cryptographically salted row hash comparison across all scoped tables to verify bit-exact data fidelity.',
             purpose: 'Authoritative data assurance scan ensuring zero data corruption or silent loss during transfer.',
             isContinuous: false,
             estimatedDuration: '8m 45s',
@@ -860,6 +860,70 @@ export class Step7PlanAdapterService {
             resolvedConfig: { ...stageResolvedConfig, workerAllocation: 2 }
           }
         ];
+
+      case 'M8_VALIDATION_ONLY':
+        return [
+          {
+            id: 'stage-m8-preflight',
+            order: 1,
+            label: 'Pre-Flight Engine & Fence Verification',
+            subtitle: 'Read-only fencing and non-mutation security verification',
+            stageType: 'PRE_FLIGHT',
+            nodeType: 'EXECUTION_STAGE',
+            category: 'SYSTEM',
+            description: 'Validates source and target connectivity and enforces read-only target fencing.',
+            purpose: 'Guarantees validation operations cannot perform mutations on target endpoints.',
+            isContinuous: false,
+            estimatedDuration: '45s',
+            workerAllocation: 2,
+            batchSizeMb: 16,
+            status: 'READY',
+            incomingDependencyIds: [],
+            outgoingDependencyIds: ['stage-m8-recon'],
+            workObjects: sampleWorkObjects.slice(0, 3),
+            resolvedConfig: { ...stageResolvedConfig, workerAllocation: 2 }
+          },
+          {
+            id: 'stage-m8-recon',
+            order: 2,
+            label: 'Mathematical Parity & State Reconciliation',
+            subtitle: 'Dual-stream comparison, row counting, and hash verification',
+            stageType: 'STATE_COMPARE',
+            nodeType: 'EXECUTION_STAGE',
+            category: 'VALIDATION',
+            description: 'Performs non-mutating mathematical parity check across source and target tables.',
+            purpose: 'Calculates bit-exact divergence and classification metrics.',
+            isContinuous: false,
+            estimatedDuration: '15m 00s',
+            workerAllocation: workers,
+            batchSizeMb: batchMb,
+            status: 'READY',
+            incomingDependencyIds: ['stage-m8-preflight'],
+            outgoingDependencyIds: ['stage-m8-proof'],
+            workObjects: sampleWorkObjects.filter(o => o.type === 'TABLE'),
+            resolvedConfig: stageResolvedConfig
+          },
+          {
+            id: 'stage-m8-proof',
+            order: 3,
+            label: 'Cryptographic Proof & Discrepancy Matrix',
+            subtitle: 'Evidence packaging and reconciliation ledger commit',
+            stageType: 'POST_VALIDATION',
+            nodeType: 'EXECUTION_STAGE',
+            category: 'GOVERNANCE',
+            description: 'Packages mathematical proof artifact #11 and writes audit trail.',
+            purpose: 'Establishes cryptographic proof of data synchronization state.',
+            isContinuous: false,
+            estimatedDuration: '30s',
+            workerAllocation: 2,
+            batchSizeMb: 4,
+            status: 'READY',
+            incomingDependencyIds: ['stage-m8-recon'],
+            outgoingDependencyIds: [],
+            workObjects: sampleWorkObjects.slice(0, 2),
+            resolvedConfig: { ...stageResolvedConfig, workerAllocation: 2 }
+          }
+        ];
     }
   }
 
@@ -992,6 +1056,12 @@ export class Step7PlanAdapterService {
     acknowledgedIssueIds: Set<string>
   ): PlanReviewIssue[] {
     const issues: PlanReviewIssue[] = [];
+    const sampleObjects = this.getSampleWorkObjects(draft);
+    const objectCount = sampleObjects.length || (draft.selectedTopologyNodes || []).length || 303;
+    const partitionCount = sampleObjects.reduce((acc, o) => acc + (o.partitionCount || 0), 0) || 1248;
+    const affectedNames = sampleObjects.length > 0
+      ? sampleObjects.map(o => o.name).slice(0, 3).join(', ')
+      : 'Selected Scope Tables';
 
     // Review Required 1: Large Partition Fan-Out Warning
     issues.push({
@@ -999,8 +1069,8 @@ export class Step7PlanAdapterService {
       category: 'REVIEW_REQUIRED',
       severity: 'WARNING',
       title: 'High Partition Fan-Out Chunking Allocation',
-      impact: '1,248 partitions streaming across 16 parallel workers. Peak concurrent I/O on source Oracle instance estimated at 420 MB/s.',
-      affectedScope: 'CUSTOMERS, ACCOUNTS, TRANSACTIONS (1,248 partitions)',
+      impact: `${partitionCount.toLocaleString()} partitions streaming across ${draft.basicView?.derivedMaxWorkers || 16} parallel workers. Peak concurrent I/O on source ${draft.sourceProvider || 'Oracle'} instance estimated at 420 MB/s.`,
+      affectedScope: `${affectedNames} (${partitionCount.toLocaleString()} partitions)`,
       upstreamStep: 6,
       upstreamStepLabel: 'Review in Configuration (Step 6)',
       canAcknowledge: true,
@@ -1008,13 +1078,15 @@ export class Step7PlanAdapterService {
     });
 
     // Review Required 2: Transpiled Procedure Verification
+    const procObjects = sampleObjects.filter(o => o.type === 'PROCEDURE');
+    const procNames = procObjects.length > 0 ? procObjects.map(o => o.name).join(', ') : 'Transpiled Routines';
     issues.push({
       id: 'issue-transpiled-routines',
       category: 'REVIEW_REQUIRED',
       severity: 'WARNING',
-      title: 'Transpiled PL/SQL Stored Routines Verification',
-      impact: '4 PL/SQL procedures transpiled to PL/pgSQL with autonomous transaction emulation pragmas.',
-      affectedScope: 'P_SETTLE_ACCOUNTS, P_SUBTYPE_003, FN_CALCULATE_FEE',
+      title: 'Transpiled Stored Routines Verification',
+      impact: `${procObjects.length || 4} stored procedures transpiled with autonomous transaction emulation pragmas.`,
+      affectedScope: procNames,
       upstreamStep: 4,
       upstreamStepLabel: 'Review in Scope (Step 4)',
       canAcknowledge: true,
@@ -1027,8 +1099,8 @@ export class Step7PlanAdapterService {
       category: 'ADVISORY',
       severity: 'INFO',
       title: 'Automated Post-Load VACUUM & ANALYZE Recommended',
-      impact: 'Target PostgreSQL planner statistics will be refreshed upon bulk load completion for optimal execution query plans.',
-      affectedScope: 'All 303 target tables'
+      impact: `Target ${draft.targetProvider || 'PostgreSQL'} planner statistics will be refreshed upon bulk load completion for optimal execution query plans.`,
+      affectedScope: `All ${objectCount} target tables`
     });
 
     // Advisory 2: Checkpoint IOPS Sizing
@@ -1036,9 +1108,9 @@ export class Step7PlanAdapterService {
       id: 'adv-checkpoint-headroom',
       category: 'ADVISORY',
       severity: 'INFO',
-      title: 'Target Aurora Storage IOPS Headroom (35% Reserve)',
-      impact: 'Provisioned IOPS on target RDS Aurora cluster maintains 35% headroom above bulk burst throughput.',
-      affectedScope: 'pg-aurora.internal:5432'
+      title: `Target ${draft.targetProvider || 'PostgreSQL'} Storage IOPS Headroom (35% Reserve)`,
+      impact: 'Provisioned IOPS on target storage cluster maintains 35% headroom above bulk burst throughput.',
+      affectedScope: `${draft.targetHost || 'target.internal'}:${draft.targetPort || 5432}`
     });
 
     // Advisory 3: Redo Log Retention
@@ -1046,9 +1118,9 @@ export class Step7PlanAdapterService {
       id: 'adv-redo-log-retention',
       category: 'ADVISORY',
       severity: 'INFO',
-      title: 'Source Oracle Redo Log Retention Policy Active',
+      title: `Source ${draft.sourceProvider || 'Oracle'} Redo Log Retention Policy Active`,
       impact: 'Source archive log retention policy set to 48 hours to guarantee CDC stream rewind capability.',
-      affectedScope: 'orcl-prod.internal:1521/ORCLPDB'
+      affectedScope: `${draft.sourceHost || 'source.internal'}:${draft.sourcePort || 1521}/${draft.sourceDatabase || 'ORCLPDB'}`
     });
 
     return issues;
@@ -1071,7 +1143,8 @@ export class Step7PlanAdapterService {
       'M4_INCREMENTAL': 'Incremental Watermark Sync (M4)',
       'M5_STATE_SYNC': 'State Hash Sync & Reconcile (M5)',
       'M6_SCHEMA_ONLY': 'Schema & DDL Only (M6)',
-      'M7_DATA_ONLY': 'Data Ingestion Only (M7)'
+      'M7_DATA_ONLY': 'Data Ingestion Only (M7)',
+      'M8_VALIDATION_ONLY': 'Validation Only (M8)'
     };
 
     return {
@@ -1085,13 +1158,13 @@ export class Step7PlanAdapterService {
         environment: env
       },
       scope: {
-        totalObjects: 303,
-        totalPartitions: 1248,
-        filterRuleCount: 4,
-        mappingRuleCount: 18,
-        dataControlCount: 2,
-        totalEstimatedBytes: 84.2 * 1024 * 1024 * 1024,
-        totalEstimatedRows: 14800000
+        totalObjects: draft.selectedTopologyNodes?.length || 0,
+        totalPartitions: 0,
+        filterRuleCount: 0,
+        mappingRuleCount: draft.selectedTopologyNodes?.length || 0,
+        dataControlCount: 0,
+        totalEstimatedBytes: 0,
+        totalEstimatedRows: 0
       },
       execution: {
         profile: 'High Throughput Balanced Engine',
@@ -1118,7 +1191,7 @@ export class Step7PlanAdapterService {
     const planId = `plan-akaal-${mode.toLowerCase()}-${(draft.sourceProvider || 'oracle').toLowerCase()}-${(draft.targetProvider || 'pg').toLowerCase()}`;
     const version = '1.0.0';
     const canonicalFingerprint = this.calculateHash(`${planId}-${nodes.length}-${barriers.length}`);
-    const generatedTimestamp = '2026-09-05T12:00:00.000Z';
+    const generatedTimestamp = new Date().toISOString();
 
     const planJsonStructure = {
       $schema: 'https://akaal.io/schemas/migration-plan-v1.json',
@@ -1166,21 +1239,32 @@ export class Step7PlanAdapterService {
     };
   }
 
-  private getSampleWorkObjects(): PlanWorkObject[] {
-    return [
-      { id: 'obj-cust', name: 'CUSTOMERS', schema: 'SCT_DEMO', type: 'TABLE', strategy: 'PARALLEL_CHUNKING', estimatedRows: 14200000, rowsProvenance: 'EXACT', estimatedSizeBytes: 8589934592, sizeProvenance: 'ESTIMATED', partitionCount: 24, status: 'READY' },
-      { id: 'obj-acc', name: 'ACCOUNTS', schema: 'SCT_DEMO', type: 'TABLE', strategy: 'PARALLEL_CHUNKING', estimatedRows: 18600000, rowsProvenance: 'EXACT', estimatedSizeBytes: 12884901888, sizeProvenance: 'ESTIMATED', partitionCount: 32, status: 'READY' },
-      { id: 'obj-tx', name: 'TRANSACTIONS', schema: 'SCT_DEMO', type: 'TABLE', strategy: 'PARALLEL_CHUNKING', estimatedRows: 16800000, rowsProvenance: 'EXACT', estimatedSizeBytes: 17179869184, sizeProvenance: 'ESTIMATED', partitionCount: 64, status: 'READY' },
-      { id: 'obj-audit', name: 'AUDIT_LOGS', schema: 'SCT_DEMO', type: 'TABLE', strategy: 'TIME_SLICING', estimatedRows: 2800000, rowsProvenance: 'EXACT', estimatedSizeBytes: 4294967296, sizeProvenance: 'ESTIMATED', partitionCount: 16, status: 'READY' },
-      { id: 'obj-ord', name: 'ORDERS', schema: 'SCT_DEMO', type: 'TABLE', strategy: 'PARALLEL_CHUNKING', estimatedRows: 4500000, rowsProvenance: 'EXACT', estimatedSizeBytes: 6442450944, sizeProvenance: 'ESTIMATED', partitionCount: 16, status: 'READY' },
-      { id: 'obj-ord-items', name: 'ORDER_ITEMS', schema: 'SCT_DEMO', type: 'TABLE', strategy: 'PARALLEL_CHUNKING', estimatedRows: 12000000, rowsProvenance: 'EXACT', estimatedSizeBytes: 9663676416, sizeProvenance: 'ESTIMATED', partitionCount: 24, status: 'READY' },
-      { id: 'obj-prod', name: 'PRODUCTS', schema: 'SCT_DEMO', type: 'TABLE', strategy: 'DIRECT_COPY', estimatedRows: 450000, rowsProvenance: 'EXACT', estimatedSizeBytes: 1073741824, sizeProvenance: 'ESTIMATED', partitionCount: 4, status: 'READY' },
-      { id: 'obj-inv', name: 'INVENTORY', schema: 'SCT_DEMO', type: 'TABLE', strategy: 'DIRECT_COPY', estimatedRows: 1200000, rowsProvenance: 'EXACT', estimatedSizeBytes: 2147483648, sizeProvenance: 'ESTIMATED', partitionCount: 8, status: 'READY' },
-      { id: 'obj-ledger', name: 'GL_ENTRIES', schema: 'SCT_DEMO', type: 'TABLE', strategy: 'PARALLEL_CHUNKING', estimatedRows: 8900000, rowsProvenance: 'EXACT', estimatedSizeBytes: 10737418240, sizeProvenance: 'ESTIMATED', partitionCount: 32, status: 'READY' },
-      { id: 'obj-settle', name: 'P_SETTLE_ACCOUNTS', schema: 'SCT_DEMO', type: 'PROCEDURE', strategy: 'TRANSPILED_AST', estimatedRows: 0, rowsProvenance: 'UNAVAILABLE', estimatedSizeBytes: 45056, sizeProvenance: 'EXACT', partitionCount: 0, status: 'TRANSPILED' },
-      { id: 'obj-subtype', name: 'P_SUBTYPE_003', schema: 'SCT_DEMO', type: 'PROCEDURE', strategy: 'TRANSPILED_AST', estimatedRows: 0, rowsProvenance: 'UNAVAILABLE', estimatedSizeBytes: 32768, sizeProvenance: 'EXACT', partitionCount: 0, status: 'TRANSPILED' },
-      { id: 'obj-calc', name: 'FN_CALCULATE_FEE', schema: 'SCT_DEMO', type: 'PROCEDURE', strategy: 'TRANSPILED_AST', estimatedRows: 0, rowsProvenance: 'UNAVAILABLE', estimatedSizeBytes: 16384, sizeProvenance: 'EXACT', partitionCount: 0, status: 'TRANSPILED' }
-    ];
+  private getSampleWorkObjects(draft?: WizardDraftState): PlanWorkObject[] {
+    if (draft && Array.isArray(draft.selectedTopologyNodes) && draft.selectedTopologyNodes.length > 0) {
+      return draft.selectedTopologyNodes.map((nodeId, idx) => {
+        const rawName = nodeId.replace(/^(tbl|view|proc|col|top)-/, '').toUpperCase();
+        const isProc = nodeId.startsWith('proc-');
+        const isView = nodeId.startsWith('view-');
+        const isTopic = nodeId.startsWith('top-');
+        const isCol = nodeId.startsWith('col-');
+        const objType = isProc ? 'PROCEDURE' : (isView ? 'VIEW' : (isTopic ? 'TOPIC' : (isCol ? 'COLLECTION' : 'TABLE')));
+        const strategy = isProc ? 'TRANSPILED_AST' : (isView ? 'DDL_RECREATE' : 'PARALLEL_CHUNKING');
+        return {
+          id: `obj-${idx}-${rawName.toLowerCase()}`,
+          name: rawName,
+          schema: draft.sourceDatabase || 'DEFAULT',
+          type: objType,
+          strategy: strategy,
+          estimatedRows: isProc ? 0 : 1000000,
+          rowsProvenance: isProc ? 'UNAVAILABLE' : 'EXACT',
+          estimatedSizeBytes: isProc ? 32768 : 104857600,
+          sizeProvenance: 'ESTIMATED',
+          partitionCount: isProc ? 0 : 8,
+          status: 'READY'
+        };
+      });
+    }
+    return [];
   }
 
   private calculateHash(input: string): string {

@@ -75,10 +75,18 @@ class CDCApplyCoordinator:
         if not event.before_image or not event.after_image:
             return None
 
+        def _val_str(d: Dict[str, Any], k: str) -> Optional[str]:
+            v = d.get(k, d.get(k.lower(), d.get(k.upper())))
+            if v is None:
+                return None
+            if isinstance(v, float) and v.is_integer():
+                return str(int(v))
+            return str(v).strip()
+
         pk_changed = any(
-            event.before_image.get(pk) != event.after_image.get(pk)
+            _val_str(event.before_image, pk) != _val_str(event.after_image, pk)
             for pk in event.key_columns
-            if pk in event.before_image and pk in event.after_image
+            if _val_str(event.before_image, pk) is not None and _val_str(event.after_image, pk) is not None
         )
         if not pk_changed:
             return None
@@ -95,7 +103,7 @@ class CDCApplyCoordinator:
             capture_timestamp=event.capture_timestamp,
             schema_version=event.schema_version,
             key_columns=event.key_columns,
-            key_values={pk: event.before_image[pk] for pk in event.key_columns if pk in event.before_image},
+            key_values={pk: event.before_image.get(pk, event.before_image.get(pk.lower(), event.before_image.get(pk.upper()))) for pk in event.key_columns if pk in event.before_image or pk.lower() in event.before_image or pk.upper() in event.before_image},
             before_image=event.before_image,
             deletion_type=DeletionType.EXPLICIT_DELETE,
             tx_context=event.tx_context,
@@ -113,7 +121,7 @@ class CDCApplyCoordinator:
             capture_timestamp=event.capture_timestamp,
             schema_version=event.schema_version,
             key_columns=event.key_columns,
-            key_values={pk: event.after_image[pk] for pk in event.key_columns if pk in event.after_image},
+            key_values={pk: event.after_image.get(pk, event.after_image.get(pk.lower(), event.after_image.get(pk.upper()))) for pk in event.key_columns if pk in event.after_image or pk.lower() in event.after_image or pk.upper() in event.after_image},
             after_image=event.after_image,
             tx_context=event.tx_context,
         )
@@ -146,12 +154,47 @@ class CDCApplyCoordinator:
         if pk_pair:
             del_evt, ins_evt = pk_pair
             logger.info(f"PK mutation detected on event '{event.event_id}': Decomposing into DELETE old PK '{del_evt.key_values}' and INSERT new PK '{ins_evt.key_values}'.")
-            res_del = self._write_single_event(del_evt, table_name, target_schema)
+            res_del = self._delete_single_event(del_evt, table_name, target_schema)
             res_ins = self._write_single_event(ins_evt, table_name, target_schema)
             self._applied_event_ids.add(event.event_id)
             return res_del and res_ins
 
+        if event.operation == ChangeOperation.DELETE:
+            return self._delete_single_event(event, table_name, target_schema)
+
         return self._write_single_event(event, table_name, target_schema)
+
+    def _delete_single_event(self, event: ChangeEvent, table_name: str, target_schema: str) -> bool:
+        """Executes a DELETE mutation on target writer using primary key matching."""
+        key_data = event.key_values or event.before_image or event.after_image or {}
+        pk_cols = list(event.key_columns) if event.key_columns else list(key_data.keys())
+
+        if not key_data or not pk_cols:
+            raise CDCApplyError(f"DELETE mutation '{event.event_id}' rejected: missing required primary key columns or values.")
+
+        deleted = 0
+        if hasattr(self.target_writer, "delete_batch"):
+            deleted = self.target_writer.delete_batch(
+                table_name=table_name,
+                target_schema=target_schema,
+                pk_columns=pk_cols,
+                key_records=[key_data],
+            )
+        else:
+            # Universal fallback delete using execute_ddl / direct cursor
+            where_clauses = [f'"{pk}" = {key_data.get(pk)!r}' if isinstance(key_data.get(pk), str) else f'"{pk}" = {key_data.get(pk)}' for pk in pk_cols if pk in key_data]
+            if where_clauses:
+                del_sql = f'DELETE FROM "{target_schema}"."{table_name}" WHERE {" AND ".join(where_clauses)}'
+                if hasattr(self.target_writer, "execute_ddl"):
+                    self.target_writer.execute_ddl(del_sql)
+                    deleted = 1
+
+        if hasattr(self.target_writer, "commit"):
+            self.target_writer.commit()
+
+        self._applied_event_ids.add(event.event_id)
+        self.events_applied_total += max(1, deleted)
+        return True
 
     def _write_single_event(self, event: ChangeEvent, table_name: str, target_schema: str) -> bool:
         row_data = event.after_image or event.before_image or event.key_values or {}

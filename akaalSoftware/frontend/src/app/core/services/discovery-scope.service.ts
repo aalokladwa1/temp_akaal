@@ -67,11 +67,9 @@ export class DiscoveryScopeService {
       this.currentDepth.set(draft.discoveryDepthTier);
     }
 
-    if (draft.discoveryHash && this.rootNodes().length === 0) {
-      // Restore previously discovered state
-      this.generateDiscoveredEstate(draft.sourceProvider, this.currentDepth(), draft.mode);
+    if (this.rootNodes().length > 0) {
       this.lifecycleState.set('SCOPE_WORKBENCH');
-    } else if (this.rootNodes().length === 0) {
+    } else {
       this.lifecycleState.set('DEPTH_SELECTION');
     }
   }
@@ -107,42 +105,274 @@ export class DiscoveryScopeService {
     this.runStageProgression(depth);
   }
 
-  private async runStageProgression(depth: DiscoveryDepthTier): Promise<void> {
+  private runStageProgression(depth: DiscoveryDepthTier): void {
     try {
       if (this.isCancelled()) return;
-      this.updateStage('identity', 'COMPLETED', 0, undefined, 'Connected and authenticated');
-      this.updateStage('namespace', 'COMPLETED', 0, undefined, 'Catalog namespaces identified');
-
       const draft = this.ms.wizardDraft();
-      this.generateDiscoveredEstate(draft.sourceProvider, depth, draft.mode);
+      this.lifecycleState.set('DISCOVERING');
+      const migId = draft.migrationId || 'mig-draft';
 
-      const realCount = this.getMigratableLeafNodes().length;
-      this.updateStage('inventory', 'COMPLETED', 0, realCount, `${realCount.toLocaleString()} resources discovered`);
-      this.updateStage('structure', 'COMPLETED', 0, undefined, 'Columns, keys, and constraints extracted');
-      this.updateStage('capability', 'COMPLETED', 0, undefined, 'CDC and eligibility verified');
-
-      if (this.timerInterval) clearInterval(this.timerInterval);
-
-      const snapshotHash = '7f9a2b8e';
-      const initialSelected = this.getMigratableLeafNodes()
-        .filter(n => n.isSelected)
-        .map(n => n.id);
-
-      this.ms.updateDraft({
-        discoveryDepth: depth === 'SHALLOW' || depth === 'FULL_WITH_SAMPLING' ? 'STANDARD' : depth,
-        discoveryDepthTier: depth,
-        discoveryHash: snapshotHash,
-        selectedTopologyNodes: initialSelected,
-        isScopeSaved: true,
-        hasCdcBlockers: this.computeSelectedBlockerCount() > 0
+      this.ipc.invoke('pipeline', 'migration.discover', {
+        migration_id: migId,
+        depth: depth,
+        connection_id: draft.sourceConnectionId,
+        source_connection_id: draft.sourceConnectionId,
+        provider_id: draft.sourceProvider,
+        source_provider: draft.sourceProvider,
+        host: draft.sourceHost,
+        port: draft.sourcePort,
+        database: draft.sourceDatabase,
+        service_name: draft.sourceDatabase,
+        username: draft.sourceUsername,
+        password: draft.sourceSecretRef || (draft.sourceParams ? (draft.sourceParams as any)['password'] : undefined),
+        secret_ref: draft.sourceSecretRef || (draft.sourceParams ? (draft.sourceParams as any)['password'] : undefined),
+      }).then((resp) => {
+        if (this.timerInterval) clearInterval(this.timerInterval);
+        if (this.isCancelled()) return;
+        if (resp && resp.status === 'SUCCESS' && resp.data) {
+          const data = resp.data;
+          this.updateStage('identity', 'COMPLETED', 0, undefined, 'Connected and authenticated');
+          this.updateStage('namespace', 'COMPLETED', 0, undefined, 'Catalog namespaces identified');
+          this.applyDiscoveredEstateFromBackend(data, draft.sourceProvider, depth, draft.mode);
+          const realCount = this.getMigratableLeafNodes().length;
+          this.updateStage('inventory', 'COMPLETED', 0, realCount, `${realCount.toLocaleString()} resources discovered`);
+          this.updateStage('structure', 'COMPLETED', 0, undefined, 'Columns, keys, and constraints extracted');
+          this.updateStage('capability', 'COMPLETED', 0, undefined, 'CDC and eligibility verified');
+          const initialSelected = this.getMigratableLeafNodes().filter(n => n.isSelected).map(n => n.id);
+          this.ms.updateDraft({
+            discoveryDepth: depth === 'SHALLOW' || depth === 'FULL_WITH_SAMPLING' ? 'STANDARD' : depth,
+            discoveryDepthTier: depth,
+            discoveryHash: data.snapshot_fingerprint || `disc-${migId}`,
+            selectedTopologyNodes: initialSelected,
+            isScopeSaved: true,
+            hasCdcBlockers: this.computeSelectedBlockerCount() > 0
+          });
+          this.lifecycleState.set('SCOPE_WORKBENCH');
+        } else {
+          const rawErr = resp?.error;
+          const errMsg = (rawErr && typeof rawErr === 'object' && 'message' in rawErr)
+            ? (rawErr as any).message
+            : (typeof rawErr === 'string' ? rawErr : 'Physical discovery returned an unsuccessful response.');
+          this.errorMessage.set(typeof errMsg === 'string' ? errMsg : JSON.stringify(errMsg));
+          this.lifecycleState.set('FAILURE');
+        }
+      }).catch((err: any) => {
+        if (this.timerInterval) clearInterval(this.timerInterval);
+        if (this.isCancelled()) return;
+        this.errorMessage.set(err?.message || 'Source discovery failed to communicate with discovery authority.');
+        this.lifecycleState.set('FAILURE');
       });
-
-      this.lifecycleState.set('SCOPE_WORKBENCH');
     } catch (err: any) {
       if (this.timerInterval) clearInterval(this.timerInterval);
       this.errorMessage.set(err?.message || 'Source discovery encountered an unexpected interruption.');
       this.lifecycleState.set('FAILURE');
     }
+  }
+
+  public applyDiscoveredEstateFromBackend(
+    data: any,
+    provider: PhysicalProviderId,
+    depth: DiscoveryDepthTier,
+    mode: MigrationMode
+  ): void {
+    this.currentEstateProvider.set(provider);
+    this.nodeMap.clear();
+
+    const tables = Array.isArray(data.tables) ? data.tables : [];
+    const collections = Array.isArray(data.collections) ? data.collections : [];
+    const topics = Array.isArray(data.topics) ? data.topics : [];
+
+    let nodes: DiscoveredResourceNode[] = [];
+
+    if (collections.length > 0) {
+      const dbs = new Map<string, any[]>();
+      for (const col of collections) {
+        const dbName = col.database || 'default_db';
+        if (!dbs.has(dbName)) dbs.set(dbName, []);
+        dbs.get(dbName)!.push(col);
+      }
+      const dbNodes: DiscoveredResourceNode[] = [];
+      dbs.forEach((cols, dbName) => {
+        dbNodes.push({
+          id: `db-${dbName}`,
+          name: dbName,
+          type: 'DATABASE',
+          typeLabel: 'Database',
+          namespace: dbName,
+          status: 'READY',
+          isSelected: true,
+          isMigratable: false,
+          children: cols.map(c => ({
+            id: `col-${c.name}`,
+            name: c.name,
+            type: 'COLLECTION',
+            typeLabel: 'Collection',
+            namespace: dbName,
+            status: 'READY',
+            isSelected: true,
+            isMigratable: true,
+          }))
+        });
+      });
+      nodes = [{
+        id: 'cluster-root',
+        name: `${provider} Cluster`,
+        type: 'INSTANCE',
+        typeLabel: 'Cluster',
+        status: 'READY',
+        isSelected: true,
+        isMigratable: false,
+        children: dbNodes
+      }];
+    } else if (topics.length > 0) {
+      nodes = [{
+        id: 'streaming-root',
+        name: `${provider} Cluster`,
+        type: 'INSTANCE',
+        typeLabel: 'Cluster',
+        status: 'READY',
+        isSelected: true,
+        isMigratable: false,
+        children: [{
+          id: 'grp-topics',
+          name: `Topics (${topics.length})`,
+          type: 'OBJECT_GROUP',
+          typeLabel: 'Group',
+          status: 'READY',
+          isSelected: true,
+          isMigratable: false,
+          children: topics.map((t: any) => ({
+            id: `top-${t.name}`,
+            name: t.name,
+            type: 'TOPIC',
+            typeLabel: 'Topic',
+            status: 'READY',
+            isSelected: true,
+            isMigratable: true,
+          }))
+        }]
+      }];
+    } else if (tables.length > 0) {
+      const schemas = new Map<string, any[]>();
+      for (const tbl of tables) {
+        const sName = tbl.schema || 'public';
+        if (!schemas.has(sName)) schemas.set(sName, []);
+        schemas.get(sName)!.push(tbl);
+      }
+      const schemaNodes: DiscoveredResourceNode[] = [];
+      schemas.forEach((tbls, sName) => {
+        schemaNodes.push({
+          id: `schema-${sName}`,
+          name: sName,
+          type: 'SCHEMA',
+          typeLabel: 'Schema',
+          namespace: sName,
+          status: 'READY',
+          isSelected: true,
+          isMigratable: false,
+          children: [{
+            id: `grp-tables-${sName}`,
+            name: `Tables (${tbls.length})`,
+            type: 'OBJECT_GROUP',
+            typeLabel: 'Group',
+            namespace: sName,
+            status: 'READY',
+            isSelected: true,
+            isMigratable: false,
+            children: tbls.map(t => ({
+              id: `tbl-${t.name}`,
+              name: t.name,
+              type: 'TABLE',
+              typeLabel: 'Table',
+              namespace: sName,
+              estimatedRows: t.estimatedRows || t.rows || null,
+              countAccuracy: t.countAccuracy || 'CATALOG_ESTIMATE',
+              estimatedSizeBytes: t.estimatedSizeBytes || t.size || null,
+              status: t.status || 'READY',
+              statusReason: t.statusReason,
+              secondaryTraits: t.secondaryTraits || (t.primary_keys ? [`PK: ${t.primary_keys.join(', ')}`] : undefined),
+              isDependencyReference: t.isDependencyReference || false,
+              isSelected: t.isDependencyReference ? false : (t.isSelected !== undefined ? t.isSelected : true),
+              isMigratable: true,
+            }))
+          }]
+        });
+      });
+      nodes = [{
+        id: 'instance-root',
+        name: `${provider} Instance`,
+        type: 'INSTANCE',
+        typeLabel: 'Instance',
+        status: 'READY',
+        isSelected: true,
+        isMigratable: false,
+        children: schemaNodes
+      }];
+    } else if (Array.isArray(data.buckets) && data.buckets.length > 0) {
+      const bucketNodes: DiscoveredResourceNode[] = [];
+      for (const b of data.buckets) {
+        const bName = typeof b === 'string' ? b : (b.name || 'bucket');
+        const bObjs = Array.isArray(b.objects) ? b.objects : [];
+        bucketNodes.push({
+          id: `bucket-${bName}`,
+          name: bName,
+          type: 'BUCKET',
+          typeLabel: 'Bucket',
+          namespace: bName,
+          status: 'READY',
+          isSelected: true,
+          isMigratable: false,
+          children: bObjs.map((o: any) => ({
+            id: `obj-${(o.name || o).replace(/[^a-zA-Z0-9_-]/g, '_')}`,
+            name: o.name || o,
+            type: 'OBJECT',
+            typeLabel: 'Object',
+            namespace: bName,
+            estimatedRows: o.estimatedRows || null,
+            countAccuracy: 'STATISTICAL_SAMPLE',
+            estimatedSizeBytes: o.estimatedSizeBytes || null,
+            status: 'READY',
+            isSelected: true,
+            isMigratable: true
+          }))
+        });
+      }
+      nodes = [{
+        id: 'storage-root',
+        name: `${provider} Endpoint`,
+        type: 'INSTANCE',
+        typeLabel: 'Endpoint',
+        status: 'READY',
+        isSelected: true,
+        isMigratable: false,
+        children: bucketNodes
+      }];
+    } else {
+      nodes = [{
+        id: 'instance-root',
+        name: `${provider} Instance`,
+        type: 'INSTANCE',
+        typeLabel: 'Instance',
+        status: 'READY',
+        isSelected: false,
+        isMigratable: false,
+        children: []
+      }];
+    }
+
+    this.rootNodes.set(nodes);
+    this.indexNodes(nodes);
+
+    const initialExpanded = new Set<string>();
+    nodes.forEach(root => {
+      initialExpanded.add(root.id);
+      root.children?.forEach(c => {
+        initialExpanded.add(c.id);
+        c.children?.forEach(g => initialExpanded.add(g.id));
+      });
+    });
+    this.expandedNodeIds.set(initialExpanded);
+    this.reconcileAllParentStates();
   }
 
   public cancelDiscovery(): void {
@@ -200,436 +430,23 @@ export class DiscoveryScopeService {
   ): void {
     this.currentEstateProvider.set(provider);
     this.nodeMap.clear();
-    const isCdcMode = mode === 'M2_BULK_CDC' || mode === 'M3_CDC';
 
-    let nodes: DiscoveredResourceNode[] = [];
-
-    switch (provider) {
-      case 'MongoDB':
-        nodes = this.createMongoHierarchy(depth, isCdcMode);
-        break;
-      case 'Apache Kafka':
-      case 'Amazon Kinesis':
-      case 'Azure Event Hubs':
-      case 'Google Cloud Pub/Sub':
-        nodes = this.createStreamingHierarchy(provider, depth);
-        break;
-      case 'Amazon S3':
-      case 'Google Cloud Storage':
-      case 'Azure Blob Storage':
-      case 'MinIO':
-      case 'Apache HDFS':
-        nodes = this.createStorageHierarchy(provider, depth);
-        break;
-      default:
-        // Relational default (Oracle, PostgreSQL, MySQL, SQL Server, IBM Db2, etc.)
-        nodes = this.createRelationalHierarchy(provider, depth, isCdcMode);
-        break;
-    }
+    // Fail-closed / no synthetic data manufactured in production
+    const nodes: DiscoveredResourceNode[] = [{
+      id: 'instance-root',
+      name: `${provider} Instance`,
+      type: 'INSTANCE',
+      typeLabel: 'Instance',
+      status: 'READY',
+      isSelected: false,
+      isMigratable: false,
+      children: []
+    }];
 
     this.rootNodes.set(nodes);
     this.indexNodes(nodes);
-
-    // By default expand down to object groups so leaf resources are immediately visible
-    const initialExpanded = new Set<string>();
-    nodes.forEach(root => {
-      initialExpanded.add(root.id);
-      root.children?.forEach(c => {
-        initialExpanded.add(c.id);
-        c.children?.forEach(g => initialExpanded.add(g.id));
-      });
-    });
-    this.expandedNodeIds.set(initialExpanded);
-
-    // Initial parent tri-state reconciliation
+    this.expandedNodeIds.set(new Set(['instance-root']));
     this.reconcileAllParentStates();
-  }
-
-  private createRelationalHierarchy(
-    provider: PhysicalProviderId,
-    depth: DiscoveryDepthTier,
-    isCdcMode: boolean
-  ): DiscoveredResourceNode[] {
-    const isOracle = provider === 'Oracle';
-    const rootLabel = isOracle ? 'RAC-PROD-01' : `${provider.toLowerCase()}_production`;
-
-    return [
-      {
-        id: 'inst-prod-01',
-        name: rootLabel,
-        type: 'INSTANCE',
-        typeLabel: 'Instance',
-        status: 'READY',
-        isSelected: true,
-        isMigratable: false,
-        children: [
-          {
-            id: 'schema-core-banking',
-            name: 'CORE_BANKING',
-            type: 'SCHEMA',
-            typeLabel: 'Schema',
-            namespace: 'CORE_BANKING',
-            status: 'READY',
-            isSelected: true,
-            isMigratable: false,
-            children: [
-              {
-                id: 'grp-tables-core',
-                name: 'Tables (3)',
-                type: 'OBJECT_GROUP',
-                typeLabel: 'Group',
-                namespace: 'CORE_BANKING',
-                status: 'READY',
-                isSelected: true,
-                isMigratable: false,
-                children: [
-                  {
-                    id: 'tbl-accounts',
-                    name: 'ACCOUNTS',
-                    type: 'TABLE',
-                    typeLabel: 'Table',
-                    namespace: 'CORE_BANKING',
-                    estimatedRows: 18600000,
-                    countAccuracy: 'CATALOG_ESTIMATE',
-                    estimatedSizeBytes: 13743895347, // 12.8 GB
-                    status: 'READY',
-                    secondaryTraits: ['Partitioned', 'PK: ACC_ID'],
-                    isSelected: true,
-                    isMigratable: true
-                  },
-                  {
-                    id: 'tbl-customers',
-                    name: 'CUSTOMERS',
-                    type: 'TABLE',
-                    typeLabel: 'Table',
-                    namespace: 'CORE_BANKING',
-                    estimatedRows: 14200000,
-                    countAccuracy: 'CATALOG_ESTIMATE',
-                    estimatedSizeBytes: 9234169856, // 8.6 GB
-                    status: 'READY',
-                    secondaryTraits: ['Identity', 'PK: CUST_ID'],
-                    isSelected: true,
-                    isMigratable: true
-                  },
-                  {
-                    id: 'tbl-transactions',
-                    name: 'TRANSACTIONS',
-                    type: 'TABLE',
-                    typeLabel: 'Table',
-                    namespace: 'CORE_BANKING',
-                    estimatedRows: 42700000,
-                    countAccuracy: 'CATALOG_ESTIMATE',
-                    estimatedSizeBytes: 32857423872, // 30.6 GB
-                    status: isCdcMode ? 'BLOCKED' : 'READY',
-                    statusReason: isCdcMode
-                      ? 'CDC eligibility requirement not satisfied (missing supplemental logging for LOB column)'
-                      : undefined,
-                    secondaryTraits: ['LOB', 'Partitioned'],
-                    isSelected: true,
-                    isMigratable: true
-                  }
-                ]
-              },
-              {
-                id: 'grp-views-core',
-                name: 'Views (1)',
-                type: 'OBJECT_GROUP',
-                typeLabel: 'Group',
-                namespace: 'CORE_BANKING',
-                status: 'READY',
-                isSelected: true,
-                isMigratable: false,
-                children: [
-                  {
-                    id: 'view-account-balances',
-                    name: 'V_ACCOUNT_BALANCES',
-                    type: 'VIEW',
-                    typeLabel: 'View',
-                    namespace: 'CORE_BANKING',
-                    estimatedRows: null,
-                    countAccuracy: 'UNAVAILABLE',
-                    estimatedSizeBytes: null,
-                    status: 'READY',
-                    secondaryTraits: ['Mat-View'],
-                    isSelected: true,
-                    isMigratable: true
-                  }
-                ]
-              },
-              {
-                id: 'grp-procs-core',
-                name: 'Procedures (1)',
-                type: 'OBJECT_GROUP',
-                typeLabel: 'Group',
-                namespace: 'CORE_BANKING',
-                status: 'READY',
-                isSelected: true,
-                isMigratable: false,
-                children: [
-                  {
-                    id: 'proc-close-account',
-                    name: 'P_CLOSE_ACCOUNT',
-                    type: 'PROCEDURE',
-                    typeLabel: 'Proc',
-                    namespace: 'CORE_BANKING',
-                    estimatedRows: null,
-                    countAccuracy: 'UNAVAILABLE',
-                    estimatedSizeBytes: 46080, // 45 KB
-                    status: 'READY',
-                    isSelected: true,
-                    isMigratable: true
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            id: 'schema-audit-archive',
-            name: 'AUDIT_ARCHIVE',
-            type: 'SCHEMA',
-            typeLabel: 'Schema',
-            namespace: 'AUDIT_ARCHIVE',
-            status: 'READY',
-            isSelected: false,
-            isMigratable: false,
-            children: [
-              {
-                id: 'grp-tables-audit',
-                name: 'Tables (1)',
-                type: 'OBJECT_GROUP',
-                typeLabel: 'Group',
-                namespace: 'AUDIT_ARCHIVE',
-                status: 'READY',
-                isSelected: false,
-                isMigratable: false,
-                children: [
-                  {
-                    id: 'tbl-audit-events',
-                    name: 'AUDIT_EVENTS',
-                    type: 'TABLE',
-                    typeLabel: 'Table',
-                    namespace: 'AUDIT_ARCHIVE',
-                    estimatedRows: 9100000,
-                    countAccuracy: 'CATALOG_ESTIMATE',
-                    estimatedSizeBytes: 4402341478, // 4.1 GB
-                    status: 'READY',
-                    statusReason: 'Referenced by selected resource (ACCOUNTS.AUDIT_REF)',
-                    secondaryTraits: ['Partitioned', 'External'],
-                    isSelected: false,
-                    isDependencyReference: true,
-                    isMigratable: true
-                  }
-                ]
-              }
-            ]
-          }
-        ]
-      }
-    ];
-  }
-
-  private createMongoHierarchy(depth: DiscoveryDepthTier, isCdcMode: boolean): DiscoveredResourceNode[] {
-    return [
-      {
-        id: 'mongo-cluster-01',
-        name: 'rs0.internal:27017',
-        type: 'INSTANCE',
-        typeLabel: 'Cluster',
-        status: 'READY',
-        isSelected: true,
-        isMigratable: false,
-        children: [
-          {
-            id: 'mongo-db-inventory',
-            name: 'inventory_db',
-            type: 'DATABASE',
-            typeLabel: 'Database',
-            namespace: 'inventory_db',
-            status: 'READY',
-            isSelected: true,
-            isMigratable: false,
-            children: [
-              {
-                id: 'coll-orders',
-                name: 'orders',
-                type: 'COLLECTION',
-                typeLabel: 'Collection',
-                namespace: 'inventory_db',
-                estimatedRows: 8400000,
-                countAccuracy: 'CATALOG_ESTIMATE',
-                estimatedSizeBytes: 5583457484, // 5.2 GB
-                status: 'READY',
-                secondaryTraits: ['Sharded', 'Indexes: 4'],
-                isSelected: true,
-                isMigratable: true
-              },
-              {
-                id: 'coll-products',
-                name: 'products',
-                type: 'COLLECTION',
-                typeLabel: 'Collection',
-                namespace: 'inventory_db',
-                estimatedRows: 250000,
-                countAccuracy: 'EXACT_ROW_COUNT',
-                estimatedSizeBytes: 440401920, // 420 MB
-                status: 'READY',
-                secondaryTraits: ['Indexes: 2'],
-                isSelected: true,
-                isMigratable: true
-              },
-              {
-                id: 'coll-change-log',
-                name: 'oplog_tail_archive',
-                type: 'COLLECTION',
-                typeLabel: 'Collection',
-                namespace: 'inventory_db',
-                estimatedRows: 15600000,
-                countAccuracy: 'CATALOG_ESTIMATE',
-                estimatedSizeBytes: 13315582361, // 12.4 GB
-                status: isCdcMode ? 'BLOCKED' : 'READY',
-                statusReason: isCdcMode ? 'Oplog retention exceeded or capped collection unsupported in CDC' : undefined,
-                secondaryTraits: ['Capped'],
-                isSelected: true,
-                isMigratable: true
-              }
-            ]
-          }
-        ]
-      }
-    ];
-  }
-
-  private createStreamingHierarchy(provider: PhysicalProviderId, depth: DiscoveryDepthTier): DiscoveredResourceNode[] {
-    return [
-      {
-        id: 'kafka-cluster-01',
-        name: `${provider.toLowerCase()}-prod-cluster`,
-        type: 'INSTANCE',
-        typeLabel: 'Cluster',
-        status: 'READY',
-        isSelected: true,
-        isMigratable: false,
-        children: [
-          {
-            id: 'topic-orders-cdc',
-            name: 'orders-cdc-stream',
-            type: 'TOPIC',
-            typeLabel: 'Topic',
-            namespace: 'orders-cdc-stream',
-            estimatedRows: 12500000,
-            countAccuracy: 'CATALOG_ESTIMATE',
-            estimatedSizeBytes: 10737418240, // 10 GB
-            status: 'READY',
-            secondaryTraits: ['12 Partitions', 'Avro'],
-            isSelected: true,
-            isMigratable: true,
-            children: [
-              {
-                id: 'part-0-3',
-                name: 'Partitions 0..3',
-                type: 'PARTITION',
-                typeLabel: 'Partition',
-                estimatedRows: null,
-                countAccuracy: 'UNAVAILABLE',
-                status: 'READY',
-                isSelected: true,
-                isMigratable: true
-              },
-              {
-                id: 'part-4-7',
-                name: 'Partitions 4..7',
-                type: 'PARTITION',
-                typeLabel: 'Partition',
-                estimatedRows: null,
-                countAccuracy: 'UNAVAILABLE',
-                status: 'READY',
-                isSelected: true,
-                isMigratable: true
-              }
-            ]
-          },
-          {
-            id: 'topic-payments-cdc',
-            name: 'payments-cdc-stream',
-            type: 'TOPIC',
-            typeLabel: 'Topic',
-            namespace: 'payments-cdc-stream',
-            estimatedRows: 8200000,
-            countAccuracy: 'CATALOG_ESTIMATE',
-            estimatedSizeBytes: 6442450944, // 6 GB
-            status: 'READY',
-            secondaryTraits: ['8 Partitions', 'JSON'],
-            isSelected: true,
-            isMigratable: true
-          }
-        ]
-      }
-    ];
-  }
-
-  private createStorageHierarchy(provider: PhysicalProviderId, depth: DiscoveryDepthTier): DiscoveredResourceNode[] {
-    return [
-      {
-        id: 'storage-endpoint-01',
-        name: 'us-east-1.storage.internal',
-        type: 'INSTANCE',
-        typeLabel: 'Endpoint',
-        status: 'READY',
-        isSelected: true,
-        isMigratable: false,
-        children: [
-          {
-            id: 'bucket-datalake',
-            name: 'corp-migration-datalake',
-            type: 'BUCKET',
-            typeLabel: 'Bucket',
-            namespace: 'corp-migration-datalake',
-            status: 'READY',
-            isSelected: true,
-            isMigratable: false,
-            children: [
-              {
-                id: 'prefix-raw-dump',
-                name: 'raw/databases/oracle_dump/',
-                type: 'PREFIX',
-                typeLabel: 'Prefix',
-                status: 'READY',
-                isSelected: true,
-                isMigratable: false,
-                children: [
-                  {
-                    id: 'obj-customers-parquet',
-                    name: 'customers_part001.parquet',
-                    type: 'OBJECT',
-                    typeLabel: 'Object',
-                    estimatedRows: 1420000,
-                    countAccuracy: 'STATISTICAL_SAMPLE',
-                    estimatedSizeBytes: 536870912, // 512 MB
-                    status: 'READY',
-                    secondaryTraits: ['Parquet', 'Snappy'],
-                    isSelected: true,
-                    isMigratable: true
-                  },
-                  {
-                    id: 'obj-accounts-parquet',
-                    name: 'accounts_part001.parquet',
-                    type: 'OBJECT',
-                    typeLabel: 'Object',
-                    estimatedRows: 1860000,
-                    countAccuracy: 'STATISTICAL_SAMPLE',
-                    estimatedSizeBytes: 1288490188, // 1.2 GB
-                    status: 'READY',
-                    secondaryTraits: ['Parquet', 'Snappy'],
-                    isSelected: true,
-                    isMigratable: true
-                  }
-                ]
-              }
-            ]
-          }
-        ]
-      }
-    ];
   }
 
   private indexNodes(nodes: DiscoveredResourceNode[], parentId?: string): void {

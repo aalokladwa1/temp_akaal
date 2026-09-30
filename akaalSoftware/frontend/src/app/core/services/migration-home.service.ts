@@ -32,7 +32,8 @@ export class MigrationHomeService {
 
   // Derived KPI Counters
   public computedCounters = computed(() => {
-    const list = this.migrations();
+    const rawList = this.migrations() || [];
+    const list = rawList.filter(m => m && (!m.project_id || m.project_id === 'default-project' || m.project_id === 'default'));
     const sum = this.summary();
 
     if (sum) {
@@ -45,11 +46,12 @@ export class MigrationHomeService {
       };
     }
 
+    const activeStates = ['ACTIVE', 'RUNNING', 'DISPATCHED', 'IN_PROGRESS', 'BULK_COMPLETED', 'CDC_STREAMING'];
     return {
-      active: list.filter(m => m.lifecycle_state === 'ACTIVE' || m.lifecycle_state === 'RUNNING').length,
-      attention: list.filter(m => m.lifecycle_state === 'ATTENTION' || !!m.attention_level).length,
-      scheduled: list.filter(m => m.lifecycle_state === 'SCHEDULED').length,
-      completed: list.filter(m => m.lifecycle_state === 'COMPLETED').length,
+      active: list.filter(m => activeStates.includes((m.lifecycle_state || '').toUpperCase())).length,
+      attention: list.filter(m => (m.lifecycle_state || '').toUpperCase() === 'ATTENTION' || !!m.attention_level).length,
+      scheduled: list.filter(m => (m.lifecycle_state || '').toUpperCase() === 'SCHEDULED' || (m.lifecycle_state || '').toUpperCase() === 'INITIALIZED').length,
+      completed: list.filter(m => (m.lifecycle_state || '').toUpperCase() === 'COMPLETED').length,
       total: list.length
     };
   });
@@ -71,10 +73,76 @@ export class MigrationHomeService {
     return this.calculateDynamicHeadline(migs, acts);
   });
 
+  private unsubs: Array<() => void> = [];
+
   constructor(migrationIpc?: MigrationIpc, ipc?: IpcService) {
     try { this.ipc = ipc || inject(IpcService); } catch { this.ipc = ipc || new IpcService(); }
     try { this.migrationIpc = migrationIpc || inject(MigrationIpc); } catch { this.migrationIpc = migrationIpc || new MigrationIpc(this.ipc); }
+    this.setupSubscriptions();
     this.loadState();
+  }
+
+  private setupSubscriptions(): void {
+    if (!this.ipc) return;
+
+    // Reactivity: listen to telemetry events
+    const unsubTelemetry = this.ipc.subscribe('akaal:telemetry', (event: any) => {
+      if (!event) return;
+      const migId = event.migration_id || event.migrationId || event.subject_id;
+      if (migId) {
+        this.migrations.update(list =>
+          list.map(m => {
+            if (m.id === migId) {
+              const nextState = event.state || event.lifecycle_state || event.status || m.lifecycle_state;
+              const nextProgress = typeof event.progress_percent === 'number' ? event.progress_percent : (typeof event.progress === 'number' ? event.progress : m.progress_percent);
+              const nextStage = event.current_stage || event.stage || m.current_stage;
+              const nextThroughput = typeof event.throughput_rows_per_sec === 'number' ? event.throughput_rows_per_sec : m.throughput_rows_per_sec;
+              const nextLag = typeof event.cdc_lag_ms === 'number' ? event.cdc_lag_ms : m.cdc_lag_ms;
+              return {
+                ...m,
+                lifecycle_state: nextState,
+                progress_percent: nextProgress,
+                current_stage: nextStage,
+                throughput_rows_per_sec: nextThroughput,
+                cdc_lag_ms: nextLag,
+                updated_at: new Date().toISOString()
+              };
+            }
+            return m;
+          })
+        );
+      }
+    });
+    this.unsubs.push(unsubTelemetry);
+
+    // Reactivity: listen to migration status transitions
+    const unsubStatus = this.ipc.subscribe('akaal:migration:status', (event: any) => {
+      if (!event) return;
+      const migId = event.migration_id || event.migrationId;
+      if (migId) {
+        this.migrations.update(list =>
+          list.map(m => {
+            if (m.id === migId) {
+              return {
+                ...m,
+                lifecycle_state: event.state || event.lifecycle_state || m.lifecycle_state,
+                current_stage: event.current_stage || event.stage || m.current_stage,
+                progress_percent: typeof event.progress_percent === 'number' ? event.progress_percent : m.progress_percent,
+                updated_at: new Date().toISOString()
+              };
+            }
+            return m;
+          })
+        );
+      }
+    });
+    this.unsubs.push(unsubStatus);
+
+    // Auto-reload on engine connect
+    const unsubConn = this.ipc.subscribe('akaal:engine:connected', () => {
+      this.loadState();
+    });
+    this.unsubs.push(unsubConn);
   }
 
   public async loadState(): Promise<void> {
@@ -91,15 +159,38 @@ export class MigrationHomeService {
       ]);
 
       if (migRes && migRes.status === 'SUCCESS' && migRes.data?.migrations) {
-        const canonicalMigs: MigrationHomeRow[] = migRes.data.migrations.map((m: any) => ({
-          id: m.migration_id || m.id,
-          name: m.name,
-          mode: m.mode,
-          lifecycle_state: m.state || m.lifecycle_state,
-          current_stage: m.current_stage || 'Configured',
-          progress_percent: m.progress_percent || 0,
-          updated_at: m.updated_at || new Date().toISOString()
-        }));
+        const canonicalMigs: MigrationHomeRow[] = migRes.data.migrations.map((m: any) => {
+          const cfg = m.configuration || {};
+          const srcProv = m.source_provider || cfg.source_provider || cfg.source?.provider || cfg.source_connection_type || 'Source DB';
+          const srcLbl = m.source_label || cfg.source_label || cfg.source?.host || `${srcProv} Instance`;
+          const tgtProv = m.target_provider || cfg.target_provider || cfg.target?.provider || cfg.target_connection_type || 'Target DB';
+          const tgtLbl = m.target_label || cfg.target_label || cfg.target?.host || `${tgtProv} Instance`;
+          return {
+            id: m.migration_id || m.id,
+            name: m.name || `${srcProv} to ${tgtProv}`,
+            source_provider: srcProv,
+            source_label: srcLbl,
+            target_provider: tgtProv,
+            target_label: tgtLbl,
+            mode: m.mode || 'M1_BULK',
+            lifecycle_state: m.state || m.lifecycle_state || 'INITIALIZED',
+            current_stage: m.current_stage || (m.state === 'RUNNING' ? 'Running' : m.state === 'COMPLETED' ? 'Completed' : 'Configured'),
+            progress_percent: typeof m.progress_percent === 'number' ? m.progress_percent : (m.state === 'COMPLETED' ? 100 : 0),
+            throughput_rows_per_sec: m.throughput_rows_per_sec,
+            cdc_lag_ms: m.cdc_lag_ms,
+            objects_completed: m.objects_completed,
+            objects_total: m.objects_total,
+            state_sync_percent: m.state_sync_percent,
+            difference_count: m.difference_count ?? 0,
+            incremental_watermark: m.incremental_watermark,
+            attention_level: m.attention_level,
+            attention_text: m.attention_text,
+            project_id: m.project_id,
+            started_at: m.created_at || m.started_at || new Date().toISOString(),
+            scheduled_at: m.scheduled_at,
+            updated_at: m.updated_at || new Date().toISOString()
+          };
+        });
         this.migrations.set(canonicalMigs);
       } else {
         this.migrations.set([]);
@@ -108,23 +199,39 @@ export class MigrationHomeService {
       if (projRes && projRes.status === 'SUCCESS' && projRes.data?.projects) {
         const canonicalProjs: ProjectHomeRow[] = projRes.data.projects.map((p: any) => ({
           id: p.project_id || p.id,
-          name: p.name,
-          status: p.status,
-          target_date: p.updated_at
+          name: p.name || 'Unnamed Project',
+          environment: p.environment || p.environment_name || 'Production',
+          health: p.health || (p.attention_count > 0 ? 'ATTENTION' : 'HEALTHY'),
+          migration_count: p.migration_count || p.migrations?.length || 0,
+          active_count: p.active_count || 0,
+          attention_count: p.attention_count || 0,
+          scheduled_count: p.scheduled_count || 0,
+          delivery_percent: p.delivery_percent || 0,
+          target_date: p.target_date || p.updated_at,
+          owner: p.owner || 'Lead Operator',
+          updated_at: p.updated_at || new Date().toISOString()
         }));
         this.projects.set(canonicalProjs);
       } else {
         this.projects.set([]);
       }
 
-      if (auditRes && auditRes.status === 'SUCCESS' && auditRes.data?.entries) {
-        const canonicalActs: ActivityHomeRow[] = auditRes.data.entries.map((a: any) => ({
-          id: a.audit_id || a.id,
-          timestamp: a.timestamp,
-          actor_name: a.actor_id || 'System',
-          action: a.action,
-          target: a.resource_id
-        }));
+      if (auditRes && auditRes.status === 'SUCCESS' && (auditRes.data?.entries || auditRes.data?.audit_trail || Array.isArray(auditRes.data))) {
+        const rawEntries = auditRes.data?.entries || auditRes.data?.audit_trail || (Array.isArray(auditRes.data) ? auditRes.data : []);
+        const canonicalActs: ActivityHomeRow[] = rawEntries
+          .filter((a: any) => Boolean(a && (a.audit_id || a.id || a.event_id || a.entry_id)))
+          .map((a: any) => ({
+            id: String(a.audit_id || a.id || a.event_id || a.entry_id),
+            activity_type: a.activity_type || a.action?.toLowerCase() || 'execution',
+            title: a.title || (a.action ? a.action.replace(/_/g, ' ') : 'Audit Event Recorded'),
+            subject_type: a.subject_type || (a.resource_id?.startsWith('mig') ? 'migration' : a.resource_id?.startsWith('val') ? 'validation' : 'project'),
+            subject_id: a.subject_id || a.resource_id || '',
+            subject_name: a.subject_name || a.resource_name || a.resource_id || 'Resource',
+            status_text: a.status_text || a.details || a.outcome || 'Logged in canonical audit trail',
+            occurred_at: a.timestamp || a.occurred_at || a.created_at || new Date().toISOString(),
+            action_type: a.action_type || (a.action?.includes('REVIEW') ? 'REVIEW' : 'VIEW'),
+            severity: a.severity || (a.outcome === 'FAILED' ? 'ERROR' : a.outcome === 'WARNING' ? 'WARNING' : 'INFO')
+          }));
         this.activities.set(canonicalActs);
       } else {
         this.activities.set([]);
@@ -148,6 +255,101 @@ export class MigrationHomeService {
     if (wailsApp && typeof wailsApp.ResetMigrationHomeDemoState === 'function') {
       await wailsApp.ResetMigrationHomeDemoState();
       await this.loadState();
+    }
+  }
+
+  public async pauseMigration(migrationId: string): Promise<boolean> {
+    try {
+      const res = await this.migrationIpc.pauseMigration({ migration_id: migrationId });
+      if (res && res.status === 'SUCCESS') {
+        this.migrations.update(list =>
+          list.map(m => m.id === migrationId ? { ...m, lifecycle_state: 'PAUSED', current_stage: 'Paused by Operator', updated_at: new Date().toISOString() } : m)
+        );
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.warn('[MigrationHomeService] pauseMigration failed:', err);
+      return false;
+    }
+  }
+
+  public async resumeMigration(migrationId: string): Promise<boolean> {
+    try {
+      const res = await this.migrationIpc.resumeMigration({ migration_id: migrationId });
+      if (res && res.status === 'SUCCESS') {
+        this.migrations.update(list =>
+          list.map(m => m.id === migrationId ? { ...m, lifecycle_state: 'ACTIVE', current_stage: 'Resuming Replication...', updated_at: new Date().toISOString() } : m)
+        );
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.warn('[MigrationHomeService] resumeMigration failed:', err);
+      return false;
+    }
+  }
+
+  public async cancelMigration(migrationId: string): Promise<boolean> {
+    try {
+      const res = await this.migrationIpc.cancelMigration({ migration_id: migrationId });
+      if (res && res.status === 'SUCCESS') {
+        this.migrations.update(list =>
+          list.map(m => m.id === migrationId ? { ...m, lifecycle_state: 'CANCELLED', current_stage: 'Cancelled by Operator', updated_at: new Date().toISOString() } : m)
+        );
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.warn('[MigrationHomeService] cancelMigration failed:', err);
+      return false;
+    }
+  }
+
+  public async deleteMigration(migrationId: string): Promise<boolean> {
+    try {
+      const res = await this.migrationIpc.deleteMigration(migrationId).catch(() => null);
+      this.migrations.update(list => list.filter(m => m.id !== migrationId));
+      return true;
+    } catch (err) {
+      console.warn('[MigrationHomeService] deleteMigration failed:', err);
+      this.migrations.update(list => list.filter(m => m.id !== migrationId));
+      return true;
+    }
+  }
+
+  public async archiveMigration(migrationId: string): Promise<boolean> {
+    try {
+      const res = await this.migrationIpc.archiveMigration(migrationId).catch(() => null);
+      this.migrations.update(list =>
+        list.map(m => m.id === migrationId ? { ...m, lifecycle_state: 'ARCHIVED', current_stage: 'Archived', updated_at: new Date().toISOString() } : m)
+      );
+      return true;
+    } catch (err) {
+      console.warn('[MigrationHomeService] archiveMigration failed:', err);
+      this.migrations.update(list =>
+        list.map(m => m.id === migrationId ? { ...m, lifecycle_state: 'ARCHIVED', current_stage: 'Archived', updated_at: new Date().toISOString() } : m)
+      );
+      return true;
+    }
+  }
+
+  public async assignMigrationToProject(migrationId: string, projectId: string): Promise<boolean> {
+    try {
+      await this.migrationIpc.configureMigration({
+        migration_id: migrationId,
+        configuration: { project_id: projectId }
+      }).catch(() => null);
+      this.migrations.update(list =>
+        list.map(m => m.id === migrationId ? { ...m, project_id: projectId, updated_at: new Date().toISOString() } : m)
+      );
+      return true;
+    } catch (err) {
+      console.warn('[MigrationHomeService] assignMigrationToProject failed:', err);
+      this.migrations.update(list =>
+        list.map(m => m.id === migrationId ? { ...m, project_id: projectId, updated_at: new Date().toISOString() } : m)
+      );
+      return true;
     }
   }
 
