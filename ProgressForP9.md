@@ -1010,6 +1010,47 @@ operate seamlessly as **one single, unified, coherent enterprise product**.
 - `context.service.spec.ts`: 5/5 PASS
 - `validation-home.service.spec.ts`: 8/8 PASS
 
+---
+
+### Slice 2: Execution → Validation / Governed Repair (Area 3) — COMPLETE
+
+#### Part A: Migration / Cockpit → Validation Handoff
+- **Cockpit Action Surface & Store Integration**:
+  - `CockpitAdapterService`: Updated `projectPermittedActions` to expose `LAUNCH_VALIDATION` (`"Launch Validation Mission"`, primary action) strictly when migration state is `COMPLETED` or `CUTOVER`.
+  - `CockpitStoreService`: Handled `LAUNCH_VALIDATION` action navigating to `/validation/new` with `queryParams: { migrationId: migId }`.
+- **Validation Wizard Hydration & Fail-Closed Guard** (`NewValidationWizardComponent`):
+  - Ingests `queryParams.migrationId` on initialization via route subscription.
+  - Queries authoritative migration record via `MigrationIpc.getMigration(migId)`.
+  - Enforces canonical lifecycle eligibility: migration state must be `COMPLETED` or `CUTOVER`. Ineligible migrations (`RUNNING`, `FAILED`, `INITIALIZED`) fail closed (`handoffBlocked = true`, `isCurrentStepValid() = false`).
+  - Resolves real connection records for source and target endpoints via `MigrationIpc.getConnection(connId)` rather than synthesizing fake connection credentials or schemas.
+  - Hydrates comparison units truthfully from migration `comparison_units` or `selected_tables`.
+  - Fail-closed guard integrity: Dismissing the handoff error notification banner clears the visual banner but does NOT unblock an invalid or ineligible handoff (`handoffBlocked` remains `true`).
+
+#### Part B: Active Validation Repair Consumer Seam
+- **`ValidationRepairService` Canonical Backend Authority Integration**:
+  - Injected typed `MigrationIpc` and `ValidationDiscrepanciesService` with graceful fallback for direct unit test instantiations.
+  - **Zero Fabricated Mission IDs**: Removed `'val-mission-default'`. Repair dispatch requires an authoritative mission ID from active state (`getMissionId()`); fails closed if absent (`"Repair cannot be dispatched: missing authoritative validation mission ID."`).
+  - **Zero Invented Repair-Strategy Defaults**: Removed silent `'SOURCE_WINS'` fallback. Requires authoritative strategy from proposal (`proposal.operationFamily` or `proposal.strategy`); fails closed if absent (`"Repair cannot be dispatched: missing authoritative repair strategy."`).
+  - **Canonical Backend Dispatch Seam**: Dispatches governed repair via `MigrationIpc.dispatchValidationRepair(payload)` connecting to the canonical backend Four-Eyes maker-checker and Engine execution pipeline.
+  - **Truthful Outcome Projection**: Projects backend statuses:
+    - `PENDING_APPROVAL`: Governance state transitions to `PENDING`, `approvalRequired: true`.
+    - `REPAIRED`: Execution state transitions to `COMPLETED`, provider commit confirmed, technical execution ID tracked.
+    - `REPAIR_FAILED`: Execution state transitions to `FAILED` with truthful error message preserved.
+    - `REVALIDATION_FAILED`: Execution state transitions to `COMPLETED` while revalidation state transitions to `FAILED`.
+  - **Truthful Failure Classification**: Only projects Four-Eyes governance rejection (`REJECTED`) when backend explicitly signals policy denial (`POLICY_DENIED`, Four-Eyes violation). Generic transport errors, IPC failures, and backend exceptions retain truthful error messages without misclassifying as policy denials.
+  - **Authoritative Post-Repair Discrepancy Refresh**: Upon `REPAIRED` outcome, re-queries backend discrepancies via `MigrationIpc.listValidationDiscrepancies({ mission_id, limit: 100 })` and synchronizes `ValidationDiscrepanciesService.loadMissionDiscrepancies(missionId)`.
+  - **Preserved Physical Authority Boundary**: D8-004 `INTEGRATION_PROVEN (EXTERNAL_DEFERRED)` boundary preserved intact.
+- **`ValidationRepairComponent` Active Mission Binding**:
+  - Bound active mission ID reactively from `ValidationWorkstationService.validationId()` using both Angular constructor `effect` and `ngOnInit`.
+
+#### Focused Test Evidence (53/53 PASS across 4 suites)
+- `validation-repair.spec.ts`: 22/22 PASS (includes 7 dedicated tests for fail-closed guards, PENDING_APPROVAL, REPAIRED + refresh, REPAIR_FAILED, REVALIDATION_FAILED, Four-Eyes rejection vs generic errors, and revalidation trigger)
+- `cockpit.spec.ts`: 16/16 PASS (includes `LAUNCH_VALIDATION` exposure only on `COMPLETED`/`CUTOVER` and router navigation)
+- `validation-corrections.spec.ts`: 11/11 PASS (preserves CHECK1/CHECK2 fail-closed regression baselines)
+- `validation-hydration.spec.ts`: 4/4 PASS (tests valid completed migration hydration, ineligible state fail-closed, missing migration fail-closed, and dismiss banner fail-closed persistence)
+- Overall Regression: 58/58 PASS (including Slice 1 `context.service.spec.ts`)
+
+
 
 
 

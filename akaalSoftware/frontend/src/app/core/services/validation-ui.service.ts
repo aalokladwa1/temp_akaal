@@ -158,13 +158,13 @@ const INITIAL_DRAFT: NewValidationDraftState = {
   currentStep: 1,
   isReadOnlyEnforced: true,
   isDirty: false,
-  step4Pathway: 'DEFINE',
+  step4Pathway: 'CHOICE',
   comparisonUnits: [],
   selectedScopeNamespaces: [],
   selectedCorrespondenceRule: 'EXACT_IDENTIFIER_MATCH',
   selectedSourceNodeIds: [],
   scopedPairs: [],
-  baselineIntent: 'CURRENT_OPERATIONAL',
+  baselineIntent: undefined,
   maintenanceCondition: undefined,
   operatorNotes: undefined,
   assuranceLevel: 'PARTITION_FINGERPRINT',
@@ -410,32 +410,63 @@ export class ValidationUiService {
       ? draft.comparisonUnits
       : (draft.scopedPairs || []);
 
-    if (units.length > 0) {
-      const included = units.filter(u => u.disposition !== 'EXCLUDED');
-      if (included.length > 0) return true;
-    }
+    if (units.length === 0) return false;
+
+    const included = units.filter(u => u.disposition !== 'EXCLUDED');
+    if (included.length === 0) return false;
 
     // Pathway A: Inherited Migration Scope (EXISTING_PROJECT)
     if (draft.validationContext === 'EXISTING_PROJECT') {
-      return true;
+      // Law 6: Missing targets do NOT block validation
+      // Zero unresolved operator decisions required
+      const hasUnresolvedDecisions = included.some(u => u.isDecisionRequired);
+      if (hasUnresolvedDecisions) return false;
+      return included.every(u => !!u.expectedTargetName || !!u.targetName || u.targetStatus === 'CONFIRMED' || u.targetStatus === 'INHERITED_CONFIRMED');
     }
 
-    // Independent Validation Context: DEFINE or DEFAULT
-    const pathway = draft.step4Pathway || 'DEFINE';
-    if (pathway === 'DEFINE' || pathway === 'INHERIT' || pathway === 'CHOICE') {
-      return true;
+    // Independent Validation Context
+    const pathway = draft.step4Pathway || 'CHOICE';
+    if (pathway === 'CHOICE' || pathway === 'IMPORT') {
+      return false;
     }
 
-    return true;
+    if (pathway === 'DEFINE') {
+      const hasUnresolvedDecisions = included.some(u => u.isDecisionRequired);
+      if (hasUnresolvedDecisions) return false;
+      return included.every(u => !!u.expectedTargetName || !!u.targetName || u.targetStatus === 'CONFIRMED' || u.targetStatus === 'INHERITED_CONFIRMED');
+    }
+
+    return false;
   });
 
   public isStep5Valid = computed<boolean>(() => {
     const draft = this.newValidationDraft();
-    const intent = draft.baselineIntent || 'CURRENT_OPERATIONAL';
+
+    // 1. Existing Project (Pathway A)
     if (draft.validationContext === 'EXISTING_PROJECT') {
-      return true;
+      // Truthful invariant: Usable canonical migration context must exist (projectId must be present)
+      if (!draft.projectId) return false;
+      const intent = draft.baselineIntent || 'INHERITED_MIGRATION';
+      return intent === 'INHERITED_MIGRATION';
     }
-    return !!intent;
+
+    // 2. Independent Validation Context (Pathway C)
+    const intent = draft.baselineIntent;
+    if (!intent) return false;
+
+    switch (intent) {
+      case 'CURRENT_OPERATIONAL':
+      case 'STATIC_IMMUTABLE':
+        return true;
+      case 'MAINTENANCE_COORDINATED':
+        // Must have an explicit operator-declared operational condition
+        return !!draft.maintenanceCondition;
+      case 'EXTERNAL_REPLICATION':
+        // Supported in Phase 2: requires provider position type and non-empty position value
+        return !!draft.externalPositionType && !!draft.externalPositionValue && draft.externalPositionValue.trim().length > 0;
+      default:
+        return false;
+    }
   });
 
   public isStep6Valid = computed<boolean>(() => {

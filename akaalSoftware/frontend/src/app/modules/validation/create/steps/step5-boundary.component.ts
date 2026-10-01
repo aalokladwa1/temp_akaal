@@ -656,8 +656,6 @@ export class Step5BoundaryComponent {
     const draft = this.vs.newValidationDraft();
     if (draft.validationContext === 'EXISTING_PROJECT' && draft.baselineIntent !== 'INHERITED_MIGRATION') {
       this.vs.updateDraft({ baselineIntent: 'INHERITED_MIGRATION' });
-    } else if (!draft.baselineIntent) {
-      this.vs.updateDraft({ baselineIntent: 'CURRENT_OPERATIONAL' });
     }
   }
 

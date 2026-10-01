@@ -270,6 +270,10 @@ export class CockpitStoreService {
           throughputRowsSecFormatted: '0',
           activeWorkers: 0
         }));
+      } else if (action.id === 'LAUNCH_VALIDATION') {
+        if (migId && this.router) {
+          this.router.navigate(['/validation/new'], { queryParams: { migrationId: migId } });
+        }
       } else if (action.id === 'REQUEST_CHECKPOINT') {
         if (this.migrationIpc && typeof this.migrationIpc.triggerCheckpoint === 'function') {
           await this.migrationIpc.triggerCheckpoint({ migration_id: migId }).catch(() => null);

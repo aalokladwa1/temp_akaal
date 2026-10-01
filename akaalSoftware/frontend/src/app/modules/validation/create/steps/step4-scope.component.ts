@@ -1566,10 +1566,19 @@ export class Step4ScopeComponent implements OnInit {
     return 'Configured Target';
   });
 
-  private ipc = inject(IpcService, { optional: true });
+  private ipc?: IpcService;
 
-  constructor(vs?: ValidationUiService) {
-    this.vs = vs || inject(ValidationUiService);
+  constructor(vs?: ValidationUiService, ipc?: IpcService) {
+    if (vs) {
+      this.vs = vs;
+    } else {
+      try { this.vs = inject(ValidationUiService); } catch { this.vs = new ValidationUiService(); }
+    }
+    if (ipc) {
+      this.ipc = ipc;
+    } else {
+      try { this.ipc = inject(IpcService, { optional: true }) || undefined; } catch { this.ipc = undefined; }
+    }
   }
 
   public ngOnInit(): void {
@@ -1579,8 +1588,8 @@ export class Step4ScopeComponent implements OnInit {
     } else if (draft.comparisonUnits && draft.comparisonUnits.length > 0) {
       // Already has units
     } else {
-      // Independent default - initialize catalog discovery units
-      this.initCatalogDiscoveryScope();
+      // Independent default
+      this.vs.updateDraft({ step4Pathway: draft.step4Pathway || 'CHOICE' });
     }
   }
 

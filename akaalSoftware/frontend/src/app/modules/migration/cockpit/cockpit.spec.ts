@@ -217,5 +217,44 @@ describe('AKAAL Cockpit / Mission Control Unit Tests', () => {
       const bulkModeActions = adapter.projectPermittedActions(bulkModeSession);
       expect(bulkModeActions.find(a => a.id === 'CUTOVER')).toBeUndefined();
     });
+
+    it('should expose Launch Validation Mission as primary action when state is COMPLETED or CUTOVER', () => {
+      for (const st of ['COMPLETED', 'CUTOVER']) {
+        const session = {
+          mode: 'M2_BULK_CDC',
+          lifecycleState: st
+        };
+        const actions = adapter.projectPermittedActions(session);
+        const valAction = actions.find(a => a.id === 'LAUNCH_VALIDATION');
+        expect(valAction).toBeDefined();
+        expect(valAction?.isPrimary).toBe(true);
+        expect(valAction?.label).toBe('Launch Validation Mission');
+      }
+    });
+
+    it('should NOT expose Launch Validation Mission during active or failed execution states', () => {
+      for (const st of ['RUNNING', 'ACTIVE', 'CDC_STREAMING', 'PAUSED', 'FAILED', 'CANCELLED', 'INITIALIZING']) {
+        const session = {
+          mode: 'M2_BULK_CDC',
+          lifecycleState: st
+        };
+        const actions = adapter.projectPermittedActions(session);
+        const valAction = actions.find(a => a.id === 'LAUNCH_VALIDATION');
+        expect(valAction).toBeUndefined();
+      }
+    });
+
+    it('should navigate to /validation/new with queryParams on LAUNCH_VALIDATION action trigger', () => {
+      store.session.set({
+        ...store.session(),
+        id: 'MIG-999',
+        lifecycleState: 'COMPLETED'
+      });
+      store.triggerAction('LAUNCH_VALIDATION');
+      expect(mockRouter.navigate).toHaveBeenCalledWith(['/validation/new'], {
+        queryParams: { migrationId: 'MIG-999' }
+      });
+    });
   });
 });
+

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ValidationRepairService } from './validation-repair.service';
 import { REPAIR_FIXTURES } from './validation-repair.fixtures';
 
@@ -140,5 +140,213 @@ describe('ValidationRepair Workspace & Invariants', () => {
       service.setFixture(key);
       expect(service.state().activeScenarioId).toBe(key);
     }
+  });
+
+  describe('P9.2 Slice 2: Governed Repair Backend Authority Integration', () => {
+    let mockIpc: any;
+    let mockDiscrepanciesService: any;
+    let connectedService: ValidationRepairService;
+
+    beforeEach(() => {
+      mockIpc = {
+        dispatchValidationRepair: vi.fn(),
+        listValidationDiscrepancies: vi.fn(),
+        executeValidationMission: vi.fn()
+      };
+      mockDiscrepanciesService = {
+        loadMissionDiscrepancies: vi.fn()
+      };
+      connectedService = new ValidationRepairService(mockIpc as any, mockDiscrepanciesService as any);
+    });
+
+    it('should fail closed when attempting repair dispatch without authoritative mission ID (ZERO fake IDs)', async () => {
+      connectedService.setFixture('SINGLE_UPDATE_PROPOSAL');
+      // Ensure missionId is not set
+      connectedService.setMissionId(null);
+      // Ensure technicalDetails does not have revalidationMissionId
+      if (connectedService.technicalDetails()) {
+        (connectedService as any)._state.update((s: any) => ({
+          ...s,
+          technicalDetails: { ...s.technicalDetails, revalidationMissionId: undefined }
+        }));
+      }
+
+      await connectedService.executeRepair();
+
+      expect(mockIpc.dispatchValidationRepair).not.toHaveBeenCalled();
+      expect(connectedService.errorMessage()).toContain('missing authoritative validation mission ID');
+    });
+
+    it('should fail closed when attempting repair dispatch without authoritative repair strategy (ZERO invented defaults)', async () => {
+      connectedService.setFixture('SINGLE_UPDATE_PROPOSAL');
+      connectedService.setMissionId('val-mission-7788');
+      // Strip operationFamily and strategy from proposal
+      (connectedService as any)._state.update((s: any) => ({
+        ...s,
+        proposal: { ...s.proposal, operationFamily: undefined, strategy: undefined }
+      }));
+
+      await connectedService.executeRepair();
+
+      expect(mockIpc.dispatchValidationRepair).not.toHaveBeenCalled();
+      expect(connectedService.errorMessage()).toContain('missing authoritative repair strategy');
+    });
+
+    it('should dispatch repair and project PENDING_APPROVAL status truthfully', async () => {
+      connectedService.setFixture('SINGLE_UPDATE_PROPOSAL');
+      connectedService.setMissionId('val-mission-7788');
+
+      mockIpc.dispatchValidationRepair.mockResolvedValue({
+        status: 'SUCCESS',
+        data: {
+          repair_id: 'repair-9900',
+          mission_id: 'val-mission-7788',
+          status: 'PENDING_APPROVAL',
+          approval_required: true,
+          message: 'Governed repair requires Four-Eyes approval before physical dispatch.'
+        }
+      });
+
+      await connectedService.executeRepair();
+
+      expect(mockIpc.dispatchValidationRepair).toHaveBeenCalledWith(expect.objectContaining({
+        mission_id: 'val-mission-7788',
+        repair_strategy: 'UPDATE_DIFFERING_ATTRIBUTES'
+      }));
+      expect(connectedService.governance()?.state).toBe('PENDING');
+      expect(connectedService.governance()?.approvalRequired).toBe(true);
+      expect(connectedService.summary().governanceState).toBe('PENDING');
+      expect(connectedService.errorMessage()).toBeUndefined();
+    });
+
+    it('should dispatch repair and project REPAIRED status with authoritative discrepancy refresh', async () => {
+      connectedService.setFixture('SINGLE_UPDATE_PROPOSAL');
+      connectedService.setMissionId('val-mission-7788');
+
+      mockIpc.dispatchValidationRepair.mockResolvedValue({
+        status: 'SUCCESS',
+        data: {
+          repair_id: 'repair-9900',
+          mission_id: 'val-mission-7788',
+          status: 'REPAIRED',
+          discrepancies_reconciled: 1,
+          revalidated: true
+        }
+      });
+
+      mockIpc.listValidationDiscrepancies.mockResolvedValue({
+        status: 'SUCCESS',
+        data: {
+          discrepancies: [
+            { discrepancy_id: 'disc-1', status: 'REPAIRED' }
+          ]
+        }
+      });
+
+      await connectedService.executeRepair();
+
+      expect(connectedService.execution()?.state).toBe('COMPLETED');
+      expect(connectedService.execution()?.appliedCount).toBe(1);
+      expect(connectedService.execution()?.providerCommitState).toBe('CONFIRMED');
+      expect(connectedService.revalidation()?.state).toBe('PASSED');
+      expect(connectedService.revalidation()?.remainingDiscrepanciesCount).toBe(0);
+      expect(mockIpc.listValidationDiscrepancies).toHaveBeenCalledWith({ mission_id: 'val-mission-7788', limit: 100 });
+      expect(mockDiscrepanciesService.loadMissionDiscrepancies).toHaveBeenCalledWith('val-mission-7788');
+    });
+
+    it('should project REPAIR_FAILED and REVALIDATION_FAILED truthfully without masking', async () => {
+      connectedService.setFixture('SINGLE_UPDATE_PROPOSAL');
+      connectedService.setMissionId('val-mission-7788');
+
+      // Test REPAIR_FAILED
+      mockIpc.dispatchValidationRepair.mockResolvedValue({
+        status: 'SUCCESS',
+        data: {
+          repair_id: 'repair-9901',
+          mission_id: 'val-mission-7788',
+          status: 'REPAIR_FAILED',
+          error: 'Deadlock encountered on target partition',
+          revalidated: false
+        }
+      });
+
+      await connectedService.executeRepair();
+
+      expect(connectedService.execution()?.state).toBe('FAILED');
+      expect(connectedService.errorMessage()).toBe('Deadlock encountered on target partition');
+
+      // Test REVALIDATION_FAILED
+      mockIpc.dispatchValidationRepair.mockResolvedValue({
+        status: 'SUCCESS',
+        data: {
+          repair_id: 'repair-9902',
+          mission_id: 'val-mission-7788',
+          status: 'REVALIDATION_FAILED',
+          error: 'Checksum divergence detected after mutation',
+          revalidated: false
+        }
+      });
+
+      await connectedService.executeRepair();
+
+      expect(connectedService.execution()?.state).toBe('COMPLETED');
+      expect(connectedService.revalidation()?.state).toBe('FAILED');
+      expect(connectedService.errorMessage()).toBe('Checksum divergence detected after mutation');
+    });
+
+    it('should project Four-Eyes rejection only on explicit POLICY_DENIED and retain generic transport error for others', async () => {
+      connectedService.setFixture('SINGLE_UPDATE_PROPOSAL');
+      connectedService.setMissionId('val-mission-7788');
+
+      // 1. Explicit Four-Eyes policy rejection
+      mockIpc.dispatchValidationRepair.mockResolvedValue({
+        status: 'ERROR',
+        code: 'POLICY_DENIED',
+        error: 'Four-eyes violation: Requester cannot approve their own action.'
+      });
+
+      await connectedService.executeRepair();
+
+      expect(connectedService.governance()?.state).toBe('REJECTED');
+      expect(connectedService.summary().governanceState).toBe('REJECTED');
+      expect(connectedService.governance()?.rejectionReason).toContain('Four-eyes violation');
+
+      // 2. Generic transport/backend error: must NOT project as Four-Eyes policy rejection!
+      connectedService.setFixture('SINGLE_UPDATE_PROPOSAL');
+      connectedService.setMissionId('val-mission-7788');
+
+      mockIpc.dispatchValidationRepair.mockResolvedValue({
+        status: 'ERROR',
+        code: 'UNAVAILABLE',
+        error: 'Engine gateway binding is temporarily unavailable.'
+      });
+
+      await connectedService.executeRepair();
+
+      // Governance state should NOT be set to REJECTED for a transport failure
+      expect(connectedService.governance()?.state).not.toBe('REJECTED');
+      expect(connectedService.execution()?.state).toBe('FAILED');
+      expect(connectedService.errorMessage()).toBe('Engine gateway binding is temporarily unavailable.');
+    });
+
+    it('should trigger revalidation with authoritative mission ID and refresh discrepancies on success', async () => {
+      connectedService.setFixture('SINGLE_UPDATE_PROPOSAL');
+      connectedService.setMissionId('val-mission-7788');
+
+      mockIpc.executeValidationMission.mockResolvedValue({
+        status: 'SUCCESS',
+        data: { status: 'SUCCESS' }
+      });
+      mockIpc.listValidationDiscrepancies.mockResolvedValue({
+        status: 'SUCCESS',
+        data: { discrepancies: [] }
+      });
+
+      await connectedService.triggerRevalidation();
+
+      expect(mockIpc.executeValidationMission).toHaveBeenCalledWith({ mission_id: 'val-mission-7788' });
+      expect(connectedService.revalidation()?.state).toBe('PASSED');
+      expect(mockIpc.listValidationDiscrepancies).toHaveBeenCalledWith({ mission_id: 'val-mission-7788', limit: 100 });
+    });
   });
 });

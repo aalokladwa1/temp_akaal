@@ -1296,6 +1296,15 @@ export class CockpitAdapterService {
         isDestructive: false,
         confirmationRequired: false
       });
+    } else if (state === 'COMPLETED' || state === 'CUTOVER') {
+      actions.push({
+        id: 'LAUNCH_VALIDATION',
+        label: 'Launch Validation Mission',
+        icon: 'check-square',
+        isPrimary: true,
+        isDestructive: false,
+        confirmationRequired: false
+      });
     }
 
     // Secondary / Destructive actions

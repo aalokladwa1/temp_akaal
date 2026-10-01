@@ -80,6 +80,22 @@ export interface StepRailItem {
 
       </header>
 
+      <!-- Dismissible Migration Handoff Error Notice (B-VAL-03) -->
+      @if (handoffError()) {
+        <div class="bg-rose-50 border-b border-rose-200 text-rose-800 px-6 py-2.5 flex items-center justify-between shrink-0 z-20">
+          <div class="flex items-center gap-2 min-w-0">
+            <app-lucide-icon name="alert-circle" [size]="15" class="text-rose-600 shrink-0"></app-lucide-icon>
+            <span class="text-xs font-semibold truncate">{{ handoffError() }}</span>
+          </div>
+          <button
+            type="button"
+            (click)="dismissHandoffError()"
+            class="text-xs font-bold text-rose-700 hover:text-rose-900 cursor-pointer underline ml-4 shrink-0">
+            Dismiss
+          </button>
+        </div>
+      }
+
       <!-- ========================================================================= -->
       <!-- ZONE 2: 8-STEP PROCESS STEPPER (Floating steps matching GDS)             -->
       <!-- ========================================================================= -->
@@ -302,7 +318,18 @@ export class NewValidationWizardComponent implements OnInit, OnDestroy {
   public nextStepLabel = computed(() => this.currentStepItem().nextLabel);
   public previousStepLabel = computed(() => this.currentStepItem().prevLabel || 'Previous');
 
+  public handoffBlocked = signal<boolean>(false);
+  public handoffError = signal<string | null>(null);
+  public originatingMigrationId = signal<string | null>(null);
+
+  public dismissHandoffError(): void {
+    this.handoffError.set(null);
+  }
+
   public isCurrentStepValid = computed(() => {
+    if (this.handoffBlocked()) {
+      return false;
+    }
     return this.vs.isStepValid(this.currentStep());
   });
 
@@ -357,7 +384,7 @@ export class NewValidationWizardComponent implements OnInit, OnDestroy {
       this.routeSub.add(paramSub);
     }
 
-    // Sync step from query param (?step=6 or ?step=strategy)
+    // Sync step and parameters from query param (?step=6, ?projectId=..., ?migrationId=...)
     if (this.route.queryParamMap) {
       const querySub = this.route.queryParamMap.subscribe(queryParams => {
         const stepQuery = queryParams?.get?.('step');
@@ -368,8 +395,137 @@ export class NewValidationWizardComponent implements OnInit, OnDestroy {
         if (proj) {
           this.projectId.set(proj);
         }
+        const migId = queryParams?.get?.('migrationId');
+        if (migId) {
+          this.originatingMigrationId.set(migId);
+          this.hydrateFromMigration(migId);
+        }
       });
       this.routeSub.add(querySub);
+    }
+  }
+
+  public async hydrateFromMigration(migId: string): Promise<void> {
+    if (!this.migrationIpc) {
+      this.handoffBlocked.set(true);
+      this.handoffError.set('Validation IPC is unavailable to hydrate migration record.');
+      return;
+    }
+
+    try {
+      const res = await this.migrationIpc.getMigration(migId);
+      if (!res || res.status !== 'SUCCESS' || !res.data) {
+        this.handoffBlocked.set(true);
+        this.handoffError.set(`Migration handoff failed: migration "${migId}" could not be resolved from authoritative records.`);
+        return;
+      }
+
+      const mig = res.data;
+      const state = mig.state;
+      // Parity validation requires an eligible completed or cutover execution state
+      if (state !== 'COMPLETED' && state !== 'CUTOVER') {
+        this.handoffBlocked.set(true);
+        this.handoffError.set(`Migration handoff failed: migration "${migId}" is in state "${state}". Parity validation is only permitted for completed or cutover migrations.`);
+        return;
+      }
+
+      // Valid and eligible migration!
+      this.handoffBlocked.set(false);
+      this.handoffError.set(null);
+
+      const cfg = mig.configuration || {};
+      const srcConnId = cfg.source_connection_id || cfg.sourceConnectionId;
+      const tgtConnId = cfg.target_connection_id || cfg.targetConnectionId;
+
+      let srcHost = cfg.source_host || cfg.sourceHost || '';
+      let srcPort = Number(cfg.source_port || cfg.sourcePort || 0);
+      let srcDb = cfg.source_database || cfg.sourceDatabase || '';
+      let srcUser = cfg.source_username || cfg.sourceUsername || '';
+      let srcProvider = cfg.source_provider || cfg.sourceProvider || mig.sourceProvider || mig.source_provider || '';
+
+      let tgtHost = cfg.target_host || cfg.targetHost || '';
+      let tgtPort = Number(cfg.target_port || cfg.targetPort || 0);
+      let tgtDb = cfg.target_database || cfg.targetDatabase || '';
+      let tgtUser = cfg.target_username || cfg.targetUsername || '';
+      let tgtProvider = cfg.target_provider || cfg.targetProvider || mig.targetProvider || mig.target_provider || '';
+
+      // If connection IDs are present, resolve authoritative connection records
+      if (srcConnId) {
+        try {
+          const srcRes = await this.migrationIpc.getConnection(srcConnId);
+          if (srcRes?.status === 'SUCCESS' && srcRes.data) {
+            const sc = srcRes.data;
+            const params = sc.parameters || {};
+            srcProvider = srcProvider || sc.providerName || sc.providerId || sc.provider || '';
+            srcHost = srcHost || params['host'] || sc.host || '';
+            srcPort = srcPort || Number(params['port']) || Number(sc.port) || 0;
+            srcDb = srcDb || params['database'] || params['service_name'] || sc.databaseName || '';
+            srcUser = srcUser || params['username'] || sc.username || '';
+          }
+        } catch {
+          // Keep existing values
+        }
+      }
+
+      if (tgtConnId) {
+        try {
+          const tgtRes = await this.migrationIpc.getConnection(tgtConnId);
+          if (tgtRes?.status === 'SUCCESS' && tgtRes.data) {
+            const tc = tgtRes.data;
+            const params = tc.parameters || {};
+            tgtProvider = tgtProvider || tc.providerName || tc.providerId || tc.provider || '';
+            tgtHost = tgtHost || params['host'] || tc.host || '';
+            tgtPort = tgtPort || Number(params['port']) || Number(tc.port) || 0;
+            tgtDb = tgtDb || params['database'] || params['service_name'] || tc.databaseName || '';
+            tgtUser = tgtUser || params['username'] || tc.username || '';
+          }
+        } catch {
+          // Keep existing values
+        }
+      }
+
+      const scopeUnits = (cfg.comparison_units || cfg.comparisonUnits || cfg.selected_tables || []).map((t: any) => {
+        if (typeof t === 'string') {
+          return {
+            id: `unit-${t}`,
+            sourceName: t,
+            expectedTargetName: t,
+            targetName: t,
+            targetStatus: 'CONFIRMED',
+            status: 'VERIFIED',
+            coveragePolicy: 'EXHAUSTIVE',
+            discrepancyCount: 0
+          };
+        }
+        return t;
+      });
+
+      this.vs.updateDraft({
+        name: `Validation: ${mig.name || mig.migration_id || migId}`,
+        environment: mig.environment || cfg.environment || 'Production',
+        projectId: mig.project_id || mig.projectId,
+        validationContext: (mig.project_id || mig.projectId) ? 'EXISTING_PROJECT' : 'INDEPENDENT',
+        sourceConnectionMode: srcConnId ? 'SAVED' : 'NEW',
+        sourceConnectionId: srcConnId,
+        sourceProvider: srcProvider as any,
+        sourceHost: srcHost,
+        sourcePort: srcPort,
+        sourceDatabase: srcDb,
+        sourceUsername: srcUser,
+        targetConnectionMode: tgtConnId ? 'SAVED' : 'NEW',
+        targetConnectionId: tgtConnId,
+        targetProvider: tgtProvider as any,
+        targetHost: tgtHost,
+        targetPort: tgtPort,
+        targetDatabase: tgtDb,
+        targetUsername: tgtUser,
+        targetSchema: tgtDb || cfg.target_schema || cfg.targetSchema || '',
+        comparisonUnits: scopeUnits,
+        scopedPairs: scopeUnits
+      });
+    } catch (err: any) {
+      this.handoffBlocked.set(true);
+      this.handoffError.set(`Migration handoff resolution error: ${err?.message || 'Unknown resolution failure'}`);
     }
   }
 

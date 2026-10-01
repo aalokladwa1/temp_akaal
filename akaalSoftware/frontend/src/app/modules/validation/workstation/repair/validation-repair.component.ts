@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ValidationRepairService } from './validation-repair.service';
 import { ValidationWorkstationService } from '../validation-workstation.service';
@@ -76,7 +76,21 @@ export class ValidationRepairComponent implements OnInit {
   readonly store = inject(ValidationRepairService);
   private readonly workstationService = inject(ValidationWorkstationService);
 
+  constructor() {
+    effect(() => {
+      const id = this.workstationService.validationId();
+      if (id) {
+        this.store.setMissionId(id);
+      }
+    });
+  }
+
   ngOnInit(): void {
+    const missionId = this.workstationService.validationId();
+    if (missionId) {
+      this.store.setMissionId(missionId);
+    }
+
     const currentExecutionState = this.workstationService.executionState();
     const verdict = this.workstationService.verdict();
 
