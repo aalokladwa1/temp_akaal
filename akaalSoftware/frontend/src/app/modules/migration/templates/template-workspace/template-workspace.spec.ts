@@ -6,9 +6,26 @@ import { TEMPLATE_WORKSPACE_TABS, TemplateWorkspaceTab } from './template-worksp
 
 describe('Template Workspace (Part C) — Unit & Hostile Test Suite', () => {
   let service: TemplateWorkspaceService;
+  let mockIpc: any;
+  let mockMigrationIpc: any;
 
   beforeEach(() => {
-    service = new TemplateWorkspaceService();
+    mockIpc = {
+      connectionState: () => 'connected',
+      invoke: async () => ({ status: 'SUCCESS' })
+    };
+    mockMigrationIpc = {
+      getTemplate: async (id: string) => {
+        const fixture = TEMPLATE_WORKSPACE_FIXTURES[id];
+        if (fixture) {
+          return { status: 'SUCCESS', data: fixture };
+        }
+        return { status: 'ERROR', error: `Template with ID "${id}" was not found or is inaccessible.` };
+      },
+      deprecateTemplate: async () => ({ status: 'SUCCESS' }),
+      deleteTemplate: async () => ({ status: 'SUCCESS' })
+    };
+    service = new TemplateWorkspaceService(mockMigrationIpc, mockIpc);
   });
 
   // =========================================================================

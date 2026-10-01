@@ -14,7 +14,8 @@ export type CanonicalPlanMode =
   | 'M4_INCREMENTAL'
   | 'M5_STATE_SYNC'
   | 'M6_SCHEMA_ONLY'
-  | 'M7_DATA_ONLY';
+  | 'M7_DATA_ONLY'
+  | 'M8_VALIDATION_ONLY';
 
 export type PlanNodeType = 'EXECUTION_STAGE' | 'APPROVAL_BARRIER';
 
@@ -57,7 +58,7 @@ export interface PlanWorkObject {
   id: string;
   name: string;
   schema: string;
-  type: 'TABLE' | 'PARTITION' | 'VIEW' | 'PROCEDURE' | 'SEQUENCE' | 'INDEX';
+  type: 'TABLE' | 'PARTITION' | 'VIEW' | 'PROCEDURE' | 'SEQUENCE' | 'INDEX' | 'COLLECTION' | 'TOPIC';
   strategy: string;
   estimatedRows: number;
   rowsProvenance: ProvenanceType;

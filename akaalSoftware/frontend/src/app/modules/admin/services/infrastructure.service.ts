@@ -41,9 +41,25 @@ export class InfrastructureService {
   public async loadFromBackend(): Promise<void> {
     if (!this.adminIpc) return;
     try {
-      const resp = await this.adminIpc.listInfraAgents();
-      if (resp.status === 'SUCCESS' && resp.data) {
-        // Enriched infra state
+      const respEnv = await this.adminIpc.listEnvironments();
+      if (respEnv.status === 'SUCCESS' && respEnv.data) {
+        const envs = Array.isArray(respEnv.data) ? respEnv.data : (respEnv.data.environments || []);
+        if (envs.length > 0) {
+          const mapped: CloudEnvironment[] = envs.map((e: any) => ({
+            id: e.environment_id || e.id,
+            name: e.name || e.environment_id,
+            provider: (e.cloud_provider || e.provider || 'AWS') as any,
+            accountIdOrTenant: e.tenant_id || e.accountIdOrTenant || 'enterprise-root',
+            defaultRegion: e.region || e.defaultRegion || 'us-east-1',
+            credentialRef: e.credential_ref || 'vault://secret/cloud/default',
+            status: (e.status || 'ACTIVE') as any,
+            configuredRegions: [e.region || 'us-east-1'],
+            executionSiteIds: [],
+            tags: [e.tier || 'PRODUCTION', e.compliance_level || 'STANDARD'],
+            createdAt: e.created_at || new Date().toISOString()
+          }));
+          this.cloudEnvironments.set(mapped);
+        }
       }
     } catch {
       // Offline fallback

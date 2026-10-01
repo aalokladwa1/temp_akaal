@@ -214,6 +214,13 @@ export type HistorySortOption =
   | 'discrepancies_desc'
   | 'rows_desc';
 
+export type HistoryDateRangeOption =
+  | 'ALL'
+  | 'TODAY'
+  | 'LAST_7_DAYS'
+  | 'LAST_30_DAYS'
+  | 'CUSTOM';
+
 export interface HistoryFilterState {
   searchQuery: string;
   project: string | 'ALL';
@@ -222,5 +229,9 @@ export interface HistoryFilterState {
   validationState: ValidationReconciliationState | 'ALL';
   evidence: string | 'ALL';
   continuity: string | 'ALL';
+  dateRange: HistoryDateRangeOption;
+  startDate?: string;
+  endDate?: string;
   sortBy: HistorySortOption;
 }
+

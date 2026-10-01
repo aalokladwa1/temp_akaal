@@ -22,6 +22,99 @@ from akaalEngine.transport.models.spec import TransportPartition
 logger = logging.getLogger("akaalEngine.transport.drivers.generic_sql")
 
 
+def _create_sql_connection(params: Dict[str, Any]) -> Any:
+    """Dynamically establishes a physical database connection for any SQL provider."""
+    if not params:
+        return None
+    if params.get("db_connection"):
+        return params["db_connection"]
+    if params.get("connection") or params.get("raw_connection"):
+        return params.get("connection") or params.get("raw_connection")
+
+    prov = str(params.get("provider_id") or params.get("provider") or params.get("engine") or "").lower()
+    host = params.get("host") or params.get("server") or "localhost"
+    port = params.get("port")
+    user = params.get("username") or params.get("user") or params.get("db_user")
+    password = params.get("password") or params.get("db_password") or ""
+    database = (
+        params.get("database")
+        or params.get("database_name")
+        or params.get("dbname")
+        or params.get("db_name")
+        or params.get("service_name")
+        or ""
+    )
+
+    try:
+        if prov in ("mysql", "mariadb", "tidb", "singlestore") or (not prov and int(port or 0) == 3306):
+            import pymysql
+            return pymysql.connect(
+                host=host,
+                port=int(port or 3306),
+                user=user or "root",
+                password=password,
+                database=database,
+                autocommit=True,
+            )
+        elif prov in ("postgres", "postgresql", "cockroachdb", "yugabytedb") or (not prov and int(port or 0) == 5432):
+            import psycopg2
+            return psycopg2.connect(
+                host=host,
+                port=int(port or 5432),
+                user=user or "postgres",
+                password=password,
+                dbname=database or "postgres",
+            )
+        elif prov in ("oracle", "orcl") or (not prov and int(port or 0) == 1521):
+            import oracledb
+            dsn = f"{host}:{int(port or 1521)}/{database or 'FREEPDB1'}"
+            return oracledb.connect(user=user, password=password, dsn=dsn)
+        elif prov == "sqlite" or (database and (database.endswith(".db") or database.endswith(".sqlite") or database == ":memory:")):
+            import sqlite3
+            return sqlite3.connect(database or ":memory:")
+        elif prov in ("mssql", "sqlserver") or (not prov and int(port or 0) == 1433):
+            try:
+                import pyodbc
+                conn_str = f"DRIVER={{ODBC Driver 18 for SQL Server}};SERVER={host},{int(port or 1433)};DATABASE={database};UID={user};PWD={password};TrustServerCertificate=yes;"
+                return pyodbc.connect(conn_str)
+            except Exception:
+                import pymssql
+                return pymssql.connect(server=host, port=int(port or 1433), user=user, password=password, database=database)
+    except Exception as exc:
+        logger.debug(f"[_create_sql_connection] Connection attempt for {prov} failed: {exc}")
+
+    if database and (database.endswith(".db") or database.endswith(".sqlite")):
+        import sqlite3
+        return sqlite3.connect(database)
+
+    return None
+
+
+def _format_table_ref(schema: Optional[str], table: str, connection: Any) -> str:
+    mod = type(connection).__module__.lower() if connection else ""
+    if "mysql" in mod or "mariadb" in mod or "pymysql" in mod:
+        if schema and schema not in ("public", "main", ""):
+            return f"`{schema}`.`{table}`"
+        return f"`{table}`"
+    elif "mssql" in mod or "pyodbc" in mod or "pymssql" in mod:
+        if schema and schema not in ("main", ""):
+            return f"[{schema}].[{table}]"
+        return f"[{table}]"
+    else:
+        if schema and schema not in ("main", "public", ""):
+            return f'"{schema}"."{table}"'
+        return f'"{table}"'
+
+
+def _quote_identifier(name: str, connection: Any) -> str:
+    mod = type(connection).__module__.lower() if connection else ""
+    if "mysql" in mod or "mariadb" in mod or "pymysql" in mod:
+        return f"`{name}`"
+    elif "mssql" in mod or "pyodbc" in mod or "pymssql" in mod:
+        return f"[{name}]"
+    return f'"{name}"'
+
+
 class GenericSQLSourceReader(SourceReader):
     """Generic SQL SourceReader using standard Python DB-API 2.0 cursor iteration."""
 
@@ -49,32 +142,40 @@ class GenericSQLSourceReader(SourceReader):
         self.partition = partition
         self.sequence_number = 0
         self._last_key = last_committed_key
-        if self.params.get("db_connection"):
-            self.conn = self.params["db_connection"]
-            self.cursor = self.conn.cursor()
+
+        if not self.conn or (hasattr(self.conn, "closed") and self.conn.closed) or (hasattr(self.conn, "open") and not self.conn.open):
+            self.conn = _create_sql_connection(self.params)
+            if self.conn:
+                self.cursor = self.conn.cursor()
+        else:
+            try:
+                self.cursor = self.conn.cursor()
+            except Exception:
+                self.conn = _create_sql_connection(self.params)
+                if self.conn:
+                    self.cursor = self.conn.cursor()
+
+        if self.cursor:
             pk_col = partition.pk_columns[0] if partition.pk_columns else "id"
             self._pk_col = pk_col
-            sql = f'SELECT * FROM "{partition.schema_name}"."{partition.table_name}"'
+            table_ref = _format_table_ref(partition.schema_name, partition.table_name, self.conn)
+            pk_quoted = _quote_identifier(pk_col, self.conn)
+
+            sql = f"SELECT * FROM {table_ref}"
             conditions: List[str] = []
             exec_params: List[Any] = []
             if partition.lower_bound is not None and partition.upper_bound is not None:
-                conditions.append(f'"{pk_col}" >= {partition.lower_bound} AND "{pk_col}" < {partition.upper_bound}')
+                conditions.append(f"{pk_quoted} >= {partition.lower_bound} AND {pk_quoted} < {partition.upper_bound}")
             elif partition.is_null_partition:
-                conditions.append(f'"{pk_col}" IS NULL')
+                conditions.append(f"{pk_quoted} IS NULL")
             if last_committed_key is not None:
-                # EXACT_RESUME: a fresh process reopening this partition after a crash must
-                # continue strictly after the last durably-committed key, not silently
-                # re-scan the whole table (which would re-deliver already-written rows and
-                # falsify the EXACT_RESUME capability this reader declares above).
                 paramstyle = _resolve_paramstyle(self.conn)
                 placeholder = _build_placeholder(paramstyle, 1)
-                conditions.append(f'"{pk_col}" > {placeholder}')
+                conditions.append(f"{pk_quoted} > {placeholder}")
                 exec_params.append(last_committed_key)
             if conditions:
                 sql += " WHERE " + " AND ".join(conditions)
-            # ORDER BY is required for EXACT_RESUME correctness: fetchmany() pagination and
-            # keyset resume both depend on a stable row order across a fresh cursor/connection.
-            sql += f' ORDER BY "{pk_col}"'
+            sql += f" ORDER BY {pk_quoted}"
             if exec_params:
                 self.cursor.execute(sql, tuple(exec_params))
             else:
@@ -120,6 +221,13 @@ class GenericSQLSourceReader(SourceReader):
                 self.cursor.close()
             except Exception:
                 pass
+            self.cursor = None
+        if self.conn:
+            try:
+                self.conn.close()
+            except Exception:
+                pass
+            self.conn = None
 
 
 def _resolve_paramstyle(connection: Any) -> str:
@@ -181,39 +289,154 @@ class GenericSQLTargetWriter(TargetWriter):
             resumability=ResumabilityMode.EXACT_RESUME,
         )
 
+    def _connect(self) -> None:
+        if self.conn is not None:
+            if (hasattr(self.conn, "closed") and self.conn.closed) or (hasattr(self.conn, "open") and not self.conn.open):
+                self.conn = None
+                self.cursor = None
+        if self.conn is not None and self.cursor is not None:
+            return
+        if self.params.get("db_connection"):
+            self.conn = self.params["db_connection"]
+            self.cursor = self.conn.cursor()
+            return
+        self.conn = _create_sql_connection(self.params)
+        if self.conn:
+            self.cursor = self.conn.cursor()
+        else:
+            from akaalEngine.transport.models.errors import TransportWriteError
+            raise TransportWriteError("GenericSQLTargetWriter has no active database connection or cursor.")
+
     def write_batch(
         self,
         table_name: str,
         batch: TransportBatch,
         target_schema: str = "public",
-        pk_columns: None = None,
+        pk_columns: Optional[Sequence[str]] = None,
         allow_merge: bool = True,
     ) -> int:
         self.verify_fencing()
         if not batch.rows:
             return 0
-        if not self.cursor:
-            if self.params.get("db_connection"):
-                self.conn = self.params["db_connection"]
-                self.cursor = self.conn.cursor()
-            else:
-                from akaalEngine.transport.models.errors import TransportWriteError
-                raise TransportWriteError("GenericSQLTargetWriter has no active database connection or cursor.")
+        self._connect()
 
         cols = batch.column_names
         paramstyle = _resolve_paramstyle(self.conn)
         placeholders = _build_placeholder(paramstyle, len(cols))
-        sql = f'INSERT INTO "{target_schema}"."{table_name}" ({", ".join(cols)}) VALUES ({placeholders})'
-        data_tuples = [tuple(r.get(c) for c in cols) for r in batch.rows]
-        self._in_transaction = True
+
+        on_conflict_clause = ""
+        if allow_merge and pk_columns:
+            pk_cols = [str(p) for p in pk_columns]
+            pk_cols_upper = set(p.upper() for p in pk_cols)
+            non_pk_cols = [c for c in cols if str(c).upper() not in pk_cols_upper]
+            driver_mod = type(self.conn).__module__.lower() if self.conn else ""
+            if "sqlite" in driver_mod or "sqlite3" in driver_mod:
+                pk_str = ", ".join([f'"{p}"' for p in pk_cols])
+                if non_pk_cols:
+                    set_str = ", ".join([f'"{c}" = excluded."{c}"' for c in non_pk_cols])
+                    on_conflict_clause = f" ON CONFLICT ({pk_str}) DO UPDATE SET {set_str}"
+                else:
+                    on_conflict_clause = f" ON CONFLICT ({pk_str}) DO NOTHING"
+            elif "mysql" in driver_mod or "mariadb" in driver_mod or "pymysql" in driver_mod:
+                if non_pk_cols:
+                    set_str = ", ".join([f'`{c}` = VALUES(`{c}`)' for c in non_pk_cols])
+                    on_conflict_clause = f" ON DUPLICATE KEY UPDATE {set_str}"
+                else:
+                    on_conflict_clause = f" ON DUPLICATE KEY UPDATE `{pk_cols[0]}` = `{pk_cols[0]}`"
+
+        table_ref = _format_table_ref(target_schema, table_name, self.conn)
+        quoted_cols = ", ".join([_quote_identifier(c, self.conn) for c in cols])
+        sql = f"INSERT INTO {table_ref} ({quoted_cols}) VALUES ({placeholders}){on_conflict_clause}"
+        data_tuples = [tuple(r.get(c, r.get(c.lower(), r.get(c.upper()))) for c in cols) for r in batch.rows]
         try:
             self.cursor.executemany(sql, data_tuples)
             written = self.cursor.rowcount if (hasattr(self.cursor, "rowcount") and self.cursor.rowcount >= 0) else len(batch.rows)
             self._active_tx_uncommitted_rows += written
             return written
+        except Exception as exc:
+            if allow_merge and pk_columns:
+                pk_cols = [str(p) for p in pk_columns]
+                pk_cols_upper = set(p.upper() for p in pk_cols)
+                non_pk_cols = [c for c in cols if str(c).upper() not in pk_cols_upper]
+                if non_pk_cols:
+                    written_count = 0
+                    for r, tuple_val in zip(batch.rows, data_tuples):
+                        set_clauses = [f"{_quote_identifier(c, self.conn)} = {_build_placeholder(paramstyle, 1)}" for c in non_pk_cols]
+                        where_clauses = [f"{_quote_identifier(p, self.conn)} = {_build_placeholder(paramstyle, 1)}" for p in pk_cols]
+                        update_sql = f"UPDATE {table_ref} SET {', '.join(set_clauses)} WHERE {' AND '.join(where_clauses)}"
+                        update_params = [r.get(c, r.get(c.lower(), r.get(c.upper()))) for c in non_pk_cols] + [r.get(p, r.get(p.lower(), r.get(p.upper()))) for p in pk_cols]
+                        try:
+                            self.cursor.execute(update_sql, tuple(update_params))
+                            rc = getattr(self.cursor, "rowcount", -1)
+                            if rc > 0:
+                                written_count += rc
+                            elif rc == 0:
+                                single_insert_sql = f"INSERT INTO {table_ref} ({quoted_cols}) VALUES ({placeholders})"
+                                self.cursor.execute(single_insert_sql, tuple_val)
+                                written_count += 1
+                            else:
+                                # rc == -1 (driver rowcount unmeasured/unavailable for execute); statement succeeded without exception
+                                written_count += 1
+                        except Exception as inner_exc:
+                            logger.debug(f"[GenericSQLTargetWriter] Row upsert fallback error: {inner_exc}")
+                            raise inner_exc
+                    self._active_tx_uncommitted_rows += written_count
+                    return written_count
+            self._in_transaction = True
+            raise
+
+    def delete_batch(
+        self,
+        table_name: str,
+        target_schema: str,
+        pk_columns: Any,
+        key_records: Any,
+    ) -> int:
+        self.verify_fencing()
+        if not key_records or not pk_columns:
+            return 0
+        self._connect()
+
+        paramstyle = _resolve_paramstyle(self.conn)
+        where_clauses = []
+        for i, pk in enumerate(pk_columns):
+            pk_q = _quote_identifier(str(pk), self.conn)
+            if paramstyle in ("format", "pyformat"):
+                where_clauses.append(f"{pk_q} = %s")
+            elif paramstyle == "numeric":
+                where_clauses.append(f"{pk_q} = :{i+1}")
+            elif paramstyle == "named":
+                where_clauses.append(f"{pk_q} = :p{i}")
+            else:
+                where_clauses.append(f"{pk_q} = ?")
+
+        table_ref = _format_table_ref(target_schema, table_name, self.conn)
+        sql = f"DELETE FROM {table_ref} WHERE {' AND '.join(where_clauses)}"
+        data_tuples = [
+            tuple(rec.get(pk, rec.get(pk.upper(), rec.get(pk.lower()))) for pk in pk_columns)
+            for rec in key_records
+        ]
+        self._in_transaction = True
+        try:
+            self.cursor.executemany(sql, data_tuples)
+            deleted = self.cursor.rowcount if (hasattr(self.cursor, "rowcount") and self.cursor.rowcount >= 0) else len(key_records)
+            self._active_tx_uncommitted_rows += deleted
+            return deleted
         except Exception:
             self._in_transaction = True
             raise
+
+    def execute_ddl(self, ddl: str) -> None:
+        """Executes a DDL statement on the target database."""
+        if not ddl or not ddl.strip():
+            return
+        self._connect()
+        try:
+            self.cursor.execute(ddl)
+            if hasattr(self.conn, "commit"):
+                self.conn.commit()
+        except Exception as exc:
+            logger.debug(f"[GenericSQLTargetWriter] DDL execution notice: {exc}")
 
     def verify_uncertain_commit(
         self,
@@ -251,3 +474,11 @@ class GenericSQLTargetWriter(TargetWriter):
                 self.cursor.close()
             except Exception:
                 pass
+            self.cursor = None
+        if self.conn:
+            try:
+                self.conn.close()
+            except Exception:
+                pass
+            self.conn = None
+

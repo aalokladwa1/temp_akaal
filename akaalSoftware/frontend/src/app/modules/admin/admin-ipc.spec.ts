@@ -120,6 +120,17 @@ describe('AdministrationIpcService', () => {
       expect(res.status).toBe('SUCCESS');
     });
 
+    it('should invoke user.delete command', async () => {
+      (mockIpcService.invoke as any).mockResolvedValueOnce({
+        status: 'SUCCESS',
+        data: { user_id: 'usr-100', deleted: true },
+      });
+
+      const res = await adminIpc.deleteUser({ user_id: 'usr-100' });
+      expect(mockIpcService.invoke).toHaveBeenCalledWith('admin', 'user.delete', { user_id: 'usr-100' });
+      expect(res.status).toBe('SUCCESS');
+    });
+
     it('should invoke role.assign command', async () => {
       (mockIpcService.invoke as any).mockResolvedValueOnce({
         status: 'SUCCESS',

@@ -137,10 +137,11 @@ class MySQLDiscoveryStrategy(RelationalDiscoveryStrategy):
             try:
                 cur = connection.cursor()
                 cur.execute("""
-                    SELECT TABLE_NAME, TABLE_TYPE, TABLE_ROWS, DATA_LENGTH, INDEX_LENGTH
-                    FROM information_schema.TABLES
-                    WHERE TABLE_SCHEMA = %s
-                    ORDER BY TABLE_NAME
+                    SELECT t.TABLE_NAME, t.TABLE_TYPE, t.TABLE_ROWS, t.DATA_LENGTH, t.INDEX_LENGTH, v.VIEW_DEFINITION
+                    FROM information_schema.TABLES t
+                    LEFT JOIN information_schema.VIEWS v ON v.TABLE_SCHEMA = t.TABLE_SCHEMA AND v.TABLE_NAME = t.TABLE_NAME
+                    WHERE t.TABLE_SCHEMA = %s
+                    ORDER BY t.TABLE_NAME
                     LIMIT %s OFFSET %s
                 """, (schema_name, page_size + 1, offset))
                 rows = cur.fetchall()
@@ -150,12 +151,14 @@ class MySQLDiscoveryStrategy(RelationalDiscoveryStrategy):
 
                 for r in rows:
                     tname, ttype, nrows, dlen, ilen = r[0], r[1], r[2], r[3], r[4]
+                    vdef = r[5] if len(r) > 5 else None
                     if "VIEW" in str(ttype).upper():
                         views.append(
                             ViewFacts(
                                 name=tname,
                                 schema_name=schema_name,
                                 is_materialized=False,
+                                definition_sql=str(vdef) if vdef else None,
                             )
                         )
                     else:
@@ -195,82 +198,8 @@ class MySQLDiscoveryStrategy(RelationalDiscoveryStrategy):
         object_name: str,
         context: DiscoveryContext,
     ) -> ObjectStructureFacts:
-        cols = []
-        primary_key = None
-        fks = []
-        indexes = []
-
-        if connection is not None and hasattr(connection, "cursor"):
-            try:
-                cur = connection.cursor()
-                # Columns
-                cur.execute("""
-                    SELECT ORDINAL_POSITION, COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH,
-                           NUMERIC_PRECISION, NUMERIC_SCALE, IS_NULLABLE, COLUMN_DEFAULT, EXTRA
-                    FROM information_schema.COLUMNS
-                    WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s
-                    ORDER BY ORDINAL_POSITION
-                """, (schema_name, object_name))
-                for r in cur.fetchall():
-                    pos, cname, dtype, clen, prec, scale, nullb, dflt, extra = r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7], r[8]
-                    is_auto = "auto_increment" in str(extra).lower()
-                    is_lob = any(t in str(dtype).lower() for t in ("blob", "text", "json"))
-                    cols.append(
-                        ColumnPhysicalMetadata(
-                            name=cname,
-                            ordinal_position=pos,
-                            native_type=str(dtype).upper(),
-                            length=clen,
-                            precision=prec,
-                            scale=scale,
-                            nullable=(str(nullb).upper() == "YES"),
-                            default_expression=str(dflt) if dflt is not None else None,
-                            is_identity=is_auto,
-                            is_lob=is_lob,
-                        )
-                    )
-
-                # Primary Key & Indexes
-                cur.execute("""
-                    SELECT INDEX_NAME, COLUMN_NAME, NON_UNIQUE, INDEX_TYPE
-                    FROM information_schema.STATISTICS
-                    WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s
-                    ORDER BY INDEX_NAME, SEQ_IN_INDEX
-                """, (schema_name, object_name))
-                idx_map: dict[str, dict[str, Any]] = {}
-                for r in cur.fetchall():
-                    iname, col, non_u, itype = r[0], r[1], r[2], r[3]
-                    if iname not in idx_map:
-                        idx_map[iname] = {"cols": [], "unique": (non_u == 0), "type": itype}
-                    idx_map[iname]["cols"].append(col)
-
-                for iname, info in idx_map.items():
-                    if iname == "PRIMARY":
-                        primary_key = PrimaryKeyFacts(name="PRIMARY", table_name=object_name, columns=tuple(info["cols"]), schema_name=schema_name)
-                    else:
-                        indexes.append(
-                            IndexFacts(
-                                name=iname,
-                                table_name=object_name,
-                                schema_name=schema_name,
-                                columns=tuple(info["cols"]),
-                                is_unique=info["unique"],
-                                access_method=IndexAccessMethod.BTREE,
-                            )
-                        )
-                cur.close()
-            except Exception as exc:
-                logger.warning(f"Error querying mysql structure for {schema_name}.{object_name}: {exc}")
-                raise
-
-        return ObjectStructureFacts(
-            table_name=object_name,
-            schema_name=schema_name,
-            columns=tuple(cols),
-            primary_key=primary_key,
-            foreign_keys=tuple(fks),
-            indexes=tuple(indexes),
-        )
+        bulk_res = self.discover_objects_structure_bulk(connection, spec, schema_name, [object_name], context)
+        return bulk_res.get(object_name, ObjectStructureFacts(table_name=object_name, schema_name=schema_name))
 
     def discover_objects_structure_bulk(
         self,
@@ -334,6 +263,7 @@ class MySQLDiscoveryStrategy(RelationalDiscoveryStrategy):
 
             pk_by_tbl: dict[str, Optional[PrimaryKeyFacts]] = {}
             indexes_by_tbl: dict[str, list[IndexFacts]] = {name: [] for name in object_names}
+            uniques_by_tbl: dict[str, list[UniqueConstraintFacts]] = {name: [] for name in object_names}
 
             for tname, t_idx in idx_map.items():
                 for iname, info in t_idx.items():
@@ -350,6 +280,64 @@ class MySQLDiscoveryStrategy(RelationalDiscoveryStrategy):
                                 access_method=IndexAccessMethod.BTREE,
                             )
                         )
+                        if info["unique"]:
+                            uniques_by_tbl.setdefault(tname, []).append(
+                                UniqueConstraintFacts(
+                                    name=iname,
+                                    table_name=tname,
+                                    columns=tuple(info["cols"]),
+                                    schema_name=schema_name,
+                                )
+                            )
+
+            # 3. Bulk Foreign Keys
+            fks_by_tbl: dict[str, list[ForeignKeyFacts]] = {name: [] for name in object_names}
+            try:
+                cur.execute(f"""
+                    SELECT k.TABLE_NAME, k.CONSTRAINT_NAME, k.COLUMN_NAME,
+                           k.REFERENCED_TABLE_SCHEMA, k.REFERENCED_TABLE_NAME, k.REFERENCED_COLUMN_NAME,
+                           rc.UPDATE_RULE, rc.DELETE_RULE
+                    FROM information_schema.KEY_COLUMN_USAGE k
+                    JOIN information_schema.REFERENTIAL_CONSTRAINTS rc
+                      ON rc.CONSTRAINT_SCHEMA = k.TABLE_SCHEMA
+                     AND rc.CONSTRAINT_NAME = k.CONSTRAINT_NAME
+                     AND rc.TABLE_NAME = k.TABLE_NAME
+                    WHERE k.TABLE_SCHEMA = %s AND k.TABLE_NAME IN ({format_strings}) AND k.REFERENCED_TABLE_NAME IS NOT NULL
+                    ORDER BY k.TABLE_NAME, k.CONSTRAINT_NAME, k.ORDINAL_POSITION
+                """, [schema_name] + names_list)
+                fk_collector: dict[str, dict[str, dict[str, Any]]] = {name: {} for name in object_names}
+                for r in cur.fetchall():
+                    tname, conname, col, ref_sch, ref_tbl, ref_col, upd, dela = r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7]
+                    tbl_fks = fk_collector.setdefault(tname, {})
+                    if conname not in tbl_fks:
+                        tbl_fks[conname] = {
+                            "cols": [],
+                            "ref_sch": ref_sch or schema_name,
+                            "ref_tbl": ref_tbl,
+                            "ref_cols": [],
+                            "on_update": upd or "NO ACTION",
+                            "on_delete": dela or "NO ACTION",
+                        }
+                    tbl_fks[conname]["cols"].append(col)
+                    tbl_fks[conname]["ref_cols"].append(ref_col)
+
+                for tname, tbl_fks in fk_collector.items():
+                    for conname, finfo in tbl_fks.items():
+                        fks_by_tbl.setdefault(tname, []).append(
+                            ForeignKeyFacts(
+                                name=conname,
+                                table_name=tname,
+                                columns=tuple(finfo["cols"]),
+                                referenced_schema=finfo["ref_sch"],
+                                referenced_table=finfo["ref_tbl"],
+                                referenced_columns=tuple(finfo["ref_cols"]),
+                                schema_name=schema_name,
+                                on_update=finfo["on_update"],
+                                on_delete=finfo["on_delete"],
+                            )
+                        )
+            except Exception as fk_exc:
+                logger.warning(f"Error querying mysql foreign keys in {schema_name}: {fk_exc}")
 
             cur.close()
             for name in object_names:
@@ -358,6 +346,8 @@ class MySQLDiscoveryStrategy(RelationalDiscoveryStrategy):
                     schema_name=schema_name,
                     columns=tuple(cols_by_tbl.get(name, [])),
                     primary_key=pk_by_tbl.get(name),
+                    foreign_keys=tuple(fks_by_tbl.get(name, [])),
+                    unique_constraints=tuple(uniques_by_tbl.get(name, [])),
                     indexes=tuple(indexes_by_tbl.get(name, [])),
                 )
         except Exception as exc:
@@ -415,6 +405,7 @@ class MySQLDiscoveryStrategy(RelationalDiscoveryStrategy):
         context: DiscoveryContext,
     ) -> ProgrammableInventory:
         routines = []
+        triggers = []
         if connection is not None and hasattr(connection, "cursor"):
             try:
                 cur = connection.cursor()
@@ -433,11 +424,30 @@ class MySQLDiscoveryStrategy(RelationalDiscoveryStrategy):
                             definition_sql=rdef,
                         )
                     )
+
+                cur.execute("""
+                    SELECT TRIGGER_NAME, EVENT_OBJECT_TABLE, ACTION_TIMING, EVENT_MANIPULATION, ACTION_STATEMENT
+                    FROM information_schema.TRIGGERS
+                    WHERE TRIGGER_SCHEMA = %s
+                """, (schema_name,))
+                for r in cur.fetchall():
+                    tname, tbl, timing, evt, stmt = r[0], r[1], r[2], r[3], r[4]
+                    triggers.append(
+                        TriggerFacts(
+                            name=tname,
+                            table_name=tbl,
+                            schema_name=schema_name,
+                            timing=timing,
+                            event=evt,
+                            definition_sql=stmt,
+                        )
+                    )
+
                 cur.close()
             except Exception as exc:
-                logger.warning(f"Error discovering mysql routines: {exc}")
+                logger.warning(f"Error discovering mysql programmables: {exc}")
 
-        return ProgrammableInventory(routines=tuple(routines))
+        return ProgrammableInventory(routines=tuple(routines), triggers=tuple(triggers))
 
     def discover_partitioning(
         self,

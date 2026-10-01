@@ -88,11 +88,6 @@ export class TemplatesHomeComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    if (this.ts.availabilityState() === 'LOADING') {
-      setTimeout(() => {
-        this.ts.availabilityState.set('READY');
-      }, 100);
-    }
   }
 
   showTable(): boolean {

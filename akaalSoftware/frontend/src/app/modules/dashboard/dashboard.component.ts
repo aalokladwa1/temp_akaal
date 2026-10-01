@@ -105,14 +105,14 @@ import { RecentActivityComponent } from './components/recent-activity.component'
       <div class="grid grid-cols-12 gap-6 items-stretch">
         <div class="col-span-12 lg:col-span-8 flex flex-col">
           <app-active-migrations
-            [migrations]="ds.dashboardData()?.activeMigrations ?? []"
+            [migrations]="ds.dashboardData()?.activeMigrations ?? null"
             class="flex-1">
           </app-active-migrations>
         </div>
 
         <div class="col-span-12 lg:col-span-4 flex flex-col">
           <app-attention-queue
-            [items]="ds.dashboardData()?.attentionItems ?? []"
+            [items]="ds.dashboardData()?.attentionItems ?? null"
             class="flex-1">
           </app-attention-queue>
         </div>
@@ -131,7 +131,7 @@ import { RecentActivityComponent } from './components/recent-activity.component'
 
         <div class="flex flex-col">
           <app-pending-approvals
-            [approvals]="ds.dashboardData()?.pendingApprovals ?? []"
+            [approvals]="ds.dashboardData()?.pendingApprovals ?? null"
             class="flex-1">
           </app-pending-approvals>
         </div>
@@ -150,7 +150,7 @@ import { RecentActivityComponent } from './components/recent-activity.component'
 
         <div class="flex flex-col">
           <app-alerts-incidents
-            [incidents]="ds.dashboardData()?.incidents ?? []"
+            [incidents]="ds.dashboardData()?.incidents ?? null"
             class="flex-1">
           </app-alerts-incidents>
         </div>
@@ -179,7 +179,7 @@ import { RecentActivityComponent } from './components/recent-activity.component'
       <!-- ROW 6: RECENT ACTIVITY TIMELINE (COMPACT & BOUNDED)             -->
       <!-- =============================================================== -->
       <app-recent-activity
-        [events]="ds.dashboardData()?.recentEvents ?? []">
+        [events]="ds.dashboardData()?.recentEvents ?? null">
       </app-recent-activity>
 
     </div>
@@ -191,5 +191,6 @@ export class DashboardComponent implements OnInit {
 
   ngOnInit(): void {
     this.ds.refreshDashboard();
+    this.ds.loadCurrentAccount();
   }
 }

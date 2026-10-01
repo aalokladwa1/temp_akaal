@@ -286,6 +286,11 @@ class PlanExecutionCoordinator:
             ),
         )
 
+        conn.execute(
+            "UPDATE migrations SET state = ?, updated_at = ? WHERE migration_id = ?",
+            (MigrationLifecycleState.ACTIVE.value, now_str, migration.migration_id),
+        )
+
         # Materialize each node execution record
         for node in plan.nodes:
             # Nodes with no unsatisfied dependencies start as READY; others BLOCKED
@@ -1220,8 +1225,36 @@ class PlanExecutionCoordinator:
                     _finalize_worker, _finalize_tenant_id = _worker_to_finalize
                     finalize_worker_after_dispatch(self.fabric_dependencies.worker_registry, _finalize_worker, _finalize_tenant_id)
 
-            # Check if task was accepted for asynchronous background completion
-            if getattr(engine_res, "is_in_progress", False):
+            # Check if task was accepted for asynchronous background completion / continuous execution
+            is_in_prog = (
+                getattr(engine_res, "is_in_progress", False)
+                or (isinstance(getattr(engine_res, "result_payload", None), dict) and (
+                    engine_res.result_payload.get("is_in_progress") is True
+                    or engine_res.result_payload.get("status") in ("SYNCING", "RUNNING", "IN_PROGRESS", "ACTIVE_CAPTURING")
+                ))
+            )
+            if is_in_prog:
+                with uow_factory() as uow_prog:
+                    now_str = datetime.now(timezone.utc).isoformat()
+                    res_payload_str = json.dumps(engine_res.result_payload) if isinstance(getattr(engine_res, "result_payload", None), dict) else str(getattr(engine_res, "result_payload", ""))
+                    uow_prog.connection.execute(
+                        "UPDATE node_executions SET state = ?, result_payload = ?, updated_at = ? WHERE node_execution_id = ?",
+                        (
+                            NodeExecutionState.RUNNING.value,
+                            res_payload_str,
+                            now_str,
+                            node_to_dispatch.node_execution_id,
+                        ),
+                    )
+                    uow_prog.connection.execute(
+                        "UPDATE plan_executions SET status = ?, updated_at = ? WHERE execution_id = ?",
+                        (PlanExecutionStatus.RUNNING.value, now_str, execution_id),
+                    )
+                    uow_prog.connection.execute(
+                        "UPDATE migrations SET state = ?, updated_at = ? WHERE migration_id = ?",
+                        (MigrationLifecycleState.ACTIVE.value, now_str, plan.migration_id),
+                    )
+                    self._evaluate_and_activate_successors(execution_id, plan, actor, uow_prog)
                 return ExecutionOutcome(is_success=True, status="RUNNING")
 
             # Step D: Reconcile Result & Advance Successors
@@ -1372,7 +1405,7 @@ class PlanExecutionCoordinator:
             current_st = states.get(node.node_id)
             if current_st == NodeExecutionState.BLOCKED.value:
                 all_deps_succeeded = all(
-                    states.get(dep_id) == NodeExecutionState.SUCCEEDED.value
+                    states.get(dep_id) in (NodeExecutionState.SUCCEEDED.value, NodeExecutionState.RUNNING.value)
                     for dep_id in node.dependencies
                 )
                 if all_deps_succeeded:

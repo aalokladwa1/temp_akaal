@@ -5,7 +5,7 @@
  * Manages local investigation UI state (selection, filtering, pagination) while preserving canonical truth.
  */
 
-import { Injectable, signal, computed } from '@angular/core';
+import { Injectable, signal, computed, inject } from '@angular/core';
 import {
   DiscrepanciesWorkspaceModel,
   DiscrepancyItem,
@@ -18,11 +18,29 @@ import {
   FIXTURE_DISCREPANCIES_DEFAULT_NOT_CONNECTED,
   DISCREPANCIES_FIXTURES
 } from './validation-discrepancies.fixtures';
+import { MigrationIpc } from '../../../../core/services/ipc/migration.ipc';
+import { IpcService } from '../../../../core/services/ipc.service';
 
 @Injectable({
   providedIn: 'root'
 })
 export class ValidationDiscrepanciesService {
+  private migrationIpc: MigrationIpc;
+  private ipc: IpcService;
+
+  constructor(migrationIpc?: MigrationIpc, ipc?: IpcService) {
+    if (ipc) {
+      this.ipc = ipc;
+    } else {
+      try { this.ipc = inject(IpcService, { optional: true }) || new IpcService(); } catch { this.ipc = new IpcService(); }
+    }
+
+    if (migrationIpc) {
+      this.migrationIpc = migrationIpc;
+    } else {
+      try { this.migrationIpc = inject(MigrationIpc, { optional: true }) || new MigrationIpc(this.ipc); } catch { this.migrationIpc = new MigrationIpc(this.ipc); }
+    }
+  }
   // Main workspace state signal (defaults strictly to truthful NOT_CONNECTED)
   private _state = signal<DiscrepanciesWorkspaceModel>(FIXTURE_DISCREPANCIES_DEFAULT_NOT_CONNECTED);
   readonly state = this._state.asReadonly();
@@ -233,5 +251,93 @@ export class ValidationDiscrepanciesService {
    */
   resetToProductionDefault(): void {
     this._state.set(FIXTURE_DISCREPANCIES_DEFAULT_NOT_CONNECTED);
+  }
+
+  /**
+   * Fetches canonical discrepancy findings for an active validation mission from backend IPC.
+   * Replaces mock fixture authority with real production query projection.
+   */
+  async loadMissionDiscrepancies(missionId: string): Promise<void> {
+    this.setViewStatus('LOADING');
+    try {
+      const res = await this.migrationIpc.listValidationDiscrepancies({ mission_id: missionId, limit: 100 });
+      if (res && res.status === 'SUCCESS' && res.data && Array.isArray((res.data as any).discrepancies)) {
+        const rawItems = (res.data as any).discrepancies as any[];
+        const items: DiscrepancyItem[] = rawItems.map(d => {
+          const srcVal = d.source_value || {};
+          const tgtVal = d.target_value || {};
+          const keys = Array.from(new Set([...Object.keys(srcVal), ...Object.keys(tgtVal)]));
+          const diffAttrs = keys.filter(k => srcVal[k] !== tgtVal[k]);
+
+          const category: DiscrepancyCategory = d.reason === 'MISSING_TARGET'
+            ? 'MISSING_ON_TARGET'
+            : (d.reason === 'EXTRA_TARGET' ? 'EXTRA_ON_TARGET' : 'VALUE_DIFFERENCE');
+
+          return {
+            id: d.discrepancy_id,
+            objectName: d.table_name || 'Unknown Table',
+            partitionId: 'p0',
+            recordKey: typeof d.record_key === 'object' ? JSON.stringify(d.record_key) : String(d.record_key || '—'),
+            category,
+            proofTier: 'TIER_4_ATTRIBUTE',
+            reconciliationState: (d.status as ReconciliationState) || 'UNRESOLVED',
+            differenceSummary: d.reason || 'Mismatch detected',
+            affectedAttributes: diffAttrs,
+            totalAttributesCompared: keys.length,
+            sourceEndpoint: { provider: 'Source', label: 'Source System', location: d.table_name || 'Source Table' },
+            targetEndpoint: { provider: 'Target', label: 'Target System', location: d.table_name || 'Target Table' },
+            attributes: keys.map(k => {
+              const isDiff = srcVal[k] !== tgtVal[k];
+              return {
+                attributeName: k,
+                sourceValue: srcVal[k] !== undefined ? srcVal[k] : null,
+                sourceValueKind: srcVal[k] === undefined ? 'ABSENT' : (srcVal[k] === null ? 'NULL' : 'SCALAR'),
+                targetValue: tgtVal[k] !== undefined ? tgtVal[k] : null,
+                targetValueKind: tgtVal[k] === undefined ? 'ABSENT' : (tgtVal[k] === null ? 'NULL' : 'SCALAR'),
+                diffType: isDiff ? 'DIFFERENT' : 'MATCH'
+              };
+            })
+          };
+        });
+
+        if (items.length === 0) {
+          this._state.update(curr => ({
+            ...curr,
+            items: [],
+            viewStatus: 'EMPTY',
+            errorMessage: undefined
+          }));
+        } else {
+          const categoriesSet = new Set(items.map(i => i.category));
+          const objectsSet = new Set(items.map(i => i.objectName));
+          this._state.update(curr => ({
+            ...curr,
+            items,
+            selectedDiscrepancyId: items[0].id,
+            viewStatus: 'READY',
+            errorMessage: undefined,
+            summary: {
+              ...curr.summary,
+              totalDiscrepanciesCount: items.length,
+              valueMismatchesCount: items.filter(i => i.category === 'VALUE_DIFFERENCE').length,
+              missingRecordsCount: items.filter(i => i.category === 'MISSING_ON_TARGET').length,
+              extraRecordsCount: items.filter(i => i.category === 'EXTRA_ON_TARGET').length,
+              affectedObjectsCount: objectsSet.size,
+              affectedCategoriesCount: categoriesSet.size
+            },
+            pagination: {
+              ...curr.pagination,
+              totalItems: items.length,
+              totalPages: 1
+            }
+          }));
+        }
+        return;
+      }
+
+      this.setViewStatus('EMPTY');
+    } catch (err: any) {
+      this.setViewStatus('ERROR', err?.message || 'Failed to load validation discrepancies from backend.');
+    }
   }
 }

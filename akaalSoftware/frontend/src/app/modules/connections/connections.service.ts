@@ -318,7 +318,7 @@ export class ConnectionsService {
 
   private mapBackendConnection(item: any): ConnectionRecord {
     return {
-      id: item.id || item.connection_id || `conn-${Math.random().toString(36).substring(2, 7)}`,
+      id: item.id || item.connection_id || '',
       name: item.name || item.connection_name || 'Unnamed Connection',
       description: item.description,
       providerId: item.providerId || item.provider_id || 'postgresql',
@@ -345,7 +345,8 @@ export class ConnectionsService {
         isUnused: true,
         usageAvailable: true
       },
-      tags: item.tags || []
+      tags: Array.isArray(item.tags) ? item.tags : (typeof item.tags === 'string' ? [item.tags] : [item.environment || 'Production']),
+      parameters: item.parameters || (typeof item.configuration === 'string' && item.configuration.startsWith('{') ? JSON.parse(item.configuration) : (typeof item.configuration === 'object' ? item.configuration : {}))
     };
   }
 
@@ -421,6 +422,39 @@ export class ConnectionsService {
       return false;
     } catch (err: any) {
       this.errorMessage.set(err?.message || 'Error creating connection');
+      return false;
+    }
+  }
+
+  public async updateConnection(payload: any): Promise<boolean> {
+    try {
+      const res = await this.migrationIpc.updateConnection(payload);
+      if (res.status === 'SUCCESS') {
+        await this.loadState();
+        return true;
+      }
+      this.errorMessage.set(res.error || 'Failed to update connection');
+      return false;
+    } catch (err: any) {
+      this.errorMessage.set(err?.message || 'Error updating connection');
+      return false;
+    }
+  }
+
+  public async deleteConnection(connId: string): Promise<boolean> {
+    try {
+      const res = await this.migrationIpc.deleteConnection(connId);
+      if (res.status === 'SUCCESS') {
+        this.connections.update(list => list.filter(c => c.id !== connId));
+        if (this.selectedConnection()?.id === connId) {
+          this.closeInspectDrawer();
+        }
+        return true;
+      }
+      this.errorMessage.set(res.error || 'Failed to delete connection');
+      return false;
+    } catch (err: any) {
+      this.errorMessage.set(err?.message || 'Error deleting connection');
       return false;
     }
   }

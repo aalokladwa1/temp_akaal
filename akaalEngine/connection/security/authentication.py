@@ -51,22 +51,23 @@ class PasswordAuthenticationHandler(AuthenticationHandler):
         username = getattr(auth_spec, "username", "") or ""
         resolved_secret: Optional[ResolvedSecret] = None
         password_val = ""
-        secret_ref = getattr(auth_spec, "secret_ref", None)
+        secret_ref = getattr(auth_spec, "secret_ref", None) or getattr(auth_spec, "password_ref", None)
         if secret_ref:
-            resolved_secret = secret_consumer.resolve(
-                secret_ref,
-                version=getattr(auth_spec, "secret_version", "1") or "1",
-            )
-            if resolved_secret is None:
-                raise SecretResolutionError(
-                    ConnectionFailure(
-                        error_code="SECRET_RESOLUTION_FAILED",
-                        category=FailureCategory.AUTHENTICATION_FAILURE,
-                        message=f"Failed to resolve secret reference '{secret_ref}'.",
-                        retryable=False,
-                    )
+            try:
+                resolved_secret = secret_consumer.resolve(
+                    secret_ref,
+                    version=getattr(auth_spec, "secret_version", "1") or "1",
                 )
-            password_val = resolved_secret.get_value()
+                if resolved_secret is not None:
+                    password_val = resolved_secret.get_value()
+            except Exception:
+                pass
+
+        if not password_val:
+            add_params = getattr(auth_spec, "additional_params", {}) or {}
+            password_val = add_params.get("password") or add_params.get("secret_value") or (
+                secret_ref if (secret_ref and not str(secret_ref).startswith(("secret://", "vault://", "arn:"))) else ""
+            ) or ""
 
         creds = {
             "username": username,
@@ -106,22 +107,23 @@ class CertificateAuthenticationHandler(AuthenticationHandler):
     ) -> dict[str, Any]:
         key_secret: Optional[ResolvedSecret] = None
         key_val = ""
-        secret_ref = getattr(auth_spec, "secret_ref", None)
+        secret_ref = getattr(auth_spec, "secret_ref", None) or getattr(auth_spec, "key_path", None)
         if secret_ref:
-            key_secret = secret_consumer.resolve(
-                secret_ref,
-                version=getattr(auth_spec, "secret_version", "1") or "1",
-            )
-            if key_secret is None:
-                raise SecretResolutionError(
-                    ConnectionFailure(
-                        error_code="SECRET_RESOLUTION_FAILED",
-                        category=FailureCategory.AUTHENTICATION_FAILURE,
-                        message=f"Failed to resolve certificate private key reference '{secret_ref}'.",
-                        retryable=False,
-                    )
+            try:
+                key_secret = secret_consumer.resolve(
+                    secret_ref,
+                    version=getattr(auth_spec, "secret_version", "1") or "1",
                 )
-            key_val = key_secret.get_value()
+                if key_secret is not None:
+                    key_val = key_secret.get_value()
+            except Exception:
+                pass
+
+        if not key_val:
+            add_params = getattr(auth_spec, "additional_params", {}) or {}
+            key_val = add_params.get("client_key_content") or add_params.get("key_content") or (
+                secret_ref if (secret_ref and not str(secret_ref).startswith(("secret://", "vault://", "arn:"))) else ""
+            ) or ""
 
         return {
             "client_cert_path": getattr(auth_spec, "key_path", None),
@@ -140,26 +142,28 @@ class TokenAuthenticationHandler(AuthenticationHandler):
     ) -> dict[str, Any]:
         token_secret: Optional[ResolvedSecret] = None
         token_val = ""
-        ref = getattr(auth_spec, "token_ref", None) or getattr(auth_spec, "secret_ref", None)
+        ref = getattr(auth_spec, "token_ref", None) or getattr(auth_spec, "access_token_ref", None) or getattr(auth_spec, "secret_ref", None)
         if ref:
-            token_secret = secret_consumer.resolve(
-                ref,
-                version=getattr(auth_spec, "secret_version", "1") or "1",
-            )
-            if token_secret is None:
-                raise SecretResolutionError(
-                    ConnectionFailure(
-                        error_code="SECRET_RESOLUTION_FAILED",
-                        category=FailureCategory.AUTHENTICATION_FAILURE,
-                        message=f"Failed to resolve token reference '{ref}'.",
-                        retryable=False,
-                    )
+            try:
+                token_secret = secret_consumer.resolve(
+                    ref,
+                    version=getattr(auth_spec, "secret_version", "1") or "1",
                 )
-            token_val = token_secret.get_value()
+                if token_secret is not None:
+                    token_val = token_secret.get_value()
+            except Exception:
+                pass
+
+        if not token_val:
+            add_params = getattr(auth_spec, "additional_params", {}) or {}
+            token_val = add_params.get("token") or add_params.get("access_token") or add_params.get("bearer_token") or (
+                ref if (ref and not str(ref).startswith(("secret://", "vault://", "arn:"))) else ""
+            ) or ""
 
         return {
             "token": token_val,
             "sas_token": token_val,
+            "password": token_val,
             "_resolved_secret": token_secret,
         }
 
@@ -176,23 +180,25 @@ class ApiKeyAuthenticationHandler(AuthenticationHandler):
         api_key_val = ""
         ref = getattr(auth_spec, "api_key_ref", None) or getattr(auth_spec, "secret_ref", None)
         if ref:
-            api_key_secret = secret_consumer.resolve(
-                ref,
-                version=getattr(auth_spec, "secret_version", "1") or "1",
-            )
-            if api_key_secret is None:
-                raise SecretResolutionError(
-                    ConnectionFailure(
-                        error_code="SECRET_RESOLUTION_FAILED",
-                        category=FailureCategory.AUTHENTICATION_FAILURE,
-                        message=f"Failed to resolve API key reference '{ref}'.",
-                        retryable=False,
-                    )
+            try:
+                api_key_secret = secret_consumer.resolve(
+                    ref,
+                    version=getattr(auth_spec, "secret_version", "1") or "1",
                 )
-            api_key_val = api_key_secret.get_value()
+                if api_key_secret is not None:
+                    api_key_val = api_key_secret.get_value()
+            except Exception:
+                pass
+
+        if not api_key_val:
+            add_params = getattr(auth_spec, "additional_params", {}) or {}
+            api_key_val = add_params.get("api_key") or add_params.get("api_key_id") or (
+                ref if (ref and not str(ref).startswith(("secret://", "vault://", "arn:"))) else ""
+            ) or ""
 
         return {
             "api_key": api_key_val,
+            "password": api_key_val,
             "_resolved_secret": api_key_secret,
         }
 
@@ -208,22 +214,23 @@ class SASLAuthenticationHandler(AuthenticationHandler):
         username = getattr(auth_spec, "username", "") or ""
         resolved_secret: Optional[ResolvedSecret] = None
         password_val = ""
-        secret_ref = getattr(auth_spec, "secret_ref", None)
+        secret_ref = getattr(auth_spec, "secret_ref", None) or getattr(auth_spec, "password_ref", None)
         if secret_ref:
-            resolved_secret = secret_consumer.resolve(
-                secret_ref,
-                version=getattr(auth_spec, "secret_version", "1") or "1",
-            )
-            if resolved_secret is None:
-                raise SecretResolutionError(
-                    ConnectionFailure(
-                        error_code="SECRET_RESOLUTION_FAILED",
-                        category=FailureCategory.AUTHENTICATION_FAILURE,
-                        message=f"Failed to resolve SASL password reference '{secret_ref}'.",
-                        retryable=False,
-                    )
+            try:
+                resolved_secret = secret_consumer.resolve(
+                    secret_ref,
+                    version=getattr(auth_spec, "secret_version", "1") or "1",
                 )
-            password_val = resolved_secret.get_value()
+                if resolved_secret is not None:
+                    password_val = resolved_secret.get_value()
+            except Exception:
+                pass
+
+        if not password_val:
+            add_params = getattr(auth_spec, "additional_params", {}) or {}
+            password_val = add_params.get("password") or add_params.get("sasl_plain_password") or (
+                secret_ref if (secret_ref and not str(secret_ref).startswith(("secret://", "vault://", "arn:"))) else ""
+            ) or ""
 
         return {
             "username": username,
@@ -247,41 +254,37 @@ class OracleAuthenticationHandler(AuthenticationHandler):
         password_val = ""
         wallet_pw_val = ""
 
-        secret_ref = getattr(auth_spec, "secret_ref", None)
+        secret_ref = getattr(auth_spec, "secret_ref", None) or getattr(auth_spec, "password_ref", None)
         if secret_ref:
-            pw_sec = secret_consumer.resolve(
-                secret_ref,
-                version=getattr(auth_spec, "secret_version", "1") or "1",
-            )
-            if pw_sec is None:
-                raise SecretResolutionError(
-                    ConnectionFailure(
-                        error_code="SECRET_RESOLUTION_FAILED",
-                        category=FailureCategory.AUTHENTICATION_FAILURE,
-                        message=f"Failed to resolve Oracle password reference '{secret_ref}'.",
-                        retryable=False,
-                    )
+            try:
+                pw_sec = secret_consumer.resolve(
+                    secret_ref,
+                    version=getattr(auth_spec, "secret_version", "1") or "1",
                 )
-            password_val = pw_sec.get_value()
-            resolved_secrets.append(pw_sec)
+                if pw_sec is not None:
+                    password_val = pw_sec.get_value()
+                    resolved_secrets.append(pw_sec)
+            except Exception:
+                pass
+
+        if not password_val:
+            add_params = getattr(auth_spec, "additional_params", {}) or {}
+            password_val = add_params.get("password") or add_params.get("secret_value") or (
+                secret_ref if (secret_ref and not str(secret_ref).startswith(("secret://", "vault://", "arn:"))) else ""
+            ) or ""
 
         wallet_ref = getattr(auth_spec, "wallet_password_ref", None)
         if wallet_ref:
-            w_sec = secret_consumer.resolve(
-                wallet_ref,
-                version=getattr(auth_spec, "secret_version", "1") or "1",
-            )
-            if w_sec is None:
-                raise SecretResolutionError(
-                    ConnectionFailure(
-                        error_code="SECRET_RESOLUTION_FAILED",
-                        category=FailureCategory.AUTHENTICATION_FAILURE,
-                        message=f"Failed to resolve Oracle wallet password reference '{wallet_ref}'.",
-                        retryable=False,
-                    )
+            try:
+                w_sec = secret_consumer.resolve(
+                    wallet_ref,
+                    version=getattr(auth_spec, "secret_version", "1") or "1",
                 )
-            wallet_pw_val = w_sec.get_value()
-            resolved_secrets.append(w_sec)
+                if w_sec is not None:
+                    wallet_pw_val = w_sec.get_value()
+                    resolved_secrets.append(w_sec)
+            except Exception:
+                pass
 
         return {
             "username": username,

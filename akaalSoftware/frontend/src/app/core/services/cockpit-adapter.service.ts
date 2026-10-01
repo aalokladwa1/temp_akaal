@@ -37,8 +37,8 @@ export class CockpitAdapterService {
   // --------------------------------------------------------------------------
   public projectIdentity(session: any): CockpitIdentity {
     const mode = (session?.mode || 'M2_BULK_CDC') as MigrationMode;
-    const sourceProvider = session?.sourceProvider || 'Oracle';
-    const targetProvider = session?.targetProvider || 'PostgreSQL';
+    const sourceProvider = session?.sourceProvider || 'Source';
+    const targetProvider = session?.targetProvider || 'Target';
 
     const sourceLabel = session?.sourceDatabase
       ? `${session.sourceDatabase} (${session.sourceHost || 'source.internal'})`
@@ -48,7 +48,7 @@ export class CockpitAdapterService {
       ? `${session.targetDatabase} (${session.targetHost || 'target.internal'})`
       : `${targetProvider} Primary Instance`;
 
-    const lifecycleState = session?.lifecycleState || 'RUNNING';
+    const lifecycleState = session?.lifecycleState || 'IDLE';
 
     return {
       migrationId: session?.id || session?.migrationId || '',
@@ -71,12 +71,12 @@ export class CockpitAdapterService {
         label: targetLabel
       },
       planRevision: session?.planRevision || 1,
-      planFingerprint: session?.planFingerprint || '7f9a2b8e3c1d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f',
+      planFingerprint: session?.planFingerprint || '',
       activeAttempt: session?.activeAttempt || 1,
       lifecycleState,
       lifecycleLabel: this.formatLifecycleLabel(lifecycleState),
-      startedAt: session?.startedAt || '2026-09-06T09:15:00Z',
-      elapsedTimeString: session?.elapsedTimeString || '01:18:42'
+      startedAt: session?.startedAt || null,
+      elapsedTimeString: session?.elapsedTimeString || '00:00:00'
     };
   }
 
@@ -85,21 +85,22 @@ export class CockpitAdapterService {
   // --------------------------------------------------------------------------
   public projectStatusPulse(session: any): CockpitStatusPulse {
     const mode = (session?.mode || 'M2_BULK_CDC') as MigrationMode;
-    const lifecycleState = session?.lifecycleState || 'RUNNING';
+    const lifecycleState = session?.lifecycleState || (session ? 'RUNNING' : 'IDLE');
     const isPaused = lifecycleState === 'PAUSED';
     const isFailed = lifecycleState === 'FAILED';
     const isWaiting = lifecycleState === 'WAITING_FOR_APPROVAL';
+    const isIdle = !session || lifecycleState === 'IDLE';
 
-    let stateHeading = 'RUNNING NORMALLY';
-    let stateBadgeColor = 'bg-emerald-50 text-emerald-700 border-emerald-200';
-    let phaseSubtitle = session?.currentStage || 'Bulk Data Movement & CDC Stream';
-    let activeTaskDescription = session?.activeTaskDescription || 'Copying CUSTOMER_LEDGER · Partition 18/32';
+    let stateHeading = isIdle ? 'IDLE / NO ACTIVE EXECUTION' : 'RUNNING NORMALLY';
+    let stateBadgeColor = isIdle ? 'bg-slate-50 text-slate-600 border-slate-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200';
+    let phaseSubtitle = isIdle ? 'No active migration workload' : (session?.currentStage || 'Bulk Data Movement & CDC Stream');
+    let activeTaskDescription = isIdle ? 'The migration engine is idle. No task is currently executing.' : (session?.activeTaskDescription || 'Active execution');
 
     if (isPaused) {
       stateHeading = 'EXECUTION PAUSED';
       stateBadgeColor = 'bg-amber-50 text-amber-700 border-amber-200';
       phaseSubtitle = 'Replication Checkpointed & Workers Idled';
-      activeTaskDescription = 'State persisted at durable Checkpoint #48,210. Ready for resume.';
+      activeTaskDescription = 'State persisted at durable checkpoint. Ready for resume.';
     } else if (isFailed) {
       stateHeading = 'EXECUTION FAILED';
       stateBadgeColor = 'bg-rose-50 text-rose-700 border-rose-200';
@@ -109,7 +110,7 @@ export class CockpitAdapterService {
       stateHeading = 'WAITING ON APPROVAL BARRIER';
       stateBadgeColor = 'bg-amber-50 text-amber-800 border-amber-300';
       phaseSubtitle = 'Cutover Authorization Gate (Gate #1)';
-      activeTaskDescription = 'Source writes quiesced. CDC converged (12ms lag). Awaiting Dual DBA / SecOps sign-off.';
+      activeTaskDescription = 'Source writes quiesced. CDC converged. Awaiting Dual DBA / SecOps sign-off.';
     }
 
     // Mode-specific horizontal metric ribbons
@@ -122,44 +123,44 @@ export class CockpitAdapterService {
           {
             id: 'volume',
             label: 'WORKLOAD VOLUME',
-            value: isPaused ? '418.7M / 600M' : (session?.rowsProcessedString || '418.7M / 600M'),
+            value: (isPaused || isIdle) ? '0 / 0' : (session?.rowsProcessedString || '0 / 0'),
             unit: 'rows',
-            status: 'NORMAL',
-            detail: `${session?.progressPercent || 69.8}% complete`,
-            sparkline: [10, 25, 38, 45, 52, 60, 68, 70]
+            status: isIdle ? 'MUTED' : 'NORMAL',
+            detail: session?.progressPercent !== undefined ? `${session.progressPercent}% complete` : (isIdle ? 'No active workload' : '0% complete'),
+            sparkline: session?.volumeSparkline || [0, 0, 0, 0]
           },
           {
             id: 'throughput',
             label: 'THROUGHPUT',
-            value: isPaused ? '0' : (session?.throughputRowsSecFormatted || '327K'),
+            value: (isPaused || isIdle) ? '0' : (session?.throughputRowsSecFormatted || '0'),
             unit: 'rows/s',
-            status: isPaused ? 'MUTED' : 'SUCCESS',
-            detail: isPaused ? '0 MB/s (Paused)' : (session?.throughputBytesSecFormatted || '1.42 GB/s'),
-            sparkline: isPaused ? [0, 0, 0, 0] : [240, 260, 280, 275, 310, 320, 315, 327]
+            status: (isPaused || isIdle) ? 'MUTED' : 'SUCCESS',
+            detail: isPaused ? '0 MB/s (Paused)' : (isIdle ? '0 MB/s (Idle)' : (session?.throughputBytesSecFormatted || '0 B/s')),
+            sparkline: (isPaused || isIdle) ? [0, 0, 0, 0] : (session?.throughputSparkline || [0, 0, 0, 0])
           },
           {
             id: 'workers',
             label: 'WORKER CONCURRENCY',
-            value: isPaused ? '0 / 24' : `${session?.activeWorkers || 24} / 24`,
+            value: (isPaused || isIdle) ? '0 / 0' : (session?.activeWorkers !== undefined ? `${session.activeWorkers} / ${session.totalWorkers || session.activeWorkers}` : '0 / 0'),
             unit: 'threads',
-            status: isPaused ? 'MUTED' : 'NORMAL',
-            detail: 'Zero starvation'
+            status: (isPaused || isIdle) ? 'MUTED' : 'NORMAL',
+            detail: isIdle ? 'Workers unassigned' : 'Operational concurrency'
           },
           {
             id: 'eta',
             label: 'ESTIMATED REMAINING',
-            value: isPaused ? '--:--' : (session?.etaString || '09:18'),
+            value: (isPaused || isIdle) ? '--:--' : (session?.etaString || '--:--'),
             unit: 'time',
-            status: 'NORMAL',
-            detail: 'Linear regression'
+            status: isIdle ? 'MUTED' : 'NORMAL',
+            detail: isIdle ? 'Idle' : 'Linear estimation'
           },
           {
             id: 'checkpoint',
             label: 'CHECKPOINT AGE',
-            value: session?.checkpointFreshness || '1.2s',
-            unit: 'fresh',
-            status: 'SUCCESS',
-            detail: 'Durable WAL state'
+            value: isIdle ? 'None' : (session?.checkpointFreshness || 'Durable'),
+            unit: isIdle ? '' : 'fresh',
+            status: isIdle ? 'MUTED' : 'SUCCESS',
+            detail: isIdle ? 'No active checkpoint' : 'Durable WAL state'
           }
         );
         break;
@@ -169,45 +170,45 @@ export class CockpitAdapterService {
           {
             id: 'cdc_lag',
             label: 'CDC REPLICA LAG',
-            value: isPaused ? 'Paused' : `${session?.cdcLagMs ?? 12}`,
-            unit: isPaused ? '' : 'ms',
-            status: (session?.cdcLagMs || 12) < 500 ? 'SUCCESS' : 'WARNING',
-            detail: 'SLA < 500ms',
-            sparkline: [18, 16, 14, 15, 13, 12, 11, 12]
+            value: (isPaused || isIdle) ? '0' : `${session?.cdcLagMs ?? 0}`,
+            unit: (isPaused || isIdle) ? '' : 'ms',
+            status: isIdle ? 'MUTED' : ((session?.cdcLagMs || 0) < 500 ? 'SUCCESS' : 'WARNING'),
+            detail: isIdle ? 'No active stream' : 'SLA < 500ms',
+            sparkline: (isPaused || isIdle) ? [0, 0, 0, 0] : (session?.cdcSparkline || [0, 0, 0, 0])
           },
           {
             id: 'backlog',
             label: 'REPLICATION BACKLOG',
-            value: session?.backlogMbFormatted || '14.2 MB',
+            value: (isPaused || isIdle) ? '0 MB' : (session?.backlogMbFormatted || '0 MB'),
             unit: 'buffer',
-            status: 'NORMAL',
-            detail: 'In-memory ring buffer',
-            sparkline: [22, 20, 18, 17, 16, 15, 14.2]
+            status: isIdle ? 'MUTED' : 'NORMAL',
+            detail: isIdle ? 'Buffer empty' : 'In-memory ring buffer',
+            sparkline: (isPaused || isIdle) ? [0, 0, 0, 0] : (session?.backlogSparkline || [0, 0, 0, 0])
           },
           {
             id: 'apply_rate',
             label: 'APPLY RATE',
-            value: isPaused ? '0' : (session?.applyTxSecFormatted || '38.4K'),
+            value: (isPaused || isIdle) ? '0' : (session?.applyTxSecFormatted || '0'),
             unit: 'tx/s',
-            status: isPaused ? 'MUTED' : 'SUCCESS',
-            detail: 'PostgreSQL target stream',
-            sparkline: isPaused ? [0, 0, 0] : [30, 32, 34, 33, 36, 37, 38.4]
+            status: (isPaused || isIdle) ? 'MUTED' : 'SUCCESS',
+            detail: isIdle ? 'Idle' : 'Target stream apply',
+            sparkline: (isPaused || isIdle) ? [0, 0, 0, 0] : (session?.applySparkline || [0, 0, 0, 0])
           },
           {
             id: 'convergence',
             label: 'CONVERGENCE STATE',
-            value: session?.convergenceState || 'CONVERGED',
+            value: isIdle ? 'IDLE' : (session?.convergenceState || 'CONVERGED'),
             unit: '',
-            status: 'SUCCESS',
-            detail: 'Source & Target in sync'
+            status: isIdle ? 'MUTED' : 'SUCCESS',
+            detail: isIdle ? 'No active replication' : 'Source & Target in sync'
           },
           {
             id: 'active_workers',
             label: 'WORKERS',
-            value: isPaused ? '0 / 16' : `${session?.activeWorkers || 16} / 16`,
+            value: (isPaused || isIdle) ? '0 / 0' : `${session?.activeWorkers || 0} / ${session?.totalWorkers || session?.activeWorkers || 0}`,
             unit: 'active',
-            status: 'NORMAL',
-            detail: 'Parallel chunk ingestion'
+            status: isIdle ? 'MUTED' : 'NORMAL',
+            detail: isIdle ? 'Workers unassigned' : 'Parallel chunk ingestion'
           }
         );
         break;
@@ -217,37 +218,37 @@ export class CockpitAdapterService {
           {
             id: 'cdc_lag',
             label: 'STREAMING LAG',
-            value: `${session?.cdcLagMs ?? 8}`,
-            unit: 'ms',
-            status: 'SUCCESS',
-            detail: 'Zero backlog buildup',
-            sparkline: [12, 10, 9, 8, 9, 8, 8]
+            value: isIdle ? '0' : `${session?.cdcLagMs ?? 0}`,
+            unit: isIdle ? '' : 'ms',
+            status: isIdle ? 'MUTED' : 'SUCCESS',
+            detail: isIdle ? 'Stream inactive' : 'Zero backlog buildup',
+            sparkline: isIdle ? [0, 0, 0, 0] : (session?.cdcSparkline || [0, 0, 0, 0])
           },
           {
             id: 'capture_rate',
             label: 'CAPTURE RATE',
-            value: session?.captureTxSecFormatted || '42.1K',
+            value: isIdle ? '0' : (session?.captureTxSecFormatted || '0'),
             unit: 'events/s',
-            status: 'NORMAL',
-            detail: 'Source transaction log',
-            sparkline: [38, 39, 41, 40, 42, 42.1]
+            status: isIdle ? 'MUTED' : 'NORMAL',
+            detail: isIdle ? 'Idle' : 'Source transaction log',
+            sparkline: isIdle ? [0, 0, 0, 0] : (session?.captureSparkline || [0, 0, 0, 0])
           },
           {
             id: 'apply_rate',
             label: 'APPLY RATE',
-            value: session?.applyTxSecFormatted || '42.1K',
+            value: isIdle ? '0' : (session?.applyTxSecFormatted || '0'),
             unit: 'events/s',
-            status: 'SUCCESS',
-            detail: 'Continuous write pipeline',
-            sparkline: [38, 39, 41, 40, 42, 42.1]
+            status: isIdle ? 'MUTED' : 'SUCCESS',
+            detail: isIdle ? 'Idle' : 'Continuous write pipeline',
+            sparkline: isIdle ? [0, 0, 0, 0] : (session?.applySparkline || [0, 0, 0, 0])
           },
           {
             id: 'buffer_fill',
             label: 'RING BUFFER',
-            value: session?.bufferFillPercent || '6.8%',
+            value: isIdle ? '0%' : (session?.bufferFillPercent || '0%'),
             unit: 'capacity',
-            status: 'NORMAL',
-            detail: '140 MB / 2048 MB'
+            status: isIdle ? 'MUTED' : 'NORMAL',
+            detail: isIdle ? '0 MB used' : (session?.bufferCapacityFormatted || '0 MB / 2048 MB')
           },
           {
             id: 'mode_type',
@@ -265,44 +266,44 @@ export class CockpitAdapterService {
           {
             id: 'watermark',
             label: 'CURRENT WATERMARK',
-            value: session?.watermarkValue || '2026-09-06 09:14:22',
+            value: isIdle ? 'None' : (session?.watermarkValue || 'None'),
             unit: 'timestamp',
-            status: 'NORMAL',
-            detail: 'Column: updated_at'
+            status: isIdle ? 'MUTED' : 'NORMAL',
+            detail: isIdle ? 'No watermark' : 'Column: updated_at'
           },
           {
             id: 'poll_cycle',
             label: 'POLL CYCLE',
-            value: session?.pollIntervalFormatted || 'Every 60s',
+            value: isIdle ? 'Idle' : (session?.pollIntervalFormatted || 'Every 60s'),
             unit: 'interval',
-            status: 'NORMAL',
-            detail: 'Next poll in 18s'
+            status: isIdle ? 'MUTED' : 'NORMAL',
+            detail: isIdle ? 'No active polling' : 'Scheduled cycle'
           },
           {
             id: 'records_last',
             label: 'LAST CYCLE RECORDS',
-            value: session?.recordsLastCycleFormatted || '1,842',
+            value: isIdle ? '0' : (session?.recordsLastCycleFormatted || '0'),
             unit: 'records',
-            status: 'SUCCESS',
-            detail: 'Applied in 420ms',
-            sparkline: [1200, 1450, 1600, 1520, 1800, 1842]
+            status: isIdle ? 'MUTED' : 'SUCCESS',
+            detail: isIdle ? 'Idle' : 'Last poll cycle',
+            sparkline: isIdle ? [0, 0, 0, 0] : (session?.recordsSparkline || [0, 0, 0, 0])
           },
           {
             id: 'query_latency',
             label: 'QUERY DURATION',
-            value: session?.queryDurationFormatted || '114 ms',
+            value: isIdle ? '0 ms' : (session?.queryDurationFormatted || '0 ms'),
             unit: 'latency',
-            status: 'NORMAL',
-            detail: 'Index seek query',
-            sparkline: [130, 125, 120, 118, 115, 114]
+            status: isIdle ? 'MUTED' : 'NORMAL',
+            detail: isIdle ? 'Idle' : 'Index seek query',
+            sparkline: isIdle ? [0, 0, 0, 0] : (session?.queryLatencySparkline || [0, 0, 0, 0])
           },
           {
             id: 'state',
             label: 'POLL ENGINE',
-            value: 'Active Polling',
-            unit: 'healthy',
-            status: 'SUCCESS',
-            detail: 'Zero query timeouts'
+            value: isIdle ? 'Idle' : 'Active Polling',
+            unit: isIdle ? '' : 'healthy',
+            status: isIdle ? 'MUTED' : 'SUCCESS',
+            detail: isIdle ? 'No active poll task' : 'Zero query timeouts'
           }
         );
         break;
@@ -312,43 +313,43 @@ export class CockpitAdapterService {
           {
             id: 'divergence',
             label: 'DIVERGENCE COUNT',
-            value: session?.divergenceCountFormatted || '42',
+            value: isIdle ? '0' : (session?.divergenceCountFormatted || '0'),
             unit: 'diffs',
-            status: (session?.divergenceCount || 42) === 0 ? 'SUCCESS' : 'WARNING',
-            detail: 'Across 14 tables',
-            sparkline: [120, 95, 78, 64, 52, 42]
+            status: isIdle ? 'MUTED' : ((session?.divergenceCount || 0) === 0 ? 'SUCCESS' : 'WARNING'),
+            detail: isIdle ? 'No active comparison' : 'Across scanned tables',
+            sparkline: isIdle ? [0, 0, 0, 0] : (session?.divergenceSparkline || [0, 0, 0, 0])
           },
           {
             id: 'reconciliation',
             label: 'RECONCILIATION',
-            value: session?.correctionsAppliedFormatted || '38 applied',
+            value: isIdle ? 'None' : (session?.correctionsAppliedFormatted || '0 applied'),
             unit: 'corrections',
-            status: 'SUCCESS',
-            detail: '4 pending approval'
+            status: isIdle ? 'MUTED' : 'SUCCESS',
+            detail: isIdle ? 'No pending corrections' : 'Reconciliation status'
           },
           {
             id: 'convergence_trend',
             label: 'CONVERGENCE TREND',
-            value: session?.convergenceTrend || 'CONVERGING ↓',
+            value: isIdle ? 'IDLE' : (session?.convergenceTrend || 'CONVERGED'),
             unit: '',
-            status: 'SUCCESS',
-            detail: 'Divergence decreasing'
+            status: isIdle ? 'MUTED' : 'SUCCESS',
+            detail: isIdle ? 'Sync idle' : 'State reconciliation'
           },
           {
             id: 'cycle',
             label: 'SYNC CYCLE',
-            value: `Cycle #${session?.syncCycle || 14}`,
+            value: isIdle ? 'None' : `Cycle #${session?.syncCycle || 1}`,
             unit: 'active',
-            status: 'NORMAL',
-            detail: 'Full scan 84% done'
+            status: isIdle ? 'MUTED' : 'NORMAL',
+            detail: isIdle ? 'No active cycle' : 'Incremental scan'
           },
           {
             id: 'state_hash',
             label: 'MERKLE HASH',
-            value: '7f9a...e9f',
-            unit: 'sha-256',
-            status: 'NORMAL',
-            detail: 'Verified matching'
+            value: isIdle ? 'None' : (session?.merkleHash || 'Verified'),
+            unit: isIdle ? '' : 'sha-256',
+            status: isIdle ? 'MUTED' : 'NORMAL',
+            detail: isIdle ? 'No state hash' : 'Verified matching'
           }
         );
         break;
@@ -358,42 +359,42 @@ export class CockpitAdapterService {
           {
             id: 'objects_progress',
             label: 'SCHEMA OBJECTS',
-            value: session?.objectsProgressFormatted || '287 / 303',
+            value: isIdle ? '0 / 0' : (session?.objectsProgressFormatted || '0 / 0'),
             unit: 'objects',
-            status: 'NORMAL',
-            detail: '94.7% applied'
+            status: isIdle ? 'MUTED' : 'NORMAL',
+            detail: isIdle ? 'No active schema execution' : 'DDL execution'
           },
           {
             id: 'active_object',
             label: 'ACTIVE DDL',
-            value: session?.activeDdlObject || 'idx_cust_ledger_txn_date',
-            unit: 'INDEX',
-            status: 'NORMAL',
-            detail: 'Building b-tree'
+            value: isIdle ? 'None' : (session?.activeDdlObject || 'None'),
+            unit: isIdle ? '' : 'DDL',
+            status: isIdle ? 'MUTED' : 'NORMAL',
+            detail: isIdle ? 'Idle' : 'Active statement'
           },
           {
             id: 'failed_ddl',
             label: 'FAILURES',
-            value: `${session?.failedDdlCount || 0}`,
+            value: isIdle ? '0' : `${session?.failedDdlCount || 0}`,
             unit: 'failed',
-            status: (session?.failedDdlCount || 0) === 0 ? 'SUCCESS' : 'CRITICAL',
-            detail: '0 syntax errors'
+            status: isIdle ? 'MUTED' : ((session?.failedDdlCount || 0) === 0 ? 'SUCCESS' : 'CRITICAL'),
+            detail: isIdle ? 'No errors' : 'Syntax & constraint errors'
           },
           {
             id: 'workers',
             label: 'DDL THREADS',
-            value: `${session?.activeWorkers || 8} / 8`,
+            value: isIdle ? '0 / 0' : `${session?.activeWorkers || 0} / ${session?.totalWorkers || session?.activeWorkers || 0}`,
             unit: 'threads',
-            status: 'NORMAL',
-            detail: 'Topological order'
+            status: isIdle ? 'MUTED' : 'NORMAL',
+            detail: isIdle ? 'Workers unassigned' : 'Topological order'
           },
           {
             id: 'elapsed',
             label: 'ELAPSED',
-            value: session?.elapsedTimeString || '04:12',
+            value: isIdle ? '00:00' : (session?.elapsedTimeString || '00:00'),
             unit: 'time',
-            status: 'NORMAL',
-            detail: 'ETA 00:45'
+            status: isIdle ? 'MUTED' : 'NORMAL',
+            detail: isIdle ? 'Idle' : (session?.etaString ? `ETA ${session.etaString}` : 'In progress')
           }
         );
         break;
@@ -413,30 +414,49 @@ export class CockpitAdapterService {
   // --------------------------------------------------------------------------
   public projectWorkloadProgress(session: any): WorkloadProgressState {
     const mode = (session?.mode || 'M2_BULK_CDC') as MigrationMode;
+    const lifecycleState = session?.lifecycleState || 'IDLE';
+    const isIdle = !session || lifecycleState === 'IDLE';
     const isContinuous = mode === 'M3_CDC';
     const isSchema = mode === 'M6_SCHEMA_ONLY';
-    const isStateSync = mode === 'M5_STATE_SYNC';
+
+    if (isIdle) {
+      return {
+        isContinuous,
+        isUnknown: false,
+        units: isContinuous ? 'records' : (isSchema ? 'objects' : 'rows'),
+        processed: 0,
+        total: 0,
+        percentage: 0,
+        processedFormatted: isContinuous ? '0 stream events' : (isSchema ? '0 objects' : '0 rows'),
+        totalFormatted: isContinuous ? 'Continuous Stream' : (isSchema ? '0 objects' : '0 rows'),
+        currentRateFormatted: '0 rows/s',
+        etaFormatted: '--:--',
+        elapsedFormatted: '00:00',
+        phaseDescription: 'No active migration workload'
+      };
+    }
 
     if (isContinuous) {
+      const processed = session?.eventsProcessed || 0;
       return {
         isContinuous: true,
         isUnknown: false,
         units: 'records',
-        processed: session?.eventsProcessed || 14280092,
+        processed,
         total: 0,
         percentage: 100,
-        processedFormatted: '14.28M stream events',
+        processedFormatted: `${processed.toLocaleString()} stream events`,
         totalFormatted: 'Continuous Stream',
-        currentRateFormatted: '42.1K events/s',
-        elapsedFormatted: session?.elapsedTimeString || '01:18:42',
-        phaseDescription: 'Continuous transaction log replication active'
+        currentRateFormatted: session?.throughputRowsSecFormatted || '0 events/s',
+        elapsedFormatted: session?.elapsedTimeString || '00:00',
+        phaseDescription: session?.currentStage || 'Continuous transaction log replication active'
       };
     }
 
     if (isSchema) {
-      const processed = session?.objectsCompleted || 287;
-      const total = session?.objectsTotal || 303;
-      const percentage = Math.round((processed / total) * 1000) / 10;
+      const processed = session?.objectsCompleted || 0;
+      const total = session?.objectsTotal || 0;
+      const percentage = total > 0 ? Math.round((processed / total) * 1000) / 10 : 0;
       return {
         isContinuous: false,
         isUnknown: false,
@@ -446,16 +466,16 @@ export class CockpitAdapterService {
         percentage,
         processedFormatted: `${processed} objects`,
         totalFormatted: `${total} objects`,
-        currentRateFormatted: '12 DDL/s',
-        etaFormatted: '00:45',
-        elapsedFormatted: session?.elapsedTimeString || '04:12',
-        phaseDescription: `Applying DDL Stage 4: Indexes & Constraints (${processed}/${total} completed)`
+        currentRateFormatted: session?.throughputRowsSecFormatted || '0 DDL/s',
+        etaFormatted: session?.etaString || '--:--',
+        elapsedFormatted: session?.elapsedTimeString || '00:00',
+        phaseDescription: session?.currentStage || `Applying DDL (${processed}/${total} completed)`
       };
     }
 
-    const processed = session?.rowsProcessed || 418700000;
-    const total = session?.rowsTotal || 600000000;
-    const percentage = Math.round((processed / total) * 1000) / 10;
+    const processed = session?.rowsProcessed || 0;
+    const total = session?.rowsTotal || 0;
+    const percentage = total > 0 ? Math.round((processed / total) * 1000) / 10 : (session?.progressPercent || 0);
 
     return {
       isContinuous: false,
@@ -464,12 +484,12 @@ export class CockpitAdapterService {
       processed,
       total,
       percentage,
-      processedFormatted: `${(processed / 1000000).toFixed(1)}M rows`,
-      totalFormatted: `${(total / 1000000).toFixed(1)}M rows`,
-      currentRateFormatted: session?.throughputRowsSecFormatted || '327K rows/s (1.42 GB/s)',
-      etaFormatted: session?.etaString || '09:18',
-      elapsedFormatted: session?.elapsedTimeString || '01:18:42',
-      phaseDescription: `Stage 3 of 7: Bulk Partition Extraction & Target Ingestion (${percentage}% completed)`
+      processedFormatted: processed >= 1000000 ? `${(processed / 1000000).toFixed(1)}M rows` : `${processed.toLocaleString()} rows`,
+      totalFormatted: total >= 1000000 ? `${(total / 1000000).toFixed(1)}M rows` : `${total.toLocaleString()} rows`,
+      currentRateFormatted: session?.throughputRowsSecFormatted || '0 rows/s',
+      etaFormatted: session?.etaString || '--:--',
+      elapsedFormatted: session?.elapsedTimeString || '00:00',
+      phaseDescription: session?.currentStage || `Bulk Extraction & Target Ingestion (${percentage}% completed)`
     };
   }
 
@@ -477,6 +497,31 @@ export class CockpitAdapterService {
   // 4. PROJECT LIVE EXECUTION PLAN / RUNTIME DAG
   // --------------------------------------------------------------------------
   public projectRuntimeDag(session: any): RuntimeDagTopology {
+    const lifecycleState = session?.lifecycleState || 'IDLE';
+    const isIdle = !session || lifecycleState === 'IDLE';
+
+    if (isIdle && !session?.dagNodes) {
+      return {
+        nodes: [],
+        edges: [],
+        activeNodeIds: [],
+        completedNodeIds: [],
+        waitingBarrierNodeIds: []
+      };
+    }
+
+    if (session?.dagNodes && Array.isArray(session.dagNodes)) {
+      const nodes: RuntimeDagNode[] = session.dagNodes;
+      const edges: RuntimeDagEdge[] = session.dagEdges || [];
+      return {
+        nodes,
+        edges,
+        activeNodeIds: nodes.filter(n => n.runtimeState === 'ACTIVE' || n.runtimeState === 'RUNNING_PARALLEL').map(n => n.id),
+        completedNodeIds: nodes.filter(n => n.runtimeState === 'COMPLETED').map(n => n.id),
+        waitingBarrierNodeIds: nodes.filter(n => n.runtimeState === 'APPROVAL_BARRIER').map(n => n.id)
+      };
+    }
+
     const mode = (session?.mode || 'M2_BULK_CDC') as MigrationMode;
     const isPaused = session?.lifecycleState === 'PAUSED';
     const isWaitingBarrier = session?.lifecycleState === 'WAITING_FOR_APPROVAL';
@@ -496,7 +541,7 @@ export class CockpitAdapterService {
           category: 'SYSTEM',
           stageType: 'PRE_FLIGHT',
           runtimeState: 'COMPLETED',
-          elapsedDuration: '12s',
+          elapsedDuration: session?.preflightDuration || '12s',
           incomingNodeIds: [],
           outgoingNodeIds: ['node-2']
         },
@@ -508,7 +553,7 @@ export class CockpitAdapterService {
           category: 'TRANSFORMATION',
           stageType: 'SCHEMA_DDL',
           runtimeState: 'COMPLETED',
-          elapsedDuration: '48s',
+          elapsedDuration: session?.ddlDuration || '48s',
           incomingNodeIds: ['node-1'],
           outgoingNodeIds: ['node-3']
         },
@@ -520,11 +565,11 @@ export class CockpitAdapterService {
           category: 'TRANSFORMATION',
           stageType: 'SCHEMA_DDL',
           runtimeState: isFailed ? 'FAILED' : 'ACTIVE',
-          progressPercent: 94.7,
-          throughputFormatted: '12 DDL/s',
-          workerAllocation: 8,
-          elapsedDuration: '03:12',
-          failureMessage: isFailed ? 'Target DDL constraint execution rejected due to permission timeout' : undefined,
+          progressPercent: session?.progressPercent || 0,
+          throughputFormatted: session?.throughputRowsSecFormatted || 'Active',
+          workerAllocation: session?.activeWorkers || 0,
+          elapsedDuration: session?.elapsedTimeString || '00:00',
+          failureMessage: isFailed ? (session?.failureMessage || 'Target DDL constraint execution rejected') : undefined,
           incomingNodeIds: ['node-2'],
           outgoingNodeIds: ['node-4']
         },
@@ -557,7 +602,7 @@ export class CockpitAdapterService {
           category: 'SYSTEM',
           stageType: 'PRE_FLIGHT',
           runtimeState: 'COMPLETED',
-          elapsedDuration: '18s',
+          elapsedDuration: session?.preflightDuration || '18s',
           incomingNodeIds: [],
           outgoingNodeIds: ['stage-2']
         },
@@ -569,7 +614,7 @@ export class CockpitAdapterService {
           category: 'TRANSFORMATION',
           stageType: 'SCHEMA_DDL',
           runtimeState: 'COMPLETED',
-          elapsedDuration: '01:24',
+          elapsedDuration: session?.schemaDuration || '01:24',
           incomingNodeIds: ['stage-1'],
           outgoingNodeIds: ['stage-3', 'stage-4']
         },
@@ -577,15 +622,15 @@ export class CockpitAdapterService {
           id: 'stage-3',
           order: 3,
           label: 'Parallel Bulk Table Extraction & Load',
-          subtitle: '16 partition workers ingesting 600M rows',
+          subtitle: session?.bulkSubtitle || 'Partition workers ingesting scoped workload',
           category: 'INGESTION',
           stageType: 'BULK_LOAD',
           runtimeState: isWaitingBarrier ? 'COMPLETED' : (isFailed ? 'FAILED' : (isPaused ? 'WAITING' : 'ACTIVE')),
-          progressPercent: isWaitingBarrier ? 100 : 69.8,
-          throughputFormatted: isPaused ? 'Paused' : '327K rows/s',
-          workerAllocation: isPaused ? 0 : 16,
-          elapsedDuration: '01:18:42',
-          failureMessage: isFailed ? 'Connection pool exhausted on target PostgreSQL instance' : undefined,
+          progressPercent: isWaitingBarrier ? 100 : (session?.progressPercent || 0),
+          throughputFormatted: isPaused ? 'Paused' : (session?.throughputRowsSecFormatted || 'Active'),
+          workerAllocation: isPaused ? 0 : (session?.activeWorkers || 0),
+          elapsedDuration: session?.elapsedTimeString || '00:00',
+          failureMessage: isFailed ? (session?.failureMessage || 'Worker pool execution interrupted') : undefined,
           incomingNodeIds: ['stage-2'],
           outgoingNodeIds: ['barrier-1']
         },
@@ -593,11 +638,11 @@ export class CockpitAdapterService {
           id: 'stage-4',
           order: 4,
           label: 'Continuous CDC Log Stream',
-          subtitle: 'LogMiner capture & target WAL ingestion',
+          subtitle: 'CDC stream capture & target ingestion',
           category: 'INGESTION',
           stageType: 'CDC_CAPTURE',
           runtimeState: isWaitingBarrier ? 'ACTIVE' : (isPaused ? 'WAITING' : 'RUNNING_PARALLEL'),
-          throughputFormatted: '42.1K tx/s',
+          throughputFormatted: session?.cdcThroughputFormatted || (session?.cdcLagMs !== undefined ? `${session.cdcLagMs}ms lag` : 'Active'),
           workerAllocation: 4,
           isContinuous: true,
           incomingNodeIds: ['stage-2'],
@@ -629,7 +674,7 @@ export class CockpitAdapterService {
             rejectionAction: 'HALT_MIGRATION',
             timeoutMinutes: 60,
             timeoutAction: 'ALERT_AND_HOLD',
-            planBindingHash: '7f9a2b8e3c1d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f',
+            planBindingHash: session?.planFingerprint || '',
             isMandatory: true,
             policyLocked: true,
             afterStageId: 'stage-3',
@@ -642,7 +687,7 @@ export class CockpitAdapterService {
           id: 'stage-6',
           order: 6,
           label: 'Production Cutover & Source Quiesce',
-          subtitle: 'Final CDC flush, flip traffic authority to PostgreSQL',
+          subtitle: 'Final CDC flush, transition traffic authority to target',
           category: 'SYSTEM',
           stageType: 'CUTOVER',
           runtimeState: 'UPCOMING',
@@ -732,27 +777,31 @@ export class CockpitAdapterService {
   // 6. PROJECT ENGINE HEALTH (COLLECTION-ORIENTED & EXPLAINABLE)
   // --------------------------------------------------------------------------
   public projectEngineHealth(session: any): EngineHealthSummary {
+    const lifecycleState = session?.lifecycleState || 'IDLE';
+    const isIdle = !session || lifecycleState === 'IDLE';
     const isDegraded = session?.isHealthDegraded || false;
-    const isFailed = session?.lifecycleState === 'FAILED';
+    const isFailed = lifecycleState === 'FAILED';
 
-    let overallStatus: any = 'HEALTHY';
-    let statusLabel = 'Engine Operating Normally';
-    let summaryNarrative = 'All 9 runtime subsystems reporting healthy metrics. Zero connection or backpressure anomalies.';
+    let overallStatus: any = isIdle ? 'HEALTHY' : 'HEALTHY';
+    let statusLabel = isIdle ? 'Engine Idle' : 'Engine Operating Normally';
+    let summaryNarrative = isIdle
+      ? 'No active migration workload. Engine subsystems ready for operation.'
+      : 'All runtime subsystems reporting healthy metrics. Zero connection or backpressure anomalies.';
     let primaryDegradedReason: string | undefined;
     let primaryDegradedEvidence: string | undefined;
 
     if (isFailed) {
       overallStatus = 'CRITICAL';
       statusLabel = 'Critical Failure — Execution Halted';
-      summaryNarrative = 'Target PostgreSQL connection pool exhausted. 16 workers in retry backoff state.';
-      primaryDegradedReason = 'PostgreSQL server returned error 53300: too many connections for role "akaal_worker".';
-      primaryDegradedEvidence = 'Target host connection limit is 20, but engine requested 24 concurrent streams.';
+      summaryNarrative = session?.failureMessage || 'Target connection pool exhausted. Workers in retry backoff state.';
+      primaryDegradedReason = session?.failureReason || 'Target database rejected worker transactions due to connection limits.';
+      primaryDegradedEvidence = session?.failureEvidence || 'Target host connection limit reached for worker pool.';
     } else if (isDegraded) {
       overallStatus = 'DEGRADED';
       statusLabel = 'Engine Operating with Advisory Warnings';
-      summaryNarrative = 'Target write IOPS saturation detected. Ingestion rate automatically throttled by 15%.';
-      primaryDegradedReason = 'Target storage volume reported queue depth > 32 for 4 consecutive intervals.';
-      primaryDegradedEvidence = 'Target write latency increased from 4.2ms to 48.6ms on pg-aurora.internal.';
+      summaryNarrative = 'Target write latency elevated. Ingestion rate automatically throttled.';
+      primaryDegradedReason = session?.degradedReason || 'Target storage volume reported queue depth elevation.';
+      primaryDegradedEvidence = session?.degradedEvidence || 'Target write latency increased during ingestion.';
     }
 
     const subsystems: SubsystemHealthEntry[] = [
@@ -761,9 +810,9 @@ export class CockpitAdapterService {
         name: 'Source Endpoint',
         category: 'STORAGE',
         status: 'HEALTHY',
-        latencyMs: 3.2,
-        throughputMetrics: '280 MB/s read',
-        reason: 'Active session connection healthy',
+        latencyMs: isIdle ? 0 : (session?.sourceLatencyMs || 3.2),
+        throughputMetrics: isIdle ? '0 MB/s read' : (session?.sourceThroughputMetrics || 'Read throughput active'),
+        reason: isIdle ? 'Standby / Idle' : 'Active session connection healthy',
         isCausal: false
       },
       {
@@ -771,14 +820,14 @@ export class CockpitAdapterService {
         name: 'Target Endpoint',
         category: 'STORAGE',
         status: isFailed ? 'CRITICAL' : (isDegraded ? 'DEGRADED' : 'HEALTHY'),
-        latencyMs: isDegraded ? 48.6 : 4.8,
-        throughputMetrics: isDegraded ? '180 MB/s write (throttled)' : '240 MB/s write',
+        latencyMs: isIdle ? 0 : (isDegraded ? 48.6 : (session?.targetLatencyMs || 4.8)),
+        throughputMetrics: isIdle ? '0 MB/s write' : (isDegraded ? 'Write throttled' : (session?.targetThroughputMetrics || 'Target write normal')),
         reason: isFailed
           ? 'Connection pool exhausted'
-          : (isDegraded ? 'IOPS saturation: queue depth > 32' : 'Target write throughput normal'),
+          : (isDegraded ? 'IOPS saturation: elevated queue depth' : (isIdle ? 'Standby / Idle' : 'Target write throughput normal')),
         evidence: isFailed
-          ? 'Error 53300: too many connections'
-          : (isDegraded ? 'Latency spiked to 48.6ms' : 'WAL apply latency 4.8ms'),
+          ? (session?.failureEvidence || 'Error: connection limit reached')
+          : (isDegraded ? 'Latency elevated' : (isIdle ? undefined : 'Apply latency normal')),
         isCausal: isFailed || isDegraded
       },
       {
@@ -786,8 +835,8 @@ export class CockpitAdapterService {
         name: 'Worker Thread Pool',
         category: 'COMPUTE',
         status: isFailed ? 'DEGRADED' : 'HEALTHY',
-        reason: isFailed ? '16 threads waiting on connection pool' : '16/16 threads active without starvation',
-        throughputMetrics: '16 active threads',
+        reason: isFailed ? 'Threads waiting on connection pool' : (isIdle ? 'Workers unassigned' : `${session?.activeWorkers || 0} active threads`),
+        throughputMetrics: isIdle ? '0 active threads' : `${session?.activeWorkers || 0} active threads`,
         isCausal: isFailed
       },
       {
@@ -795,7 +844,7 @@ export class CockpitAdapterService {
         name: 'Execution Site (Local)',
         category: 'TOPOLOGY',
         status: 'HEALTHY',
-        reason: 'Host process memory 2.4 GB / 8.0 GB pool',
+        reason: isIdle ? 'Host process ready' : 'Host process memory within pool limits',
         throughputMetrics: '0% CPU throttling',
         isCausal: false
       },
@@ -804,8 +853,8 @@ export class CockpitAdapterService {
         name: 'Checkpoint Ledger',
         category: 'STATE',
         status: 'HEALTHY',
-        reason: 'Last durable checkpoint 1.2s ago',
-        throughputMetrics: 'Checkpoint #48,210 committed',
+        reason: isIdle ? 'No active checkpoint' : (session?.checkpointFreshness || 'Durable checkpoint recorded'),
+        throughputMetrics: isIdle ? 'None' : (session?.lastCheckpointFormatted || 'Committed'),
         isCausal: false
       },
       {
@@ -813,9 +862,9 @@ export class CockpitAdapterService {
         name: 'CDC Capture Engine',
         category: 'STREAMING',
         status: 'HEALTHY',
-        latencyMs: 12,
-        throughputMetrics: '42.1K events/s',
-        reason: 'LogMiner tailing current SCN',
+        latencyMs: isIdle ? 0 : (session?.cdcCaptureLatencyMs || 0),
+        throughputMetrics: isIdle ? '0 events/s' : (session?.captureTxSecFormatted || '0 events/s'),
+        reason: isIdle ? 'Idle' : 'CDC stream capture active',
         isCausal: false
       },
       {
@@ -823,9 +872,9 @@ export class CockpitAdapterService {
         name: 'CDC Apply Stream',
         category: 'STREAMING',
         status: isDegraded ? 'DEGRADED' : 'HEALTHY',
-        latencyMs: isDegraded ? 24 : 8,
-        throughputMetrics: '38.4K tx/s apply',
-        reason: isDegraded ? 'Target WAL write queue depth elevating' : 'Catchup SLA < 500ms satisfied',
+        latencyMs: isIdle ? 0 : (isDegraded ? 24 : (session?.cdcApplyLatencyMs || 0)),
+        throughputMetrics: isIdle ? '0 tx/s apply' : (session?.applyTxSecFormatted || '0 tx/s apply'),
+        reason: isDegraded ? 'Target write queue depth elevating' : (isIdle ? 'Idle' : 'Catchup SLA satisfied'),
         isCausal: isDegraded
       },
       {
@@ -833,7 +882,7 @@ export class CockpitAdapterService {
         name: 'In-Memory Ring Buffer',
         category: 'MEMORY',
         status: 'HEALTHY',
-        throughputMetrics: '142 MB / 2048 MB (7% used)',
+        throughputMetrics: isIdle ? '0 MB / 2048 MB (0% used)' : (session?.bufferFillPercent ? `${session.bufferFillPercent} capacity` : 'Buffer active'),
         reason: 'Zero spill-to-disk events recorded',
         isCausal: false
       },
@@ -842,7 +891,7 @@ export class CockpitAdapterService {
         name: 'Inline Validation Subsystem',
         category: 'ASSURANCE',
         status: 'HEALTHY',
-        reason: 'Tier 1 row checksum parity 100% verified',
+        reason: isIdle ? 'Standby / Idle' : 'Checksum parity verified',
         throughputMetrics: '0 mismatches',
         isCausal: false
       }
@@ -862,18 +911,37 @@ export class CockpitAdapterService {
   // 7. PROJECT CURRENT PHYSICAL ACTIVITY
   // --------------------------------------------------------------------------
   public projectCurrentActivity(session: any): CurrentActivitySnapshot {
-    const isPaused = session?.lifecycleState === 'PAUSED';
+    const lifecycleState = session?.lifecycleState || 'IDLE';
+    const isIdle = !session || lifecycleState === 'IDLE';
+    const isPaused = lifecycleState === 'PAUSED';
+
+    if (isIdle) {
+      return {
+        activeStageName: 'No active stage',
+        activeEntityName: 'None',
+        entityType: 'TABLE',
+        partitionChunkInfo: 'No active partition chunk',
+        activeWorkerCount: 0,
+        totalWorkerCount: 0,
+        throughputRowsSec: 0,
+        throughputBytesSec: 0,
+        elapsedSec: 0,
+        checkpointContext: 'No active checkpoint',
+        isStalled: false
+      };
+    }
+
     return {
-      activeStageName: session?.currentStage || 'Parallel Bulk Table Extraction & Load',
-      activeEntityName: session?.activeEntityName || 'CUSTOMER_LEDGER',
-      entityType: 'TABLE',
-      partitionChunkInfo: 'Partition 18 of 32 (Range: 18000000..19000000)',
-      activeWorkerCount: isPaused ? 0 : (session?.activeWorkers || 16),
-      totalWorkerCount: 16,
-      throughputRowsSec: isPaused ? 0 : (session?.throughputRowsSec || 327000),
-      throughputBytesSec: isPaused ? 0 : (session?.throughputBytesSec || 1420000000),
-      elapsedSec: session?.elapsedSec || 4722,
-      checkpointContext: 'Checkpoint #48,210 committed (1.2s fresh)',
+      activeStageName: session?.currentStage || 'Active Execution',
+      activeEntityName: session?.activeEntityName || 'None',
+      entityType: session?.entityType || 'TABLE',
+      partitionChunkInfo: session?.partitionChunkInfo || 'Active chunk processing',
+      activeWorkerCount: isPaused ? 0 : (session?.activeWorkers || 0),
+      totalWorkerCount: session?.totalWorkers || session?.activeWorkers || 0,
+      throughputRowsSec: isPaused ? 0 : (session?.throughputRowsSec || 0),
+      throughputBytesSec: isPaused ? 0 : (session?.throughputBytesSec || 0),
+      elapsedSec: session?.elapsedSec || 0,
+      checkpointContext: session?.checkpointContext || (session?.checkpointFreshness ? `Checkpoint fresh (${session.checkpointFreshness})` : 'Durable checkpoint recorded'),
       isStalled: isPaused
     };
   }
@@ -883,6 +951,9 @@ export class CockpitAdapterService {
   // --------------------------------------------------------------------------
   public projectWorkbenchDomains(session: any, activeTab?: string): DynamicWorkbenchData {
     const mode = (session?.mode || 'M2_BULK_CDC') as MigrationMode;
+    const lifecycleState = session?.lifecycleState || 'IDLE';
+    const isIdle = !session || lifecycleState === 'IDLE';
+    const isPaused = lifecycleState === 'PAUSED';
 
     const availableDomains: string[] = ['data_movement', 'cdc_convergence', 'workers_pool', 'execution_sites', 'checkpoint_recovery', 'validation_integrity'];
     if (mode === 'M6_SCHEMA_ONLY') {
@@ -902,145 +973,91 @@ export class CockpitAdapterService {
       activeDomainId,
 
       dataMovement: {
-        totalTables: 303,
-        completedTables: 182,
-        activeTablesCount: 16,
-        overallRowsSec: 327000,
-        overallBytesSec: 1420000000,
-        tableProgressList: [
-          {
-            tableName: 'CUSTOMER_LEDGER',
-            schemaName: 'FINANCE',
-            rowsTotal: 140000000,
-            rowsProcessed: 98000000,
-            percentComplete: 70.0,
-            throughputRowsSec: 145000,
-            activeWorkers: 4,
-            state: 'IN_PROGRESS',
-            retries: 0
-          },
-          {
-            tableName: 'TRANSACTION_JOURNAL',
-            schemaName: 'FINANCE',
-            rowsTotal: 220000000,
-            rowsProcessed: 184000000,
-            percentComplete: 83.6,
-            throughputRowsSec: 120000,
-            activeWorkers: 4,
-            state: 'IN_PROGRESS',
-            retries: 0
-          },
-          {
-            tableName: 'AUDIT_LOG_ARCHIVE',
-            schemaName: 'COMPLIANCE',
-            rowsTotal: 85000000,
-            rowsProcessed: 32000000,
-            percentComplete: 37.6,
-            throughputRowsSec: 62000,
-            activeWorkers: 2,
-            state: 'IN_PROGRESS',
-            retries: 0
-          },
-          {
-            tableName: 'ACCOUNT_REGISTRY',
-            schemaName: 'FINANCE',
-            rowsTotal: 12000000,
-            rowsProcessed: 12000000,
-            percentComplete: 100.0,
-            throughputRowsSec: 0,
-            activeWorkers: 0,
-            state: 'COMPLETED',
-            retries: 0
-          }
-        ]
+        totalTables: session?.totalTables || 0,
+        completedTables: session?.completedTables || 0,
+        activeTablesCount: session?.activeTablesCount || 0,
+        overallRowsSec: isPaused ? 0 : (session?.throughputRowsSec || 0),
+        overallBytesSec: isPaused ? 0 : (session?.throughputBytesSec || 0),
+        tableProgressList: session?.tableProgressList || []
       },
 
       cdcConvergence: {
-        captureScn: '48291048201',
-        applyLsn: '0/1A8F290',
-        lagMs: 12,
-        backlogBytes: 14880000,
-        applyTxSec: 38400,
-        bufferCapacityMb: 2048,
-        bufferUsedMb: 142,
-        convergenceStatus: 'CONVERGED',
-        dlqCount: 0
+        captureScn: session?.captureScn || (isIdle ? 'None' : '0'),
+        applyLsn: session?.applyLsn || (isIdle ? 'None' : '0'),
+        lagMs: isIdle ? 0 : (session?.cdcLagMs || 0),
+        backlogBytes: isIdle ? 0 : (session?.backlogBytes || 0),
+        applyTxSec: (isPaused || isIdle) ? 0 : (session?.applyTxSec || 0),
+        bufferCapacityMb: session?.bufferCapacityMb || 2048,
+        bufferUsedMb: isIdle ? 0 : (session?.bufferUsedMb || 0),
+        convergenceStatus: session?.convergenceState || (isIdle ? 'IDLE' : 'CONVERGED'),
+        dlqCount: session?.dlqCount || 0
       },
 
       workersPool: {
-        totalWorkers: 16,
-        activeWorkers: 16,
-        idleWorkers: 0,
-        unhealthyWorkers: 0,
-        workersList: [
-          { workerId: 'wrk-01', threadId: 1, siteName: 'local-node-01', status: 'ACTIVE', assignedEntity: 'CUSTOMER_LEDGER (Part 18)', throughputRowsSec: 36250, memoryMb: 142, heartbeatAgeMs: 120, consecutiveRetries: 0 },
-          { workerId: 'wrk-02', threadId: 2, siteName: 'local-node-01', status: 'ACTIVE', assignedEntity: 'CUSTOMER_LEDGER (Part 19)', throughputRowsSec: 36250, memoryMb: 138, heartbeatAgeMs: 110, consecutiveRetries: 0 },
-          { workerId: 'wrk-03', threadId: 3, siteName: 'local-node-01', status: 'ACTIVE', assignedEntity: 'CUSTOMER_LEDGER (Part 20)', throughputRowsSec: 36250, memoryMb: 145, heartbeatAgeMs: 95, consecutiveRetries: 0 },
-          { workerId: 'wrk-04', threadId: 4, siteName: 'local-node-01', status: 'ACTIVE', assignedEntity: 'CUSTOMER_LEDGER (Part 21)', throughputRowsSec: 36250, memoryMb: 140, heartbeatAgeMs: 130, consecutiveRetries: 0 }
-        ]
+        totalWorkers: session?.totalWorkers || (isPaused || isIdle ? 0 : (session?.activeWorkers || 0)),
+        activeWorkers: isPaused || isIdle ? 0 : (session?.activeWorkers || 0),
+        idleWorkers: Math.max(0, (session?.totalWorkers || 0) - (session?.activeWorkers || 0)),
+        unhealthyWorkers: session?.unhealthyWorkers || 0,
+        workersList: session?.workersList || []
       },
 
       executionSites: {
-        sitesList: [
-          { siteId: 'site-local-01', siteName: 'Local Engine Process', siteTypeDescriptor: 'Local Host Worker Pool', livenessState: 'ONLINE', workerCapacity: 16, workersAllocated: 16, latencyMs: 0.2, isDrainPending: false }
+        sitesList: session?.executionSites || [
+          { siteId: 'site-local-01', siteName: 'Local Engine Process', siteTypeDescriptor: 'Local Host Worker Pool', livenessState: 'ONLINE', workerCapacity: session?.totalWorkers || 16, workersAllocated: session?.activeWorkers || 0, latencyMs: 0.2, isDrainPending: false }
         ]
       },
 
       checkpointRecovery: {
-        lastCheckpointTimestamp: '2026-09-06T10:33:40Z',
-        lastCheckpointScn: '48291048201',
-        freshnessSeconds: 1.2,
-        resumePosition: 'SCN 48291048201 / WAL 0/1A8F290',
-        activeAttempt: 1,
-        recoveryStrategy: 'ATOMIC_STATE_JOURNAL',
-        isDurable: true
+        lastCheckpointTimestamp: session?.lastCheckpointTimestamp || (isIdle ? 'None' : new Date().toISOString()),
+        lastCheckpointScn: session?.lastCheckpointScn || (isIdle ? 'None' : '0'),
+        freshnessSeconds: isIdle ? 0 : (session?.checkpointFreshnessSeconds || 0),
+        resumePosition: session?.resumePosition || (isIdle ? 'None' : 'Checkpoint initial'),
+        activeAttempt: session?.activeAttempt || 1,
+        recoveryStrategy: session?.recoveryStrategy || 'ATOMIC_STATE_JOURNAL',
+        isDurable: !isIdle
       },
 
       validationIntegrity: {
-        validationMode: 'TIER_1_ROW_HASH',
-        rowCountMatchRate: 100.0,
-        checksumMatchRate: 100.0,
-        discrepanciesCount: 0,
-        discrepancySample: []
+        validationMode: session?.validationMode || 'TIER_1_ROW_HASH',
+        rowCountMatchRate: session?.rowCountMatchRate ?? (isIdle ? 0 : 100.0),
+        checksumMatchRate: session?.checksumMatchRate ?? (isIdle ? 0 : 100.0),
+        discrepanciesCount: session?.discrepanciesCount || 0,
+        discrepancySample: session?.discrepancySample || []
       },
 
       schemaExecution: {
-        totalObjects: 303,
-        completedObjects: 287,
-        failedObjects: 0,
-        currentDdl: 'CREATE INDEX idx_cust_ledger_txn_date ON finance.customer_ledger (transaction_date DESC);',
-        objectStream: [
-          { objectName: 'finance.customer_ledger', objectType: 'TABLE', order: 1, status: 'SUCCEEDED', executionTimeMs: 420 },
-          { objectName: 'finance.transaction_journal', objectType: 'TABLE', order: 2, status: 'SUCCEEDED', executionTimeMs: 380 },
-          { objectName: 'idx_cust_ledger_txn_date', objectType: 'INDEX', order: 288, status: 'APPLYING' }
-        ]
+        totalObjects: session?.objectsTotal || 0,
+        completedObjects: session?.objectsCompleted || 0,
+        failedObjects: session?.failedDdlCount || 0,
+        currentDdl: session?.activeDdlObject || (isIdle ? 'None' : 'Applying DDL'),
+        objectStream: session?.schemaObjectStream || []
       },
 
       incrementalPolling: {
-        watermarkColumn: 'updated_at',
-        currentWatermarkValue: '2026-09-06 09:14:22.000',
-        pollIntervalSec: 60,
-        lastPollDurationMs: 114,
-        recordsLastCycle: 1842,
-        nextPollScheduled: '2026-09-06T09:15:22Z',
-        cycleState: 'IDLE'
+        watermarkColumn: session?.watermarkColumn || (isIdle ? 'None' : 'updated_at'),
+        currentWatermarkValue: session?.watermarkValue || 'None',
+        pollIntervalSec: session?.pollIntervalSec || 60,
+        lastPollDurationMs: session?.lastPollDurationMs || 0,
+        recordsLastCycle: session?.recordsLastCycle || 0,
+        nextPollScheduled: session?.nextPollScheduled || 'None',
+        cycleState: isIdle ? 'IDLE' : (session?.pollCycleState || 'IDLE')
       },
 
       stateSync: {
-        comparisonCycle: 14,
-        divergenceCount: 42,
-        correctionsApplied: 38,
-        unresolvedDiffs: 4,
-        convergenceTrend: 'CONVERGING ↓',
-        lastReconciliationTimestamp: '2026-09-06T09:14:00Z'
+        comparisonCycle: session?.syncCycle || (isIdle ? 0 : 1),
+        divergenceCount: session?.divergenceCount || 0,
+        correctionsApplied: session?.correctionsApplied || 0,
+        unresolvedDiffs: session?.unresolvedDiffs || 0,
+        convergenceTrend: session?.convergenceTrend || (isIdle ? 'IDLE' : 'CONVERGED'),
+        lastReconciliationTimestamp: session?.lastReconciliationTimestamp || (isIdle ? 'None' : new Date().toISOString())
       },
 
       retryThrottling: {
-        retryQueueLength: 0,
-        activeBackoffSec: 0,
-        sourcePressure: 'LOW',
-        targetPressure: 'LOW',
-        bufferPressure: 'LOW'
+        retryQueueLength: session?.retryQueueLength || 0,
+        activeBackoffSec: session?.activeBackoffSec || 0,
+        sourcePressure: session?.sourcePressure || 'LOW',
+        targetPressure: session?.targetPressure || 'LOW',
+        bufferPressure: session?.bufferPressure || 'LOW'
       }
     };
   }
@@ -1049,24 +1066,47 @@ export class CockpitAdapterService {
   // 9. PROJECT PREVIOUS / NOW / NEXT EXECUTION CONTEXT
   // --------------------------------------------------------------------------
   public projectExecutionContext(session: any): ExecutionContextNarrative {
-    const isWaitingBarrier = session?.lifecycleState === 'WAITING_FOR_APPROVAL';
+    const lifecycleState = session?.lifecycleState || 'IDLE';
+    const isIdle = !session || lifecycleState === 'IDLE';
+    const isWaitingBarrier = lifecycleState === 'WAITING_FOR_APPROVAL';
+
+    if (isIdle) {
+      return {
+        previousCompleted: {
+          stageName: 'None',
+          summary: 'No previous stage execution recorded',
+          completedAt: '--:--'
+        },
+        currentNow: {
+          stageName: 'Idle',
+          summary: 'No active migration stage',
+          activeSince: '--:--'
+        },
+        nextPlanned: {
+          stageName: 'None',
+          summary: 'No planned stage queued',
+          isBlocked: false,
+          dependencyNotice: 'Awaiting migration configuration'
+        }
+      };
+    }
 
     return {
       previousCompleted: {
-        stageName: 'Stage 2: Target Schema Preparation',
-        summary: '303 tables translated & created on PostgreSQL target instance',
-        completedAt: '09:16:24 (1m 24s duration)'
+        stageName: session?.previousStage || 'Stage Preparation',
+        summary: session?.previousStageSummary || 'Pre-flight system checks and target schema prepared',
+        completedAt: session?.previousStageCompletedAt || 'Completed'
       },
       currentNow: {
-        stageName: isWaitingBarrier ? 'Approval Barrier #1: Cutover Authorization' : 'Stage 3: Parallel Bulk Ingestion & CDC Stream',
-        summary: isWaitingBarrier ? 'Source writes quiesced. Awaiting 2 L4 operator signatures.' : '418.7M / 600M rows copied · CDC lag 12ms',
-        activeSince: '09:16:24 (1h 17m active)'
+        stageName: isWaitingBarrier ? 'Approval Barrier: Cutover Authorization' : (session?.currentStage || 'Active Workload Execution'),
+        summary: isWaitingBarrier ? 'Replication converged. Awaiting operator sign-off.' : (session?.activeTaskDescription || 'Partition extraction & ingestion in progress'),
+        activeSince: session?.elapsedTimeString ? `${session.elapsedTimeString} active` : 'Active'
       },
       nextPlanned: {
-        stageName: 'Stage 6: Production Cutover & Source Quiesce',
-        summary: 'Final transaction buffer flush & connection endpoint switchover',
+        stageName: session?.nextStage || 'Post-Migration Integrity Certification',
+        summary: session?.nextStageSummary || 'Final transaction buffer flush & verification',
         isBlocked: isWaitingBarrier,
-        dependencyNotice: isWaitingBarrier ? 'Blocked pending Approval Barrier #1 signature quorum' : 'Requires Stage 3 bulk ingestion completion'
+        dependencyNotice: isWaitingBarrier ? 'Blocked pending Approval Barrier signature quorum' : 'Requires active stage completion'
       }
     };
   }
@@ -1075,18 +1115,18 @@ export class CockpitAdapterService {
   // 10. PROJECT OPERATOR INTERVENTION
   // --------------------------------------------------------------------------
   public projectIntervention(session: any): OperatorIntervention | null {
-    const lifecycleState = session?.lifecycleState || 'RUNNING';
+    const lifecycleState = session?.lifecycleState || 'IDLE';
 
     if (lifecycleState === 'WAITING_FOR_APPROVAL') {
       return {
         type: 'APPROVAL_BARRIER',
         title: 'Cutover Authorization Gate Sign-off Required',
         description: 'Migration execution has reached an intentional ApprovalBarrier before production cutover. Source database write quiescence is enforced.',
-        durabilityStatus: 'Replication stream paused at clean Checkpoint #48,210. Zero data loss.',
-        barrierGateName: 'Pre-Cutover Quorum Sign-off',
-        barrierId: 'barrier-1',
-        requiredSignatures: 2,
-        currentSignatures: 1,
+        durabilityStatus: session?.durabilityStatus || 'Replication stream paused at clean checkpoint. Zero data loss.',
+        barrierGateName: session?.barrierGateName || 'Pre-Cutover Quorum Sign-off',
+        barrierId: session?.barrierId || 'barrier-1',
+        requiredSignatures: session?.requiredSignatures || 2,
+        currentSignatures: session?.currentSignatures || 1,
         separationOfDutiesEnforced: true,
         recoveryGuidance: 'Second signature required from authorized SecOps or Lead DBA role to authorize final traffic switchover.',
         isResolved: false,
@@ -1099,8 +1139,8 @@ export class CockpitAdapterService {
             isDestructive: false,
             confirmationRequired: true,
             confirmationTitle: 'Authorize Production Cutover?',
-            confirmationMessage: 'Authorizing cutover will quiesce source transactions and promote PostgreSQL target to active primary.',
-            confirmationImpacts: ['Source database becomes read-only', 'Final 12ms CDC backlog will commit to target', 'Traffic authority shifts to PostgreSQL']
+            confirmationMessage: 'Authorizing cutover will quiesce source transactions and promote target to active primary.',
+            confirmationImpacts: ['Source database becomes read-only', 'Final CDC backlog will commit to target', 'Traffic authority shifts to target']
           },
           {
             id: 'REJECT_BARRIER',
@@ -1111,7 +1151,7 @@ export class CockpitAdapterService {
             confirmationRequired: true,
             confirmationTitle: 'Reject Cutover Authorization?',
             confirmationMessage: 'Rejecting cutover will hold execution at the current checkpoint without making target primary.',
-            confirmationImpacts: ['Source database remains active', 'Target remains read-only replication replica']
+            confirmationImpacts: ['Source database remains active', 'Target remains read-only replica']
           }
         ]
       };
@@ -1120,10 +1160,10 @@ export class CockpitAdapterService {
     if (lifecycleState === 'FAILED') {
       return {
         type: 'EXECUTION_FAILURE',
-        title: 'Execution Interrupted — Worker Connection Pool Starvation',
-        description: 'The target PostgreSQL database rejected worker thread pool transactions due to connection limits (max_connections = 20 exceeded).',
-        durabilityStatus: 'Durable checkpoint #48,210 verified. All preceding bulk chunks safely committed.',
-        recoveryGuidance: 'Increase target PostgreSQL max_connections to at least 32, then trigger automatic checkpoint recovery.',
+        title: session?.failureTitle || 'Execution Interrupted — Worker Connection Pool Starvation',
+        description: session?.failureDescription || 'The target database rejected worker thread pool transactions due to connection limits.',
+        durabilityStatus: session?.durabilityStatus || 'Durable checkpoint verified. Preceding workload safely committed.',
+        recoveryGuidance: session?.recoveryGuidance || 'Verify target database connection limits, then trigger checkpoint recovery.',
         isResolved: false,
         validActions: [
           {
@@ -1153,7 +1193,7 @@ export class CockpitAdapterService {
       return {
         type: 'HEALTH_DEGRADED',
         title: 'Advisory Warning — Target Storage IOPS Throttling',
-        description: 'Target database write latency spiked to 48.6ms. Ingestion throughput has been auto-throttled by 15% to protect storage IOPS.',
+        description: 'Target database write latency elevated. Ingestion throughput has been auto-throttled to protect storage IOPS.',
         durabilityStatus: 'Data writes remain durable. Checkpoints healthy.',
         recoveryGuidance: 'Consider scaling target storage volume IOPS or adjusting worker batch sizing in runtime parameters.',
         isResolved: false,
@@ -1181,12 +1221,30 @@ export class CockpitAdapterService {
 
     const actions: CanonicalPermittedAction[] = [];
 
-    if (state === 'RUNNING' || state === 'ACTIVE') {
+    const isCutoverEligibleState = ['ACTIVE', 'RUNNING', 'CDC_STREAMING'].includes(state);
+    const isActiveExecutionState = ['ACTIVE', 'RUNNING', 'DISPATCHED', 'IN_PROGRESS', 'BULK_COMPLETED', 'CDC_STREAMING'].includes(state);
+
+    if (isActiveExecutionState) {
+      const mode = (session?.mode || 'M2_BULK_CDC') as MigrationMode;
+      if (isCutoverEligibleState && (mode === 'M2_BULK_CDC' || mode === 'M3_CDC')) {
+        actions.push({
+          id: 'CUTOVER',
+          label: 'Perform Cutover',
+          icon: 'check-circle',
+          isPrimary: true,
+          isDestructive: false,
+          confirmationRequired: true,
+          confirmationTitle: 'Execute Production Cutover?',
+          confirmationMessage: 'Cutover will flush pending CDC replication events, evaluate convergence readiness, and mark the target database as primary.',
+          confirmationImpacts: ['Final CDC backlog committed to target', 'Target promoted to active primary']
+        });
+      }
+
       actions.push({
         id: 'PAUSE',
         label: 'Pause Execution',
         icon: 'pause',
-        isPrimary: true,
+        isPrimary: !(isCutoverEligibleState && (mode === 'M2_BULK_CDC' || mode === 'M3_CDC')),
         isDestructive: false,
         confirmationRequired: true,
         confirmationTitle: 'Pause Migration Execution?',
@@ -1275,56 +1333,10 @@ export class CockpitAdapterService {
   // 12. PROJECT CHRONOLOGICAL ACTIVITY EVENTS
   // --------------------------------------------------------------------------
   public projectActivityEvents(session: any): CockpitActivityEvent[] {
-    return [
-      {
-        id: 'evt-01',
-        timestamp: '09:15:00',
-        category: 'LIFECYCLE',
-        severity: 'INFO',
-        message: 'Migration execution initialized by operator Aalok (Attempt #1).',
-        sourceComponent: 'ExecutionScheduler'
-      },
-      {
-        id: 'evt-02',
-        timestamp: '09:15:18',
-        category: 'STAGE',
-        severity: 'SUCCESS',
-        message: 'Stage 1: Pre-Flight System Check passed across 18 static verification rules.',
-        sourceComponent: 'StaticAnalyzer'
-      },
-      {
-        id: 'evt-03',
-        timestamp: '09:16:42',
-        category: 'STAGE',
-        severity: 'SUCCESS',
-        message: 'Stage 2: Target Schema Preparation completed. 303 tables created on PostgreSQL.',
-        sourceComponent: 'SchemaTranspiler'
-      },
-      {
-        id: 'evt-04',
-        timestamp: '09:16:44',
-        category: 'WORKER',
-        severity: 'INFO',
-        message: '16 parallel partition workers spawned on local execution site.',
-        sourceComponent: 'WorkerPool'
-      },
-      {
-        id: 'evt-05',
-        timestamp: '09:16:45',
-        category: 'CDC',
-        severity: 'INFO',
-        message: 'LogMiner CDC stream initialized at source SCN 48291048201.',
-        sourceComponent: 'CdcCapture'
-      },
-      {
-        id: 'evt-06',
-        timestamp: '10:30:12',
-        category: 'CHECKPOINT',
-        severity: 'INFO',
-        message: 'Checkpoint #48,210 committed to atomic state journal (418.7M rows verified).',
-        sourceComponent: 'StateJournal'
-      }
-    ];
+    if (session?.activityEvents && Array.isArray(session.activityEvents)) {
+      return session.activityEvents;
+    }
+    return [];
   }
 
   // --------------------------------------------------------------------------

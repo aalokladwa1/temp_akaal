@@ -197,11 +197,12 @@ def register_core_pipeline_schemas(registry: SchemaRegistry) -> None:
         "migration.create", "migration.configure", "migration.plan", "migration.initialize",
         "migration.approve", "migration.start", "migration.cancel", "migration.recover",
         "migration.pause", "migration.resume", "migration.throttle_cdc",
-        "migration.discover", "migration.checkpoint",
-        "project.create", "project.update", "initiative.create", "initiative.update",
-        "connection.create", "connection.update", "connection.test",
-        "template.create", "template.update", "template.deprecate",
+        "migration.discover", "migration.checkpoint", "migration.delete", "migration.archive",
+        "project.create", "project.update", "project.delete", "initiative.create", "initiative.update", "initiative.delete",
+        "connection.create", "connection.update", "connection.test", "connection.delete",
+        "template.create", "template.update", "template.deprecate", "template.delete",
         "validation.create_mission", "validation.initialize_mission", "validation.execute_mission",
+        "validation.control_continuous", "validation.establish_baseline", "validation.import_metadata",
         "fleet.drain_node", "fleet.undrain_node",
         "schedule.create", "schedule.update", "schedule.arm", "schedule.disable",
         "schedule.enable", "schedule.cancel", "schedule.delete", "retention.execute",
@@ -216,8 +217,11 @@ def register_core_pipeline_schemas(registry: SchemaRegistry) -> None:
         "admin.account.profile.update", "admin.account.avatar.update", "admin.account.avatar.remove", "admin.account.password.change",
         "admin.role.create", "admin.role.update", "admin.role.assign",
         "admin.governance.request_exception", "admin.governance.approve_exception",
+        "admin.jit.request", "admin.jit.approve",
+        "admin.environment.create", "admin.environment.update",
         "admin.key.rotate", "admin.mfa.enforce",
         "admin.plugin.install", "admin.connector.create",
+        "validation.dispatch_repair",
     ]
     for ct in cmd_types:
         try:
@@ -249,7 +253,7 @@ def register_core_pipeline_schemas(registry: SchemaRegistry) -> None:
     # Queries
     query_types = [
         "dashboard.get_estate_summary",
-        "estate.summary", "settings.get", "account.current.get", "admin.account.current.get",
+        "estate.summary", "estate.get_summary", "settings.get", "account.current.get", "admin.account.current.get",
         "migration.get", "migration.list", "migration.get_plan", "migration.readiness",
         "operation.get", "mutability.evaluate",
         "project.list", "project.get", "initiative.list", "initiative.get",
@@ -257,6 +261,7 @@ def register_core_pipeline_schemas(registry: SchemaRegistry) -> None:
         "template.list", "template.get",
         "audit.get_trail", "audit.verify",
         "validation.get_mission", "validation.list_missions",
+        "validation.get_baseline", "validation.resolve_capability",
         "observability.get", "health.get_explainable", "diagnostics.capture",
         "fleet.status", "metrics.export_prometheus",
         "schedule.get", "schedule.list", "schedule.occurrence.get", "schedule.occurrence.list",
@@ -276,12 +281,16 @@ def register_core_pipeline_schemas(registry: SchemaRegistry) -> None:
         "admin.environment.list", "admin.cost_center.list", "admin.user.list",
         "admin.team.list", "admin.contractor.list", "admin.service_account.list",
         "admin.governance.summary", "admin.governance.exceptions", "admin.governance.gates",
-        "admin.role.list", "admin.directory.sync_status", "admin.template.list",
+        "admin.role.list", "admin.jit.list", "admin.directory.sync_status", "admin.template.list",
         "admin.profile.list", "admin.connector.list", "admin.plugin.list",
         "admin.infra.agents", "admin.infra.endpoints", "admin.compliance.frameworks",
+        "admin.compliance.exceptions", "admin.compliance.evidence",
         "admin.compliance.evidence_retention", "admin.audit.ledger", "admin.audit.sessions",
+        "admin.audit.policies", "admin.audit.trail", "admin.audit.verify_integrity", "admin.audit.export",
         "admin.platform.license", "admin.platform.health", "admin.integration.siem",
         "admin.integration.webhooks", "admin.integration.keys",
+        "admin.identity.mfa_factors", "admin.mfa.factors", "admin.identity.keyring",
+        "admin.identity.auth_policies", "admin.identity.mfa",
     ]
     for qt in query_types:
         try:

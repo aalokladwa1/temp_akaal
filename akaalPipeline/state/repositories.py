@@ -72,6 +72,10 @@ class MigrationRepositoryPort(ABC):
     ) -> int:
         """Returns the total row count matching optional tenant/workspace/project scope (for pagination totals)."""
 
+    @abstractmethod
+    def delete(self, migration_id: str, connection: Optional[sqlite3.Connection] = None) -> bool:
+        """Delete migration by migration ID."""
+
 
 class SQLiteMigrationRepository(MigrationRepositoryPort):
     def __init__(self, db_path: str) -> None:
@@ -347,6 +351,26 @@ class SQLiteMigrationRepository(MigrationRepositoryPort):
             if owns_conn:
                 conn.close()
 
+    def delete(self, migration_id: str, connection: Optional[sqlite3.Connection] = None) -> bool:
+        owns_conn = False
+        conn = connection
+        if conn is None:
+            conn = self._get_connection()
+            owns_conn = True
+        try:
+            cur = conn.execute("DELETE FROM migrations WHERE migration_id = ?", (migration_id,))
+            deleted = cur.rowcount > 0
+            if owns_conn:
+                conn.commit()
+            return deleted
+        except sqlite3.Error as err:
+            if owns_conn:
+                conn.rollback()
+            raise PersistenceError(f"Database error deleting migration {migration_id!r}", cause=err) from err
+        finally:
+            if owns_conn:
+                conn.close()
+
 
 # ===========================================================================
 # Enterprise Tenancy & Hierarchy Repositories
@@ -405,10 +429,14 @@ class SQLiteWorkspaceRepository:
         )
         return {"workspace_id": workspace_id, "tenant_id": tenant_id, "name": name, "status": status}
 
+    create_workspace = create
+
     def get_by_id(self, tenant_id: str, workspace_id: str) -> Optional[Dict[str, Any]]:
         cur = self.conn.execute("SELECT * FROM enterprise_workspaces WHERE tenant_id = ? AND workspace_id = ?", (tenant_id, workspace_id))
         row = cur.fetchone()
         return dict(row) if row else None
+
+    get_workspace = get_by_id
 
 
 class SQLiteProjectRepository:
@@ -429,6 +457,22 @@ class SQLiteProjectRepository:
         )
         row = cur.fetchone()
         return dict(row) if row else None
+
+    def list_all(self, tenant_id: Optional[str] = None, workspace_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        if tenant_id and workspace_id:
+            cur = self.conn.execute(
+                "SELECT * FROM enterprise_projects WHERE tenant_id = ? AND workspace_id = ?",
+                (tenant_id, workspace_id),
+            )
+        elif tenant_id:
+            cur = self.conn.execute(
+                "SELECT * FROM enterprise_projects WHERE tenant_id = ?",
+                (tenant_id,),
+            )
+        else:
+            cur = self.conn.execute("SELECT * FROM enterprise_projects")
+        return [dict(r) for r in cur.fetchall()]
+
 
 
 # ===========================================================================

@@ -56,7 +56,7 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
       </div>
 
       <!-- Filter Controls Bar -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5">
+      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-2.5">
         
         <!-- 1. Search Query -->
         <div class="relative flex items-center col-span-1 sm:col-span-2 lg:col-span-2">
@@ -122,7 +122,42 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
           </app-custom-select>
         </div>
 
+        <!-- 6. Date Range Filter -->
+        <div>
+          <app-custom-select
+            [options]="hs.dateRangeOptions"
+            [value]="hs.filters().dateRange"
+            (valueChange)="onDateRangeChange($event)"
+            [size]="'sm'">
+          </app-custom-select>
+        </div>
+
       </div>
+
+      <!-- Custom Date Range Bar (shown when CUSTOM selected) -->
+      @if (hs.filters().dateRange === 'CUSTOM') {
+        <div class="flex items-center gap-3 pt-1 text-xs">
+          <span class="text-slate-500 font-medium">Custom Range:</span>
+          <div class="flex items-center gap-2">
+            <label class="text-[11px] text-slate-500">From:</label>
+            <input
+              type="date"
+              [ngModel]="hs.filters().startDate"
+              (ngModelChange)="onStartDateChange($event)"
+              class="h-7 px-2 text-xs bg-white border border-slate-300 rounded-md text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+          <div class="flex items-center gap-2">
+            <label class="text-[11px] text-slate-500">To:</label>
+            <input
+              type="date"
+              [ngModel]="hs.filters().endDate"
+              (ngModelChange)="onEndDateChange($event)"
+              class="h-7 px-2 text-xs bg-white border border-slate-300 rounded-md text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+        </div>
+      }
 
     </div>
   `
@@ -156,6 +191,18 @@ export class HistoryToolbarComponent {
 
   public onValidationChange(val: any): void {
     this.hs.setValidationFilter(val);
+  }
+
+  public onDateRangeChange(val: any): void {
+    this.hs.setDateRangeFilter(val);
+  }
+
+  public onStartDateChange(val: string): void {
+    this.hs.setDateRangeFilter('CUSTOM', val, this.hs.filters().endDate);
+  }
+
+  public onEndDateChange(val: string): void {
+    this.hs.setDateRangeFilter('CUSTOM', this.hs.filters().startDate, val);
   }
 
   public onSortChange(val: any): void {

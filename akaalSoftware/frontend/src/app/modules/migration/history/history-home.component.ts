@@ -76,11 +76,6 @@ export class HistoryHomeComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    if (this.hs.availabilityState() === 'LOADING') {
-      setTimeout(() => {
-        this.hs.availabilityState.set('READY');
-      }, 100);
-    }
   }
 
   showTable(): boolean {

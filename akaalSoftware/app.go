@@ -48,6 +48,7 @@ func (a *App) startup(ctx context.Context) {
 		a.backendBridgeCmd = cmd
 	}
 	go a.maintainSocketConnection()
+	go a.startAutomationDriver()
 }
 
 // shutdown is called when the Wails desktop UI window closes.
@@ -56,6 +57,7 @@ func (a *App) startup(ctx context.Context) {
 // bridge process, but DOES NOT kill running migrations -- those are owned by
 // the canonical backend authorities, not by this desktop process.
 func (a *App) shutdown(ctx context.Context) {
+	a.stopAutomationDriver()
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	if a.pipeConn != nil {
@@ -166,7 +168,7 @@ func (a *App) InvokeIPC(req IPCRequest) (IPCResponse, error) {
 	}
 	defer conn.Close()
 
-	_ = conn.SetDeadline(time.Now().Add(5 * time.Second))
+	_ = conn.SetDeadline(time.Now().Add(30 * time.Second))
 
 	reqData, err := json.Marshal(req)
 	if err != nil {

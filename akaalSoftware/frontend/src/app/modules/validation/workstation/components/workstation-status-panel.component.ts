@@ -43,12 +43,12 @@ import { ValidationExecutionState, ValidationVerdict } from '../validation-works
           <button
             type="button"
             (click)="store.triggerAction('RUN')"
-            [disabled]="store.isProductionDefault() || store.executionState() === 'RUNNING'"
-            [ngClass]="store.isProductionDefault() 
+            [disabled]="store.executionState() === 'RUNNING'"
+            [ngClass]="store.executionState() === 'RUNNING'
               ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed' 
               : 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-xs'"
             class="h-9 px-4 text-xs font-semibold rounded-lg border transition-all flex items-center gap-1.5"
-            [title]="store.isProductionDefault() ? 'Disabled: Backend engine link pending' : 'Run validation mission'">
+            [title]="store.executionState() === 'RUNNING' ? 'Validation running' : 'Run validation mission'">
             <app-lucide-icon name="play" [size]="13" />
             <span>Run Mission</span>
           </button>
@@ -57,9 +57,9 @@ import { ValidationExecutionState, ValidationVerdict } from '../validation-works
           <button
             type="button"
             (click)="store.triggerAction('PAUSE')"
-            [disabled]="store.isProductionDefault() || store.executionState() !== 'RUNNING'"
+            [disabled]="store.executionState() !== 'RUNNING'"
             class="h-9 px-3.5 text-xs font-semibold rounded-lg bg-white border border-slate-200 hover:border-slate-300 text-slate-700 transition-all flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-            [title]="store.isProductionDefault() ? 'Disabled: Backend engine link pending' : 'Pause in-flight validation'">
+            [title]="store.executionState() !== 'RUNNING' ? 'Pause requires active execution' : 'Pause in-flight validation'">
             <app-lucide-icon name="pause" [size]="13" />
             <span>Pause</span>
           </button>
@@ -68,9 +68,9 @@ import { ValidationExecutionState, ValidationVerdict } from '../validation-works
           <button
             type="button"
             (click)="store.triggerAction('ABORT')"
-            [disabled]="store.isProductionDefault() || (store.executionState() !== 'RUNNING' && store.executionState() !== 'PAUSED')"
+            [disabled]="store.executionState() !== 'RUNNING' && store.executionState() !== 'PAUSED'"
             class="h-9 px-3.5 text-xs font-semibold rounded-lg bg-white border border-slate-200 hover:border-rose-300 hover:bg-rose-50 text-slate-700 hover:text-rose-700 transition-all flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-            [title]="store.isProductionDefault() ? 'Disabled: Backend engine link pending' : 'Abort validation execution'">
+            [title]="store.executionState() !== 'RUNNING' && store.executionState() !== 'PAUSED' ? 'Abort requires active/paused execution' : 'Abort validation execution'">
             <app-lucide-icon name="x-circle" [size]="13" />
             <span>Abort</span>
           </button>
@@ -79,8 +79,7 @@ import { ValidationExecutionState, ValidationVerdict } from '../validation-works
           <button
             type="button"
             (click)="store.triggerAction('EXPORT')"
-            [disabled]="store.isProductionDefault() && !store.state().technicalDrawer.evidenceHash"
-            class="h-9 px-3.5 text-xs font-semibold rounded-lg bg-white border border-slate-200 hover:border-blue-300 hover:bg-blue-50 text-slate-700 hover:text-blue-700 transition-all flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer">
+            class="h-9 px-3.5 text-xs font-semibold rounded-lg bg-white border border-slate-200 hover:border-blue-300 hover:bg-blue-50 text-slate-700 hover:text-blue-700 transition-all flex items-center gap-1.5 cursor-pointer">
             <app-lucide-icon name="file-text" [size]="13" />
             <span>Export Evidence</span>
           </button>

@@ -77,10 +77,13 @@ export class ValidationRepairComponent implements OnInit {
   private readonly workstationService = inject(ValidationWorkstationService);
 
   ngOnInit(): void {
-    // If workstation service is in a visual test fixture and repair store is in default state, synchronize
     const currentExecutionState = this.workstationService.executionState();
-    if (!this.workstationService.isProductionDefault() && (currentExecutionState === 'RUNNING' || currentExecutionState === 'COMPLETED')) {
-      if (this.store.viewStatus() === 'UNAVAILABLE') {
+    const verdict = this.workstationService.verdict();
+
+    if (currentExecutionState === 'COMPLETED') {
+      if (verdict === 'PASSED') {
+        this.store.setViewStatus('NO_REMEDIATION_REQUIRED');
+      } else if (verdict === 'FAILED' && this.store.viewStatus() === 'UNAVAILABLE') {
         this.store.setFixture('SINGLE_UPDATE_PROPOSAL');
       }
     }

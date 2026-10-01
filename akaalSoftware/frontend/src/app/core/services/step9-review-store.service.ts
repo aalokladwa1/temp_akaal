@@ -245,7 +245,20 @@ export class Step9ReviewStoreService {
 
     this.operationError.set(null);
     const identity = this.migrationIdentity();
+    const draft = this.ms.wizardDraft();
     const timing = this.timingState();
+    const targetMigrationId = identity.migrationId || draft.migrationId;
+    if (!targetMigrationId) {
+      this.submitPhase.set('ERROR');
+      this.operationError.set({
+        phase: 'INITIALIZATION',
+        title: 'Migration Not Initialized',
+        message: 'No canonical migration ID found. Please complete Step 1 to create the migration.',
+        isRetryable: false,
+        recoveryGuidance: 'Navigate to Step 1 to name and register your migration.'
+      });
+      return;
+    }
 
     // 1. Orchestrate Canonical Plan Initialization
     this.submitPhase.set('INITIALIZING');
@@ -253,8 +266,8 @@ export class Step9ReviewStoreService {
 
     try {
       initRes = await this.migrationIpc.initializeMigration({
-        migration_id: identity.migrationId,
-        plan_id: identity.planId,
+        migration_id: targetMigrationId,
+        plan_id: identity.planId || draft.planId,
         environment: identity.environment,
         mode: identity.mode,
         timing_mode: timing.choice
@@ -290,7 +303,7 @@ export class Step9ReviewStoreService {
 
       try {
         const startRes = await this.migrationIpc.startMigration({
-          migration_id: identity.migrationId,
+          migration_id: targetMigrationId,
           plan_id: identity.planId,
           mode: identity.mode
         });
@@ -308,7 +321,7 @@ export class Step9ReviewStoreService {
         }
 
         // Register in portfolio and navigate to Mission Control
-        const canonicalId = startRes?.data?.migration_id || initRes?.data?.migration_id || identity.migrationId;
+        const canonicalId = startRes?.data?.migration_id || initRes?.data?.migration_id || targetMigrationId;
         if (!canonicalId) {
           this.submitPhase.set('ERROR');
           this.operationError.set({
@@ -339,7 +352,7 @@ export class Step9ReviewStoreService {
 
       try {
         const schedRes = await this.migrationIpc.createSchedule({
-          migration_id: identity.migrationId,
+          migration_id: targetMigrationId,
           plan_id: identity.planId,
           scheduled_timestamp: `${timing.scheduledDate}T${timing.scheduledTime}:00`,
           timezone: timing.selectedTimezone,
@@ -364,7 +377,7 @@ export class Step9ReviewStoreService {
           scheduleChoice: 'SCHEDULE',
           scheduledTime: `${timing.scheduledDate}T${timing.scheduledTime}:00`
         });
-        const canonicalId = schedRes?.data?.migration_id || initRes?.data?.migration_id || identity.migrationId;
+        const canonicalId = schedRes?.data?.migration_id || initRes?.data?.migration_id || targetMigrationId;
         if (!canonicalId) {
           this.submitPhase.set('ERROR');
           this.operationError.set({

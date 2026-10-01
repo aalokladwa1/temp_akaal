@@ -64,11 +64,23 @@ export class ValidationDiscrepanciesComponent implements OnInit {
   private readonly workstationService = inject(ValidationWorkstationService);
 
   ngOnInit(): void {
-    // If workstation service is in a visual test fixture and discrepancies store is in default state, synchronize
-    const currentExecutionState = this.workstationService.executionState();
-    if (!this.workstationService.isProductionDefault() && (currentExecutionState === 'RUNNING' || currentExecutionState === 'COMPLETED')) {
-      if (this.store.viewStatus() === 'UNAVAILABLE') {
-        this.store.setFixture('NORMAL_19_FINDINGS');
+    const missionId = this.workstationService.validationId();
+    if (missionId && missionId !== 'val-000-not-connected') {
+      this.store.loadMissionDiscrepancies(missionId);
+    } else {
+      const currentExecutionState = this.workstationService.executionState();
+      const verdict = this.workstationService.verdict();
+
+      if (currentExecutionState === 'COMPLETED') {
+        if (verdict === 'PASSED') {
+          this.store.setViewStatus('EMPTY');
+        } else if (verdict === 'FAILED') {
+          if (this.store.state().items.length > 0) {
+            this.store.setViewStatus('READY');
+          } else {
+            this.store.setViewStatus('UNAVAILABLE', 'Discrepancies detected during mission execution. Connect live validation engine for real-time item stream.');
+          }
+        }
       }
     }
   }

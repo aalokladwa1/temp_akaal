@@ -4,8 +4,9 @@
  * and persistent local workstation storage.
  */
 
-import { Injectable, signal, computed, effect, inject } from '@angular/core';
+import { Injectable, signal, computed, effect, inject, Optional } from '@angular/core';
 import { SettingsIpc } from '../../../core/services/ipc/settings.ipc';
+import { IpcService } from '../../../core/services/ipc.service';
 import {
   AppearanceSettings,
   GeneralSettings,
@@ -259,12 +260,28 @@ export class SettingsService {
 
   private settingsIpc: SettingsIpc;
 
-  constructor(settingsIpc?: SettingsIpc) {
+  constructor(@Optional() settingsIpc?: SettingsIpc, @Optional() ipcService?: IpcService) {
     try {
       this.settingsIpc = settingsIpc || inject(SettingsIpc);
     } catch {
       this.settingsIpc = settingsIpc || new SettingsIpc();
     }
+
+    let ipc = ipcService;
+    if (!ipc) {
+      try {
+        ipc = inject(IpcService, { optional: true }) || undefined;
+      } catch {
+        ipc = undefined;
+      }
+    }
+
+    if (ipc && typeof ipc.subscribe === 'function') {
+      ipc.subscribe('akaal:engine:connected', () => {
+        this.hydrateFromBackend();
+      });
+    }
+
     this.initSystemThemeListener();
     this.applyAppearanceToDOM();
     this.hydrateFromBackend();

@@ -53,13 +53,14 @@ class OracleDiscoveryStrategy(RelationalDiscoveryStrategy):
 
     PROVIDER_ID = "oracle"
 
-    # 23 internal Oracle system schemas to filter from scan
+    # Internal Oracle system schemas to filter from user namespace scans
     SYSTEM_SCHEMAS = (
         'SYS', 'SYSTEM', 'AUDSYS', 'DBSNMP', 'GSMADMIN_INTERNAL',
-        'LBACSYS', 'MDSYS', 'DVSYS', 'OUTLN', 'CTXSYS', 'XDB', 'WMSYS',
+        'LBACSYS', 'MDSYS', 'DVSYS', 'DVF', 'OUTLN', 'CTXSYS', 'XDB', 'WMSYS',
         'VECSYS', 'DBSFWUSER', 'APPQOSSYS', 'OJVMSYS', 'OLAPSYS', 'PDBADMIN',
         'GSMUSER', 'GSMROOTUSER', 'DGPUMP', 'ORACLE_OCM', 'ORDDATA', 'ORDSYS',
-        'PUBLIC'
+        'FLOWS_FILES', 'APEX_PUBLIC_USER', 'ANONYMOUS', 'XS$NULL', 'DIP',
+        'REMOTE_SCHEDULER_AGENT', 'SI_INFORMTN_SCHEMA', 'PUBLIC'
     )
 
     @property
@@ -78,14 +79,23 @@ class OracleDiscoveryStrategy(RelationalDiscoveryStrategy):
         if connection is not None and hasattr(connection, "cursor"):
             try:
                 with connection.cursor() as cur:
-                    cur.execute("SELECT banner, version FROM v$instance")
-                    r = cur.fetchone()
-                    if r:
-                        version_str = str(r[0])
-                    cur.execute("SELECT instance_name FROM v$instance")
-                    r = cur.fetchone()
-                    if r:
-                        instance_name = str(r[0])
+                    try:
+                        cur.execute("SELECT banner FROM v$version WHERE ROWNUM = 1")
+                        r = cur.fetchone()
+                        if r:
+                            version_str = str(r[0])
+                    except Exception:
+                        cur.execute("SELECT version FROM v$instance")
+                        r = cur.fetchone()
+                        if r:
+                            version_str = str(r[0])
+                    try:
+                        cur.execute("SELECT instance_name FROM v$instance")
+                        r = cur.fetchone()
+                        if r:
+                            instance_name = str(r[0])
+                    except Exception:
+                        pass
             except Exception as exc:
                 logger.warning(f"Error querying oracle version: {exc}")
 
@@ -112,11 +122,21 @@ class OracleDiscoveryStrategy(RelationalDiscoveryStrategy):
         if connection is not None and hasattr(connection, "cursor"):
             try:
                 with connection.cursor() as cur:
-                    cur.execute("""
-                        SELECT DISTINCT USERNAME FROM ALL_USERS
-                        ORDER BY USERNAME
-                    """)
-                    for r in cur.fetchall():
+                    try:
+                        cur.execute("""
+                            SELECT DISTINCT USERNAME FROM ALL_USERS
+                            WHERE ORACLE_MAINTAINED = 'N'
+                            ORDER BY USERNAME
+                        """)
+                        rows = cur.fetchall()
+                    except Exception:
+                        cur.execute("""
+                            SELECT DISTINCT USERNAME FROM ALL_USERS
+                            ORDER BY USERNAME
+                        """)
+                        rows = cur.fetchall()
+
+                    for r in rows:
                         s = str(r[0]).upper()
                         if s not in self.SYSTEM_SCHEMAS:
                             schemas.append(s)
@@ -157,10 +177,10 @@ class OracleDiscoveryStrategy(RelationalDiscoveryStrategy):
                         # Views & Materialized Views
                         try:
                             cur.execute("""
-                                SELECT VIEW_NAME, 0 AS IS_MVIEW, TEXT FROM ALL_VIEWS WHERE OWNER = :1
+                                SELECT VIEW_NAME, 0 AS IS_MVIEW, TEXT FROM ALL_VIEWS WHERE OWNER = :owner
                                 UNION ALL
-                                SELECT MVIEW_NAME, 1 AS IS_MVIEW, QUERY AS TEXT FROM ALL_MVIEWS WHERE OWNER = :1
-                            """, [schema_name.upper()])
+                                SELECT MVIEW_NAME, 1 AS IS_MVIEW, QUERY AS TEXT FROM ALL_MVIEWS WHERE OWNER = :owner
+                            """, owner=schema_name.upper())
                             for r in cur.fetchall():
                                 vname, is_mv, def_sql = r[0], bool(r[1]), r[2]
                                 views.append(
@@ -171,8 +191,8 @@ class OracleDiscoveryStrategy(RelationalDiscoveryStrategy):
                                         definition_sql=str(def_sql) if def_sql else None,
                                     )
                                 )
-                        except Exception:
-                            pass
+                        except Exception as v_exc:
+                            logger.debug("Error querying oracle views: %s", v_exc)
 
                     # Tables with server-side pagination
                     try:
@@ -291,6 +311,8 @@ class OracleDiscoveryStrategy(RelationalDiscoveryStrategy):
                         if colname:
                             cons_map[cname]["cols"].append(colname)
 
+                    import re
+                    _not_null_re = re.compile(r'^\s*"?\w+"?\s+IS\s+NOT\s+NULL\s*$', re.IGNORECASE)
                     for cname, cinfo in cons_map.items():
                         ctype = cinfo["type"]
                         if ctype == 'P':
@@ -298,7 +320,9 @@ class OracleDiscoveryStrategy(RelationalDiscoveryStrategy):
                         elif ctype == 'U':
                             uniques.append(UniqueConstraintFacts(name=cname, table_name=object_name, columns=tuple(cinfo["cols"]), schema_name=schema_name))
                         elif ctype == 'C':
-                            checks.append(CheckConstraintFacts(name=cname, table_name=object_name, check_clause=str(cinfo["cond"] or ""), schema_name=schema_name))
+                            cond_str = str(cinfo["cond"] or "").strip()
+                            if cond_str and not _not_null_re.match(cond_str):
+                                checks.append(CheckConstraintFacts(name=cname, table_name=object_name, check_clause=cond_str, schema_name=schema_name))
 
                     # 3. Foreign Keys
                     cur.execute("""
@@ -428,6 +452,8 @@ class OracleDiscoveryStrategy(RelationalDiscoveryStrategy):
                     if colname:
                         t_cons[cname]["cols"].append(colname)
 
+                import re
+                _not_null_re = re.compile(r'^\s*"?\w+"?\s+IS\s+NOT\s+NULL\s*$', re.IGNORECASE)
                 for tname, t_cons in cons_map.items():
                     for cname, cinfo in t_cons.items():
                         ctype = cinfo["type"]
@@ -436,9 +462,40 @@ class OracleDiscoveryStrategy(RelationalDiscoveryStrategy):
                         elif ctype == 'U':
                             uniques_by_tbl.setdefault(tname, []).append(UniqueConstraintFacts(name=cname, table_name=tname, columns=tuple(cinfo["cols"]), schema_name=schema_name))
                         elif ctype == 'C':
-                            checks_by_tbl.setdefault(tname, []).append(CheckConstraintFacts(name=cname, table_name=tname, check_clause=str(cinfo["cond"] or ""), schema_name=schema_name))
+                            cond_str = str(cinfo["cond"] or "").strip()
+                            if cond_str and not _not_null_re.match(cond_str):
+                                checks_by_tbl.setdefault(tname, []).append(CheckConstraintFacts(name=cname, table_name=tname, check_clause=cond_str, schema_name=schema_name))
 
-                # 3. Bulk Indexes
+                # 3. Bulk Foreign Keys
+                fks_by_tbl: dict[str, list[ForeignKeyFacts]] = {name.upper(): [] for name in object_names}
+                try:
+                    cur.execute(f"""
+                        SELECT AC.TABLE_NAME, AC.CONSTRAINT_NAME, ACC.COLUMN_NAME, R_AC.OWNER, R_AC.TABLE_NAME, R_ACC.COLUMN_NAME, AC.DELETE_RULE
+                        FROM ALL_CONSTRAINTS AC
+                        JOIN ALL_CONS_COLUMNS ACC ON ACC.OWNER = AC.OWNER AND ACC.CONSTRAINT_NAME = AC.CONSTRAINT_NAME
+                        JOIN ALL_CONSTRAINTS R_AC ON R_AC.OWNER = AC.R_OWNER AND R_AC.CONSTRAINT_NAME = AC.R_CONSTRAINT_NAME
+                        JOIN ALL_CONS_COLUMNS R_ACC ON R_ACC.OWNER = R_AC.OWNER AND R_ACC.CONSTRAINT_NAME = R_AC.CONSTRAINT_NAME AND R_ACC.POSITION = ACC.POSITION
+                        WHERE AC.OWNER = :1 AND AC.TABLE_NAME IN ({bind_vars}) AND AC.CONSTRAINT_TYPE = 'R'
+                        ORDER BY AC.TABLE_NAME, AC.CONSTRAINT_NAME, ACC.POSITION
+                    """, [schema_name.upper()] + upper_names)
+                    for r in cur.fetchall():
+                        tname, cname, colname, r_owner, r_tname, r_colname, del_rule = r[0].upper(), r[1], r[2], r[3], r[4], r[5], r[6]
+                        fks_by_tbl.setdefault(tname, []).append(
+                            ForeignKeyFacts(
+                                name=cname,
+                                table_name=tname,
+                                columns=(colname,),
+                                referenced_schema=r_owner,
+                                referenced_table=r_tname,
+                                referenced_columns=(r_colname,),
+                                schema_name=schema_name,
+                                on_delete=del_rule or "NO ACTION",
+                            )
+                        )
+                except Exception as fk_exc:
+                    logger.debug(f"Bulk foreign key discovery in {schema_name}: {fk_exc}")
+
+                # 4. Bulk Indexes
                 cur.execute(f"""
                     SELECT AI.TABLE_NAME, AI.INDEX_NAME, AI.INDEX_TYPE, AI.UNIQUENESS, AIC.COLUMN_NAME
                     FROM ALL_INDEXES AI
@@ -476,6 +533,7 @@ class OracleDiscoveryStrategy(RelationalDiscoveryStrategy):
                     schema_name=schema_name,
                     columns=tuple(cols_by_tbl.get(uname, [])),
                     primary_key=pk_by_tbl.get(uname),
+                    foreign_keys=tuple(fks_by_tbl.get(uname, [])),
                     unique_constraints=tuple(uniques_by_tbl.get(uname, [])),
                     check_constraints=tuple(checks_by_tbl.get(uname, [])),
                     indexes=tuple(indexes_by_tbl.get(uname, [])),
@@ -543,21 +601,39 @@ class OracleDiscoveryStrategy(RelationalDiscoveryStrategy):
         if connection is not None and hasattr(connection, "cursor"):
             try:
                 with connection.cursor() as cur:
+                    # Routines source
+                    sources: dict[str, list[str]] = {}
+                    try:
+                        cur.execute("""
+                            SELECT NAME, TYPE, LINE, TEXT
+                            FROM ALL_SOURCE
+                            WHERE OWNER = :owner
+                            ORDER BY NAME, TYPE, LINE
+                        """, owner=schema_name.upper())
+                        for r in cur.fetchall():
+                            oname, otype, line_num, line_txt = r[0], r[1], r[2], r[3]
+                            key = f"{oname}:{otype}".upper()
+                            sources.setdefault(key, []).append(line_txt or "")
+                    except Exception as s_exc:
+                        logger.debug("Error fetching routine sources: %s", s_exc)
+
                     # Procedures and Functions
                     cur.execute("""
                         SELECT OBJECT_NAME, OBJECT_TYPE
                         FROM ALL_OBJECTS
-                        WHERE OWNER = :1 AND OBJECT_TYPE IN ('PROCEDURE', 'FUNCTION', 'PACKAGE')
-                    """, [schema_name.upper()])
+                        WHERE OWNER = :owner AND OBJECT_TYPE IN ('PROCEDURE', 'FUNCTION', 'PACKAGE')
+                    """, owner=schema_name.upper())
                     for r in cur.fetchall():
                         oname, otype = r[0], r[1]
                         rtype = RoutineType.PROCEDURE if otype == "PROCEDURE" else (RoutineType.FUNCTION if otype == "FUNCTION" else RoutineType.PACKAGE_SPEC)
+                        def_sql = "".join(sources.get(f"{oname}:{otype}".upper(), [])) or None
                         routines.append(
                             RoutineFacts(
                                 name=oname,
                                 schema_name=schema_name,
                                 routine_type=rtype,
                                 language="PLSQL",
+                                definition_sql=def_sql,
                             )
                         )
 
@@ -565,8 +641,8 @@ class OracleDiscoveryStrategy(RelationalDiscoveryStrategy):
                     cur.execute("""
                         SELECT TRIGGER_NAME, TABLE_NAME, TRIGGER_TYPE, TRIGGERING_EVENT, STATUS
                         FROM ALL_TRIGGERS
-                        WHERE OWNER = :1
-                    """, [schema_name.upper()])
+                        WHERE OWNER = :owner
+                    """, owner=schema_name.upper())
                     for r in cur.fetchall():
                         triggers.append(
                             TriggerFacts(

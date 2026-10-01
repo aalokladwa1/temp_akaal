@@ -1,6 +1,7 @@
 import '@angular/compiler';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { TemplatesService } from './templates.service';
+import { CreateTemplateService } from './create-template/create-template.service';
 import { TEMPLATE_MODE_DESCRIPTORS, TemplateMigrationMode } from './templates.models';
 import { TEMPLATE_FIXTURES } from './templates.fixtures';
 import { TemplatesHomeComponent } from './templates-home.component';
@@ -207,6 +208,96 @@ describe('Templates Module — Part A (Templates Home) Unit Tests', () => {
       service.setAvailabilityState('READY');
       service.setSearchQuery('nonexistent-text-matching-zero-items');
       expect(comp.showTable()).toBe(false);
+    });
+  });
+
+  describe('4. Templates IPC & Create Template Persistence', () => {
+    it('should map templates from backend IPC listTemplates', async () => {
+      const mockIpc: any = {
+        connectionState: () => 'connected',
+        subscribe: () => () => {},
+        invoke: async () => ({
+          status: 'SUCCESS',
+          data: {
+            templates: [
+              {
+                id: 'tmpl-live-01',
+                name: 'PostgreSQL to Snowflake Pipeline',
+                description: 'Direct extract and stage copy',
+                mode: 'M1_BULK',
+                source_provider: 'PostgreSQL',
+                target_provider: 'Snowflake',
+                version: 'v1.2.0',
+                migration_count: 5,
+                project_count: 2
+              }
+            ]
+          }
+        })
+      };
+
+      const mockMigrationIpc: any = {
+        listTemplates: async () => mockIpc.invoke()
+      };
+
+      const liveService = new TemplatesService(mockMigrationIpc, mockIpc);
+      await liveService.loadState();
+
+      expect(liveService.templates().length).toBe(1);
+      const tmpl = liveService.templates()[0];
+      expect(tmpl.id).toBe('tmpl-live-01');
+      expect(tmpl.name).toBe('PostgreSQL to Snowflake Pipeline');
+      expect(tmpl.mode).toBe('M1_BULK');
+      expect(tmpl.applicability.sourceProviderName).toBe('PostgreSQL');
+      expect(tmpl.applicability.targetProviderName).toBe('Snowflake');
+      expect(liveService.availabilityState()).toBe('READY');
+    });
+
+    it('should fail closed when creating a template without backend connectivity', async () => {
+      const createService = new CreateTemplateService();
+      createService.updateDefinition({
+        name: 'Test Template',
+        sourceProvider: 'Oracle',
+        targetProvider: 'PostgreSQL',
+        mode: 'M1_BULK'
+      });
+
+      const res = await createService.createTemplate();
+      expect(res).toBe(false);
+      expect(createService.persistenceError()).toContain('Template persistence is not connected');
+    });
+
+    it('should persist template and navigate when backend IPC is connected', async () => {
+      const mockRouter: any = { navigate: vi.fn() };
+      const localTmplService = new TemplatesService();
+
+      const mockIpc: any = {
+        connectionState: () => 'connected',
+        invoke: async () => ({
+          status: 'SUCCESS',
+          data: { template_id: 'tmpl-created-123' }
+        })
+      };
+
+      const mockMigrationIpc: any = {
+        createTemplate: async (payload: any) => mockIpc.invoke('pipeline', 'template.create', payload)
+      };
+
+      const createService = new CreateTemplateService(mockRouter, localTmplService, mockMigrationIpc, mockIpc);
+      createService.updateDefinition({
+        name: 'Automated Oracle Migration Preset',
+        description: 'Standardized oracle bulk configuration',
+        sourceProvider: 'Oracle',
+        targetProvider: 'PostgreSQL',
+        mode: 'M2_BULK_CDC',
+        // versionLabel: 'v1.0.0'
+      });
+
+      const result = await createService.createTemplate();
+      expect(result).toBe(true);
+      expect(createService.persistenceError()).toBeNull();
+      expect(mockRouter.navigate).toHaveBeenCalledWith(['/migration/templates']);
+      expect(localTmplService.templates()[0].name).toBe('Automated Oracle Migration Preset');
     });
   });
 });

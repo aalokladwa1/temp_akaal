@@ -190,9 +190,9 @@ import {
           </p>
 
           <!-- Sanitized Error Reason Box -->
-          <div class="w-full bg-rose-50 border border-rose-200 rounded-lg p-3 text-left mb-6">
+          <div class="w-full bg-rose-50 border border-rose-200 rounded-lg p-3 text-left mb-6 overflow-hidden">
             <div class="text-[11px] font-bold text-rose-800 uppercase tracking-wider mb-1">Reason</div>
-            <div class="text-xs text-rose-700 font-mono leading-relaxed">
+            <div class="text-xs text-rose-700 font-mono leading-relaxed break-words break-all whitespace-pre-wrap">
               {{ svc.errorMessage() || 'Insufficient privileges to inspect required source metadata catalog.' }}
             </div>
           </div>

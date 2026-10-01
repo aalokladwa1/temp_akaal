@@ -52,6 +52,10 @@ export class TemplateUiService {
 
   constructor(fixtures?: MigrationDevFixturesAdapter) {
     this.fixtures = fixtures || new MigrationDevFixturesAdapter();
+    this.templates.set([]);
+  }
+
+  public loadFixturesForTesting(): void {
     this.templates.set(this.fixtures.getTemplates());
   }
 

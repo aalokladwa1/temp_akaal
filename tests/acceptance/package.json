@@ -1,0 +1,16 @@
+{
+  "name": "devkros-p8-acceptance-harness",
+  "version": "1.0.0",
+  "description": "DevKros P8 Reusable Live Acceptance Test Harness",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "self-certify": "node --no-warnings --loader ts-node/esm ./self_certify.ts",
+    "run:m1": "node --no-warnings --loader ts-node/esm ./runner.ts --mode M1"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "playwright": "^1.49.0",
+    "typescript": "^5.7.0"
+  }
+}

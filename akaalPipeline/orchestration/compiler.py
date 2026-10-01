@@ -65,15 +65,11 @@ class GraphCompiler:
             task4 = NodeTaskDescriptor(task_id="t-cdc-sync", capability_contract="cdc_sync", side_effect=SideEffectClassification.REVERSIBLE, parameters=cdc_sync_params)
             node4 = GraphNode(node_id="n-cdc-sync", task=task4, dependencies=["n-data-transport"])
 
-            task5 = NodeTaskDescriptor(task_id="t-val-compare", capability_contract="validation_compare", side_effect=SideEffectClassification.READ_ONLY, parameters=params)
-            node5 = GraphNode(node_id="n-val-compare", task=task5, dependencies=["n-cdc-sync"])
-
-            nodes.extend([node1, node2, node3, node4, node5])
+            nodes.extend([node1, node2, node3, node4])
             edges.extend([
                 GraphEdge(from_node="n-schema-prep", to_node="n-cdc-start"),
                 GraphEdge(from_node="n-cdc-start", to_node="n-data-transport"),
                 GraphEdge(from_node="n-data-transport", to_node="n-cdc-sync"),
-                GraphEdge(from_node="n-cdc-sync", to_node="n-val-compare"),
             ])
 
         elif mode == MigrationMode.M3_CDC:

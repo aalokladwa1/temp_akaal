@@ -79,6 +79,32 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
         </div>
       }
 
+      <!-- Failed Results View -->
+      @if (cs.draft().verificationFacts.overallStatus === 'FAILED' && !cs.draft().isTesting) {
+        <div class="p-5 bg-rose-50/60 border border-rose-200 rounded-xl space-y-4 shadow-2xs">
+          <div class="pb-2 border-b border-rose-200 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold text-rose-900">1. Connectivity Facts</span>
+              <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-100 text-rose-700 border border-rose-300">
+                PROBE FAILED
+              </span>
+            </div>
+            <span class="text-[11px] text-rose-400 tabular-nums">
+              Tested: {{ cs.draft().verificationFacts.testedAt | date:'mediumTime' }}
+            </span>
+          </div>
+
+          <div class="space-y-2 text-xs text-rose-900">
+            @for (warn of cs.draft().verificationFacts.warnings; track warn) {
+              <div class="p-3 bg-white border border-rose-200 rounded-lg flex items-center gap-2">
+                <app-lucide-icon name="alert-circle" [size]="15" class="text-rose-600 shrink-0"></app-lucide-icon>
+                <span class="font-medium text-rose-800">{{ warn }}</span>
+              </div>
+            }
+          </div>
+        </div>
+      }
+
       <!-- Tested Results View -->
       @if (cs.draft().verificationFacts.overallStatus === 'PASSED' && !cs.draft().isTesting) {
         

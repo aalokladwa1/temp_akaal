@@ -148,7 +148,7 @@ class PostgresDiscoveryStrategy(RelationalDiscoveryStrategy):
                 with connection.cursor() as cur:
                     if offset == 0:
                         cur.execute("""
-                            SELECT c.relname, c.relkind
+                            SELECT c.relname, c.relkind, pg_get_viewdef(c.oid, true) AS view_def
                             FROM pg_class c
                             JOIN pg_namespace n ON n.oid = c.relnamespace
                             WHERE n.nspname = %s AND c.relkind IN ('v', 'm')
@@ -160,6 +160,7 @@ class PostgresDiscoveryStrategy(RelationalDiscoveryStrategy):
                                     name=str(row[0]),
                                     schema_name=schema_name,
                                     is_materialized=(row[1] == 'm'),
+                                    definition_sql=str(row[2]) if row[2] else None,
                                 )
                             )
 

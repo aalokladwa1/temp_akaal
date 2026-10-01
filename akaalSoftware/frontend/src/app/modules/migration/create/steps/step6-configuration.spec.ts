@@ -36,7 +36,8 @@ describe('Step 6 — Enterprise Configuration Center Master Contract Verification 
         'M4_INCREMENTAL': 'Incremental Polling',
         'M5_STATE_SYNC': 'State Synchronization',
         'M6_SCHEMA_ONLY': 'Schema Only',
-        'M7_DATA_ONLY': 'Data Only'
+        'M7_DATA_ONLY': 'Data Only',
+        'M8_VALIDATION_ONLY': 'Validation Only'
       };
 
       for (const [mode, expectedTitle] of Object.entries(modeTitles)) {

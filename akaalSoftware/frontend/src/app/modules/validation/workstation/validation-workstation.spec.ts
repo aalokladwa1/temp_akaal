@@ -212,4 +212,111 @@ describe('Validation Workstation Presentation Store & Integrity Specs', () => {
     expect(records?.inScope).toBe(2450000000);
     expect(records?.evaluated).toBe(2450000000);
   });
+
+  describe('Live Backend Authority #1 Validation Execution Integration', () => {
+    it('should load mission from getValidationMission query and update state', async () => {
+      const mockMigrationIpc: any = {
+        getValidationMission: vi.fn().mockResolvedValue({
+          status: 'SUCCESS',
+          data: {
+            mission_id: 'miss-999',
+            name: 'Production Inventory Scan',
+            source_provider: 'Oracle DB',
+            target_provider: 'PostgreSQL 16',
+            state: 'RUNNING',
+            last_result_status: 'SUCCESS',
+            evaluation_count: 3
+          }
+        }),
+        executeValidationMission: vi.fn()
+      };
+
+      const workstationSvc = new ValidationWorkstationService(undefined, mockMigrationIpc);
+      await workstationSvc.loadMission('miss-999');
+
+      const s = workstationSvc.state();
+      expect(s.validationId).toBe('miss-999');
+      expect(s.validationName).toBe('Production Inventory Scan');
+      expect(s.source.provider).toBe('Oracle DB');
+      expect(s.target.provider).toBe('PostgreSQL 16');
+      expect(s.executionState).toBe('RUNNING');
+      expect(s.verdict).toBe('PASSED');
+    });
+
+    it('should execute validation mission via executeValidationMission and record verdict', async () => {
+      const mockMigrationIpc: any = {
+        getValidationMission: vi.fn(),
+        executeValidationMission: vi.fn().mockResolvedValue({
+          status: 'SUCCESS',
+          data: {
+            status: 'SUCCESS',
+            rows_compared: 150000,
+            rows_matched: 150000,
+            rows_mismatched: 0,
+            discrepancies: []
+          }
+        })
+      };
+
+      const workstationSvc = new ValidationWorkstationService(undefined, mockMigrationIpc);
+      await workstationSvc.executeMission('miss-999');
+
+      const s = workstationSvc.state();
+      expect(s.executionState).toBe('COMPLETED');
+      expect(s.verdict).toBe('PASSED');
+      expect(s.throughputFormatted).toBe('150000 rows/sec');
+      expect(workstationSvc.actionFeedback()).toContain('executed successfully');
+    });
+
+    it('should handle validation failure verdict with honest MISMATCH state', async () => {
+      const mockMigrationIpc: any = {
+        getValidationMission: vi.fn(),
+        executeValidationMission: vi.fn().mockResolvedValue({
+          status: 'SUCCESS',
+          data: {
+            status: 'FAILED',
+            rows_compared: 150000,
+            rows_matched: 149950,
+            rows_mismatched: 50,
+            discrepancies: [{ id: 'd-1', key: '1001' }]
+          }
+        })
+      };
+
+      const workstationSvc = new ValidationWorkstationService(undefined, mockMigrationIpc);
+      await workstationSvc.executeMission('miss-999');
+
+      const s = workstationSvc.state();
+      expect(s.executionState).toBe('COMPLETED');
+      expect(s.verdict).toBe('FAILED');
+      expect(s.donut.centerLabel).toBe('MISMATCH');
+    });
+
+    it('should pause and abort continuous validation mission via IPC control', async () => {
+      const mockIpc: any = {
+        invoke: vi.fn().mockResolvedValue({ status: 'SUCCESS' }),
+        subscribe: vi.fn().mockReturnValue(() => {})
+      };
+      const mockMigrationIpc: any = {
+        getValidationMission: vi.fn(),
+        executeValidationMission: vi.fn()
+      };
+
+      const workstationSvc = new ValidationWorkstationService(undefined, mockMigrationIpc, mockIpc);
+      
+      await workstationSvc.pauseMission('miss-999');
+      expect(mockIpc.invoke).toHaveBeenCalledWith('pipeline', 'validation.control_continuous', {
+        mission_id: 'miss-999',
+        action: 'pause'
+      });
+      expect(workstationSvc.state().executionState).toBe('PAUSED');
+
+      await workstationSvc.abortMission('miss-999');
+      expect(mockIpc.invoke).toHaveBeenCalledWith('pipeline', 'validation.control_continuous', {
+        mission_id: 'miss-999',
+        action: 'cancel'
+      });
+      expect(workstationSvc.state().executionState).toBe('INTERRUPTED');
+    });
+  });
 });

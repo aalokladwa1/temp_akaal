@@ -38,9 +38,19 @@ export class ComplianceService {
   public async loadFromBackend(): Promise<void> {
     if (!this.adminIpc) return;
     try {
-      const resp = await this.adminIpc.listComplianceFrameworks();
-      if (resp.status === 'SUCCESS' && resp.data) {
-        // Enriched compliance frameworks
+      const respFw = await this.adminIpc.listComplianceFrameworks();
+      if (respFw.status === 'SUCCESS' && Array.isArray(respFw.data)) {
+        this.frameworks.set(respFw.data);
+      }
+
+      const respExc = await this.adminIpc.listComplianceExceptions();
+      if (respExc.status === 'SUCCESS' && Array.isArray(respExc.data)) {
+        this.exceptions.set(respExc.data);
+      }
+
+      const respEv = await this.adminIpc.listComplianceEvidence();
+      if (respEv.status === 'SUCCESS' && Array.isArray(respEv.data)) {
+        this.evidence.set(respEv.data);
       }
     } catch {
       // Offline fallback
@@ -186,110 +196,16 @@ export class ComplianceService {
   ]);
 
   // Custom Frameworks
-  public customFrameworks = signal<CustomFramework[]>([
-    {
-      id: 'cfw-01',
-      name: 'Internal Sovereign FinTech Security Standard',
-      code: 'CORP-FINTECH-SEC-v2',
-      version: '2.1.0',
-      authorityOwner: 'Enterprise Risk & Governance Committee',
-      description: 'Mandatory zero-trust dual-custody controls for cross-border financial transactions and ledger migrations.',
-      controlsCount: 14,
-      createdAt: '2025-11-14',
-      status: 'ACTIVE'
-    }
-  ]);
+  public customFrameworks = signal<CustomFramework[]>([]);
 
   // Control Mappings
-  public controlMappings = signal<ControlMapping[]>([
-    {
-      id: 'map-01',
-      frameworkControlId: 'fc-gdpr-art32',
-      frameworkName: 'General Data Protection Regulation',
-      controlCode: 'GDPR-Art-32',
-      akaalTechnicalControlId: 'TECH-FPE-01',
-      technicalControlName: 'NIST FF3-1 Format-Preserving Encryption Engine',
-      rationale: 'In-flight columnar tokenization renders identity fields pseudonymous prior to network transit.',
-      verifiedAt: '2026-02-10',
-      status: 'ACTIVE'
-    },
-    {
-      id: 'map-02',
-      frameworkControlId: 'fc-pci-req3',
-      frameworkName: 'Payment Card Industry Data Security Standard',
-      controlCode: 'PCI-Req-3.4',
-      akaalTechnicalControlId: 'TECH-KMS-01',
-      technicalControlName: 'Envelope KMS AES-256-GCM Cryptographic Storage',
-      rationale: 'Envelope encryption guarantees card numbers are stored strictly under hardware-backed customer keys.',
-      verifiedAt: '2026-02-12',
-      status: 'ACTIVE'
-    },
-    {
-      id: 'map-03',
-      frameworkControlId: 'fc-pci-req10',
-      frameworkName: 'Payment Card Industry Data Security Standard',
-      controlCode: 'PCI-Req-10.2',
-      akaalTechnicalControlId: 'TECH-AUDIT-01',
-      technicalControlName: 'Tamper-Evident SHA-256 Merkle Audit Stream',
-      rationale: 'Administrative mutations produce chained SHA-256 hashes forwarded to SIEM collectors.',
-      verifiedAt: '2026-02-15',
-      status: 'ACTIVE'
-    }
-  ]);
+  public controlMappings = signal<ControlMapping[]>([]);
 
   // Compliance Exceptions
-  public exceptions = signal<ComplianceException[]>([
-    {
-      id: 'exc-01',
-      code: 'EXC-2026-001',
-      title: 'Temporary Non-FIDO2 Legacy Service Account Exception',
-      frameworkId: 'fw-hipaa',
-      controlCode: 'HIPAA-164.312(a)',
-      reason: 'Batch ingestion daemon connects via mutual TLS certificate rather than interactive WebAuthn MFA.',
-      scope: 'Service Account: svc-batch-importer-01',
-      justification: 'Automated machine-to-machine background process authenticated via X.509 client certificate under isolated VPC.',
-      approvedBy: 'Chief Information Security Officer',
-      validUntil: '2026-12-31',
-      status: 'APPROVED'
-    }
-  ]);
+  public exceptions = signal<ComplianceException[]>([]);
 
   // Compliance Evidence
-  public evidence = signal<ComplianceEvidence[]>([
-    {
-      id: 'ev-01',
-      evidenceType: 'HASH_ATTESTATION',
-      title: 'PostgreSQL Bulk Migration Execution Digest Attestation',
-      relatedControlCode: 'PCI-Req-10.2',
-      originSystem: 'akaalEngine/runtime',
-      sha256Digest: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-      verificationStatus: 'DIGEST_VERIFIED',
-      collectedAt: '2026-02-19 14:02 UTC',
-      sizeBytes: 4120
-    },
-    {
-      id: 'ev-02',
-      evidenceType: 'ENCRYPTION_PROOF',
-      title: 'TLS 1.3 Cipher Suite Inspection & Key Exchange Attestation',
-      relatedControlCode: 'GDPR-Art-32',
-      originSystem: 'akaalPipeline/security',
-      sha256Digest: '7b52009b64fd0a2a49e6d8a939753077792b0554ca5a6e8b4e76a666e5f8f8f2',
-      verificationStatus: 'DIGEST_VERIFIED',
-      collectedAt: '2026-02-18 09:30 UTC',
-      sizeBytes: 1890
-    },
-    {
-      id: 'ev-03',
-      evidenceType: 'IMMUTABLE_LOG_DIGEST',
-      title: 'Administrative Role Assignment Audit Batch Digest',
-      relatedControlCode: 'SOC2-CC6.1',
-      originSystem: 'akaal/governance',
-      sha256Digest: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
-      verificationStatus: 'DIGEST_VERIFIED',
-      collectedAt: '2026-02-17 16:45 UTC',
-      sizeBytes: 8340
-    }
-  ]);
+  public evidence = signal<ComplianceEvidence[]>([]);
 
   public getFrameworkById(id: string): ControlFramework | undefined {
     return this.frameworks().find(f => f.id === id);

@@ -77,7 +77,7 @@ import { LucideIconComponent } from '../../../../shared/components/lucide-icon.c
               </span>
               <span class="text-xs text-slate-600 font-medium">threads active</span>
             </div>
-            <div class="text-[11px] text-slate-400 mt-1.5">Pool saturation: 100%</div>
+            <div class="text-[11px] text-slate-400 mt-1.5">Pool saturation: {{ getPoolSaturation() }}%</div>
           </div>
         </div>
 
@@ -108,5 +108,11 @@ export class CockpitCurrentActivityComponent {
   public cleanText(val: string | undefined | null): string {
     if (!val) return '';
     return val.replace(/_/g, ' ');
+  }
+
+  public getPoolSaturation(): number {
+    const act = this.store.currentActivity();
+    if (!act.totalWorkerCount || act.totalWorkerCount <= 0) return 0;
+    return Math.min(100, Math.round((act.activeWorkerCount / act.totalWorkerCount) * 100));
   }
 }

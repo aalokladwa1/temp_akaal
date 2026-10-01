@@ -1111,7 +1111,7 @@ export class Step2SourceComponent implements OnInit {
   public filterCategory = signal<string>('ALL');
   public filterRoutes = signal<NetworkRouteType[]>([]);
   public filterHealthStatuses = signal<string[]>([]);
-  public filterScope = signal<'PROJECT' | 'TEAM' | 'ENTERPRISE'>('PROJECT');
+  public filterScope = signal<'PROJECT' | 'TEAM' | 'ENTERPRISE'>('ENTERPRISE');
 
   // Secret Visibility Map (Strictly One Icon, prevents overlap)
   public secretVisibilityMap = signal<Record<string, boolean>>({});
@@ -1207,194 +1207,8 @@ export class Step2SourceComponent implements OnInit {
     { label: 'All Enterprise Connections', value: 'ENTERPRISE' }
   ];
 
-  // Rich Enterprise Dataset for Saved Connections
-  public enterpriseSavedConnections: SavedConnectionItemExtended[] = [
-    {
-      id: 'conn-01',
-      name: 'Oracle 19c Enterprise RAC',
-      provider: 'Oracle',
-      category: 'RELATIONAL',
-      environment: 'Production',
-      host: 'ora-rac-cluster.prod.internal',
-      port: 1521,
-      databaseName: 'ORCLPDB',
-      username: 'akaal_repl_user',
-      secretRef: 'vault://secret/prod/oracle/akaal_repl',
-      tlsEnabled: true,
-      networkRoute: 'SSH_BASTION',
-      bastionHost: 'bastion-ap-south.corp.internal',
-      status: 'CONNECTED',
-      verificationFreshness: 'Verified 4 min ago',
-      latencyMs: 2.1,
-      capabilities: ['LOGMINER_CDC', 'TABLE_PARTITIONING', 'DIRECT_PATH_LOAD'],
-      assignedMigrationCount: 3,
-      assignedProjectCount: 2,
-      createdAt: '2026-08-01T10:00:00Z',
-      updatedAt: '2026-08-28T09:00:00Z',
-      scope: 'PROJECT'
-    },
-    {
-      id: 'conn-02',
-      name: 'AWS Aurora PostgreSQL Cluster',
-      provider: 'PostgreSQL',
-      category: 'RELATIONAL',
-      environment: 'Production',
-      host: 'aurora-pg-cluster.aws.internal',
-      port: 5432,
-      databaseName: 'banking_ledger',
-      username: 'akaal_applier',
-      secretRef: 'vault://secret/prod/postgres/applier',
-      tlsEnabled: true,
-      networkRoute: 'PRIVATE_ENDPOINT',
-      privateEndpointId: 'vpce-0a1b2c3d4e5f6g7h8',
-      status: 'CONNECTED',
-      verificationFreshness: 'Verified 8 min ago',
-      latencyMs: 1.4,
-      capabilities: ['WAL_LOGICAL_REPLICATION', 'COPY_BINARY_STREAM'],
-      assignedMigrationCount: 4,
-      assignedProjectCount: 2,
-      createdAt: '2026-08-01T11:00:00Z',
-      updatedAt: '2026-08-28T09:00:00Z',
-      scope: 'PROJECT'
-    },
-    {
-      id: 'conn-03',
-      name: 'Snowflake Enterprise Data Lake',
-      provider: 'Snowflake',
-      category: 'WAREHOUSE',
-      environment: 'Production',
-      host: 'org-xy12345.snowflakecomputing.com',
-      port: 443,
-      databaseName: 'ANALYTICS_PROD',
-      username: 'akaal_loader',
-      secretRef: 'vault://secret/prod/snowflake/loader',
-      tlsEnabled: true,
-      networkRoute: 'DIRECT',
-      status: 'CONNECTED',
-      verificationFreshness: 'Verified 15 min ago',
-      latencyMs: 18.5,
-      capabilities: ['STAGE_BULK_COPY', 'SNOWPIPE_STREAMING'],
-      assignedMigrationCount: 2,
-      assignedProjectCount: 1,
-      createdAt: '2026-08-10T14:00:00Z',
-      updatedAt: '2026-08-28T08:00:00Z',
-      scope: 'TEAM'
-    },
-    {
-      id: 'conn-04',
-      name: 'Kafka Event Bus (Core Stream)',
-      provider: 'Apache Kafka',
-      category: 'STREAMING',
-      environment: 'Production',
-      host: 'kafka-broker-01.prod.internal',
-      port: 9092,
-      username: 'akaal_producer',
-      secretRef: 'vault://secret/prod/kafka/producer',
-      tlsEnabled: true,
-      networkRoute: 'PRIVATE_ENDPOINT',
-      status: 'CONNECTED',
-      verificationFreshness: 'Verified 30 min ago',
-      latencyMs: 3.2,
-      capabilities: ['EXACTLY_ONCE_PRODUCER', 'SCHEMA_REGISTRY_AVRO'],
-      assignedMigrationCount: 1,
-      assignedProjectCount: 1,
-      createdAt: '2026-08-15T09:00:00Z',
-      updatedAt: '2026-08-28T07:00:00Z',
-      scope: 'ENTERPRISE'
-    },
-    {
-      id: 'conn-05',
-      name: 'Staging MongoDB Atlas Cluster',
-      provider: 'MongoDB',
-      category: 'NOSQL',
-      environment: 'Non-Production',
-      host: 'cluster0.mongodb.net',
-      port: 27017,
-      databaseName: 'catalog_qa',
-      username: 'qa_user',
-      secretRef: 'vault://secret/staging/mongo',
-      tlsEnabled: true,
-      networkRoute: 'DIRECT',
-      status: 'CONNECTED',
-      verificationFreshness: 'Verified 1 hr ago',
-      latencyMs: 12.0,
-      capabilities: ['CHANGE_STREAMS', 'BULK_WRITE'],
-      assignedMigrationCount: 1,
-      assignedProjectCount: 1,
-      createdAt: '2026-08-18T10:00:00Z',
-      updatedAt: '2026-08-28T06:00:00Z',
-      scope: 'PROJECT'
-    },
-    {
-      id: 'conn-06',
-      name: 'Azure Blob Storage Archive',
-      provider: 'Azure Blob Storage',
-      category: 'STORAGE',
-      environment: 'Production',
-      host: 'storageacc.blob.core.windows.net',
-      port: 443,
-      databaseName: 'raw-archives',
-      username: 'azure_sa',
-      secretRef: 'vault://secret/prod/azure/blob',
-      tlsEnabled: true,
-      networkRoute: 'HTTP_PROXY',
-      status: 'CONNECTED',
-      verificationFreshness: 'Verified 2 hrs ago',
-      latencyMs: 24.1,
-      capabilities: ['BLOCK_BLOB_MULTIPART'],
-      assignedMigrationCount: 1,
-      assignedProjectCount: 1,
-      createdAt: '2026-08-20T08:00:00Z',
-      updatedAt: '2026-08-28T05:00:00Z',
-      scope: 'TEAM'
-    },
-    {
-      id: 'conn-07',
-      name: 'Legacy SQL Server 2012',
-      provider: 'Microsoft SQL Server',
-      category: 'RELATIONAL',
-      environment: 'Production',
-      host: 'sql-legacy.corp.internal',
-      port: 1433,
-      databaseName: 'legacy_erp',
-      username: 'sa_readonly',
-      secretRef: 'vault://secret/prod/mssql/legacy',
-      tlsEnabled: false,
-      networkRoute: 'DIRECT',
-      status: 'ATTENTION',
-      verificationFreshness: 'Stale (14 days ago)',
-      latencyMs: 8.5,
-      capabilities: ['CDC_SYSTEM_TABLES'],
-      assignedMigrationCount: 0,
-      assignedProjectCount: 1,
-      createdAt: '2026-07-15T12:00:00Z',
-      updatedAt: '2026-08-14T09:00:00Z',
-      scope: 'ENTERPRISE'
-    },
-    {
-      id: 'conn-08',
-      name: 'Dev SQLite QA Sandbox',
-      provider: 'SQLite',
-      category: 'RELATIONAL',
-      environment: 'Non-Production',
-      host: '/var/data/qa_sandbox.db',
-      port: 0,
-      databaseName: 'main',
-      username: 'local',
-      secretRef: '',
-      tlsEnabled: false,
-      networkRoute: 'DIRECT',
-      status: 'DISCONNECTED',
-      verificationFreshness: 'Failed',
-      latencyMs: 0.2,
-      capabilities: ['SNAPSHOT_READ'],
-      assignedMigrationCount: 0,
-      assignedProjectCount: 1,
-      createdAt: '2026-08-22T14:00:00Z',
-      updatedAt: '2026-08-27T10:00:00Z',
-      scope: 'PROJECT'
-    }
-  ];
+  // Enterprise Dataset for Saved Connections (Strictly dynamic from Connections Vault)
+  public enterpriseSavedConnections: SavedConnectionItemExtended[] = [];
 
   // Network Route Options
   public networkRouteOptions: CustomSelectOption[] = [
@@ -1456,7 +1270,42 @@ export class Step2SourceComponent implements OnInit {
     const statuses = this.filterHealthStatuses();
     const scope = this.filterScope();
 
-    let list = this.enterpriseSavedConnections;
+    const canonicalList: SavedConnectionItemExtended[] = (this.connService?.connections() || []).map(canonical => {
+      const parts = (canonical.endpointDisplay || '').split(':');
+      const hostVal = parts[0] || 'localhost';
+      const portNum = Number(parts[1]) || ((canonical as any).parameters?.['port'] ? Number((canonical as any).parameters?.['port']) : 1521);
+      const params = (canonical as any).parameters || {};
+      const dbName = params['database'] || params['service_name'] || params['oracleServiceName'] || 'FREEPDB1';
+      const user = params['username'] || params['authUsername'] || (canonical.authMethodDisplay?.startsWith('User:') ? canonical.authMethodDisplay.replace('User:', '').trim() : canonical.authMethodDisplay);
+      const secret = params['password'] || params['secret_ref'] || params['authSecretValue'] || '';
+      return {
+        id: canonical.id,
+        name: canonical.name,
+        provider: toPhysicalProviderId(canonical.providerName),
+        category: (canonical.family === 'WAREHOUSE_LAKE' ? 'WAREHOUSE' : canonical.family) as any,
+        environment: canonical.environment || 'Production',
+        host: hostVal,
+        port: portNum,
+        databaseName: dbName,
+        username: user,
+        secretRef: secret,
+        tlsEnabled: false,
+        networkRoute: (canonical.safeRouteInfo as any) || 'DIRECT',
+        status: (canonical.verificationState === 'VERIFICATION_FAILED') ? 'DISCONNECTED' : 'CONNECTED',
+        verificationFreshness: canonical.verificationState || 'Verified',
+        latencyMs: 1.0,
+        capabilities: ['SNAPSHOT_READ'],
+        assignedMigrationCount: 0,
+        assignedProjectCount: 0,
+        createdAt: canonical.createdAt,
+        updatedAt: canonical.updatedAt,
+        scope: 'PROJECT'
+      };
+    });
+
+    const allSaved = [...this.enterpriseSavedConnections, ...canonicalList];
+
+    let list = allSaved;
 
     // Search query
     if (q) {
@@ -1549,21 +1398,27 @@ export class Step2SourceComponent implements OnInit {
     // 2. Search in canonical connection authority store
     const canonical = this.connService?.connections().find(c => c.id === id);
     if (canonical) {
-      const portNum = Number(canonical.endpointDisplay.split(':')[1]) || 5432;
+      const parts = (canonical.endpointDisplay || '').split(':');
+      const hostVal = parts[0] || 'localhost';
+      const portNum = Number(parts[1]) || ((canonical as any).parameters?.['port'] ? Number((canonical as any).parameters?.['port']) : 1521);
+      const params = (canonical as any).parameters || {};
+      const dbName = params['database'] || params['service_name'] || params['oracleServiceName'] || '';
+      const user = params['username'] || params['authUsername'] || (canonical.authMethodDisplay?.startsWith('User:') ? canonical.authMethodDisplay.replace('User:', '').trim() : canonical.authMethodDisplay);
+      const secret = params['password'] || params['secret_ref'] || params['authSecretValue'] || '';
       return {
         id: canonical.id,
         name: canonical.name,
         provider: toPhysicalProviderId(canonical.providerName),
         category: (canonical.family === 'WAREHOUSE_LAKE' ? 'WAREHOUSE' : canonical.family) as any,
         environment: canonical.environment,
-        host: canonical.endpointDisplay.split(':')[0] || 'localhost',
+        host: hostVal,
         port: portNum,
-        databaseName: 'default',
-        username: canonical.authMethodDisplay,
-        secretRef: '',
-        tlsEnabled: true,
-        networkRoute: canonical.safeRouteInfo as any,
-        status: (canonical.verificationState === 'VERIFIED_RECENT' || canonical.verificationState === 'VERIFIED_POINT_IN_TIME') ? 'CONNECTED' : 'DISCONNECTED',
+        databaseName: dbName,
+        username: user,
+        secretRef: secret,
+        tlsEnabled: canonical.tlsMode !== 'DISABLED',
+        networkRoute: (canonical.safeRouteInfo as any) || 'DIRECT',
+        status: (canonical.verificationState === 'VERIFICATION_FAILED') ? 'DISCONNECTED' : 'CONNECTED',
         verificationFreshness: canonical.verificationState,
         latencyMs: 1.0,
         capabilities: ['SNAPSHOT_READ'],
@@ -1586,10 +1441,12 @@ export class Step2SourceComponent implements OnInit {
   });
 
   public ngOnInit(): void {
+    if (this.connService) {
+      this.connService.loadState();
+    }
     // Sync environment filter with Step 1 environment
     const draftEnv = this.ms.wizardDraft().environment;
     if (draftEnv) {
-      this.filterEnvironment.set(draftEnv);
       this.selectedTlsMode.set(draftEnv === 'Production' ? 'VERIFY_FULL' : 'PREFER');
     }
   }

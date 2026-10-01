@@ -244,7 +244,7 @@ export interface EnvironmentOption {
             <span class="text-slate-300 font-light">&middot;</span>
             <span class="text-xs text-slate-400 font-normal">Choose how AKAAL should execute this migration.</span>
           </div>
-          <span class="text-[11px] text-slate-400 font-normal">7 Canonical Creation Modes</span>
+          <span class="text-[11px] text-slate-400 font-normal">8 Canonical Execution Modes</span>
         </div>
 
         <!-- 2-Column Mode Tiles Grid (No "MX" Badges, Zero Shadow, Zero Hover Movement) -->
@@ -314,7 +314,7 @@ export class Step1DefinitionComponent implements OnInit {
     { id: 'Non-Production', name: 'Non-Production', color: 'bg-emerald-500' }
   ];
 
-  // 3. Exactly Seven Canonical Creation Modes (No MX badges, clean title + micro-phrase subtitle)
+  // 3. Exactly Eight Canonical Execution Modes (M1-M8)
   public readonly canonicalModes: CanonicalModeCard[] = [
     {
       mode: 'M1_BULK',
@@ -350,6 +350,11 @@ export class Step1DefinitionComponent implements OnInit {
       mode: 'M7_DATA_ONLY',
       title: 'Data Only',
       subtitle: 'Transport into prepared schema'
+    },
+    {
+      mode: 'M8_VALIDATION_ONLY',
+      title: 'Validation Only',
+      subtitle: 'Non-mutating diff comparison & audit'
     }
   ];
 

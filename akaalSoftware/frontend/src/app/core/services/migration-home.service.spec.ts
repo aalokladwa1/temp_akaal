@@ -368,4 +368,273 @@ describe('MigrationHomeService (2.1 Migration Home Landing Hub)', () => {
       expect(counters.completed).toBe(1);
     });
   });
+
+  describe('5. Canonical IPC Loading & Reactivity', () => {
+    it('should map canonical migrations, projects, and activities from IPC', async () => {
+      const mockIpc: any = {
+        connectionState: () => 'connected',
+        subscribe: () => () => {},
+        invoke: async (_chan: string, type: string) => {
+          if (type === 'migration.list') {
+            return {
+              status: 'SUCCESS',
+              data: {
+                migrations: [
+                  {
+                    id: 'mig-live-01',
+                    name: 'Oracle to Aurora Migration',
+                    source_provider: 'Oracle',
+                    target_provider: 'PostgreSQL',
+                    state: 'RUNNING',
+                    progress_percent: 45.5,
+                    throughput_rows_per_sec: 50000,
+                    cdc_lag_ms: 250
+                  }
+                ]
+              }
+            };
+          }
+          if (type === 'project.list') {
+            return {
+              status: 'SUCCESS',
+              data: {
+                projects: [
+                  {
+                    id: 'proj-live-01',
+                    name: 'Enterprise Core Modernization',
+                    environment: 'Production',
+                    health: 'HEALTHY',
+                    migration_count: 3
+                  }
+                ]
+              }
+            };
+          }
+          if (type === 'audit.get_trail') {
+            return {
+              status: 'SUCCESS',
+              data: {
+                entries: [
+                  {
+                    id: 'aud-01',
+                    action: 'MIGRATION_EXECUTION_TRIGGERED',
+                    resource_id: 'mig-live-01',
+                    outcome: 'SUCCESS'
+                  }
+                ]
+              }
+            };
+          }
+          return { status: 'SUCCESS', data: {} };
+        }
+      };
+
+      const mockMigrationIpc: any = {
+        listMigrations: async () => mockIpc.invoke('pipeline', 'migration.list'),
+        listProjects: async () => mockIpc.invoke('pipeline', 'project.list'),
+        getAuditTrail: async () => mockIpc.invoke('pipeline', 'audit.get_trail')
+      };
+
+      const liveService = new MigrationHomeService(mockMigrationIpc, mockIpc);
+      await liveService.loadState();
+
+      expect(liveService.migrations().length).toBe(1);
+      expect(liveService.migrations()[0].id).toBe('mig-live-01');
+      expect(liveService.migrations()[0].source_provider).toBe('Oracle');
+      expect(liveService.migrations()[0].target_provider).toBe('PostgreSQL');
+      expect(liveService.migrations()[0].lifecycle_state).toBe('RUNNING');
+      expect(liveService.migrations()[0].progress_percent).toBe(45.5);
+
+      expect(liveService.projects().length).toBe(1);
+      expect(liveService.projects()[0].id).toBe('proj-live-01');
+
+      expect(liveService.activities().length).toBe(1);
+      expect(liveService.activities()[0].id).toBe('aud-01');
+      expect(liveService.isLoading()).toBe(false);
+      expect(liveService.isUnavailable()).toBe(false);
+    });
+
+    it('should update migration state when telemetry and status events arrive', () => {
+      let telemetryCb: ((event: any) => void) | undefined;
+      let statusCb: ((event: any) => void) | undefined;
+
+      const mockIpc: any = {
+        connectionState: () => 'connected',
+        subscribe: (topic: string, cb: any) => {
+          if (topic === 'akaal:telemetry') telemetryCb = cb;
+          if (topic === 'akaal:migration:status') statusCb = cb;
+          return () => {};
+        },
+        invoke: async () => ({ status: 'SUCCESS', data: {} })
+      };
+
+      const mockMigrationIpc: any = {
+        listMigrations: async () => ({ status: 'SUCCESS', data: { migrations: [] } }),
+        listProjects: async () => ({ status: 'SUCCESS', data: { projects: [] } }),
+        getAuditTrail: async () => ({ status: 'SUCCESS', data: { entries: [] } })
+      };
+
+      const liveService = new MigrationHomeService(mockMigrationIpc, mockIpc);
+      liveService.loadTestScenario([
+        {
+          id: 'mig-target-01',
+          name: 'Target Migration',
+          source_provider: 'Oracle',
+          source_label: 'src',
+          target_provider: 'PostgreSQL',
+          target_label: 'tgt',
+          mode: 'BULK_CDC',
+          lifecycle_state: 'ACTIVE',
+          current_stage: 'Bulk extract',
+          progress_percent: 20,
+          started_at: '',
+          updated_at: ''
+        }
+      ]);
+
+      // Telemetry event arrives
+      telemetryCb?.({
+        migration_id: 'mig-target-01',
+        progress_percent: 88,
+        current_stage: 'CDC Catchup',
+        throughput_rows_per_sec: 95000,
+        cdc_lag_ms: 120
+      });
+
+      const updated = liveService.migrations().find(m => m.id === 'mig-target-01');
+      expect(updated?.progress_percent).toBe(88);
+      expect(updated?.current_stage).toBe('CDC Catchup');
+      expect(updated?.throughput_rows_per_sec).toBe(95000);
+      expect(updated?.cdc_lag_ms).toBe(120);
+
+      // Status change event arrives
+      statusCb?.({
+        migration_id: 'mig-target-01',
+        state: 'COMPLETED',
+        current_stage: 'Completed'
+      });
+
+      const completed = liveService.migrations().find(m => m.id === 'mig-target-01');
+      expect(completed?.lifecycle_state).toBe('COMPLETED');
+      expect(completed?.current_stage).toBe('Completed');
+    });
+
+    it('should assign migration to project and update project_id in state', async () => {
+      let configuredPayload: any = null;
+      const mockMigrationIpc: any = {
+        listMigrations: async () => ({
+          status: 'SUCCESS',
+          data: {
+            migrations: [
+              {
+                id: 'mig-001',
+                name: 'Mig One',
+                source_provider: 'Oracle',
+                source_label: 'src',
+                target_provider: 'PostgreSQL',
+                target_label: 'tgt',
+                mode: 'M1_BULK',
+                lifecycle_state: 'ACTIVE',
+                current_stage: 'Running',
+                progress_percent: 50,
+                started_at: '',
+                updated_at: ''
+              }
+            ]
+          }
+        }),
+        listProjects: async () => ({ status: 'SUCCESS', data: { projects: [] } }),
+        getAuditTrail: async () => ({ status: 'SUCCESS', data: { entries: [] } }),
+        configureMigration: async (payload: any) => {
+          configuredPayload = payload;
+          return { status: 'SUCCESS', data: {} };
+        }
+      };
+
+      const liveService = new MigrationHomeService(mockMigrationIpc, {
+        connectionState: () => 'connected',
+        subscribe: () => () => {},
+        invoke: async () => ({ status: 'SUCCESS' })
+      } as any);
+
+      await liveService.loadState();
+
+      const success = await liveService.assignMigrationToProject('mig-001', 'proj-alpha');
+      expect(success).toBe(true);
+      expect(configuredPayload).toEqual({
+        migration_id: 'mig-001',
+        configuration: { project_id: 'proj-alpha' }
+      });
+      const updated = liveService.migrations().find(m => m.id === 'mig-001');
+      expect(updated?.project_id).toBe('proj-alpha');
+    });
+
+    it('should delete and archive migrations with state updates', async () => {
+      let deletedId = '';
+      let archivedId = '';
+      const mockMigrationIpc: any = {
+        listMigrations: async () => ({
+          status: 'SUCCESS',
+          data: {
+            migrations: [
+              {
+                id: 'mig-to-del',
+                name: 'Del Mig',
+                source_provider: 'Oracle',
+                source_label: 'src',
+                target_provider: 'PostgreSQL',
+                target_label: 'tgt',
+                mode: 'M1_BULK',
+                lifecycle_state: 'ACTIVE',
+                current_stage: 'Running',
+                progress_percent: 50,
+                started_at: '',
+                updated_at: ''
+              },
+              {
+                id: 'mig-to-arc',
+                name: 'Arc Mig',
+                source_provider: 'MySQL',
+                source_label: 'src',
+                target_provider: 'PostgreSQL',
+                target_label: 'tgt',
+                mode: 'M2_BULK_CDC',
+                lifecycle_state: 'COMPLETED',
+                current_stage: 'Completed',
+                progress_percent: 100,
+                started_at: '',
+                updated_at: ''
+              }
+            ]
+          }
+        }),
+        listProjects: async () => ({ status: 'SUCCESS', data: { projects: [] } }),
+        getAuditTrail: async () => ({ status: 'SUCCESS', data: { entries: [] } }),
+        deleteMigration: async (id: string) => {
+          deletedId = id;
+          return { status: 'SUCCESS', data: {} };
+        },
+        archiveMigration: async (id: string) => {
+          archivedId = id;
+          return { status: 'SUCCESS', data: {} };
+        }
+      };
+
+      const liveService = new MigrationHomeService(mockMigrationIpc, {
+        connectionState: () => 'connected',
+        subscribe: () => () => {},
+        invoke: async () => ({ status: 'SUCCESS' })
+      } as any);
+
+      await liveService.loadState();
+
+      await liveService.archiveMigration('mig-to-arc');
+      expect(archivedId).toBe('mig-to-arc');
+      expect(liveService.migrations().find(m => m.id === 'mig-to-arc')?.lifecycle_state).toBe('ARCHIVED');
+
+      await liveService.deleteMigration('mig-to-del');
+      expect(deletedId).toBe('mig-to-del');
+      expect(liveService.migrations().find(m => m.id === 'mig-to-del')).toBeUndefined();
+    });
+  });
 });

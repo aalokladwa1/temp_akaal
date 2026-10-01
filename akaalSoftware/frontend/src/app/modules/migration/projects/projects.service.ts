@@ -277,7 +277,37 @@ export class ProjectsService {
   public activeInitiative = computed<InitiativeWorkspaceDetail | null>(() => {
     const id = this.activeInitiativeId();
     if (!id) return null;
-    return this.initiativeWorkspaces()[id] || null;
+    const fromMap = this.initiativeWorkspaces()[id];
+    if (fromMap) return fromMap;
+
+    const fromList = this.initiatives().find(i => i.id === id);
+    if (!fromList) return null;
+
+    return {
+      id: fromList.id,
+      key: fromList.key,
+      name: fromList.name,
+      objective: fromList.objective,
+      description: fromList.description,
+      status: fromList.status,
+      associatedProjectIds: fromList.associatedProjectIds || [],
+      totalProjectsCount: fromList.associatedProjectCount || 0,
+      activeProjectsCount: fromList.associatedProjectCount || 0,
+      currentWork: {
+        totalMigrations: 0,
+        activeMigrations: 0,
+        completedMigrations: 0,
+        totalValidations: 0,
+        passedValidations: 0,
+        discrepancyValidations: 0
+      },
+      recentActivities: [],
+      createdAt: fromList.createdAt,
+      updatedAt: fromList.updatedAt,
+      lastActivityAt: fromList.updatedAt,
+      backendAvailability: 'READY',
+      accessState: 'GRANTED'
+    };
   });
 
   // Projects associated with the active initiative
@@ -848,6 +878,80 @@ export class ProjectsService {
     this.createWizardStep.set(step);
   }
 
+  public submitCreateInitiative(): string {
+    const draft = this.initiativeDraft();
+    const id = `init-${Date.now().toString().slice(-6)}`;
+    const key = this.generateSuggestedKey(draft.name) || 'INIT';
+    const now = new Date().toISOString();
+
+    const newInitiativeItem: InitiativeDiscoveryItem = {
+      id,
+      name: draft.name,
+      key,
+      objective: draft.objective,
+      description: draft.objective,
+      status: 'PLANNING',
+      associatedProjectIds: [...draft.selectedProjectIds],
+      associatedProjectCount: draft.selectedProjectIds.length,
+      associatedProjectsSummary: [],
+      createdAt: now,
+      updatedAt: now,
+      backendAvailability: 'READY',
+      accessState: 'GRANTED'
+    };
+
+    const newInitiativeWorkspace: InitiativeWorkspaceDetail = {
+      id,
+      key,
+      name: draft.name,
+      objective: draft.objective,
+      description: draft.objective,
+      status: 'PLANNING',
+      associatedProjectIds: [...draft.selectedProjectIds],
+      totalProjectsCount: draft.selectedProjectIds.length,
+      activeProjectsCount: 0,
+      createdAt: now,
+      updatedAt: now,
+      lastActivityAt: now,
+      backendAvailability: 'READY',
+      accessState: 'GRANTED'
+    };
+
+    // Update store
+    this.initiatives.update(list => [newInitiativeItem, ...list]);
+    this.initiativeWorkspaces.update(map => ({ ...map, [id]: newInitiativeWorkspace }));
+
+    if (draft.selectedProjectIds.length > 0) {
+      this.projects.update(list =>
+        list.map(p => draft.selectedProjectIds.includes(p.id) ? {
+          ...p,
+          initiativeId: id,
+          initiativeName: draft.name,
+          initiativeKey: key
+        } : p)
+      );
+    }
+
+    this.updateSummary();
+
+    // Persist over IPC to canonical backend
+    if (this.ipc.connectionState() !== 'disconnected') {
+      this.migrationIpc.createInitiative({
+        id,
+        name: draft.name,
+        key,
+        objective: draft.objective,
+        description: draft.objective,
+        associated_project_ids: draft.selectedProjectIds,
+        workspace_id: this.cs.selectedWorkspace()?.id || 'ws-current'
+      }).catch(err => {
+        console.warn('Failed to persist initiative over IPC:', err);
+      });
+    }
+
+    return id;
+  }
+
   // ==========================================================================
   // PART C: CREATE PROJECT DRAFT ACTIONS & SUBMISSION
   // ==========================================================================
@@ -1031,10 +1135,27 @@ export class ProjectsService {
     // Update store
     this.projects.update(list => [newProjectItem, ...list]);
     this.projectWorkspaces.update(map => ({ ...map, [id]: newProjectWorkspace }));
+    this.updateSummary();
 
     // If assigned to initiative, update initiative association
     if (draft.initiativeId) {
       this.addProjectsToInitiative(draft.initiativeId, [id]);
+    }
+
+    // Persist over IPC to canonical backend
+    if (this.ipc.connectionState() !== 'disconnected') {
+      this.migrationIpc.createProject({
+        id,
+        name: draft.name,
+        key,
+        description: draft.description,
+        initiative_id: draft.initiativeId,
+        environment_name: env,
+        is_production: isProd,
+        workspace_id: this.cs.selectedWorkspace()?.id || 'ws-current'
+      }).catch(err => {
+        console.warn('Failed to persist project over IPC:', err);
+      });
     }
 
     return id;
@@ -1059,6 +1180,12 @@ export class ProjectsService {
     this.initiatives.update(list =>
       list.map(init => init.id === id ? { ...init, name, objective } : init)
     );
+
+    if (this.ipc.connectionState() !== 'disconnected') {
+      this.migrationIpc.updateInitiative(id, { name, objective, description: objective }).catch(err => {
+        console.warn('Failed to persist initiative update over IPC:', err);
+      });
+    }
   }
 
   public removeProjectFromInitiative(initiativeId: string, projectId: string): void {
@@ -1079,6 +1206,18 @@ export class ProjectsService {
     this.projects.update(list =>
       list.map(p => p.id === projectId ? { ...p, initiativeId: undefined, initiativeName: undefined, initiativeKey: undefined } : p)
     );
+
+    if (this.ipc.connectionState() !== 'disconnected') {
+      const init = this.initiativeWorkspaces()[initiativeId];
+      if (init) {
+        this.migrationIpc.updateInitiative(initiativeId, {
+          associated_project_ids: init.associatedProjectIds
+        }).catch(err => console.warn('Failed to update initiative project binding over IPC:', err));
+      }
+      this.migrationIpc.updateProject(projectId, {
+        initiative_id: null
+      }).catch(err => console.warn('Failed to unbind project from initiative over IPC:', err));
+    }
   }
 
   public addProjectsToInitiative(initiativeId: string, projectIds: string[]): void {
@@ -1107,6 +1246,20 @@ export class ProjectsService {
         initiativeKey: init.key
       } : p)
     );
+
+    if (this.ipc.connectionState() !== 'disconnected') {
+      const updatedInit = this.initiativeWorkspaces()[initiativeId];
+      if (updatedInit) {
+        this.migrationIpc.updateInitiative(initiativeId, {
+          associated_project_ids: updatedInit.associatedProjectIds
+        }).catch(err => console.warn('Failed to update initiative project binding over IPC:', err));
+      }
+      for (const pid of projectIds) {
+        this.migrationIpc.updateProject(pid, {
+          initiative_id: initiativeId
+        }).catch(err => console.warn('Failed to bind project to initiative over IPC:', err));
+      }
+    }
   }
 
   public archiveInitiative(initiativeId: string): void {
@@ -1126,6 +1279,12 @@ export class ProjectsService {
     this.initiatives.update(list =>
       list.map(init => init.id === initiativeId ? { ...init, status: 'ARCHIVED' } : init)
     );
+
+    if (this.ipc.connectionState() !== 'disconnected') {
+      this.migrationIpc.updateInitiative(initiativeId, { status: 'ARCHIVED' }).catch(err => {
+        console.warn('Failed to persist initiative archive over IPC:', err);
+      });
+    }
   }
 
   public setProjectSearch(query: string): void {
@@ -1501,6 +1660,16 @@ export class ProjectsService {
       } : p)
     );
 
+    if (this.ipc.connectionState() !== 'disconnected') {
+      this.migrationIpc.updateProject(projectId, {
+        name,
+        description,
+        initiative_id: initiativeId
+      }).catch(err => {
+        console.warn('Failed to persist project update over IPC:', err);
+      });
+    }
+
     this.settingsSaveStatus.set('SAVED');
     setTimeout(() => this.settingsSaveStatus.set('IDLE'), 2000);
   }
@@ -1523,6 +1692,12 @@ export class ProjectsService {
       list.map(p => p.id === projectId ? { ...p, status: 'ARCHIVED', updatedAt: new Date().toISOString() } : p)
     );
 
+    if (this.ipc.connectionState() !== 'disconnected') {
+      this.migrationIpc.updateProject(projectId, { status: 'ARCHIVED' }).catch(err => {
+        console.warn('Failed to persist project archive over IPC:', err);
+      });
+    }
+
     this.archiveProjectModalOpen.set(false);
   }
 
@@ -1543,6 +1718,12 @@ export class ProjectsService {
     this.projects.update(list =>
       list.map(p => p.id === projectId ? { ...p, status: 'ACTIVE', updatedAt: new Date().toISOString() } : p)
     );
+
+    if (this.ipc.connectionState() !== 'disconnected') {
+      this.migrationIpc.updateProject(projectId, { status: 'ACTIVE' }).catch(err => {
+        console.warn('Failed to persist project restore over IPC:', err);
+      });
+    }
   }
 
   // ==========================================================================
@@ -1771,6 +1952,111 @@ export class ProjectsService {
     }
   }
 
+  public async loadProject(id: string): Promise<ProjectWorkspaceDetail | null> {
+    if (this.ipc.connectionState() === 'disconnected') {
+      return this.projectWorkspaces()[id] || this.activeProject();
+    }
+
+    try {
+      const res = await this.migrationIpc.getProject(id);
+      if (res && res.status === 'SUCCESS' && res.data) {
+        const item = res.data;
+        const mapped: ProjectWorkspaceDetail = {
+          id: item.id || item.project_id || id,
+          key: item.key || (item.name ? item.name.substring(0, 4).toUpperCase() : 'PROJ'),
+          name: item.name || 'Unnamed Project',
+          description: item.description || '',
+          workspaceId: item.workspace_id || item.workspaceId || 'ws-default',
+          environmentName: item.environment_name || item.environmentName || 'Production',
+          isProduction: item.is_production ?? item.isProduction ?? true,
+          initiativeId: item.initiative_id || item.initiativeId,
+          initiativeName: item.initiative_name || item.initiativeName,
+          initiativeKey: item.initiative_key || item.initiativeKey,
+          status: item.status || 'ACTIVE',
+          currentWork: {
+            totalMigrations: item.migration_count || item.migrationCount || 0,
+            activeMigrations: item.active_workloads_count || item.activeWorkloadsCount || 0,
+            completedMigrations: Math.max(0, (item.migration_count || 0) - (item.active_workloads_count || 0)),
+            totalValidations: item.validation_count || item.validationCount || 0,
+            passedValidations: item.validation_count || item.validationCount || 0,
+            discrepancyValidations: item.attention_count || item.attentionCount || 0
+          },
+          upcomingEvents: [],
+          recentActivities: [],
+          createdAt: item.created_at || item.createdAt || new Date().toISOString(),
+          updatedAt: item.updated_at || item.updatedAt || new Date().toISOString(),
+          lastActivityAt: item.updated_at || item.updatedAt || new Date().toISOString(),
+          availability: 'READY',
+          accessState: 'GRANTED'
+        };
+
+        this.projectWorkspaces.update(map => ({ ...map, [id]: mapped }));
+        this.projects.update(list => {
+          const idx = list.findIndex(p => p.id === id);
+          const disc = this.mapBackendProject(item);
+          if (idx >= 0) {
+            const next = [...list];
+            next[idx] = disc;
+            return next;
+          }
+          return [disc, ...list];
+        });
+        return mapped;
+      }
+    } catch (err) {
+      console.warn('Failed to load project from backend IPC:', err);
+    }
+    return this.projectWorkspaces()[id] || null;
+  }
+
+  public async loadInitiative(id: string): Promise<InitiativeWorkspaceDetail | null> {
+    if (this.ipc.connectionState() === 'disconnected') {
+      return this.initiativeWorkspaces()[id] || this.activeInitiative();
+    }
+
+    try {
+      const res = await this.migrationIpc.getInitiative(id);
+      if (res && res.status === 'SUCCESS' && res.data) {
+        const item = res.data;
+        const assocIds = Array.isArray(item.associated_project_ids)
+          ? item.associated_project_ids
+          : (Array.isArray(item.associatedProjectIds) ? item.associatedProjectIds : []);
+        const mapped: InitiativeWorkspaceDetail = {
+          id: item.id || item.initiative_id || id,
+          key: item.key || (item.name ? item.name.substring(0, 4).toUpperCase() : 'INIT'),
+          name: item.name || 'Unnamed Initiative',
+          objective: item.objective || item.description || '',
+          description: item.description || '',
+          status: item.status || 'ACTIVE',
+          associatedProjectIds: assocIds,
+          totalProjectsCount: assocIds.length,
+          activeProjectsCount: assocIds.length,
+          createdAt: item.created_at || item.createdAt || new Date().toISOString(),
+          updatedAt: item.updated_at || item.updatedAt || new Date().toISOString(),
+          lastActivityAt: item.updated_at || item.updatedAt || new Date().toISOString(),
+          backendAvailability: 'READY',
+          accessState: 'GRANTED'
+        };
+
+        this.initiativeWorkspaces.update(map => ({ ...map, [id]: mapped }));
+        this.initiatives.update(list => {
+          const idx = list.findIndex(i => i.id === id);
+          const disc = this.mapBackendInitiative(item);
+          if (idx >= 0) {
+            const next = [...list];
+            next[idx] = disc;
+            return next;
+          }
+          return [disc, ...list];
+        });
+        return mapped;
+      }
+    } catch (err) {
+      console.warn('Failed to load initiative from backend IPC:', err);
+    }
+    return this.initiativeWorkspaces()[id] || null;
+  }
+
   private updateSummary(): void {
     const projs = this.projects();
     const inits = this.initiatives();
@@ -1785,7 +2071,7 @@ export class ProjectsService {
 
   private mapBackendProject(item: any): ProjectDiscoveryItem {
     return {
-      id: item.id || item.project_id || `proj-${Math.random().toString(36).substring(2, 7)}`,
+      id: item.id || item.project_id || '',
       name: item.name || 'Unnamed Project',
       key: item.key || item.name?.substring(0, 4).toUpperCase() || 'PROJ',
       description: item.description || '',
@@ -1807,21 +2093,82 @@ export class ProjectsService {
   }
 
   private mapBackendInitiative(item: any): InitiativeDiscoveryItem {
+    const assocIds = Array.isArray(item.associatedProjectIds)
+      ? item.associatedProjectIds
+      : (Array.isArray(item.associated_project_ids)
+        ? item.associated_project_ids
+        : (typeof item.associated_project_ids === 'string'
+          ? (() => { try { return JSON.parse(item.associated_project_ids); } catch { return []; } })()
+          : []));
     return {
-      id: item.id || item.initiative_id || `init-${Math.random().toString(36).substring(2, 7)}`,
+      id: item.id || item.initiative_id || '',
       name: item.name || 'Unnamed Initiative',
       key: item.key || item.name?.substring(0, 4).toUpperCase() || 'INIT',
       objective: item.objective || item.description || '',
       description: item.description || '',
       status: item.status || 'ACTIVE',
-      associatedProjectIds: Array.isArray(item.associatedProjectIds) ? item.associatedProjectIds : [],
-      associatedProjectCount: item.associatedProjectCount || item.projectCount || 0,
+      associatedProjectIds: assocIds,
+      associatedProjectCount: item.associatedProjectCount || item.projectCount || assocIds.length,
       associatedProjectsSummary: Array.isArray(item.associatedProjectsSummary) ? item.associatedProjectsSummary : [],
       createdAt: item.createdAt || item.created_at || new Date().toISOString(),
       updatedAt: item.updatedAt || item.updated_at || new Date().toISOString(),
       backendAvailability: 'READY',
       accessState: 'GRANTED'
     };
+  }
+
+  public async deleteProject(id: string): Promise<boolean> {
+    if (this.ipc && typeof this.ipc.connectionState === 'function' && this.ipc.connectionState() === 'disconnected') {
+      this.errorMessage.set('Cannot delete project: IPC disconnected');
+      return false;
+    }
+    if (this.migrationIpc) {
+      try {
+        const res = await this.migrationIpc.deleteProject(id);
+        if (res && res.status === 'SUCCESS') {
+          this.projects.update(list => list.filter(p => p.id !== id));
+          this.updateSummary();
+          return true;
+        } else if (res) {
+          const errMsg = typeof res.error === 'string' ? res.error : ((res.error as any)?.message || 'Failed to delete project');
+          this.errorMessage.set(errMsg);
+          return false;
+        }
+      } catch (err: any) {
+        this.errorMessage.set(err?.message || 'Failed to delete project');
+        return false;
+      }
+    }
+    this.projects.update(list => list.filter(p => p.id !== id));
+    this.updateSummary();
+    return true;
+  }
+
+  public async deleteInitiative(id: string): Promise<boolean> {
+    if (this.ipc && typeof this.ipc.connectionState === 'function' && this.ipc.connectionState() === 'disconnected') {
+      this.errorMessage.set('Cannot delete initiative: IPC disconnected');
+      return false;
+    }
+    if (this.migrationIpc) {
+      try {
+        const res = await this.migrationIpc.deleteInitiative(id);
+        if (res && res.status === 'SUCCESS') {
+          this.initiatives.update(list => list.filter(i => i.id !== id));
+          this.updateSummary();
+          return true;
+        } else if (res) {
+          const errMsg = typeof res.error === 'string' ? res.error : ((res.error as any)?.message || 'Failed to delete initiative');
+          this.errorMessage.set(errMsg);
+          return false;
+        }
+      } catch (err: any) {
+        this.errorMessage.set(err?.message || 'Failed to delete initiative');
+        return false;
+      }
+    }
+    this.initiatives.update(list => list.filter(i => i.id !== id));
+    this.updateSummary();
+    return true;
   }
 
   public reload(): void {

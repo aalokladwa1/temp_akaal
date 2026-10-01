@@ -301,6 +301,7 @@ class DiscoveryPipelineExecutor:
         # 5. Programmable Objects Stage (PL/SQL, T-SQL, PL/pgSQL, etc.)
         programmables = None
         if not check_deadline("Programmables") and isinstance(strategy, RelationalDiscoveryStrategy) and context.depth in (
+            DiscoveryDepth.STANDARD,
             DiscoveryDepth.DEEP,
             DiscoveryDepth.COMPLIANCE,
         ):

@@ -147,12 +147,75 @@ describe('AKAAL Cockpit / Mission Control Unit Tests', () => {
     });
 
     it('should resolve approval barrier and update stage when approved', async () => {
-      store.resolveApprovalBarrier('barrier-cutover', true);
-      expect(store.actionInFlight()).toBe(true);
-
-      await new Promise(resolve => setTimeout(resolve, 450));
+      await store.resolveApprovalBarrier('barrier-cutover', true);
       expect(store.actionInFlight()).toBe(false);
       expect(store.identity().lifecycleState).toBe('RUNNING');
+    });
+  });
+
+  describe('3. Permitted Actions State Classification & Cutover Projection', () => {
+    it('should expose Perform Cutover as primary action when state is CDC_STREAMING for M2_BULK_CDC mode', () => {
+      const session = {
+        mode: 'M2_BULK_CDC',
+        lifecycleState: 'CDC_STREAMING'
+      };
+
+      const actions = adapter.projectPermittedActions(session);
+      const cutoverAction = actions.find(a => a.id === 'CUTOVER');
+      expect(cutoverAction).toBeDefined();
+      expect(cutoverAction?.label).toBe('Perform Cutover');
+      expect(cutoverAction?.isPrimary).toBe(true);
+
+      const pauseAction = actions.find(a => a.id === 'PAUSE');
+      expect(pauseAction).toBeDefined();
+      expect(pauseAction?.isPrimary).toBe(false);
+    });
+
+    it('should NOT expose Perform Cutover during BULK_COMPLETED, IN_PROGRESS, or DISPATCHED phases', () => {
+      for (const bulkState of ['BULK_COMPLETED', 'IN_PROGRESS', 'DISPATCHED']) {
+        const session = {
+          mode: 'M2_BULK_CDC',
+          lifecycleState: bulkState
+        };
+
+        const actions = adapter.projectPermittedActions(session);
+        const cutoverAction = actions.find(a => a.id === 'CUTOVER');
+        expect(cutoverAction).toBeUndefined();
+
+        const pauseAction = actions.find(a => a.id === 'PAUSE');
+        expect(pauseAction).toBeDefined();
+        expect(pauseAction?.isPrimary).toBe(true);
+      }
+    });
+
+    it('should preserve Perform Cutover for RUNNING and ACTIVE states in M2_BULK_CDC mode', () => {
+      for (const activeState of ['RUNNING', 'ACTIVE']) {
+        const session = {
+          mode: 'M2_BULK_CDC',
+          lifecycleState: activeState
+        };
+
+        const actions = adapter.projectPermittedActions(session);
+        const cutoverAction = actions.find(a => a.id === 'CUTOVER');
+        expect(cutoverAction).toBeDefined();
+        expect(cutoverAction?.isPrimary).toBe(true);
+      }
+    });
+
+    it('should NOT manufacture Cutover for terminal states or non-streaming modes', () => {
+      const terminalSession = {
+        mode: 'M2_BULK_CDC',
+        lifecycleState: 'COMPLETED'
+      };
+      const terminalActions = adapter.projectPermittedActions(terminalSession);
+      expect(terminalActions.find(a => a.id === 'CUTOVER')).toBeUndefined();
+
+      const bulkModeSession = {
+        mode: 'M1_BULK',
+        lifecycleState: 'CDC_STREAMING'
+      };
+      const bulkModeActions = adapter.projectPermittedActions(bulkModeSession);
+      expect(bulkModeActions.find(a => a.id === 'CUTOVER')).toBeUndefined();
     });
   });
 });

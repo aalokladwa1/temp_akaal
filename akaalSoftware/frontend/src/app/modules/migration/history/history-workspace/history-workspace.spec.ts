@@ -12,12 +12,12 @@ describe('Migration History Workspace Suite', () => {
   });
 
   describe('1. HistoryWorkspaceService Core State & Record Resolution', () => {
-    it('should initialize with default active migration and overview tab in READY state', () => {
-      expect(service.activeMigrationId()).toBe('mig-fin-core-01');
+    it('should initialize with default empty active migration and overview tab in EMPTY state', () => {
+      expect(service.activeMigrationId()).toBe('');
       expect(service.activeTab()).toBe('overview');
-      expect(service.viewState()).toBe('READY');
+      expect(service.viewState()).toBe('EMPTY');
       expect(service.errorMessage()).toBeNull();
-      expect(service.currentRecord()).not.toBeNull();
+      expect(service.currentRecord()).toBeNull();
     });
 
     it('should switch tabs accurately across all 10 destinations', () => {
@@ -41,7 +41,7 @@ describe('Migration History Workspace Suite', () => {
     });
 
     it('should load directly mapped fixtures like mig-fin-core-01 and mig-audit-m8-01', () => {
-      service.loadMigration('mig-fin-core-01');
+      service.loadTestFixture('mig-fin-core-01');
       expect(service.viewState()).toBe('READY');
       const rec = service.currentRecord();
       expect(rec).not.toBeNull();
@@ -49,7 +49,7 @@ describe('Migration History Workspace Suite', () => {
       expect(rec?.mode).toBe('M2_BULK_CDC');
       expect(rec?.cutover.isApplicableToMode).toBe(true);
 
-      service.loadMigration('mig-audit-m8-01');
+      service.loadTestFixture('mig-audit-m8-01');
       expect(service.viewState()).toBe('READY');
       const m8Rec = service.currentRecord();
       expect(m8Rec).not.toBeNull();
@@ -61,7 +61,7 @@ describe('Migration History Workspace Suite', () => {
       const homeIds = ['mig-fin-core-01', 'mig-audit-m8-01', 'mig-retail-inv-04', 'mig-stream-kafka-02', 'mig-crm-delta-07', 'mig-analytics-dw-01', 'mig-banking-ddl-01', 'mig-user-profiles-09'];
       
       homeIds.forEach(id => {
-        service.loadMigration(id);
+        service.loadTestFixture(id);
         expect(service.viewState()).toBe('READY');
         const rec = service.currentRecord();
         expect(rec).not.toBeNull();

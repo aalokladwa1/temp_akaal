@@ -7,17 +7,17 @@ import { generateGreetingContext, GreetingContext } from '../tokens/phrase.gener
 export function isValidDashboardSummary(data: any): data is DashboardSummary {
   if (!data || typeof data !== 'object') return false;
   // If it's a generic IPC envelope fallback without domain fields, reject as non-domain
-  if (data.channel && data.endpoint && data.action && !Array.isArray(data.activeMigrations) && data.runningCount === undefined) {
+  if (data.channel && data.endpoint && data.action && !Array.isArray(data.activeMigrations) && data.activeMigrations !== null && data.runningCount === undefined) {
     return false;
   }
-  // Ensure array collections are valid arrays if present
-  if (data.activeMigrations !== undefined && !Array.isArray(data.activeMigrations)) return false;
-  if (data.attentionItems !== undefined && !Array.isArray(data.attentionItems)) return false;
-  if (data.subsystems !== undefined && !Array.isArray(data.subsystems)) return false;
-  if (data.pendingApprovals !== undefined && !Array.isArray(data.pendingApprovals)) return false;
-  if (data.capacityMetrics !== undefined && !Array.isArray(data.capacityMetrics)) return false;
-  if (data.incidents !== undefined && !Array.isArray(data.incidents)) return false;
-  if (data.recentEvents !== undefined && !Array.isArray(data.recentEvents)) return false;
+  // Ensure array collections are valid arrays if present and not null
+  if (data.activeMigrations !== undefined && data.activeMigrations !== null && !Array.isArray(data.activeMigrations)) return false;
+  if (data.attentionItems !== undefined && data.attentionItems !== null && !Array.isArray(data.attentionItems)) return false;
+  if (data.subsystems !== undefined && data.subsystems !== null && !Array.isArray(data.subsystems)) return false;
+  if (data.pendingApprovals !== undefined && data.pendingApprovals !== null && !Array.isArray(data.pendingApprovals)) return false;
+  if (data.capacityMetrics !== undefined && data.capacityMetrics !== null && !Array.isArray(data.capacityMetrics)) return false;
+  if (data.incidents !== undefined && data.incidents !== null && !Array.isArray(data.incidents)) return false;
+  if (data.recentEvents !== undefined && data.recentEvents !== null && !Array.isArray(data.recentEvents)) return false;
   return true;
 }
 
@@ -31,9 +31,70 @@ export class DashboardService {
   constructor(ipc?: IpcService, dashboardIpc?: DashboardIpc) {
     this.ipc = ipc || new IpcService();
     this.dashboardIpc = dashboardIpc || new DashboardIpc(this.ipc);
+    this.initSubscriptions();
   }
 
-  public userName = signal<string>('Aalok');
+  private telemetryDebounceTimer: any = null;
+
+  private triggerDebouncedRefresh(): void {
+    if (this.telemetryDebounceTimer) {
+      clearTimeout(this.telemetryDebounceTimer);
+    }
+    this.telemetryDebounceTimer = setTimeout(() => {
+      this.telemetryDebounceTimer = null;
+      this.refreshDashboard();
+    }, 200);
+  }
+
+  private initSubscriptions(): void {
+    if (typeof this.ipc?.subscribe === 'function') {
+      this.ipc.subscribe('akaal:engine:connected', () => {
+        this.refreshDashboard();
+        this.loadCurrentAccount();
+      });
+
+      this.ipc.subscribe('akaal:engine:disconnected', () => {
+        this.status.set('unavailable');
+        this.lastError.set('IPC connection is offline');
+      });
+
+      const reactiveEvents = [
+        'akaal:telemetry',
+        'akaal:migration:event',
+        'akaal:migration:progress',
+        'akaal:validation:mission:completed',
+        'akaal:validation:mission:created',
+        'akaal:connection:changed',
+        'akaal:alert:created',
+        'akaal:incident:created',
+        'akaal:governance:event'
+      ];
+
+      for (const ev of reactiveEvents) {
+        this.ipc.subscribe(ev, () => {
+          this.triggerDebouncedRefresh();
+        });
+      }
+    }
+  }
+
+  public async loadCurrentAccount(): Promise<void> {
+    try {
+      if (this.ipc && typeof this.ipc.invoke === 'function') {
+        const res = await this.ipc.invoke('account', 'current.get', {});
+        if (res?.status === 'SUCCESS' && res.data) {
+          const name = res.data.display_name || res.data.name;
+          if (name) {
+            this.userName.set(name);
+          }
+        }
+      }
+    } catch {
+      // Safe fallback to active defaults
+    }
+  }
+
+  public userName = signal<string>('');
   public status = signal<DashboardStatus>('initial');
   public isLoading = signal<boolean>(false);
   public lastError = signal<string | null>(null);
@@ -82,15 +143,15 @@ export class DashboardService {
           scheduledCount: res.data.scheduledCount ?? null,
           attentionCount: res.data.attentionCount ?? null,
           completedTodayCount: res.data.completedTodayCount ?? null,
-          activeMigrations: Array.isArray(res.data.activeMigrations) ? res.data.activeMigrations : [],
-          attentionItems: Array.isArray(res.data.attentionItems) ? res.data.attentionItems : [],
+          activeMigrations: res.data.activeMigrations === null ? null : (Array.isArray(res.data.activeMigrations) ? res.data.activeMigrations : []),
+          attentionItems: res.data.attentionItems === null ? null : (Array.isArray(res.data.attentionItems) ? res.data.attentionItems : []),
           subsystems: Array.isArray(res.data.subsystems) ? res.data.subsystems : [],
-          pendingApprovals: Array.isArray(res.data.pendingApprovals) ? res.data.pendingApprovals : [],
+          pendingApprovals: res.data.pendingApprovals === null ? null : (Array.isArray(res.data.pendingApprovals) ? res.data.pendingApprovals : []),
           capacityMetrics: Array.isArray(res.data.capacityMetrics) ? res.data.capacityMetrics : [],
-          incidents: Array.isArray(res.data.incidents) ? res.data.incidents : [],
+          incidents: res.data.incidents === null ? null : (Array.isArray(res.data.incidents) ? res.data.incidents : []),
           fleet: res.data.fleet ?? null,
           security: res.data.security ?? null,
-          recentEvents: Array.isArray(res.data.recentEvents) ? res.data.recentEvents : []
+          recentEvents: res.data.recentEvents === null ? null : (Array.isArray(res.data.recentEvents) ? res.data.recentEvents : [])
         };
         this.dashboardData.set(normalized);
         this.status.set('available');

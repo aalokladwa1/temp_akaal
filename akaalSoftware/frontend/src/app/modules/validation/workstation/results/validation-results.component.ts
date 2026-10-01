@@ -84,12 +84,8 @@ export class ValidationResultsComponent implements OnInit {
   private readonly workstationService = inject(ValidationWorkstationService, { optional: true });
 
   ngOnInit(): void {
-    // If workstation service is running in a visual test fixture and results store is in default state, synchronize
-    if (this.workstationService && !this.workstationService.isProductionDefault()) {
-      const currentExecutionState = this.workstationService.executionState();
-      if ((currentExecutionState === 'COMPLETED' || currentExecutionState === 'RUNNING') && this.store.viewStatus() === 'NOT_EVALUATED') {
-        this.store.setFixture('PASSED_SYNC');
-      }
+    if (this.workstationService) {
+      this.store.syncWithWorkstation(this.workstationService.state());
     }
   }
 }

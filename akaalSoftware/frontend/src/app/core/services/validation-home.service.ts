@@ -1,4 +1,4 @@
-import { Injectable, signal, computed } from '@angular/core';
+import { Injectable, signal, computed, inject } from '@angular/core';
 import {
   ValidationItemRow,
   ValidationAttentionItem,
@@ -7,6 +7,8 @@ import {
   ValidationActivityRow,
   ValidationHomeSummary
 } from '../models/validation-home.models';
+import { MigrationIpc } from './ipc/migration.ipc';
+import { IpcService } from './ipc.service';
 
 export interface RelativeTimeFormatted {
   relative: string;
@@ -17,6 +19,8 @@ export interface RelativeTimeFormatted {
   providedIn: 'root'
 })
 export class ValidationHomeService {
+  private migrationIpc: MigrationIpc;
+
   // Signals for state storage
   public validations = signal<ValidationItemRow[]>([]);
   public attentionItems = signal<ValidationAttentionItem[]>([]);
@@ -124,7 +128,16 @@ export class ValidationHomeService {
     return list;
   });
 
-  constructor() {
+  constructor(migrationIpc?: MigrationIpc) {
+    if (migrationIpc) {
+      this.migrationIpc = migrationIpc;
+    } else {
+      try {
+        this.migrationIpc = inject(MigrationIpc, { optional: true }) || new MigrationIpc(new IpcService());
+      } catch {
+        this.migrationIpc = new MigrationIpc(new IpcService());
+      }
+    }
     this.loadState();
   }
 
@@ -134,20 +147,112 @@ export class ValidationHomeService {
     this.errorMessage.set('');
 
     try {
-      // IPC hooks when running inside Wails environment
-      const wailsApp = typeof window !== 'undefined' ? (window as any).go?.main?.App : undefined;
+      const res = await this.migrationIpc.listValidationMissions({ limit: 100 });
+      if (res && res.status === 'SUCCESS' && res.data && Array.isArray((res.data as any).missions)) {
+        const rawMissions = (res.data as any).missions as any[];
+        const validations: ValidationItemRow[] = rawMissions.map(m => {
+          let outcome: string | undefined = undefined;
+          if (m.last_result_status === 'SUCCESS') outcome = 'Validated';
+          else if (m.last_result_status === 'MISMATCH') outcome = 'Discrepancies Found';
+          else if (m.state === 'FAILED') outcome = 'Execution Failed';
+          else if (m.state === 'RUNNING') outcome = 'Running';
+          else if (m.state === 'CANCELLED') outcome = 'Cancelled';
+          else if (m.temporal_strategy === 'SCHEDULE_LATER' || m.schedule_id) outcome = 'Scheduled';
 
-      if (wailsApp && typeof wailsApp.GetValidationHomeData === 'function') {
-        const data = await wailsApp.GetValidationHomeData();
-        if (data) {
-          this.summary.set(data.summary || null);
-          this.validations.set(data.validations || []);
-          this.attentionItems.set(data.attention_items || []);
-          this.upcomingValidations.set(data.upcoming || []);
-          this.recentResults.set(data.recent_results || []);
-          this.activities.set(data.activities || []);
-          return;
-        }
+          const strategy = m.temporal_strategy === 'CONTINUOUS'
+            ? 'Continuous CDC'
+            : (m.temporal_strategy === 'RECURRING'
+              ? 'Recurring Sync'
+              : (m.execution_policy?.mode || 'Partition Fingerprint'));
+
+          return {
+            id: m.mission_id,
+            name: m.name || 'Untitled Validation',
+            source_provider: m.source_provider || 'Unknown',
+            target_provider: m.target_provider || 'Unknown',
+            strategy,
+            state: m.state || 'DRAFT',
+            outcome,
+            last_run: m.last_evaluated_at || m.updated_at,
+            next_run: (m.temporal_strategy === 'SCHEDULE_LATER' || m.temporal_strategy === 'RECURRING' || m.schedule_id) ? m.updated_at : undefined,
+            discrepancy_count: m.fail_count || 0,
+            description: m.scope_config?.table_name ? `Table: ${m.scope_config.table_name}` : undefined
+          };
+        });
+
+        const attentionItems: ValidationAttentionItem[] = [];
+        const upcomingValidations: ValidationUpcomingRow[] = [];
+        const recentResults: ValidationRecentResultRow[] = [];
+        const activities: ValidationActivityRow[] = [];
+
+        rawMissions.forEach(m => {
+          if (m.state === 'FAILED' || m.last_result_status === 'MISMATCH' || (m.fail_count && m.fail_count > 0)) {
+            attentionItems.push({
+              id: `attn-${m.mission_id}`,
+              validation_id: m.mission_id,
+              validation_name: m.name || m.mission_id,
+              title: m.last_result_status === 'MISMATCH' ? 'Discrepancies Detected' : (m.last_result_status?.startsWith('READINESS_FAILED') ? 'Readiness Check Failed' : 'Validation Failed'),
+              description: m.last_result_status || 'Validation execution encountered issues.',
+              severity: m.last_result_status === 'MISMATCH' ? 'WARNING' : 'CRITICAL',
+              action_label: m.last_result_status === 'MISMATCH' ? 'Review Discrepancies' : 'Investigate',
+              action_route: `/migration/validation/${m.mission_id}`,
+              created_at: m.last_evaluated_at || m.updated_at || new Date().toISOString()
+            });
+          }
+
+          if (m.temporal_strategy === 'SCHEDULE_LATER' || m.temporal_strategy === 'RECURRING' || m.schedule_id) {
+            upcomingValidations.push({
+              id: m.mission_id,
+              name: m.name || m.mission_id,
+              source_provider: m.source_provider || 'Unknown',
+              target_provider: m.target_provider || 'Unknown',
+              strategy: m.temporal_strategy,
+              next_run: m.updated_at || new Date().toISOString(),
+              schedule_state: m.state === 'PAUSED' ? 'PAUSED' : 'SCHEDULED'
+            });
+          }
+
+          if (m.last_evaluated_at) {
+            recentResults.push({
+              id: `res-${m.mission_id}`,
+              validation_id: m.mission_id,
+              name: m.name || m.mission_id,
+              source_provider: m.source_provider || 'Unknown',
+              target_provider: m.target_provider || 'Unknown',
+              outcome: m.last_result_status === 'SUCCESS' ? 'Validated' : (m.last_result_status === 'MISMATCH' ? 'Discrepancies Found' : 'Execution Failed'),
+              completed_at: m.last_evaluated_at,
+              discrepancies: m.fail_count || 0
+            });
+          }
+
+          activities.push({
+            id: `act-${m.mission_id}`,
+            title: m.state === 'COMPLETED' ? 'Validation Completed' : (m.state === 'RUNNING' ? 'Validation Running' : 'Mission Updated'),
+            validation_id: m.mission_id,
+            validation_name: m.name || m.mission_id,
+            status_text: m.last_result_status || m.state || 'Updated',
+            occurred_at: m.last_evaluated_at || m.updated_at || new Date().toISOString(),
+            action_type: m.last_result_status === 'MISMATCH' ? 'REVIEW' : 'VIEW',
+            severity: m.last_result_status === 'SUCCESS' ? 'SUCCESS' : (m.last_result_status === 'MISMATCH' ? 'WARNING' : (m.state === 'FAILED' ? 'ERROR' : 'INFO'))
+          });
+        });
+
+        const summary: ValidationHomeSummary = {
+          active_count: validations.filter(v => v.state === 'ACTIVE' || v.state === 'RUNNING').length,
+          attention_count: attentionItems.length,
+          scheduled_count: upcomingValidations.length,
+          completed_count: recentResults.length,
+          total_count: validations.length
+        };
+
+        this.validations.set(validations);
+        this.attentionItems.set(attentionItems);
+        this.upcomingValidations.set(upcomingValidations);
+        this.recentResults.set(recentResults);
+        this.activities.set(activities);
+        this.summary.set(summary);
+        this.isUnavailable.set(false);
+        return;
       }
 
       // Restrained default baseline state for standalone/development mode

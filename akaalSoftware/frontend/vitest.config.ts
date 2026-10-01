@@ -5,12 +5,10 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['src/**/*.spec.ts'],
+    fileParallelism: false,
     poolOptions: {
       threads: {
-        execArgv: ['--max-old-space-size=8192']
-      },
-      forks: {
-        execArgv: ['--max-old-space-size=8192']
+        singleThread: true
       }
     }
   }

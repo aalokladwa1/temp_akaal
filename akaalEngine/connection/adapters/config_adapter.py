@@ -54,8 +54,8 @@ def build_endpoint_spec_from_config(
     username = cfg.pop("username", None) or cfg.pop("user", None)
 
     # Secret references
-    password_ref = cfg.pop("password_ref", None)
-    secret_ref = cfg.pop("secret_ref", None) or password_ref
+    password_ref = cfg.pop("password_ref", None) or cfg.pop("password", None)
+    secret_ref = cfg.pop("secret_ref", None) or cfg.pop("secret_locator", None) or cfg.pop("secret", None) or password_ref
     session_token_ref = cfg.pop("session_token_ref", None)
     access_key_id_ref = cfg.pop("access_key_id_ref", None)
     secret_access_key_ref = cfg.pop("secret_access_key_ref", None)

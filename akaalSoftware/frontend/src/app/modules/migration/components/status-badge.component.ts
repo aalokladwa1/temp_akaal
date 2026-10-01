@@ -62,6 +62,36 @@ import { CommonModule } from '@angular/common';
             <span>Failed</span>
           </span>
         }
+        @case ('CANCELLED') {
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200 select-none">
+            <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+            <span>Cancelled</span>
+          </span>
+        }
+        @case ('ARCHIVED') {
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-500 border border-slate-200 select-none">
+            <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+            <span>Archived</span>
+          </span>
+        }
+        @case ('INTERRUPTED') {
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200 select-none">
+            <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+            <span>Interrupted</span>
+          </span>
+        }
+        @case ('STOPPED') {
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200 select-none">
+            <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+            <span>Stopped</span>
+          </span>
+        }
+        @case ('ABORTED') {
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200 select-none">
+            <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+            <span>Aborted</span>
+          </span>
+        }
         @default {
           <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200 select-none">
             <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
@@ -196,6 +226,7 @@ export class StatusBadgeComponent {
         return 'M7: Data Only';
       case 'VALIDATION':
       case 'M8_VALIDATION':
+      case 'M8_VALIDATION_ONLY':
       case 'M8':
         return 'M8: Validation';
       default:

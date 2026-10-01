@@ -107,6 +107,7 @@ export interface ConnectionRecord {
   advisory?: ConnectionIntelligenceAdvisory;
   
   tags?: string[];
+  parameters?: Record<string, any>;
   createdAt: string;
   updatedAt: string;
 }

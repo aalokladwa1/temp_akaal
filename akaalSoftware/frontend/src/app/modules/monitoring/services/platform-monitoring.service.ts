@@ -91,11 +91,47 @@ const EMPTY_PLATFORM_OPERATIONS: PlatformOperationsDTO = {
   }
 };
 
+function mapFleetNodeToPlatformNode(n: any): PlatformNodeDTO {
+  const isAlive = n.liveness === 'ALIVE';
+  const isDraining = n.drain_state === 'DRAINING' || n.drain_state === 'DRAINED';
+  const status: PlatformNodeDTO['status'] = isDraining ? 'DRAINING' : (!isAlive ? 'OFFLINE' : 'ACTIVE');
+  const health: any = isAlive ? 'HEALTHY' : (n.liveness === 'DEGRADED' ? 'DEGRADED' : 'UNHEALTHY');
+
+  let role: PlatformNodeDTO['role'] = 'WORKER_NODE';
+  const caps = Array.isArray(n.capabilities) ? n.capabilities.map((c: any) => String(c).toLowerCase()) : [];
+  if (caps.includes('coordinator')) {
+    role = 'COORDINATOR';
+  } else if (caps.includes('primary')) {
+    role = 'PRIMARY_COMPUTE';
+  } else if (caps.includes('gateway')) {
+    role = 'EDGE_GATEWAY';
+  }
+
+  return {
+    node_id: n.node_id,
+    host_name: n.address ? `${n.address}:${n.port || 50051}` : n.node_id,
+    role,
+    region_locality: 'cluster-local',
+    cluster_name: 'default-cluster',
+    status,
+    health,
+    cpu_utilization_pct: 0,
+    memory_used_mb: 0,
+    memory_total_mb: 0,
+    allocated_slots: n.assigned_workloads || 0,
+    active_workers: n.active_executions || 0,
+    uptime_hours: n.registered_at_iso ? Math.max(0, Math.round((Date.now() - new Date(n.registered_at_iso).getTime()) / 3600000)) : 0,
+    version: '1.0.0',
+    last_heartbeat: n.last_heartbeat_ago_sec !== undefined ? `${n.last_heartbeat_ago_sec}s ago` : 'recently'
+  };
+}
+
 @Injectable({
   providedIn: 'root'
 })
 export class PlatformMonitoringService {
   private ipc: MonitoringIpcService;
+  private telemetryUnsub?: () => void;
 
   constructor(monitoringIpc?: MonitoringIpcService) {
     if (monitoringIpc) {
@@ -107,7 +143,28 @@ export class PlatformMonitoringService {
         this.ipc = new MonitoringIpcService();
       }
     }
+    if (this.ipc && typeof this.ipc.subscribeTelemetry === 'function') {
+      this.telemetryUnsub = this.ipc.subscribeTelemetry((event: any) => {
+        this.handleTelemetryEvent(event);
+      });
+    }
     void this.refresh();
+  }
+
+  public ngOnDestroy(): void {
+    if (this.telemetryUnsub) {
+      this.telemetryUnsub();
+      this.telemetryUnsub = undefined;
+    }
+  }
+
+  private handleTelemetryEvent(event: any): void {
+    const timestamp = new Date().toISOString();
+    this.lastObservedAt.set(timestamp);
+    this.telemetryConfidence.set('CURRENT');
+    if (event && (event.type === 'NODE_STATUS' || event.type === 'FLEET_UPDATE')) {
+      void this.refresh();
+    }
   }
 
   // Master Signal State
@@ -269,9 +326,9 @@ export class PlatformMonitoringService {
         this.ipc.listIncidents()
       ]);
 
-      if (fleetRes.status !== 'SUCCESS' || !fleetRes.data) {
+      if (!fleetRes || fleetRes.status !== 'SUCCESS' || !fleetRes.data) {
         this.isUnavailable.set(true);
-        this.errorMessage.set(fleetRes.error || 'Fleet backend unavailable.');
+        this.errorMessage.set(fleetRes?.error || 'Fleet backend unavailable.');
         return;
       }
 
@@ -290,9 +347,12 @@ export class PlatformMonitoringService {
         ? incidentsRes.data.incidents.filter(i => i.status !== 'RESOLVED' && i.status !== 'CLOSED').length
         : 0;
 
+      const activeWorkersCount = nodes.reduce((sum, n) => sum + (n.active_executions || 0), 0);
+
       const observedAt = new Date().toISOString();
       this._data.set({
         ...EMPTY_PLATFORM_OPERATIONS,
+        nodes: [],
         summary: {
           ...EMPTY_PLATFORM_OPERATIONS.summary,
           overall_health: overallHealth as any,
@@ -304,7 +364,9 @@ export class PlatformMonitoringService {
           active_alerts_count: activeAlertsCount,
           unresolved_incidents_count: unresolvedIncidentsCount,
           total_nodes: totalNodes,
-          healthy_nodes: healthyNodes
+          healthy_nodes: healthyNodes,
+          total_workers: activeWorkersCount,
+          active_workers: activeWorkersCount
         }
       });
       this.lastObservedAt.set(observedAt);

@@ -109,6 +109,8 @@ export interface WizardDraftState {
 
   planStale: boolean;
   planVersion: number;
+  planId?: string;
+  planFingerprint?: string;
   customBarriersCount: number;
 
   readinessPassed: boolean;

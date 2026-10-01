@@ -119,6 +119,7 @@ export class Step6ConfigurationStoreService {
       case 'M5_STATE_SYNC': return 'State Synchronization';
       case 'M6_SCHEMA_ONLY': return 'Schema Only';
       case 'M7_DATA_ONLY': return 'Data Only';
+      case 'M8_VALIDATION_ONLY': return 'Validation Only';
       default: return 'Bulk + CDC';
     }
   });

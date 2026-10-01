@@ -32,9 +32,9 @@ export class Step9ReviewAdapterService {
     const migrationId = draft.migrationId || (draft as any).id || '';
     const mode = draft.mode || 'M2_BULK_CDC';
     const rawVer = step7Plan?.technicalDetails?.version;
-    const planRevision = draft.planVersion || (rawVer ? parseInt(rawVer.replace(/^v/, '').split('.')[0], 10) || 1 : 1);
-    const planId = step7Plan?.technicalDetails?.planId || `PLAN-${migrationId}-v${planRevision}`;
-    const planFingerprint = step7Plan?.technicalDetails?.canonicalFingerprint || step7Plan?.fingerprint || '7f9a2b8e3c1d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f';
+    const planRevision = (rawVer ? (typeof rawVer === 'number' ? rawVer : parseInt(String(rawVer).replace(/^v/, '').split('.')[0], 10) || 1) : draft.planVersion) || 1;
+    const planId = draft.planId || step7Plan?.technicalDetails?.planId || (migrationId ? `plan-${migrationId}` : '');
+    const planFingerprint = draft.planFingerprint || step7Plan?.technicalDetails?.canonicalFingerprint || step7Plan?.fingerprint || '';
 
     const sourceProvider = draft.sourceProvider || 'Oracle';
     const targetProvider = draft.targetProvider || 'PostgreSQL';
@@ -397,7 +397,7 @@ export class Step9ReviewAdapterService {
     const rawVer = step7Plan?.technicalDetails?.version;
     const planRevision = (rawVer ? parseInt(rawVer.replace(/^v/, '').split('.')[0], 10) || 1 : draft.planVersion) || 1;
     const planId = step7Plan?.technicalDetails?.planId || `PLAN-${migrationId}-v${planRevision}`;
-    const planFingerprint = step7Plan?.technicalDetails?.canonicalFingerprint || step7Plan?.fingerprint || '7f9a2b8e3c1d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f';
+    const planFingerprint = draft.planFingerprint || step7Plan?.technicalDetails?.canonicalFingerprint || step7Plan?.fingerprint || '';
 
     const sourceProvider = draft.sourceProvider || 'Oracle';
     const targetProvider = draft.targetProvider || 'PostgreSQL';
@@ -430,6 +430,7 @@ export class Step9ReviewAdapterService {
       case 'M5_STATE_SYNC': return 'Bi-directional State Synchronization';
       case 'M6_SCHEMA_ONLY': return 'Schema & DDL Only';
       case 'M7_DATA_ONLY': return 'Data Only (Pre-existing Schema)';
+      case 'M8_VALIDATION_ONLY': return 'Validation & Reconciliation Only';
       default: return 'Standard Migration';
     }
   }
@@ -447,7 +448,7 @@ export class Step9ReviewAdapterService {
   }
 
   public isRecurrencePermittedForMode(mode: MigrationMode): boolean {
-    // Recurrence is supported for discrete batch/sync modes (M1, M4, M6, M7), but not continuous CDC (M2, M3, M5)
-    return mode === 'M1_BULK' || mode === 'M4_INCREMENTAL' || mode === 'M6_SCHEMA_ONLY' || mode === 'M7_DATA_ONLY';
+    // Recurrence is supported for discrete batch/sync modes (M1, M4, M6, M7, M8), but not continuous CDC (M2, M3, M5)
+    return mode === 'M1_BULK' || mode === 'M4_INCREMENTAL' || mode === 'M6_SCHEMA_ONLY' || mode === 'M7_DATA_ONLY' || mode === 'M8_VALIDATION_ONLY';
   }
 }

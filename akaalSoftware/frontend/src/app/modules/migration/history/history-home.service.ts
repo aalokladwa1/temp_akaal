@@ -1,4 +1,4 @@
-import { Injectable, signal, computed } from '@angular/core';
+import { Injectable, signal, computed, inject, Optional } from '@angular/core';
 import {
   MigrationHistoryItem,
   HistoryFilterState,
@@ -7,16 +7,22 @@ import {
   HistoryOutcome,
   ValidationReconciliationState,
   HistorySortOption,
+  HistoryDateRangeOption,
   HISTORY_MODE_DESCRIPTORS
 } from './history-home.models';
 import { INITIAL_MIGRATION_HISTORY_FIXTURES } from './history-home.fixtures';
 import { CustomSelectOption } from '../../../shared/components/custom-select.component';
+import { MigrationIpc } from '../../../core/services/ipc/migration.ipc';
+import { IpcService } from '../../../core/services/ipc.service';
 
 @Injectable({
   providedIn: 'root'
 })
 export class HistoryHomeService {
-  public historyItems = signal<MigrationHistoryItem[]>(INITIAL_MIGRATION_HISTORY_FIXTURES);
+  private migrationIpc?: MigrationIpc;
+  private ipc?: IpcService;
+
+  public historyItems = signal<MigrationHistoryItem[]>([]);
 
   public filters = signal<HistoryFilterState>({
     searchQuery: '',
@@ -26,11 +32,35 @@ export class HistoryHomeService {
     validationState: 'ALL',
     evidence: 'ALL',
     continuity: 'ALL',
+    dateRange: 'ALL',
+    startDate: '',
+    endDate: '',
     sortBy: 'completed_desc'
   });
 
   public availabilityState = signal<HistoryAvailabilityState>('READY');
   public errorMessage = signal<string>('');
+
+  private unsubs: Array<() => void> = [];
+
+  constructor(
+    @Optional() migrationIpc?: MigrationIpc,
+    @Optional() ipc?: IpcService
+  ) {
+    if (ipc) {
+      this.ipc = ipc;
+    } else {
+      try { this.ipc = inject(IpcService, { optional: true }) || undefined; } catch { this.ipc = undefined; }
+    }
+    if (migrationIpc) {
+      this.migrationIpc = migrationIpc;
+    } else {
+      try { this.migrationIpc = inject(MigrationIpc, { optional: true }) || (this.ipc ? new MigrationIpc(this.ipc) : undefined); } catch { this.migrationIpc = undefined; }
+    }
+
+    this.setupSubscriptions();
+    this.loadState();
+  }
 
   /**
    * Computed active filter indicator
@@ -44,7 +74,8 @@ export class HistoryHomeService {
       f.outcome !== 'ALL' ||
       f.validationState !== 'ALL' ||
       f.evidence !== 'ALL' ||
-      f.continuity !== 'ALL'
+      f.continuity !== 'ALL' ||
+      f.dateRange !== 'ALL'
     );
   });
 
@@ -61,6 +92,7 @@ export class HistoryHomeService {
     if (f.validationState !== 'ALL') count++;
     if (f.evidence !== 'ALL') count++;
     if (f.continuity !== 'ALL') count++;
+    if (f.dateRange !== 'ALL') count++;
     return count;
   });
 
@@ -133,6 +165,34 @@ export class HistoryHomeService {
         if (f.continuity === 'CUTOVER_COMPLETED' && item.continuity.cutoverStatus !== 'COMPLETED') return false;
         if (f.continuity === 'ROLLED_BACK' && item.continuity.cutoverStatus !== 'ROLLED_BACK') return false;
         if (f.continuity === 'IN_PROGRESS' && item.continuity.cutoverStatus !== 'IN_PROGRESS') return false;
+      }
+
+      // 8. Date Range Filter
+      if (f.dateRange !== 'ALL') {
+        const itemDateStr = item.startedAt || item.completedAt;
+        if (itemDateStr) {
+          const itemTime = new Date(itemDateStr).getTime();
+          const now = Date.now();
+          if (f.dateRange === 'TODAY') {
+            const todayStart = new Date();
+            todayStart.setHours(0, 0, 0, 0);
+            if (itemTime < todayStart.getTime()) return false;
+          } else if (f.dateRange === 'LAST_7_DAYS') {
+            if (itemTime < now - 7 * 24 * 60 * 60 * 1000) return false;
+          } else if (f.dateRange === 'LAST_30_DAYS') {
+            if (itemTime < now - 30 * 24 * 60 * 60 * 1000) return false;
+          } else if (f.dateRange === 'CUSTOM') {
+            if (f.startDate) {
+              const startT = new Date(f.startDate).getTime();
+              if (itemTime < startT) return false;
+            }
+            if (f.endDate) {
+              const endT = new Date(f.endDate);
+              endT.setHours(23, 59, 59, 999);
+              if (itemTime > endT.getTime()) return false;
+            }
+          }
+        }
       }
 
       return true;
@@ -262,6 +322,17 @@ export class HistoryHomeService {
     { label: 'Discrepancies (Highest)', value: 'discrepancies_desc' }
   ];
 
+  /**
+   * Date Range options for GDS select dropdown
+   */
+  public dateRangeOptions: CustomSelectOption[] = [
+    { label: 'All Dates', value: 'ALL' },
+    { label: 'Today', value: 'TODAY' },
+    { label: 'Last 7 Days', value: 'LAST_7_DAYS' },
+    { label: 'Last 30 Days', value: 'LAST_30_DAYS' },
+    { label: 'Custom Range', value: 'CUSTOM' }
+  ];
+
   public setSearchQuery(q: string): void {
     this.filters.update(curr => ({ ...curr, searchQuery: q }));
   }
@@ -290,6 +361,24 @@ export class HistoryHomeService {
     this.filters.update(curr => ({ ...curr, continuity }));
   }
 
+  public setDateRangeFilter(dateRange: HistoryDateRangeOption, startDate?: string, endDate?: string): void {
+    this.filters.update(curr => ({
+      ...curr,
+      dateRange,
+      startDate: startDate !== undefined ? startDate : curr.startDate,
+      endDate: endDate !== undefined ? endDate : curr.endDate
+    }));
+  }
+
+  public setCustomDateRange(startDate: string, endDate: string): void {
+    this.filters.update(curr => ({
+      ...curr,
+      dateRange: 'CUSTOM',
+      startDate,
+      endDate
+    }));
+  }
+
   public setSort(sortBy: HistorySortOption): void {
     this.filters.update(curr => ({ ...curr, sortBy }));
   }
@@ -303,14 +392,176 @@ export class HistoryHomeService {
       validationState: 'ALL',
       evidence: 'ALL',
       continuity: 'ALL',
+      dateRange: 'ALL',
+      startDate: '',
+      endDate: '',
       sortBy: 'completed_desc'
     });
   }
 
-  public reload(): void {
-    this.availabilityState.set('READY');
+  private setupSubscriptions(): void {
+    if (!this.ipc) return;
+
+    const unsubTelemetry = this.ipc.subscribe('akaal:telemetry', (event: any) => {
+      if (!event) return;
+      const migId = event.migration_id || event.migrationId || event.subject_id;
+      if (migId) {
+        this.historyItems.update(list =>
+          list.map(item => {
+            if (item.migrationId === migId || item.id === migId) {
+              const nextOutcome = event.state === 'COMPLETED' ? 'SUCCEEDED' : event.state === 'FAILED' ? 'FAILED' : item.outcome;
+              const nextThroughput = typeof event.throughput_rows_per_sec === 'number' ? `${Math.round(event.throughput_rows_per_sec / 1000)}k rows/s` : item.throughputFormatted;
+              return {
+                ...item,
+                outcome: nextOutcome as HistoryOutcome,
+                throughputFormatted: nextThroughput,
+                completedAt: event.state === 'COMPLETED' ? (event.timestamp || new Date().toISOString()) : item.completedAt
+              };
+            }
+            return item;
+          })
+        );
+      }
+    });
+    this.unsubs.push(unsubTelemetry);
+
+    const unsubStatus = this.ipc.subscribe('akaal:migration:status', (event: any) => {
+      if (!event) return;
+      const migId = event.migration_id || event.migrationId;
+      if (migId) {
+        this.historyItems.update(list =>
+          list.map(item => {
+            if (item.migrationId === migId || item.id === migId) {
+              return {
+                ...item,
+                outcome: (event.state === 'COMPLETED' ? 'SUCCEEDED' : event.state === 'FAILED' ? 'FAILED' : item.outcome) as HistoryOutcome,
+                completedAt: event.state === 'COMPLETED' ? new Date().toISOString() : item.completedAt
+              };
+            }
+            return item;
+          })
+        );
+      }
+    });
+    this.unsubs.push(unsubStatus);
+
+    const unsubConn = this.ipc.subscribe('akaal:engine:connected', () => {
+      this.loadState();
+    });
+    this.unsubs.push(unsubConn);
+  }
+
+  public async loadState(): Promise<void> {
+    if (!this.migrationIpc) {
+      this.availabilityState.set('READY');
+      return;
+    }
+
+    this.availabilityState.set('LOADING');
     this.errorMessage.set('');
+
+    try {
+      const [migRes, auditRes] = await Promise.all([
+        this.migrationIpc.listMigrations().catch(() => null),
+        this.migrationIpc.getAuditTrail().catch(() => null)
+      ]);
+
+      if (migRes && migRes.status === 'SUCCESS' && Array.isArray(migRes.data?.migrations)) {
+        const canonicalMigs = migRes.data.migrations;
+        if (canonicalMigs.length === 0) {
+          this.historyItems.set([]);
+          this.availabilityState.set('EMPTY');
+          return;
+        }
+
+        const formatDuration = (startStr?: string, endStr?: string | null): string => {
+          if (!startStr) return '—';
+          const start = new Date(startStr).getTime();
+          const end = endStr ? new Date(endStr).getTime() : Date.now();
+          const diffSec = Math.max(0, Math.floor((end - start) / 1000));
+          if (diffSec < 60) return `${diffSec}s`;
+          const mins = Math.floor(diffSec / 60);
+          const secs = diffSec % 60;
+          if (mins < 60) return `${mins}m ${secs}s`;
+          const hrs = Math.floor(mins / 60);
+          const remMins = mins % 60;
+          return `${hrs}h ${remMins}m`;
+        };
+
+        const mapped: MigrationHistoryItem[] = canonicalMigs.map((m: any, idx: number) => {
+          const cfg = m.configuration || {};
+          const srcProv = m.source_provider || cfg.source_provider || cfg.source?.provider || 'Source DB';
+          const tgtProv = m.target_provider || cfg.target_provider || cfg.target?.provider || 'Target DB';
+          const isCutover = ['M2_BULK_CDC', 'M3_CDC', 'M4_INCREMENTAL', 'M5_STATE_SYNC'].includes(m.mode);
+          const startTimestamp = m.started_at || m.created_at || new Date().toISOString();
+          const endTimestamp = m.state === 'COMPLETED' ? (m.updated_at || new Date().toISOString()) : (['FAILED', 'STOPPED', 'CANCELLED', 'ABORTED'].includes(m.state) ? (m.updated_at || null) : null);
+          const rowCount = m.rows_processed || m.objects_completed || m.total_rows || 0;
+
+          return {
+            id: m.id || m.migration_id || `hist-${idx + 1}`,
+            migrationId: m.migration_id || m.id,
+            migrationName: m.name || `${srcProv} to ${tgtProv}`,
+            executionId: m.execution_id || m.active_attempt_id || `exec-${m.migration_id || m.id}-01`,
+            projectId: m.project_id || 'proj-core',
+            projectName: m.project_name || 'Enterprise Modernization',
+            initiativeName: m.initiative_name,
+            sourceProvider: srcProv,
+            sourceProviderCode: srcProv.toLowerCase().split(' ')[0],
+            targetProvider: tgtProv,
+            targetProviderCode: tgtProv.toLowerCase().split(' ')[0],
+            mode: (m.mode || 'M1_BULK') as HistoryMode,
+            outcome: (m.state === 'COMPLETED' ? 'SUCCEEDED' : m.state === 'FAILED' ? 'FAILED' : m.state === 'RUNNING' ? 'RUNNING' : m.state === 'PAUSED' ? 'PAUSED' : m.state === 'CANCELLED' ? 'CANCELLED' : m.state === 'ABORTED' ? 'ABORTED' : 'SUCCEEDED') as HistoryOutcome,
+            errorMessage: m.error_message || null,
+            validationState: (m.difference_count && m.difference_count > 0 ? 'MISMATCHES_DETECTED' : m.validation_state || (m.state === 'COMPLETED' ? 'PASSED' : 'NOT_CONFIGURED')) as ValidationReconciliationState,
+            validationDiscrepancyCount: m.difference_count || 0,
+            evidenceAvailability: (m.evidence_availability || (m.state === 'COMPLETED' ? 'SEALED' : 'NOT_GENERATED')) as any,
+            evidenceIntegrity: (m.evidence_integrity || (m.state === 'COMPLETED' ? 'SHA256_VERIFIED' : 'UNVERIFIED')) as any,
+            evidenceDigest: m.evidence_digest || m.plan_fingerprint || null,
+            evidenceSizeBytes: m.evidence_size_bytes || null,
+            continuity: {
+              cutoverStatus: isCutover ? (m.state === 'COMPLETED' ? 'COMPLETED' : m.state === 'RUNNING' ? 'IN_PROGRESS' : 'SCHEDULED') : 'NOT_APPLICABLE',
+              recoveryStatus: isCutover ? (m.state === 'FAILED' ? 'RESTORED' : 'NONE') : 'NOT_APPLICABLE',
+              cdcLagSeconds: typeof m.cdc_lag_ms === 'number' ? m.cdc_lag_ms / 1000 : (typeof m.cdc_lag_seconds === 'number' ? m.cdc_lag_seconds : null),
+              cutoverDowntimeSeconds: m.cutover_downtime_seconds ?? null,
+              cutoverCompletedAt: isCutover && m.state === 'COMPLETED' ? m.updated_at : null,
+              rollbackTriggeredAt: m.rollback_triggered_at || null,
+              rollbackReason: m.rollback_reason || null
+            },
+            operator: m.operator || m.actor_id || m.creator_actor_id || 'System Operator',
+            startedAt: startTimestamp,
+            completedAt: endTimestamp,
+            durationString: m.duration_string || formatDuration(startTimestamp, endTimestamp),
+            rowsProcessed: rowCount,
+            throughputFormatted: m.throughput_rows_per_sec ? `${Math.round(m.throughput_rows_per_sec).toLocaleString()} rows/s` : (rowCount > 0 ? `${rowCount.toLocaleString()} rows` : '—')
+          };
+        });
+
+        this.historyItems.set(mapped);
+        this.availabilityState.set('READY');
+      } else {
+        this.availabilityState.set('UNAVAILABLE');
+        this.historyItems.set([]);
+      }
+    } catch (err: any) {
+      this.availabilityState.set('ERROR');
+      this.errorMessage.set(err?.message || 'Failed to load migration history');
+      this.historyItems.set([]);
+    }
+  }
+
+  public reload(): void {
+    this.availabilityState.set('LOADING');
+    this.errorMessage.set('');
+    this.historyItems.set([]);
+    if (this.ipc && this.ipc.connectionState() === 'connected') {
+      this.loadState();
+    }
+  }
+
+  public loadFixturesForTesting(): void {
+    this.availabilityState.set('READY');
     this.historyItems.set(INITIAL_MIGRATION_HISTORY_FIXTURES);
+    this.errorMessage.set('');
   }
 
   public setAvailabilityState(state: HistoryAvailabilityState, errorMsg?: string): void {

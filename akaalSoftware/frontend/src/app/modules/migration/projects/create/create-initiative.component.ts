@@ -240,6 +240,7 @@ export class CreateInitiativeComponent {
   }
 
   public submitCreateInitiative(): void {
+    this.ps.submitCreateInitiative();
     this.isSubmittedModalOpen.set(true);
   }
 

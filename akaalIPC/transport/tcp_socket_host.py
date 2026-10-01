@@ -137,15 +137,21 @@ class TcpSocketTransportHost:
         if not isinstance(payload, dict):
             return {"status": "ERROR", "error": "PAYLOAD_MUST_BE_OBJECT"}
 
-        # Generic, mechanical join -- this host has no per-domain knowledge
-        # of what "endpoint"/"action" mean; it only mirrors the request_type
-        # naming convention akaalIPC's own SchemaRegistry already uses
-        # (see akaalIPC/protocol/schemas.py: "incident.list", "fleet.status", ...).
-        request_type = f"{endpoint}.{action}"
-
-        descriptor = self._schema_registry.get(request_type, SCHEMA_VERSION)
-        if descriptor is None:
-            return {"status": "ERROR", "error": f"UNKNOWN_REQUEST_TYPE:{request_type}"}
+        # Generic, transport-level request_type resolution against SchemaRegistry
+        candidate = f"{endpoint}.{action}"
+        descriptor = self._schema_registry.get(candidate, SCHEMA_VERSION)
+        if descriptor is not None:
+            request_type = candidate
+        else:
+            action_desc = self._schema_registry.get(action, SCHEMA_VERSION)
+            if action_desc is not None:
+                request_type = action
+                descriptor = action_desc
+            elif candidate.startswith("pipeline.") and self._schema_registry.get(candidate[9:], SCHEMA_VERSION):
+                request_type = candidate[9:]
+                descriptor = self._schema_registry.get(request_type, SCHEMA_VERSION)
+            else:
+                return {"status": "ERROR", "error": f"UNKNOWN_REQUEST_TYPE:{candidate}"}
 
         request_id = str(uuid.uuid4())
         correlation = CorrelationContext(request_id=request_id, correlation_id=request_id)

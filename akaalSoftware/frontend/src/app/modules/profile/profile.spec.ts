@@ -150,6 +150,57 @@ describe('ProfileHomeComponent Master Suite — Real Self-Service Product Invari
     expect(component.activeTab()).toBe('sessions');
   });
 
+  it('should fail closed truthfully on name, email, password, and avatar when backend is unavailable', async () => {
+    const offlineComp = new ProfileHomeComponent(mockDs, mockCs, undefined);
+
+    offlineComp.editNameInput.set('Offline Name');
+    await offlineComp.saveName();
+    expect(offlineComp.nameError()).toBe('Display name update requires active backend connectivity.');
+
+    offlineComp.editEmailInput.set('offline@test.com');
+    await offlineComp.saveEmail();
+    expect(offlineComp.emailError()).toBe('Email update requires active backend connectivity.');
+
+    offlineComp.currentPasswordInput.set('currentPass123');
+    offlineComp.newPasswordInput.set('newSecretPassword123');
+    offlineComp.confirmPasswordInput.set('newSecretPassword123');
+    await offlineComp.savePassword();
+    expect(offlineComp.passwordError()).toBe('Password update requires active backend authentication connectivity.');
+
+    await offlineComp.removeAvatar();
+    expect(offlineComp.avatarError()).toBe('Avatar removal requires active backend connectivity.');
+  });
+
+  it('should reload user identity upon akaal:engine:connected event', async () => {
+    const mockIpc = {
+      subscribe: vi.fn(),
+      invoke: vi.fn()
+    } as any;
+    let engineConnectedHandler: any = null;
+    mockIpc.subscribe.mockImplementation((ev: string, handler: any) => {
+      if (ev === 'akaal:engine:connected') engineConnectedHandler = handler;
+      return () => {};
+    });
+
+    const reactiveComp = new ProfileHomeComponent(mockDs, mockCs, mockAdminIpc, undefined, mockIpc);
+    reactiveComp.ngOnInit();
+
+    expect(mockIpc.subscribe).toHaveBeenCalledWith('akaal:engine:connected', expect.any(Function));
+    expect(engineConnectedHandler).toBeTypeOf('function');
+
+    const getSpy = vi.spyOn(mockAdminIpc, 'getCurrentAccount').mockResolvedValue({
+      status: 'SUCCESS',
+      data: { display_name: 'Reactive User', email: 'reactive@akaal.io' }
+    });
+
+    await engineConnectedHandler();
+    expect(getSpy).toHaveBeenCalled();
+    expect(mockDs.userName()).toBe('Reactive User');
+    expect(reactiveComp.userEmail()).toBe('reactive@akaal.io');
+
+    reactiveComp.ngOnDestroy();
+  });
+
   it('should execute exit application action without throwing uncaught exceptions', () => {
     expect(() => component.signOut()).not.toThrow();
   });

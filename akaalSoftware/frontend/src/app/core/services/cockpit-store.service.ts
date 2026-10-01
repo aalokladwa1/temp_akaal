@@ -55,6 +55,7 @@ export class CockpitStoreService {
     if (typeof window !== 'undefined') {
       (window as any).__cockpitStore = this;
     }
+    this.setupTelemetrySubscription();
   }
 
   // --------------------------------------------------------------------------
@@ -257,6 +258,18 @@ export class CockpitStoreService {
         }));
       } else if (action.id === 'REVIEW_BARRIER') {
         this.session.update(s => ({ ...s, lifecycleState: 'WAITING_FOR_APPROVAL' }));
+      } else if (action.id === 'CUTOVER' || action.id === 'APPROVE_BARRIER') {
+        if (this.migrationIpc && typeof (this.migrationIpc as any).cutoverMigration === 'function') {
+          await (this.migrationIpc as any).cutoverMigration({ migration_id: migId }).catch(() => null);
+        }
+        this.session.update(s => ({
+          ...s,
+          lifecycleState: 'COMPLETED',
+          currentStage: 'Production Cutover & Source Quiesce',
+          throughputRowsSec: 0,
+          throughputRowsSecFormatted: '0',
+          activeWorkers: 0
+        }));
       } else if (action.id === 'REQUEST_CHECKPOINT') {
         if (this.migrationIpc && typeof this.migrationIpc.triggerCheckpoint === 'function') {
           await this.migrationIpc.triggerCheckpoint({ migration_id: migId }).catch(() => null);
@@ -265,12 +278,23 @@ export class CockpitStoreService {
           ...s,
           checkpointFreshness: '0.1s fresh'
         }));
-      } else if (action.id === 'RESCAN_HEALTH') {
-        this.session.update(s => ({
+      } else if (action.id === 'RESCAN_HEALTH' || action.id === 'REFRESH_HEALTH') {
+        let isDegraded = this.session()?.isHealthDegraded ?? false;
+        if (migId && this.migrationIpc && typeof this.migrationIpc.getReadiness === 'function') {
+          try {
+            const res = await this.migrationIpc.getReadiness({ migration_id: migId });
+            if (res && res.data) {
+              isDegraded = res.data.overall_status === 'DEGRADED' || res.data.overall_status === 'NOT_READY' || res.data.overall_status === 'BLOCKED' || res.data.is_ready === false;
+            }
+          } catch {
+            isDegraded = true;
+          }
+        }
+        this.session.update(s => s ? ({
           ...s,
-          isHealthDegraded: false,
+          isHealthDegraded: isDegraded,
           lastHealthScan: new Date().toISOString()
-        }));
+        }) : null);
       }
     } catch (err) {
       console.error(`[CockpitStoreService] Action ${action.id} failed:`, err);
@@ -279,9 +303,24 @@ export class CockpitStoreService {
     }
   }
 
-  public resolveApprovalBarrier(barrierId: string, approved: boolean): void {
+  public async resolveApprovalBarrier(barrierId: string, approved: boolean): Promise<void> {
+    const cur = this.session();
+    const migId = cur?.id;
     this.actionInFlight.set(true);
-    setTimeout(() => {
+    try {
+      const decision = approved ? 'APPROVED' : 'REJECTED';
+      if (migId && this.migrationIpc && typeof this.migrationIpc.approveMigration === 'function') {
+        const res = await this.migrationIpc.approveMigration({
+          migration_id: migId,
+          barrier_id: barrierId,
+          decision: decision,
+          reason: approved ? 'Approved by operator in Cockpit' : `Barrier ${barrierId} rejected by operator in Cockpit`
+        });
+        if (res && res.status === 'ERROR') {
+          console.error(`[CockpitStoreService] Approval barrier decision ${decision} rejected by backend:`, res.error);
+          return;
+        }
+      }
       if (approved) {
         this.session.update(s => ({
           ...s,
@@ -292,10 +331,43 @@ export class CockpitStoreService {
         this.session.update(s => ({
           ...s,
           lifecycleState: 'PAUSED',
-          currentStage: 'Held at Approval Barrier'
+          currentStage: 'Held at Approval Barrier (Decision: REJECTED)'
         }));
       }
+    } catch (err) {
+      console.error(`[CockpitStoreService] resolveApprovalBarrier failed:`, err);
+    } finally {
       this.actionInFlight.set(false);
-    }, 400);
+    }
+  }
+
+  private setupTelemetrySubscription(): void {
+    if (!this.ipc || typeof this.ipc.subscribe !== 'function') return;
+    this.ipc.subscribe('akaal:telemetry', (payload: any) => {
+      const current = this.session();
+      if (!current || !payload) return;
+      if (payload.migration_id && payload.migration_id !== current.id) return;
+
+      this.session.update(s => {
+        if (!s) return null;
+        const progress = payload.progress_percent !== undefined ? payload.progress_percent : s.progressPercent;
+        const throughput = payload.throughput_rows_per_sec !== undefined ? payload.throughput_rows_per_sec : s.throughputRowsSec;
+        const throughputFormatted = throughput !== undefined ? `${Math.round(throughput / 1000)}K` : s.throughputRowsSecFormatted;
+        return {
+          ...s,
+          progressPercent: progress,
+          throughputRowsSec: throughput,
+          throughputRowsSecFormatted: throughputFormatted,
+          activeWorkers: payload.active_workers !== undefined ? payload.active_workers : s.activeWorkers,
+          totalWorkers: payload.total_workers !== undefined ? payload.total_workers : s.totalWorkers,
+          cdcLagMs: payload.cdc_lag_ms !== undefined ? payload.cdc_lag_ms : s.cdcLagMs,
+          currentStage: payload.current_stage || s.currentStage,
+          elapsedTimeString: payload.elapsed_time_string || s.elapsedTimeString,
+          etaString: payload.eta_string || s.etaString,
+          tableProgressList: payload.table_progress_list || s.tableProgressList,
+          lastTelemetryTimestamp: new Date().toISOString()
+        };
+      });
+    });
   }
 }

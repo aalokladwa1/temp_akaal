@@ -288,5 +288,38 @@ describe('Connection Workspace (Part C) Unit & Integration Suite', () => {
       expect(ws.connection()).toBe(originalConn);
       expect(ws.configNotice()).toBe('Connection deletion is unavailable while connection service is disconnected.');
     });
+
+    it('should block deletion when connected if reference protection is active', async () => {
+      const ipcMock = { connected: vi.fn().mockReturnValue(true) };
+      const migrationIpcMock = { deleteConnection: vi.fn() };
+      const connectedWs = new ConnectionWorkspaceService(routerMock as any, undefined, migrationIpcMock as any, ipcMock as any);
+      connectedWs.loadFixtureForTesting('conn-ora-rac-01', 'settings');
+
+      await connectedWs.deleteConnection();
+      expect(migrationIpcMock.deleteConnection).not.toHaveBeenCalled();
+      expect(connectedWs.configNotice()).toContain('Connection is referenced by 2 Projects');
+      expect(connectedWs.connection()).not.toBeNull();
+      expect(routerMock.navigate).not.toHaveBeenCalled();
+    });
+
+    it('should proceed with backend deletion when connected and unreferenced', async () => {
+      const ipcMock = { connected: vi.fn().mockReturnValue(true) };
+      const migrationIpcMock = { deleteConnection: vi.fn().mockResolvedValue({ status: 'SUCCESS' }) };
+      const connServiceMock = { connections: { update: vi.fn() } };
+      const connectedWs = new ConnectionWorkspaceService(routerMock as any, connServiceMock as any, migrationIpcMock as any, ipcMock as any);
+      connectedWs.loadFixtureForTesting('conn-ora-rac-01', 'settings');
+
+      // Set canDelete to true
+      connectedWs.connection.update(c => c ? {
+        ...c,
+        usage: { ...c.usage, referenceProtection: { isReferenced: false, canDelete: true } }
+      } : null);
+
+      await connectedWs.deleteConnection();
+      expect(migrationIpcMock.deleteConnection).toHaveBeenCalledWith('conn-ora-rac-01');
+      expect(connServiceMock.connections.update).toHaveBeenCalled();
+      expect(connectedWs.connection()).toBeNull();
+      expect(routerMock.navigate).toHaveBeenCalledWith(['/connections']);
+    });
   });
 });

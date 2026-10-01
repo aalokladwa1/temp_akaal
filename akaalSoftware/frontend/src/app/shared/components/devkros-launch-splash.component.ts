@@ -1,4 +1,4 @@
-import { Component, inject, HostListener, ElementRef, OnInit, OnDestroy, Renderer2 } from '@angular/core';
+import { Component, inject, HostListener, ElementRef, OnInit, OnDestroy, Renderer2, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LaunchLifecycleService } from '../../core/services/launch-lifecycle.service';
 import { DashboardService } from '../../core/services/dashboard.service';
@@ -125,13 +125,15 @@ import { DevkrosWordmarkComponent } from './devkros-wordmark.component';
 export class DevkrosLaunchSplashComponent implements OnInit, OnDestroy {
   public launch!: LaunchLifecycleService;
   public ds!: DashboardService;
+  private cdr?: ChangeDetectorRef;
   private renderer?: Renderer2;
-
   public viewportWidth = 1920;
   public viewportHeight = 1080;
   private unbindResize: (() => void) | null = null;
+  private widthValue = 15;
+  private widthScheduled = false;
 
-  constructor(launch?: LaunchLifecycleService, ds?: DashboardService) {
+  constructor(launch?: LaunchLifecycleService, ds?: DashboardService, cdr?: ChangeDetectorRef) {
     if (launch) {
       this.launch = launch;
     } else {
@@ -147,6 +149,16 @@ export class DevkrosLaunchSplashComponent implements OnInit, OnDestroy {
     } else {
       try {
         this.ds = inject(DashboardService, { optional: true }) as DashboardService;
+      } catch {
+        // Fallback for direct unit test instantiation
+      }
+    }
+
+    if (cdr) {
+      this.cdr = cdr;
+    } else {
+      try {
+        this.cdr = inject(ChangeDetectorRef, { optional: true }) as ChangeDetectorRef;
       } catch {
         // Fallback for direct unit test instantiation
       }
@@ -203,26 +215,37 @@ export class DevkrosLaunchSplashComponent implements OnInit, OnDestroy {
 
   public get showLoadingBar(): boolean {
     const state = this.launch ? this.launch.state() : 'STAGE_1_ROTATION';
-    return state === 'STAGE_1_CANVAS' || state === 'STAGE_1_ROTATION' || state === 'RESOLVING_UPRIGHT';
+    return state === 'STAGE_1_CANVAS' || state === 'STAGE_1_ROTATION';
   }
 
   public get loadingBarWidthPercent(): number {
     if (!this.launch) return 15;
-    const progress = (this.launch as any).loadingProgress !== undefined ? (this.launch as any).loadingProgress : 0.15;
-    return Math.max(15, Math.min(100, Math.round(progress * 100)));
+    const ratio = (this.launch as any).getReadinessGateRatio ? (this.launch as any).getReadinessGateRatio() : 0.15;
+    const target = Math.max(15, Math.round(ratio * 100));
+    if (target !== this.widthValue && !this.widthScheduled) {
+      this.widthScheduled = true;
+      Promise.resolve().then(() => {
+        this.widthValue = target;
+        this.widthScheduled = false;
+        try { this.cdr?.markForCheck(); } catch {}
+      });
+    }
+    return this.widthValue;
   }
 
   public get portalMaskTransform(): string {
     const state = this.launch ? this.launch.state() : 'STAGE_1_ROTATION';
     if (state === 'STAGE_3_ZOOM_THROUGH') {
-      const p = this.launch ? this.launch.zoomProgress : 0;
-      const scale = p * 80;
-      return `scale(${scale})`;
+      return 'scale(60)';
     }
     return 'scale(0)';
   }
 
   public get portalMaskTransition(): string {
+    const state = this.launch ? this.launch.state() : 'STAGE_1_ROTATION';
+    if (state === 'STAGE_3_ZOOM_THROUGH') {
+      return 'transform 350ms cubic-bezier(0.6, 0, 0.85, 0.1)';
+    }
     return 'none';
   }
 
@@ -245,34 +268,23 @@ export class DevkrosLaunchSplashComponent implements OnInit, OnDestroy {
 
   public get lockupContainerTransform(): string {
     const state = this.launch ? this.launch.state() : 'STAGE_1_ROTATION';
-    if (state === 'STAGE_2_BRAND_ASSEMBLY') {
-      const p = this.launch && typeof this.launch.assemblyProgress === 'number' ? this.launch.assemblyProgress : undefined;
-      if (p === undefined) return 'scale(1)';
-      const translateX = -110 * p;
-      return `translateX(${translateX}px) scale(1)`;
-    }
-    if (state === 'LOCKUP_SETTLE') {
-      return 'translateX(-110px) scale(1)';
-    }
     if (state === 'STAGE_3_ZOOM_THROUGH') {
-      const p = this.launch && typeof this.launch.zoomProgress === 'number' ? this.launch.zoomProgress : 1;
-      const scale = 1 + p * 44;
-      return `translateX(-110px) scale(${scale})`;
+      return 'scale(45)';
     }
-    return 'translateX(0px) scale(1)';
+    return 'scale(1)';
   }
 
   public get lockupContainerTransition(): string {
-    return 'none';
+    const state = this.launch ? this.launch.state() : 'STAGE_1_ROTATION';
+    if (state === 'STAGE_3_ZOOM_THROUGH') {
+      return 'transform 350ms cubic-bezier(0.6, 0, 0.85, 0.1)';
+    }
+    return 'transform 700ms cubic-bezier(0.16, 1, 0.3, 1)';
   }
 
   public get wordmarkMaxWidth(): number {
     const state = this.launch ? this.launch.state() : 'STAGE_1_ROTATION';
-    if (state === 'STAGE_2_BRAND_ASSEMBLY') {
-      const p = this.launch && typeof this.launch.assemblyProgress === 'number' ? this.launch.assemblyProgress : 1;
-      return Math.round(222 * p);
-    }
-    if (state === 'LOCKUP_SETTLE' || state === 'STAGE_3_ZOOM_THROUGH') {
+    if (state === 'STAGE_2_BRAND_ASSEMBLY' || state === 'LOCKUP_SETTLE' || state === 'STAGE_3_ZOOM_THROUGH') {
       return 222;
     }
     return 0;
@@ -280,10 +292,7 @@ export class DevkrosLaunchSplashComponent implements OnInit, OnDestroy {
 
   public get wordmarkOpacity(): number {
     const state = this.launch ? this.launch.state() : 'STAGE_1_ROTATION';
-    if (state === 'STAGE_2_BRAND_ASSEMBLY') {
-      return this.launch && typeof this.launch.assemblyProgress === 'number' ? this.launch.assemblyProgress : 1;
-    }
-    if (state === 'LOCKUP_SETTLE' || state === 'STAGE_3_ZOOM_THROUGH') {
+    if (state === 'STAGE_2_BRAND_ASSEMBLY' || state === 'LOCKUP_SETTLE' || state === 'STAGE_3_ZOOM_THROUGH') {
       return 1;
     }
     return 0;

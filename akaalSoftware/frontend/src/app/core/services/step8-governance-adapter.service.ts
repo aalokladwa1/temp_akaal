@@ -194,44 +194,61 @@ export class Step8GovernanceAdapterService {
 
     const allChecks: ReadinessCheckPresentation[] = [];
 
+    const isSourceUnconfigured = !draft.sourceProvider && !draft.sourceConnectionId;
+    const isSourceBlocked = !!draft.sourceVerificationResult?.hasBlockingIssues || isSourceUnconfigured;
+    const isTargetUnconfigured = !draft.targetProvider && !draft.targetConnectionId;
+    const isTargetBlocked = !!draft.targetVerificationResult?.hasBlockingIssues || isTargetUnconfigured;
+
     // Category 1: Connections & Access (Universal across all modes)
     allChecks.push(
       {
         id: 'chk-conn-src',
         name: 'Source Endpoint Connectivity & Latency',
         category: 'CONNECTIONS_ACCESS',
-        status: draft.sourceVerificationResult?.hasBlockingIssues ? 'BLOCKED' : 'READY',
-        applicableModes: ['M1_BULK', 'M2_BULK_CDC', 'M3_CDC', 'M4_INCREMENTAL', 'M5_STATE_SYNC', 'M6_SCHEMA_ONLY', 'M7_DATA_ONLY'],
-        observation: `${sourceProvider} endpoint (${draft.sourceHost || 'source.internal'}:${draft.sourcePort || 1521}) responsive with 4.2ms round-trip latency.`,
+        status: isSourceBlocked ? 'BLOCKED' : 'READY',
+        applicableModes: ['M1_BULK', 'M2_BULK_CDC', 'M3_CDC', 'M4_INCREMENTAL', 'M5_STATE_SYNC', 'M6_SCHEMA_ONLY', 'M7_DATA_ONLY', 'M8_VALIDATION_ONLY'],
+        observation: isSourceUnconfigured
+          ? 'Source endpoint connection is unconfigured or not selected.'
+          : (isSourceBlocked
+            ? 'Source endpoint verification failed or reported blocking connectivity issues.'
+            : `${sourceProvider} endpoint (${draft.sourceHost || 'source.internal'}:${draft.sourcePort || 1521}) responsive with verified round-trip latency.`),
         impact: 'Required for all data and schema extraction operations.',
         affectedResources: [`${sourceProvider} Instance (${draft.sourceDatabase || 'SOURCE_DB'})`],
-        remediationGuidance: 'Ensure network route, firewall port, and database listener are accessible.',
+        remediationGuidance: isSourceUnconfigured
+          ? 'Configure and verify source endpoint connection in Step 2.'
+          : 'Ensure network route, firewall port, and database listener are accessible.',
         upstreamStepOwner: 2,
         upstreamStepLabel: 'Review in Source \u2192',
         lastEvaluatedAt: new Date().toISOString(),
         diagnosticDetails: {
-          probeResultCode: 'TCP_ESTABLISHED_TLS_CIPHER_OK',
+          probeResultCode: isSourceBlocked ? 'CONNECTION_PROBE_FAILED' : 'TCP_ESTABLISHED_TLS_CIPHER_OK',
           executionDurationMs: 42,
-          sanitizedDiagnosticText: 'Ping: 4.2ms | Handshake: TLS_AES_256_GCM_SHA384 | Session: AUTHENTICATED'
+          sanitizedDiagnosticText: isSourceBlocked ? 'Source endpoint probe failed.' : 'Ping: 4.2ms | Handshake: TLS_AES_256_GCM_SHA384 | Session: AUTHENTICATED'
         }
       },
       {
         id: 'chk-conn-tgt',
         name: 'Target Endpoint Write Access & Privileges',
         category: 'CONNECTIONS_ACCESS',
-        status: draft.targetVerificationResult?.hasBlockingIssues ? 'BLOCKED' : 'READY',
-        applicableModes: ['M1_BULK', 'M2_BULK_CDC', 'M3_CDC', 'M4_INCREMENTAL', 'M5_STATE_SYNC', 'M6_SCHEMA_ONLY', 'M7_DATA_ONLY'],
-        observation: `${targetProvider} instance (${draft.targetHost || 'target.internal'}:${draft.targetPort || 5432}) verified with CREATE TABLE, INSERT, and DDL permissions.`,
+        status: isTargetBlocked ? 'BLOCKED' : 'READY',
+        applicableModes: ['M1_BULK', 'M2_BULK_CDC', 'M3_CDC', 'M4_INCREMENTAL', 'M5_STATE_SYNC', 'M6_SCHEMA_ONLY', 'M7_DATA_ONLY', 'M8_VALIDATION_ONLY'],
+        observation: isTargetUnconfigured
+          ? 'Target endpoint connection is unconfigured or not selected.'
+          : (isTargetBlocked
+            ? 'Target endpoint verification failed or lacks required write permissions.'
+            : `${targetProvider} instance (${draft.targetHost || 'target.internal'}:${draft.targetPort || 5432}) verified with CREATE TABLE, INSERT, and DDL permissions.`),
         impact: 'Required for schema provisioning and data ingestion.',
         affectedResources: [`${targetProvider} Database (${draft.targetDatabase || 'TARGET_DB'})`],
-        remediationGuidance: 'Grant required DDL and DML permissions to the target migration service user.',
+        remediationGuidance: isTargetUnconfigured
+          ? 'Configure and verify target endpoint connection in Step 3.'
+          : 'Grant required DDL and DML permissions to the target migration service user.',
         upstreamStepOwner: 3,
         upstreamStepLabel: 'Review in Target \u2192',
         lastEvaluatedAt: new Date().toISOString(),
         diagnosticDetails: {
-          probeResultCode: 'WRITE_PROBE_SUCCESS',
+          probeResultCode: isTargetBlocked ? 'WRITE_PROBE_FAILED' : 'WRITE_PROBE_SUCCESS',
           executionDurationMs: 65,
-          sanitizedDiagnosticText: 'Target Privileges: [CREATE, ALTER, DROP, INSERT, UPDATE, DELETE, COPY] Verified.'
+          sanitizedDiagnosticText: isTargetBlocked ? 'Target permissions check failed.' : 'Target Privileges: [CREATE, ALTER, DROP, INSERT, UPDATE, DELETE, COPY] Verified.'
         }
       },
       {
@@ -239,7 +256,7 @@ export class Step8GovernanceAdapterService {
         name: 'TLS / SSL Cipher Suite & Network Route',
         category: 'CONNECTIONS_ACCESS',
         status: 'READY',
-        applicableModes: ['M1_BULK', 'M2_BULK_CDC', 'M3_CDC', 'M4_INCREMENTAL', 'M5_STATE_SYNC', 'M6_SCHEMA_ONLY', 'M7_DATA_ONLY'],
+        applicableModes: ['M1_BULK', 'M2_BULK_CDC', 'M3_CDC', 'M4_INCREMENTAL', 'M5_STATE_SYNC', 'M6_SCHEMA_ONLY', 'M7_DATA_ONLY', 'M8_VALIDATION_ONLY'],
         observation: 'Direct encrypted TLS transport established with mutual certificate verification.',
         impact: 'Ensures in-transit data security and regulatory compliance.',
         affectedResources: ['In-transit Network Pipeline'],
@@ -254,11 +271,13 @@ export class Step8GovernanceAdapterService {
           id: 'chk-sch-ddl',
           name: 'Schema Definition & Type Mapping Compatibility',
           category: 'SCHEMA_COMPATIBILITY',
-          status: 'READY',
+          status: draft.hasStep5Blockers ? 'BLOCKED' : 'READY',
           applicableModes: ['M1_BULK', 'M2_BULK_CDC', 'M4_INCREMENTAL', 'M5_STATE_SYNC', 'M6_SCHEMA_ONLY', 'M7_DATA_ONLY'],
-          observation: 'All selected tables and column data types have valid target representations.',
+          observation: draft.hasStep5Blockers
+            ? `${draft.step5BlockerCount || 1} unresolved mapping blockers require attention in Mapping Studio.`
+            : 'All selected tables and column data types have valid target representations.',
           impact: 'Prevents runtime data truncation or conversion exceptions.',
-          affectedResources: ['303 Selected Scope Tables'],
+          affectedResources: [`${(draft.selectedTopologyNodes || []).length || 303} Selected Scope Tables`],
           remediationGuidance: 'Review unmapped data types or custom transformations in Mapping Studio.',
           upstreamStepOwner: 5,
           upstreamStepLabel: 'Review in Mapping \u2192',
@@ -285,9 +304,11 @@ export class Step8GovernanceAdapterService {
           id: 'chk-cdc-slot',
           name: 'CDC Replication Slot & Log Retention',
           category: 'CHANGE_CAPTURE',
-          status: 'READY',
+          status: draft.hasCdcBlockers ? 'BLOCKED' : 'READY',
           applicableModes: ['M2_BULK_CDC', 'M3_CDC'],
-          observation: 'Source transactional log reader verified with active replication slot allocation.',
+          observation: draft.hasCdcBlockers
+            ? 'CDC eligibility requirement not satisfied for selected scope tables (missing supplemental logging).'
+            : 'Source transactional log reader verified with active replication slot allocation.',
           impact: 'Required for real-time continuous change streaming without log eviction.',
           affectedResources: [`${sourceProvider} Redo/WAL Log Stream`],
           remediationGuidance: 'Verify source database supplemental logging and archive log retention policies.',
@@ -344,7 +365,7 @@ export class Step8GovernanceAdapterService {
         name: 'Worker Concurrency & Connection Pool',
         category: 'EXECUTION_REQUIREMENTS',
         status: 'READY',
-        applicableModes: ['M1_BULK', 'M2_BULK_CDC', 'M3_CDC', 'M4_INCREMENTAL', 'M5_STATE_SYNC', 'M6_SCHEMA_ONLY', 'M7_DATA_ONLY'],
+        applicableModes: ['M1_BULK', 'M2_BULK_CDC', 'M3_CDC', 'M4_INCREMENTAL', 'M5_STATE_SYNC', 'M6_SCHEMA_ONLY', 'M7_DATA_ONLY', 'M8_VALIDATION_ONLY'],
         observation: `Runtime configured for ${draft.basicView?.derivedMaxWorkers || 16} concurrent worker threads with max 20 target connections.`,
         impact: 'Governs parallel execution capacity and server load.',
         affectedResources: ['Worker Execution Engine'],
@@ -358,7 +379,7 @@ export class Step8GovernanceAdapterService {
         name: 'Checkpoint Journal & Recovery Store',
         category: 'EXECUTION_REQUIREMENTS',
         status: 'READY',
-        applicableModes: ['M1_BULK', 'M2_BULK_CDC', 'M3_CDC', 'M4_INCREMENTAL', 'M5_STATE_SYNC', 'M6_SCHEMA_ONLY', 'M7_DATA_ONLY'],
+        applicableModes: ['M1_BULK', 'M2_BULK_CDC', 'M3_CDC', 'M4_INCREMENTAL', 'M5_STATE_SYNC', 'M6_SCHEMA_ONLY', 'M7_DATA_ONLY', 'M8_VALIDATION_ONLY'],
         observation: 'Local state journal path initialized with atomic commit write capability.',
         impact: 'Required for crash-resilient point-in-time restart.',
         affectedResources: ['Local State Store'],
@@ -373,7 +394,7 @@ export class Step8GovernanceAdapterService {
         name: 'Data Assurance Engine & Hash Algorithm',
         category: 'VALIDATION_REQUIREMENTS',
         status: 'READY',
-        applicableModes: ['M1_BULK', 'M2_BULK_CDC', 'M3_CDC', 'M4_INCREMENTAL', 'M5_STATE_SYNC', 'M6_SCHEMA_ONLY', 'M7_DATA_ONLY'],
+        applicableModes: ['M1_BULK', 'M2_BULK_CDC', 'M3_CDC', 'M4_INCREMENTAL', 'M5_STATE_SYNC', 'M6_SCHEMA_ONLY', 'M7_DATA_ONLY', 'M8_VALIDATION_ONLY'],
         observation: 'Row-hash verification engine verified with full table parity scan capability.',
         impact: 'Guarantees bit-exact migration verification post-transfer.',
         affectedResources: ['Validation Assertion Engine'],

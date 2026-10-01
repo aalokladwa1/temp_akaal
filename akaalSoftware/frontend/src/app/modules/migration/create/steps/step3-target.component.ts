@@ -1208,7 +1208,40 @@ export class Step3TargetComponent implements OnInit {
     const cat = this.filterCategory();
     const routes = this.filterRoutes();
 
-    let list = this.enterpriseSavedTargets;
+    const canonicalList: SavedConnectionItemExtended[] = (this.connService?.connections() || []).map(canonical => {
+      const portNum = Number(canonical.endpointDisplay.split(':')[1]) || 5432;
+      return {
+        id: canonical.id,
+        name: canonical.name,
+        provider: toPhysicalProviderId(canonical.providerName),
+        category: (canonical.family === 'WAREHOUSE_LAKE' ? 'WAREHOUSE' : canonical.family) as any,
+        environment: canonical.environment,
+        host: canonical.endpointDisplay.split(':')[0] || 'localhost',
+        port: portNum,
+        username: (canonical as any).parameters?.['username'] || canonical.authMethodDisplay,
+        secretRef: (canonical as any).parameters?.['password'] || (canonical as any).parameters?.['secret_ref'] || '',
+        tlsEnabled: true,
+        networkRoute: (canonical.safeRouteInfo as any) || 'DIRECT',
+        status: (canonical.verificationState === 'VERIFIED_RECENT' || canonical.verificationState === 'VERIFIED_POINT_IN_TIME') ? 'CONNECTED' : 'DISCONNECTED',
+        verificationFreshness: canonical.verificationState,
+        latencyMs: 1.0,
+        capabilities: ['DIRECT_LOAD'],
+        assignedMigrationCount: 0,
+        assignedProjectCount: 0,
+        createdAt: canonical.createdAt,
+        updatedAt: canonical.updatedAt,
+        scope: 'PROJECT'
+      };
+    });
+
+    const allSaved = [...this.enterpriseSavedTargets];
+    for (const c of canonicalList) {
+      if (!allSaved.some(e => e.id === c.id)) {
+        allSaved.push(c);
+      }
+    }
+
+    let list = allSaved;
 
     if (q) {
       list = list.filter(c =>
@@ -1269,19 +1302,25 @@ export class Step3TargetComponent implements OnInit {
     // 2. Search in canonical connection authority store
     const canonical = this.connService?.connections().find(c => c.id === id);
     if (canonical) {
-      const portNum = Number(canonical.endpointDisplay.split(':')[1]) || 5432;
+      const parts = (canonical.endpointDisplay || '').split(':');
+      const hostVal = parts[0] || 'localhost';
+      const portNum = Number(parts[1]) || ((canonical as any).parameters?.['port'] ? Number((canonical as any).parameters?.['port']) : 5432);
+      const params = (canonical as any).parameters || {};
+      const dbName = params['database'] || params['service_name'] || params['database_name'] || '';
+      const user = params['username'] || params['authUsername'] || (canonical.authMethodDisplay?.startsWith('User:') ? canonical.authMethodDisplay.replace('User:', '').trim() : canonical.authMethodDisplay);
+      const secret = params['password'] || params['secret_ref'] || params['authSecretValue'] || '';
       return {
         id: canonical.id,
         name: canonical.name,
         provider: toPhysicalProviderId(canonical.providerName),
         category: (canonical.family === 'WAREHOUSE_LAKE' ? 'WAREHOUSE' : canonical.family) as any,
         environment: canonical.environment,
-        host: canonical.endpointDisplay.split(':')[0] || 'localhost',
+        host: hostVal,
         port: portNum,
-        databaseName: (canonical as any).parameters?.['database'] || 'default',
-        username: canonical.authMethodDisplay,
-        secretRef: '',
-        tlsEnabled: true,
+        databaseName: dbName,
+        username: user,
+        secretRef: secret,
+        tlsEnabled: canonical.tlsMode !== 'DISABLED',
         networkRoute: canonical.safeRouteInfo as any,
         status: (canonical.verificationState === 'VERIFIED_RECENT' || canonical.verificationState === 'VERIFIED_POINT_IN_TIME') ? 'CONNECTED' : 'DISCONNECTED',
         verificationFreshness: canonical.verificationState,
@@ -1407,6 +1446,9 @@ export class Step3TargetComponent implements OnInit {
   });
 
   public ngOnInit(): void {
+    if (this.connService && this.connService.connections().length === 0) {
+      this.connService.loadState();
+    }
     const draftEnv = this.ms.wizardDraft().environment;
     if (draftEnv) {
       this.filterEnvironment.set(draftEnv);

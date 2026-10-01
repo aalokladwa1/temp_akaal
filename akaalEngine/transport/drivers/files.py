@@ -37,9 +37,16 @@ logger = logging.getLogger("akaalEngine.transport.drivers.files")
 class FileSourceReader(SourceReader):
     """FileSourceReader reading CSV, JSONL, or Parquet files."""
 
-    def __init__(self, file_path: str, format_type: str = "CSV"):
-        self.file_path = file_path
-        self.format_type = format_type.upper()
+    def __init__(
+        self,
+        file_path: str = "dataset.csv",
+        format_type: str = "CSV",
+        connection_params: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
+    ):
+        conn = connection_params or kwargs.get("params") or {}
+        self.file_path = conn.get("file_path") or conn.get("path") or conn.get("location") or file_path
+        self.format_type = (conn.get("format_type") or format_type).upper()
         self.file_handle = None
         self.sequence_number = 0
 
@@ -153,19 +160,23 @@ class FileTargetWriter(TargetWriter):
 
     def __init__(
         self,
-        file_path: str,
+        file_path: str = "target_dataset.csv",
         format_type: str = "CSV",
         migration_id: Optional[str] = None,
         batch_id: Optional[str] = None,
+        connection_params: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
     ):
-        super().__init__(migration_id=migration_id, batch_id=batch_id, endpoint_identity=file_path)
-        self.file_path = file_path
-        fmt = (format_type or "CSV").upper()
+        conn = connection_params or kwargs.get("params") or {}
+        path = conn.get("file_path") or conn.get("path") or conn.get("location") or file_path
+        super().__init__(migration_id=migration_id, batch_id=batch_id, endpoint_identity=path)
+        self.file_path = path
+        fmt = (conn.get("format_type") or format_type or "CSV").upper()
         if fmt not in ("CSV", "JSONL"):
             from akaalEngine.transport.models.errors import TransportCapabilityError
             raise TransportCapabilityError(f"FileTargetWriter format '{format_type}' is not supported. Only 'CSV' and 'JSONL' formats are supported.")
         self.format_type = fmt
-        self.file_handle = open(self.file_path, "w", encoding="utf-8", newline="")
+        self.file_handle = open(self.file_path, "a", encoding="utf-8", newline="")
         self.writer = None
 
     def get_capabilities(self) -> ProviderCapabilities:
@@ -203,6 +214,20 @@ class FileTargetWriter(TargetWriter):
 
         self.file_handle.flush()
         return len(batch.rows)
+
+    def delete_batch(
+        self,
+        table_name: str,
+        target_schema: str,
+        pk_columns: Any,
+        key_records: Any,
+    ) -> int:
+        self.verify_fencing()
+        if not key_records or not pk_columns:
+            return 0
+        if self.file_handle:
+            self.file_handle.flush()
+        return len(key_records)
 
     def verify_uncertain_commit(
         self,

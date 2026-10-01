@@ -113,7 +113,8 @@ export type MigrationMode =
   | 'M4_INCREMENTAL'    // Incremental Query
   | 'M5_STATE_SYNC'     // State Synchronization
   | 'M6_SCHEMA_ONLY'    // Schema Only
-  | 'M7_DATA_ONLY';     // Data Only
+  | 'M7_DATA_ONLY'      // Data Only
+  | 'M8_VALIDATION_ONLY'; // Validation / Reconciliation Only
 
 export interface MigrationModeDefinition {
   id: MigrationMode;

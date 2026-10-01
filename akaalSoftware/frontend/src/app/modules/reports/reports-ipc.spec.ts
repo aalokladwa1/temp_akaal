@@ -204,5 +204,156 @@ describe('ReportsIpcService', () => {
       expect(service.summary().total_reports_count).toBe(20);
       expect(service.summary().certification_attention_count).toBe(3);
     });
+
+    it('should hydrate certifications on refresh and openCertificationById via IPC', async () => {
+      (mockIpcService.invoke as any).mockImplementation((endpoint: string, action: string, payload: any) => {
+        if (endpoint === 'certification' && action === 'list') {
+          return Promise.resolve({
+            status: 'SUCCESS',
+            data: {
+              certifications: [
+                {
+                  id: 'CERT-IPC-01',
+                  domain: 'MIGRATION',
+                  title: 'IPC Migration Cert',
+                  subject_name: 'Test Subject',
+                  subject_id: 'sub-01',
+                  issued_at: '2026-09-17T00:00:00Z',
+                  decision: 'CERTIFIED',
+                  lifecycle: 'ACTIVE',
+                  summary: 'Verified via IPC'
+                }
+              ]
+            }
+          });
+        }
+        if (endpoint === 'certification' && action === 'get') {
+          return Promise.resolve({
+            status: 'SUCCESS',
+            data: {
+              id: payload.certification_id,
+              domain: 'MIGRATION',
+              title: 'Full Envelope IPC Migration Cert',
+              subject_name: 'Test Subject',
+              subject_id: 'sub-01',
+              issued_at: '2026-09-17T00:00:00Z',
+              producer_authority: 'TestEngine',
+              decision: 'CERTIFIED',
+              lifecycle: 'ACTIVE',
+              summary: 'Full detail from IPC',
+              scope_summary: 'Full scope',
+              criteria: [],
+              evidence: []
+            }
+          });
+        }
+        return Promise.resolve({ status: 'SUCCESS', data: {} });
+      });
+
+      const service = new ReportsService(mockIpcService, reportsIpc);
+      service.refresh();
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      expect(service.allCertifications().some(c => c.id === 'CERT-IPC-01')).toBe(true);
+
+      service.openCertificationById('CERT-IPC-01');
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      expect(service.selectedCertification()?.title).toBe('Full Envelope IPC Migration Cert');
+    });
+
+    it('should hydrate evidence detail on openEvidenceDetail via IPC', async () => {
+      (mockIpcService.invoke as any).mockImplementation((endpoint: string, action: string, payload: any) => {
+        if (endpoint === 'evidence' && action === 'get') {
+          return Promise.resolve({
+            status: 'SUCCESS',
+            data: {
+              id: payload.artifact_id,
+              title: 'Authoritative Evidence Item',
+              artifact_type: 'MERKLE_TREE_DIGEST',
+              subject_name: 'Core Banking',
+              subject_id: 'sub-01',
+              created_at: '2026-09-17T00:00:00Z',
+              producer_authority: 'EvidenceAuthority',
+              summary: 'Authoritative evidence envelope from backend',
+              integrity: { verification_status: 'VERIFIED' }
+            }
+          });
+        }
+        return Promise.resolve({ status: 'SUCCESS', data: {} });
+      });
+
+      const service = new ReportsService(mockIpcService, reportsIpc);
+      service.openEvidenceDetail('EV-IPC-01');
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      expect(service.selectedEvidenceEnvelope()?.title).toBe('Authoritative Evidence Item');
+    });
+
+    it('should transition section states to AVAILABLE_WITH_DATA on successful refresh and UNAVAILABLE on disconnect', async () => {
+      (mockIpcService.invoke as any).mockImplementation((endpoint: string, action: string) => {
+        if (endpoint === 'report' && action === 'summary') {
+          return Promise.resolve({ status: 'SUCCESS', data: { total_reports_count: 5 } });
+        }
+        if (endpoint === 'report' && action === 'list') {
+          return Promise.resolve({ status: 'SUCCESS', data: { reports: [{ id: 'REP-1', title: 'Test Report' }] } });
+        }
+        if (endpoint === 'evidence' && action === 'list') {
+          return Promise.resolve({ status: 'SUCCESS', data: { evidence: [{ id: 'EV-1' }] } });
+        }
+        if (endpoint === 'certification' && action === 'list') {
+          return Promise.resolve({ status: 'SUCCESS', data: { certifications: [{ id: 'CERT-1' }] } });
+        }
+        return Promise.resolve({ status: 'SUCCESS', data: {} });
+      });
+
+      const handlers: Record<string, Function> = {};
+      (mockIpcService as any).subscribe = vi.fn().mockImplementation((ev: string, fn: Function) => {
+        handlers[ev] = fn;
+        return () => {};
+      });
+
+      const service = new ReportsService(mockIpcService, reportsIpc);
+      service.refresh();
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      expect(service.summaryState()).toBe('AVAILABLE_WITH_DATA');
+      expect(service.reportsState()).toBe('AVAILABLE_WITH_DATA');
+      expect(service.libraryState()).toBe('AVAILABLE_WITH_DATA');
+      expect(service.evidenceState()).toBe('AVAILABLE_WITH_DATA');
+      expect(service.certificationState()).toBe('AVAILABLE_WITH_DATA');
+
+      // Trigger disconnect
+      if (handlers['akaal:engine:disconnected']) {
+        handlers['akaal:engine:disconnected']();
+        expect(service.summaryState()).toBe('UNAVAILABLE');
+        expect(service.reportsState()).toBe('UNAVAILABLE');
+        expect(service.libraryState()).toBe('UNAVAILABLE');
+        expect(service.evidenceState()).toBe('UNAVAILABLE');
+        expect(service.certificationState()).toBe('UNAVAILABLE');
+      }
+    });
+
+    it('should reactively refresh on akaal:migration:event and akaal:engine:connected', async () => {
+      const handlers: Record<string, Function> = {};
+      (mockIpcService as any).subscribe = vi.fn().mockImplementation((ev: string, fn: Function) => {
+        handlers[ev] = fn;
+        return () => {};
+      });
+
+      const service = new ReportsService(mockIpcService, reportsIpc);
+      const refreshSpy = vi.spyOn(service, 'refresh');
+
+      // Engine connected
+      expect(handlers['akaal:engine:connected']).toBeDefined();
+      handlers['akaal:engine:connected']();
+      expect(refreshSpy).toHaveBeenCalled();
+
+      // Migration event (debounced)
+      expect(handlers['akaal:migration:event']).toBeDefined();
+      handlers['akaal:migration:event']();
+      await new Promise(resolve => setTimeout(resolve, 300));
+      expect(refreshSpy).toHaveBeenCalledTimes(2);
+    });
   });
 });

@@ -19,7 +19,17 @@ import { LucideIconComponent } from '../../../shared/components/lucide-icon.comp
       </div>
 
       <!-- Activity Stream (Compact, Low-Profile Height) -->
-      @if (events.length === 0) {
+      @if (events === null) {
+        <div class="py-3 flex items-center justify-center gap-3 text-center">
+          <div class="w-7 h-7 rounded-lg bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 dark:text-slate-500 shrink-0">
+            <app-lucide-icon name="clock" [size]="14"></app-lucide-icon>
+          </div>
+          <div class="text-left">
+            <span class="text-xs font-bold text-slate-800 inline-block mr-2">Activity stream unavailable</span>
+            <span class="text-[11px] text-slate-500 font-medium">Operational event history could not be retrieved.</span>
+          </div>
+        </div>
+      } @else if (events.length === 0) {
         <div class="py-3 flex items-center justify-center gap-3 text-center">
           <div class="w-7 h-7 rounded-lg bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 dark:text-slate-500 shrink-0">
             <app-lucide-icon name="clock" [size]="14"></app-lucide-icon>
@@ -51,5 +61,5 @@ import { LucideIconComponent } from '../../../shared/components/lucide-icon.comp
   `
 })
 export class RecentActivityComponent {
-  @Input() public events: OperationalEvent[] = [];
+  @Input() public events: OperationalEvent[] | null = [];
 }

@@ -134,13 +134,13 @@ export interface DashboardSummary {
   scheduledCount: number | null;
   attentionCount: number | null;
   completedTodayCount: number | null;
-  activeMigrations: ActiveMigration[];
-  attentionItems: AttentionItem[];
+  activeMigrations: ActiveMigration[] | null;
+  attentionItems: AttentionItem[] | null;
   subsystems: SubsystemStatus[];
-  pendingApprovals: PendingApproval[];
+  pendingApprovals: PendingApproval[] | null;
   capacityMetrics: CapacityMetric[];
-  incidents: AlertIncident[];
+  incidents: AlertIncident[] | null;
   fleet: FleetClusterSummary | null;
   security: SecurityComplianceSummary | null;
-  recentEvents: OperationalEvent[];
+  recentEvents: OperationalEvent[] | null;
 }

@@ -185,7 +185,21 @@ class SchemaAuthority:
             source_eng = canonical_model.source_vendor.upper()
 
             # Stage 3: Structural Mapping & Schema Routing
-            if request.mapping:
+            target_sch = request.options.get("target_schema") if isinstance(request.options, (dict, Mapping)) else None
+            if not request.mapping and target_sch:
+                src_schemas = set(t.schema_name for t in canonical_model.tables if t.schema_name)
+                src_schemas.update(v.schema_name for v in canonical_model.views if v.schema_name)
+                src_schemas.update(s.schema_name for s in canonical_model.sequences if s.schema_name)
+                routes = {s: target_sch for s in src_schemas if s}
+                if routes:
+                    from akaalEngine.schema.models.mapping import CompiledSchemaMapping, SchemaMappingRule
+                    auto_mapping = CompiledSchemaMapping(
+                        schema_routes=tuple(SchemaMappingRule(source_schema=s, target_schema=target_sch) for s in routes.keys()),
+                    )
+                    mapped_model = MappingEngine.apply_mapping(canonical_model, auto_mapping, target_vendor=target_eng)
+                else:
+                    mapped_model = canonical_model
+            elif request.mapping:
                 mapped_model = MappingEngine.apply_mapping(canonical_model, request.mapping, target_vendor=target_eng)
             else:
                 mapped_model = canonical_model
@@ -675,9 +689,10 @@ class SchemaAuthority:
                 )
             )
 
-        # Inventory-only tables from objects.tables
-        if snapshot.objects and snapshot.objects.tables:
-            for ot in snapshot.objects.tables:
+        # Inventory-only tables from objects.tables or objects.items
+        obj_tables = getattr(snapshot.objects, "tables", None) or getattr(snapshot.objects, "items", None)
+        if snapshot.objects and obj_tables:
+            for ot in obj_tables:
                 ot_name = getattr(ot, "name", str(ot))
                 ot_schema = getattr(ot, "schema_name", "") or ""
                 if "." in ot_name:
@@ -773,8 +788,15 @@ class SchemaAuthority:
             if "." in v_name and not v_schema:
                 parts = v_name.split(".")
                 v_schema = parts[0]
-                v_name = parts[-1]
-            views.append(CanonicalView(view_name=v_name, schema_name=v_schema))
+            views.append(
+                CanonicalView(
+                    view_name=v_name,
+                    schema_name=v_schema,
+                    definition_sql=getattr(v, "definition_sql", None),
+                    view_definition=getattr(v, "definition_sql", None),
+                    is_materialized=getattr(v, "is_materialized", False),
+                )
+            )
 
         # Synonyms
         synonyms = []
