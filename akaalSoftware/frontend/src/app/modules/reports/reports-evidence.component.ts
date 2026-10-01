@@ -134,19 +134,22 @@ export class ReportsEvidenceComponent implements OnInit {
     this.route.queryParams.subscribe(params => {
       if (params['evidenceId']) {
         this.service.openEvidenceDetail(params['evidenceId']);
-      } else if (params['dossierId']) {
-        this.service.selectDossier(params['dossierId']);
-        this.service.setEvidenceTab('DOSSIERS');
-      } else if (params['packageId']) {
-        this.service.selectEvidencePackage(params['packageId']);
-        this.service.setEvidenceTab('PACKAGES');
-      } else if (params['certId']) {
-        this.service.selectCertificateArtifact(params['certId']);
-        this.service.setEvidenceTab('CERTIFICATES');
-      } else if (params['tab']) {
-        const tab = params['tab'].toUpperCase();
-        if (tab === 'EXPLORER' || tab === 'DOSSIERS' || tab === 'CERTIFICATES' || tab === 'PACKAGES' || tab === 'VERIFICATION') {
-          this.service.setEvidenceTab(tab as EvidenceTabMode);
+      } else {
+        this.service.clearSelectedEvidence();
+        if (params['dossierId']) {
+          this.service.selectDossier(params['dossierId']);
+          this.service.setEvidenceTab('DOSSIERS');
+        } else if (params['packageId']) {
+          this.service.selectEvidencePackage(params['packageId']);
+          this.service.setEvidenceTab('PACKAGES');
+        } else if (params['certId']) {
+          this.service.selectCertificateArtifact(params['certId']);
+          this.service.setEvidenceTab('CERTIFICATES');
+        } else if (params['tab']) {
+          const tab = params['tab'].toUpperCase();
+          if (tab === 'EXPLORER' || tab === 'DOSSIERS' || tab === 'CERTIFICATES' || tab === 'PACKAGES' || tab === 'VERIFICATION') {
+            this.service.setEvidenceTab(tab as EvidenceTabMode);
+          }
         }
       }
     });

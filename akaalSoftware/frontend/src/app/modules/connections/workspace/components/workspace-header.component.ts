@@ -140,7 +140,7 @@ import { ConnectionVerificationState } from '../../connections.models';
           <!-- Launch Migration (Source) Action -->
           <button
             type="button"
-            (click)="onLaunchSource(conn)"
+            (click)="onLaunchSource()"
             class="h-8 px-3 text-xs font-semibold rounded-md bg-white border border-slate-300 hover:bg-slate-50 hover:border-slate-400 active:bg-slate-100 text-slate-700 transition-all cursor-pointer shadow-2xs">
             Launch Migration (Source)
           </button>
@@ -148,7 +148,7 @@ import { ConnectionVerificationState } from '../../connections.models';
           <!-- Launch Migration (Target) Action -->
           <button
             type="button"
-            (click)="onLaunchTarget(conn)"
+            (click)="onLaunchTarget()"
             class="h-8 px-3 text-xs font-semibold rounded-md bg-white border border-slate-300 hover:bg-slate-50 hover:border-slate-400 active:bg-slate-100 text-slate-700 transition-all cursor-pointer shadow-2xs">
             Launch Migration (Target)
           </button>
@@ -179,15 +179,17 @@ export class WorkspaceHeaderComponent {
     try { this.router = router || inject(Router, { optional: true }) || undefined; } catch { this.router = router; }
   }
 
-  public onLaunchSource(conn: any): void {
-    if (this.router && conn?.id) {
-      this.router.navigate(['/migration/create'], { queryParams: { sourceConnectionId: conn.id } });
+  public onLaunchSource(conn?: any): void {
+    const c = conn || this.ws.connection();
+    if (this.router && c?.id) {
+      this.router.navigate(['/migration/create'], { queryParams: { sourceConnectionId: c.id } });
     }
   }
 
-  public onLaunchTarget(conn: any): void {
-    if (this.router && conn?.id) {
-      this.router.navigate(['/migration/create'], { queryParams: { targetConnectionId: conn.id } });
+  public onLaunchTarget(conn?: any): void {
+    const c = conn || this.ws.connection();
+    if (this.router && c?.id) {
+      this.router.navigate(['/migration/create'], { queryParams: { targetConnectionId: c.id } });
     }
   }
 

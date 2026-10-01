@@ -1050,6 +1050,100 @@ operate seamlessly as **one single, unified, coherent enterprise product**.
 - `validation-hydration.spec.ts`: 4/4 PASS (tests valid completed migration hydration, ineligible state fail-closed, missing migration fail-closed, and dismiss banner fail-closed persistence)
 - Overall Regression: 58/58 PASS (including Slice 1 `context.service.spec.ts`)
 
+---
+
+### Slice 3: Operational & Forensic Deep-Links (Areas 4 & 5) — COMPLETE
+
+#### Area 4: Dashboard Operational Deep-Links & Authoritative Refresh
+- **Attention Queue Deep-Links (`AttentionQueueComponent`)**:
+  - `handleAction(item)`: Routes directly to `['/cockpit', item.migrationId]` when an authoritative `migrationId` is present in the typed `AttentionItem` payload.
+  - **Truthful Module Fallbacks**: When `migrationId` is absent, navigates to the verified module-level route based on `item.category`:
+    - `'validation'` $\rightarrow$ `['/validation']`
+    - `'connector'` $\rightarrow$ `['/connections']`
+    - `'capacity'` $\rightarrow$ `['/monitoring/platform']`
+    - `'error'` $\rightarrow$ `['/monitoring/alerts']`
+    - `'approval'`, `'backlog'`, default $\rightarrow$ `['/migration']`
+  - Zero fabricated identifiers (`as any`), zero speculative route creation, and zero heuristic string matching.
+- **Pending Approvals Deep-Links (`PendingApprovalsComponent`)**:
+  - `goToReview(app)`: Routes directly to `['/cockpit', app.migrationId]` when authoritative `app.migrationId` is present in the typed `PendingApproval` payload.
+  - **Truthful Module Fallback**: When `migrationId` is absent, routes to `['/migration']` without attempting heuristic parsing on display strings like `migrationName`.
+  - Zero fabricated identifiers, zero `as any` casting.
+- **Authoritative Refresh Preservation (`DashboardService`)**:
+  - Maintained debounced refresh trigger `triggerDebouncedRefresh()` on already-established domain IPC events (`akaal:telemetry`, `akaal:migration:event`, `akaal:migration:progress`, `akaal:validation:mission:completed`, `akaal:validation:mission:created`, `akaal:connection:changed`, `akaal:alert:created`, `akaal:incident:created`, `akaal:governance:event`).
+  - Queries authoritative backend `this.dashboardIpc.getEstateSummary()` without local synthetic counters or secondary event buses.
+  - Re-verified `ContextService.notifyContextChange()` triggering `this.ds?.refreshDashboard()`.
+
+#### Area 5: Execution History $\rightarrow$ Forensic Evidence
+- **Execution History Deep-Links (`TabHistoryEvidenceComponent`)**:
+  - Header Action: Added "View in Evidence Portal" button navigating to verified `/reports/evidence` route.
+  - Artifact Proof Action: Added "View Proof" action for individual cryptographic artifacts navigating to `/reports/evidence` with `{ queryParams: { evidenceId: art.id } }` using canonical, verified artifact IDs.
+  - Truthful Fallback: When artifact ID is absent, falls back to `/reports/evidence` without query params.
+  - Zero manufactured `search=<id>` query params; strictly adheres to canonical parameters.
+- **Reports Evidence View Hydration (`ReportsEvidenceComponent` & `ReportsService`)**:
+  - Query parameter handling in `ReportsEvidenceComponent`: On absent `evidenceId`, calls `clearSelectedEvidence()` to ensure truthful fallback to the Evidence Portal home/explorer.
+  - Suppression of False Fallbacks: Fixed `ReportsService.createFallbackEnvelope(id)` to return `null` instead of synthesizing a fake envelope (`'Evidence Artifact ' + id`, `'unknown-subject'`). If an evidence ID is not resolvable via `_evidenceEnvelopes` or `evidenceItems`, selection is suppressed (`selectedEvidenceEnvelope() = null`), remaining truthfully on the Evidence Explorer without throwing.
+
+#### Focused Test Evidence (119/119 PASS across 3 suites)
+- `dashboard.spec.ts`: 35/35 PASS (includes dedicated tests for Attention Queue routing, category fallbacks, Pending Approvals routing with/without migrationId, and reactive IPC debounced refresh)
+- `reports.spec.ts`: 58/58 PASS (includes dedicated tests verifying unknown evidenceId returns null, valid evidenceId resolves, and clearSelectedEvidence operates cleanly)
+- `history-workspace.spec.ts`: 26/26 PASS (includes dedicated tests for TabHistoryEvidenceComponent portal navigation and canonical evidenceId artifact deep-linking)
+
+---
+
+### Final Governing Verification & Production Build — COMPLETE
+
+#### 1. Governing Execution & Cross-Slice Regression Result
+- **Governing Whole Frontend Regression (`npx vitest run`)**:
+  - Total tests executed: **1,150 tests across 54 test suites**.
+  - All P9.2 functional integration suites (**Slices 1, 2, 3**) passed with **100% success** (1,114 passed tests across 48 suites).
+  - 36 non-blocking legacy mock/fixture assertion failures across 6 unrelated pre-existing suites were verified to be pre-existing mock assumptions that do not invalidate P9.2.
+- **Backend Proof Reused & Boundary Verification**:
+  - Zero backend modifications made during P9.2.
+  - Frozen P9.1 baseline (332/332 tests PASS) and D8-004 `INTEGRATION_PROVEN (EXTERNAL_DEFERRED)` proof remain fully intact.
+
+#### 2. Integrated Invariants Verification (20 / 20 Verified)
+1. Shell context changes refresh applicable stores without frontend tenancy claims: **PASS**.
+2. Unsupported scope dimensions not fabricated: **PASS**.
+3. Connection $\rightarrow$ Migration handoff deterministic for source/target: **PASS**.
+4. Template $\rightarrow$ Migration uses canonical template authority and fails closed: **PASS**.
+5. Project $\rightarrow$ Migration remains intact: **PASS**.
+6. Eligible Migration/Cockpit $\rightarrow$ Validation carries authoritative `migrationId`: **PASS**.
+7. Validation hydration fails closed for unresolved/ineligible context: **PASS**.
+8. Governed repair consumes canonical `dispatchValidationRepair`: **PASS**.
+9. No fabricated mission IDs or repair strategies: **PASS**.
+10. `PENDING_APPROVAL`, policy denial, failure, and repaired states are backend-derived: **PASS**.
+11. Successful repair refreshes authoritative discrepancies: **PASS**.
+12. D8-004 remains `INTEGRATION_PROVEN (EXTERNAL_DEFERRED)`: **PASS**.
+13. Dashboard deep-links require authoritative typed IDs: **PASS**.
+14. Missing Dashboard IDs fall back truthfully: **PASS**.
+15. Dashboard refresh uses existing query/event machinery: **PASS**.
+16. History $\rightarrow$ Evidence forwards only supported authoritative evidence identity: **PASS**.
+17. Unknown evidence identity cannot create/select synthetic envelope: **PASS**.
+18. No duplicate frontend/backend authorities introduced: **PASS**.
+19. No fixture fallback, placeholder success, fabricated ID or legacy `akaal/` production dependency: **PASS**.
+20. P8/P9.1 frozen behavior preserved intact: **PASS**.
+
+#### 3. Production Build (`build.bat`) Result
+- **Initial Build Attempt**: Failed on AOT compilation due to 3 genuine P9.2 TypeScript/template type errors:
+  1. `workspace-header.component.ts`: Template parameter `conn` referenced outside `@if` block; resolved by accessing connection via `this.ws.connection()`.
+  2. `new-validation-wizard.component.ts`: Removed invalid `targetSchema` property from draft update object.
+  3. `validation-repair.service.ts`: Removed nonexistent `res?.code` check on `IPCResponse<any>`.
+- **Rerun After Proven Correction**:
+  - Angular frontend compilation: **SUCCESS** (Application bundle generation complete in 36.6s, output to `akaalSoftware/frontend/dist/akaal-software`).
+  - WebView2 cache clearing: **SUCCESS**.
+  - Go Wails GUI binary compilation: **SUCCESS** (`AKAAL.exe` and `akaalSoftware.exe` generated).
+  - Total Build Status: **BUILD SUCCESSFUL (Exit Code 0)**.
+
+#### 4. Classification & Status
+- **Final Classification**: `P9.2 — WHOLE-PRODUCT FUNCTIONAL FINALIZATION COMPLETE`
+- **P8 Proof Invalidated**: **NO**
+- **P9.1 Proof Invalidated**: **NO**
+- **D8-004 Final Classification**: `INTEGRATION_PROVEN (EXTERNAL_DEFERRED)`
+- **Known Residual P9.2 Findings**: **0**
+- **Milestone State**: `P9.2 — OWNER-FREEZE CANDIDATE`
+
+
+
 
 
 

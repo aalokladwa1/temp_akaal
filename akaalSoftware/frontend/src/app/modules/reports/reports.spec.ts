@@ -516,5 +516,32 @@ describe('Reports Module & ReportsService', () => {
       expect(service.exportError()).toBe('Report export requires an active backend engine connection.');
     });
   });
+
+  describe('P9.2 Slice 3 Area 5: Truthful Evidence Selection & Rejection of False Fallbacks', () => {
+    it('should return null and suppress selection for unknown or unmatched evidenceId without throwing', () => {
+      service.openEvidenceDetail('NON_EXISTENT_EVIDENCE_999');
+      expect(service.selectedEvidenceId()).toBe('NON_EXISTENT_EVIDENCE_999');
+      // Must NOT return a synthetic fake envelope with fabricated titles/metadata
+      expect(service.selectedEvidenceEnvelope()).toBeNull();
+    });
+
+    it('should resolve genuine evidence envelope when valid evidenceId is provided', () => {
+      service.openEvidenceDetail('EV-2026-MIG-01');
+      expect(service.selectedEvidenceId()).toBe('EV-2026-MIG-01');
+      const env = service.selectedEvidenceEnvelope();
+      expect(env).not.toBeNull();
+      expect(env?.id).toBe('EV-2026-MIG-01');
+      expect(env?.title).toBe('Partition Bulk Transfer Manifest');
+    });
+
+    it('should clear selection and return to general Evidence Explorer state when clearSelectedEvidence is called', () => {
+      service.openEvidenceDetail('EV-2026-MIG-01');
+      expect(service.selectedEvidenceEnvelope()).not.toBeNull();
+
+      service.clearSelectedEvidence();
+      expect(service.selectedEvidenceId()).toBeNull();
+      expect(service.selectedEvidenceEnvelope()).toBeNull();
+    });
+  });
 });
 

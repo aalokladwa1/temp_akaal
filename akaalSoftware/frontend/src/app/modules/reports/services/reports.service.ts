@@ -2172,7 +2172,7 @@ export class ReportsService {
     };
   });
 
-  private createFallbackEnvelope(id: string): EvidenceDetailEnvelopeDTO {
+  private createFallbackEnvelope(id: string): EvidenceDetailEnvelopeDTO | null {
     const basic = this.evidenceItems().find(e => e.id === id);
     if (basic) {
       return {
@@ -2209,19 +2209,7 @@ export class ReportsService {
       };
     }
 
-    return {
-      id,
-      title: `Evidence Artifact ${id}`,
-      artifact_type: 'MANIFEST_SNAPSHOT',
-      subject_name: 'Target Subject',
-      subject_id: 'unknown-subject',
-      created_at: new Date().toISOString(),
-      producer_authority: 'System Ledger',
-      summary: `Evidence record ${id} retrieved from canonical evidence manifest.`,
-      integrity: {
-        verification_status: 'NOT_EVALUATED'
-      }
-    };
+    return null;
   }
 
   public setEvidenceTab(tab: EvidenceTabMode): void {

@@ -519,7 +519,6 @@ export class NewValidationWizardComponent implements OnInit, OnDestroy {
         targetPort: tgtPort,
         targetDatabase: tgtDb,
         targetUsername: tgtUser,
-        targetSchema: tgtDb || cfg.target_schema || cfg.targetSchema || '',
         comparisonUnits: scopeUnits,
         scopedPairs: scopeUnits
       });

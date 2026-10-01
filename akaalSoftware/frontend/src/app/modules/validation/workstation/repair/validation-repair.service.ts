@@ -287,8 +287,7 @@ export class ValidationRepairService {
         }
       } else {
         const errMsg = res?.error || 'Validation repair invocation failed';
-        const isPolicyDenied = res?.code === 'POLICY_DENIED' ||
-                               errMsg.includes('POLICY_DENIED') ||
+        const isPolicyDenied = errMsg.includes('POLICY_DENIED') ||
                                errMsg.toLowerCase().includes('four-eyes') ||
                                errMsg.toLowerCase().includes('four eyes') ||
                                errMsg.toLowerCase().includes('requester cannot approve');

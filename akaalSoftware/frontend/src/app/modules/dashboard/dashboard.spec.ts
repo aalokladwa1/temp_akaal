@@ -580,4 +580,169 @@ describe('Dashboard Module — CHECK 1 Correct Verification Suite', () => {
       expect(recentActivityComp.events).toBeNull();
     });
   });
+
+  describe('P9.2 Slice 3 Area 4: Dashboard Operational Deep-Links & Authoritative Refresh', () => {
+    it('AttentionQueueComponent navigates to Cockpit when authoritative migrationId is present', () => {
+      const mockRouter = { navigate: vi.fn() };
+      const comp = new AttentionQueueComponent(mockRouter as any);
+
+      comp.handleAction({
+        id: 'att-101',
+        migrationId: 'mig-live-777',
+        title: 'CDC Lag High',
+        description: 'Lag > 10s',
+        severity: 'critical',
+        category: 'backlog'
+      });
+
+      expect(mockRouter.navigate).toHaveBeenCalledWith(['/cockpit', 'mig-live-777']);
+    });
+
+    it('AttentionQueueComponent falls back truthfully to module routes when migrationId is absent (no manufactured IDs)', () => {
+      const mockRouter = { navigate: vi.fn() };
+      const comp = new AttentionQueueComponent(mockRouter as any);
+
+      // validation category fallback
+      comp.handleAction({
+        id: 'att-val',
+        migrationId: null,
+        title: 'Validation Parity Drift',
+        description: 'Reconciliation difference detected',
+        severity: 'warning',
+        category: 'validation'
+      });
+      expect(mockRouter.navigate).toHaveBeenCalledWith(['/validation']);
+
+      // connector category fallback
+      comp.handleAction({
+        id: 'att-conn',
+        migrationId: null,
+        title: 'Network Timeout',
+        description: 'Connection socket dropped',
+        severity: 'failed',
+        category: 'connector'
+      });
+      expect(mockRouter.navigate).toHaveBeenCalledWith(['/connections']);
+
+      // capacity category fallback
+      comp.handleAction({
+        id: 'att-cap',
+        migrationId: undefined,
+        title: 'Worker Saturation',
+        description: 'Worker pool at 98%',
+        severity: 'warning',
+        category: 'capacity'
+      });
+      expect(mockRouter.navigate).toHaveBeenCalledWith(['/monitoring/platform']);
+
+      // error category fallback
+      comp.handleAction({
+        id: 'att-err',
+        title: 'System Alert',
+        description: 'Subsystem memory degraded',
+        severity: 'critical',
+        category: 'error'
+      });
+      expect(mockRouter.navigate).toHaveBeenCalledWith(['/monitoring/alerts']);
+
+      // approval / backlog / general fallback
+      comp.handleAction({
+        id: 'att-app',
+        title: 'Governance Gate',
+        description: 'Sign-off required',
+        severity: 'approval_required',
+        category: 'approval'
+      });
+      expect(mockRouter.navigate).toHaveBeenCalledWith(['/migration']);
+
+      comp.handleAction({
+        id: 'att-bkl',
+        title: 'Backlog Buffer',
+        description: 'Backlog growing',
+        severity: 'warning',
+        category: 'backlog'
+      });
+      expect(mockRouter.navigate).toHaveBeenCalledWith(['/migration']);
+    });
+
+    it('PendingApprovalsComponent routes to Cockpit when migrationId exists', () => {
+      const mockRouter = { navigate: vi.fn() };
+      const comp = new PendingApprovalsComponent(mockRouter as any);
+
+      comp.goToReview({
+        id: 'app-501',
+        migrationId: 'mig-prod-core',
+        migrationName: 'Core Banking Prod',
+        operation: 'Target Cutover Quiesce',
+        boundary: 'PROD',
+        requester: 'Operator-4',
+        requestedAt: '2026-10-01 12:00 UTC',
+        quorum: '2 of 3',
+        severity: 'critical'
+      });
+
+      expect(mockRouter.navigate).toHaveBeenCalledWith(['/cockpit', 'mig-prod-core']);
+    });
+
+    it('PendingApprovalsComponent falls back to /migration without heuristic parsing when migrationId is absent', () => {
+      const mockRouter = { navigate: vi.fn() };
+      const comp = new PendingApprovalsComponent(mockRouter as any);
+
+      comp.goToReview({
+        id: 'app-502',
+        migrationId: null,
+        migrationName: 'Unassigned Schema Apply Operation',
+        operation: 'DDL Apply Barrier',
+        boundary: 'STAGING',
+        requester: 'SecOps',
+        requestedAt: '2026-10-01 12:15 UTC',
+        quorum: '1 of 2',
+        severity: 'normal'
+      });
+
+      expect(mockRouter.navigate).toHaveBeenCalledWith(['/migration']);
+    });
+
+    it('DashboardService debounced refresh triggers on reactive domain IPC events', async () => {
+      const subscriptions: Record<string, Function> = {};
+      const mockIpc = {
+        connectionState: vi.fn().mockReturnValue('connected'),
+        invoke: vi.fn().mockResolvedValue({
+          status: 'SUCCESS',
+          data: {
+            runningCount: 1,
+            scheduledCount: 0,
+            attentionCount: 0,
+            completedTodayCount: 2,
+            activeMigrations: [],
+            attentionItems: [],
+            subsystems: [],
+            pendingApprovals: [],
+            capacityMetrics: [],
+            incidents: [],
+            fleet: null,
+            security: null,
+            recentEvents: []
+          }
+        }),
+        subscribe: vi.fn().mockImplementation((event: string, handler: Function) => {
+          subscriptions[event] = handler;
+          return () => {};
+        })
+      };
+
+      const ds = new DashboardService(mockIpc as any);
+      expect(mockIpc.subscribe).toHaveBeenCalled();
+
+      // Trigger a reactive migration event
+      expect(subscriptions['akaal:migration:event']).toBeDefined();
+      subscriptions['akaal:migration:event']();
+
+      // Await debounced timer
+      await new Promise(resolve => setTimeout(resolve, 250));
+
+      // Authoritative refresh invoked
+      expect(mockIpc.invoke).toHaveBeenCalledWith('estate', 'get_summary');
+    });
+  });
 });

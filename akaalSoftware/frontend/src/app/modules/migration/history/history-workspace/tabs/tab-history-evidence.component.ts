@@ -1,5 +1,6 @@
 import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
 import { HistoryWorkspaceService } from '../history-workspace.service';
 import { EvidenceRecord, EvidenceManifestItem, EvidenceFactItem, ExecutionIdentitySealRecord } from '../history-workspace.models';
 
@@ -22,7 +23,7 @@ import { EvidenceRecord, EvidenceManifestItem, EvidenceFactItem, ExecutionIdenti
                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                   SHA-256 Verified
                 </span>
-                <span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
                   {{ record.evidence.availability }}
                 </span>
               </div>
@@ -31,14 +32,22 @@ import { EvidenceRecord, EvidenceManifestItem, EvidenceFactItem, ExecutionIdenti
               </div>
             </div>
 
-            <!-- Completeness Metric -->
-            <div class="flex items-center gap-3 bg-slate-50 px-4 py-2 rounded-md border border-slate-200 self-start md:self-auto">
-              <div class="text-right">
-                <div class="text-[10px] font-bold uppercase text-slate-500">Manifest Completeness</div>
-                <div class="text-xs font-bold text-emerald-700">
-                  {{ record.evidence.completeness }} (100% Artifacts Present)
+            <!-- Actions & Completeness Metric -->
+            <div class="flex items-center gap-3 flex-wrap">
+              <div class="flex items-center gap-3 bg-slate-50 px-4 py-2 rounded-md border border-slate-200 self-start md:self-auto">
+                <div class="text-right">
+                  <div class="text-[10px] font-bold uppercase text-slate-500">Manifest Completeness</div>
+                  <div class="text-xs font-bold text-emerald-700">
+                    {{ record.evidence.completeness }} (100% Artifacts Present)
+                  </div>
                 </div>
               </div>
+              <button
+                type="button"
+                (click)="goToEvidencePortal()"
+                class="h-9 px-3.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-2xs transition-colors cursor-pointer inline-flex items-center gap-1.5 select-none shrink-0">
+                <span>View in Evidence Portal</span>
+              </button>
             </div>
           </div>
 
@@ -149,9 +158,18 @@ import { EvidenceRecord, EvidenceManifestItem, EvidenceFactItem, ExecutionIdenti
                     </td>
                     <td class="py-3 px-4 font-mono text-slate-600 whitespace-nowrap">{{ formatTimestamp(art.recordedAt) }}</td>
                     <td class="py-3 px-4 text-right whitespace-nowrap">
-                      <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                        Match (Valid)
-                      </span>
+                      <div class="inline-flex items-center gap-2">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          Match (Valid)
+                        </span>
+                        <button
+                          type="button"
+                          (click)="goToEvidenceArtifact(art.id)"
+                          title="View in Evidence Portal"
+                          class="px-2 py-0.5 rounded text-[11px] font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 border border-transparent hover:border-blue-200 transition-colors cursor-pointer select-none">
+                          View Proof
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 }
@@ -165,7 +183,22 @@ import { EvidenceRecord, EvidenceManifestItem, EvidenceFactItem, ExecutionIdenti
   `
 })
 export class TabHistoryEvidenceComponent {
-  public hws = inject(HistoryWorkspaceService);
+  constructor(
+    public hws: HistoryWorkspaceService,
+    private router: Router
+  ) {}
+
+  public goToEvidencePortal(): void {
+    this.router.navigate(['/reports/evidence']);
+  }
+
+  public goToEvidenceArtifact(evidenceId: string): void {
+    if (evidenceId) {
+      this.router.navigate(['/reports/evidence'], { queryParams: { evidenceId } });
+    } else {
+      this.router.navigate(['/reports/evidence']);
+    }
+  }
 
   public formatBytes(bytes: number): string {
     if (bytes < 1024) return bytes + ' B';

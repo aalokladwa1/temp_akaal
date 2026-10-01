@@ -1,8 +1,10 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import '@angular/compiler';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { HistoryWorkspaceService } from './history-workspace.service';
 import { HISTORY_WORKSPACE_FIXTURES } from './history-workspace.fixtures';
 import { HISTORY_FIXTURES } from '../history-home.fixtures';
 import { HistoryWorkspaceTab } from './history-workspace.models';
+import { TabHistoryEvidenceComponent } from './tabs/tab-history-evidence.component';
 
 describe('Migration History Workspace Suite', () => {
   let service: HistoryWorkspaceService;
@@ -251,6 +253,23 @@ describe('Migration History Workspace Suite', () => {
       expect(rec?.evidence.identitySeal.fields.length).toBeGreaterThan(0);
       expect(rec?.evidence.manifests.length).toBeGreaterThan(0);
       expect(rec?.evidence.artifacts.length).toBeGreaterThan(0);
+    });
+
+    it('P9.2 Slice 3: TabHistoryEvidenceComponent should deep-link to /reports/evidence with canonical evidenceId or fallback', () => {
+      const mockRouter = { navigate: vi.fn() };
+      const comp = new TabHistoryEvidenceComponent(service, mockRouter as any);
+
+      // Header portal action
+      comp.goToEvidencePortal();
+      expect(mockRouter.navigate).toHaveBeenCalledWith(['/reports/evidence']);
+
+      // Artifact proof action with canonical ID
+      comp.goToEvidenceArtifact('art-001');
+      expect(mockRouter.navigate).toHaveBeenCalledWith(['/reports/evidence'], { queryParams: { evidenceId: 'art-001' } });
+
+      // Artifact proof action with missing ID (truthful fallback)
+      comp.goToEvidenceArtifact('');
+      expect(mockRouter.navigate).toHaveBeenCalledWith(['/reports/evidence']);
     });
   });
 
