@@ -1,6 +1,7 @@
-import { Injectable, signal, computed, inject } from '@angular/core';
+import { Injectable, signal, computed, inject, Optional } from '@angular/core';
 import { MigrationIpc } from './ipc/migration.ipc';
 import { IpcService } from './ipc.service';
+import { ContextService } from './context.service';
 import {
   MigrationHomeRow,
   ProjectHomeRow,
@@ -75,10 +76,22 @@ export class MigrationHomeService {
 
   private unsubs: Array<() => void> = [];
 
-  constructor(migrationIpc?: MigrationIpc, ipc?: IpcService) {
+  public cs?: ContextService;
+
+  constructor(
+    migrationIpc?: MigrationIpc,
+    ipc?: IpcService,
+    @Optional() contextService?: ContextService
+  ) {
     try { this.ipc = ipc || inject(IpcService); } catch { this.ipc = ipc || new IpcService(); }
     try { this.migrationIpc = migrationIpc || inject(MigrationIpc); } catch { this.migrationIpc = migrationIpc || new MigrationIpc(this.ipc); }
+    try { this.cs = contextService || inject(ContextService); } catch { this.cs = contextService; }
     this.setupSubscriptions();
+    if (this.cs) {
+      this.cs.onContextChange(() => {
+        this.loadState();
+      });
+    }
     this.loadState();
   }
 
@@ -152,9 +165,14 @@ export class MigrationHomeService {
 
     try {
       // 1. Try canonical MigrationIpc northbound calls
+      const activeWs = this.cs?.activeWorkspace();
+      const projPayload: any = {};
+      if (activeWs?.id) {
+        projPayload.workspace_id = activeWs.id;
+      }
       const [migRes, projRes, auditRes] = await Promise.all([
         this.migrationIpc.listMigrations().catch(() => null),
-        this.migrationIpc.listProjects().catch(() => null),
+        this.migrationIpc.listProjects(projPayload).catch(() => null),
         this.migrationIpc.getAuditTrail().catch(() => null)
       ]);
 

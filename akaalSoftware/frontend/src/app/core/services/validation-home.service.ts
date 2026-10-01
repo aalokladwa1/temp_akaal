@@ -1,4 +1,4 @@
-import { Injectable, signal, computed, inject } from '@angular/core';
+import { Injectable, signal, computed, inject, Optional } from '@angular/core';
 import {
   ValidationItemRow,
   ValidationAttentionItem,
@@ -9,6 +9,7 @@ import {
 } from '../models/validation-home.models';
 import { MigrationIpc } from './ipc/migration.ipc';
 import { IpcService } from './ipc.service';
+import { ContextService } from './context.service';
 
 export interface RelativeTimeFormatted {
   relative: string;
@@ -128,7 +129,12 @@ export class ValidationHomeService {
     return list;
   });
 
-  constructor(migrationIpc?: MigrationIpc) {
+  public cs?: ContextService;
+
+  constructor(
+    migrationIpc?: MigrationIpc,
+    @Optional() contextService?: ContextService
+  ) {
     if (migrationIpc) {
       this.migrationIpc = migrationIpc;
     } else {
@@ -137,6 +143,16 @@ export class ValidationHomeService {
       } catch {
         this.migrationIpc = new MigrationIpc(new IpcService());
       }
+    }
+    try {
+      this.cs = contextService || inject(ContextService, { optional: true }) || undefined;
+    } catch {
+      this.cs = contextService;
+    }
+    if (this.cs) {
+      this.cs.onContextChange(() => {
+        this.loadState();
+      });
     }
     this.loadState();
   }

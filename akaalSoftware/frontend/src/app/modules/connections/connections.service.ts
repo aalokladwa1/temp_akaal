@@ -28,9 +28,13 @@ export class ConnectionsService {
     migrationIpc?: MigrationIpc,
     ipc?: IpcService
   ) {
-    this.cs = contextService || new ContextService();
+    try { this.cs = contextService || inject(ContextService); } catch { this.cs = contextService || new ContextService(); }
     try { this.ipc = ipc || inject(IpcService); } catch { this.ipc = ipc || new IpcService(); }
     try { this.migrationIpc = migrationIpc || inject(MigrationIpc); } catch { this.migrationIpc = migrationIpc || new MigrationIpc(this.ipc); }
+
+    this.cs.onContextChange(() => {
+      this.loadState();
+    });
   }
 
   // Primary Data Store Signals (Neutral truthful production startup: B-2.2-01)
@@ -295,7 +299,12 @@ export class ConnectionsService {
     this.errorMessage.set(null);
 
     try {
-      const res = await this.migrationIpc.listConnections();
+      const activeWs = this.cs.activeWorkspace();
+      const payload: any = {};
+      if (activeWs?.id) {
+        payload.workspace_id = activeWs.id;
+      }
+      const res = await this.migrationIpc.listConnections(payload);
       if (res.status === 'SUCCESS' && res.data) {
         const rawList = Array.isArray(res.data.connections)
           ? res.data.connections

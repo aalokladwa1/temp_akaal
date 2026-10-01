@@ -14,6 +14,7 @@ import { INITIAL_MIGRATION_HISTORY_FIXTURES } from './history-home.fixtures';
 import { CustomSelectOption } from '../../../shared/components/custom-select.component';
 import { MigrationIpc } from '../../../core/services/ipc/migration.ipc';
 import { IpcService } from '../../../core/services/ipc.service';
+import { ContextService } from '../../../core/services/context.service';
 
 @Injectable({
   providedIn: 'root'
@@ -22,7 +23,7 @@ export class HistoryHomeService {
   private migrationIpc?: MigrationIpc;
   private ipc?: IpcService;
 
-  public historyItems = signal<MigrationHistoryItem[]>([]);
+  public historyItems = signal<MigrationHistoryItem[]>(INITIAL_MIGRATION_HISTORY_FIXTURES);
 
   public filters = signal<HistoryFilterState>({
     searchQuery: '',
@@ -43,9 +44,12 @@ export class HistoryHomeService {
 
   private unsubs: Array<() => void> = [];
 
+  public cs?: ContextService;
+
   constructor(
     @Optional() migrationIpc?: MigrationIpc,
-    @Optional() ipc?: IpcService
+    @Optional() ipc?: IpcService,
+    @Optional() contextService?: ContextService
   ) {
     if (ipc) {
       this.ipc = ipc;
@@ -57,8 +61,18 @@ export class HistoryHomeService {
     } else {
       try { this.migrationIpc = inject(MigrationIpc, { optional: true }) || (this.ipc ? new MigrationIpc(this.ipc) : undefined); } catch { this.migrationIpc = undefined; }
     }
+    try {
+      this.cs = contextService || inject(ContextService, { optional: true }) || undefined;
+    } catch {
+      this.cs = contextService;
+    }
 
     this.setupSubscriptions();
+    if (this.cs) {
+      this.cs.onContextChange(() => {
+        this.loadState();
+      });
+    }
     this.loadState();
   }
 
@@ -550,9 +564,11 @@ export class HistoryHomeService {
   }
 
   public reload(): void {
-    this.availabilityState.set('LOADING');
     this.errorMessage.set('');
-    this.historyItems.set([]);
+    if (this.historyItems().length === 0) {
+      this.historyItems.set(INITIAL_MIGRATION_HISTORY_FIXTURES);
+    }
+    this.availabilityState.set('READY');
     if (this.ipc && this.ipc.connectionState() === 'connected') {
       this.loadState();
     }

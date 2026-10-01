@@ -1,7 +1,10 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import '@angular/compiler';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ConnectionsService } from './connections.service';
 import { ContextService } from '../../core/services/context.service';
 import { FIXTURE_STANDARD_CONNECTIONS } from './connections.fixtures';
+import { ConnectionsTableComponent } from './components/connections-table.component';
+import { WorkspaceHeaderComponent } from './workspace/components/workspace-header.component';
 import {
   ConnectionRecord,
   ConnectionFamily,
@@ -237,6 +240,83 @@ describe('Connections Module — Part A Unit Tests', () => {
       service.loadFixturesForTesting();
       expect(service.availabilityState()).toBe('READY');
       expect(service.connections().length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('P9.2 Area 1 — Global Session Context Scope Propagation', () => {
+    it('should refresh connections state when context changes without page reload', () => {
+      let loadStateCalled = false;
+      const orig = service.loadState.bind(service);
+      service.loadState = async () => {
+        loadStateCalled = true;
+        return orig();
+      };
+
+      // Changing workspace notifies listeners
+      contextService.selectWorkspace({ id: 'ws-test-scope', name: 'Test Scope', orgId: 'org-test' });
+      expect(loadStateCalled).toBe(true);
+    });
+
+    it('should pass workspace_id to listConnections when active workspace is present', async () => {
+      let passedPayload: any = null;
+      (service as any).ipc = { connectionState: () => 'connected' };
+      (service as any).migrationIpc = {
+        listConnections: async (payload: any) => {
+          passedPayload = payload;
+          return { status: 'SUCCESS', data: { connections: [] } };
+        }
+      };
+
+      contextService.selectWorkspace({ id: 'ws-fin-001', name: 'Finance WS', orgId: 'org-test' });
+      await service.loadState();
+
+      expect(passedPayload).toEqual({ workspace_id: 'ws-fin-001' });
+    });
+  });
+
+  describe('P9.2 Area 2 — Connection Launch Migration Deterministic Triggers', () => {
+    it('ConnectionsTableComponent should navigate with deterministic sourceConnectionId', () => {
+      const mockRouter: any = { navigate: vi.fn() };
+      const tableComp = new ConnectionsTableComponent(mockRouter as any, service);
+
+      const conn = FIXTURE_STANDARD_CONNECTIONS[0];
+      tableComp.onLaunchMigrationAsSource(conn);
+
+      expect(mockRouter.navigate).toHaveBeenCalledWith(
+        ['/migration/create'],
+        { queryParams: { sourceConnectionId: conn.id } }
+      );
+    });
+
+    it('ConnectionsTableComponent should navigate with deterministic targetConnectionId', () => {
+      const mockRouter: any = { navigate: vi.fn() };
+      const tableComp = new ConnectionsTableComponent(mockRouter as any, service);
+
+      const conn = FIXTURE_STANDARD_CONNECTIONS[1];
+      tableComp.onLaunchMigrationAsTarget(conn);
+
+      expect(mockRouter.navigate).toHaveBeenCalledWith(
+        ['/migration/create'],
+        { queryParams: { targetConnectionId: conn.id } }
+      );
+    });
+
+    it('WorkspaceHeaderComponent should navigate with deterministic source and target connectionIds', () => {
+      const mockRouter: any = { navigate: vi.fn() };
+      const headerComp = new WorkspaceHeaderComponent(undefined, mockRouter);
+
+      const conn = FIXTURE_STANDARD_CONNECTIONS[0];
+      headerComp.onLaunchSource(conn);
+      expect(mockRouter.navigate).toHaveBeenCalledWith(
+        ['/migration/create'],
+        { queryParams: { sourceConnectionId: conn.id } }
+      );
+
+      headerComp.onLaunchTarget(conn);
+      expect(mockRouter.navigate).toHaveBeenCalledWith(
+        ['/migration/create'],
+        { queryParams: { targetConnectionId: conn.id } }
+      );
     });
   });
 });

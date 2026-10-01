@@ -1,6 +1,6 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, Optional } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
+import { RouterLink, Router } from '@angular/router';
 import { ConnectionWorkspaceService } from '../connection-workspace.service';
 import { LucideIconComponent } from '../../../../shared/components/lucide-icon.component';
 import { CustomSelectComponent, CustomSelectOption } from '../../../../shared/components/custom-select.component';
@@ -137,6 +137,22 @@ import { ConnectionVerificationState } from '../../connections.models';
             {{ ws.isRunningTest() ? 'Testing Connection...' : 'Test Connection' }}
           </button>
 
+          <!-- Launch Migration (Source) Action -->
+          <button
+            type="button"
+            (click)="onLaunchSource(conn)"
+            class="h-8 px-3 text-xs font-semibold rounded-md bg-white border border-slate-300 hover:bg-slate-50 hover:border-slate-400 active:bg-slate-100 text-slate-700 transition-all cursor-pointer shadow-2xs">
+            Launch Migration (Source)
+          </button>
+
+          <!-- Launch Migration (Target) Action -->
+          <button
+            type="button"
+            (click)="onLaunchTarget(conn)"
+            class="h-8 px-3 text-xs font-semibold rounded-md bg-white border border-slate-300 hover:bg-slate-50 hover:border-slate-400 active:bg-slate-100 text-slate-700 transition-all cursor-pointer shadow-2xs">
+            Launch Migration (Target)
+          </button>
+
           <!-- Edit Configuration Action (Text-Only) -->
           <button
             type="button"
@@ -152,7 +168,28 @@ import { ConnectionVerificationState } from '../../connections.models';
   `
 })
 export class WorkspaceHeaderComponent {
-  public ws = inject(ConnectionWorkspaceService);
+  public ws: ConnectionWorkspaceService;
+  private router?: Router;
+
+  constructor(
+    @Optional() ws?: ConnectionWorkspaceService,
+    @Optional() router?: Router
+  ) {
+    try { this.ws = ws || inject(ConnectionWorkspaceService); } catch { this.ws = ws as any; }
+    try { this.router = router || inject(Router, { optional: true }) || undefined; } catch { this.router = router; }
+  }
+
+  public onLaunchSource(conn: any): void {
+    if (this.router && conn?.id) {
+      this.router.navigate(['/migration/create'], { queryParams: { sourceConnectionId: conn.id } });
+    }
+  }
+
+  public onLaunchTarget(conn: any): void {
+    if (this.router && conn?.id) {
+      this.router.navigate(['/migration/create'], { queryParams: { targetConnectionId: conn.id } });
+    }
+  }
 
   public currentScenarioValue: string = 'conn-ora-rac-01';
 

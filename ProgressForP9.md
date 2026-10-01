@@ -846,11 +846,171 @@ Final post-Git focused backend verification: 32/32 PASS
 Final post-Git focused frontend verification: 142/142 PASS
 Final build.bat: PASS
 
-NEXT: OWNER REVIEW → OWNER-CONTROLLED GIT CHECKPOINT → P9.1 FREEZE
-
-P9.2 MUST NOT START IN THIS SESSION.
+NEXT: P9.2 WHOLE-PRODUCT FUNCTIONAL FINALIZATION
 ================================================================================
 ```
+
+---
+
+# P9.2 — WHOLE-PRODUCT FUNCTIONAL FINALIZATION
+## GOVERNING SCOPE & EXECUTION SPECIFICATION
+
+### 1. P9.2 Objective
+To finalize the operational cohesion of DevKros by closing the functional integration seams, cross-module parameter handoffs, canonical session context propagation, and lifecycle transitions across its already-verified domains (**Dashboard $\longleftrightarrow$ Migration $\longleftrightarrow$ Monitoring $\longleftrightarrow$ Reports $\longleftrightarrow$ Administration $\longleftrightarrow$ Settings**). P9.2 guarantees that an operator can execute complete, uninterrupted, and reactive end-to-end operational journeys—from credential registration through blueprint application, plan compilation, live telemetry monitoring, dual-control barrier authorization, technical cutover, post-cutover parity validation, governed discrepancy remediation, and forensic evidence inspection—as one unified, coherent enterprise product, without introducing speculative features, modifying certified physical engines, or performing aesthetic visual polish.
+
+### 2. Governing P9.2 Laws
+P9.2 closes **functional seams between already-built product capabilities**. It must strictly obey:
+1. **No Re-opening of P8**: Physical engines, multi-database CDC streaming, binary log parsers, transport drivers, and mathematical validation algorithms remain certified and frozen.
+2. **No Re-opening of P9.1**: Canonical backend authority domains, verified IPC contracts, schema adapters, and the 332 backend test baselines remain frozen and authoritative.
+3. **No Architectural Redesign**: DevKros's canonical unidirectional architecture (`akaalSoftware → akaalIPC → akaalPipeline → akaalEngine`) remains fixed.
+4. **No Speculative or Incomplete Capabilities**: Do not introduce unmapped cloud connectors, fake UI widgets, or stubbed endpoints for theoretical completeness.
+5. **No Duplicate Frontend Authorities**: Frontend state and stores must never become independent sources of truth; backend remains the sole authority for tenancy, security, validation, and policy.
+6. **No Manufactured Identifiers or Context**: Never invent, mock, or infer route IDs or entity context just to make a link clickable. Deep-link only when authoritative data provides the ID.
+7. **No Security Inversion**: Frontend workspace/environment filtering is an ergonomic viewport scope, NOT a tenancy or security authority. Backend multi-tenancy and RBAC remain authoritative.
+8. **No Redoing Already-Complete Work**: If a handoff or hydration path is already complete in the repository (e.g. `projectId` query hydration), preserve and regression-protect it.
+9. **No Visual Polish (Reserved for P9.3)**: Visual aesthetics, typography, padding, color harmony, dark mode palette adjustments, and CSS transitions belong strictly to P9.3. P9.2 only modifies UI files to wire route parameters, click actions, and reactive store signals.
+
+### 3. Five Governed Scope Areas
+
+#### Area 1: Global Session Context & Canonical Scope Propagation
+- **Functional Journey**: Operator selects an Organization, Workspace, or Environment in the shell context header. This selection causes applicable stores/queries to refresh using the canonical selected scope through existing production contracts, without page reload.
+- **Participating Modules**: `ContextService`, `DashboardService`, `ConnectionsService`, `MigrationUiService`, `ValidationUiService`, `HistoryHomeService`.
+- **Governing Guardrails**:
+  - Backend tenant/workspace/environment enforcement remains the sole security and data isolation authority.
+  - Frontend filtering is NOT a security boundary; it only passes the operator's active viewport scope to applicable backend queries.
+  - Only propagate Organization/Workspace/Environment to modules where that scope dimension is actually supported by existing repository contracts.
+- **Completion Definition**: Changing context scope in `ContextService` causes supported domain stores to refresh their inventory from authoritative backend contracts for that scope.
+
+#### Area 2: Upstream Migration-Creation Handoffs
+- **Functional Journey**: Seamless initiation of migration workflows from upstream assets:
+  - *Connection $\rightarrow$ Migration*: Launch migration from a verified connection with deterministic role assignment (`sourceConnectionId` or `targetConnectionId`).
+  - *Template $\rightarrow$ Migration*: Launch migration from a template (`/migration/create?templateId=:id`), hydrating the wizard draft using the existing canonical template/application authority.
+  - *Project $\rightarrow$ Migration*: Launch migration associated with an active Project and Initiative hierarchy.
+- **Participating Modules**: Connections Vault (`modules/connections`), Templates Catalog (`modules/migration/templates`), Projects (`modules/migration/projects`), Migration Wizard (`modules/migration/create`, `MigrationUiService`).
+- **Governing Guardrails**:
+  - Do not treat a bare `connectionId` as sufficient if Source/Target role is ambiguous; use/extend the repository-native contract minimally so role is deterministic.
+  - Template application must use the existing canonical template authority (`loadTemplateIntoDraft`); do not create a second frontend template authority by independently copying template configs.
+  - Preserve and regression-protect existing `projectId` hydration rather than reimplementing it.
+- **Completion Definition**: Wizard draft hydrates deterministically from incoming route query parameters (`templateId`, role-qualified `connectionId`, `projectId`) and positions the operator at the correct starting step.
+
+#### Area 3: Execution $\rightarrow$ Validation / Governed Repair
+- **Functional Journey**: Transition from Live Execution (Cockpit) through Cutover to Parity Validation and Governed Discrepancy Remediation:
+  - *Cockpit Cutover to Validation*: Completed/cutover migration in Cockpit provides a direct action to launch validation (`/validation/new?migrationId=:id`), pre-populating endpoints, database names, and table scope from the migration record.
+  - *Governed Discrepancy Repair*: In Validation Workstation, discrepancy remediation connects to the already-implemented backend repair route (`dispatch_repair` via `MigrationIpc` $\rightarrow$ Pipeline Four-Eyes $\rightarrow$ Engine physical mutation $\rightarrow$ revalidation $\rightarrow$ audit trail).
+- **Participating Modules**: Live Cockpit (`modules/migration/cockpit`, `CockpitStoreService`), Validation Suite (`modules/validation/create`, `modules/validation/workstation`, `ValidationRepairService`, `MigrationIpc`).
+- **Governing Guardrails**:
+  - Do NOT reopen or reimplement the P9.1 D8 governed-repair backend path. P9.1 already accepted the canonical repair route.
+  - Inspect only the active production Validation UI consumer seam: if not consuming the completed path, connect it; if already consuming it, preserve it.
+  - Preserve D8-004 as `INTEGRATION_PROVEN (EXTERNAL_DEFERRED for physical target-database mutation/revalidation proof)`.
+  - M8 is strictly **Validation Only** (do not describe M8 as synchronization).
+- **Completion Definition**: Cockpit completion links directly to a pre-populated Validation wizard, and Validation Repair submits governed repair requests through the existing live IPC bridge without stubbed error notices.
+
+#### Area 4: Dashboard Operational Deep-Links & Reactive Refresh
+- **Functional Journey**: Executive and operator command from `/dashboard` down to specific operational contexts.
+  - Attention Queue and Pending Approvals cards link directly to specific entity contexts (e.g. Cockpit with approval barrier in focus via `/cockpit/:migrationId`, or specific validation workstation via `/validation/:validationId`).
+  - After underlying operational state changes (e.g. barrier approved, migration started), Dashboard truth refreshes from its existing authority.
+- **Participating Modules**: Executive Dashboard (`modules/dashboard`, `DashboardService`, `attention-queue.component`, `pending-approvals.component`), Cockpit, Connections Vault, Validation Workstation.
+- **Governing Guardrails**:
+  - Deep-link only when authoritative data supplies the required entity identifier; never manufacture or infer an ID.
+  - If an entity ID is missing in telemetry, gracefully navigate to the module home without broken parameters.
+  - Do not prescribe new event names or invent a new event bus; reuse existing repository-native refresh and IPC event behavior (`akaal:telemetry`, `akaal:governance:event`).
+- **Completion Definition**: Actionable items on the Dashboard navigate to exact entity workspaces when IDs are present, and resolving operational conditions refreshes Dashboard telemetry truthfully upon return.
+
+#### Area 5: Execution History $\rightarrow$ Forensic Evidence Cross-Linking
+- **Functional Journey**: Transition from completed execution record in History (`/migration/history/:runId`) to the immutable evidence dossier in the Reports portal (`/reports/evidence?runId=:runId`).
+- **Participating Modules**: Execution History (`modules/migration/history`), Reports & Evidence Portal (`modules/reports`, `reports-evidence.component`, `ReportsService`).
+- **Governing Guardrails**:
+  - Use existing evidence/report identifiers and backend authority; do not create a duplicate evidence lookup or filter authority.
+  - Remove breadcrumb and return-navigation polish from P9.2 (reserved for P9.3).
+- **Completion Definition**: Operator can navigate with 1 click from an audit record in History to its corresponding cryptographic evidence envelope in the Reports portal.
+
+### 4. Three Execution Slices (Decoupled Implementation)
+
+The three execution slices are **not strictly serialized**; they are independently completable and only serialized where real repository implementation dependencies exist:
+
+```
+┌────────────────────────────────────────────────────────┐
+│ SLICE 1: Session Context + Upstream Creation Handoffs   │
+│ (Areas 1 & 2)                                          │
+└────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────┐
+│ SLICE 2: Execution → Validation Functional Continuity  │
+│ (Area 3)                                               │
+└────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────┐
+│ SLICE 3: Operational + Forensic Deep-Links             │
+│ (Areas 4 & 5)                                          │
+└────────────────────────────────────────────────────────┘
+```
+
+- **Slice 1: Session Context & Upstream Creation Handoffs**
+  - Scope `ContextService` changes to trigger existing refresh methods on supported stores.
+  - Add query param ingestion (`templateId`, role-qualified `connectionId`) to `CreateMigrationWizardComponent`.
+  - Add deterministic role parameters to Connections Vault launch triggers.
+  - Regression-protect existing `projectId` hydration.
+
+- **Slice 2: Execution $\rightarrow$ Validation Functional Continuity**
+  - In Cockpit, wire completed/cutover state action to launch Validation Wizard with `migrationId`.
+  - In `NewValidationWizardComponent`, consume `migrationId` to pre-populate endpoints and table scope.
+  - In `ValidationRepairService`, connect the consumer seam to `MigrationIpc.dispatchValidationRepair` and preserve D8-004 `EXTERNAL_DEFERRED` boundary.
+
+- **Slice 3: Operational & Forensic Deep-Links**
+  - Update Dashboard Attention Queue and Pending Approvals to deep-link to specific entity routes only when authoritative IDs exist.
+  - Verify Dashboard reactive refresh from existing IPC events.
+  - Connect History Evidence tab to Reports Evidence portal with `runId`/`manifestId` parameter consumption.
+
+### 5. Explicit Exclusions Summary
+1. **NO visual polish or redesign** (P9.3).
+2. **NO re-opening or rebuilding of P8 physical engines**.
+3. **NO re-auditing or altering P9.1 authority contracts or 332 backend test baselines**.
+4. **NO speculative features or duplicate authorities**.
+5. **NO manufactured route IDs or synthetic context**.
+6. **NO treating frontend scope filtering as a security/tenancy authority**.
+7. **NO breadcrumb / navigation UX polish** (P9.3).
+
+### 6. Whole-Product Cohesion Target
+At the conclusion of P9.2, the six primary pillars of DevKros:
+$$\mathbf{Dashboard} \longleftrightarrow \mathbf{Migration} \longleftrightarrow \mathbf{Monitoring} \longleftrightarrow \mathbf{Reports} \longleftrightarrow \mathbf{Administration} \longleftrightarrow \mathbf{Settings}$$
+operate seamlessly as **one single, unified, coherent enterprise product**.
+
+---
+
+## 9. P9.2 EXECUTION PROGRESS & VERIFICATION RECORD
+
+### Slice 1: Session Context + Upstream Creation Handoffs (Areas 1 & 2) — COMPLETE
+
+#### Area 1: Global Session Context & Canonical Scope Propagation
+- **`ContextService` Listener Engine**:
+  - Implemented `onContextChange(listener)` registration and `notifyContextChange()` emission.
+  - Subscribed stores cleanly refresh when active Organization, Workspace, or Environment changes, without requiring a page reload.
+  - Added computed getters: `activeOrganization`, `activeWorkspace`, `activeEnvironment`.
+- **Authoritative Scope Scoping (No Frontend Tenancy Inversion)**:
+  - `ConnectionsService`: Re-queries `migrationIpc.listConnections()` on context change. Passes `{ workspace_id: activeWs.id }` when workspace context is selected, adhering strictly to the backend `connection.list` schema.
+  - `MigrationHomeService`: Re-queries `migrationIpc.listProjects()` on context change. Passes `{ workspace_id: activeWs.id }` when workspace context is selected, adhering strictly to the backend `project.list` schema.
+  - `ValidationHomeService`: Re-queries `validationIpc.listValidationMissions({ limit: 100 })` on context change.
+  - `HistoryHomeService`: Re-queries `migrationIpc.listMigrations()` and `auditIpc.getTrail()` on context change.
+  - Local filters compose cleanly on top of backend query results rather than substituting for backend scoping.
+
+#### Area 2: Upstream Migration-Creation Handoffs
+- **Upstream Launch Triggers**:
+  - `ConnectionsTableComponent`: Added "Launch Migration (Source)" and "Launch Migration (Target)" row actions navigating to `/migration/create?sourceConnectionId=...` and `/migration/create?targetConnectionId=...`.
+  - `WorkspaceHeaderComponent`: Added deterministic action buttons navigating to `/migration/create` with explicit `sourceConnectionId` or `targetConnectionId`.
+- **Wizard Hydration & Fail-Closed Guardrails** (`CreateMigrationWizardComponent`):
+  - Ingests `queryParams`: `projectId`, `templateId`, `sourceConnectionId`, `targetConnectionId`, `connectionId`, `role`.
+  - **Project Hydration**: Existing `projectId` hydration preserved and regression-protected.
+  - **Template Hydration**: Resolves `templateId` via `MigrationUiService.templates()` or `MigrationIpc.getTemplate()`; applies via canonical authority `MigrationUiService.loadTemplateIntoDraft()`. Fails closed (`handoffError`, `isCurrentStepValid() = false`) if template is unresolvable or application fails.
+  - **Connection Hydration**: Resolves deterministic source/target connection IDs, sets `sourceConnectionMode: 'SAVED'`, populates verified connection endpoints; fails closed (`handoffError`, `isCurrentStepValid() = false`) if a bare `connectionId` is supplied without a role or if the connection ID cannot be resolved.
+  - Error banner displays actionable guidance and permits dismissal to reset to fresh wizard state.
+
+#### Focused Test Evidence (165/165 PASS across 6 suites)
+- `create-migration-wizard.spec.ts`: 83/83 PASS (includes 8 dedicated P9.2 Area 2 upstream handoff tests)
+- `connections.spec.ts`: 23/23 PASS (includes context change reloads, `workspace_id` scoping, and navigation triggers)
+- `migration-home.service.spec.ts`: 27/27 PASS
+- `history-home.spec.ts`: 19/19 PASS
+- `context.service.spec.ts`: 5/5 PASS
+- `validation-home.service.spec.ts`: 8/8 PASS
+
+
 
 
 

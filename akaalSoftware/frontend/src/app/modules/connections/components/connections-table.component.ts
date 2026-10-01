@@ -277,6 +277,26 @@ import { CustomSelectComponent, CustomSelectOption } from '../../../shared/compo
                         <span>Edit Configuration</span>
                       </button>
 
+                      <div class="border-t border-slate-100 my-0.5"></div>
+
+                      <!-- 4. Launch Migration as Source -->
+                      <button
+                        type="button"
+                        (click)="onLaunchMigrationAsSource(conn)"
+                        class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50 transition-colors flex items-center gap-2 cursor-pointer">
+                        <app-lucide-icon name="arrow-up-right" [size]="14" class="text-blue-600"></app-lucide-icon>
+                        <span>Launch Migration (Source)</span>
+                      </button>
+
+                      <!-- 5. Launch Migration as Target -->
+                      <button
+                        type="button"
+                        (click)="onLaunchMigrationAsTarget(conn)"
+                        class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50 transition-colors flex items-center gap-2 cursor-pointer">
+                        <app-lucide-icon name="arrow-down-right" [size]="14" class="text-emerald-600"></app-lucide-icon>
+                        <span>Launch Migration (Target)</span>
+                      </button>
+
                     </div>
                   }
                 </div>
@@ -302,15 +322,19 @@ import { CustomSelectComponent, CustomSelectOption } from '../../../shared/compo
   `
 })
 export class ConnectionsTableComponent {
-  public cs = inject(ConnectionsService);
+  public cs: ConnectionsService;
   public activeMenuId = signal<string | null>(null);
   public router?: Router;
 
-  constructor(@Optional() router?: Router) {
+  constructor(
+    @Optional() router?: Router,
+    @Optional() cs?: ConnectionsService
+  ) {
+    try { this.cs = cs || inject(ConnectionsService); } catch { this.cs = cs as any; }
     if (router) this.router = router;
     else {
       try {
-        this.router = inject(Router);
+        this.router = inject(Router, { optional: true }) || undefined;
       } catch {}
     }
   }
@@ -368,6 +392,20 @@ export class ConnectionsTableComponent {
       this.router.navigate(['/connections', conn.id, 'configuration']);
     } else {
       this.cs.openInspectDrawer(conn);
+    }
+  }
+
+  public onLaunchMigrationAsSource(conn: ConnectionRecord): void {
+    this.closeAllMenus();
+    if (this.router) {
+      this.router.navigate(['/migration/create'], { queryParams: { sourceConnectionId: conn.id } });
+    }
+  }
+
+  public onLaunchMigrationAsTarget(conn: ConnectionRecord): void {
+    this.closeAllMenus();
+    if (this.router) {
+      this.router.navigate(['/migration/create'], { queryParams: { targetConnectionId: conn.id } });
     }
   }
 

@@ -1,11 +1,13 @@
 import '@angular/compiler';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { MigrationUiService } from '../../../core/services/migration-ui.service';
 import { MigrationDevFixturesAdapter } from '../../../core/fixtures/migration-dev-fixtures.adapter';
 import { ALL_48_PROVIDER_SCHEMAS, ALL_28_PROVIDER_SCHEMAS, ALL_PROVIDER_SCHEMAS } from '../../../core/models/provider-form-schemas';
 import { PhysicalProviderId, DiscoveryDepthTier } from '../../../core/models/migration-view.models';
 import { Step2SourceComponent } from './steps/step2-source.component';
 import { Step3TargetComponent } from './steps/step3-target.component';
+import { CreateMigrationWizardComponent } from './create-migration-wizard.component';
+import { ConnectionsService } from '../../connections/connections.service';
 
 describe('CreateMigrationWizard State & Governance Suite', () => {
   let service: MigrationUiService;
@@ -1264,6 +1266,124 @@ describe('CreateMigrationWizard State & Governance Suite', () => {
       const evalRes = step3.evaluateSavedConnection(invalidConn);
       expect(evalRes.isEligible).toBe(false);
       expect(evalRes.errorCategory).toBe('PROVIDER_UNRECOGNISED');
+    });
+  });
+
+  describe('P9.2 Area 2 — Upstream Migration-Creation Handoffs Suite', () => {
+    let wizard: CreateMigrationWizardComponent;
+    let mockRouter: any;
+    let mockRoute: any;
+    let connService: ConnectionsService;
+
+    const createWizardWithParams = (queryParams: Record<string, any>) => {
+      mockRouter = { navigate: vi.fn() };
+      mockRoute = { snapshot: { queryParams } };
+      connService = new ConnectionsService();
+      connService.loadFixturesForTesting();
+      service.loadDemoFixtures();
+
+      const wiz = new CreateMigrationWizardComponent(
+        service,
+        mockRouter,
+        mockRoute,
+        undefined,
+        connService
+      );
+      wiz.ngOnInit();
+      return wiz;
+    };
+
+    it('Project -> Migration: preserves and regression-protects existing projectId hydration', () => {
+      wizard = createWizardWithParams({ projectId: 'proj-enterprise-alpha' });
+      expect(service.wizardDraft().projectId).toBe('proj-enterprise-alpha');
+      expect(wizard.handoffError()).toBeNull();
+    });
+
+    it('Template -> Migration: resolves valid templateId via canonical loadTemplateIntoDraft authority', () => {
+      service.loadDemoFixtures();
+      const availableTmpl = service.templates()[0];
+      wizard = createWizardWithParams({ templateId: availableTmpl.id });
+
+      const draft = service.wizardDraft();
+      expect(draft.name).toContain(availableTmpl.title);
+      expect(draft.mode).toBe(availableTmpl.compatibleModes[0]);
+      expect(draft.sourceProvider).toBe(availableTmpl.sourceTypes[0]);
+      expect(draft.targetProvider).toBe(availableTmpl.targetTypes[0]);
+      expect(wizard.handoffError()).toBeNull();
+    });
+
+    it('Template -> Migration: fails closed with handoffError when templateId cannot be resolved', () => {
+      wizard = createWizardWithParams({ templateId: 'tmpl-non-existent-999' });
+
+      expect(wizard.handoffError()).toContain('tmpl-non-existent-999');
+      expect(wizard.handoffError()).toContain('could not be resolved');
+      expect(wizard.isCurrentStepValid()).toBe(false);
+    });
+
+    it('Connection -> Migration: deterministic sourceConnectionId hydrates source draft fields', () => {
+      wizard = createWizardWithParams({ sourceConnectionId: 'conn-ora-rac-01' });
+
+      const draft = service.wizardDraft();
+      expect(draft.sourceConnectionMode).toBe('SAVED');
+      expect(draft.sourceConnectionId).toBe('conn-ora-rac-01');
+      expect(draft.sourceProvider).toBe('Oracle');
+      expect(draft.sourceVerified).toBe(true);
+      expect(wizard.handoffError()).toBeNull();
+    });
+
+    it('Connection -> Migration: deterministic targetConnectionId hydrates target draft fields', () => {
+      wizard = createWizardWithParams({ targetConnectionId: 'conn-pg-aurora-01' });
+
+      const draft = service.wizardDraft();
+      expect(draft.targetConnectionMode).toBe('SAVED');
+      expect(draft.targetConnectionId).toBe('conn-pg-aurora-01');
+      expect(draft.targetProvider).toBe('PostgreSQL');
+      expect(draft.targetVerified).toBe(true);
+      expect(wizard.handoffError()).toBeNull();
+    });
+
+    it('Connection -> Migration: connectionId with explicit role "source" resolves as source', () => {
+      wizard = createWizardWithParams({ connectionId: 'conn-ora-rac-01', role: 'source' });
+
+      const draft = service.wizardDraft();
+      expect(draft.sourceConnectionMode).toBe('SAVED');
+      expect(draft.sourceConnectionId).toBe('conn-ora-rac-01');
+      expect(draft.sourceProvider).toBe('Oracle');
+      expect(wizard.handoffError()).toBeNull();
+    });
+
+    it('Connection -> Migration: connectionId with explicit role "target" resolves as target', () => {
+      wizard = createWizardWithParams({ connectionId: 'conn-pg-aurora-01', role: 'target' });
+
+      const draft = service.wizardDraft();
+      expect(draft.targetConnectionMode).toBe('SAVED');
+      expect(draft.targetConnectionId).toBe('conn-pg-aurora-01');
+      expect(draft.targetProvider).toBe('PostgreSQL');
+      expect(wizard.handoffError()).toBeNull();
+    });
+
+    it('Connection -> Migration (Fail Closed Guardrail): bare connectionId without role fails closed', () => {
+      wizard = createWizardWithParams({ connectionId: 'conn-ora-rac-01' });
+
+      expect(wizard.handoffError()).toContain('Ambiguous connection handoff');
+      expect(wizard.handoffError()).toContain('conn-ora-rac-01');
+      expect(wizard.isCurrentStepValid()).toBe(false);
+    });
+
+    it('Connection -> Migration (Fail Closed Guardrail): unresolvable connectionId fails closed', () => {
+      wizard = createWizardWithParams({ sourceConnectionId: 'conn-does-not-exist' });
+
+      expect(wizard.handoffError()).toContain('could not be resolved');
+      expect(wizard.isCurrentStepValid()).toBe(false);
+    });
+
+    it('clearHandoffError clears error state and allows subsequent step progression', () => {
+      wizard = createWizardWithParams({ connectionId: 'conn-ora-rac-01' });
+      expect(wizard.handoffError()).not.toBeNull();
+      expect(wizard.isCurrentStepValid()).toBe(false);
+
+      wizard.clearHandoffError();
+      expect(wizard.handoffError()).toBeNull();
     });
   });
 });

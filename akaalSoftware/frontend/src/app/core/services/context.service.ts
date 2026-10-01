@@ -35,6 +35,11 @@ export class ContextService {
   public selectedWorkspace = signal<Workspace | null>(null);
   public selectedEnvironment = signal<Environment | null>(null);
 
+  // Active Context Computed Accessors
+  public activeOrganization = computed(() => this.selectedOrg());
+  public activeWorkspace = computed(() => this.selectedWorkspace());
+  public activeEnvironment = computed(() => this.selectedEnvironment());
+
   // Computed / Derived State
   public isProduction = computed(() => this.selectedEnvironment()?.isProduction ?? false);
 
@@ -57,7 +62,29 @@ export class ContextService {
     return `${org} / ${ws} / ${env}`;
   });
 
+  private refreshListeners = new Set<() => void>();
+
   constructor(@Optional() private ds?: DashboardService) {}
+
+  /**
+   * Register a callback to be invoked whenever active Organization, Workspace, or Environment changes.
+   * Returns an unsubscribe function.
+   */
+  public onContextChange(listener: () => void): () => void {
+    this.refreshListeners.add(listener);
+    return () => this.refreshListeners.delete(listener);
+  }
+
+  private notifyContextChange(): void {
+    this.ds?.refreshDashboard();
+    this.refreshListeners.forEach(fn => {
+      try {
+        fn();
+      } catch (err) {
+        console.error('[ContextService] Error in context change listener:', err);
+      }
+    });
+  }
 
   /**
    * Selects an Organization and invalidates any child Workspace/Environment that is no longer valid.
@@ -78,8 +105,8 @@ export class ContextService {
       }
     }
 
-    // Refresh context-dependent dashboard data
-    this.ds?.refreshDashboard();
+    // Refresh context-dependent active stores
+    this.notifyContextChange();
   }
 
   /**
@@ -99,8 +126,8 @@ export class ContextService {
       }
     }
 
-    // Refresh context-dependent dashboard data
-    this.ds?.refreshDashboard();
+    // Refresh context-dependent active stores
+    this.notifyContextChange();
   }
 
   /**
@@ -108,6 +135,6 @@ export class ContextService {
    */
   public selectEnvironment(env: Environment | null): void {
     this.selectedEnvironment.set(env);
-    this.ds?.refreshDashboard();
+    this.notifyContextChange();
   }
 }
